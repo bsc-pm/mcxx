@@ -32,19 +32,56 @@
 
 #include "libmcxx-common.h"
 #include "cxx-scope-decls.h"
-#include "cxx-typeunif.h"
 #include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_class(struct type_tag* c1, struct type_tag* c2, 
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments, 
+
+LIBMCXX_EXTERN char is_more_specialized_template_function(
+        scope_entry_t* template_1,
+        scope_entry_t* template_2,
+        template_parameter_list_t* explicit_template_arguments,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        // flags
+        char is_overload, int num_actual_arguments,
+        char is_conversion,
+        char is_computing_address_of_function,
+        char is_deducing_arguments_from_function_declaration,
+        char is_requiring_exact_match,
+        // out
+        template_parameter_list_t** deduced_template_arguments);
+
+LIBMCXX_EXTERN char is_more_specialized_template_class(
+        type_t* c1, type_t* c2,
+        decl_context_t decl_context,
         const locus_t* locus);
 
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_tag* f1, struct type_tag* f2,
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
-        template_parameter_list_t* explicit_template_parameters,
-        const locus_t* locus, char is_conversion);
+LIBMCXX_EXTERN char class_template_specialization_matches(
+        type_t* c1, type_t* c2,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        // out
+        template_parameter_list_t** deduced_template_arguments);
+
+LIBMCXX_EXTERN char is_more_specialized_template_function_in_overload(
+        scope_entry_t* f1,
+        scope_entry_t* f2,
+        decl_context_t decl_context,
+        template_parameter_list_t* explicit_template_arguments,
+        const locus_t* locus,
+        // Flags
+        int num_actual_arguments,
+        char is_conversion);
+
+LIBMCXX_EXTERN char is_more_specialized_template_function_in_function_address(
+        scope_entry_t* f1,
+        scope_entry_t* f2,
+        decl_context_t decl_context,
+        template_parameter_list_t* explicit_template_arguments,
+        const locus_t* locus,
+        // Flags
+        char is_conversion);
 
 MCXX_END_DECLS
 

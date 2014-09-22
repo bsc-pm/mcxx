@@ -378,6 +378,14 @@ namespace Analysis {
             //! Returns true if the node has the same identifier and the same entries and exits
             bool operator==(const Node* &n) const;
 
+            //! Returns a list of all symbols that have private data-sharing within the node
+            //! This only makes sense for OpenMP nodes
+            NodeclSet get_private_vars();
+
+            //! Returns a list of all symbols that have private or firstprivate data-sharing within the node
+            //! This only makes sense for OpenMP nodes
+            NodeclSet get_all_private_vars();
+
             //! Returns a list of all variables that are shared within the node (shared, dep_in|out|inout, concurrent, commutative)
             //! This only makes sense for OpenMP nodes
             NodeclSet get_all_shared_accesses();
@@ -437,10 +445,6 @@ namespace Analysis {
             //! Set the node that contains the actual node. It must be a graph node
             void set_outer_node(Node* node);
 
-            //! Returns the scope of a node containing a block of code.
-            //! If no block is contained, then returns an empty scope
-            Scope get_node_scope();
-
             //! Returns true when the node contains statements with variables involved
             bool has_statements();
 
@@ -480,12 +484,6 @@ namespace Analysis {
             //! Returns the set of tasks that are alive at the exit of the node
             AliveTaskSet& get_live_out_tasks();
  
-            //! Returns the set of tasks that are alive at the entry of the node
-            StaticSyncTaskSet& get_static_sync_in_tasks();
-            
-            //! Returns the set of tasks that are alive at the exit of the node
-            StaticSyncTaskSet& get_static_sync_out_tasks();
-
             // **************** END getters and setters for PCFG analysis ******************* //
             // ****************************************************************************** //
             
@@ -620,7 +618,7 @@ namespace Analysis {
             NodeclSet get_live_out_vars();
 
             //! Adds a new live out variable to the node removing any other variable contained in the new one
-            void add_live_out(const NBase& new_live_out_var);
+            void add_live_out(const NodeclSet& new_live_out_set);
 
             //! Adds a new live out variable to the node.
             void set_live_out(const NBase& new_live_out_var);

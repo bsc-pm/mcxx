@@ -273,11 +273,9 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-typeenviron-decls.h \
   src/frontend/cxx-typeenviron.h \
   src/frontend/cxx-typeenviron.c \
-  src/frontend/cxx-typeunif.c \
-  src/frontend/cxx-typeunif.h \
-  src/frontend/cxx-typeunif-decls.h \
   src/frontend/cxx-typededuc.c \
   src/frontend/cxx-typededuc.h \
+  src/frontend/cxx-typededuc-decls.h \
   src/frontend/cxx-cexpr.c \
   src/frontend/cxx-cexpr.h \
   src/frontend/cxx-cexpr-fwd.h \

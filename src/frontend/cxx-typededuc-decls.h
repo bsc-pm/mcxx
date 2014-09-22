@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,10 +25,8 @@
 --------------------------------------------------------------------*/
 
 
-
-
-#ifndef CXX_TYPEUNIF_DECLS_H
-#define CXX_TYPEUNIF_DECLS_H
+#ifndef CXX_TYPEDEDUC_DECLS_H
+#define CXX_TYPEDEDUC_DECLS_H
 
 #include "cxx-macros.h"
 
@@ -39,11 +37,23 @@
 MCXX_BEGIN_DECLS
 
 typedef
-struct deduced_parameter_tag
+enum deduction_result_tag
+{
+    DEDUCTION_FAILURE = 0,
+    DEDUCTION_OK = 1,
+} deduction_result_t;
+
+typedef
+struct deduced_argument_tag
 {
     type_t* type;
+
+    // This tree is owned by this structure
     nodecl_t value;
-} deduced_parameter_t;
+} deduced_argument_t;
+
+// Deprecated name
+typedef deduced_argument_t deduced_parameter_t;
 
 typedef 
 struct deduction_tag
@@ -53,8 +63,11 @@ struct deduction_tag
     int parameter_nesting;
     const char* parameter_name;
     
+    // FIXME - Change field name: num_deduced_parameters -> num_deduced_arguments
+    // num_deduced_parameters is >1 only for template-packs
     int num_deduced_parameters;
-    deduced_parameter_t** deduced_parameters;
+    // FIXME - Change field name: deduced_parameters -> deduced_arguments
+    deduced_argument_t** deduced_parameters;
 } deduction_t;
 
 typedef struct deduction_set_tag
@@ -63,6 +76,7 @@ typedef struct deduction_set_tag
     deduction_t** deduction_list;
 } deduction_set_t;
 
+
 MCXX_END_DECLS
 
-#endif // CXX_TYPEUNIF_DECLS_H
+#endif

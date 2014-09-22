@@ -113,6 +113,7 @@ void common_build_scope_pragma_custom_line(
             ast_get_locus(start_clauses));
 }
 
+// Currently only used by Fortran
 void common_build_scope_pragma_custom_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output,
@@ -123,7 +124,7 @@ void common_build_scope_pragma_custom_statement(AST a,
     common_build_scope_pragma_custom_line(ASTSon0(a), ASTSon2(a), decl_context, nodecl_pragma_line);
 
     nodecl_t nodecl_child = nodecl_null();
-    function_for_child(ASTSon1(a), new_block_context(decl_context), &nodecl_child, info);
+    function_for_child(ASTSon1(a), decl_context, &nodecl_child, info);
 
     *nodecl_output = nodecl_make_pragma_custom_statement(*nodecl_pragma_line, nodecl_child, strtolower(ASTText(a)), ast_get_locus(a));
 }

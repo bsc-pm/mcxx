@@ -6993,7 +6993,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         decl_specifiers += "static ";
     }
 
-    else if (symbol.is_extern() || !is_definition)
+    else if (symbol.is_extern() ||
+            (!symbol.is_member() && !is_definition))
     {
         decl_specifiers += "extern ";
     }

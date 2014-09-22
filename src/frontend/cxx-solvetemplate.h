@@ -33,7 +33,6 @@
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 
-#include "cxx-typeunif.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-scope-decls.h"
 
@@ -44,8 +43,8 @@ LIBMCXX_EXTERN struct type_tag* solve_class_template(struct type_tag* template_t
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus);
 
-LIBMCXX_EXTERN scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
-        template_parameter_list_t* explicit_template_parameters,
+LIBMCXX_EXTERN scope_entry_list_t* solve_template_function_in_declaration(scope_entry_list_t* template_set,
+        template_parameter_list_t* explicit_template_arguments,
         type_t* function_type, const locus_t* locus);
 
 MCXX_END_DECLS

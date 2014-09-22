@@ -38,7 +38,7 @@ int y;
 
 
 void foo() {
-    #pragma analysis_check assert upper_exposed(x) defined(x) undefined(y)
+    #pragma analysis_check assert upper_exposed(x) defined(x,y)
     #pragma omp task
     {
         #pragma analysis_check assert defined(x)

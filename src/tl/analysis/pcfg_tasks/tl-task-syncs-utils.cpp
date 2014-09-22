@@ -36,76 +36,76 @@ namespace TaskAnalysis{
         if(source == target)
             return true;
         
-        bool target_found = false;
-        if(!source->is_visited_aux())
+        if(source->is_visited_aux())
+            return false;
+
+        source->set_visited_aux(true);
+
+        //Call recursively first, so we ensure we find the node where it is modified before we know it is modified
+        if(source->is_graph_node())
+            if (data_reference_is_modified_between_nodes_rec(source->get_graph_entry_node(), target, var, is_modified))
+                return true;
+
+        // Just check whether the @source node defines the variable if
+        // we have not found before another node that defines it
+        // and if we are not in a graph node, because we already checked it inner nodes
+        if(!is_modified && !source->is_graph_node())
         {
-            source->set_visited_aux(true);
-            
-            //Call recursively first, so we ensure we find the node where it is modified before we know it is modified
-            if(source->is_graph_node())
-                target_found = data_reference_is_modified_between_nodes_rec(source->get_graph_entry_node(), target, var, is_modified);
-            
-            // Just check whether the @source node defines the variable if
-            // we have not found before another node that defines it
-            // and if we are not in a graph node, because we already checked it inner nodes
-            if(!is_modified && !source->is_graph_node())
-            {
-                NodeclSet killed_vars;
-                if(source->is_omp_task_creation_node())
-                {   // Variables from non-task children nodes do not count here
-                    Node* created_task = ExtensibleGraph::get_task_from_task_creation(source);
-                    ERROR_CONDITION(created_task==NULL,
-                                    "Task created by task creation node %d not found.\n",
-                                    source->get_id());
-                    killed_vars = created_task->get_killed_vars();
-                }
-                else
-                {
-                    killed_vars = source->get_killed_vars();
-                }
-                if(killed_vars.find(var) != killed_vars.end())
-                {
-                    NodeclMap reach_defs_out = source->get_reaching_definitions_out();
-                    NodeclMap::iterator var_out_definition = reach_defs_out.find(var);
-                    ERROR_CONDITION(var_out_definition==reach_defs_out.end(),
-                                    "No RD_OUT found in node %d for variable %s, but it is in the list of KILLED variables.\n",
-                                    source->get_id(), var.prettyprint().c_str());
-                    if(!Nodecl::Utils::structurally_equal_nodecls(var, var_out_definition->second.first))
-                    {   // Avoid reporting a modification for expressions like var = var;
-                        is_modified = true;
-                    }
-                }
+            NodeclSet killed_vars;
+            if(source->is_omp_task_creation_node())
+            {   // Variables from non-task children nodes do not count here
+                Node* created_task = ExtensibleGraph::get_task_from_task_creation(source);
+                ERROR_CONDITION(created_task==NULL,
+                                "Task created by task creation node %d not found.\n",
+                                source->get_id());
+                killed_vars = created_task->get_killed_vars();
             }
-            
-            // Keep traversing the graph to check that this path drives to @target
-            const ObjectList<Node*>& children = (source->is_exit_node() ? source->get_outer_node()->get_children() 
-                                                                        : source->get_children());
-            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            else
             {
-                if(!(*it)->is_omp_task_node())
-                    target_found = target_found || data_reference_is_modified_between_nodes_rec(*it, target, var, is_modified);
+                killed_vars = source->get_killed_vars();
+            }
+            if(killed_vars.find(var) != killed_vars.end())
+            {
+                NodeclMap reach_defs_out = source->get_reaching_definitions_out();
+                NodeclMap::iterator var_out_definition = reach_defs_out.find(var);
+                ERROR_CONDITION(var_out_definition==reach_defs_out.end(),
+                                "No RD_OUT found in node %d for variable %s, but it is in the list of KILLED variables.\n",
+                                source->get_id(), var.prettyprint().c_str());
+                if (!Nodecl::Utils::structurally_equal_nodecls(var, var_out_definition->second.first))
+                {   // Avoid reporting a modification for expressions like var = var;
+                    is_modified = true;
+                }
             }
         }
-        return target_found;
+
+        // Keep traversing the graph to check that this path drives to @target
+        const ObjectList<Node*>& children = (source->is_exit_node() ? source->get_outer_node()->get_children()
+                                                                    : source->get_children());
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        {
+            if (!(*it)->is_omp_task_node())
+                if (data_reference_is_modified_between_nodes_rec(*it, target, var, is_modified))
+                    return true;
+        }
+
+        return false;
     }
 
     bool data_reference_is_modified_between_nodes(Node* source, Node* target, const NBase& var)
     {
         bool is_modified = false;
         bool target_found = false;
-        if(source == target)
+        if (source == target)
         {   // This may happen when a task has dependencies with itself because it is enclosed in an iterative construct
             // In this case we have to call recursively with the children of @source
             const ObjectList<Node*>& source_children = source->get_children();
-            for(ObjectList<Node*>::const_iterator it = source_children.begin(); it != source_children.end(); ++it)
+            for (ObjectList<Node*>::const_iterator it = source_children.begin();
+                 it != source_children.end() && !target_found; ++it)
             {
-                if(!(*it)->is_omp_task_node())
+                if (!(*it)->is_omp_task_node())
                 {
                     target_found = target_found || data_reference_is_modified_between_nodes_rec(*it, target, var, is_modified);
                     ExtensibleGraph::clear_visits_aux(*it);
-                    ERROR_CONDITION(!target_found,
-                                    "Unable to find path between %d and %d.\n",
-                                    (*it)->get_id(), target->get_id());
                 }
             }
         }
@@ -113,10 +113,12 @@ namespace TaskAnalysis{
         {
             target_found = data_reference_is_modified_between_nodes_rec(source, target, var, is_modified);
             ExtensibleGraph::clear_visits_aux(source);
-            ERROR_CONDITION(!target_found,
-                            "Unable to find path between %d and %d.\n",
-                            source->get_id(), target->get_id());
         }
+
+        ERROR_CONDITION(!target_found,
+                        "Unable to find path between %d and %d.\n",
+                        source->get_id(), target->get_id());
+
         return is_modified;
     }
 
@@ -145,14 +147,7 @@ namespace TaskAnalysis{
             {
                 Node* source_tc = ExtensibleGraph::get_task_creation_from_task(source);
                 Node* target_tc = ExtensibleGraph::get_task_creation_from_task(target);
-                if(data_reference_is_modified_between_nodes(source_tc, target_tc, data_ref))
-                {
-                    return true;
-                }
-                else
-                {   
-                    return false;
-                }
+                return data_reference_is_modified_between_nodes(source_tc, target_tc, data_ref);
             }
         }
         

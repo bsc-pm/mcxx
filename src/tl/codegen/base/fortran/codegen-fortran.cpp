@@ -1762,9 +1762,15 @@ OPERATOR_TABLE
             Nodecl::List else_items = else_.as<Nodecl::List>();
 
             if (else_items.size() == 1
-                    && else_items[0].is<Nodecl::IfElseStatement>())
+                    && else_items[0].is<Nodecl::Context>()
+                    && else_items[0].as<Nodecl::Context>().get_in_context().as<Nodecl::List>().size() == 1
+                    && else_items[0].as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0].is<Nodecl::IfElseStatement>())
             {
-                Nodecl::IfElseStatement nested_if = else_items[0].as<Nodecl::IfElseStatement>();
+                Nodecl::IfElseStatement nested_if = else_items[0]
+                    .as<Nodecl::Context>()
+                    .get_in_context()
+                    .as<Nodecl::List>()[0]
+                    .as<Nodecl::IfElseStatement>();
 
                 Nodecl::NodeclBase condition = nested_if.get_condition();
 
@@ -3548,6 +3554,11 @@ OPERATOR_TABLE
     void FortranBase::declare_symbol(TL::Symbol entry, TL::Scope sc)
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
+
+        if (entry.get_name() == "struct_descriptor_0")
+        {
+        std::cerr << "---> " << entry.get_name() << std::endl;
+        }
 
         // This function has nothing to do with stuff coming from modules
         if (entry.is_from_module())

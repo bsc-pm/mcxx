@@ -903,7 +903,6 @@ namespace Analysis {
         
     };
     
-    typedef std::set<AliveTaskItem> StaticSyncTaskSet;
     typedef std::set<AliveTaskItem> AliveTaskSet;
     
     // ************************** END class for task synchronizations **************************** //

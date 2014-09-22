@@ -121,7 +121,7 @@ namespace {
         // Rebuild the condition composing the old condition and the new computed part
         if(condition.is_null())
             condition = cond_part;
-        else
+        else if (!cond_part.is_null())
             condition = Nodecl::LogicalAnd::make(condition.shallow_copy(), cond_part, condition.get_type());
 
         return modification_type;

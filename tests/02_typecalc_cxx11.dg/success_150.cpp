@@ -1,7 +1,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-cxx11
-test_compile_fail=yes
 </testinfo>
 */
 

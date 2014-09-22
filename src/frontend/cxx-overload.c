@@ -273,7 +273,9 @@ char standard_conversion_is_better(standard_conversion_t scs1,
 static char is_better_function_despite_equal_ics(scope_entry_t* f,
         scope_entry_t* g,
         decl_context_t decl_context,
-        const locus_t* locus);
+        const locus_t* locus,
+        // flags
+        int num_arguments);
 
 #if 0
 static char is_better_initialization_ics(
@@ -706,8 +708,6 @@ static scope_entry_t* get_specialized_conversion(
     }
     // This is a template so we have to get the proper specialization
 
-    // Get the primary specialization
-    type_t* specialization_function = get_user_defined_type(conv_funct);
     // Get its template parameters
     template_parameter_list_t* type_template_parameters = 
         template_type_get_template_parameters(template_specialized_type_get_related_template_type(conv_funct->type_information));
@@ -716,9 +716,18 @@ static scope_entry_t* get_specialized_conversion(
 
     template_parameter_list_t* deduced_template_arguments = NULL;
     // Now deduce the arguments
-    if (!deduce_arguments_of_conversion(dest, specialization_function,
-                template_parameters, type_template_parameters,
-                decl_context, &deduced_template_arguments, locus))
+
+    if (deduce_template_arguments_for_conversion_function(
+                conv_funct,
+                dest,
+                template_parameters,
+                type_template_parameters,
+                // FIXME:
+                /* raw_explicit_template_arguments */ NULL,
+                decl_context,
+                locus,
+                // out
+                &deduced_template_arguments) == DEDUCTION_FAILURE)
     {
         DEBUG_CODE()
         {
@@ -739,6 +748,7 @@ static scope_entry_t* get_specialized_conversion(
     type_t* named_specialization_type = template_type_get_specialized_type(template_type,
             deduced_template_arguments,
             decl_context, locus);
+    free_template_parameter_list(deduced_template_arguments);
 
     if (named_specialization_type == NULL)
     {
@@ -1134,7 +1144,7 @@ static char solve_initialization_of_direct_reference_type_ics(
             candidate_list,
             NULL, &orig, 1,
             decl_context,
-            locus, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_arguments */ NULL);
     entry_list_free(candidate_list);
 
     candidate_t* candidate_set = NULL;
@@ -1368,7 +1378,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_clas
 static char solve_initialization_of_nonclass_nonreference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        decl_context_t decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1430,7 +1440,7 @@ static char solve_initialization_of_nonclass_nonreference_type_ics(
                     candidate_list,
                     NULL, &orig, 1,
                     decl_context,
-                    locus, /* explicit_template_parameters */ NULL);
+                    locus, /* explicit_template_arguments */ NULL);
             entry_list_free(candidate_list);
 
             candidate_t* candidate_set = NULL;
@@ -1448,11 +1458,11 @@ static char solve_initialization_of_nonclass_nonreference_type_ics(
 
             // Now we have all the candidates, perform an overload resolution on them
             char is_ambiguous = 0;
-            scope_entry_t* overload_resolution = solve_overload_(candidate_set, 
-                    decl_context, 
-                    /* initialization_kind */ initialization_kind,
+            scope_entry_t* overload_resolution = solve_overload_(candidate_set,
+                    decl_context,
+                    initialization_kind | IK_BY_USER_DEFINED_CONVERSION,
                     dest,
-                    locus, 
+                    locus,
                     // Out
                     &is_ambiguous);
             candidate_set_free(&candidate_set);
@@ -2638,10 +2648,13 @@ static overload_entry_list_t* compute_viable_functions(
     return result;
 }
 
-static char is_better_function_despite_equal_ics(scope_entry_t* f,
+static char is_better_function_despite_equal_ics(
+        scope_entry_t* f,
         scope_entry_t* g,
         decl_context_t decl_context,
-        const locus_t* locus)
+        const locus_t* locus,
+        // flags
+        int num_arguments)
 {
     if (!is_template_specialized_type(f->type_information)
             && is_template_specialized_type(g->type_information))
@@ -2676,17 +2689,20 @@ static char is_better_function_despite_equal_ics(scope_entry_t* f,
                     print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                     locus_to_str(g->locus));
         }
-        // if ¬(f <= g) then f > g
-        template_parameter_list_t* deduced_template_arguments = NULL;
-        if (!is_less_or_equal_specialized_template_function(
+
+        if (is_more_specialized_template_function_in_overload(
                     // Why is it so convoluted to get the type of the primary specialization ?
                     named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(f->type_information)))->type_information,
+                            template_specialized_type_get_related_template_type(f->type_information))),
                     named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                    decl_context, &deduced_template_arguments, 
-                    /* explicit_template_parameters */ NULL,
-                    locus, /* is_conversion */ 0))
+                            template_specialized_type_get_related_template_type(g->type_information))), 
+                    decl_context,
+                    // TODO - Should we pass them?
+                    /* explicit_template_arguments */ NULL,
+                    locus,
+                    // Flags
+                    num_arguments,
+                    f->entity_specs.is_conversion))
         {
             DEBUG_CODE()
             {
@@ -2876,7 +2892,12 @@ char is_better_function(
             }
         }
 
-        if (is_better_function_despite_equal_ics(f, g, decl_context, locus))
+        int num_arguments_of_call = ovl_f->candidate->num_args;
+        if (f->entity_specs.is_member
+                && !f->entity_specs.is_constructor)
+            num_arguments_of_call--;
+
+        if (is_better_function_despite_equal_ics(f, g, decl_context, locus, num_arguments_of_call))
             return 1;
     }
 
@@ -3181,8 +3202,9 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             &is_ambiguous);
 }
 
-scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
-        template_parameter_list_t* explicit_template_parameters,
+scope_entry_t* address_of_overloaded_function(
+        scope_entry_list_t* overload_set,
+        template_parameter_list_t* explicit_template_arguments,
         type_t* target_type,
         decl_context_t decl_context,
         const locus_t* locus)
@@ -3202,11 +3224,15 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             && !is_rvalue_reference_type(target_type)
             && !is_function_type(target_type))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Type '%s' is not a valid function type\n", print_declarator(target_type));
+        }
         return NULL;
     }
 
     type_t* functional_type = NULL;
-    type_t *class_type = NULL;
+    // type_t *class_type = NULL;
 
     functional_type = no_ref(target_type);
     if (is_pointer_to_function_type(functional_type))
@@ -3215,7 +3241,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     }
     else if (is_pointer_to_member_type(functional_type))
     {
-        class_type = pointer_to_member_type_get_class_type(functional_type);
+        // class_type = pointer_to_member_type_get_class_type(functional_type);
         functional_type = pointer_type_get_pointee_type(functional_type);
     }
     else if (is_function_type(functional_type))
@@ -3232,11 +3258,11 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         return NULL;
     }
 
-    // We can proceed now
-    scope_entry_list_t* viable_functions = NULL;
+    char there_are_templates = 0;
+    char there_are_specializations = 0;
+    char there_are_non_templates = 0;
 
-    char num_nonspecialized = 0;
-    scope_entry_t* non_specialized = NULL;
+    scope_entry_list_t* potential_valid = NULL;
 
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -3245,343 +3271,264 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     {
         scope_entry_t* current_fun = entry_advance_aliases(entry_list_iterator_current(it));
 
+        scope_entry_t* considered_function = NULL;
+
         if (current_fun->kind == SK_FUNCTION)
         {
-            DEBUG_CODE()
+            there_are_non_templates = 1;
+            if (equivalent_types(current_fun->type_information, functional_type))
             {
-                fprintf(stderr, "OVERLOAD: When solving address of overload: checking '%s' "
-                        "against (target) overload '%s' ('%s' at '%s')\n",
-                        print_declarator(current_fun->type_information),
-                        print_declarator(target_type),
-                        current_fun->symbol_name,
-                        locus_to_str(current_fun->locus));
-            }
-            char can_match = 0;
-
-            if (current_fun->entity_specs.is_member 
-                    && !current_fun->entity_specs.is_static
-                    && is_pointer_to_member_type(no_ref(target_type))
-                    && (equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
-                            get_actual_class_type(class_type))
-                        || class_type_is_base(get_actual_class_type(current_fun->entity_specs.class_type),
-                            get_actual_class_type(class_type))
-                       )
-               )
-            {
-                can_match = 1;
-            }
-            else if ((!current_fun->entity_specs.is_member
-                        || (current_fun->entity_specs.is_member
-                            && current_fun->entity_specs.is_static))
-                    && !is_pointer_to_member_type(no_ref(target_type)))
-            {
-                can_match = 1;
-            }
-
-            if (can_match
-                    && equivalent_types(current_fun->type_information, 
-                        functional_type))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "OVERLOAD: When solving address of overload: function "
-                            "'%s' at '%s' matches the target type\n",
-                            current_fun->symbol_name,
-                            locus_to_str(current_fun->locus));
-                }
-                viable_functions = entry_list_add(viable_functions, current_fun);
-
-                num_nonspecialized++;
-                // This makes sense only when (num_nonspecialized == 1)
-                non_specialized = current_fun;
+                considered_function = current_fun;
             }
         }
         else if (current_fun->kind == SK_TEMPLATE)
         {
-            // We are in a case like this one
-            //
-            // template <typename _T>
-            // _T f(_T);
-            //
-            // void g()
-            // {
-            //   int (*k)(int);
-            //   k = f;
-            // }
-            //
-            // The above assignment is identic to the following one
-            //
-            //   k = f<int>;
-            //
-            // but the compiler has to discover this by means of deduction
+            there_are_templates = 1;
+
+            scope_entry_t* primary_symbol =
+                named_type_get_symbol(
+                        template_type_get_primary_type(current_fun->type_information));
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: When solving address of overload function: function '%s' is a template-name. "
-                        "Deducing its template parameters\n", 
-                        current_fun->symbol_name);
+                fprintf(stderr, "OVERLOAD: Deducing arguments of function '%s' against target type '%s'\n",
+                        print_declarator(primary_symbol->type_information),
+                        print_declarator(functional_type));
             }
 
-            type_t* named_primary_type = template_type_get_primary_type(current_fun->type_information);
-            scope_entry_t* primary_symbol = named_type_get_symbol(named_primary_type);
+            template_parameter_list_t* deduced_template_arguments = NULL;
+            deduction_result_t deduction_result =
+                deduce_template_arguments_from_address_of_a_function_template(
+                        functional_type,
+                        primary_symbol->type_information,
+                        template_specialized_type_get_template_parameters(
+                            primary_symbol->type_information),
+                        template_type_get_template_parameters(
+                            current_fun->type_information),
+                        explicit_template_arguments,
+                        decl_context,
+                        locus,
+                        &deduced_template_arguments);
 
-            char can_match = 0;
-
-            if (primary_symbol->entity_specs.is_member 
-                    && !primary_symbol->entity_specs.is_static
-                    && is_pointer_to_member_type(no_ref(target_type))
-                    && (equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                            get_actual_class_type(class_type))
-                        || class_type_is_base(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                            get_actual_class_type(class_type))
-                       )
-               )
+            if (deduction_result == DEDUCTION_OK)
             {
-                can_match = 1;
-            }
-            else if ((!primary_symbol->entity_specs.is_member
-                        || (primary_symbol->entity_specs.is_member
-                            && primary_symbol->entity_specs.is_static))
-                    && !is_pointer_to_member_type(no_ref(target_type)))
-            {
-                can_match = 1;
-            }
+                type_t* named_specialization_type = template_type_get_specialized_type(
+                        current_fun->type_information,
+                        deduced_template_arguments,
+                        decl_context,
+                        locus);
+                free_template_parameter_list(deduced_template_arguments);
 
-            if (can_match)
-            {
-                template_parameter_list_t* type_template_parameters 
-                    = template_type_get_template_parameters(current_fun->type_information);
-
-                type_t* argument_types[1] = { functional_type };
-                int num_argument_types = 1;
-
-                type_t* primary_type = primary_symbol->type_information;
-                type_t* parameter_types[1] = { primary_type };
-                type_t* original_parameter_types[1] = { primary_type };
-                int num_parameter_types = 1;
-
-                template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_parameters(primary_symbol->type_information);
-
-                template_parameter_list_t* deduced_template_arguments = NULL;
-                if (deduce_template_arguments_common(
-                            template_parameters, type_template_parameters,
-                            argument_types, num_argument_types,
-                            parameter_types, num_parameter_types,
-                            original_parameter_types,
-                            primary_symbol->decl_context,
-                            &deduced_template_arguments, locus,
-                            explicit_template_parameters,
-                            /* is_function_call */ 0))
+                if (named_specialization_type != NULL)
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                "template function-name specialization "
-                                "'%s' successfully deduced template arguments\n",
-                                current_fun->symbol_name);
-                    }
-
-                    type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            deduced_template_arguments, decl_context, locus);
-
-                    if (named_specialization_type != NULL)
-                    {
-                        scope_entry_t* named_symbol = named_type_get_symbol(named_specialization_type);
-
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                    "template function-name specialization "
-                                    "'%s' at ('%s') is a matching specialization with type '%s'\n",
-                                    named_symbol->symbol_name,
-                                    locus_to_str(named_symbol->locus),
-                                    print_declarator(named_symbol->type_information));
-                        }
-
-                        if (can_match
-                                && equivalent_types(named_symbol->type_information, 
-                                    functional_type))
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                        "template function-name specialization "
-                                        "'%s' at ('%s') is a matching specialization with type '%s' that matches the target type\n",
-                                        named_symbol->symbol_name,
-                                        locus_to_str(named_symbol->locus),
-                                        print_declarator(named_symbol->type_information));
-                            }
-                            viable_functions = entry_list_add(viable_functions, named_symbol);
-                        }
-                        else
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                        "template function-name specialization "
-                                        "'%s' at ('%s') is a matching specialization with type '%s' DOES NOT match the target type\n",
-                                        named_symbol->symbol_name,
-                                        locus_to_str(named_symbol->locus),
-                                        print_declarator(named_symbol->type_information));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                    "template function-name specialization "
-                                    "'%s' NO matching specialization was found\n",
-                                    current_fun->symbol_name);
-                        }
-                    }
+                    considered_function = named_type_get_symbol(named_specialization_type);
+                }
+            }
+            DEBUG_CODE()
+            {
+                if (considered_function == NULL)
+                {
+                    fprintf(stderr, "OVERLOAD: Failure when deducing arguments of function '%s' against target type '%s'\n",
+                            print_declarator(primary_symbol->type_information),
+                            print_declarator(functional_type));
                 }
                 else
                 {
-                    DEBUG_CODE()
+                    fprintf(stderr, "OVERLOAD: Deduction yields function '%s' against target type '%s'\n",
+                            print_declarator(considered_function->type_information),
+                            print_declarator(functional_type));
+                }
+            }
+
+            if (considered_function != NULL)
+                there_are_specializations = 1;
+        }
+
+        if (considered_function == NULL)
+            continue;
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Checking with function '%s' against target type '%s'\n",
+                    print_declarator(considered_function->type_information),
+                    print_declarator(functional_type));
+        }
+
+        // Now check feasibility
+        if (((!considered_function->entity_specs.is_member
+                        || considered_function->entity_specs.is_static)
+                    && (is_pointer_to_function_type(target_type)
+                        || is_function_type(no_ref(target_type))))
+                || (considered_function->entity_specs.is_member
+                    && !considered_function->entity_specs.is_static
+                    && is_pointer_to_member_type(no_ref(target_type))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Function '%s' DOES match target type '%s'\n",
+                        print_declarator(considered_function->type_information),
+                        print_declarator(target_type));
+            }
+            // non-members and static data members match functions and pointers to functions
+            potential_valid = entry_list_add(potential_valid, considered_function);
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Function '%s' DOES NOT match target type '%s'\n",
+                        print_declarator(considered_function->type_information),
+                        print_declarator(target_type));
+            }
+        }
+    }
+    entry_list_iterator_free(it);
+
+    if (explicit_template_arguments != NULL
+            && !there_are_templates)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Failure because there are explicit template arguments but no template-names in the overload-set\n");
+        }
+        entry_list_free(potential_valid);
+        return NULL;
+    }
+
+    if (entry_list_size(potential_valid) == 1)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: There is only a single match '%s'\n",
+                    print_declarator(entry_list_head(potential_valid)->type_information));
+        }
+        scope_entry_t* result = entry_list_head(potential_valid);
+        entry_list_free(potential_valid);
+        return result;
+    }
+    else if (entry_list_size(potential_valid) > 1)
+    {
+        if (there_are_non_templates)
+        {
+            if (there_are_specializations)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Filtering templates from potential list set\n");
+                }
+                scope_entry_list_t* nontemplates = NULL;
+                for (it = entry_list_iterator_begin(potential_valid);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current_fun = entry_list_iterator_current(it);
+                    if (!is_template_specialized_type(current_fun->type_information))
                     {
-                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                "template function-name specialization "
-                                "'%s' FAILED to deduce template arguments\n",
-                                current_fun->symbol_name);
+                        nontemplates = entry_list_add(nontemplates, current_fun);
                     }
                 }
+                entry_list_iterator_free(it);
+                entry_list_free(potential_valid);
+
+                potential_valid = nontemplates;
+            }
+
+            if (entry_list_size(potential_valid) != 1)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: More than one non-template matches\n");
+                }
+                entry_list_free(potential_valid);
+                return NULL;
+            }
+            else
+            {
+                scope_entry_t* result = entry_list_head(potential_valid);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Only one nontemplate matches\n");
+                }
+                entry_list_free(potential_valid);
+                return result;
             }
         }
         else
         {
-            internal_error("Unreachable code", 0);
-        }
-
-    }
-    entry_list_iterator_free(it);
-
-    if (viable_functions == NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: When solving address of overload: "
-                    "no function was found to match the target type\n");
-        }
-        return NULL;
-    }
-
-
-    if (num_nonspecialized != 0)
-    {
-        // If more than one matched, error
-        if (num_nonspecialized != 1)
-        {
-            // More than one nonspecialized function matches the types
-            DEBUG_CODE()
+            // All remaining functions are template-specialized, order them
+            scope_entry_t* more_specialized = entry_list_head(potential_valid);
+            for (it = entry_list_iterator_begin(potential_valid);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
             {
-                fprintf(stderr, "OVERLOAD: When solving address of overload: more than one nonspecialized function matches\n");
-            }
-            return NULL;
-        }
+                scope_entry_t* current_fun = entry_list_iterator_current(it);
+                if (current_fun == more_specialized)
+                    continue;
 
-        // More than one nonspecialized function matches the types
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: When solving address of overload: solved to nonspecialized function '%s' at '%s'\n",
-                    non_specialized->symbol_name,
-                    locus_to_str(non_specialized->locus));
-        }
-        return non_specialized;
-    }
-    else // num_nonspecialized == 0
-    {
-        // Now we need the more specialized one
-        // we will do a two scans algorithm
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: When solving address of overload: there are %d viable functions, choosing the more specialized\n", 
-                    entry_list_size(viable_functions));
-        }
-
-        scope_entry_list_iterator_t* it2 = entry_list_iterator_begin(viable_functions);
-        scope_entry_t* most_specialized = entry_list_iterator_current(it2);
-        entry_list_iterator_next(it2);
-
-        while (!entry_list_iterator_end(it2))
-        {
-            scope_entry_t* current = entry_list_iterator_current(it2);
-            template_parameter_list_t* deduced_template_arguments = NULL;
-
-            // Such comparison is performed on the primaries, not on the specializations themselves
-            scope_entry_t* current_primary = 
-                named_type_get_symbol(
-                        template_type_get_primary_type(template_specialized_type_get_related_template_type(current->type_information)));
-            scope_entry_t* most_specialized_primary = 
-                named_type_get_symbol(
-                        template_type_get_primary_type(template_specialized_type_get_related_template_type(most_specialized->type_information)));
-
-            if (!is_less_or_equal_specialized_template_function(
-                        current_primary->type_information,
-                        most_specialized_primary->type_information,
-                        decl_context,
-                        &deduced_template_arguments, 
-                        /* explicit_template_parameters */ NULL,
-                        locus, /* is_conversion */ 0))
-            {
-                // if (!(a<=b)) it means that a > b
-                most_specialized = current;
-            }
-            entry_list_iterator_next(it2);
-        }
-        entry_list_iterator_free(it2);
-
-        // Now check it2 is actually the most specialized one
-        it2 = entry_list_iterator_begin(viable_functions);
-        while (!entry_list_iterator_end(it2))
-        {
-            scope_entry_t* current = entry_list_iterator_current(it2);
-
-            if (current != most_specialized)
-            {
-                scope_entry_t* most_specialized_primary = 
-                    named_type_get_symbol(
-                            template_type_get_primary_type(template_specialized_type_get_related_template_type(most_specialized->type_information)));
-                scope_entry_t* current_primary = 
-                    named_type_get_symbol(
-                            template_type_get_primary_type(template_specialized_type_get_related_template_type(current->type_information)));
-
-                template_parameter_list_t* deduced_template_arguments = NULL;
-                if (is_less_or_equal_specialized_template_function(
-                            most_specialized_primary->type_information,
-                            current_primary->type_information,
+                if (is_more_specialized_template_function_in_function_address(
+                            current_fun,
+                            more_specialized,
                             decl_context,
-                            &deduced_template_arguments, 
-                            /* explicit_template_parameters */ NULL,
-                            locus, /* is_conversion */ 0))
+                            // TODO: Should we pass them?
+                            /* explicit_template_arguments */ NULL,
+                            locus,
+                            /* is_conversion */ current_fun->entity_specs.is_conversion))
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "OVERLOAD: When solving address of overload: no matching "
-                                "specialization was the most specialized\n");
-                    }
-                    return NULL;
+                    more_specialized = current_fun;
                 }
             }
-            entry_list_iterator_next(it2);
-        }
-        entry_list_iterator_free(it2);
+            entry_list_iterator_free(it);
 
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: When solving address of overload: solved to matching "
-                    "specialization '%s' (at '%s' with type '%s') since it is the most specialized\n",
-                    most_specialized->symbol_name,
-                    locus_to_str(most_specialized->locus),
-                    print_declarator(most_specialized->type_information));
-        }
+            // Check
+            for (it = entry_list_iterator_begin(potential_valid);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* current_fun = entry_list_iterator_current(it);
+                if (current_fun == more_specialized)
+                    continue;
 
-        return most_specialized;
+                if (is_more_specialized_template_function_in_function_address(
+                            current_fun,
+                            more_specialized,
+                            decl_context,
+                            // TODO: Should we pass them?
+                            /* explicit_template_arguments */ NULL,
+                            locus,
+                            /* is_conversion */ current_fun->entity_specs.is_conversion))
+                {
+                    more_specialized = NULL;
+                    break;
+                }
+            }
+            entry_list_iterator_free(it);
+            entry_list_free(potential_valid);
+
+            if (more_specialized != NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: There is a more specialized function\n");
+                }
+                return more_specialized;
+            }
+        }
     }
 
+    scope_entry_t* fallback = unresolved_overloaded_type_simplify_unpacked(
+            overload_set,
+            explicit_template_arguments,
+            decl_context,
+            locus);
+    if (fallback != NULL)
+    {
+        return fallback;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "OVERLOAD: Failure when trying to determine the address of a function\n");
+    }
     return NULL;
 }
 
@@ -3731,7 +3678,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(candidate_list,
             NULL, argument_types, num_arguments,
             decl_context,
-            locus, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_arguments */ NULL);
     entry_list_free(candidate_list);
 
     candidate_t* candidate_set = NULL;
@@ -3941,7 +3888,7 @@ static char solve_list_initialization_of_class_type_(
         scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(list_initializer_constructors,
                 NULL, &braced_list_type, 1,
                 decl_context,
-                locus, /* explicit_template_parameters */ NULL);
+                locus, /* explicit_template_arguments */ NULL);
         entry_list_free(list_initializer_constructors);
 
         candidate_t* candidate_set = NULL;
@@ -4012,7 +3959,7 @@ static char solve_list_initialization_of_class_type_(
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(candidate_list,
             NULL, argument_types, num_arguments,
             decl_context,
-            locus, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_arguments */ NULL);
 
     candidate_t* candidate_set = NULL;
     for (it = entry_list_iterator_begin(overload_set);

@@ -485,10 +485,10 @@ namespace {
                 }
                 task_outer = task_outer->get_outer_node();
             }
-            // We have not found the context in the PCFG where the variable was declared
-            internal_error ("PCFG context of local variable %s has not been found.", 
-                            itv->prettyprint().c_str());
             
+            // The variable is not declared in the context of the current PCFG
+            return false;
+
 check_sync:
             // 2.- Check whether the context of the variable contains all synchronizations of the task
             for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
@@ -1620,7 +1620,7 @@ next_iteration: ;
     // ******************************** OpenMP scope checking phase ******************************** //
     
     Lint::Lint()
-        : _disable_phase("0"), _correctness_log_path("")
+        : _disable_phase("0"), _correctness_log_path(""), _lint_deprecated_flag("")
     {
         set_phase_name("OpenMP Lint");
         set_phase_description("This phase is able to detect some common pitfalls when using OpenMP");
@@ -1636,10 +1636,15 @@ next_iteration: ;
                 _correctness_log_path,
                 "");
         
+        register_parameter("lint_deprecated_flag",
+                "Emits a warning as the \"--openmp-lint\" flag is deprecated",
+                _lint_deprecated_flag,
+                "0").connect(functor(&Lint::set_lint_deprecated_flag, *this));
+
         register_parameter("ompss_mode",
-                           "Enables OmpSs semantics instead of OpenMP semantics",
-                           _ompss_mode_str,
-                           "0").connect(functor(&Lint::set_ompss_mode, *this));
+                "Enables OmpSs semantics instead of OpenMP semantics",
+                _ompss_mode_str,
+                "0").connect(functor(&Lint::set_ompss_mode, *this));
     }
 
     void Lint::run(TL::DTO& dto)
@@ -1690,6 +1695,15 @@ next_iteration: ;
             _ompss_mode_enabled = true;
     }
     
+    void Lint::set_lint_deprecated_flag(const std::string& lint_deprecated_flag_str)
+    {
+        if (lint_deprecated_flag_str == "1")
+        {
+            fprintf(stderr, "%s: parameter '--openmp-lint' deprecated. Use '--task-correctness' instead\n",
+                    ::compilation_process.exec_basename);
+        }
+    }
+
     // ****************************** END OpenMP scope checking phase ****************************** //
     // ********************************************************************************************* //
 }

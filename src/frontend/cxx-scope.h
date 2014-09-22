@@ -158,6 +158,11 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,
         const locus_t* locus);
 
+LIBMCXX_EXTERN type_t* update_type_with_pack_index(type_t* orig_type,
+        decl_context_t template_parameters_context,
+        const locus_t* locus,
+        int pack_index);
+
 LIBMCXX_EXTERN type_t* update_type_for_auto(type_t* orig_type,
         type_t* template_parameter);
 
