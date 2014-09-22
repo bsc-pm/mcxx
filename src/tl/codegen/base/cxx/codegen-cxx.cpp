@@ -5748,7 +5748,8 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                     }
                 }
             }
-            else
+            else if (symbol.get_type().is_dependent()
+                        || !CURRENT_CONFIGURATION->explicit_instantiation)
             {
                 if (!defined_inside_class)
                 {

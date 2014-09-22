@@ -1544,6 +1544,13 @@ static void instantiate_class_common(
                 print_declarator(being_instantiated));
     }
 
+    if (CURRENT_CONFIGURATION->explicit_instantiation
+            && being_instantiated_sym->entity_specs.is_member
+            && being_instantiated_sym->entity_specs.is_defined_inside_class_specifier)
+    {
+        being_instantiated_sym->entity_specs.is_defined_inside_class_specifier = 0;
+    }
+
     push_instantiated_entity(being_instantiated_sym);
 
     // if (being_instantiated_sym->entity_specs.is_member)
