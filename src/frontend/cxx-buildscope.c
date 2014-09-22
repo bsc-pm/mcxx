@@ -10573,6 +10573,43 @@ scope_entry_t* get_function_declaration_proxy(void)
     return _decl_proxy;
 }
 
+static char type_does_not_contain_any_template_parameter_pack(type_t* t, const locus_t* locus)
+{
+    scope_entry_t** packs = NULL;
+    int num_packs = 0;
+
+    get_packs_in_type(t, &packs, &num_packs);
+    xfree(packs);
+
+    if (num_packs == 0)
+    {
+        error_printf("%s: error: pack expansion does not contain any template-parameter pack\n",
+                locus_to_str(locus));
+    }
+
+    return num_packs == 0;
+}
+
+static char type_does_contain_some_template_parameter_pack(type_t* t,
+        const locus_t* locus)
+{
+    scope_entry_t** packs = NULL;
+    int num_packs = 0;
+
+    get_packs_in_type(t, &packs, &num_packs);
+
+    int i;
+    for (i = 0; i < num_packs; i++)
+    {
+        error_printf("%s: error: invalid template parameter pack '%s' not inside a pack expansion\n",
+                locus_to_str(locus),
+                packs[i]->symbol_name);
+    }
+
+    xfree(packs);
+    return num_packs != 0;
+}
+
 /*
  * This function fetches information for every declarator in the
  * parameter_declaration_clause of a functional declarator
@@ -10909,10 +10946,25 @@ static void set_function_parameter_clause(type_t** function_type,
 
             if (param_decl_gather_info.is_template_pack)
             {
+                if (type_does_not_contain_any_template_parameter_pack(type_info, ast_get_locus(parameter_decl_spec_seq)))
+                {
+                    *function_type = get_error_type();
+                    return;
+                }
+
                 type_info = get_pack_type(type_info);
                 original_type = get_pack_type(original_type);
 
                 entry->type_information = original_type;
+            }
+            else if (IS_CXX_LANGUAGE)
+            {
+                if (type_does_contain_some_template_parameter_pack(type_info,
+                            ast_get_locus(parameter_decl_spec_seq)))
+                {
+                    *function_type = get_error_type();
+                    return;
+                }
             }
 
             if (entry != NULL)
@@ -17470,7 +17522,16 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
 
         if (inner_gather_info.is_template_pack)
         {
+            if (type_does_not_contain_any_template_parameter_pack(declarator_type,
+                        ast_get_locus(type_id)))
+                continue;
             declarator_type = get_pack_type(declarator_type);
+        }
+        else
+        {
+            if (type_does_contain_some_template_parameter_pack(declarator_type,
+                        ast_get_locus(type_id)))
+                continue;
         }
 
         P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
@@ -21361,3 +21422,4 @@ nodecl_t instantiate_function_code(nodecl_t orig_tree,
 
     return nodecl_list_head(n);
 }
+

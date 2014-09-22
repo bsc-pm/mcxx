@@ -14824,6 +14824,60 @@ void get_packs_in_type(type_t* pack_type,
             get_packs_in_type(param_type, packs_to_expand, num_packs_to_expand);
         }
     }
+    else if (is_dependent_typename_type(pack_type))
+    {
+        scope_entry_t *dependent_entry = NULL;
+        nodecl_t dependent_parts = nodecl_null();
+
+        dependent_typename_get_components(pack_type,
+                &dependent_entry,
+                &dependent_parts);
+
+        get_packs_in_type(
+                get_user_defined_type(dependent_entry),
+                packs_to_expand,
+                num_packs_to_expand);
+
+        nodecl_t nodecl_nested_parts = nodecl_get_child(dependent_parts, 0);
+
+        int num_items = 0;
+        nodecl_t* dep_parts = nodecl_unpack_list(nodecl_nested_parts, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
+        {
+            if (nodecl_get_kind(dep_parts[i]) == NODECL_CXX_DEP_TEMPLATE_ID)
+            {
+                template_parameter_list_t* template_parameters =
+                    nodecl_get_template_parameters(dep_parts[i]);
+
+                int j;
+                for (j = 0; j < template_parameters->num_parameters; j++)
+                {
+                    template_parameter_value_t* v = template_parameters->arguments[j];
+
+                    enum template_parameter_kind k = template_parameter_kind_get_base_kind(v->kind);
+
+                    if (k == TPK_TYPE
+                            || k == TPK_TEMPLATE)
+                    {
+                        get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                    }
+                    else if (k == TPK_NONTYPE)
+                    {
+                        get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                        get_packs_in_expression(v->value, packs_to_expand, num_packs_to_expand);
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+                }
+            }
+        }
+
+        xfree(dep_parts);
+    }
     else if (is_sequence_of_types(pack_type))
     {
         int i, num = sequence_of_types_get_num_types(pack_type);

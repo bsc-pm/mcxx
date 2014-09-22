@@ -2174,12 +2174,12 @@ deduction_result_t deduce_template_arguments_from_a_type(
         {
             ERROR_CONDITION(is_sequence_of_types(argument), "This is not an acceptable type here", 0);
 
+            ERROR_CONDITION(pack_length <= 0, "Invalid pack length", 0);
+            ERROR_CONDITION(pack_index >= pack_length, "Invalid pack index", 0);
+
             new_deduction->deduced_parameters = xcalloc(pack_length,
                     sizeof(*new_deduction));
             new_deduction->num_deduced_parameters = pack_length;
-
-            ERROR_CONDITION(pack_length <= 0, "Invalid pack length", 0);
-            ERROR_CONDITION(pack_index >= pack_length, "Invalid pack index", 0);
 
             deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
             new_deduced_argument->type =
