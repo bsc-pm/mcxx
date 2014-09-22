@@ -2626,9 +2626,9 @@ static type_t* update_dependent_typename(
     field_path_t field_path;
     field_path_init(&field_path);
 
-    scope_entry_list_t* entry_list = query_nodecl_name(
+    scope_entry_list_t* entry_list = query_nodecl_name_flags(
             class_type_get_inner_context(current_member->type_information),
-            new_dependent_parts, &field_path);
+            new_dependent_parts, &field_path, DF_DEPENDENT_TYPENAME);
 
     if (entry_list == NULL)
     {
@@ -3585,6 +3585,15 @@ static type_t* update_type_aux_(type_t* orig_type,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: END OF Reasking for specialization\n");
+            }
+
+            if (updated_specialized == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: Specialization request failed\n");
+                }
+                return NULL;
             }
 
             DEBUG_CODE()

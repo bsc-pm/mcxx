@@ -193,7 +193,7 @@ static type_t* actual_type_of_conversor(scope_entry_t* conv)
 }
 
 static
-scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
+scope_entry_t* expand_template_given_arguments(scope_entry_t* template_sym,
         type_t** argument_types, int num_arguments, 
         decl_context_t decl_context,
         const locus_t* locus,
@@ -201,20 +201,28 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
 {
     // We have to expand the template
     template_parameter_list_t* type_template_parameters 
-        = template_type_get_template_parameters(entry->type_information);
-    type_t* specialization_type = template_type_get_primary_type(entry->type_information);
-    scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
-    type_t* specialized_function_type = specialization_symbol->type_information;
+        = template_type_get_template_parameters(template_sym->type_information);
+    type_t* primary_type = template_type_get_primary_type(template_sym->type_information);
+    scope_entry_t* primary_symbol = named_type_get_symbol(primary_type);
+    type_t* specialized_function_type = primary_symbol->type_information;
 
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(specialized_function_type);
 
     template_parameter_list_t* argument_list = NULL;
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Attempting to deduce template arguments for '%s' (declared in '%s')\n",
+                print_decl_type_str(primary_symbol->type_information, primary_symbol->decl_context,
+                    get_qualified_symbol_name(primary_symbol, primary_symbol->decl_context)),
+                locus_to_str(primary_symbol->locus));
+    }
+
     if (deduce_template_arguments_from_function_call(
                 argument_types,
                 num_arguments,
-                specialization_type,
+                primary_type,
                 template_parameters,
                 type_template_parameters,
                 explicit_template_arguments,
@@ -223,12 +231,16 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
                 // out
                 &argument_list) == DEDUCTION_OK)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Deduction succeeded for '%s' (declared in '%s')\n",
+                    print_decl_type_str(primary_symbol->type_information, primary_symbol->decl_context,
+                        get_qualified_symbol_name(primary_symbol, primary_symbol->decl_context)),
+                    locus_to_str(primary_symbol->locus));
+        }
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
-        //
-        // FIXME - Instantiate default arguments here since they may fail
-        //
-        type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
+        type_t* named_specialization_type = template_type_get_specialized_type(template_sym->type_information,
                 argument_list, decl_context, locus);
         free_template_parameter_list(argument_list);
 
@@ -236,7 +248,10 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "EXPRTYPE: Got failure when coming up with a specialization\n");
+                fprintf(stderr, "EXPRTYPE: Substitution failed for '%s' (declared in '%s')\n",
+                        print_decl_type_str(primary_symbol->type_information, primary_symbol->decl_context,
+                            get_qualified_symbol_name(primary_symbol, primary_symbol->decl_context)),
+                        locus_to_str(primary_symbol->locus));
             }
             return NULL;
         }
@@ -245,10 +260,10 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "EXPRTYPE: Got specialization '%s' at '%s' with type '%s'\n", 
-                    specialized_symbol->symbol_name,
-                    locus_to_str(specialized_symbol->locus),
-                    print_declarator(specialized_symbol->type_information));
+            fprintf(stderr, "EXPRTYPE: Got specialization '%s' at '%s'\n", 
+                    print_decl_type_str(specialized_symbol->type_information, specialized_symbol->decl_context,
+                        get_qualified_symbol_name(specialized_symbol, specialized_symbol->decl_context)),
+                    locus_to_str(specialized_symbol->locus));
         }
 
         return specialized_symbol;
@@ -258,8 +273,9 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: Discarding symbol '%s' declared at '%s' as its arguments could not be deduced.\n",
-                    specialization_symbol->symbol_name,
-                    locus_to_str(specialization_symbol->locus));
+                    print_decl_type_str(primary_symbol->type_information, primary_symbol->decl_context,
+                        get_qualified_symbol_name(primary_symbol, primary_symbol->decl_context)),
+                    locus_to_str(primary_symbol->locus));
         }
     }
     return NULL;
