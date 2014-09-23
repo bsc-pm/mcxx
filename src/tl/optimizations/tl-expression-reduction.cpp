@@ -1119,7 +1119,7 @@ namespace Optimizations {
 
         //print_unitary_rhss();
 
-        walk(n.get_lhs());
+        walk(lhs);
 
         if (rhs.is_constant() && lhs.is_constant())
         {
@@ -1138,6 +1138,18 @@ namespace Optimizations {
             if (rhs.is_constant() && lhs.is_constant())
             {
                 n.replace(const_value_to_nodecl(const_value_sub(
+                                lhs.get_constant(), rhs.get_constant())));
+            }
+        }
+
+        if (n.is<Nodecl::Add>())
+        {
+            lhs = n.get_lhs().no_conv();
+            rhs = n.get_rhs().no_conv();
+
+            if (rhs.is_constant() && lhs.is_constant())
+            {
+                n.replace(const_value_to_nodecl(const_value_add(
                                 lhs.get_constant(), rhs.get_constant())));
             }
         }
@@ -1166,50 +1178,16 @@ namespace Optimizations {
         walk(lhs);
         walk(rhs);
 
-/*        
-        if (is_leaf_node(lhs))
-        {
-            TL::ObjectList<Nodecl::NodeclBase>::iterator it =
-                Nodecl::Utils::list_get_nodecl_by_structure(
-                        _unitary_rhss, lhs);
-
-            if (it != _unitary_rhss.end())
-            {
-                n.replace(rhs);
-                it->replace(const_value_to_nodecl(
-                            const_value_get_zero(1, 4)));
-                _unitary_rhss.erase(it);
-            }
-        }
-        else
-        {
-            walk(lhs);
-
-            if (is_leaf_node(rhs))
-            {
-                TL::ObjectList<Nodecl::NodeclBase>::iterator it =
-                    Nodecl::Utils::list_get_nodecl_by_structure(
-                            _unitary_rhss, rhs);
-
-                if (it != _unitary_rhss.end())
-                {
-                    n.replace(lhs);
-                    it->replace(const_value_to_nodecl(
-                                const_value_get_zero(1, 4)));
-                    _unitary_rhss.erase(it);
-                }
-            }
-            else
-            {
-                walk(rhs);
-            }
-        }
-*/
         if (rhs.is_constant() && lhs.is_constant())
         {
             n.replace(const_value_to_nodecl(const_value_add(
                         lhs.get_constant(), rhs.get_constant())));
         }
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Neg& n)
+    {
+        nullify_nodecl(n);
     }
 
     void UnitaryReductor::visit(const Nodecl::Minus& n)
@@ -1225,7 +1203,6 @@ namespace Optimizations {
             n.replace(const_value_to_nodecl(const_value_sub(
                         lhs.get_constant(), rhs.get_constant())));
         }
-
     }
 
     void UnitaryReductor::visit(const Nodecl::Mul& n)
@@ -1287,7 +1264,12 @@ namespace Optimizations {
                 it != rhs_result.end();
                 it++)
         {
-            result.append(Nodecl::Neg::make(*it, it->get_type()));
+            Nodecl::Neg neg_node = Nodecl::Neg::make(*it, it->get_type());
+            
+            if (it->is_constant())
+                neg_node.set_constant(it->get_constant());
+
+            result.append(neg_node);
         }
 
         return result;
@@ -1302,7 +1284,12 @@ namespace Optimizations {
                 it != rhs_result.end();
                 it++)
         {
-            result.append(Nodecl::Neg::make(*it, it->get_type()));
+            Nodecl::Neg neg_node = Nodecl::Neg::make(*it, it->get_type());
+            
+            if (it->is_constant())
+                neg_node.set_constant(it->get_constant());
+
+            result.append(neg_node);
         }
 
         return result;
