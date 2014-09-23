@@ -180,12 +180,12 @@ namespace Analysis {
 
     Nodecl::NodeclBase Edge::get_condition()
     {
-        ERROR_CONDITION(!_source->is_omp_task_node() || 
-                         (!_target->is_omp_task_node() && _target->is_omp_taskwait_node() && _target->is_omp_barrier_node()), 
-                         "Only edges between two tasks can have a condition, related with the dependency clauses" 
-                         "Edge between %d and %d does not fulfill this condition", _source->get_id(), _target->get_id());
+        ERROR_CONDITION(!_source->is_omp_task_node()
+                            || (!_target->is_omp_task_node() && !_target->is_omp_taskwait_node() && !_target->is_omp_barrier_node()),
+                        "Only edges between tasks and synchronization points (tasks, taskwaits or barriers) can have a condition."
+                        "Edge between %d and %d does not fulfill.\n", _source->get_id(), _target->get_id());
         Nodecl::NodeclBase cond;
-        if(has_key(_CONDITION))
+        if (has_key(_CONDITION))
             cond = get_data<Nodecl::NodeclBase>(_CONDITION);
         return cond;
     }
