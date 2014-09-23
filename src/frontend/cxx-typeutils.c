@@ -9559,7 +9559,9 @@ const char* get_declaration_string_ex(type_t* type_info,
 
     while (is_indirect_type(type_info)
             // Advance indirects unless they refer to existing typedefs
-            && type_info->type->user_defined_type->kind != SK_TYPEDEF)
+            // or template-aliases
+            && type_info->type->user_defined_type->kind != SK_TYPEDEF
+            && type_info->type->user_defined_type->kind != SK_TEMPLATE_ALIAS)
     {
         type_info = type_info->type->user_defined_type->type_information;
     }
@@ -10243,6 +10245,13 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
                         locus_to_str(user_defined_type->locus));
                 break;
             }
+        case SK_TEMPLATE_ALIAS :
+            {
+                snprintf(user_defined_str, MAX_LENGTH, "template-alias %s {%s}", 
+                        get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
+                        locus_to_str(user_defined_type->locus));
+                break;
+            }
         case SK_TYPEDEF :
         case SK_VARIABLE :
         case SK_FUNCTION :
@@ -10305,7 +10314,6 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
         case SK_TEMPLATE :
             snprintf(user_defined_str, MAX_LENGTH, "<template-name '%s'>", 
                     user_defined_type->symbol_name);
-            break;
             break;
         case SK_GCC_BUILTIN_TYPE :
             snprintf(user_defined_str, MAX_LENGTH, "__builtin_va_list");

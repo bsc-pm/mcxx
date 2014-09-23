@@ -5751,7 +5751,10 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && entry->type_information != NULL
             && is_template_specialized_type(entry->type_information)
             && template_specialized_type_get_template_arguments(entry->type_information) != NULL
-            && !entry->entity_specs.is_conversion)
+            && (entry->kind == SK_CLASS
+                || (entry->kind == SK_FUNCTION
+                    && !entry->entity_specs.is_conversion)
+                || entry->kind == SK_TEMPLATE_ALIAS))
     {
         current_has_template_parameters = 1;
 
