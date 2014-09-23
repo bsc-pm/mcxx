@@ -42,8 +42,8 @@ namespace Analysis {
     typedef ObjectList<TDG_Edge*> TDG_Edge_list;
     typedef ObjectList<Node*> Node_list;
     typedef ObjectList<Edge*> Edge_list;
-    
-    static int id = 0;
+
+    static int node_id = 0;
     static int control_id = 0;
     
 namespace{
@@ -418,22 +418,32 @@ namespace {
                     ordered_vars, last_var_id);
     }
     
+    /*! This class gathers information of the variables in a dependency condition
+     * in order to translate it into its JSON form */
     struct ConditionVisitor : public Nodecl::NodeclVisitor<std::string> 
     {
         // *** Class members *** //
         TDG_Edge* _edge;
         int _id;
-        VarToValueMap _var_to_value_map;
+        VarToValueMap _source_var_to_value_map;
+        VarToValueMap _target_var_to_value_map;
         NBase _dependecy_size;
         
         // *** Constructor *** //
         ConditionVisitor(TDG_Edge* edge)
-            : _edge(edge), _id(0), _var_to_value_map(), _dependecy_size(NBase::null())
+            : _edge(edge), _id(0),
+              _source_var_to_value_map(), _target_var_to_value_map(),
+              _dependecy_size(NBase::null())
         {}
         
-        VarToValueMap get_var_to_value_map() const
+        VarToValueMap get_source_var_to_value_map() const
         {
-            return _var_to_value_map;
+            return _source_var_to_value_map;
+        }
+
+        VarToValueMap get_target_var_to_value_map() const
+        {
+            return _target_var_to_value_map;
         }
         
         NBase get_dependency_size() const
@@ -441,78 +451,67 @@ namespace {
             return _dependecy_size;
         }
         
-        void collect_condition_info(int pcfg_node_id, NodeclMap reach_defs, const NBase& condition)
+        void collect_condition_info(Node* n, const NBase& cond_expr, bool is_source)
         {
-            // Get all the variables involved in the condition
-            NodeclList tmp = Nodecl::Utils::get_all_memory_accesses(condition);
+            // 1.- Get all the variables involved in cond_expr
+            NodeclList tmp = Nodecl::Utils::get_all_memory_accesses(cond_expr);
             std::queue<NBase, std::deque<NBase> > vars(std::deque<NBase>(tmp.begin(), tmp.end()));
-            NBase rd;
-            
+
+            // 2.- Get the reaching definitions to cond_expr
+            NodeclMap reach_defs = (is_source ? n->get_reaching_definitions_out() : n->get_reaching_definitions_in());
+
+            // 3.- For each variable involved in the condition, gather its values
             NodeclSet already_treated;
-            while(!vars.empty())
+            while (!vars.empty())
             {
-                NBase n = vars.front();         
+                // 3.1.- Get the current variable
+                NBase v = vars.front();
                 vars.pop();
-                ERROR_CONDITION(reach_defs.find(n)==reach_defs.end(),
-                                "No reaching definition arrives from node %d for variable '%s' in condition part '%s'.\n", 
-                                pcfg_node_id, n.prettyprint().c_str(), condition.prettyprint().c_str());
-                if(already_treated.find(n) == already_treated.end())
-                    already_treated.insert(n);
-                
-                NBase values;
+
+                // 3.2.- Make sure we have some value for the variable
+                ERROR_CONDITION(reach_defs.find(v) == reach_defs.end(),
+                                "No reaching definition arrives from node %d for variable '%s' in condition's %s expression '%s'.\n",
+                                n->get_id(), v.prettyprint().c_str(), (is_source ? "LHS" : "RHS"), cond_expr.prettyprint().c_str());
+
+                // 3.3.- Store the variable so we do not treat it again (to avoid recursive definitions)
+                if (already_treated.find(v) == already_treated.end())
+                    already_treated.insert(v);
+
+                // 3.4.- Get all the reaching definitions associated with the current variable
+                //       Add all the symbols involved in the reaching definition that has not yet been treated
+                //       Note: this will not work when a RD uses a variable that is used in cond_expr (or in a recursively previous RD)
+                //       and the definitions arriving for the variable are different in each point
+                NBase values, rd;
                 NodeclSet to_treat;
-                if(reach_defs.find(n)!=reach_defs.end())
+                std::pair<NodeclMap::iterator, NodeclMap::iterator> reach_defs_map = reach_defs.equal_range(v);
+                for (NodeclMap::iterator it = reach_defs_map.first; it != reach_defs_map.second; ++it)
                 {
-                    // Get all the reaching definitions associated with the current variable
-                    std::pair<NodeclMap::iterator, NodeclMap::iterator> reach_defs_map = reach_defs.equal_range(n);
-                    NodeclMap::iterator it = reach_defs_map.first;
-                    
                     // Add the first reaching definition as a value for the current variable
                     rd = it->second.first;
-                    values = rd;
-                    
+                    if (values.is_null())
+                        values = rd;
+                    else
+                        values = Nodecl::LogicalOr::make(values.shallow_copy(), rd.shallow_copy(), rd.get_type());
+
                     // Add all the symbols involved in the reaching definition that has not yet been treated
-                    // Note: this will not work when a RD uses a variable that is used in the condition (or in a recursively previous RD)
-                    // and the definitions arriving for the variable are different in each point
                     tmp = Nodecl::Utils::get_all_memory_accesses(rd);
-                    for(NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
+                    for (NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
                     {
                         NBase var = *itt;
-                        if ((already_treated.find(var) == already_treated.end()) && 
-                            (to_treat.find(var) == to_treat.end()))
+                        if ((already_treated.find(var) == already_treated.end())
+                                && (to_treat.find(var) == to_treat.end()))
                         {
                             vars.push(var);
                             to_treat.insert(var);
                         }
                     }
-                    
-                    // Keep iterating the rest of reaching definitions, if there are
-                    ++it;
-                    for(; it != reach_defs_map.second; ++it)
-                    {
-                        // Add the first reaching definition as a value for the current variable
-                        rd = it->second.first;
-                        values = Nodecl::LogicalOr::make(values.shallow_copy(), rd.shallow_copy(), rd.get_type());
-                        
-                        // Add all the symbols involved in the reaching definition that has not yet been treated
-                        tmp = Nodecl::Utils::get_all_memory_accesses(rd);
-                        for(NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
-                        {
-                            NBase var = *itt;
-                            if ((already_treated.find(var) == already_treated.end()) && 
-                                (to_treat.find(var) == to_treat.end()))
-                            {
-                                vars.push(var);
-                                to_treat.insert(var);
-                            }
-                        }
-                    }
                 }
-                else
-                    values = n.shallow_copy();
-                
+
                 // Store the reaching definition related with the identifier of the variable defined
-                _var_to_value_map[n] = values.prettyprint();
+                if (is_source)
+                    _source_var_to_value_map[v] = values.prettyprint();
+                else
+                    _target_var_to_value_map[v] = values.prettyprint();
             }
         }
         
@@ -564,7 +563,7 @@ namespace {
             
             // Transform the variables of the inequality into its corresponding identifiers
             Node* source = _edge->get_source()->get_pcfg_node();
-            collect_condition_info(source->get_id(), source->get_reaching_definitions_out(), lhs);
+            collect_condition_info(source, lhs, /*is_source*/true);
             return (lhs.prettyprint() + " != ∅");
         }
         
@@ -583,11 +582,11 @@ namespace {
             else
                 _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, lhs.get_type());
             
-            // Transform the variables of the equality into its corresponding identifiers
+            // Recursively call with the LHS and RHS of the condition
             Node* source = _edge->get_source()->get_pcfg_node();
-            collect_condition_info(source->get_id(), source->get_reaching_definitions_out(), lhs);
+            collect_condition_info(source, lhs, /*is_source*/true);
             Node* target = _edge->get_target()->get_pcfg_node();
-            collect_condition_info(target->get_id(), target->get_reaching_definitions_in(), rhs);
+            collect_condition_info(target, rhs, /*is_source*/false);
             return (lhs.prettyprint() + " == " + rhs.prettyprint());
         }
         
@@ -606,49 +605,71 @@ namespace {
         }
     };
     
+    static void replace_vars_with_ids(
+            const VarToValueMap& var_to_values_map,
+            VarToIdMap& var_to_id_map,
+            std::string& cond,
+            unsigned int& id,
+            bool is_source)
+    {
+        for (VarToValueMap::const_iterator it = var_to_values_map.begin(); it != var_to_values_map.end(); ++it)
+        {
+            std::string var = it->first.prettyprint();
+            std::stringstream ss; ss << "$" << id;
+
+            size_t init = cond.find(var, 0);
+            // Replace the variables with their id
+            while (init != std::string::npos)
+            {
+                // check whether this occurrence belongs to the LHS or the RHS of the condition
+                size_t tmp_and = cond.find("&&", init);
+                size_t tmp_eq = cond.find("==", init);
+                if ((is_source && (tmp_eq < tmp_and))
+                        || (!is_source && ((tmp_and < tmp_eq) || (tmp_and == std::string::npos))))
+                {   // It is a LHS occurrence => replace
+                    cond.replace(init, var.size(), ss.str());
+                }
+                // prepare the next iteration
+                init = cond.find(var, tmp_and);
+            }
+
+            var_to_id_map[it->first] = id;
+
+            // Identifier must always be incremented because
+            // it defined the order in which the variables will be printed in the JSON
+            ++id;
+        }
+    }
+
     // This method returns a string corresponding to the prettyprinted version of a nodecl
     // where each symbol occurrence is replaced by a $id
     // Example:
     //     The expression :         'i == j'
     //     Will return the string:  '$1 == $2'
-    // FIXME This replacement does not take into account that input values of the variables
-    // may be different in the source and the target of the edge
-    std::string transform_edge_condition_into_json_expr(TDG_Edge* edge, const NBase& condition, 
-                                                        VarToValueMap& var_to_values_map,
-                                                        NBase& dependency_size)
+    std::string transform_edge_condition_into_json_expr(
+            TDG_Edge* edge,
+            const NBase& condition,
+            VarToValueMap& source_var_to_values_map,
+            VarToValueMap& target_var_to_values_map,
+            VarToIdMap& source_var_to_id_map,
+            VarToIdMap& target_var_to_id_map,
+            NBase& dependency_size)
     {
         ConditionVisitor cv(edge);
         // Traverse the condition to store information necessary for the transformation
-        std::string result = cv.walk(condition);
-        
+        std::string condition_str = cv.walk(condition);
+
         // Set the output parameters
-        var_to_values_map = cv.get_var_to_value_map();
+        source_var_to_values_map = cv.get_source_var_to_value_map();
+        target_var_to_values_map = cv.get_target_var_to_value_map();
         dependency_size = cv.get_dependency_size();
+
+        // LHS and RHS variables must be treated separately
+        unsigned int id = 1;
+        replace_vars_with_ids(source_var_to_values_map, source_var_to_id_map, condition_str, id, /*is_source*/true);
+        replace_vars_with_ids(target_var_to_values_map, target_var_to_id_map, condition_str, id, /*is_source*/false);
         
-        // Replace the variables' occurrences with variables ids
-        std::map<std::string, int> symbol_position_map;
-        unsigned int id = 0;
-        for(VarToValueMap::iterator it = var_to_values_map.begin(); it != var_to_values_map.end(); ++it)
-        {
-            std::string var = it->first.prettyprint();
-            // Find the position to be replaced initializing to 0 if it is the first occurrence
-            if(symbol_position_map.find(var) == symbol_position_map.end())
-                symbol_position_map[var] = 0;
-            size_t pos = result.find(var, symbol_position_map[var]);
-            while(pos != std::string::npos)
-            {
-                // Replace it    
-                std::stringstream ss; ss << "$" << id;
-                result.replace(pos, var.size(), ss.str());
-                // Modify the base position
-                symbol_position_map[var] = pos + ss.str().size() - 1;
-                // Prepare next iteration
-                pos = result.find(var, symbol_position_map[var]);
-            }
-            ++id;
-        }
-        
-        return result;
+        return condition_str;
     }
 }
 
@@ -712,7 +733,7 @@ namespace {
     // ************** Task Dependency Graph Edges and Nodes ************** //
     
     TDG_Node::TDG_Node(Node* n, TDGNodeType type)
-        : _id(++id), _pcfg_node(n), _type(type), _entries(), _exits(), _control_structures()
+        : _id(++node_id), _pcfg_node(n), _type(type), _entries(), _exits(), _control_structures()
     {}
     
     unsigned int TDG_Node::get_id() const
@@ -1009,59 +1030,61 @@ namespace {
     
     void TaskDependencyGraph::connect_tdg_nodes_from_pcfg(Node* current)
     {
-        if(!current->is_visited())
+        if (!current->is_visited())
         {
             current->set_visited(true);
             
-            if(current->is_omp_task_node())
+            if (current->is_omp_task_node())
             {
                 // Connect all tasks synchronized here with the new Taskwait/Barrier TDG_Node
                 TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(current);
-                Edge_list sync_exits = current->get_exit_edges();
-                for(Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
+                const Edge_list& sync_exits = current->get_exit_edges();
+                for (Edge_list::const_iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
                 {
                     Node* child = (*it)->get_target();
-                    if(child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
+                    if (child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_label(), (*it)->get_condition());
-                        store_condition_list_of_symbols((*it)->get_condition(), current->get_reaching_definitions_out());
+                        const NBase& cond = (*it)->get_condition();
+                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_label(), cond);
+                        store_condition_list_of_symbols(cond, current->get_reaching_definitions_out());
                     }
                 }
             }
-            else if(current->is_omp_taskwait_node() || current->is_omp_barrier_graph_node())
+            else if (current->is_omp_taskwait_node() || current->is_omp_barrier_graph_node())
             {
                 TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(current);
                 // Look for the real node to whom the current synchronization is connected
                 Edge_list sync_exits = current->get_exit_edges();
-                while(sync_exits.size()==1 && 
+                while (sync_exits.size()==1 &&
                       (sync_exits[0]->get_target()->is_omp_flush_node() || sync_exits[0]->get_target()->is_exit_node()))
                 {
                     Node* child = sync_exits[0]->get_target();
-                    if(child->is_exit_node())
+                    if (child->is_exit_node())
                         sync_exits = child->get_outer_node()->get_exit_edges();
                     else
                         sync_exits = child->get_exit_edges();
                 }
                 // Connect the synchronization to the exit node if it is a task or another synchronization
-                for(Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
+                for (Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
                 {
                     Node* child = (*it)->get_target();
-                    if(child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
+                    if (child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_label(), (*it)->get_condition());
-                        store_condition_list_of_symbols((*it)->get_condition(), current->get_reaching_definitions_out());
+                        const NBase& cond = (*it)->get_condition();
+                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_label(), cond);
+                        store_condition_list_of_symbols(cond, current->get_reaching_definitions_out());
                     }
                 }
             }
             
-            if(current->is_graph_node())
+            if (current->is_graph_node())
                 connect_tdg_nodes_from_pcfg(current->get_graph_entry_node());
             
             // Iterate over the children
-            Node_list children = current->get_children();
-            for(Node_list::iterator it = children.begin(); it != children.end(); ++it)
+            const Node_list& children = current->get_children();
+            for (Node_list::const_iterator it = children.begin(); it != children.end(); ++it)
                 connect_tdg_nodes_from_pcfg(*it);
         }
     }
@@ -1125,7 +1148,7 @@ namespace {
             ControlStructure* cs = it->first;
             if(cs->get_type() != Implicit)
             {
-                dot_tdg << indent << "subgraph cluster_" << ++id << "{\n";
+                dot_tdg << indent << "subgraph cluster_" << ++node_id << "{\n";
                 indent += "\t";
                 dot_tdg << indent << "label=\"" << cs->get_condition().prettyprint() << "\";\n";
                 dot_tdg << indent << "color=\"" << (cs->get_type()==Loop ? "deeppink" : "deepskyblue1") << "\";\n";
@@ -1162,7 +1185,7 @@ namespace {
         }
         
         // print the node
-        dot_tdg << indent << current_id << " [label=\"" << task_label << "\"];\n";
+        dot_tdg << indent << current_id << " [label=\"[" << current_id << "] " << task_label << "\"];\n";
         
         
         // Close the subgraphs of the control structures
@@ -1281,6 +1304,8 @@ namespace {
                     }
                     else
                     {
+                        // If the task has some dependency with variables involved,
+                        // add here the values of those variables
                         json_tdg << "\"\n";
                     }
                     
@@ -1297,11 +1322,11 @@ namespace {
     
     void TaskDependencyGraph::print_tdg_syms_to_json(std::ofstream& json_tdg)
     {
-        if(!_syms.empty())
+        if (!_syms.empty())
         {
             json_tdg << "\t\t\"variables\" : [\n";
             unsigned int i = 1;
-            for(std::map<NBase, unsigned int>::iterator it = _syms.begin(); it != _syms.end(); ++i)
+            for (std::map<NBase, unsigned int>::iterator it = _syms.begin(); it != _syms.end(); ++i)
             {
                 NBase n = it->first;
                 json_tdg << "\t\t\t{\n";
@@ -1311,7 +1336,7 @@ namespace {
                     json_tdg << "\t\t\t\t\"type\" : \"" << n.get_type().no_ref().get_declaration(n.retrieve_context(), /*no symbol name*/"") << "\"\n";
                 _syms[n] = i;
                 ++it;
-                if(it != _syms.end())
+                if (it != _syms.end())
                     json_tdg << "\t\t\t},\n";
                 else
                     json_tdg << "\t\t\t}\n";
@@ -1319,96 +1344,134 @@ namespace {
             json_tdg << "\t\t],\n" ;
         }
     }
+
+    static void replace_vars_values_with_ids(const VarToIdMap& var_to_id_map, std::string& value)
+    {
+        for (VarToIdMap::const_iterator it = var_to_id_map.begin(); it != var_to_id_map.end(); ++it)
+        {
+            std::string var_name = it->first.prettyprint();
+            std::stringstream ss; ss << "$" << it->second;
+            std::string id = ss.str();
+            size_t pos = value.find(var_name, 0);
+            while (pos != std::string::npos)
+            {
+                value.replace(pos, var_name.length(), id);
+                pos = value.find(var_name, pos);
+            }
+        }
+    }
     
-    // FIXME Try to homogenize printing condition from nodes and edges
-    void TaskDependencyGraph::print_condition(TDG_Edge* edge, ControlStructure* node_cs, 
-                                              std::ofstream& json_tdg, std::string indent, 
-                                              NBase& dependency_size) const
+    void TaskDependencyGraph::print_dependency_variables_to_json(
+            std::ofstream& json_tdg,
+            const VarToValueMap& var_to_value_map,
+            const VarToIdMap& var_to_id_map,
+            const NBase& condition,
+            std::string indent,
+            bool is_source) const
+    {
+        for (VarToValueMap::const_iterator it = var_to_value_map.begin(); it != var_to_value_map.end(); )
+        {
+            std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
+            ERROR_CONDITION(its == _syms.end(),
+                            "Variable %s, found in condition %s, "
+                            "has not been found during the phase of gathering the variables",
+                            it->first.prettyprint().c_str(), condition.prettyprint().c_str());
+            json_tdg << indent << "\t{\n";
+            json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
+            std::string value = it->second;
+            replace_vars_values_with_ids(var_to_id_map, value);
+            json_tdg << indent << "\t\t\"values\" : \""<< value << "\",\n";
+            json_tdg << indent << "\t\t\"side\" : \"" << (is_source ? "source" : "target") << "\"\n";
+            ++it;
+            if (it != var_to_value_map.end())
+                json_tdg << indent << "\t},\n";
+            else
+                json_tdg << indent << "\t}\n";
+        }
+    }
+
+    void TaskDependencyGraph::print_condition(
+            TDG_Edge* edge,
+            ControlStructure* node_cs,
+            std::ofstream& json_tdg,
+            std::string indent,
+            NBase& dependency_size) const
     {
         json_tdg << indent << "\"expression\" : ";
         assert(edge!=NULL || node_cs!=NULL);
-        if((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
-        {   
+        if ((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
+        {
             NBase condition;
-            VarToValueMap var_to_value_map;
-            ObjectList<NBase> ordered_vars;
-            if(node_cs != NULL)
+            // 1.- This condition belongs to a control structure
+            if (node_cs != NULL)
             {
                 // Get the condition
                 condition = node_cs->get_condition();
+                VarToValueMap var_to_value_map;
+                ObjectList<NBase> ordered_vars;
                 json_tdg << "\"" << transform_node_condition_into_json_expr(
                                             node_cs, condition, 
                                             var_to_value_map, ordered_vars) << "\",\n";
                 // Generate the list of involved variables
                 json_tdg << indent << "\"vars\" : [\n";
-                for(ObjectList<NBase>::iterator itt = ordered_vars.begin(); itt != ordered_vars.end(); )
+                for (ObjectList<NBase>::iterator itt = ordered_vars.begin(); itt != ordered_vars.end(); )
                 {
                     VarToValueMap::iterator it = var_to_value_map.find(*itt);
                     std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
-                    if(its == _syms.end())
-                    {
-                        internal_error ("Variable %s, found in condition %s, "
-                                        "has not been found during the phase of gathering the variables", 
-                                        it->first.prettyprint().c_str(), condition.prettyprint().c_str());
-                    }
+                    ERROR_CONDITION(its == _syms.end(),
+                                    "Variable %s, found in condition %s, "
+                                    "has not been found during the phase of gathering the variables",
+                                    it->first.prettyprint().c_str(), condition.prettyprint().c_str());
                     json_tdg << indent << "\t{\n";
                         json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
                         json_tdg << indent << "\t\t\"values\" : \""<< it->second << "\"\n";
                     ++itt;
-                    if(itt != ordered_vars.end())
+                    if (itt != ordered_vars.end())
                         json_tdg << indent << "\t},\n";
                     else
                         json_tdg << indent << "\t}\n";
                 }
             }
+            // 2.- This condition belongs to a dependency expression
             else
             {
                 // Get the condition
                 condition = edge->_condition;
-                json_tdg << "\"" << transform_edge_condition_into_json_expr(
-                                            edge, condition, 
-                                            var_to_value_map, dependency_size) << "\",\n";
+                VarToValueMap source_var_to_value_map, target_var_to_value_map;
+                VarToIdMap source_var_to_id_map, target_var_to_id_map;
+                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition,
+                                            source_var_to_value_map, target_var_to_value_map,
+                                            source_var_to_id_map, target_var_to_id_map,
+                                            dependency_size) << "\",\n";
                 // Generate the list of involved variables
                 json_tdg << indent << "\"vars\" : [\n";
-                for(VarToValueMap::iterator it = var_to_value_map.begin(); it != var_to_value_map.end(); )
-                {
-                    std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
-                    if(its == _syms.end())
-                    {
-                        internal_error ("Variable %s, found in condition %s, "
-                                        "has not been found during the phase of gathering the variables", 
-                                        it->first.prettyprint().c_str(), condition.prettyprint().c_str());
-                    }
-                    json_tdg << indent << "\t{\n";
-                        json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
-                        json_tdg << indent << "\t\t\"values\" : \""<< it->second << "\"\n";
-                    ++it;
-                    if(it != var_to_value_map.end())
-                        json_tdg << indent << "\t},\n";
-                    else
-                        json_tdg << indent << "\t}\n";
-                }
+                print_dependency_variables_to_json(json_tdg, source_var_to_value_map, source_var_to_id_map,
+                                                   condition, indent, /*is_source*/true);
+                print_dependency_variables_to_json(json_tdg, target_var_to_value_map, target_var_to_id_map,
+                                                   condition, indent, /*is_source*/false);
             }
             
             json_tdg << indent << "]\n";
         }
-        else    // There is no condition => TRUE
+        else
+        {   // There is no condition => TRUE
             json_tdg << "true\n";
+        }
     }
-    
+
     void TaskDependencyGraph::print_tdg_nodes_to_json(std::ofstream& json_tdg) const
     {
         json_tdg << "\t\t\"nodes\" : [\n";
-        for(TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); )
+        for (TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); )
         {
             TDG_Node* n = it->second;
             json_tdg << "\t\t\t{\n";
                 
             // node identifier
-                json_tdg << "\t\t\t\t\"id\" : " << n->_id << ",\n";
+            json_tdg << "\t\t\t\t\"id\" : " << n->_id << ",\n";
                 
             // node locus and type
-            if(n->_type == Task) 
+            if (n->_type == Task)
             {
                 json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_graph_related_ast().get_locus_str() << "\",\n";
                 json_tdg << "\t\t\t\t\"type\" : \"Task\"";
@@ -1416,46 +1479,41 @@ namespace {
             else
             {
                 json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_statements()[0].get_locus_str() << "\",\n";
-                if(n->_type == Taskwait)
-                    json_tdg << "\t\t\t\t\"type\" : \"Taskwait\"";
-                else
-                    json_tdg << "\t\t\t\t\"type\" : \"Barrier\"";
+                json_tdg << "\t\t\t\t\"type\" : \"" << ((n->_type == Taskwait) ? "Taskwait" : "Barrier") << "\"";
             }
             
             // node control structures
             ControlStList control_structures = n->get_control_structures();
             json_tdg << ",\n";
             json_tdg << "\t\t\t\t\"control\" : [\n";
+            for (ControlStList::iterator itt = control_structures.begin(); itt != control_structures.end(); )
             {
-                for(ControlStList::iterator itt = control_structures.begin(); itt != control_structures.end(); )
+                json_tdg << "\t\t\t\t\t{\n";
+                json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->first->get_id();
+                if (itt->first->get_type() == IfElse)
                 {
-                    json_tdg << "\t\t\t\t\t{\n";
-                    json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->first->get_id();
-                    if(itt->first->get_type() == IfElse)
-                    {
-                        json_tdg << ",\n";
-                        json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << get_list_as_string(itt->second) << "]\n";
-                    }
-                    else if(itt->first->get_type() == Switch)
-                    {
-                        json_tdg << ",\n";
-                        json_tdg << "\t\t\t\t\t\t\"branch_cond\" : [" << get_list_as_string(itt->second) << "]\n";
-                    }
-                    else
-                    {
-                        json_tdg << "\n";
-                    }
-                    ++itt;
-                    if(itt != control_structures.end())
-                        json_tdg << "\t\t\t\t\t},\n";
-                    else
-                        json_tdg << "\t\t\t\t\t}\n";
+                    json_tdg << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << get_list_as_string(itt->second) << "]\n";
                 }
+                else if (itt->first->get_type() == Switch)
+                {
+                    json_tdg << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"branch_cond\" : [" << get_list_as_string(itt->second) << "]\n";
+                }
+                else
+                {
+                    json_tdg << "\n";
+                }
+                ++itt;
+                if (itt != control_structures.end())
+                    json_tdg << "\t\t\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t\t\t}\n";
             }
             json_tdg << "\t\t\t\t]\n";
             
             ++it;
-            if(it != _tdg_nodes.end())
+            if (it != _tdg_nodes.end())
                 json_tdg << "\t\t\t},\n";
             else
                 json_tdg << "\t\t\t}\n";

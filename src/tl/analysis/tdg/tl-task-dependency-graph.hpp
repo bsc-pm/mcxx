@@ -168,11 +168,21 @@ namespace Analysis {
         void create_tdg(Node* current);
         
         void print_tdg_node_to_dot(TDG_Node* current, std::ofstream& dot_tdg) const;
-        void print_condition(TDG_Edge* edge, ControlStructure* node_cs, 
-                             std::ofstream& json_tdg, std::string indent, 
-                             Nodecl::NodeclBase& dependency_size) const;
+        void print_condition(
+                TDG_Edge* edge,
+                ControlStructure* node_cs,
+                std::ofstream& json_tdg,
+                std::string indent,
+                Nodecl::NodeclBase& dependency_size) const;
         void print_tdg_control_structs_to_json(std::ofstream& json_tdg) const;
         void print_tdg_syms_to_json(std::ofstream& json_tdg);
+        void print_dependency_variables_to_json(
+            std::ofstream& json_tdg,
+            const VarToValueMap& var_to_value_map,
+            const VarToIdMap& var_to_id_map,
+            const NBase& condition,
+            std::string indent,
+            bool is_source) const;
         void print_tdg_nodes_to_json(std::ofstream& json_tdg) const;
         void print_tdg_edges_to_json(std::ofstream& json_tdg) const;
         
