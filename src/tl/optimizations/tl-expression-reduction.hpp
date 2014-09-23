@@ -164,7 +164,6 @@ namespace Optimizations {
             Ret unhandled_node(const Nodecl::NodeclBase& n);
             Ret visit(const Nodecl::Conversion& n);
             Ret visit(const Nodecl::Add& n);
-            Ret visit(const Nodecl::Minus& n);
             Ret visit(const Nodecl::Neg& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::IntegerLiteral& n);
@@ -182,7 +181,6 @@ namespace Optimizations {
             Ret visit(const Nodecl::Conversion& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::Add& n);
-            Ret visit(const Nodecl::Minus& n);
             Ret visit(const Nodecl::Neg& n);
             Ret visit(const Nodecl::Mul& n);
             Ret visit(const Nodecl::Div& n);
@@ -190,7 +188,14 @@ namespace Optimizations {
             Ret visit(const Nodecl::IntegerLiteral& n);
     };
 
+    class MinusRemover : public Nodecl::ExhaustiveVisitor<void>
+    {
+        public:
+            MinusRemover();
 
+            Ret visit(const Nodecl::Minus& n);
+            Ret visit(const Nodecl::Neg& n);
+    };
 }
 }
 

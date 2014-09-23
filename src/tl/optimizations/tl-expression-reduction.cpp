@@ -1114,6 +1114,10 @@ namespace Optimizations {
         Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
         Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
 
+        MinusRemover minus_remover;
+        minus_remover.walk(lhs);
+        minus_remover.walk(rhs);
+
         UnitaryDecomposer decomp;
         _unitary_rhss = decomp.walk(rhs);
 
@@ -1190,21 +1194,6 @@ namespace Optimizations {
         nullify_nodecl(n);
     }
 
-    void UnitaryReductor::visit(const Nodecl::Minus& n)
-    {
-        Nodecl::NodeclBase lhs = n.get_lhs();
-        Nodecl::NodeclBase rhs = n.get_rhs();
-
-        walk(lhs);
-        walk(rhs);
-
-        if (rhs.is_constant() && lhs.is_constant())
-        {
-            n.replace(const_value_to_nodecl(const_value_sub(
-                        lhs.get_constant(), rhs.get_constant())));
-        }
-    }
-
     void UnitaryReductor::visit(const Nodecl::Mul& n)
     {
         nullify_nodecl(n);
@@ -1255,77 +1244,44 @@ namespace Optimizations {
         return walk(n.get_lhs()).append(walk(n.get_rhs()));
     }
 
-    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Minus& n)
-    {
-        UnitaryDecomposer::Ret result = walk(n.get_lhs());
-        UnitaryDecomposer::Ret rhs_result = walk(n.get_rhs());
-
-        for(UnitaryDecomposer::Ret::iterator it = rhs_result.begin();
-                it != rhs_result.end();
-                it++)
-        {
-            Nodecl::Neg neg_node = Nodecl::Neg::make(*it, it->get_type());
-            
-            if (it->is_constant())
-                neg_node.set_constant(it->get_constant());
-
-            result.append(neg_node);
-        }
-
-        return result;
-    }
-
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Neg& n)
     {
         UnitaryDecomposer::Ret result;
-        UnitaryDecomposer::Ret rhs_result = walk(n.get_rhs());
-
-        for(UnitaryDecomposer::Ret::iterator it = rhs_result.begin();
-                it != rhs_result.end();
-                it++)
-        {
-            Nodecl::Neg neg_node = Nodecl::Neg::make(*it, it->get_type());
-            
-            if (it->is_constant())
-                neg_node.set_constant(it->get_constant());
-
-            result.append(neg_node);
-        }
-
+        result.append(n);
         return result;
     }
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Mul& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> result;
+        UnitaryDecomposer::Ret result;
         result.append(n);
         return result;
     }
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Div& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> result;
+        UnitaryDecomposer::Ret result;
         result.append(n);
         return result;
     }
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Mod& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> result;
+        UnitaryDecomposer::Ret result;
         result.append(n);
         return result;
     }
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Symbol& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> result;
+        UnitaryDecomposer::Ret result;
         result.append(n);
         return result;
     }
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::IntegerLiteral& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> result;
+        UnitaryDecomposer::Ret result;
         result.append(n);
         return result;
     }
@@ -1339,6 +1295,60 @@ namespace Optimizations {
  
         return Ret();
     }
- 
+
+    MinusRemover::MinusRemover()
+    {
+    }
+
+    MinusRemover::Ret MinusRemover::visit(const Nodecl::Minus& n)
+    {
+        // turn -(a + b - c) into -a + -b - -c
+
+        Nodecl::NodeclBase rhs = n.get_rhs();
+
+        Nodecl::Neg rhs_neg = Nodecl::Neg::make(
+                rhs,
+                n.get_type(),
+                n.get_locus());
+
+        if (rhs.is_constant())
+        {
+            rhs_neg.set_constant(rhs.get_constant());
+        }
+
+        Nodecl::Add add = Nodecl::Add::make(
+                n.get_lhs(),
+                rhs_neg,
+                n.get_type(),
+                n.get_locus());
+
+        n.replace(add);
+
+        walk(n);
+    }
+
+    MinusRemover::Ret MinusRemover::visit(const Nodecl::Neg& n)
+    {
+        UnitaryDecomposer decomp;
+        UnitaryDecomposer::Ret rhs_decomp = decomp.walk(n.get_rhs());
+
+        // turn -(a + b - c) into -a + -b - -c
+        for(UnitaryDecomposer::Ret::iterator it = rhs_decomp.begin();
+                it != rhs_decomp.end();
+                it++)
+        {
+            Nodecl::Neg neg_node = Nodecl::Neg::make(
+                    it->shallow_copy(), it->get_type());
+            
+            if (it->is_constant())
+                neg_node.set_constant(
+                        const_value_neg(it->get_constant()));
+
+            it->replace(neg_node);
+        }
+    
+        // Remove enclosing Neg
+        n.replace(n.get_rhs());
+    }
 }
 }
