@@ -190,6 +190,8 @@ void build_scope_friend_class_declaration(
         decl_context_t decl_context,
         const locus_t* locus);
 
+void register_symbol_this_in_class_scope(scope_entry_t* class_entry);
+
 // Only to be called from cxx-exprtype.c
 char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         char diagnose,

@@ -207,6 +207,10 @@ nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_contex
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 
+nodecl_t instantiate_expression_non_executable(nodecl_t nodecl_expr, decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index);
+
 nodecl_t update_cxx_dep_qualified_name(nodecl_t cxx_dep_name,
         decl_context_t new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,

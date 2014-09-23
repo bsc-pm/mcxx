@@ -4169,7 +4169,7 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         nodecl_t nodecl_expr = typeof_expr_type_get_expression(orig_type);
 
-        nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context,
+        nodecl_t nodecl_new_expr = instantiate_expression_non_executable(nodecl_expr, decl_context,
                 instantiation_symbol_map, /* pack_index */ -1);
 
         if (nodecl_is_err_expr(nodecl_new_expr))
@@ -4178,7 +4178,10 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else if (nodecl_expr_is_type_dependent(nodecl_new_expr))
         {
-            return orig_type;
+            return get_typeof_expr_dependent_type(nodecl_new_expr,
+                    decl_context,
+                    typeof_expr_type_is_decltype(orig_type),
+                    typeof_expr_type_is_removed_reference(orig_type));
         }
         else
         {
@@ -4337,7 +4340,7 @@ static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
 
         if (strcmp(gcc_attributes[i].attribute_name, "aligned") == 0)
         {
-            nodecl_t aligned_attribute = instantiate_expression(
+            nodecl_t aligned_attribute = instantiate_expression_non_executable(
                     nodecl_list_head(new_gcc_attr.expression_list),
                     context_of_being_instantiated,
                     instantiation_symbol_map, /* pack_index */ -1);

@@ -470,7 +470,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
 static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void resolve_this_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static scope_entry_t* resolve_this_symbol(decl_context_t decl_context);
 
 // Typechecking functions
 static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -535,6 +535,8 @@ static void compute_nodecl_braced_initializer(AST braced_initializer, decl_conte
 static void compute_nodecl_designated_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void resolve_this_symbol_nodecl(decl_context_t decl_context, const locus_t* locus, nodecl_t* nodecl_output);
+
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_mcc_debug_array_subscript(AST a,
@@ -587,6 +589,9 @@ void ensure_function_is_emitted(scope_entry_t* entry,
         decl_context_t decl_context,
         const locus_t* locus)
 {
+    if (check_expr_flags.is_non_executable)
+        return;
+
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
@@ -714,7 +719,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_THIS_VARIABLE :
             {
-                resolve_this_symbol(expression, decl_context, nodecl_output);
+                resolve_this_symbol_nodecl(decl_context, ast_get_locus(expression), nodecl_output);
                 break;
             }
         case AST_SYMBOL :
@@ -2284,7 +2289,7 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
                 /* sign */ 0));
 }
 
-static void resolve_this_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static scope_entry_t* resolve_this_symbol(decl_context_t decl_context)
 {
     scope_entry_t *this_symbol = NULL;
     if (decl_context.current_scope->kind == BLOCK_SCOPE)
@@ -2296,29 +2301,48 @@ static void resolve_this_symbol(AST expression, decl_context_t decl_context, nod
             this_symbol = entry_list_head(entry_list);
         }
         entry_list_free(entry_list);
+
+        if (this_symbol != NULL
+                || !check_expr_flags.is_non_executable)
+            return this_symbol;
     }
-    // We are not in block scope but lexically nested in a class scope, use the 'this' of the class
-    else if (decl_context.class_scope != NULL)
+
+    // - we are not in block scope but lexically nested in a class scope, use
+    // the 'this' of the class, or if no that
+    // - we are in block scope (nested in a class scope) but it does not have
+    // 'this' and we are in a non executable context
+    if (decl_context.class_scope != NULL)
     {
         scope_entry_t* class_symbol = decl_context.class_scope->related_entry;
         ERROR_CONDITION(class_symbol == NULL, "Invalid symbol", 0);
 
-        ERROR_CONDITION(class_symbol->entity_specs.num_related_symbols == 0
-                || class_symbol->entity_specs.related_symbols[0] == NULL,
-                "Invalid related symbol for class", 0);
-
-        this_symbol = class_symbol->entity_specs.related_symbols[0];
+        if (class_symbol->entity_specs.num_related_symbols != 0
+                && class_symbol->entity_specs.related_symbols[0] != NULL
+                && (strcmp(class_symbol->entity_specs.related_symbols[0]->symbol_name, "this") == 0))
+        {
+            this_symbol = class_symbol->entity_specs.related_symbols[0];
+        }
     }
+
+    return this_symbol;
+}
+
+
+static void resolve_this_symbol_nodecl(decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    scope_entry_t* this_symbol = resolve_this_symbol(decl_context);
 
     if (this_symbol == NULL)
     {
         error_printf("%s: error: 'this' cannot be used in this context\n",
-                ast_location(expression));
-        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                locus_to_str(locus));
+        *nodecl_output = nodecl_make_err_expr(locus);
     }
     else
     {
-        *nodecl_output = nodecl_make_symbol(this_symbol, ast_get_locus(expression));
+        *nodecl_output = nodecl_make_symbol(this_symbol, locus);
         // Note that 'this' is an rvalue!
         nodecl_set_type(*nodecl_output, this_symbol->type_information);
         if (is_dependent_type(this_symbol->type_information))
@@ -7168,12 +7192,10 @@ static void cxx_compute_name_from_entry_list(
             }
 
             type_t* this_type = NULL;
-            scope_entry_t* this_symbol = NULL;
 
-            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
-            if (this_symbol_list != NULL)
+            scope_entry_t* this_symbol = resolve_this_symbol(decl_context);
+            if (this_symbol != NULL)
             {
-                this_symbol =  entry_list_head(this_symbol_list);
                 // Construct (*this).x
                 this_type = pointer_type_get_pointee_type(this_symbol->type_information);
             }
@@ -7251,7 +7273,6 @@ static void cxx_compute_name_from_entry_list(
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                 return;
             }
-            entry_list_free(this_symbol_list);
         }
 
         if ((entry->decl_context.current_scope->related_entry == NULL ||
@@ -11484,14 +11505,7 @@ static void check_nodecl_function_call_cxx(
     }
     xfree(list);
 
-    scope_entry_list_t* this_query = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
-    scope_entry_t* this_symbol = NULL;
-
-    if (this_query != NULL)
-    {
-        this_symbol = entry_list_head(this_query);
-        entry_list_free(this_query);
-    }
+    scope_entry_t* this_symbol = resolve_this_symbol(decl_context);
 
     // Let's check the called entity
     // If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
@@ -13234,7 +13248,7 @@ static void check_noexcept_expression(AST expression, decl_context_t decl_contex
     AST noexcept_expr = ASTSon0(expression);
 
     nodecl_t nodecl_noexcept = nodecl_null();
-    check_expression_impl_(noexcept_expr, decl_context, &nodecl_noexcept);
+    check_expression_non_executable(noexcept_expr, decl_context, &nodecl_noexcept);
 
     check_nodecl_noexcept(nodecl_noexcept, nodecl_output);
 }
@@ -20555,6 +20569,7 @@ static const_value_t* evaluate_constexpr_constructor(
     if (function_may_be_instantiated(entry))
     {
         instantiate_template_function(entry, locus);
+        push_instantiated_entity(entry);
 
         nodecl_t nodecl_initializer_list = nodecl_null();
         if (!nodecl_is_null(entry->entity_specs.function_code))
@@ -20791,6 +20806,7 @@ static const_value_t* evaluate_constexpr_regular_function_call(
     if (function_may_be_instantiated(entry))
     {
         instantiate_template_function(entry, locus);
+        push_instantiated_entity(entry);
 
         entry->entity_specs.is_constexpr = check_constexpr_function(entry, entry->locus,
                 /* diagnose */ 0, /* emit_error */ 0);
@@ -21654,7 +21670,7 @@ nodecl_t cxx_nodecl_make_function_call(
                             = named_type_get_symbol(called_symbol->entity_specs.class_type)
                             ->entity_specs.instantiation_symbol_map;
                     }
-                    nodecl_t new_noexception = instantiate_expression(
+                    nodecl_t new_noexception = instantiate_expression_non_executable(
                             called_symbol->entity_specs.noexception,
                             called_symbol->decl_context,
                             instantiation_symbol_map, /* pack_index */ -1);
@@ -22228,6 +22244,22 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     return visitor->nodecl_result;
 }
 
+static nodecl_t instantiate_expr_walk_non_executable(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node)
+{
+    // Save the value of 'is_non_executable' of the last expression expression
+    char was_non_executable = check_expr_flags.is_non_executable;
+
+    // The current expression is non executable
+    check_expr_flags.is_non_executable = 1;
+
+    nodecl_t result = instantiate_expr_walk(visitor, node);
+
+    // Restore the right value
+    check_expr_flags.is_non_executable = was_non_executable;
+
+    return result;
+}
+
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, decl_context_t);
 
 nodecl_t instantiate_expression(
@@ -22250,6 +22282,29 @@ nodecl_t instantiate_expression(
     check_expr_flags.do_not_evaluate = do_not_evaluate;
 
     return n;
+}
+
+nodecl_t instantiate_expression_non_executable(
+        nodecl_t nodecl_expr, decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index)
+{
+    // Save the value of 'is_non_executable' of the last expression expression
+    char was_non_executable = check_expr_flags.is_non_executable;
+
+    // The current expression is non executable
+    check_expr_flags.is_non_executable = 1;
+
+    // Check_expression the current expression
+    nodecl_t nodecl = instantiate_expression(
+        nodecl_expr, decl_context,
+        instantiation_symbol_map,
+        pack_index);
+
+    // Restore the right value
+    check_expr_flags.is_non_executable = was_non_executable;
+
+    return nodecl;
 }
 
 static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor_t* v UNUSED_PARAMETER,
@@ -22647,6 +22702,13 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         // nullptr is special
         pointer_literal_type(nodecl_get_ast(node), v->decl_context, &result);
+    }
+    else if (sym->kind == SK_VARIABLE
+            && sym->symbol_name != NULL
+            && strcmp(sym->symbol_name, "this") == 0)
+    {
+        // 'this'
+        resolve_this_symbol_nodecl(v->decl_context, nodecl_get_locus(node), &result);
     }
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
@@ -23423,7 +23485,7 @@ static void instantiate_dep_alignof_expr(nodecl_instantiate_expr_visitor_t* v, n
 {
     nodecl_t dep_expr = nodecl_get_child(node, 0);
 
-    nodecl_t expr = instantiate_expr_walk(v, dep_expr);
+    nodecl_t expr = instantiate_expr_walk_non_executable(v, dep_expr);
 
     nodecl_t result = nodecl_null();
 
@@ -23512,7 +23574,7 @@ static void instantiate_offsetof(nodecl_instantiate_expr_visitor_t* v, nodecl_t 
 static void instantiate_noexcept(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t dep_expr = nodecl_get_child(node, 0);
-    nodecl_t expr = instantiate_expr_walk(v, dep_expr);
+    nodecl_t expr = instantiate_expr_walk_non_executable(v, dep_expr);
 
     check_nodecl_noexcept(expr, &v->nodecl_result);
 }

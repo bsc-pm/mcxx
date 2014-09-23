@@ -5655,16 +5655,26 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
                 && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER // ???
                 && !is_dependent_type(result->type_information)
                 && (result->kind == SK_CLASS
-                    || result->kind == SK_TYPEDEF))
+                    || result->kind == SK_TYPEDEF
+                    || result->kind == SK_TEMPLATE_ALIAS))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Base class '%s' IS NOT a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
 
+            if (!is_class_type(result->type_information))
+            {
+                error_printf("%s: error: name '%s' is not a class-name\n",
+                        ast_location(class_name),
+                        get_qualified_symbol_name(result, result->decl_context));
+                continue;
+            }
+
             scope_entry_t* base_class_symbol = result;
             // Update symbol because it might have been a typedef
-            if (base_class_symbol->kind == SK_TYPEDEF)
+            if (base_class_symbol->kind == SK_TYPEDEF
+                    || base_class_symbol->kind == SK_TEMPLATE_ALIAS)
             {
                 base_class_symbol = named_type_get_symbol(
                         advance_over_typedefs(base_class_symbol->type_information)
@@ -5734,7 +5744,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         }
         else
         {
-            error_printf("%s: error: invalid class name '%s'\n",
+            error_printf("%s: error: name '%s' is not a class-name\n",
                     ast_location(class_name),
                     prettyprint_in_buffer(class_name));
             continue;
@@ -6055,7 +6065,8 @@ void check_nodecl_member_initializer_list(
             continue;
         }
 
-        if (entry->kind == SK_TYPEDEF)
+        if (entry->kind == SK_TYPEDEF
+                || entry->kind == SK_TEMPLATE_ALIAS)
         {
             type_t* t = advance_over_typedefs(entry->type_information);
             if (is_named_class_type(t))
@@ -6691,6 +6702,36 @@ static void update_symbol_this(scope_entry_t* entry,
     entry_list_free(entry_list);
 
     this_symbol->type_information = this_type;
+}
+
+void register_symbol_this_in_class_scope(scope_entry_t* class_entry)
+{
+    ERROR_CONDITION(class_entry == NULL
+            || class_entry->kind != SK_CLASS, "Invalid class", 0);
+
+    decl_context_t inner_decl_context =
+        class_type_get_inner_context(class_entry->type_information);
+
+    // Create a 'this' only used for class-scope lexical scopes
+    type_t* pointed_this = get_user_defined_type(class_entry);
+    type_t* this_type = get_pointer_type(pointed_this);
+    this_type = get_cv_qualified_type(this_type, CV_CONST);
+
+    // This symbol must be detached because we do not want it be found
+    // through any sort of lookup. It will be accessible through
+    // the related_symbols of the class symbol
+    scope_entry_t* this_symbol = xcalloc(1, sizeof(*this_symbol));
+    this_symbol->symbol_name = UNIQUESTR_LITERAL("this");
+    this_symbol->decl_context = inner_decl_context;
+    this_symbol->locus = class_entry->locus;
+    this_symbol->kind = SK_VARIABLE;
+    this_symbol->type_information = this_type;
+    this_symbol->defined = 1;
+    this_symbol->do_not_print = 1;
+
+    P_LIST_ADD(class_entry->entity_specs.related_symbols,
+            class_entry->entity_specs.num_related_symbols,
+            this_symbol);
 }
 
 static void make_empty_body_for_default_function(
@@ -9848,27 +9889,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             injected_symbol->entity_specs.is_injected_class_name = 1;
         }
 
-
-        // Create a 'this' only used for class-scope lexical scopes
-        type_t* pointed_this = get_user_defined_type(class_entry);
-        type_t* this_type = get_pointer_type(pointed_this);
-        this_type = get_cv_qualified_type(this_type, CV_CONST);
-
-        // This symbol must be detached because we do not want it be found
-        // through any sort of lookup. It will be accessible throgh
-        // the related_symbols of the class symbol
-        scope_entry_t* this_symbol = xcalloc(1, sizeof(*this_symbol));
-        this_symbol->symbol_name = UNIQUESTR_LITERAL("this");
-        this_symbol->decl_context = inner_decl_context;
-        this_symbol->locus = ast_get_locus(a);
-        this_symbol->kind = SK_VARIABLE;
-        this_symbol->type_information = this_type;
-        this_symbol->defined = 1;
-        this_symbol->do_not_print = 1;
-
-        P_LIST_ADD(class_entry->entity_specs.related_symbols,
-                class_entry->entity_specs.num_related_symbols,
-                this_symbol);
+        register_symbol_this_in_class_scope(class_entry);
     }
 
     access_specifier_t current_access;
@@ -10168,14 +10189,12 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
         // Register 'this' for a successful parsing of the declarator
         if (prototype_context != NULL
-                && prototype_context->current_scope->kind == BLOCK_SCOPE)
+                && prototype_context->current_scope->kind == BLOCK_SCOPE
+                && entity_context.current_scope->kind == CLASS_SCOPE)
         {
-            if (entity_context.current_scope->kind == CLASS_SCOPE)
-            {
-                register_symbol_this(*prototype_context,
-                        entity_context.current_scope->related_entry,
-                        ast_get_locus(a));
-            }
+            register_symbol_this(*prototype_context,
+                    entity_context.current_scope->related_entry,
+                    ast_get_locus(a));
         }
 
         // Second traversal, here we build the type
@@ -15727,13 +15746,10 @@ static void build_scope_function_definition_body(
     AST statement = ASTSon0(function_body);
 
     // Here we update the type of 'this'
-    if (entry->entity_specs.is_member)
+    if (entry->entity_specs.is_member
+            && !entry->entity_specs.is_static)
     {
-        // If is a member function sign up additional information
-        if (!entry->entity_specs.is_static)
-        {
-            update_symbol_this(entry, block_context);
-        }
+        update_symbol_this(entry, block_context);
     }
 
     CXX11_LANGUAGE()
@@ -17478,6 +17494,38 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
 }
 
+static void check_nodecl_noexcept_spec(nodecl_t nodecl_expr,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
+    if (!nodecl_is_constant(nodecl_expr)
+            && !nodecl_expr_is_value_dependent(nodecl_expr)
+            && !nodecl_expr_is_type_dependent(nodecl_expr))
+    {
+        error_printf("%s: error: noexcept must specify a constant expression\n",
+                nodecl_locus_to_str(nodecl_expr));
+        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+    }
+
+    if (nodecl_expr_is_type_dependent(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
+    check_contextual_conversion(
+            nodecl_expr,
+            get_bool_type(),
+            decl_context,
+            nodecl_output);
+}
+
 static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
         AST a, decl_context_t decl_context,
         nodecl_t* nodecl_output)
@@ -17494,25 +17542,9 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
     }
     else
     {
-        check_expression(const_expr, decl_context, nodecl_output);
-        if (!nodecl_is_err_expr(*nodecl_output))
-        {
-            if (!nodecl_is_constant(*nodecl_output)
-                    && !nodecl_expr_is_value_dependent(*nodecl_output)
-                    && !nodecl_expr_is_type_dependent(*nodecl_output))
-            {
-                error_printf("%s: error: noexcept must specify a constant expression\n",
-                        nodecl_locus_to_str(*nodecl_output));
-            }
-            if (!nodecl_expr_is_type_dependent(*nodecl_output))
-            {
-                check_contextual_conversion(
-                        *nodecl_output,
-                        get_bool_type(),
-                        decl_context,
-                        nodecl_output);
-            }
-        }
+        nodecl_t nodecl_expr = nodecl_null();
+        check_expression(const_expr, decl_context, &nodecl_expr);
+        check_nodecl_noexcept_spec(nodecl_expr, decl_context, nodecl_output);
     }
 }
 
@@ -20460,7 +20492,7 @@ static void instantiate_template_function_code(
     // Register every parameter in this context
     int num_new_parameter = 0;
     int num_parameter;
- 
+
     // Register function parameters
     for (num_parameter = 0; num_parameter < v->orig_function_instantiated->entity_specs.num_related_symbols; num_parameter++)
     {
@@ -20555,6 +20587,48 @@ static void instantiate_template_function_code(
 
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_parameter, new_parameter);
     }
+
+    // Update exceptions as well
+#if 0
+    if (!nodecl_is_null(v->orig_function_instantiated->entity_specs.noexception))
+    {
+        nodecl_t nodecl_expr = instantiate_expression(
+                v->orig_function_instantiated->entity_specs.noexception,
+                new_decl_context,
+                v->instantiation_symbol_map, /* pack_index */ -1);
+
+        nodecl_t nodecl_noexcept = nodecl_null();
+        check_nodecl_noexcept_spec(nodecl_expr, new_decl_context, &nodecl_noexcept);
+
+        v->new_function_instantiated->entity_specs.noexception = nodecl_noexcept;
+    }
+    else
+    if (v->orig_function_instantiated->entity_specs.num_exceptions > 0)
+    {
+        v->new_function_instantiated->entity_specs.num_exceptions =
+            v->orig_function_instantiated->entity_specs.num_exceptions;
+        v->new_function_instantiated->entity_specs.exceptions =
+            xcalloc(v->orig_function_instantiated->entity_specs.num_exceptions,
+                    sizeof(*(v->new_function_instantiated->entity_specs.exceptions)));
+
+        memcpy(v->new_function_instantiated->entity_specs.exceptions,
+                v->orig_function_instantiated->entity_specs.exceptions,
+                v->orig_function_instantiated->entity_specs.num_exceptions *
+                sizeof(*(v->new_function_instantiated->entity_specs.exceptions)));
+
+        int i;
+        for (i = 0; i < v->new_function_instantiated->entity_specs.num_exceptions; i++)
+        {
+            v->new_function_instantiated->entity_specs.exceptions[i] =
+                update_type_for_instantiation(
+                        v->new_function_instantiated->entity_specs.exceptions[i],
+                        new_decl_context,
+                        nodecl_get_locus(node),
+                        v->instantiation_symbol_map,
+                        /* pack */ -1);
+        }
+    }
+#endif
 
     // Create a new result symbol if any
     if (v->orig_function_instantiated->entity_specs.result_var != NULL)
