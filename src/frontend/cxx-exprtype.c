@@ -11292,22 +11292,33 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     else if (num_arguments < num_parameters)
     {
         // We have to check that parameter num_arguments has default argument
-        if (entry->entity_specs.default_argument_info != NULL
-                && entry->entity_specs.default_argument_info[num_arguments] != NULL)
+        scope_entry_t* function_with_defaults = entry;
+
+        if (is_template_specialized_type(entry->type_information))
+        {
+            function_with_defaults = 
+                named_type_get_symbol(
+                        template_type_get_primary_type(
+                            template_specialized_type_get_related_template_type(
+                                entry->type_information)));
+        }
+
+        if (function_with_defaults->entity_specs.default_argument_info != NULL
+                && function_with_defaults->entity_specs.default_argument_info[num_arguments] != NULL)
         {
             // Sanity check
             int i;
             for (i = num_arguments; i < num_parameters; i++)
             {
-                ERROR_CONDITION(entry->entity_specs.default_argument_info[i] == NULL,
+                ERROR_CONDITION(function_with_defaults->entity_specs.default_argument_info[i] == NULL,
                         "Bad function parameter declaration info", 0);
             }
             DEBUG_CODE()
             {
                 fprintf(stderr, "EXPRTYPE: Function '%s' at '%s' can be called with %d arguments "
                         "(although it has %d parameters) because of default arguments\n",
-                        entry->symbol_name,
-                        locus_to_str(entry->locus),
+                        function_with_defaults->symbol_name,
+                        locus_to_str(function_with_defaults->locus),
                         num_arguments,
                         num_parameters);
             }
@@ -11317,8 +11328,8 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
         {
             fprintf(stderr, "EXPRTYPE: Function '%s' at '%s' cannot be called with %d arguments "
                     "since it expects %d parameters\n",
-                    entry->symbol_name,
-                    locus_to_str(entry->locus),
+                    function_with_defaults->symbol_name,
+                    locus_to_str(function_with_defaults->locus),
                     num_arguments,
                     num_parameters);
         }
@@ -21450,7 +21461,8 @@ static void define_inherited_constructor(
 
 struct instantiate_default_argument_header_message_fun_data_tag
 {
-    scope_entry_t* called_symbol;
+    // scope_entry_t* called_symbol;
+    scope_entry_t* function_with_defaults;
     int arg_i;
     const locus_t* locus;
 };
@@ -21464,8 +21476,8 @@ static const char* instantiate_default_argument_header_message_fun(void* v)
     uniquestr_sprintf(&default_argument_context_str,
             "%s: info: during instantiation of default argument '%s'\n",
             locus_to_str(p->locus),
-            codegen_to_str(p->called_symbol->entity_specs.default_argument_info[p->arg_i]->argument,
-                p->called_symbol->decl_context));
+            codegen_to_str(p->function_with_defaults->entity_specs.default_argument_info[p->arg_i]->argument,
+                p->function_with_defaults->decl_context));
 
     return default_argument_context_str;
 }
@@ -21746,10 +21758,20 @@ nodecl_t cxx_nodecl_make_function_call(
                 }
                 ERROR_CONDITION(arg_i < 0, "Invalid argument count %d\n", arg_i);
 
+                scope_entry_t* function_with_defaults = called_symbol;
+                if (is_template_specialized_type(called_symbol->type_information))
+                {
+                    function_with_defaults =
+                        named_type_get_symbol(
+                                template_type_get_primary_type(
+                                    template_specialized_type_get_related_template_type(
+                                        called_symbol->type_information)));
+                }
+
                 for(; arg_i < num_parameters; arg_i++)
                 {
-                    ERROR_CONDITION(called_symbol->entity_specs.default_argument_info == NULL
-                            || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
+                    ERROR_CONDITION(function_with_defaults->entity_specs.default_argument_info == NULL
+                            || function_with_defaults->entity_specs.default_argument_info[arg_i] == NULL,
                             "Invalid default argument information %d", arg_i);
 
                     type_t* default_param_type = function_type_get_parameter_type_num(function_type, arg_i);
@@ -21762,12 +21784,12 @@ nodecl_t cxx_nodecl_make_function_call(
                             ->entity_specs.instantiation_symbol_map;
                     }
 
-
                     header_message_fun_t instantiation_header;
                     instantiation_header.message_fun = instantiate_default_argument_header_message_fun;
                     {
                         struct instantiate_default_argument_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
-                        p->called_symbol = called_symbol;
+                        // p->called_symbol = called_symbol;
+                        p->function_with_defaults = function_with_defaults;
                         p->arg_i = arg_i;
                         p->locus = locus;
                         instantiation_header.data = p;
@@ -21776,7 +21798,7 @@ nodecl_t cxx_nodecl_make_function_call(
 
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
-                            called_symbol->entity_specs.default_argument_info[arg_i]->argument,
+                            function_with_defaults->entity_specs.default_argument_info[arg_i]->argument,
                             called_symbol->decl_context,
                             instantiation_symbol_map, /* pack_index */ -1);
 
@@ -21799,7 +21821,7 @@ nodecl_t cxx_nodecl_make_function_call(
                         return new_default_argument;
                     }
 
-                    if (!called_symbol->entity_specs.default_argument_info[arg_i]->is_hidden)
+                    if (!function_with_defaults->entity_specs.default_argument_info[arg_i]->is_hidden)
                     {
                         // Wrap the expression in a default argumet node
                         new_default_argument = nodecl_make_default_argument(new_default_argument,
