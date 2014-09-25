@@ -1885,27 +1885,6 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
         type_t* parameter = function_type_get_parameter_type_num(function_parameter, i);
         type_t* argument = function_type_get_parameter_type_num(function_argument, i);
 
-        if (is_computing_address_of_function
-                || is_deducing_arguments_from_function_declaration)
-        {
-            // If P and A are function types that originated from deduction
-            // when taking the address of a function or when deducting template
-            // arguments from a function declaration and Pi and Ai are
-            // parameters of the top level parameter-type-list of P and A,
-            // respectively, Pi is adjusted if it is an rvalue reference to a
-            // cv-unqualified template parameter and Ai is an lvalue reference,
-            // in which case the type of Pi is changed to be the template
-            // parameter type
-
-            if (is_rvalue_reference_type(parameter)
-                    && is_named_type(no_ref(parameter))
-                    && named_type_get_symbol(no_ref(parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    && is_unqualified_type(no_ref(parameter))
-                    && is_lvalue_reference_type(argument))
-            {
-                parameter = no_ref(parameter);
-            }
-        }
 
         DEBUG_CODE()
         {
@@ -1925,9 +1904,34 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
                     = xcalloc(1, sizeof(*deduction_for_current_pack));
                 deduction_result_t deduction_result_for_current_pack = DEDUCTION_OK;
 
+                type_t* unpacked_parameter = pack_type_get_packed_type(parameter);
+
+                if (is_computing_address_of_function
+                        || is_deducing_arguments_from_function_declaration)
+                {
+                    // If P and A are function types that originated from deduction
+                    // when taking the address of a function or when deducting template
+                    // arguments from a function declaration and Pi and Ai are
+                    // parameters of the top level parameter-type-list of P and A,
+                    // respectively, Pi is adjusted if it is an rvalue reference to a
+                    // cv-unqualified template parameter and Ai is an lvalue reference,
+                    // in which case the type of Pi is changed to be the template
+                    // parameter type
+
+                    if (is_rvalue_reference_type(unpacked_parameter)
+                            && is_named_type(no_ref(unpacked_parameter))
+                            && (named_type_get_symbol(no_ref(unpacked_parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER
+                                || named_type_get_symbol(no_ref(unpacked_parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK)
+                            && is_unqualified_type(no_ref(unpacked_parameter))
+                            && is_lvalue_reference_type(argument))
+                    {
+                        unpacked_parameter = no_ref(unpacked_parameter);
+                    }
+                }
+
                 deduction_result_for_current_pack =
                     deduce_template_arguments_from_a_type(
-                            pack_type_get_packed_type(parameter),
+                            unpacked_parameter,
                             argument,
                             explicit_template_argument_list,
                             decl_context,
@@ -1976,6 +1980,30 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
                     return DEDUCTION_FAILURE;
                 }
             }
+
+            if (is_computing_address_of_function
+                    || is_deducing_arguments_from_function_declaration)
+            {
+                // If P and A are function types that originated from deduction
+                // when taking the address of a function or when deducting template
+                // arguments from a function declaration and Pi and Ai are
+                // parameters of the top level parameter-type-list of P and A,
+                // respectively, Pi is adjusted if it is an rvalue reference to a
+                // cv-unqualified template parameter and Ai is an lvalue reference,
+                // in which case the type of Pi is changed to be the template
+                // parameter type
+
+                if (is_rvalue_reference_type(parameter)
+                        && is_named_type(no_ref(parameter))
+                        && (named_type_get_symbol(no_ref(parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER
+                            || named_type_get_symbol(no_ref(parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK)
+                        && is_unqualified_type(no_ref(parameter))
+                        && is_lvalue_reference_type(argument))
+                {
+                    parameter = no_ref(parameter);
+                }
+            }
+
             deduction_set_t* deduction_for_current_parameter
                 = xcalloc(1, sizeof(*deduction_for_current_parameter));
             deduction_result_t deduction_result_for_current_parameter = DEDUCTION_OK;
@@ -2759,7 +2787,9 @@ deduction_result_t deduce_template_arguments_from_a_type(
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "TYPEDEDUC: Deduction using types fails\n");
+        fprintf(stderr, "TYPEDEDUC: Deduction using types fails: %s <- %s\n",
+                print_declarator(parameter),
+                print_declarator(argument));
     }
     return DEDUCTION_FAILURE;
 }
