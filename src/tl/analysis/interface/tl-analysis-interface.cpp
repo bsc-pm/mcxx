@@ -233,7 +233,7 @@ namespace Analysis {
         return is_non_reduction_basic_iv_internal(scope_node, n);
     }
 
-    Nodecl::NodeclBase AnalysisInterface::get_induction_variable_lower_bound(
+    NodeclSet AnalysisInterface::get_induction_variable_lower_bound_list(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
@@ -279,7 +279,7 @@ namespace Analysis {
         return get_linear_variables_internal(scope_node);
     }
     
-    NBase AnalysisInterface::get_linear_variable_lower_bound(
+    NodeclSet AnalysisInterface::get_linear_variable_lower_bound(
             const NBase& scope, 
             const NBase& n)
     {
