@@ -35,6 +35,7 @@
 #include "cxx-entrylist.h"
 #include "uniquestr.h"
 #include "cxx-koenig.h"
+#include "cxx-exprtype.h"
 
 namespace TL
 {
@@ -232,5 +233,10 @@ namespace TL
     template_parameter_list_t* Scope::get_template_parameters() const
     {
        return _decl_context.template_parameters;
+    }
+
+    Symbol Scope::get_symbol_this() const
+    {
+        return resolve_symbol_this(_decl_context);
     }
 }

@@ -175,6 +175,8 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(
         decl_context_t,
         const locus_t* locus);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus);
+
+LIBMCXX_EXTERN scope_entry_t* resolve_symbol_this(decl_context_t decl_context);
  
 // Given a base NODECL_SYMBOL it integrates it in an accessor that can be a NODECL_SYMBOL or a NODECL_CLASS_MEMBER_ACCESS
 LIBMCXX_EXTERN nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor);

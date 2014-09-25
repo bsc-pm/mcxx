@@ -470,8 +470,6 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
 static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static scope_entry_t* resolve_this_symbol(decl_context_t decl_context);
-
 // Typechecking functions
 static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -535,7 +533,7 @@ static void compute_nodecl_braced_initializer(AST braced_initializer, decl_conte
 static void compute_nodecl_designated_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void resolve_this_symbol_nodecl(decl_context_t decl_context, const locus_t* locus, nodecl_t* nodecl_output);
+static void resolve_symbol_this_nodecl(decl_context_t decl_context, const locus_t* locus, nodecl_t* nodecl_output);
 
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -719,7 +717,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_THIS_VARIABLE :
             {
-                resolve_this_symbol_nodecl(decl_context, ast_get_locus(expression), nodecl_output);
+                resolve_symbol_this_nodecl(decl_context, ast_get_locus(expression), nodecl_output);
                 break;
             }
         case AST_SYMBOL :
@@ -2289,7 +2287,7 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
                 /* sign */ 0));
 }
 
-static scope_entry_t* resolve_this_symbol(decl_context_t decl_context)
+scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
 {
     scope_entry_t *this_symbol = NULL;
     if (decl_context.current_scope->kind == BLOCK_SCOPE)
@@ -2328,11 +2326,11 @@ static scope_entry_t* resolve_this_symbol(decl_context_t decl_context)
 }
 
 
-static void resolve_this_symbol_nodecl(decl_context_t decl_context,
+static void resolve_symbol_this_nodecl(decl_context_t decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    scope_entry_t* this_symbol = resolve_this_symbol(decl_context);
+    scope_entry_t* this_symbol = resolve_symbol_this(decl_context);
 
     if (this_symbol == NULL)
     {
@@ -7193,7 +7191,7 @@ static void cxx_compute_name_from_entry_list(
 
             type_t* this_type = NULL;
 
-            scope_entry_t* this_symbol = resolve_this_symbol(decl_context);
+            scope_entry_t* this_symbol = resolve_symbol_this(decl_context);
             if (this_symbol != NULL)
             {
                 // Construct (*this).x
@@ -11505,7 +11503,7 @@ static void check_nodecl_function_call_cxx(
     }
     xfree(list);
 
-    scope_entry_t* this_symbol = resolve_this_symbol(decl_context);
+    scope_entry_t* this_symbol = resolve_symbol_this(decl_context);
 
     // Let's check the called entity
     // If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
@@ -22708,7 +22706,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             && strcmp(sym->symbol_name, "this") == 0)
     {
         // 'this'
-        resolve_this_symbol_nodecl(v->decl_context, nodecl_get_locus(node), &result);
+        resolve_symbol_this_nodecl(v->decl_context, nodecl_get_locus(node), &result);
     }
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
