@@ -13248,6 +13248,12 @@ static char find_function_declaration(AST declarator_id,
             return 0;
         }
     }
+    else if (gather_info->is_explicit_specialization
+            || gather_info->is_explicit_instantiation)
+    {
+        // We should have found something
+        return 0;
+    }
 
     // No error
     return 1;

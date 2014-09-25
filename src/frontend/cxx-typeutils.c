@@ -2920,9 +2920,18 @@ static type_t* template_type_get_specialized_type_(
         specialized_symbol->entity_specs.alias_to = named_type_get_symbol(equivalent_match);
     }
 
-    // Copy exception stuff
+    // Copy function extra info
     if (specialized_symbol->kind == SK_FUNCTION)
     {
+        specialized_symbol->entity_specs.num_parameters = function_type_get_num_parameters(
+                specialized_symbol->type_information);
+
+        // Empty default argument info for the specialization
+        specialized_symbol->entity_specs.default_argument_info =
+            xcalloc(specialized_symbol->entity_specs.num_parameters,
+                    specialized_symbol->entity_specs.num_parameters *
+                    sizeof(specialized_symbol->entity_specs.default_argument_info));
+
         // Do not reuse the exceptions of the primary symbol (they may need to be updated)
         specialized_symbol->entity_specs.num_exceptions = 0;
         specialized_symbol->entity_specs.exceptions = NULL;
