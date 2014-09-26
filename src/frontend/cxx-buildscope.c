@@ -10139,51 +10139,52 @@ static void build_scope_declarator_with_parameter_context(AST a,
         AST declarator_name = get_declarator_name(a, decl_context);
 
         decl_context_t entity_context = decl_context;
-        // Adjust context if the name is qualified
-        if (declarator_name != NULL)
+        // Adjust context if the name is qualified and this is not a friend
+        if (declarator_name != NULL
+                && ASTType(declarator_name) == AST_QUALIFIED_ID
+                // friends do not adjust their context, otherwise they would not be
+                // parsable correctly
+                && !gather_info->is_friend)
         {
-            if (ASTType(declarator_name) == AST_QUALIFIED_ID)
+            // If it is qualified it must be declared previously
+            // We are not interested in anything but the context of any of the symbols
+
+            AST global_op = ASTSon0(declarator_name);
+            AST nested_name = ASTSon1(declarator_name);
+            AST name = ASTSon2(declarator_name);
+
+            decl_flags_t decl_flags = DF_NONE;
+
+            if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
             {
-                // If it is qualified it must be declared previously
-                // We are not interested in anything but the context of any of the symbols
+                decl_flags |= DF_CONSTRUCTOR;
+            }
 
-                AST global_op = ASTSon0(declarator_name);
-                AST nested_name = ASTSon1(declarator_name);
-                AST name = ASTSon2(declarator_name);
+            scope_entry_list_t* symbols = query_nested_name_flags(decl_context, 
+                    global_op, nested_name, name, NULL, decl_flags);
 
-                decl_flags_t decl_flags = DF_NONE;
+            if (symbols == NULL)
+            {
+                error_printf("%s: error: qualified name '%s' not found\n",
+                        ast_location(declarator_name),
+                        prettyprint_in_buffer(declarator_name));
+                *declarator_type = get_error_type();
+                return;
+            }
 
-                if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
-                {
-                    decl_flags |= DF_CONSTRUCTOR;
-                }
+            scope_entry_t* first_symbol = entry_list_head(symbols);
+            entry_list_free(symbols);
 
-                scope_entry_list_t* symbols = query_nested_name_flags(decl_context, 
-                        global_op, nested_name, name, NULL, decl_flags);
+            // Update the entity context, inheriting the template_scope
+            entity_context = first_symbol->decl_context;
+            entity_context.template_parameters = decl_context.template_parameters;
 
-                if (symbols == NULL)
-                {
-                    error_printf("%s: error: qualified name '%s' not found\n",
-                            ast_location(declarator_name),
-                            prettyprint_in_buffer(declarator_name));
-                    *declarator_type = get_error_type();
-                    return;
-                }
+            if (prototype_context != NULL)
+            {
+                prototype_context->current_scope->contained_in = first_symbol->decl_context.current_scope;
+                prototype_context->namespace_scope = first_symbol->decl_context.namespace_scope;
+                prototype_context->class_scope = first_symbol->decl_context.class_scope;
 
-                scope_entry_t* first_symbol = entry_list_head(symbols);
-                entry_list_free(symbols);
-
-                // Update the entity context, inheriting the template_scope
-                entity_context = first_symbol->decl_context;
-                entity_context.template_parameters = decl_context.template_parameters;
-
-                if (prototype_context != NULL)
-                {
-                    prototype_context->current_scope->contained_in = first_symbol->decl_context.current_scope;
-                    prototype_context->namespace_scope = first_symbol->decl_context.namespace_scope;
-                    prototype_context->class_scope = first_symbol->decl_context.class_scope;
-
-                }
             }
         }
 
@@ -12402,14 +12403,84 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     char is_template_function = gather_info->is_template;
     char is_qualified = is_qualified_id_expression(declarator_id);
 
-    AST considered_tree = declarator_id;
-    if (ASTType(declarator_id) == AST_QUALIFIED_ID)
-    {
-        considered_tree = ASTSon2(declarator_id);
-    }
+    AST declarator_id_without_template_id = NULL;
+    char is_template_id = 0;
 
-    char is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
-            || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+    if (ASTType(declarator_id) == AST_TEMPLATE_ID)
+    {
+        is_template_id = 1;
+        declarator_id_without_template_id = ASTSon0(declarator_id);
+    }
+    else if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    {
+        is_template_id = 1;
+        declarator_id_without_template_id = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ast_copy(ASTSon0(declarator_id)),
+                ast_get_locus(declarator_id),
+                NULL);
+    }
+    else if (ASTType(declarator_id) == AST_QUALIFIED_ID
+            && ASTType(ASTSon2(declarator_id)) == AST_TEMPLATE_ID)
+    {
+        AST unqualified_part = ASTSon2(declarator_id);
+        AST name = ASTSon0(unqualified_part);
+
+        is_template_id = 1;
+        declarator_id_without_template_id =
+            ASTMake3(AST_QUALIFIED_ID,
+                    ast_copy(ASTSon0(declarator_id)),
+                    ast_copy(ASTSon1(declarator_id)),
+                    ast_copy(name),
+                    ast_get_locus(declarator_id),
+                    NULL);
+    }
+    else if (ASTType(declarator_id) == AST_QUALIFIED_ID
+            && ASTType(ASTSon2(declarator_id)) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    {
+        is_template_id = 1;
+        AST unqualified_part = ASTSon2(declarator_id);
+
+        AST new_op = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ast_copy(ASTSon0(unqualified_part)),
+                ast_get_locus(unqualified_part),
+                NULL);
+
+        declarator_id_without_template_id =
+            ASTMake3(AST_QUALIFIED_ID,
+                    ast_copy(ASTSon0(declarator_id)),
+                    ast_copy(ASTSon1(declarator_id)),
+                    new_op,
+                    ast_get_locus(declarator_id),
+                    NULL);
+    }
+    else if (ASTType(declarator_id) == AST_QUALIFIED_ID
+            && ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
+    {
+        is_template_id = 1;
+        AST unqualified_part = ASTSon2(declarator_id);
+
+        AST name = ASTLeaf(AST_SYMBOL,
+                ast_get_locus(unqualified_part),
+                ast_get_text(unqualified_part));
+
+        AST destructor_id = ASTMake1(AST_DESTRUCTOR_ID,
+                name,
+                ast_get_locus(unqualified_part),
+                NULL);
+
+        declarator_id_without_template_id =
+            ASTMake3(AST_QUALIFIED_ID,
+                    ast_copy(ASTSon0(declarator_id)),
+                    ast_copy(ASTSon1(declarator_id)),
+                    destructor_id,
+                    ast_get_locus(declarator_id),
+                    NULL);
+    }
+    else
+    {
+        is_template_id = 0;
+        declarator_id_without_template_id = declarator_id;
+    }
 
     decl_flags_t decl_flags = DF_DEPENDENT_TYPENAME;
     decl_context_t lookup_context = decl_context;
@@ -12421,7 +12492,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     lookup_context.current_scope = lookup_context.namespace_scope;
 
     scope_entry_list_t* entry_list
-        = query_id_expression_flags(lookup_context, declarator_id, NULL, decl_flags);
+        = query_id_expression_flags(lookup_context, declarator_id_without_template_id, NULL, decl_flags);
 
     // Summary:
     //  1. The declaration is not a template function
@@ -12429,7 +12500,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     //      1.2 It's a qualified name -> refers to:
     //          *   A nontemplate function, otherwise
     //          *   A matching specialization of a template function
-    //      1.3 It's an unqualied name -> declares an nontemplate function
+    //      1.3 It's an unqualified name -> declares an nontemplate function
     //  2. Otherwise,
     //      2.1 It's a qualified name -> refers to a template function
 
@@ -12523,7 +12594,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         {
             if (!found_candidate)
             {
-                error_printf("%s: Qualified id '%s' name not found\n",
+                error_printf("%s: error: qualified id '%s' name not found\n",
                         ast_location(declarator_id), prettyprint_in_buffer(declarator_id));
                 return 0;
             }
@@ -16780,6 +16851,9 @@ void build_scope_friend_declarator(decl_context_t decl_context,
     compute_declarator_type(declarator, gather_info, 
             member_type, &declarator_type, 
             decl_context, &nodecl_output);
+
+    if (is_error_type(declarator_type))
+        return;
 
     scope_entry_t *entry =
         build_scope_declarator_name(declarator,
