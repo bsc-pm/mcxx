@@ -126,7 +126,12 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     {
         // Desperate message
         const char *oom_message = "allocation failure in vasprintf\n";
-        write(fileno(stderr), oom_message, strlen(oom_message));
+        int r = write(fileno(stderr), oom_message, strlen(oom_message));
+        if (r < 0)
+        {
+            // Drama. Resort to perror and hope for the best
+            perror("write");
+        }
         abort();
     }
 
