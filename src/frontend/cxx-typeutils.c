@@ -56,7 +56,6 @@
 /*
  * --
  */
-static long long unsigned int _bytes_due_to_type_system = 0;
 
 // An exception specifier used in function info
 typedef struct {
@@ -544,7 +543,7 @@ struct type_tag
 
 static common_type_info_t* new_common_type_info(void)
 {
-    common_type_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    common_type_info_t* result = xcalloc(1, sizeof(*result));
     return result;
 }
 
@@ -599,7 +598,7 @@ type_t* variant_type_get_nonvariant(type_t* t)
 
 static type_t* new_empty_type_without_info(void)
 {
-    type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    type_t* result = xcalloc(1, sizeof(*result));
     return result;
 }
 
@@ -719,18 +718,13 @@ static char equivalent_pack_types(type_t* t1, type_t *t2);
 static char equivalent_sequence_types(type_t* t1, type_t *t2);
 
 
-long long unsigned int type_system_used_memory(void)
-{
-    return _bytes_due_to_type_system;
-}
-
 /* Type constructors : Builtins */
 
 static type_t* get_simple_type(void)
 {
     type_t* result = new_empty_type();
     result->kind = TK_DIRECT;
-    result->type = counted_xcalloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
+    result->type = xcalloc(1, sizeof(*result->type));
     result->unqualified_type = result;
     return result;
 }
@@ -1851,7 +1845,7 @@ type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
 
     type_t* type_info = get_simple_type();
 
-    type_info->type->enum_info = (enum_info_t*) counted_xcalloc(1, sizeof(*type_info->type->enum_info), &_bytes_due_to_type_system);
+    type_info->type->enum_info = (enum_info_t*) xcalloc(1, sizeof(*type_info->type->enum_info));
     type_info->type->kind = STK_ENUM;
     type_info->type->type_decl_context = decl_context;
 
@@ -1869,7 +1863,7 @@ type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_ki
 
     type_t* type_info = get_simple_type();
 
-    type_info->type->class_info = counted_xcalloc(1, sizeof(*type_info->type->class_info), &_bytes_due_to_type_system);
+    type_info->type->class_info = xcalloc(1, sizeof(*type_info->type->class_info));
     type_info->type->class_info->class_kind = class_kind;
     type_info->type->kind = STK_CLASS;
     type_info->type->type_decl_context = decl_context;
@@ -1967,7 +1961,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     for (i = 0; i < template_parameter_list->num_parameters; i++)
     {
         template_parameter_t* param = result->parameters[i];
-        template_parameter_value_t* new_value = counted_xcalloc(1, sizeof(*new_value), &_bytes_due_to_type_system);
+        template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
 
         switch (param->kind)
         {
@@ -2052,7 +2046,7 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     type_info->template_parameters = template_parameter_list;
 
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = counted_xcalloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
+    primary_symbol = xcalloc(1, sizeof(*primary_symbol));
     primary_symbol->symbol_name = template_name;
     primary_symbol->kind = SK_TEMPLATE_ALIAS;
 
@@ -2127,7 +2121,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
 
     // Primary "specialization"
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = counted_xcalloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
+    primary_symbol = xcalloc(1, sizeof(*primary_symbol));
     primary_symbol->symbol_name = template_name;
     if (is_unnamed_class_type(primary_type))
     {
@@ -2894,7 +2888,7 @@ static type_t* template_type_get_specialized_type_(
     }
 
     // Create a fake symbol with the just created specialized type
-    scope_entry_t* specialized_symbol = counted_xcalloc(1, sizeof(*specialized_symbol), &_bytes_due_to_type_system);
+    scope_entry_t* specialized_symbol = xcalloc(1, sizeof(*specialized_symbol));
 
     specialized_symbol->symbol_name = primary_symbol->symbol_name;
     specialized_symbol->kind = primary_symbol->kind;
@@ -3354,7 +3348,7 @@ type_t* get_pointer_type(type_t* t)
         pointed_type = new_empty_type();
         pointed_type->kind = TK_POINTER;
         pointed_type->unqualified_type = pointed_type;
-        pointed_type->pointer = counted_xcalloc(1, sizeof(*pointed_type->pointer), &_bytes_due_to_type_system);
+        pointed_type->pointer = xcalloc(1, sizeof(*pointed_type->pointer));
         pointed_type->pointer->pointee = t;
 
         if (is_array_type(t)
@@ -3443,7 +3437,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
         referenced_type = new_empty_type();
         referenced_type->kind = reference_kind;
         referenced_type->unqualified_type = referenced_type;
-        referenced_type->pointer = counted_xcalloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
+        referenced_type->pointer = xcalloc(1, sizeof(*referenced_type->pointer));
         referenced_type->pointer->pointee = t;
 
         referenced_type->info->is_dependent = is_dependent_type(t);
@@ -3498,7 +3492,7 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
         pointer_to_member = new_empty_type();
         pointer_to_member->kind = TK_POINTER_TO_MEMBER;
         pointer_to_member->unqualified_type = pointer_to_member;
-        pointer_to_member->pointer = counted_xcalloc(1, sizeof(*pointer_to_member->pointer), &_bytes_due_to_type_system);
+        pointer_to_member->pointer = xcalloc(1, sizeof(*pointer_to_member->pointer));
         pointer_to_member->pointer->pointee = t;
         pointer_to_member->pointer->pointee_class_type = class_type;
 
@@ -3785,7 +3779,7 @@ static type_t* _get_array_type(type_t* element_type,
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
-            result->array = counted_xcalloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+            result->array = xcalloc(1, sizeof(*(result->array)));
             result->array->element_type = element_type;
             result->array->whole_size = nodecl_null();
 
@@ -3853,7 +3847,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result = new_empty_type();
                 result->kind = TK_ARRAY;
                 result->unqualified_type = result;
-                result->array = counted_xcalloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+                result->array = xcalloc(1, sizeof(*(result->array)));
                 result->array->element_type = element_type;
 
                 result->array->with_descriptor = with_descriptor;
@@ -3890,7 +3884,7 @@ static type_t* _get_array_type(type_t* element_type,
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
-            result->array = counted_xcalloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+            result->array = xcalloc(1, sizeof(*(result->array)));
             result->array->element_type = element_type;
             result->array->whole_size = whole_size;
             result->array->lower_bound = lower_bound;
@@ -4109,7 +4103,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     
     nodecl_t region_whole_size = compute_whole_size_given_bounds(region_lower_bound, region_upper_bound);
 
-    array_region_t* array_region = counted_xcalloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
+    array_region_t* array_region = xcalloc(1, sizeof(*array_region));
     array_region->lower_bound = region_lower_bound;
     array_region->upper_bound = region_upper_bound;
     array_region->stride = region_stride;
@@ -4234,18 +4228,18 @@ static type_t* _get_new_function_type(type_t* t,
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function = xcalloc(1, sizeof(*(result->function)));
     result->function->ref_qualifier = ref_qualifier;
     result->function->is_trailing = is_trailing;
     result->function->return_type = t;
 
-    result->function->parameter_list = counted_xcalloc(num_parameters, sizeof(*( result->function->parameter_list )), &_bytes_due_to_type_system);
+    result->function->parameter_list = xcalloc(num_parameters, sizeof(*( result->function->parameter_list )));
     result->function->num_parameters = num_parameters;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = counted_xcalloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
+        parameter_info_t* new_parameter = xcalloc(1, sizeof(*new_parameter));
 
         *new_parameter = parameter_info[i];
 
@@ -4267,19 +4261,19 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
 
-    type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    type_t* result = xcalloc(1, sizeof(*result));
     *result = *class_type;
 
     result->unqualified_type = result;
 
     // These are the parts relevant for duplication
-    result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+    result->info = xcalloc(1, sizeof(*result->info));
     *result->info = *class_type->info;
 
-    result->type = counted_xcalloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
+    result->type = xcalloc(1, sizeof(*result->type));
     *result->type = *class_type->type;
 
-    result->type->class_info = counted_xcalloc(1, sizeof(*result->type->class_info), &_bytes_due_to_type_system);
+    result->type->class_info = xcalloc(1, sizeof(*result->type->class_info));
     *result->type->class_info = *class_type->type->class_info;
 
     return result;
@@ -4434,14 +4428,14 @@ type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function = xcalloc(1, sizeof(*(result->function)));
     result->function->return_type = t;
     result->function->lacks_prototype = 1;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = counted_xcalloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
+        parameter_info_t* new_parameter = xcalloc(1, sizeof(*new_parameter));
 
         new_parameter->type_info = get_signed_int_type();
 
@@ -5692,7 +5686,7 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class,
     if (base_class->entity_specs.is_injected_class_name)
         base_class = named_type_get_symbol(base_class->entity_specs.class_type);
 
-    base_class_info_t* new_base_class = counted_xcalloc(1, sizeof(*new_base_class), &_bytes_due_to_type_system);
+    base_class_info_t* new_base_class = xcalloc(1, sizeof(*new_base_class));
     new_base_class->class_symbol = base_class;
     /* redundant */ new_base_class->class_type = base_class->type_information;
     new_base_class->is_virtual = is_virtual;
@@ -7017,7 +7011,7 @@ static template_parameter_list_t* rebuild_template_arguments_advancing_dependent
     int i;
     for (i = 0; i < fixed_tpl->num_parameters; i++)
     {
-        template_parameter_value_t* new_value = counted_xcalloc(1, sizeof(*new_value), &_bytes_due_to_type_system);
+        template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
         *new_value = *fixed_tpl->arguments[i];
         new_value->value = nodecl_shallow_copy(fixed_tpl->arguments[i]->value);
 
@@ -10236,7 +10230,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     const char* result = UNIQUESTR_LITERAL("");
 
     const int MAX_LENGTH = 1023;
-    char* user_defined_str = counted_xcalloc(MAX_LENGTH + 1, sizeof(char), &_bytes_due_to_type_system);
+    char* user_defined_str = xcalloc(MAX_LENGTH + 1, sizeof(char));
 
     switch (user_defined_type->kind)
     {
@@ -12351,11 +12345,11 @@ type_t* get_error_type(void)
 {
     if (_error_type == NULL)
     {
-        _error_type = counted_xcalloc(1, sizeof(*_error_type), &_bytes_due_to_type_system);
+        _error_type = xcalloc(1, sizeof(*_error_type));
         _error_type->kind = TK_ERROR;
         _error_type->unqualified_type = _error_type;
         _error_type->info = 
-            counted_xcalloc(1, sizeof(*_error_type->info), &_bytes_due_to_type_system);
+            xcalloc(1, sizeof(*_error_type->info));
     }
     return _error_type;
 }
@@ -12434,11 +12428,10 @@ type_t* get_braced_list_type(int num_types, type_t** type_list)
 
     result->unqualified_type = result;
 
-    result->braced_type = counted_xcalloc(1, sizeof(*result->braced_type), &_bytes_due_to_type_system);
+    result->braced_type = xcalloc(1, sizeof(*result->braced_type));
 
     result->braced_type->num_types = num_types;
-    result->braced_type->type_list = counted_xcalloc(num_types, sizeof(*result->braced_type->type_list),
-            &_bytes_due_to_type_system);
+    result->braced_type->type_list = xcalloc(num_types, sizeof(*result->braced_type->type_list));
     memcpy(result->braced_type->type_list, type_list,
             num_types* sizeof(*result->braced_type->type_list));
 
@@ -13740,9 +13733,8 @@ void class_type_set_offset_virtual_base(type_t* t, scope_entry_t* virtual_base, 
     }
 
     // Add the virtual base
-    virtual_base_class_info_t* virtual_base_info = counted_xcalloc(
-            1, sizeof(*virtual_base_info),
-            &_bytes_due_to_type_system);
+    virtual_base_class_info_t* virtual_base_info = xcalloc(
+            1, sizeof(*virtual_base_info));
 
     virtual_base_info->virtual_base = virtual_base;
     virtual_base_info->virtual_base_offset = offset;
@@ -14267,13 +14259,13 @@ type_t* get_variant_type_interoperable(type_t* t)
 
     if (result == NULL)
     {
-        result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+        result = xcalloc(1, sizeof(*result));
         *result = *t;
 
         // The unqualified type must point to itself
         result->unqualified_type = result;
 
-        result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+        result->info = xcalloc(1, sizeof(*result->info));
         *result->info = *t->info;
 
         result->info->is_interoperable = 1;
@@ -14359,7 +14351,7 @@ type_t* get_mask_type(unsigned int mask_size_bits)
         result->type->kind = STK_MASK;
         result->type->vector_size = mask_size_bits;
 
-        int *k = counted_xcalloc(sizeof(int), 1, &_bytes_due_to_type_system);
+        int *k = xcalloc(sizeof(int), 1);
         *k = mask_size_bits;
 
         rb_tree_insert(_mask_hash, k, result);
@@ -14455,7 +14447,7 @@ type_t* get_pack_type(type_t* t)
         pack_type = new_empty_type();
         pack_type->kind = TK_PACK;
         pack_type->unqualified_type = pack_type;
-        pack_type->pack_type = counted_xcalloc(1, sizeof(*pack_type->pack_type), &_bytes_due_to_type_system);
+        pack_type->pack_type = xcalloc(1, sizeof(*pack_type->pack_type));
         pack_type->pack_type->packed = t;
 
         pack_type->info->is_dependent = is_dependent_type(t);
@@ -14513,10 +14505,9 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
         seq_type = new_empty_type();
         seq_type->unqualified_type = seq_type;
         seq_type->kind = TK_SEQUENCE;
-        seq_type->sequence_type = counted_xcalloc(1, sizeof(*seq_type->sequence_type), &_bytes_due_to_type_system);
+        seq_type->sequence_type = xcalloc(1, sizeof(*seq_type->sequence_type));
         seq_type->sequence_type->num_types = num_types;
-        seq_type->sequence_type->types = counted_xcalloc(num_types, sizeof(*seq_type->sequence_type->types),
-                &_bytes_due_to_type_system);
+        seq_type->sequence_type->types = xcalloc(num_types, sizeof(*seq_type->sequence_type->types));
         memcpy(seq_type->sequence_type->types, types,
                 sizeof(*seq_type->sequence_type->types) * num_types);
 

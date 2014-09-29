@@ -168,11 +168,6 @@ LIBMCXX_EXTERN AST ast_make_ambiguous(AST son0, AST son1);
 // Returns the number of ambiguities
 LIBMCXX_EXTERN int ast_get_num_ambiguities(const_AST a);
 
-// Memory used by trees
-LIBMCXX_EXTERN long long unsigned int ast_astmake_used_memory(void);
-LIBMCXX_EXTERN long long unsigned int ast_instantiation_used_memory(void);
-LIBMCXX_EXTERN int ast_node_size(void);
-
 // Returns the ambiguity 'num'
 LIBMCXX_EXTERN AST ast_get_ambiguity(const_AST a, int num);
 

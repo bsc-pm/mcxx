@@ -109,8 +109,6 @@ LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_
 LIBMCXX_EXTERN void enter_class_specifier(void);
 LIBMCXX_EXTERN void leave_class_specifier(nodecl_t*);
 
-LIBMCXX_EXTERN unsigned long long int buildscope_used_memory(void);
-
 LIBMCXX_EXTERN nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context);
 
 LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list,

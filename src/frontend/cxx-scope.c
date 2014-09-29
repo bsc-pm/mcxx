@@ -50,19 +50,6 @@
 #include "cxx-diagnostic.h"
 #include "dhash_ptr.h"
 
-static unsigned long long _bytes_used_scopes = 0;
-
-unsigned long long scope_used_memory(void)
-{
-    return _bytes_used_scopes;
-}
-
-static unsigned long long _bytes_used_symbols = 0;
-
-unsigned long long symbols_used_memory(void)
-{
-    return _bytes_used_symbols;
-}
 
 // Lookup of a simple name within a given declaration context
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
@@ -112,11 +99,11 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
 {
     ERROR_CONDITION(tpl == NULL, "Template parameters cannot be NULL here", 0);
 
-    template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+    template_parameter_list_t* result = xcalloc(1, sizeof(*result));
     result->num_parameters = tpl->num_parameters;
     result->parameters = tpl->parameters;
 
-    result->arguments = counted_xcalloc(tpl->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
+    result->arguments = xcalloc(tpl->num_parameters, sizeof(*result->arguments));
     int i;
     for (i = 0; i < result->num_parameters; i++)
     {
@@ -213,7 +200,7 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_e
 // Any new scope should be created using this one
 scope_t* _new_scope(void)
 {
-    scope_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+    scope_t* result = xcalloc(1, sizeof(*result));
 
     result->dhash = dhash_ptr_new(5);
 
@@ -331,7 +318,7 @@ decl_context_t new_global_context(void)
     decl_context_t result = new_decl_context();
 
     scope_entry_t* global_scope_namespace 
-        = counted_xcalloc(1, sizeof(*global_scope_namespace), &_bytes_used_scopes);
+        = xcalloc(1, sizeof(*global_scope_namespace));
     global_scope_namespace->kind = SK_NAMESPACE;
 
     // Create global scope
@@ -481,7 +468,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
     scope_entry_t* result;
 
-    result = counted_xcalloc(1, sizeof(*result), &_bytes_used_symbols);
+    result = xcalloc(1, sizeof(*result));
     result->symbol_name = uniquestr(name);
     // Remember, for template parameters, .current_scope will not contain
     // its declaration scope but will be in .template_scope
@@ -1079,7 +1066,7 @@ static scope_entry_t* create_new_dependent_entity(
 
     if (result == NULL)
     {
-        result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+        result = xcalloc(1, sizeof(*result));
 
         result->kind = SK_DEPENDENT_ENTITY;
         result->decl_context = decl_context;
@@ -2400,7 +2387,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         const locus_t* locus,
         int pack_index)
 {
-    template_parameter_value_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+    template_parameter_value_t* result = xcalloc(1, sizeof(*result));
     result->kind = v->kind;
     result->is_default = 0;
 
@@ -4489,7 +4476,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         case AST_TEMPLATE_EXPRESSION_ARGUMENT :
             {
                 template_parameter_value_t* t_argument =
-                    counted_xcalloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+                    xcalloc(1, sizeof(*t_argument));
 
                 AST expr = ASTSon0(template_parameter);
 
@@ -4523,7 +4510,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         case AST_TEMPLATE_TYPE_ARGUMENT :
             {
                 template_parameter_value_t* t_argument = 
-                    counted_xcalloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+                    xcalloc(1, sizeof(*t_argument));
 
                 AST type_template_parameter = ASTSon0(template_parameter);
                 AST type_specifier_seq = ASTSon0(type_template_parameter);
@@ -4726,7 +4713,7 @@ static void get_template_arguments_from_syntax_rec(
 
             // Update the result with the new ones
             free_template_parameter_list(*result);
-            *result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+            *result = xcalloc(1, sizeof(*result));
             copy_template_parameter_list(*result, potential_results[valid]);
             *position = potential_positions[valid];
 
@@ -4803,7 +4790,7 @@ template_parameter_list_t* get_template_arguments_from_syntax(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context)
 {
-    template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+    template_parameter_list_t* result = xcalloc(1, sizeof(*result));
     if (template_parameters_list_tree == NULL)
     {
         return result;
@@ -6016,7 +6003,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     {
         if (value->entry == NULL)
         {
-            value->entry = counted_xcalloc(1, sizeof(*value->entry), &_bytes_used_scopes);
+            value->entry = xcalloc(1, sizeof(*value->entry));
             value->entry->symbol_name = parameter_entry->symbol_name;
             value->entry->decl_context = context;
             value->entry->entity_specs.is_template_parameter = 1;
@@ -6427,7 +6414,7 @@ static scope_entry_list_t* query_nodecl_simple_name(
                     && !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
                     && is_dependent_type(head->entity_specs.class_type))
             {
-                scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
                 new_sym->kind = SK_DEPENDENT_ENTITY;
                 new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
                 new_sym->decl_context = decl_context;
@@ -6550,7 +6537,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
             }
         }
 
-        scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+        scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->decl_context = decl_context;
         new_sym->locus = locus;
@@ -6669,7 +6656,7 @@ scope_entry_list_t* query_nodecl_template_id(
             dependent_typename_get_components(template_symbol->type_information, &dependent_entity, &nodecl_parts);
             // nodecl_parts here lacks the template-id part
 
-            scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+            scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
             new_sym->kind = SK_DEPENDENT_ENTITY;
             new_sym->locus = nodecl_get_locus(nodecl_name);
             new_sym->symbol_name = dependent_entity->symbol_name;
@@ -6811,7 +6798,7 @@ scope_entry_list_t* query_nodecl_template_id(
             dependent_typename_get_components(destructor_symbol->type_information, &dependent_entity, &nodecl_parts);
             // nodecl_parts here lacks the template-id part
 
-            scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+            scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
             new_sym->kind = SK_DEPENDENT_ENTITY;
             new_sym->locus = nodecl_get_locus(nodecl_name);
             new_sym->symbol_name = dependent_entity->symbol_name;
@@ -8334,7 +8321,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                             appended_dependent_parts,
                             nodecl_get_locus(dependent_parts));
 
-                    scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                    scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
                     new_sym->kind = SK_DEPENDENT_ENTITY;
                     new_sym->locus = locus;
                     new_sym->symbol_name = new_class_dependent_entry->symbol_name;
@@ -8348,7 +8335,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                 else if (is_named_type(new_class_type)
                         && is_dependent_type(new_class_type))
                 {
-                    scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                    scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
                     new_sym->kind = SK_DEPENDENT_ENTITY;
                     new_sym->locus = locus;
                     new_sym->symbol_name = dependent_entity->symbol_name;

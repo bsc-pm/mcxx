@@ -95,13 +95,6 @@ translation_unit_t* add_new_file_to_compilation_process(
     return translation_unit;
 }
 
-unsigned long long int _bytes_dynamic_lists = 0;
-
-unsigned long long dynamic_lists_used_memory(void)
-{
-    return _bytes_dynamic_lists;
-}
-
 void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...)
 {
     va_list ap;

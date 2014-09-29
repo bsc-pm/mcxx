@@ -788,7 +788,6 @@ LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);
-LIBMCXX_EXTERN long long unsigned int type_system_used_memory(void);
 
 LIBMCXX_EXTERN const char* sci_conversion_to_str(standard_conversion_item_t e);
 

@@ -62,13 +62,6 @@
 
 static const char builtin_prefix[] = "__builtin_";
 
-static unsigned long long int _bytes_used_expr_check = 0;
-
-unsigned long long exprtype_used_memory(void)
-{
-    return _bytes_used_expr_check;
-}
-
 typedef
 struct builtin_operators_set_tag
 {
@@ -11752,7 +11745,7 @@ static void check_nodecl_function_call_cxx(
                 {
                     // Create a faked surrogate function with the type described below
                     scope_entry_t* surrogate_symbol =
-                        counted_xcalloc(1, sizeof(*surrogate_symbol), &_bytes_used_expr_check);
+                        xcalloc(1, sizeof(*surrogate_symbol));
 
                     // Add to candidates
                     candidates = entry_list_add(candidates, surrogate_symbol);

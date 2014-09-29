@@ -113,8 +113,6 @@ LIBMCXX_EXTERN char check_move_assignment_operator(scope_entry_t* entry,
         const locus_t* locus,
         scope_entry_t** constructor);
 
-LIBMCXX_EXTERN unsigned long long exprtype_used_memory(void);
-
 LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* result_from_lookup,
         scope_entry_list_t* builtin_list,

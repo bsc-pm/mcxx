@@ -46,14 +46,6 @@
 #include "cxx-diagnostic.h"
 #include "cxx-buildscope.h"
 
-// FIXME - Remove these things
-unsigned long long int _bytes_typededuc = 0;
-
-unsigned long long int typededuc_used_memory(void)
-{
-    return 0;
-}
-
 static void print_deduction_set(deduction_set_t* deduction_set)
 {
     int i_deductions;
@@ -161,8 +153,7 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
     {
         deduction_t* current_deduction = deduction_set->deduction_list[i];
 
-
-        template_parameter_value_t* argument = counted_xcalloc(1, sizeof(*argument), &_bytes_typededuc);
+        template_parameter_value_t* argument = xcalloc(1, sizeof(*argument));
 
         switch (current_deduction->kind)
         {
