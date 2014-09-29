@@ -666,7 +666,7 @@ expression : constraint_expression
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
 
-induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression, [upper] expression, [stride] expression)
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression-seq, [upper] expression-seq, [stride] expression)
 
 analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
                           | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)

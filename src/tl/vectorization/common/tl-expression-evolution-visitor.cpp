@@ -80,8 +80,13 @@ namespace Vectorization
 
                 if (is_iv)
                 {
-                    Nodecl::NodeclBase lower_bound =
-                        get_iv_lower_bound_internal(scope_node, n);
+                    std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+                            = get_iv_lower_bound_internal(scope_node, n);
+                    ERROR_CONDITION(lower_bounds.size() != 1,
+                                    "Induction variable '%s' has %d lower bounds. "
+                                    "Only 1 lower bound supported.\n",
+                                    n.get_symbol().get_name().c_str(), lower_bounds.size());
+                    Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
                     if (lower_bound.is_constant() && nodecl_is_one(lower_bound));
                     {
@@ -222,8 +227,13 @@ namespace Vectorization
 
         if (is_iv)
         {
-            Nodecl::NodeclBase lower_bound =
-                get_iv_lower_bound_internal(_scope, n);
+            std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+                    = get_iv_lower_bound_internal(_scope, n);
+            ERROR_CONDITION(lower_bounds.size() != 1,
+                            "Induction variable '%s' has %d lower bounds. "
+                            "Only 1 lower bound supported.\n",
+                            n.prettyprint().c_str(), lower_bounds.size());
+            Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
             if (lower_bound.is_constant() && nodecl_is_one(lower_bound));
             {
@@ -429,8 +439,13 @@ namespace Vectorization
 
         if (is_iv)
         {
-            Nodecl::NodeclBase lower_bound =
-                get_iv_lower_bound_internal(_scope, n);
+            std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+                    = get_iv_lower_bound_internal(_scope, n);
+            ERROR_CONDITION(lower_bounds.size() != 1,
+                            "Induction variable '%s' has %d lower bounds. "
+                            "Only 1 lower bound supported.\n",
+                            n.prettyprint().c_str(), lower_bounds.size());
+            Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
             if (lower_bound.is_constant() && nodecl_is_one(lower_bound));
             {

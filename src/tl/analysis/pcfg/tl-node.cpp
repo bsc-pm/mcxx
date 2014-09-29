@@ -2291,8 +2291,10 @@ namespace Analysis {
         {
             Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>();
             Utils::InductionVar* iv_data = new Utils::InductionVar(NBase(iv.get_induction_variable()));
-            iv_data->set_lb(iv.get_lower());
-            iv_data->set_ub(iv.get_upper());
+            Nodecl::List lower = iv.get_lower().as<Nodecl::List>();
+            Nodecl::List upper = iv.get_upper().as<Nodecl::List>();
+            iv_data->set_lb(NodeclSet(lower.begin(), lower.end()));
+            iv_data->set_ub(NodeclSet(upper.begin(), upper.end()));
             iv_data->set_increment(iv.get_stride());
             assert_induction_vars.insert(iv_data);
         }

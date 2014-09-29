@@ -102,7 +102,7 @@ namespace Analysis {
                     const Nodecl::NodeclBase& n);
             virtual Utils::InductionVarList get_linear_variables(
                     const Nodecl::NodeclBase& scope);
-            virtual NBase get_linear_variable_lower_bound(
+            virtual NodeclSet get_linear_variable_lower_bound(
                     const NBase& scope, 
                     const NBase& n);
             virtual NBase get_linear_variable_increment(
@@ -117,7 +117,7 @@ namespace Analysis {
             virtual bool is_non_reduction_basic_induction_variable(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-            virtual Nodecl::NodeclBase get_induction_variable_lower_bound(
+            virtual NodeclSet get_induction_variable_lower_bound_list(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
             virtual Nodecl::NodeclBase get_induction_variable_increment(

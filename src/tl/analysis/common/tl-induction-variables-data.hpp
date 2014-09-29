@@ -46,9 +46,9 @@ namespace Utils {
     private:
         NBase _var;
 
-        NBase _lb;         /*!< Lower bound within a loop */
-        NBase _ub;         /*!< Upper bound within a loop (included) */
-        NBase _incr;       /*!< Stride within a loop */
+        NodeclSet _lb;      /*!< Lower bound within a loop */
+        NodeclSet _ub;      /*!< Upper bound within a loop (included) */
+        NBase _incr;        /*!< Stride within a loop */
 
         ObjectList<NBase> _incrs;  /*!< List of modifications to an Induction Variable */
                                                 // Example: loop { iv = iv + 100; iv = iv + 200 }
@@ -61,27 +61,29 @@ namespace Utils {
 
         // *** Constructors *** //
         //! Constructor to store variables that have upper and lower limits and stride but aren't Induction Variables
-        InductionVar(NBase var);
+        InductionVar(const NBase& var);
         //! Induction Variable common constructor
-        InductionVar(NBase var, InductionVarType type, NBase family);
+        InductionVar(const NBase& var, InductionVarType type, const NBase& family);
 
 
         // *** Getters and Setters *** //
         NBase get_variable() const;
-        void set_variable(NBase s);
+        void set_variable(const NBase& s);
 
-        NBase get_lb() const;
-        void set_lb(NBase lb);
+        NodeclSet get_lb() const;
+        void set_lb(const NBase& lb);
+        void set_lb(const NodeclSet& lb);
 
-        NBase get_ub() const;
-        void set_ub(NBase ub);
+        NodeclSet get_ub() const;
+        void set_ub(const NBase& ub);
+        void set_ub(const NodeclSet& ub);
 
         NBase get_increment() const;
-        void set_increment(NBase incr);
+        void set_increment(const NBase& incr);
         bool is_increment_one() const;
 
         ObjectList<NBase> get_increment_list() const;
-        void set_increment_list(ObjectList<NBase> incr_list);
+        void set_increment_list(const ObjectList<NBase>& incr_list);
         
         std::string get_type_as_string() const;
 
@@ -119,20 +121,22 @@ namespace Utils {
 
     typedef std::multimap<int, InductionVar*> InductionVarsPerNode;
     
+    std::string prettyprint_iv_boundary_list(const NodeclSet& boundaries);
+
     //! Prints into a string all data associated to each induction variable of \p iv_list
-    std::string prettyprint_induction_vars(InductionVarList iv_list, bool to_dot);
+    std::string prettyprint_induction_vars(const InductionVarList& iv_list, bool to_dot);
 
     //! Prints all induction variables information to the standard error
-    void print_induction_vars(InductionVarsPerNode iv_list);
+    void print_induction_vars(const InductionVarsPerNode& iv_list);
     
     //! Look for nodecl \p var in the \p iv_list list of induction variables
-    bool induction_variable_list_contains_variable(InductionVarList iv_list, NBase var);
+    bool induction_variable_list_contains_variable(const InductionVarList& iv_list, const NBase& var);
 
     //! Looks for the induction variable \p var in the list \p ivs of induction variables
-    InductionVar* get_induction_variable_from_list(InductionVarList ivs, NBase var);
+    InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var);
     
     //! Looks for the induction variable \p var in a map \p ivs of "node, induction variables"
-    InductionVar* get_induction_variable_from_list(Utils::InductionVarsPerNode ivs, NBase var);
+    InductionVar* get_induction_variable_from_list(const InductionVarsPerNode& ivs, const NBase& var);
 
     // ******************************* END Induction Variables utils ******************************* //
     // ********************************************************************************************* //
