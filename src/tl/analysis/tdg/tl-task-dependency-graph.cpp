@@ -287,10 +287,28 @@ check_ivs:
                 {
                     Utils::InductionVar* iv = get_induction_variable_from_list(ivs, var);
                     //             range_str = iv->print_iv_as_range();
-                    range_str = "[" + transform_expression_to_json_expression(
-                                            current_cs_node, iv->get_lb(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
-                              + ":" + transform_expression_to_json_expression(
-                                            current_cs_node, iv->get_ub(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
+                    std::string lb_str;
+                    const NodeclSet& lb = iv->get_lb();
+                    for (NodeclSet::const_iterator it = lb.begin(); it != lb.end(); )
+                    {
+                        lb_str += transform_expression_to_json_expression(
+                                        current_cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+                        ++it;
+                        if (it != lb.end())
+                            lb_str += ",";
+                    }
+                    std::string ub_str;
+                    const NodeclSet& ub = iv->get_ub();
+                    for (NodeclSet::const_iterator it = ub.begin(); it != ub.end(); )
+                    {
+                        ub_str += transform_expression_to_json_expression(
+                                        current_cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+                        ++it;
+                        if (it != ub.end())
+                            ub_str += ",";
+                    }
+                    range_str = "[" + lb_str
+                              + ":" + ub_str
                               + ":" + transform_expression_to_json_expression(
                                             current_cs_node, iv->get_increment(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
                               + "]";

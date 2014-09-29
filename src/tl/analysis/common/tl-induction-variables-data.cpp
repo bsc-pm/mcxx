@@ -159,8 +159,8 @@ namespace Utils {
 
     std::string InductionVar::print_iv_as_range() const
     {
-        return ("[" + (_lb.is_null() ? "NULL" : _lb.prettyprint()) + 
-                ":" + (_ub.is_null() ? "NULL" : _ub.prettyprint()) + 
+        return ("[" + prettyprint_iv_boundary_list(_lb) +
+                ":" + prettyprint_iv_boundary_list(_ub) +
                 ":" + (_incr.is_null() ? "NULL" : _incr.prettyprint()) + "]");
     }
     
