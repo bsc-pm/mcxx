@@ -182,6 +182,9 @@ LIBMCXX_EXTERN void ast_fix_parents_inside_intepretation(AST node);
 LIBMCXX_EXTERN struct nodecl_expr_info_tag* ast_get_expr_info(const_AST a);
 LIBMCXX_EXTERN void ast_set_expr_info(AST a, struct nodecl_expr_info_tag*);
 
+// Used by memory report
+LIBMCXX_EXTERN int ast_node_size(void);
+
 /*
  * Macros
  *
