@@ -2202,9 +2202,12 @@ void free_temporary_template_type(type_t* t)
         internal_error("Code unreachable", 0);
     }
 
-    xfree(primary_specialization->type_information->info);
 
+    free_template_parameter_list(primary_specialization->type_information->template_arguments);
+    xfree(primary_specialization->type_information->info);
     xfree(primary_specialization);
+
+    free_template_parameter_list(t->template_parameters);
     xfree(t->type);
     xfree(t);
 }

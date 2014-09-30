@@ -15210,6 +15210,8 @@ static void nodecl_make_designator(nodecl_t *nodecl_output, type_t* declared_typ
     nodecl_t* designators = nodecl_unpack_list(designator, &num_designators);
 
     nodecl_make_designator_rec(nodecl_output, declared_type, designators, 0, num_designators);
+
+    xfree(designators);
 }
 
 char is_narrowing_conversion_type(type_t* orig_type,

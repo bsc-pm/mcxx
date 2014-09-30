@@ -1154,6 +1154,9 @@ static char compare_template_classes(
     xfree(fake_template_name_2);
     xfree(fake_template_name_1);
 
+    free_template_parameter_list(template_parameters1);
+    free_template_parameter_list(template_parameters2);
+
     free_temporary_template_type(fake_template_type_2);
     free_temporary_template_type(fake_template_type_1);
 

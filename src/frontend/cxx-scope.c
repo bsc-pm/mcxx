@@ -126,7 +126,6 @@ void free_template_parameter_list(template_parameter_list_t* tpl)
     if (tpl == NULL)
         return;
 
-    // xfree(tpl->parameters);
     int i;
     for (i = 0; i < tpl->num_parameters; i++)
     {
@@ -3547,14 +3546,14 @@ static type_t* update_type_aux_(type_t* orig_type,
                     expanded_template_parameters,
                     locus);
 
-            free_template_parameter_list(expanded_template_parameters);
-
             if (updated_template_arguments == NULL)
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "SCOPE: Completion of template parameters failed\n");
                 }
+                xfree(expanded_template_parameters->parameters);
+                free_template_parameter_list(expanded_template_parameters);
                 return NULL;
             }
 
@@ -3568,7 +3567,17 @@ static type_t* update_type_aux_(type_t* orig_type,
                         updated_template_arguments,
                         decl_context,
                         locus);
+            if (updated_specialized == NULL
+                    || (template_specialized_type_get_template_parameters(
+                            named_type_get_symbol(updated_specialized)->type_information)
+                        ->parameters !=
+                        expanded_template_parameters->parameters))
+            {
+                xfree(expanded_template_parameters->parameters);
+            }
+            free_template_parameter_list(expanded_template_parameters);
             free_template_parameter_list(updated_template_arguments);
+
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: END OF Reasking for specialization\n");
@@ -3580,6 +3589,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Specialization request failed\n");
                 }
+                xfree(expanded_template_parameters->parameters);
                 return NULL;
             }
 
@@ -4783,6 +4793,7 @@ static void destroy_cached_template_parameter_lists(const char* key UNUSED_PARAM
         return;
 
     template_parameter_list_t* tpl = (template_parameter_list_t*)info;
+    xfree(tpl->parameters);
     free_template_parameter_list(tpl);
 }
 

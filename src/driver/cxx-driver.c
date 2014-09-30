@@ -2271,6 +2271,8 @@ static void enable_debug_flag(const char* flags)
                     flag);
         }
     }
+
+    xfree(flag_list);
 }
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit)

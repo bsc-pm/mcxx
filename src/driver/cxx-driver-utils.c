@@ -66,7 +66,7 @@ void temporal_files_cleanup(void)
 {
     temporal_file_list_t iter = temporal_file_list;
 
-    for (iter = temporal_file_list; iter != NULL; iter = iter->next)
+    while (iter != NULL)
     {
         if (iter->info == NULL)
             continue;
@@ -79,7 +79,7 @@ void temporal_files_cleanup(void)
                 && CURRENT_CONFIGURATION->keep_temporaries)
             continue;
 
-        if(!iter->info->is_dir)
+        if (!iter->info->is_dir)
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
@@ -112,6 +112,12 @@ void temporal_files_cleanup(void)
                 running_error("Execution of 'rm -fr' failed\n");
             }
         }
+
+
+        temporal_file_list_t prev = iter;
+        iter = iter->next;
+        xfree(prev->info);
+        xfree(prev); 
     }
 
     temporal_file_list = NULL;
