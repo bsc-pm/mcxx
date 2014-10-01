@@ -4890,7 +4890,15 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 #endif
 
-    //
+    fprintf(stderr, "Size of a symbol (bytes): %zd\n",
+            sizeof(scope_entry_t));
+    fprintf(stderr, "Size of entity specifiers (bytes): %zd\n",
+            sizeof(entity_specifiers_t));
+    fprintf(stderr, "Size of a context (bytes): %zd\n",
+            sizeof(decl_context_t));
+    fprintf(stderr, "Size of a type (bytes): %zd\n",
+            get_type_t_size());
+
     // -- AST
     fprintf(stderr, "\n");
     fprintf(stderr, "Abstract Syntax Tree(s) breakdown\n");
