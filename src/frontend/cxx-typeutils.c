@@ -3193,7 +3193,10 @@ static void _get_array_type_components(type_t* array_type,
         char *is_string_literal);
 
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
+        nodecl_t whole_size,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context,
         array_region_t* array_region,
         char with_descriptor,
         char is_string_literal);
@@ -3217,9 +3220,9 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
-                nodecl_shallow_copy(whole_size), 
-                nodecl_shallow_copy(lower_bound), 
-                nodecl_shallow_copy(upper_bound), 
+                whole_size,
+                lower_bound,
+                upper_bound,
                 decl_context,
                 array_region,
                 with_descriptor,
@@ -3683,8 +3686,11 @@ static void _get_array_type_components(type_t* array_type,
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
-        array_region_t* array_region, 
+        nodecl_t whole_size,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context,
+        array_region_t* array_region,
         char with_descriptor,
         char is_string_literal)
 {
@@ -3748,7 +3754,7 @@ static type_t* _get_array_type(type_t* element_type,
                 *(data[i].value) = const_value_cast_to_8(
                         nodecl_get_constant(*(data[i].nodecl)));
                 // Simplify the tree now
-                *(data[i].nodecl) = const_value_to_nodecl(
+                *(data[i].nodecl) = const_value_to_nodecl_cached(
                         nodecl_get_constant(*(data[i].nodecl)));
             }
         }
@@ -3953,7 +3959,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                     nodecl_get_constant(whole_size),
                     const_value_get_one(/* bytes */ 4, /* signed */ 1));
 
-            upper_bound = const_value_to_nodecl(c);
+            upper_bound = const_value_to_nodecl_cached(c);
         }
         else
         {
@@ -3966,10 +3972,10 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                     get_one_tree(nodecl_get_locus(whole_size)),
                     get_signed_int_type(),
                     nodecl_get_locus(whole_size));
-        }
 
-        nodecl_expr_set_is_value_dependent(upper_bound,
-                nodecl_expr_is_value_dependent(whole_size));
+            nodecl_expr_set_is_value_dependent(upper_bound,
+                    nodecl_expr_is_value_dependent(whole_size));
+        }
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
@@ -3993,7 +3999,7 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
                     nodecl_get_constant(whole_size),
                     const_value_get_one(/* bytes */ 4, /* signed */ 1));
 
-            upper_bound = const_value_to_nodecl(c);
+            upper_bound = const_value_to_nodecl_cached(c);
         }
         else
         {
@@ -4006,10 +4012,10 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
                     get_one_tree(nodecl_get_locus(whole_size)),
                     get_signed_int_type(),
                     nodecl_get_locus(whole_size));
-        }
 
-        nodecl_expr_set_is_value_dependent(upper_bound,
-                nodecl_expr_is_value_dependent(whole_size));
+            nodecl_expr_set_is_value_dependent(upper_bound,
+                    nodecl_expr_is_value_dependent(whole_size));
+        }
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
@@ -4028,7 +4034,7 @@ static nodecl_t compute_whole_size_given_bounds(
     if (nodecl_is_constant(lower_bound)
             && nodecl_is_constant(upper_bound))
     {
-        whole_size = const_value_to_nodecl(
+        whole_size = const_value_to_nodecl_cached(
                 const_value_add(
                     const_value_sub(
                         nodecl_get_constant(upper_bound),
