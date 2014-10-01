@@ -439,10 +439,10 @@ namespace Vectorization
                         get_linear_step(enclosing_for_stmt, n);
 
                     // for(j=j; 
-                    if (!Nodecl::Utils::structurally_equal_nodecls(
-                                lb, n, true) &&
+                    if (!(Nodecl::Utils::structurally_equal_nodecls(
+                                lb, n, true) ||
                             Nodecl::Utils::structurally_equal_nodecls(
-                                incr, n, true))
+                                incr, n, true)))
                     {
                         int lb_mod = walk(lb);
                         int incr_mod = walk(incr);
