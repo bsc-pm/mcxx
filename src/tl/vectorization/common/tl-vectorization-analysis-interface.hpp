@@ -54,13 +54,18 @@ namespace Vectorization
 
     typedef std::map<Nodecl::NodeclBase, bool> map_node_bool_t;
     typedef std::pair<Nodecl::NodeclBase, bool> pair_node_bool_t;
+    typedef std::map<Nodecl::NodeclBase, std::pair<bool, int> > map_node_boolint_t;
+    typedef std::pair<bool, int> pair_bool_int_t;
+    typedef std::pair<Nodecl::NodeclBase, pair_bool_int_t> pair_node_boolint_t;
+
     struct VectorizationAnalysisInfo
     {
         map_node_bool_t uniform_nodes;
         map_node_bool_t linear_nodes;
+        map_node_bool_t ivs_nodes;
         map_node_bool_t non_red_iv_nodes;
         map_node_bool_t adjacent_nodes;
-        map_node_bool_t simd_aligned_nodes;
+        map_node_boolint_t simd_aligned_nodes;
     };
 
     typedef std::map<Nodecl::NodeclBase,
@@ -130,8 +135,8 @@ namespace Vectorization
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
  
             // IVS 
-//            virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
-//                    const Nodecl::NodeclBase& n );
+            virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& n );
 //            DEPRECATED bool is_non_reduction_basic_induction_variable(
 //                    const Nodecl::NodeclBase& scope,
 //                    const Nodecl::NodeclBase& n );

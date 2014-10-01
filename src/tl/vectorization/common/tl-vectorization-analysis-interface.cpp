@@ -53,6 +53,7 @@ namespace Vectorization
             _vectorizer_analysis = 0;
         }
 
+
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: Computing new analysis\n");
@@ -461,29 +462,49 @@ namespace Vectorization
                 translate_input(n));
     }
 
-    /*
+    
     bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
-        bool result;
         Nodecl::NodeclBase translated_n = translate_input(n);
-        map_node_bool_t::iterator it = iv_nodes.find(translated_n);
- 
-        if (it == iv_nodes.end())
-        {
-            result = Analysis::AnalysisInterface::is_induction_variable(
-                translate_input(scope), translated_n);
+        Nodecl::NodeclBase translated_scope =
+            translate_input(scope);
 
-            iv_nodes.insert(pair_node_bool_t(translated_n, result));
+        map_scope_analysis_info_t::iterator scope_it =
+            _scope_analysis_info.find(
+                    translated_scope);
+
+        // Already computed
+        if (scope_it != _scope_analysis_info.end())
+        {
+            const map_node_bool_t& ivs_nodes =
+                scope_it->second.ivs_nodes;
+
+            map_node_bool_t::const_iterator node_it =
+                ivs_nodes.find(translated_n);
+
+            if (node_it != ivs_nodes.end())
+            {
+                return node_it->second;
+            }
         }
         else
         {
-            result = it->second;
+            scope_it = _scope_analysis_info.insert(
+                    pair_scope_analysis_info_t(scope,
+                        VectorizationAnalysisInfo())).first;
         }
 
+        // New 
+        bool result = Analysis::AnalysisInterface::is_induction_variable(
+                translate_input(scope), translated_n);
+
+        scope_it->second.ivs_nodes.insert(
+                pair_node_bool_t(n, result));
+ 
         return result;
     }
-    */
+    
     /*
     bool VectorizationAnalysisInterface::
         is_non_reduction_basic_induction_variable(
@@ -573,15 +594,16 @@ namespace Vectorization
         // Already computed
         if (scope_it != _scope_analysis_info.end())
         {
-            const map_node_bool_t& simd_aligned_nodes =
+            const map_node_boolint_t& simd_aligned_nodes =
                 scope_it->second.simd_aligned_nodes;
 
-            map_node_bool_t::const_iterator node_it =
+            map_node_boolint_t::const_iterator node_it =
                 simd_aligned_nodes.find(n);
 
             if (node_it != simd_aligned_nodes.end())
             {
-                return node_it->second;
+                alignment_output = node_it->second.second;
+                return node_it->second.first;
             }
         }
         else
@@ -598,7 +620,8 @@ namespace Vectorization
                     alignment, alignment_output);
 
         scope_it->second.simd_aligned_nodes.insert(
-                pair_node_bool_t(n, result));
+                pair_node_boolint_t(n, pair_bool_int_t(
+                        result, alignment_output)));
         
         return result;
     }
