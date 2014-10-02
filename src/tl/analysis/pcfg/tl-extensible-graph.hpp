@@ -72,6 +72,11 @@ namespace Analysis {
          */
         Symbol _function_sym;
 
+        /*! Unique node in the PCFG representing an ulterior synchronization point
+         *  for any task in the graph not synchronized within the graph
+         */
+        Node* _post_sync;
+
         //! Map relating a symbol with pointer type and the number of elements hidden in the pointer
         SizeMap _pointer_to_size_map;
         
@@ -371,6 +376,9 @@ namespace Analysis {
         //! It is null when the graph do not corresponds to a function code
         Symbol get_function_symbol() const;
 
+        Node* get_post_sync() const;
+        void set_post_sync(Node* post_sync);
+
         void set_pointer_n_elems(const NBase& s, const NBase& size);
         NBase get_pointer_n_elems(const NBase& s);
         SizeMap get_pointer_n_elements_map();
@@ -417,6 +425,7 @@ namespace Analysis {
         static Node* get_enclosing_control_structure(Node* node);
         static Node* get_task_creation_from_task(Node* task);
         static Node* get_task_from_task_creation(Node* task_creation);
+        static bool task_synchronizes_in_post_sync(Node* task);
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //

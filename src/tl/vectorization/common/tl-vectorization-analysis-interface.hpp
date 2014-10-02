@@ -140,9 +140,9 @@ namespace Vectorization
 //            DEPRECATED bool is_non_reduction_basic_induction_variable(
 //                    const Nodecl::NodeclBase& scope,
 //                    const Nodecl::NodeclBase& n );
-            virtual Nodecl::NodeclBase get_induction_variable_lower_bound(
+            Nodecl::NodeclBase get_induction_variable_lower_bound(
                     const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n );
+                    const Nodecl::NodeclBase& n);
 //            DEPRECATED Nodecl::NodeclBase get_induction_variable_increment(
 //                    const Nodecl::NodeclBase& scope,
 //                    const Nodecl::NodeclBase& n );

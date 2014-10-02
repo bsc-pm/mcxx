@@ -532,14 +532,19 @@ namespace Vectorization
     }
     */
 
-    Nodecl::NodeclBase
-        VectorizationAnalysisInterface::get_induction_variable_lower_bound(
-            const Nodecl::NodeclBase& scope,
-            const Nodecl::NodeclBase& n )
+    Nodecl::NodeclBase VectorizationAnalysisInterface::get_induction_variable_lower_bound(
+        const Nodecl::NodeclBase& scope,
+        const Nodecl::NodeclBase& n)
     {
-        Nodecl::NodeclBase return_nodecl = Analysis::AnalysisInterface::
-            get_induction_variable_lower_bound(
-                    translate_input(scope), translate_input(n));
+        std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+                = Analysis::AnalysisInterface::get_induction_variable_lower_bound_list(
+                        translate_input(scope), translate_input(n));
+        ERROR_CONDITION(lower_bounds.size() != 1,
+                        "Induction variable '%s' has %d lower bounds. "
+                        "Only 1 lower bound supported.\n",
+                        n.prettyprint().c_str(), lower_bounds.size());
+
+        Nodecl::NodeclBase return_nodecl = *lower_bounds.begin();
 
         return translate_output(return_nodecl);
     }

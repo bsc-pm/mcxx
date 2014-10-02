@@ -35,7 +35,7 @@ namespace Analysis {
     ExtensibleGraph::ExtensibleGraph(std::string name, const NBase& nodecl, PCFGVisitUtils* utils)
         : _name(name), _graph(NULL), _utils(utils),
           _nodecl(nodecl), _sc(nodecl.retrieve_context()),
-          _global_vars(), _function_sym(NULL), _pointer_to_size_map(), nodes_m(),
+          _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
           _concurrent_tasks(), _last_sync(), _next_sync(),
           _cluster_to_entry_map()
@@ -594,8 +594,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited(false);  // Be sure we do not miss any node
-                                        // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited())
+                    n->set_visited(false);  // Be sure we do not miss any node
+                                            // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -615,8 +616,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited_aux(false);  // Be sure we do not miss any node
-                                            // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited_aux())
+                    n->set_visited_aux(false);  // Be sure we do not miss any node
+                                                // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -636,8 +638,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited_extgraph(false);    // Be sure we do not miss any node
-                                                    // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited_extgraph())
+                    n->set_visited_extgraph(false);     // Be sure we do not miss any node
+                                                        // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -657,8 +660,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited_extgraph_aux(false);    // Be sure we do not miss any node
-                                                    // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited_extgraph_aux())
+                    n->set_visited_extgraph_aux(false);     // Be sure we do not miss any node
+                                                            // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -758,15 +762,14 @@ namespace Analysis {
                 // If the parents of the outer node have still one child that must be clean up
                 // within the scope of the cleaning, then do not keep cleaning this path
                 // because we will still visit the outer from that child
-                bool all_visited = true;
+                bool all_cleaned = true;
                 const ObjectList<Node*>& children = n->get_outer_node()->get_children();
                 for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    if (!(*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
-                        all_visited = false;
+                    if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
+                        all_cleaned = false;
                 }
-
-                if (all_visited)
+                if (all_cleaned)
                     n = n->get_outer_node();
                 n->set_visited(false);  // Be sure we do not miss any node
                                         // in case we clean up from the middle of the graph
@@ -820,6 +823,16 @@ namespace Analysis {
     Symbol ExtensibleGraph::get_function_symbol() const
     {
         return _function_sym;
+    }
+
+    Node* ExtensibleGraph::get_post_sync() const
+    {
+        return _post_sync;
+    }
+
+    void ExtensibleGraph::set_post_sync(Node* post_sync)
+    {
+        _post_sync = post_sync;
     }
 
     void ExtensibleGraph::set_pointer_n_elems(const NBase& s, const NBase& size)
@@ -1371,6 +1384,27 @@ namespace Analysis {
         return task;
     }
     
+    bool ExtensibleGraph::task_synchronizes_in_post_sync(Node* task)
+    {
+        std::set<Node*> visited;
+        ObjectList<Node*> children = task->get_children();
+        while (!children.empty())
+        {
+            Node* n = children.back();
+            children.pop_back();
+
+            if(visited.find(n) != visited.end())
+                continue;
+            visited.insert(n);
+
+            if (n->is_omp_virtual_tasksync())
+                return true;
+
+            children.append(n->get_children());
+        }
+        return false;
+    }
+
     bool ExtensibleGraph::is_first_statement_node(Node* node)
     {
         // Get first node in code with statements
