@@ -66,47 +66,45 @@ namespace Analysis {
             WhichAnalysis analysis_mask, 
             bool ompss_mode_enabled)
     {
-        TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
-
-        TL::Analysis::PCFGAnalysis_memento analysis_state;
+        TL::Analysis::AnalysisBase analysis(ompss_mode_enabled);
 
         // Compute "dynamic" analysis
         // Do it in such an order that the first is the most complete analysis and the last is the simplest one
         if( analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
         {
-            analysis.auto_scoping( analysis_state, n );
+            analysis.auto_scoping(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
-            analysis.reaching_definitions( analysis_state, n );
+            analysis.reaching_definitions(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            analysis.induction_variables( analysis_state, n );
+            analysis.induction_variables(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {
-            analysis.liveness( analysis_state, n );
+            analysis.liveness(n);
         }
         if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS |
                                               WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
-            analysis.use_def( analysis_state, n );
+            analysis.use_def(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
         {
-            analysis.parallel_control_flow_graph( analysis_state, n );
+            analysis.parallel_control_flow_graph(n);
         }
 
         if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
             CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context ||
             CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
             CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
-            analysis.print_all_pcfg(analysis_state);
+            analysis.print_all_pcfg();
 
         // Fill nodecl to pcfg map
-        ObjectList<ExtensibleGraph*> pcfgs = analysis_state.get_pcfgs();
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        const ObjectList<ExtensibleGraph*>& pcfgs = analysis.get_pcfgs();
+        for(ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
             Nodecl::NodeclBase func_nodecl = (*it)->get_nodecl();
 
