@@ -25,7 +25,7 @@
 // --------------------------------------------------------------------*/
 
 #include "tl-test-analysis-phase.hpp"
-#include "tl-analysis-singleton.hpp"
+#include "tl-analysis-base.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 
@@ -101,8 +101,7 @@ namespace Analysis {
 
     void TestAnalysisPhase::run(TL::DTO& dto)
     {
-        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
-        PCFGAnalysis_memento memento;
+        AnalysisBase analysis(_ompss_mode_enabled);
 
         Nodecl::NodeclBase ast = dto["nodecl"];
 
@@ -111,7 +110,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "====================  Testing PCFG creation  =================" << std::endl;
-            analysis.parallel_control_flow_graph(memento, ast);
+            analysis.parallel_control_flow_graph(ast);
             if (VERBOSE)
                 std::cerr << "=================  Testing PCFG creation done  ===============" << std::endl;
         }
@@ -120,7 +119,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "==============  Testing Use-Definition analysis  ==============" << std::endl;
-            analysis.use_def(memento, ast);
+            analysis.use_def(ast);
             if (VERBOSE)
                 std::cerr << "============  Testing Use-Definition analysis done  ===========" << std::endl;
         }
@@ -129,7 +128,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "=================  Testing Liveness analysis  ==================" << std::endl;
-            analysis.liveness(memento, ast);
+            analysis.liveness(ast);
             if (VERBOSE)
                 std::cerr << "===============  Testing Liveness analysis done  ===============" << std::endl;
         }
@@ -138,7 +137,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "===========  Testing Reaching Definitions analysis  ============" << std::endl;
-            analysis.reaching_definitions(memento, ast);
+            analysis.reaching_definitions(ast);
             if (VERBOSE)
                 std::cerr << "=========  Testing Reaching Definitions analysis done  =========" << std::endl;
         }
@@ -147,7 +146,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "=============  Testing Induction Variables analysis  ==========" << std::endl;
-            analysis.induction_variables(memento, ast);
+            analysis.induction_variables(ast);
             if (VERBOSE)
                 std::cerr << "==========  Testing Induction Variables analysis done  ========" << std::endl;
         }
@@ -156,7 +155,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "============  Testing Tasks synchronization tunning  ===========" << std::endl;
-            analysis.tune_task_synchronizations(memento, ast);
+            analysis.tune_task_synchronizations(ast);
             if (VERBOSE)
                 std::cerr << "=========  Testing Tasks synchronization tunning done  =========" << std::endl;
         }
@@ -165,7 +164,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "====================  Testing Range analysis  ===================" << std::endl;
-            analysis.range_analysis(memento, ast);
+            analysis.range_analysis(ast);
             if (VERBOSE)
                 std::cerr << "==========  Testing Induction Variables analysis done  ==========" << std::endl;
         }
@@ -175,7 +174,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "====================  Testing TDG creation  ====================" << std::endl;
-            tdgs = analysis.task_dependency_graph(memento, ast);
+            tdgs = analysis.task_dependency_graph(ast);
             if (VERBOSE)
                 std::cerr << "==================  Testing TDG creation done  =================" << std::endl;
         }
@@ -184,7 +183,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "============  Testing Cyclomatic Complexity analysis  ===========" << std::endl;
-            analysis.cyclomatic_complexity(memento, ast);
+            analysis.cyclomatic_complexity(ast);
             if (VERBOSE)
                 std::cerr << "=========  Testing Cyclomatic Complexity analysis done  =========" << std::endl;
         }
@@ -196,9 +195,9 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "=================  Printing PCFG to dot file  ==================" << std::endl;
-            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-            for (ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-                analysis.print_pcfg(memento, (*it)->get_name());
+            const ObjectList<ExtensibleGraph*>& pcfgs = analysis.get_pcfgs();
+            for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+                analysis.print_pcfg((*it)->get_name());
             if (VERBOSE)
                 std::cerr << "===============  Printing PCFG to dot file done  ===============" << std::endl;
         }
@@ -208,7 +207,7 @@ namespace Analysis {
             if (VERBOSE)
                 std::cerr << "==================  Printing TDG to dot file  =================" << std::endl;
             for (ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin(); it != tdgs.end(); ++it)
-                analysis.print_tdg(memento, (*it)->get_name());
+                analysis.print_tdg((*it)->get_name());
             if (VERBOSE)
                 std::cerr << "===============  Printing TDG to dot file done  ===============" << std::endl;
         }
@@ -218,7 +217,7 @@ namespace Analysis {
             if (VERBOSE)
                 std::cerr << "==================  Printing TDG to json file  ================" << std::endl;
             for (ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin(); it != tdgs.end(); ++it)
-                analysis.tdg_to_json(memento, (*it)->get_name());
+                analysis.tdg_to_json((*it)->get_name());
             if (VERBOSE)
                 std::cerr << "===============  Printing TDG to json file done  ==============" << std::endl;
         }

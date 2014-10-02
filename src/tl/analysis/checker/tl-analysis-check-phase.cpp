@@ -25,7 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-analysis-check-phase.hpp"
-#include "tl-analysis-singleton.hpp"
+#include "tl-analysis-base.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 #include "tl-omp-lint.hpp"
@@ -874,15 +874,14 @@ namespace {
         // 1.- Execute analyses
         // 1.1.- Compute all data-flow analysis
         // FIXME We should launch the analyses depending on the clauses in the assert directives
-        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
-        PCFGAnalysis_memento memento;
-        analysis.all_analyses(memento, ast);
+        AnalysisBase analysis(_ompss_mode_enabled);
+        analysis.all_analyses(ast);
         // 1.2.- Execute correctness phase, which can also be checked
         // FIXME We should only execute this is there are assert clauses checking this information
-        TL::OpenMP::launch_correctness(memento, _correctness_log_path);
+        TL::OpenMP::launch_correctness(analysis, _correctness_log_path);
         
         // 2.- Perform checks
-        const ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
+        const ObjectList<ExtensibleGraph*> pcfgs = analysis.get_pcfgs();
         // 2.1.- Check PCFG consistency
         for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
@@ -895,7 +894,7 @@ namespace {
         {
             if (VERBOSE)
             {
-                analysis.print_pcfg(memento, (*it)->get_name());
+                analysis.print_pcfg((*it)->get_name());
                 printf("Check analysis assertions of PCFG '%s'\n", (*it)->get_name().c_str());
             }
             check_analysis_assertions(*it);
