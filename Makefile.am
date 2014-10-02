@@ -2201,7 +2201,9 @@ vector_lowering_cflags = -I $(top_srcdir)/src/tl/vectorization/common \
                          -I $(top_srcdir)/src/tl/analysis/interface\
                          -I $(top_srcdir)/src/tl/analysis/common \
                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(top_srcdir)/src/tl/analysis/tdg \
                          -I $(top_srcdir)/src/tl/omp/core \
+                         -I $(top_srcdir)/src/tl/optimizations \
                          $(END)
 
 if BUILD_VECTORIZATION
@@ -2257,12 +2259,6 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
-                              -I $(top_srcdir)/src/tl/optimizations \
-                              -I $(top_srcdir)/src/tl/vectorization/common \
-                              -I $(top_srcdir)/src/tl/analysis/interface \
-                              -I $(top_srcdir)/src/tl/analysis/common \
-                              -I $(top_srcdir)/src/tl/analysis/pcfg \
-                              -I $(top_srcdir)/src/tl/analysis/tdg \
                               $(END)
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
