@@ -226,6 +226,9 @@ LIBMCXX_EXTERN char same_functional_expression(
         nodecl_t n1,
         nodecl_t n2);
 
+// Used by the lexer
+char* interpret_schar(const char* schar, const locus_t* locus);
+
 MCXX_END_DECLS
 
 #endif

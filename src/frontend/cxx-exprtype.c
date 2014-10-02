@@ -1816,14 +1816,14 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     }
 }
 
-static void compute_length_of_literal_string(AST expr,
+static void compute_length_of_literal_string(
+        const char* literal,
         int *num_codepoints,
         int **codepoints,
-        type_t** base_type)
+        type_t** base_type,
+        const locus_t* locus)
 {
-    // We allow the parser not to mix the two strings
-    const char *literal = ASTText(expr);
-
+    const char* orig_literal = literal;
     int capacity_codepoints = 16;
     *num_codepoints = 0;
 
@@ -1900,7 +1900,7 @@ static void compute_length_of_literal_string(AST expr,
             CXX03_LANGUAGE()
             {
                 warn_printf("%s: warning: raw-string-literals are a C++11 feature\n", 
-                        ast_location(expr));
+                        locus_to_str(locus));
             }
             is_raw_string = 1;
             literal++;
@@ -1911,7 +1911,7 @@ static void compute_length_of_literal_string(AST expr,
         }
 
         ERROR_CONDITION(*literal != '"',
-                "Lexical problem in the literal '%s'\n", ASTText(expr));
+                "Lexical problem in the literal '%s'\n", orig_literal);
 
         // Advance the "
         literal++;
@@ -2034,7 +2034,7 @@ static void compute_length_of_literal_string(AST expr,
                                            char ill_literal[11];
                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
                                            error_printf("%s: error: invalid universal literal name '%s'\n", 
-                                                   ast_location(expr),
+                                                   locus_to_str(locus),
                                                    ill_literal);
                                            *num_codepoints = -1;
                                            xfree(*codepoints);
@@ -2074,8 +2074,7 @@ static void compute_length_of_literal_string(AST expr,
 
                                    strncpy(c, beginning_of_escape, 3);
                                    error_printf("%s: error: invalid escape sequence '%s'\n",
-                                           ast_location(expr),
-                                           c);
+                                           locus_to_str(locus), c);
                                    *num_codepoints = -1;
                                    xfree(*codepoints);
                                    return;
@@ -2104,7 +2103,45 @@ static void compute_length_of_literal_string(AST expr,
     // Final NULL value
     ADD_CODEPOINT(0);
 
-    ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
+    ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", orig_literal);
+}
+
+// This is used by the lexer. It returns a new string to be deallocated
+// by the caller
+char* interpret_schar(const char* schar, const locus_t* locus)
+{
+    int num_codepoints = 0;
+    int *codepoints = NULL;
+
+    type_t* base_type = NULL;
+
+    compute_length_of_literal_string(schar,
+            &num_codepoints,
+            &codepoints,
+            &base_type,
+            locus);
+
+    if (num_codepoints < 0)
+        return NULL;
+
+    if (is_char_type(get_unqualified_type(base_type)))
+    {
+        int length = 0;
+        length = num_codepoints;
+
+        char c[length];
+        int i;
+        for (i = 0; i < length; i++)
+            c[i] = codepoints[i];
+
+        return xstrdup(c);
+    }
+    else
+    {
+        error_printf("%s: error: invalid non-narrow char string literal\n",
+                locus_to_str(locus));
+        return NULL;
+    }
 }
 
 static void string_literal_type(AST expr, nodecl_t* nodecl_output)
@@ -2114,10 +2151,11 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 
     type_t* base_type = NULL;
 
-    compute_length_of_literal_string(expr,
+    compute_length_of_literal_string(ASTText(expr),
             &num_codepoints,
             &codepoints,
-            &base_type);
+            &base_type,
+            ast_get_locus(expr));
     if (num_codepoints < 0)
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));

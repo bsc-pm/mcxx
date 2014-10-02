@@ -2042,12 +2042,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
 {
-    // Empty declarations are meaningless for the symbol table
-    // They are of the form
-    //    ;
-    if (ASTType(a) == AST_EMPTY_DECL)
-        return;
-
     type_t* simple_type_info = NULL;
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
@@ -2524,7 +2518,34 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 entry,
                                 ast_get_locus(init_declarator))));
             }
+
+            if (CURRENT_CONFIGURATION->xl_compatibility)
+            {
+                if (current_gather_info.num_xl_pragmas > 0)
+                {
+                    *nodecl_output = nodecl_append_to_list(
+                            *nodecl_output,
+                            nodecl_make_cxx_decl(
+                                nodecl_make_context(nodecl_null(),
+                                    current_decl_context,
+                                    ast_get_locus(init_declarator)),
+                                entry,
+                                ast_get_locus(init_declarator)));
+                    int i;
+                    for (i = 0; i < current_gather_info.num_xl_pragmas; i++)
+                    {
+                        *nodecl_output = nodecl_append_to_list(
+                                *nodecl_output,
+                                nodecl_make_unknown_pragma(
+                                    current_gather_info.xl_pragmas[i],
+                                    ast_get_locus(init_declarator)));
+                    }
+
+                    xfree(current_gather_info.xl_pragmas);
+                }
+            }
         }
+
     }
     else if (simple_type_info != NULL
             && declarator_list == NULL)
@@ -2543,7 +2564,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         internal_error("Code unreachable", 0);
     }
 }
-
 
 /* 
  * This function fills gather_info and simple_type_info with proper information
@@ -3004,7 +3024,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_XL_BUILTIN_SPEC :
             // Do nothing at the moment
             break;
-            // Unknown node
+        case AST_UNKNOWN_PRAGMA:
+            // Do nothing at the moment
+            break;
         case AST_MS_DECLSPEC:
             // __declspec(X)
             // __declspec(X(Y0, Y1, ...))
@@ -4004,6 +4026,14 @@ static void gather_extra_attributes(AST a,
             case AST_MS_DECLSPEC:
                 {
                     gather_ms_declspec(item, gather_info, decl_context);
+                    break;
+                }
+            case AST_UNKNOWN_PRAGMA:
+                {
+                    if (CURRENT_CONFIGURATION->xl_compatibility)
+                    {
+                        P_LIST_ADD(gather_info->xl_pragmas, gather_info->num_xl_pragmas, ast_get_text(item));
+                    }
                     break;
                 }
             default:
