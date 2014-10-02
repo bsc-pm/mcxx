@@ -27,7 +27,7 @@
 #ifndef TL_OMP_LINT_HPP
 #define TL_OMP_LINT_HPP
 
-#include "tl-analysis-singleton.hpp"
+#include "tl-analysis-base.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-nodecl-visitor.hpp"
 
@@ -37,7 +37,7 @@ namespace OpenMP {
     // We need this method to be visible so it can be used on demand
     // (Necessary for correctness analysis checker phase)
     void launch_correctness(
-            const TL::Analysis::PCFGAnalysis_memento& memento,
+            const TL::Analysis::AnalysisBase& analysis,
             std::string log_file_path);
     
     class WritesVisitor : public Nodecl::ExhaustiveVisitor<void>

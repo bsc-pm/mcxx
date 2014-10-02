@@ -163,7 +163,6 @@ namespace Analysis {
         Node* exit_flush = parents[0];
         NodeclSet succ_live_in = compute_successors_live_in(exit_flush);
         // 1.2.- If the task has a post_sync successor, then all shared variables must be alive at the exit of the task
-        const ObjectList<Node*>& children = task->get_children();
         if (ExtensibleGraph::task_synchronizes_in_post_sync(task))
         {
             const NodeclSet& shared_accesses = task->get_all_shared_accesses();

@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-analysis-singleton.hpp"
+#include "tl-analysis-base.hpp"
 #include "tl-complexity.hpp"
 
 namespace TL {
@@ -50,9 +50,8 @@ namespace TL {
 
         // This phase does not care about OpenMP or OmpSs, so we use 'false' by default
         // To be more accurate, we could register the parameter 'is_ompss_enabled' and use it
-        TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(/*is_ompss_enabled*/false);
-        TL::Analysis::PCFGAnalysis_memento memento;
-        singleton.cyclomatic_complexity(memento, top_level);
+        TL::Analysis::AnalysisBase analysis(/*is_ompss_enabled*/false);
+        analysis.cyclomatic_complexity(top_level);
     }
 
     void Complexity::pre_run(TL::DTO& dto)
