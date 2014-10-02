@@ -463,76 +463,58 @@ namespace {
         {
             return _target_var_to_value_map;
         }
-        
+
         NBase get_dependency_size() const
         {
             return _dependecy_size;
         }
-        
+
         void collect_condition_info(Node* n, const NBase& cond_expr, bool is_source)
         {
             // 1.- Get all the variables involved in cond_expr
             NodeclList tmp = Nodecl::Utils::get_all_memory_accesses(cond_expr);
             std::queue<NBase, std::deque<NBase> > vars(std::deque<NBase>(tmp.begin(), tmp.end()));
 
-            // 2.- Get the reaching definitions to cond_expr
-            NodeclMap reach_defs = (is_source ? n->get_reaching_definitions_out() : n->get_reaching_definitions_in());
-
-            // 3.- For each variable involved in the condition, gather its values
+            // 2.- For each variable involved in the condition, gather its values
             NodeclSet already_treated;
             while (!vars.empty())
             {
-                // 3.1.- Get the current variable
+                // 2.1.- Get the current variable
                 NBase v = vars.front();
                 vars.pop();
 
-                // 3.2.- Make sure we have some value for the variable
-                ERROR_CONDITION(reach_defs.find(v) == reach_defs.end(),
-                                "No reaching definition arrives from node %d for variable '%s' in condition's %s expression '%s'.\n",
+                // 2.2.- Make sure we have some value for the variable
+                NBase values = n->get_range(v);
+                ERROR_CONDITION(values.is_null(),
+                                "No range computed in node %d for variable '%s', in condition's %s expression '%s'.\n",
                                 n->get_id(), v.prettyprint().c_str(), (is_source ? "LHS" : "RHS"), cond_expr.prettyprint().c_str());
 
-                // 3.3.- Store the variable so we do not treat it again (to avoid recursive definitions)
+                // 2.3.- Store the variable so we do not treat it again (to avoid recursive definitions)
                 if (already_treated.find(v) == already_treated.end())
                     already_treated.insert(v);
 
-                // 3.4.- Get all the reaching definitions associated with the current variable
-                //       Add all the symbols involved in the reaching definition that has not yet been treated
-                //       Note: this will not work when a RD uses a variable that is used in cond_expr (or in a recursively previous RD)
-                //       and the definitions arriving for the variable are different in each point
-                NBase values, rd;
+                // 2.4.- Add to 'vars' all the symbols involved in 'values' that has not yet been treated
                 NodeclSet to_treat;
-                std::pair<NodeclMap::iterator, NodeclMap::iterator> reach_defs_map = reach_defs.equal_range(v);
-                for (NodeclMap::iterator it = reach_defs_map.first; it != reach_defs_map.second; ++it)
+                tmp = Nodecl::Utils::get_all_memory_accesses(values);
+                for (NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
                 {
-                    // Add the first reaching definition as a value for the current variable
-                    rd = it->second.first;
-                    if (values.is_null())
-                        values = rd;
-                    else
-                        values = Nodecl::LogicalOr::make(values.shallow_copy(), rd.shallow_copy(), rd.get_type());
-
-                    // Add all the symbols involved in the reaching definition that has not yet been treated
-                    tmp = Nodecl::Utils::get_all_memory_accesses(rd);
-                    for (NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
+                    NBase var = *itt;
+                    if ((already_treated.find(var) == already_treated.end())
+                        && (to_treat.find(var) == to_treat.end()))
                     {
-                        NBase var = *itt;
-                        if ((already_treated.find(var) == already_treated.end())
-                                && (to_treat.find(var) == to_treat.end()))
-                        {
-                            vars.push(var);
-                            to_treat.insert(var);
-                        }
+                        vars.push(var);
+                        to_treat.insert(var);
                     }
                 }
 
-                // Store the reaching definition related with the identifier of the variable defined
+                // 2.5.- Store the reaching definition related with the identifier of the variable defined
                 if (is_source)
                     _source_var_to_value_map[v] = values.prettyprint();
                 else
                     _target_var_to_value_map[v] = values.prettyprint();
             }
         }
-        
+
         std::string unhandled_node(const NBase& n)
         {
             internal_error( "Unhandled node of type '%s' while visiting TDG condition.\n '%s' ",
