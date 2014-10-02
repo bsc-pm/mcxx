@@ -27,16 +27,11 @@
 #ifndef TL_ANALYSIS_INTERFACE_HPP
 #define TL_ANALYSIS_INTERFACE_HPP
 
-#include "tl-analysis-singleton.hpp"
+#include "tl-analysis-base.hpp"
 
 #include "tl-tribool.hpp"
 #include "tl-omp.hpp"
 #include <set>
-
-//#include "tl-induction-variables-data.hpp"
-//#include "tl-nodecl-visitor.hpp"
-//#include "tl-objectlist.hpp"
-//#include "tl-omp.hpp"
 
 namespace TL {
 namespace Analysis {

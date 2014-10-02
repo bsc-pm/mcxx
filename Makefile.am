@@ -1394,8 +1394,8 @@ src_tl_analysis_interface_libanalysis_interface_la_LIBADD= \
 				$(END)
 
 src_tl_analysis_interface_libanalysis_interface_la_SOURCES= \
-                                  src/tl/analysis/interface/tl-analysis-singleton.hpp \
-                                  src/tl/analysis/interface/tl-analysis-singleton.cpp \
+                                  src/tl/analysis/interface/tl-analysis-base.hpp \
+                                  src/tl/analysis/interface/tl-analysis-base.cpp \
                                   src/tl/analysis/interface/tl-analysis-internals.hpp \
                                   src/tl/analysis/interface/tl-analysis-internals.cpp \
                                   src/tl/analysis/interface/tl-analysis-interface.hpp \
