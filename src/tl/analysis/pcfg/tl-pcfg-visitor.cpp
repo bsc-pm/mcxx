@@ -1712,6 +1712,7 @@ next_it:    ;
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::RangeLoopControl& n )
     {
+        abort();
         Nodecl::Symbol induction_var = n.get_induction_variable().as<Nodecl::Symbol>();
         // These are actually misleading names, they should be start and end
         NBase lower = n.get_lower();
