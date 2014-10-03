@@ -217,9 +217,7 @@ namespace TL
                 {
                     DataReference data_ref(*it);
 
-                    std::string warning;
-                    if (!data_ref.is_valid()
-                            || !it->has_symbol())
+                    if (!data_ref.is_valid())
                     {
                         std::cerr << data_ref.get_error_log();
                         std::cerr << data_ref.get_locus_str() << ": warning: '" << data_ref.prettyprint()
