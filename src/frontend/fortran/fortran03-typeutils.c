@@ -437,8 +437,8 @@ type_t* fortran_rebuild_array_type(type_t* rank0_type, type_t* array_type)
 {
     rank0_type = no_ref(rank0_type);
 
-    ERROR_CONDITION(!fortran_is_scalar_type(rank0_type)
-            && !fortran_is_character_type(rank0_type), "Invalid rank0 type", 0);
+    // ERROR_CONDITION(!fortran_is_scalar_type(rank0_type)
+    //         && !fortran_is_character_type(rank0_type), "Invalid rank0 type", 0);
 
     if (!fortran_is_array_type(array_type))
     {

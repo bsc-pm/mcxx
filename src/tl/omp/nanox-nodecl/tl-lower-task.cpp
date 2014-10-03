@@ -2413,6 +2413,8 @@ void LoweringVisitor::handle_dependency_item(
         base_address = dep_expr.get_base_address().shallow_copy();
     }
 
+    // std::cerr << "BASE ADDRESS -> |" << base_address.prettyprint() << "|" << std::endl;
+
     dependency_flags
         << "{"
         << dependency_flags_in << ","
@@ -2470,6 +2472,8 @@ void LoweringVisitor::handle_dependency_item(
 
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
+
+    // std::cerr << "OFFSETOF -> |" << dep_expr_offset.prettyprint() << "|" << std::endl;
 
     dependency_offset << as_expression(dep_expr_offset);
 
