@@ -1820,7 +1820,6 @@ static void check_component_ref_(AST expr,
                     && (fortran_is_array_type(component_type)
                         || fortran_is_pointer_to_array_type(component_type))))
         {
-
             nodecl_t whole_expr =
                 nodecl_make_class_member_access(
                         nodecl_lhs,
@@ -1865,63 +1864,44 @@ static void check_component_ref_(AST expr,
         error_printf("%s: error: two or more nonzero ranks in part reference '%s'\n", 
                 ast_location(expr),
                 fortran_prettyprint_in_buffer(expr));
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+        return;
     }
 
-    // char lhs_is_pointer = is_pointer_type(orig_lhs_type);
-
-    type_t* synthesized_type = fortran_get_rank0_type(rhs_type);
-
+    type_t* synthesized_type = NULL;
     if (fortran_is_array_type(lhs_type))
     {
-        synthesized_type = fortran_rebuild_array_type(synthesized_type, lhs_type);
+        synthesized_type = fortran_rebuild_array_type(
+                fortran_get_rank0_type(rhs_type),
+                lhs_type);
     }
     else if (fortran_is_array_type(rhs_type))
     {
+        synthesized_type = rhs_type;
+    }
+    else
+    {
+        // Redundant: here for the sake of clarity
         synthesized_type = rhs_type;
     }
 
     nodecl_t nodecl_rhs_adjusted = nodecl_rhs;
 
     char rhs_is_pointer = 0;
-    if (nodecl_get_kind(nodecl_rhs_adjusted) == NODECL_DEREFERENCE)
+    if (is_pointer_type(component_type))
     {
+        ERROR_CONDITION(nodecl_get_kind(nodecl_rhs_adjusted) != NODECL_DEREFERENCE,
+                "Invalid node", 0);
+
         rhs_is_pointer = 1;
         nodecl_rhs_adjusted = nodecl_get_child(nodecl_rhs_adjusted, 0);
     }
 
-    if (rhs_is_pointer)
-    {
-        synthesized_type = get_pointer_type(synthesized_type);
-    }
-    else if (!nodecl_is_constant(nodecl_lhs))
-    {
-        synthesized_type = lvalue_ref(synthesized_type);
-    }
-
-    *nodecl_output =
-        nodecl_make_class_member_access(
-                nodecl_lhs,
-                nodecl_rhs_adjusted,
-                /* member form */ nodecl_null(),
-                synthesized_type,
-                ast_get_locus(expr));
-    nodecl_set_symbol(*nodecl_output, component_symbol);
-
-    if (rhs_is_pointer)
-    {
-        // Move the derreference outside of the class access
-        *nodecl_output = 
-            nodecl_make_dereference(
-                    *nodecl_output,
-                    lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
-                    ast_get_locus(expr));
-        nodecl_set_symbol(*nodecl_output, component_symbol);
-    }
-
+    const_value_t* const_value = NULL;
     if (nodecl_is_constant(nodecl_lhs))
     {
         // The base is const, thus this component reference is const as well
-        const_value_t* const_value = nodecl_get_constant(nodecl_lhs);
+        const_value = nodecl_get_constant(nodecl_lhs);
         ERROR_CONDITION(!const_value_is_structured(const_value), "Invalid constant value for data-reference of part", 0);
 
         // First figure the index inside the const value
@@ -1943,10 +1923,94 @@ static void check_component_ref_(AST expr,
 
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
-        const_value_t* const_value_member = const_value_get_element_num(const_value, i);
-
-        nodecl_set_constant(*nodecl_output, const_value_member);
+        const_value = const_value_get_element_num(const_value, i);
     }
+
+    if (nodecl_get_kind(nodecl_rhs_adjusted) == NODECL_ARRAY_SUBSCRIPT)
+    {
+        nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_rhs_adjusted, 1);
+        if (const_value != NULL)
+        {
+            int num_subscripts = 0;
+            nodecl_t* nodecl_indexes = nodecl_unpack_list(nodecl_subscript_list, &num_subscripts);
+            const_value = compute_subconstant_of_array(
+                    const_value,
+                    component_type,
+                    nodecl_indexes,
+                    num_subscripts);
+            xfree(nodecl_indexes);
+        }
+
+        nodecl_t nodecl_array_name = nodecl_get_child(nodecl_rhs_adjusted, 0);
+
+        if (!nodecl_is_constant(nodecl_lhs))
+        {
+            component_type = lvalue_ref(component_type);
+        }
+
+        *nodecl_output =
+            nodecl_make_class_member_access(
+                    nodecl_lhs,
+                    nodecl_array_name,
+                    /* member form */ nodecl_null(),
+                    component_type,
+                    ast_get_locus(expr));
+        nodecl_set_symbol(*nodecl_output, component_symbol);
+
+        if (rhs_is_pointer)
+        {
+            *nodecl_output =
+                nodecl_make_dereference(
+                        *nodecl_output,
+                        lvalue_ref(pointer_type_get_pointee_type(no_ref(component_type))),
+                        ast_get_locus(expr));
+        }
+
+        if (!nodecl_is_constant(nodecl_lhs))
+        {
+            synthesized_type = lvalue_ref(synthesized_type);
+        }
+
+        *nodecl_output =
+            nodecl_make_array_subscript(
+                    *nodecl_output,
+                    nodecl_subscript_list,
+                    synthesized_type,
+                    ast_get_locus(expr));
+    }
+    else
+    {
+        if (rhs_is_pointer)
+        {
+            synthesized_type = get_pointer_type(synthesized_type);
+        }
+        else if (!nodecl_is_constant(nodecl_lhs))
+        {
+            synthesized_type = lvalue_ref(synthesized_type);
+        }
+
+        *nodecl_output =
+            nodecl_make_class_member_access(
+                    nodecl_lhs,
+                    nodecl_rhs_adjusted,
+                    /* member form */ nodecl_null(),
+                    synthesized_type,
+                    ast_get_locus(expr));
+        nodecl_set_symbol(*nodecl_output, component_symbol);
+
+        if (rhs_is_pointer)
+        {
+            // Move the derreference outside of the class access
+            *nodecl_output =
+                nodecl_make_dereference(
+                        *nodecl_output,
+                        lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
+                        ast_get_locus(expr));
+            nodecl_set_symbol(*nodecl_output, component_symbol);
+        }
+    }
+
+    nodecl_set_constant(*nodecl_output, const_value);
 }
 
 static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)

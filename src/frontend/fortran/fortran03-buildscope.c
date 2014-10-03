@@ -3945,6 +3945,24 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
         {
             scope_entry_t* entry = nodecl_get_symbol(nodecl_data_ref);
 
+            if (nodecl_get_kind(nodecl_data_ref) == NODECL_ARRAY_SUBSCRIPT)
+            {
+                if (nodecl_get_kind(nodecl_get_child(nodecl_data_ref, 0))
+                        == NODECL_DEREFERENCE)
+                {
+                    entry = nodecl_get_symbol(
+                            nodecl_get_child(
+                                nodecl_get_child(nodecl_data_ref, 0),
+                                0));
+                }
+                else
+                {
+                    entry = nodecl_get_symbol(nodecl_get_child(nodecl_data_ref, 0));
+                }
+            }
+
+            ERROR_CONDITION(entry == NULL, "Invalid node", 0);
+
             if (!entry->entity_specs.is_allocatable
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
