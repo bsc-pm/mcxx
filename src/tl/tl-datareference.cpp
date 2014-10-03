@@ -164,113 +164,6 @@ namespace TL
                 }
             }
 
-            TL::Type extend_array_type_to_regions(const Nodecl::ArraySubscript& array)
-            {
-                TL::Type subscripted_type = array.get_subscripted().get_type();
-
-                TL::ObjectList<Nodecl::NodeclBase> lower_bounds;
-                TL::ObjectList<Nodecl::NodeclBase> upper_bounds;
-
-                if (subscripted_type.is_any_reference())
-                    subscripted_type = subscripted_type.references_to();
-
-                ERROR_CONDITION(!subscripted_type.is_pointer() && !subscripted_type.is_array(), "Invalid type!", 0);
-
-                Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
-
-                TL::Type t = subscripted_type;
-
-                for (Nodecl::List::iterator it = subscripts.begin();
-                        it != subscripts.end();
-                        it++)
-                {
-                    Nodecl::NodeclBase index = *it;
-
-                    if (t.is_pointer())
-                    {
-                        // We do not really know the size, so normalize the region from 0
-                        lower_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
-                        if (index.is<Nodecl::Range>())
-                        {
-                            // compute the new upper bound normalized to 0
-                            upper_bounds.push_back(
-                                    Nodecl::Minus::make(
-                                        Nodecl::ParenthesizedExpression::make(
-                                            index.as<Nodecl::Range>().get_upper().shallow_copy(),
-                                            get_signed_int_type()),
-                                        Nodecl::ParenthesizedExpression::make(
-                                            index.as<Nodecl::Range>().get_lower().shallow_copy(),
-                                            get_signed_int_type()),
-                                        get_signed_int_type()));
-                        }
-                        else
-                        {
-                            // A single element of this region
-                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
-                        }
-
-                        t = t.points_to();
-                    }
-                    else if (t.is_array())
-                    {
-                        Nodecl::NodeclBase lb, ub;
-
-                        t.array_get_bounds(lb, ub);
-
-                        lower_bounds.push_back(lb.shallow_copy());
-                        upper_bounds.push_back(ub.shallow_copy());
-
-                        t = t.array_element();
-                    }
-                    else
-                    {
-                        internal_error("Mismatch between types and indexes", 0);
-                    }
-                }
-
-                TL::Type rebuilt_type = t;
-
-                ERROR_CONDITION(lower_bounds.size() != subscripts.size()
-                        || subscripts.size() != upper_bounds.size(),
-                        "Mismatch between dimensions and subscripts", 0);
-
-                for (int i = lower_bounds.size() - 1; i >= 0; i--)
-                {
-                    Nodecl::NodeclBase item = subscripts[i];
-
-                    if (item.is<Nodecl::Range>())
-                    {
-                        rebuilt_type =
-                            get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
-                                    lower_bounds[i].get_internal_nodecl(),
-                                    upper_bounds[i].get_internal_nodecl(),
-                                    CURRENT_COMPILED_FILE->global_decl_context,
-                                    item.shallow_copy().get_internal_nodecl(),
-                                    CURRENT_COMPILED_FILE->global_decl_context);
-                    }
-                    else
-                    {
-                        Nodecl::NodeclBase singleton_region =
-                            Nodecl::Range::make(
-                                    item.shallow_copy(),
-                                    item.shallow_copy(),
-                                    /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
-                                    item.get_type(),
-                                    item.get_locus());
-
-                        rebuilt_type =
-                            get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
-                                    lower_bounds[i].get_internal_nodecl(),
-                                    upper_bounds[i].get_internal_nodecl(),
-                                    CURRENT_COMPILED_FILE->global_decl_context,
-                                    singleton_region.get_internal_nodecl(),
-                                    CURRENT_COMPILED_FILE->global_decl_context);
-                    }
-                }
-
-                return rebuilt_type;
-            }
-
             virtual void visit(const Nodecl::Conversion& c)
             {
                walk(c.get_nest());
@@ -440,6 +333,114 @@ namespace TL
 
                 _data_ref._base_address = shaping_expr.get_postfix().shallow_copy();
             }
+
+            TL::Type extend_array_type_to_regions(const Nodecl::ArraySubscript& array)
+            {
+                TL::Type subscripted_type = array.get_subscripted().get_type();
+
+                TL::ObjectList<Nodecl::NodeclBase> lower_bounds;
+                TL::ObjectList<Nodecl::NodeclBase> upper_bounds;
+
+                if (subscripted_type.is_any_reference())
+                    subscripted_type = subscripted_type.references_to();
+
+                ERROR_CONDITION(!subscripted_type.is_pointer() && !subscripted_type.is_array(), "Invalid type!", 0);
+
+                Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
+
+                TL::Type t = subscripted_type;
+
+                for (Nodecl::List::iterator it = subscripts.begin();
+                        it != subscripts.end();
+                        it++)
+                {
+                    Nodecl::NodeclBase index = *it;
+
+                    if (t.is_pointer())
+                    {
+                        // We do not really know the size, so normalize the region from 0
+                        lower_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                        if (index.is<Nodecl::Range>())
+                        {
+                            // compute the new upper bound normalized to 0
+                            upper_bounds.push_back(
+                                    Nodecl::Minus::make(
+                                        Nodecl::ParenthesizedExpression::make(
+                                            index.as<Nodecl::Range>().get_upper().shallow_copy(),
+                                            get_signed_int_type()),
+                                        Nodecl::ParenthesizedExpression::make(
+                                            index.as<Nodecl::Range>().get_lower().shallow_copy(),
+                                            get_signed_int_type()),
+                                        get_signed_int_type()));
+                        }
+                        else
+                        {
+                            // A single element of this region
+                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                        }
+
+                        t = t.points_to();
+                    }
+                    else if (t.is_array())
+                    {
+                        Nodecl::NodeclBase lb, ub;
+
+                        t.array_get_bounds(lb, ub);
+
+                        lower_bounds.push_back(lb.shallow_copy());
+                        upper_bounds.push_back(ub.shallow_copy());
+
+                        t = t.array_element();
+                    }
+                    else
+                    {
+                        internal_error("Mismatch between types and indexes", 0);
+                    }
+                }
+
+                TL::Type rebuilt_type = t;
+
+                ERROR_CONDITION(lower_bounds.size() != subscripts.size()
+                        || subscripts.size() != upper_bounds.size(),
+                        "Mismatch between dimensions and subscripts", 0);
+
+                for (int i = lower_bounds.size() - 1; i >= 0; i--)
+                {
+                    Nodecl::NodeclBase item = subscripts[i];
+
+                    if (item.is<Nodecl::Range>())
+                    {
+                        rebuilt_type =
+                            get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
+                                    lower_bounds[i].get_internal_nodecl(),
+                                    upper_bounds[i].get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context,
+                                    item.shallow_copy().get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                    else
+                    {
+                        Nodecl::NodeclBase singleton_region =
+                            Nodecl::Range::make(
+                                    item.shallow_copy(),
+                                    item.shallow_copy(),
+                                    /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
+                                    item.get_type(),
+                                    item.get_locus());
+
+                        rebuilt_type =
+                            get_array_type_bounds_with_regions(rebuilt_type.get_internal_type(),
+                                    lower_bounds[i].get_internal_nodecl(),
+                                    upper_bounds[i].get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context,
+                                    singleton_region.get_internal_nodecl(),
+                                    CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                }
+
+                return rebuilt_type;
+            }
+
     };
 
     DataReference::DataReference(Nodecl::NodeclBase expr)
