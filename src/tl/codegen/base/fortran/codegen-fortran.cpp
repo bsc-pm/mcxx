@@ -1515,9 +1515,11 @@ OPERATOR_TABLE
             walk(node.get_rhs());
             *(file) << ")";
         }
-        else if (n.is<Nodecl::Symbol>()
-                && n.get_symbol().is_parameter()
-                && t.is_fortran_array()
+        // else if (n.is<Nodecl::Symbol>()
+        //         && n.get_symbol().is_parameter()
+        //         && t.is_fortran_array()
+        //         && t.array_requires_descriptor())
+        else if (t.is_fortran_array()
                 && t.array_requires_descriptor())
         {
             *file << "LOC(";
