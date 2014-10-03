@@ -7199,6 +7199,10 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
 
     // Global names
     type_t* ieee_flag_type = get_const_qualified_type(get_user_defined_type(ieee_flag));
+    nodecl_t ieee_flag_type_value_tree = const_value_to_nodecl(
+            const_value_make_struct(0, NULL,
+                get_user_defined_type(ieee_flag)));
+
     // type_t* ieee_status_type = get_user_defined_type(ieee_status);
 
     type_t* ieee_flag_type_3 = get_array_type_bounds(ieee_flag_type,
@@ -7215,15 +7219,16 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     {
         const char* name;
         type_t* type;
+        nodecl_t value;
     } global_names[] = {
-        { "ieee_invalid", ieee_flag_type },
-        { "ieee_overflow", ieee_flag_type },
-        { "ieee_divided_by_zero", ieee_flag_type },
-        { "ieee_underflow", ieee_flag_type },
-        { "ieee_inexact", ieee_flag_type },
-        { "ieee_usual", ieee_flag_type_3 },
-        { "ieee_all", ieee_flag_type_5 },
-        { NULL, NULL }
+        { "ieee_invalid", ieee_flag_type, ieee_flag_type_value_tree },
+        { "ieee_overflow", ieee_flag_type, ieee_flag_type_value_tree },
+        { "ieee_divided_by_zero", ieee_flag_type, ieee_flag_type_value_tree },
+        { "ieee_underflow", ieee_flag_type, ieee_flag_type_value_tree },
+        { "ieee_inexact", ieee_flag_type, ieee_flag_type_value_tree },
+        { "ieee_usual", ieee_flag_type_3, nodecl_null() },
+        { "ieee_all", ieee_flag_type_5, nodecl_null() },
+        { NULL, NULL, nodecl_null() }
     };
 
     for (i = 0; global_names[i].name != NULL; i++)
@@ -7234,6 +7239,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_exceptions;
         new_var->type_information = global_names[i].type;
+        new_var->value = global_names[i].value;
         new_var->entity_specs.access = AS_PUBLIC;
 
         P_LIST_ADD(ieee_exceptions->entity_specs.related_symbols,
@@ -7292,31 +7298,39 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 
     // Global names
     type_t* ieee_class_type = get_const_qualified_type(get_user_defined_type(ieee_class));
+    nodecl_t ieee_class_type_value = const_value_to_nodecl(
+            const_value_make_struct(0, NULL,
+                get_user_defined_type(ieee_class)));
+
     type_t* ieee_round_type = get_const_qualified_type(get_user_defined_type(ieee_round));
+    nodecl_t ieee_round_type_value = const_value_to_nodecl(
+            const_value_make_struct(0, NULL,
+                get_user_defined_type(ieee_round)));
 
     struct global_vars_tag
     {
         const char* name;
         type_t* type;
+        nodecl_t value;
     } global_names[] = {
-        {"ieee_signaling_nan", ieee_class_type },
-        {"ieee_quiet_nan", ieee_class_type },
-        {"ieee_negative_inf", ieee_class_type },
-        {"ieee_negative_normal", ieee_class_type },
-        {"ieee_negative_denormal", ieee_class_type },
-        {"ieee_negative_zero", ieee_class_type },
-        {"ieee_positive_zero", ieee_class_type },
-        {"ieee_positive_denormal", ieee_class_type },
-        {"ieee_positive_normal", ieee_class_type },
-        {"ieee_positive_inf", ieee_class_type },
+        {"ieee_signaling_nan", ieee_class_type, ieee_class_type_value },
+        {"ieee_quiet_nan", ieee_class_type, ieee_class_type_value },
+        {"ieee_negative_inf", ieee_class_type, ieee_class_type_value },
+        {"ieee_negative_normal", ieee_class_type, ieee_class_type_value },
+        {"ieee_negative_denormal", ieee_class_type, ieee_class_type_value },
+        {"ieee_negative_zero", ieee_class_type, ieee_class_type_value },
+        {"ieee_positive_zero", ieee_class_type, ieee_class_type_value },
+        {"ieee_positive_denormal", ieee_class_type, ieee_class_type_value },
+        {"ieee_positive_normal", ieee_class_type, ieee_class_type_value },
+        {"ieee_positive_inf", ieee_class_type, ieee_class_type_value },
 
-        {"ieee_nearest", ieee_round_type },
-        {"ieee_to_zero", ieee_round_type },
-        {"ieee_up", ieee_round_type },
-        {"ieee_down", ieee_round_type },
-        {"ieee_other", ieee_round_type },
+        {"ieee_nearest", ieee_round_type, ieee_round_type_value },
+        {"ieee_to_zero", ieee_round_type, ieee_round_type_value },
+        {"ieee_up", ieee_round_type, ieee_round_type_value },
+        {"ieee_down", ieee_round_type, ieee_round_type_value },
+        {"ieee_other", ieee_round_type, ieee_round_type_value },
 
-        { NULL, NULL }
+        { NULL, NULL, nodecl_null() }
     };
 
     for (i = 0; global_names[i].name != NULL; i++)
@@ -7327,6 +7341,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_arithmetic;
         new_var->type_information = global_names[i].type;
+        new_var->value = global_names[i].value;
         new_var->entity_specs.access = AS_PUBLIC;
 
         P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
@@ -7463,24 +7478,28 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
 
     // Global names
     type_t* ieee_features_type = get_const_qualified_type(get_user_defined_type(ieee_features_sym));
+    nodecl_t ieee_features_type_value = const_value_to_nodecl(
+            const_value_make_struct(0, NULL,
+                get_user_defined_type(ieee_features_sym)));
 
     struct global_vars_tag
     {
         const char* name;
         type_t* type;
+        nodecl_t value;
     } global_names[] = {
-        {"ieee_datatype", ieee_features_type },
-        {"ieee_denormal", ieee_features_type },
-        {"ieee_divide", ieee_features_type },
-        {"ieee_halting", ieee_features_type },
-        {"ieee_inexact_flag", ieee_features_type },
-        {"ieee_inf", ieee_features_type },
-        {"ieee_invalid_flag", ieee_features_type },
-        {"ieee_nan", ieee_features_type },
-        {"ieee_rounding", ieee_features_type },
-        {"ieee_sqrt", ieee_features_type },
-        {"ieee_underflow_flag", ieee_features_type },
-        { NULL, NULL }
+        {"ieee_datatype", ieee_features_type, ieee_features_type_value },
+        {"ieee_denormal", ieee_features_type, ieee_features_type_value },
+        {"ieee_divide", ieee_features_type, ieee_features_type_value },
+        {"ieee_halting", ieee_features_type, ieee_features_type_value },
+        {"ieee_inexact_flag", ieee_features_type, ieee_features_type_value },
+        {"ieee_inf", ieee_features_type, ieee_features_type_value },
+        {"ieee_invalid_flag", ieee_features_type, ieee_features_type_value },
+        {"ieee_nan", ieee_features_type, ieee_features_type_value },
+        {"ieee_rounding", ieee_features_type, ieee_features_type_value },
+        {"ieee_sqrt", ieee_features_type, ieee_features_type_value },
+        {"ieee_underflow_flag", ieee_features_type, ieee_features_type_value },
+        { NULL, NULL, nodecl_null() }
     };
 
     for (i = 0; global_names[i].name != NULL; i++)
@@ -7491,6 +7510,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_features;
         new_var->type_information = global_names[i].type;
+        new_var->value = global_names[i].value;
         new_var->entity_specs.access = AS_PUBLIC;
 
         P_LIST_ADD(ieee_features->entity_specs.related_symbols,
