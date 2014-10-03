@@ -228,12 +228,47 @@ namespace TL { namespace HLT {
             internal_error("Code unreachable", 0);
         }
 
-        _unrolled = Nodecl::ForStatement::make(
-                Nodecl::RangeLoopControl::make(
-                    Nodecl::Symbol::make(induction_var),
+        // i = lower
+        Nodecl::NodeclBase init = 
+            Nodecl::Assignment::make(
+                    induction_var.make_nodecl(/* ref */ true),
                     for_stmt.get_lower_bound(),
+                    induction_var.get_type().no_ref().get_lvalue_reference_to());
+
+        Nodecl::NodeclBase cond;
+        if (const_value_is_positive(orig_loop_step.get_constant()))
+        {
+            // i <= new_upper
+            cond = Nodecl::LowerOrEqualThan::make(
+                    induction_var.make_nodecl(/* set_ref_type */ true),
                     unrolled_upper_bound,
-                    unrolled_loop_step),
+                    ::get_bool_type());
+        }
+        else // can't be zero
+        {
+            // i >= new_upper
+            cond = Nodecl::GreaterOrEqualThan::make(
+                    induction_var.make_nodecl(/* set_ref_type */ true),
+                    unrolled_upper_bound,
+                    ::get_bool_type());
+        }
+
+        // i = i + step
+        Nodecl::NodeclBase next = 
+            Nodecl::Assignment::make(
+                    induction_var.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::Add::make(
+                        induction_var.make_nodecl(/* set_ref_type */ true),
+                        unrolled_loop_step,
+                        induction_var.get_type().no_ref()),
+                    induction_var.get_type().no_ref().get_lvalue_reference_to());
+
+        // for (i = 0; i <= upper; i = i + 1)
+        _unrolled = Nodecl::ForStatement::make(
+                Nodecl::LoopControl::make(
+                    Nodecl::List::make(init),
+                    cond,
+                    next),
                 unrolled_loop_body,
                 /* loop-name */ Nodecl::NodeclBase::null());
 
