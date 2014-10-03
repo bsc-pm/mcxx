@@ -90,7 +90,8 @@ namespace Vectorization
             const map_tl_sym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment,
-            int& alignment_module)
+            int& alignment_module,
+            VectorizationAnalysisInterface* analysis)
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
         {
@@ -105,7 +106,7 @@ namespace Vectorization
         int type_size = subscripted.get_type().basic_type().get_size();
 
         SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
-                unroll_factor, type_size, alignment );
+                unroll_factor, type_size, alignment, analysis );
 
         return sa_v.is_aligned_access(
                 array_subscript, aligned_expressions, alignment_module);
@@ -114,13 +115,14 @@ namespace Vectorization
     bool is_suitable_expression_internal(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment, int& vector_size_module)
+            int unroll_factor, int alignment, int& vector_size_module,
+            VectorizationAnalysisInterface* analysis)
     {
         bool result = false;
         int type_size = n.get_type().basic_type().get_size();
         
         SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
-                unroll_factor, type_size, alignment );
+                unroll_factor, type_size, alignment, analysis);
         int subscript_alignment = sa_v.walk( n );
 
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :

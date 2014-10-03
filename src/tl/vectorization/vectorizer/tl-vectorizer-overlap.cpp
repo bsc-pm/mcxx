@@ -31,6 +31,7 @@
 #include "tl-expression-reduction.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 
+#include "tl-optimizations.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "hlt-loop-unroll.hpp"
 #include "cxx-cexpr.h"
@@ -41,7 +42,7 @@ namespace Vectorization
 {
     Nodecl::List OverlapGroup::get_init_statements(
             const Nodecl::ForStatement& for_stmt,
-            const objlist_nodecl_t& ivs_list) const
+            const objlist_nodecl_t& ivs_list) const 
     {
         TL::Scope scope = for_stmt.retrieve_context();
         Nodecl::List result_list;
@@ -58,8 +59,9 @@ namespace Vectorization
                     iv != ivs_list.end();
                     iv++)
             {
-                Nodecl::NodeclBase iv_lb = VectorizationAnalysisInterface::
-                    _vectorizer_analysis->get_induction_variable_lower_bound(
+                Nodecl::NodeclBase iv_lb = 
+                    OverlappedAccessesOptimizer::_analysis->
+                    get_induction_variable_lower_bound(
                             for_stmt,*iv);
 
                 if (!iv_lb.is_null())
@@ -161,12 +163,18 @@ namespace Vectorization
         Nodecl::NodeclBase first_subscript =
             Utils::get_vector_load_subscript(first_vload);
 
+        std::cerr << "First subscript: " 
+            << first_subscript.prettyprint()
+            << std::endl;
+
         int min_offset = 0;
         int max_offset = 0;
 
         Nodecl::VectorLoad min_vload = first_vload;
         Nodecl::VectorLoad max_vload = first_vload;
 
+        // Find the leftmost (min) vload and the rightmost (max)
+        // and compute their offsets (num elements) from the first_subscript
         for(objlist_nodecl_t::const_iterator load_it =
                 _loads.begin();
                 load_it != _loads.end();
@@ -211,9 +219,9 @@ namespace Vectorization
         if (!aligned)
         {
             Nodecl::NodeclBase alignment_node = flags.find_first<Nodecl::AlignmentInfo>();
-            ERROR_CONDITION(alignment_node.is_null(),
-                    "Overlap: There is no alignment info for %s",
-                    min_vload.prettyprint().c_str());
+            if (alignment_node.is_null())
+                running_error("Overlap error: There is no alignment info for %s",
+                        min_vload.prettyprint().c_str());
 
             int alignment = const_value_cast_to_4(alignment_node.get_constant());
 
@@ -221,7 +229,8 @@ namespace Vectorization
             int negative_num_elements = alignment/min_vload_type_size;
 
             std::cerr << "OVERLAP ALIGNMENT: " << alignment 
-                << " negative offset " << negative_num_elements << std::endl;
+                << " negative offset " << negative_num_elements
+                << " num elements" << std::endl;
 
 
             // New flags
@@ -290,9 +299,9 @@ namespace Vectorization
         if (!aligned)
         {
             Nodecl::NodeclBase alignment_node = flags.find_first<Nodecl::AlignmentInfo>();
-            ERROR_CONDITION(alignment_node.is_null(),
-                    "Overlap: There is no alignment info for %s",
-                    max_vload.prettyprint().c_str());
+            if (alignment_node.is_null())
+                running_error("Overlap error: There is no alignment info for %s",
+                        max_vload.prettyprint().c_str());
 
             int alignment = const_value_cast_to_4(alignment_node.get_constant());
 
@@ -301,7 +310,8 @@ namespace Vectorization
                 alignment/max_vload_type_size;
 
             std::cerr << "OVERLAP ALIGNMENT: " << alignment 
-                << " positive offset " << positive_num_elements << std::endl;
+                << " positive offset " << positive_num_elements
+                << " num elements" << std::endl;
 
             // New flags ***************************************
             Nodecl::List new_flags = flags.shallow_copy().as<Nodecl::List>();
@@ -348,7 +358,7 @@ namespace Vectorization
                         max_vload.get_locus());
 
             max_vload = aligned_vector_load;
-            max_offset = max_offset - positive_num_elements;
+            max_offset = max_offset + positive_num_elements;
 
             Optimizations::ReduceExpressionVisitor reduce_expression_visitor;
             reduce_expression_visitor.walk(max_vload);
@@ -389,8 +399,8 @@ namespace Vectorization
                 const_value_get_signed_int(
                     environment._vectorization_factor));
 
-        std::cerr << "Leftmost: " << leftmost_index.prettyprint()
-            << " MINUS Rightmost: " << rightmost_index.prettyprint()
+        std::cerr << "Rightmost: " << rightmost_index.prettyprint()
+            << " MINUS Leftmost: " << leftmost_index.prettyprint()
             << " = "
             << minus.prettyprint()
             << ". Mod = " << const_value_cast_to_4(mod)
@@ -398,15 +408,82 @@ namespace Vectorization
             << std::endl;
 
         ERROR_CONDITION(!const_value_is_zero(mod),
-                "Leftmost and Rightmost is not multiple of VL", 0);
+                "Leftmost and Rightmost are not multiple of VL", 0);
 
         _num_registers = const_value_cast_to_4(div) + 1;
     }
  
+
+    VectorizationAnalysisInterface *OverlappedAccessesOptimizer::_analysis = 0;
+
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
-            VectorizerEnvironment& environment)
-        : _environment(environment) 
+            VectorizerEnvironment& environment,
+            VectorizationAnalysisInterface *analysis)
+        : _environment(environment)
     {
+        _analysis = analysis;
+    }
+
+    void OverlappedAccessesOptimizer::update_alignment_info(
+            const Nodecl::NodeclBase& n)
+    {
+        Nodecl::NodeclBase func_code = 
+            Nodecl::Utils::get_enclosing_function(n).get_function_code();
+
+        Optimizations::canonicalize_and_fold(func_code, false /*fast math*/);
+
+        _analysis = new VectorizationAnalysisInterface(
+                func_code,
+                Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
+
+        /*
+        std::cerr << "FUNCTION: "
+            << func_code.prettyprint()
+            << std::endl
+            << "END FUNCTION"
+            << std::endl;
+        */
+
+        objlist_nodecl_t vector_loads = Nodecl::Utils::
+            nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(n);
+
+        for(objlist_nodecl_t::iterator it = vector_loads.begin();
+                it != vector_loads.end();
+                it++)
+        {
+            int alignment_output;
+            Nodecl::VectorLoad vl = it->as<Nodecl::VectorLoad>();
+            Nodecl::List flags = vl.get_flags().as<Nodecl::List>();
+
+            if(_analysis->is_simd_aligned_access(
+                    _environment._analysis_simd_scope,
+                    Utils::get_vector_load_scalar_access(vl),
+                    _environment._aligned_symbols_map,
+                    _environment._suitable_exprs_list,
+                    1, //vectorization factor. The code is already vectorized
+                    vl.get_type().get_size(),
+                    alignment_output) &&
+                    flags.find_first<Nodecl::AlignedFlag>().is_null())
+            {
+                flags.append(Nodecl::AlignedFlag::make());
+
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "%s (aligned)\n", vl.prettyprint().c_str());
+                }
+            }
+            else if (alignment_output != -1 &&
+                    flags.find_first<Nodecl::AlignmentInfo>().is_null())
+            {
+                flags.append(Nodecl::AlignmentInfo::make(
+                            const_value_get_signed_int(alignment_output)));
+
+                fprintf(stderr, "%s (alignment info = %d)\n",
+                        vl.prettyprint().c_str(), alignment_output);
+            }
+
+            vl.set_flags(flags);
+        }
     }
 
     void OverlappedAccessesOptimizer::visit(const Nodecl::ForStatement& n)
@@ -415,8 +492,8 @@ namespace Vectorization
         Nodecl::ForStatement if_epilog;
         Nodecl::ForStatement last_epilog;
 
-        objlist_nodecl_t ivs_list = VectorizationAnalysisInterface::
-            _vectorizer_analysis->get_linear_nodecls(main_loop);
+        objlist_nodecl_t ivs_list = _analysis->
+            get_linear_nodecls(main_loop);
 
         objlist_blocks_pairs_t main_loop_blocks_pairs;
         main_loop_blocks_pairs.append(
@@ -431,7 +508,7 @@ namespace Vectorization
         // UNROLL
         if (min_unroll_factor > 0)
         {
-            if_epilog = VectorizationAnalysisInterface::_vectorizer_analysis->
+            if_epilog = _analysis->
                 shallow_copy(main_loop).as<Nodecl::ForStatement>();
 
             // Main Loop
@@ -451,9 +528,7 @@ namespace Vectorization
 
             // Bug: register_copy is not recursive!
             //      In addition, n and main_loop are the same.
-            VectorizationAnalysisInterface::
-                _vectorizer_analysis->register_copy(
-                        n, main_loop);
+            //_analysis->register_copy(n, main_loop);
                 
             // If Epilog
             if (min_unroll_factor > 1 )
@@ -465,9 +540,7 @@ namespace Vectorization
                     .as<Nodecl::ForStatement>();
             }
 
-            VectorizationAnalysisInterface::
-                _vectorizer_analysis->register_copy(
-                        n, if_epilog);
+            //_analysis->register_copy(n, if_epilog);
  
             if_epilog_blocks_pairs = 
                 apply_overlap_blocked_unrolling(if_epilog,
@@ -475,6 +548,13 @@ namespace Vectorization
 
             last_epilog.prepend_sibling(if_epilog);
             n.replace(whole_main_transformation);
+
+            // Update alignment info of "new" vector loads after unrolling
+            update_alignment_info(n);
+
+            // Recompute IVs after new analysis
+            ivs_list = _analysis->
+                get_linear_nodecls(main_loop);
         }
 
         // TODO:
@@ -584,6 +664,11 @@ namespace Vectorization
             main_loop.prepend_sibling(unroll_pragma.shallow_copy());
             last_epilog.prepend_sibling(unroll_pragma.shallow_copy());
         }
+
+        if (min_unroll_factor > 0)
+        {
+            delete(_analysis);
+        }
     }
 
     unsigned int OverlappedAccessesOptimizer::get_loop_min_unroll_factor(
@@ -598,8 +683,7 @@ namespace Vectorization
         Nodecl::NodeclBase iv = ivs_list.front();
         
         if (Nodecl::Utils::structurally_equal_nodecls(iv,
-                    VectorizationAnalysisInterface::
-                    _vectorizer_analysis->get_induction_variable_lower_bound(
+                    _analysis->get_induction_variable_lower_bound(
                         n, iv), true))
                 return 0;
 

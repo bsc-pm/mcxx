@@ -26,7 +26,7 @@
 
 #include "tl-suitable-alignment-visitor.hpp"
 
-#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorizer.hpp"
 
 #include "cxx-cexpr.h"
 //#include "tl-analysis-static-info.hpp"
@@ -40,10 +40,12 @@ namespace Vectorization
     SuitableAlignmentVisitor::SuitableAlignmentVisitor(
             const Nodecl::NodeclBase& scope,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int type_size, int alignment )
+            int unroll_factor, int type_size, int alignment,
+            VectorizationAnalysisInterface* analysis)
         : _scope( scope ), _suitable_expressions(suitable_expressions),
         _unroll_factor( unroll_factor ),
-        _type_size( type_size ), _alignment( alignment )
+        _type_size( type_size ), _alignment( alignment ),
+        _analysis(analysis)
     {
     }
 
@@ -408,12 +410,11 @@ namespace Vectorization
             return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
         // IV of the SIMD loop
-        else if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_linear(_scope, n))
+        else if(_analysis->is_linear(_scope, n))
         {
-            Nodecl::NodeclBase lb = VectorizationAnalysisInterface::_vectorizer_analysis->
+            Nodecl::NodeclBase lb = _analysis->
                 get_induction_variable_lower_bound(_scope, n);
-            Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
+            Nodecl::NodeclBase incr = _analysis->
                 get_linear_step(_scope, n);
 
             int lb_mod = walk(lb);
@@ -430,12 +431,11 @@ namespace Vectorization
 
             while (!enclosing_for_stmt.is_null())
             {
-                if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_linear(enclosing_for_stmt, n))
+                if(_analysis->is_linear(enclosing_for_stmt, n))
                 {
-                    Nodecl::NodeclBase lb = VectorizationAnalysisInterface::_vectorizer_analysis->
+                    Nodecl::NodeclBase lb = _analysis->
                         get_induction_variable_lower_bound(enclosing_for_stmt, n);
-                    Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
+                    Nodecl::NodeclBase incr = _analysis->
                         get_linear_step(enclosing_for_stmt, n);
 
                     // for(j=j; 

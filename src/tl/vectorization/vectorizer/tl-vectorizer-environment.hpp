@@ -31,7 +31,7 @@
 #include "tl-vectorizer-environment-fwd.hpp"
 
 #include "tl-vectorization-common.hpp"
-#include "tl-vectorizer-overlap.hpp"
+#include "tl-nodecl-base.hpp"
 
 namespace TL
 {

@@ -35,6 +35,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-vectorizer-overlap-fwd.hpp"
 #include "tl-vectorizer-environment.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 
 
 namespace TL
@@ -115,8 +116,11 @@ namespace TL
             public Nodecl::ExhaustiveVisitor<void>
         {
             private:
+                static VectorizationAnalysisInterface* _analysis;
                 const VectorizerEnvironment& _environment;
                 
+                void update_alignment_info(const Nodecl::NodeclBase& n);
+
                 objlist_nodecl_t get_adjacent_vector_loads_not_nested_in_for(
                         const Nodecl::NodeclBase& n,
                         const TL::Symbol& sym);
@@ -148,9 +152,12 @@ namespace TL
                         const unsigned int block_size);
 
             public:
-                OverlappedAccessesOptimizer(VectorizerEnvironment& environment);
+                OverlappedAccessesOptimizer(VectorizerEnvironment& environment,
+                        VectorizationAnalysisInterface* analysis);
                 
                 void visit(const Nodecl::ForStatement&);
+
+            friend OverlapGroup;
 
        };
     }

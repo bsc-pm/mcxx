@@ -479,9 +479,9 @@ namespace Vectorization
         if((lhs.is<Nodecl::Symbol>() && 
                     lhs.as<Nodecl::Symbol>().get_symbol().get_type().is_vector()) ||
                 //TODO: is_uniform on lhs won't be eventually necessary
-                !VectorizationAnalysisInterface::_vectorizer_analysis->
+                !Vectorizer::_vectorizer_analysis->
                 is_uniform(_environment._analysis_simd_scope, lhs, lhs) ||
-                !VectorizationAnalysisInterface::_vectorizer_analysis->
+                !Vectorizer::_vectorizer_analysis->
                 is_uniform(_environment._analysis_simd_scope, rhs, rhs))
         {
             // Computing new vector type
@@ -489,7 +489,7 @@ namespace Vectorization
                     _environment._vectorization_factor);
 
             // IV vectorization: i = i + 3 --> i = i + (vectorization_factor * 3)
-            if(VectorizationAnalysisInterface::_vectorizer_analysis->
+            if(Vectorizer::_vectorizer_analysis->
                     is_linear(_environment._analysis_simd_scope, lhs))
             {
                 VECTORIZATION_DEBUG()
@@ -552,11 +552,11 @@ namespace Vectorization
                     }
 
                     /*
-                       Nodecl::NodeclBase step = VectorizationAnalysisInterface::
+                       Nodecl::NodeclBase step = Vectorizer::
                        _vectorizer_analysis->get_induction_variable_increment(
                        _environment._analysis_simd_scope, lhs);
 
-                    //VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+                    //Vectorizer::_vectorizer_analysis->get_induction_variable_increment(
                     //    _environment._analysis_simd_scope, lhs);
 
                     objlist_nodecl_t step_list =
@@ -608,7 +608,7 @@ namespace Vectorization
 
                 // Vector Store
                 // Constant ArraySubscript, nothing to do
-                if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                if (Vectorizer::_vectorizer_analysis->
                         is_uniform(_environment._analysis_simd_scope,
                             lhs, lhs))
                 {
@@ -622,10 +622,10 @@ namespace Vectorization
                 }
                 // ArraySubscript indexed by nested IV, nothing to do
                 /*
-                   else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                   else if (Vectorizer::_vectorizer_analysis->
                    is_nested_induction_variable_dependent_access(
                    _environment, lhs) &&
-                   !VectorizationAnalysisInterface::_vectorizer_analysis->
+                   !Vectorizer::_vectorizer_analysis->
                    is_induction_variable_dependent_expression(
                    _environment._analysis_simd_scope, lhs))
                    {
@@ -639,7 +639,7 @@ namespace Vectorization
                 {
                     // Get a scatter for real scatter or unaligned store extra flag
                     const Nodecl::ArraySubscript lhs_array_copy =
-                        VectorizationAnalysisInterface::_vectorizer_analysis->shallow_copy(
+                        Vectorizer::_vectorizer_analysis->shallow_copy(
                                 lhs).as<Nodecl::ArraySubscript>();
 
                     /*VectorizerGatherScatterInfo scatter_access(_environment);
@@ -669,7 +669,7 @@ namespace Vectorization
 
 
                     // Adjacent access
-                    if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                    if(Vectorizer::_vectorizer_analysis->
                             is_adjacent_access(_environment._analysis_simd_scope, lhs))
                     {
                         TL::Type basic_type = lhs.get_type();
@@ -697,7 +697,7 @@ namespace Vectorization
 
                         // Aligned
                         int alignment_output;
-                        if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                        if(Vectorizer::_vectorizer_analysis->
                                 is_simd_aligned_access(
                                     _environment._analysis_simd_scope,
                                     lhs,
@@ -715,11 +715,13 @@ namespace Vectorization
                                 fprintf(stderr, " (aligned)");
                             }
                         }
-
-                        if (alignment_output != -1)
+                        else if (alignment_output != -1)
                         {
                             store_flags.append(Nodecl::AlignmentInfo::make(
                                         const_value_get_signed_int(alignment_output)));
+
+                            fprintf(stderr, " (alignment info = %d)",
+                                    alignment_output);
                         }
 
                         if (nontemporal_store)
@@ -979,7 +981,7 @@ namespace Vectorization
                 _environment._vectorization_factor);
 
         // Vector Promotion from constant ArraySubscript
-        if (VectorizationAnalysisInterface::_vectorizer_analysis->
+        if (Vectorizer::_vectorizer_analysis->
                 is_uniform(_environment._analysis_simd_scope, n, n))
         {
             VECTORIZATION_DEBUG()
@@ -1009,10 +1011,10 @@ namespace Vectorization
         }
         /* This is no longer necessary due to the new query variable_is_constant_at_statement
         // Vector promotion from ArraySubscript indexed by nested IV
-        else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+        else if (Vectorizer::_vectorizer_analysis->
                 is_nested_induction_variable_dependent_access(
                     _environment, n) &&
-                !VectorizationAnalysisInterface::_vectorizer_analysis->
+                !Vectorizer::_vectorizer_analysis->
                 is_induction_variable_dependent_expression(
                     _environment._analysis_simd_scope,
                     n))
@@ -1057,7 +1059,7 @@ namespace Vectorization
         // Vector Load
         else
         {
-            Nodecl::ArraySubscript array_copy = VectorizationAnalysisInterface::
+            Nodecl::ArraySubscript array_copy = Vectorizer::
                 _vectorizer_analysis->shallow_copy(n).as<Nodecl::ArraySubscript>();
 
             // Get a gather for real gather or unaligned load extra flag
@@ -1085,7 +1087,7 @@ namespace Vectorization
             vector_gather.set_constant(const_value);
 
             // Adjacent access
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->
+            if (Vectorizer::_vectorizer_analysis->
                     is_adjacent_access(
                         _environment._analysis_simd_scope,
                         n))
@@ -1101,7 +1103,7 @@ namespace Vectorization
 
                 // Aligned
                 int alignment_output;
-                if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                if(Vectorizer::_vectorizer_analysis->
                         is_simd_aligned_access(
                             _environment._analysis_simd_scope,
                             n,
@@ -1119,11 +1121,16 @@ namespace Vectorization
                     }
 
                 }
-
-                if (alignment_output != -1)
+                else if (alignment_output != -1)
                 {
                     load_flags.append(Nodecl::AlignmentInfo::make(
                                 const_value_get_signed_int(alignment_output)));
+                    
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, " (alignment info = %d)",
+                                alignment_output);
+                    }
                 }
                
                 VECTORIZATION_DEBUG()
@@ -1135,7 +1142,7 @@ namespace Vectorization
                     Nodecl::VectorLoad::make(
                             Nodecl::Reference::make(
                                 n.shallow_copy(),
-                                //VectorizationAnalysisInterface::
+                                //Vectorizer::
                                 //_vectorizer_analysis->shallow_copy(n),
                                 basic_type.get_pointer_to(),
                                 n.get_locus()),
@@ -1206,10 +1213,10 @@ namespace Vectorization
                 it != arguments_list.end();
                 it++)
         {
-            if (!VectorizationAnalysisInterface::_vectorizer_analysis->
+            if (!Vectorizer::_vectorizer_analysis->
                     is_uniform(_environment._analysis_simd_scope, *it, *it))
             {
-                if(!VectorizationAnalysisInterface::_vectorizer_analysis->
+                if(!Vectorizer::_vectorizer_analysis->
                     is_linear(_environment._analysis_simd_scope, *it))
                 {
                     VECTORIZATION_DEBUG()
@@ -1398,7 +1405,7 @@ namespace Vectorization
         {
            // Vectorize BASIC induction variable  // visiting RHS of an assignment
             if (!encapsulated_symbol_type.is_lvalue_reference() &&
-                    VectorizationAnalysisInterface::_vectorizer_analysis->
+                    Vectorizer::_vectorizer_analysis->
                     is_linear(_environment._analysis_simd_scope, n))
             {
                 vectorize_basic_induction_variable(n);
@@ -1415,19 +1422,19 @@ namespace Vectorization
 
             // Vectorize NESTED IV
             else if (// Is nested IV and
-            VectorizationAnalysisInterface::_vectorizer_analysis->
+            Vectorizer::_vectorizer_analysis->
             is_nested_non_reduction_basic_induction_variable(
             _environment, n)
             &&
             // Lb doesn't depend on SIMD IV and
-            !VectorizationAnalysisInterface::_vectorizer_analysis->
+            !Vectorizer::_vectorizer_analysis->
             iv_lb_depends_on_ivs_from_scope(
             _environment._analysis_scopes.back(),
             n,
             _environment._analysis_simd_scope)
             &&
             // Step doesn't depend on SIMD IV
-            !VectorizationAnalysisInterface::_vectorizer_analysis->
+            !Vectorizer::_vectorizer_analysis->
             iv_step_depends_on_ivs_from_scope(
             _environment._analysis_scopes.back(),
             n,
@@ -1506,7 +1513,7 @@ namespace Vectorization
 
             // Vectorize constants
             /*
-               else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+               else if (Vectorizer::_vectorizer_analysis->
                variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
                {
                VECTORIZATION_DEBUG()
@@ -1757,7 +1764,7 @@ namespace Vectorization
         }
 
         // Computing IV offset {0, 1, 2, 3}
-        Nodecl::NodeclBase ind_var_increment = VectorizationAnalysisInterface::
+        Nodecl::NodeclBase ind_var_increment = Vectorizer::
             _vectorizer_analysis->get_linear_step(
                     _environment._analysis_simd_scope, n);
 

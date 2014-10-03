@@ -222,14 +222,15 @@ namespace Vectorization
         if (contains_vector_nodes)
         {
             // Initialize analisys
-            TL::Optimizations::canonicalize_and_fold(n,
-                    /*_fast_math_enabled*/ false);
-            VectorizationAnalysisInterface::initialize_analysis(n,
-                    Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
+            TL::Optimizations::canonicalize_and_fold(
+                    n, /*_fast_math_enabled*/ false);
+
+            _analysis = new VectorizationAnalysisInterface(
+                    n, Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
 
             walk(n.get_statements());
 
-            VectorizationAnalysisInterface::finalize_analysis();
+            delete (_analysis);
         }
     }
 
@@ -1388,8 +1389,8 @@ namespace Vectorization
             << ")"
             ;
 
-        bool lhs_has_been_defined = VectorizationAnalysisInterface::
-            _vectorizer_analysis->has_been_defined(lhs);
+        bool lhs_has_been_defined = 
+            _analysis->has_been_defined(lhs);
 
         walk(lhs);
 

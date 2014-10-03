@@ -27,7 +27,7 @@
 #include "tl-vectorizer-loop-info.hpp"
 
 #include "tl-vectorization-utils.hpp"
-#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorizer.hpp"
 
 #include "cxx-cexpr.h"
 
@@ -39,7 +39,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& loop_stmt,
             const VectorizerEnvironment& environment)
         : _environment(environment), _loop(loop_stmt),
-        _ivs(VectorizationAnalysisInterface::_vectorizer_analysis->
+        _ivs(Vectorizer::_vectorizer_analysis->
                 get_linear_nodecls(loop_stmt))
     {
         if(loop_stmt.is<Nodecl::ForStatement>())
@@ -72,7 +72,7 @@ namespace Vectorization
         {
             // Use for statements as statement
             // nodecl_value
-            ivs_values_uniform = VectorizationAnalysisInterface::
+            ivs_values_uniform = Vectorizer::
                 _vectorizer_analysis->is_uniform(
                         _environment._analysis_simd_scope,
                         statements, *it);
@@ -88,7 +88,7 @@ namespace Vectorization
         Nodecl::NodeclBase statements = for_stmt.get_statement().as<Nodecl::List>()
             .front();
 
-        return VectorizationAnalysisInterface::_vectorizer_analysis->
+        return Vectorizer::_vectorizer_analysis->
             is_uniform(_environment._analysis_simd_scope,
                     statements, _condition);
     }
@@ -114,7 +114,7 @@ namespace Vectorization
 
             const_value_t* one = const_value_get_one(1, 4);
 
-            Nodecl::NodeclBase ub = Nodecl::Add::make(VectorizationAnalysisInterface::
+            Nodecl::NodeclBase ub = Nodecl::Add::make(Vectorizer::
                     _vectorizer_analysis->shallow_copy(closed_ub),
                     const_value_to_nodecl(one),
                     closed_ub.get_type());
@@ -147,7 +147,7 @@ namespace Vectorization
                     _environment._analysis_scopes.push_back(_loop);
 
                     // Suitable LB
-                    lb_is_suitable = VectorizationAnalysisInterface::
+                    lb_is_suitable = Vectorizer::
                         _vectorizer_analysis->is_suitable_expression(
                                 _loop, lb, _environment._suitable_exprs_list,
                                 _environment._vectorization_factor,
@@ -190,7 +190,7 @@ namespace Vectorization
 
                     // Suitable UB
                     // ub is normalized to <= so +1 is needed
-                    ub_is_suitable = VectorizationAnalysisInterface::
+                    ub_is_suitable = Vectorizer::
                         _vectorizer_analysis->is_suitable_expression(
                                 _loop, ub, _environment._suitable_exprs_list,
                                 _environment._vectorization_factor, 
@@ -286,7 +286,7 @@ namespace Vectorization
             it != _ivs.end();
             it ++)
         {
-            result = result || VectorizationAnalysisInterface::_vectorizer_analysis->
+            result = result || Vectorizer::_vectorizer_analysis->
                 iv_lb_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         *it,
@@ -298,7 +298,7 @@ namespace Vectorization
 
     DEPRECATED bool VectorizerLoopInfo::condition_depends_on_simd_iv()
     {
-        return VectorizationAnalysisInterface::_vectorizer_analysis->
+        return Vectorizer::_vectorizer_analysis->
            is_induction_variable_dependent_expression(
                     _environment._analysis_simd_scope, _condition);
     }
@@ -313,7 +313,7 @@ namespace Vectorization
             it != _ivs.end();
             it ++)
         {
-            result = result || VectorizationAnalysisInterface::_vectorizer_analysis->
+            result = result || Vectorizer::_vectorizer_analysis->
                 iv_ub_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         *it,
@@ -331,7 +331,7 @@ namespace Vectorization
             it != _ivs.end();
             it ++)
         {
-            result = result || VectorizationAnalysisInterface::
+            result = result || Vectorizer::
                 _vectorizer_analysis->iv_step_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         *it,

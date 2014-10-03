@@ -33,8 +33,8 @@
 #include "tl-nodecl-base.hpp"
 
 #include "tl-vectorization-common.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-function-versioning.hpp"
-#include "tl-vectorizer-overlap.hpp"
 
 namespace TL
 {
@@ -45,6 +45,7 @@ namespace TL
             private:
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
+                static VectorizationAnalysisInterface* _vectorizer_analysis;
 
 //                static VectorizationAnalysisInterface *_analysis_info;
 
@@ -119,6 +120,10 @@ namespace TL
                 void enable_fast_math();
 
                 friend class VectorizerVisitorExpression;
+                friend class VectorizerVisitorStatement;
+                friend class VectorizerVisitorLocalSymbol;
+                friend class VectorizerLoopInfo;
+                friend class VectorizerVisitorLoopCond;
         };
    }
 }

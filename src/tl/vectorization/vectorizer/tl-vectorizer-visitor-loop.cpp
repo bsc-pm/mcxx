@@ -188,10 +188,10 @@ namespace Vectorization
         Nodecl::NodeclBase lhs = condition.get_lhs();
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
-        bool lhs_const_flag = VectorizationAnalysisInterface::
+        bool lhs_const_flag = Vectorizer::
             _vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, lhs, lhs);
-        bool rhs_const_flag = VectorizationAnalysisInterface::
+        bool rhs_const_flag = Vectorizer::
             _vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, rhs, rhs);
 
@@ -206,10 +206,10 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::NodeclBase new_step;
 
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->
+            if (Vectorizer::_vectorizer_analysis->
                     is_linear(_environment._analysis_simd_scope, lhs))
             {
-                step = VectorizationAnalysisInterface::_vectorizer_analysis->
+                step = Vectorizer::_vectorizer_analysis->
                     get_linear_step(_environment._analysis_scopes.back(), lhs);
 
                 new_step = Vectorization::Utils::make_scalar_binary_node
@@ -252,11 +252,11 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::Mul new_step;
 
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->
+            if (Vectorizer::_vectorizer_analysis->
                     is_induction_variable(_environment._analysis_simd_scope,
                         rhs))
             {
-                step = VectorizationAnalysisInterface::_vectorizer_analysis->
+                step = Vectorizer::_vectorizer_analysis->
                     get_linear_step(_environment._analysis_scopes.back(), rhs);
 
                 new_step = Vectorization::Utils::make_scalar_binary_node<Nodecl::Mul>(

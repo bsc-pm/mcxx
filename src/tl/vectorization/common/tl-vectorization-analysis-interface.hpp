@@ -72,6 +72,7 @@ namespace Vectorization
             VectorizationAnalysisInfo> map_scope_analysis_info_t;
     typedef std::pair<Nodecl::NodeclBase,
             VectorizationAnalysisInfo> pair_scope_analysis_info_t;
+
     class VectorizationAnalysisInterface : public VectorizationAnalysisCopyMaps,
                                            public Analysis::AnalysisInterface
     {
@@ -93,27 +94,17 @@ namespace Vectorization
             std::map<TL::Symbol, int> translate_input(
                     const std::map<TL::Symbol, int>& map);
 
+            void register_copy_base(
+                    const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& n_copy);
+
             Nodecl::NodeclBase translate_output(const Nodecl::NodeclBase& n);
             objlist_nodecl_t translate_output(const objlist_nodecl_t& list);
             TL::Symbol translate_output(const TL::Symbol& n) const;
 
-            void shallow_copy_rec(const Nodecl::NodeclBase& n,
-                    const Nodecl::NodeclBase& n_copy);
-            
-
         public:
-            static VectorizationAnalysisInterface *_vectorizer_analysis;
-
-            static void initialize_analysis(
-                    const Nodecl::NodeclBase& enclosing_function,
-                    const Analysis::WhichAnalysis which_analysis =
-                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
-
-            static void finalize_analysis();
-
             VectorizationAnalysisInterface(const Nodecl::NodeclBase& n,
                     const Analysis::WhichAnalysis analysis_mask);
-
             virtual ~VectorizationAnalysisInterface();
 
             virtual bool is_uniform(
@@ -166,10 +157,10 @@ namespace Vectorization
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module);
 
-            virtual void register_copy(
-                    const Nodecl::NodeclBase& n,
+            virtual void register_copy(const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& n_copy);
- 
+
+
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
 

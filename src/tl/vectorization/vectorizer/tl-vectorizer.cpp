@@ -30,7 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
 
-#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorizer-overlap.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-target-type-heuristic.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
@@ -49,6 +49,8 @@ namespace Vectorization
 {
     Vectorizer *Vectorizer::_vectorizer = 0;
     FunctionVersioning Vectorizer::_function_versioning;
+    VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
+
 
     Vectorizer& Vectorizer::get_vectorizer()
     {
@@ -61,13 +63,14 @@ namespace Vectorization
     void Vectorizer::initialize_analysis(
             const Nodecl::NodeclBase& enclosing_function)
     {
-        VectorizationAnalysisInterface::
-            initialize_analysis(enclosing_function);
+        _vectorizer_analysis = new VectorizationAnalysisInterface(
+                enclosing_function,
+                TL::Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
     }
 
     void Vectorizer::finalize_analysis()
     {
-        VectorizationAnalysisInterface::finalize_analysis();
+        delete(_vectorizer_analysis);
     }
 
 
@@ -205,7 +208,8 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: ----- Optimizing Overlapped Accesses -----\n");
         }
 
-        OverlappedAccessesOptimizer overlap_visitor(environment);
+        OverlappedAccessesOptimizer overlap_visitor(environment,
+                Vectorizer::_vectorizer_analysis);
         overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()
