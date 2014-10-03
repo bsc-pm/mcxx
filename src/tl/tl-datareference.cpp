@@ -138,7 +138,6 @@ namespace TL
                 {
                     _data_ref._base_address = derref.get_rhs().shallow_copy();
                 }
-
             }
 
             virtual void visit(const Nodecl::Reference& ref)
@@ -672,23 +671,55 @@ namespace TL
         if (expr.is<Nodecl::Symbol>())
         {
             TL::Symbol sym = expr.as<Nodecl::Symbol>().get_symbol();
-            if (!reference
-                    || (sym.get_type().is_array()
-                        || (sym.get_type().is_any_reference()
-                            && sym.get_type().references_to().is_array())))
+            if ((IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                    // Recall that in fortran we need explicit
+                    // Nodecl::Reference nodes because the identity &*a and
+                    // does not hold and arrays do not decay to pointers
+                    && (!reference // ADDRESS_OF(a) and we come from an expression like '*a'
+                        || sym.get_type().no_ref().is_array())) // ADDRESS_OF(a) (and 'a' is an array)
             {
                 return expr.shallow_copy();
             }
             else
             {
-                TL::Type t = expr.get_type();
-                if (t.is_any_reference())
-                    t = t.references_to();
+                TL::Type t = expr.get_type().no_ref();
+
+                Nodecl::NodeclBase rhs = expr.shallow_copy();
+
+                if (IS_FORTRAN_LANGUAGE
+                        && ((t.is_fortran_array()
+                                && t.array_requires_descriptor())
+                            || (t.is_pointer()
+                                && t.points_to().is_fortran_array()
+                                && t.points_to().array_requires_descriptor())))
+                {
+                    // We do not want the address of the descriptor here so we make sure
+                    // we have references to the array (not a pointer to the array)
+                    TL::Type rhs_type;
+                    if  (t.is_pointer())
+                    {
+                        rhs_type = t.points_to().get_lvalue_reference_to();
+                    }
+                    else
+                    {
+                        rhs_type = t.get_lvalue_reference_to();
+                    }
+
+                    rhs.set_type(rhs_type);
+                }
+
+                t = t.get_pointer_to();
+
+                std::cerr << "TYPE -> " << print_declarator(t.get_internal_type()) << std::endl;
+                std::cerr << "EXPR -> " << expr.prettyprint() << std::endl;
 
                 Nodecl::NodeclBase reference = Nodecl::Reference::make(
-                        expr.shallow_copy(),
-                        t.get_pointer_to(),
-                        expr.get_locus());
+                        rhs,
+                        t,
+                        rhs.get_locus());
+
+                std::cerr << "REF -> " << reference.prettyprint() << std::endl;
 
                 // We need to propagate some flags from the expression to the new reference node
                 nodecl_expr_set_is_type_dependent(
@@ -718,16 +749,16 @@ namespace TL
         }
         else if (expr.is<Nodecl::Dereference>())
         {
-            if (IS_FORTRAN_LANGUAGE
-                    && expr.as<Nodecl::Reference>().get_rhs().get_type().no_ref().is_pointer()
-                    && expr.as<Nodecl::Reference>().get_rhs().get_type().no_ref().points_to().is_fortran_array())
-            {
-                return Nodecl::Reference::make(
-                        expr.shallow_copy(),
-                        expr.get_type().no_ref().get_pointer_to(),
-                        expr.get_locus());
-            }
-            else
+            // if (IS_FORTRAN_LANGUAGE
+            //         && expr.as<Nodecl::Reference>().get_rhs().get_type().no_ref().is_pointer()
+            //         && expr.as<Nodecl::Reference>().get_rhs().get_type().no_ref().points_to().is_fortran_array())
+            // {
+            //     return Nodecl::Reference::make(
+            //             expr.shallow_copy(),
+            //             expr.get_type().no_ref().get_pointer_to(),
+            //             expr.get_locus());
+            // }
+            // else
             {
                 return get_address_of_symbol_helper(expr.as<Nodecl::Dereference>().get_rhs(), /* reference */ false);
             }
@@ -835,7 +866,7 @@ namespace TL
     }
 
     Nodecl::NodeclBase DataReference::compute_offsetof(Nodecl::NodeclBase expr,
-            Nodecl::NodeclBase reference_expr,
+            Nodecl::NodeclBase /*reference_expr*/,
             TL::Scope scope) const
     {
         if (expr.is<Nodecl::ArraySubscript>())
@@ -880,31 +911,19 @@ namespace TL
 
                 if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
                 {
-                    /*if (t.array_requires_descriptor()
-                      && _base_symbol.is_parameter())
-                      {
-                    // This is an assumed shape of 1
-                    lower_bound = const_value_to_nodecl(const_value_get_one(4, 1));
-                    }
-                    else */ if (reference_expr.is_null())
+                    Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+                    DataReference data_ref(reference_expr);
+                    if (data_ref.is_valid())
                     {
-                        return Nodecl::NodeclBase::null();
+                        Source lbound_src;
+                        lbound_src << "LBOUND(" << as_expression(reference_expr) << ", DIM = " << 
+                            ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                        lower_bound = lbound_src.parse_expression(scope);
                     }
                     else
                     {
-                        DataReference data_ref(reference_expr);
-                        if (data_ref.is_valid())
-                        {
-                            Source lbound_src;
-                            lbound_src << "LBOUND(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
-                                ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
-
-                            lower_bound = lbound_src.parse_expression(scope);
-                        }
-                        else
-                        {
-                            return Nodecl::NodeclBase::null();
-                        }
+                        return Nodecl::NodeclBase::null();
                     }
                 }
 
@@ -934,14 +953,16 @@ namespace TL
                     Nodecl::NodeclBase current_size = t.array_get_size();
                     if (current_size.is_null())
                     {
-                        if (IS_FORTRAN_LANGUAGE && !reference_expr.is_null())
+                        if (IS_FORTRAN_LANGUAGE)
                         {
+                            Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+
                             DataReference data_ref(reference_expr);
                             if (!data_ref.is_valid())
                                 return Nodecl::NodeclBase::null();
 
                             Source lbound_src;
-                            lbound_src << "SIZE(" << data_ref.get_base_symbol().get_name() << ", DIM = " << 
+                            lbound_src << "SIZE(" << as_expression(reference_expr) << ", DIM = " << 
                                 ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
 
                             current_size = lbound_src.parse_expression(scope);
