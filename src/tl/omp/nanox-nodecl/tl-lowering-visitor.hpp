@@ -120,17 +120,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_setup,
                 Symbol& xlate_function_symbol);
 
-        void fill_copies_nonregion(
-                Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info,
-                int num_copies,
-                // Source arguments_accessor,
-                // out
-                Source& copy_ol_decl,
-                Source& copy_ol_arg,
-                Source& copy_ol_setup,
-                Source& copy_imm_arg,
-                Source& copy_imm_setup);
+        // void fill_copies_nonregion(
+        //         Nodecl::NodeclBase ctr,
+        //         OutlineInfo& outline_info,
+        //         int num_copies,
+        //         // Source arguments_accessor,
+        //         // out
+        //         Source& copy_ol_decl,
+        //         Source& copy_ol_arg,
+        //         Source& copy_ol_setup,
+        //         Source& copy_imm_arg,
+        //         Source& copy_imm_setup);
+
         void fill_copies_region(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -144,13 +145,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
-        void emit_translation_function_nonregion(
-                Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info,
-                OutlineInfo* parameter_outline_info,
-                TL::Symbol structure_symbol,
-                bool allow_multiple_copies,
-                TL::Symbol& xlate_function_symbol);
+        // void emit_translation_function_nonregion(
+        //         Nodecl::NodeclBase ctr,
+        //         OutlineInfo& outline_info,
+        //         OutlineInfo* parameter_outline_info,
+        //         TL::Symbol structure_symbol,
+        //         bool allow_multiple_copies,
+        //         TL::Symbol& xlate_function_symbol);
 
         void emit_translation_function_region(
                 Nodecl::NodeclBase ctr,
