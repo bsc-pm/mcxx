@@ -521,15 +521,19 @@ namespace Vectorization
             last_epilog = loop_unroller.get_epilog_loop()
                 .as<Nodecl::ForStatement>();
 
-            // Add conditional epilog before the simple epilog
-            last_epilog.prepend_sibling(if_epilog);
-
             // Replace n with the whole unrolling transformation
             n.replace(whole_main_transformation);
 
             // Update alignment info of "new" vector loads after unrolling
             // THIS CALL COMPUTES A NEW ANALYSIS
             update_alignment_info(n);
+
+            // Add conditional epilog before the simple epilog
+            last_epilog.prepend_sibling(if_epilog);
+            // And register it in the new analysis as copy of
+            // main_loop. This means that if_epilog will be
+            // translated (best effort) as if it was 'main_loop'
+            _analysis->register_identical_copy(main_loop, if_epilog);
         }
 
         // TODO:

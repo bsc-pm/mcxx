@@ -740,7 +740,7 @@ namespace Vectorization
         }
     }
 
-    void VectorizationAnalysisInterface::register_copy(
+    void VectorizationAnalysisInterface::register_identical_copy(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& n_copy)
     {
@@ -758,8 +758,7 @@ namespace Vectorization
         {
             if(!children_it->is_null())
             {
-
-                register_copy(*children_it, *children_copy_it);
+                register_identical_copy(*children_it, *children_copy_it);
             }
         }
 
@@ -771,7 +770,8 @@ namespace Vectorization
 
             // Register initialization
             if(!init.is_null())
-                register_copy(init, n_copy.get_symbol().get_value());
+                register_identical_copy(
+                        init, n_copy.get_symbol().get_value());
         }
     }
 
@@ -780,7 +780,7 @@ namespace Vectorization
     {
         Nodecl::NodeclBase n_copy = n.shallow_copy();
         
-        register_copy(n, n_copy);
+        register_identical_copy(n, n_copy);
 
         return n_copy;
     }
@@ -797,7 +797,7 @@ namespace Vectorization
                 empty_sym_map, new_origin_to_copy_nodes, new_orig_to_copy_symbols);
         
         // Register new Nodecl::Symbols
-        register_copy(n, n_copy);
+        register_identical_copy(n, n_copy);
 
         // Register new TL::Symbols
         for(Nodecl::Utils::SymbolDeepCopyMap::iterator it = 

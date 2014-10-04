@@ -157,9 +157,13 @@ namespace Vectorization
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module);
 
-            virtual void register_copy(const Nodecl::NodeclBase& n,
+            virtual void register_identical_copy(
+                    const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& n_copy);
 
+            virtual void register_non_identical_copy(
+                    const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& n_copy);
 
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
