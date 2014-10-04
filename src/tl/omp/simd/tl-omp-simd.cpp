@@ -425,12 +425,24 @@ namespace TL {
                         only_epilog,
                         false /*parallel loop */);
 
-                // Remove Simd node from epilog
-                simd_node_epilog.replace(simd_node_epilog.get_statement());
+                // Reload environment
+                // 'epilog_for_statement' could be no longer a ForStatement
+                loop_environment.unload_environment();
+                loop_environment.load_environment(net_epilog_node);
 
                 // Overlap
                 _vectorizer.opt_overlapped_accesses(
-                        loop_stmt_epilog, loop_environment);
+                        net_epilog_node, loop_environment);
+
+                // 2nd step of transformation on epilog loop
+                _vectorizer.clean_up_epilog(net_epilog_node,
+                        loop_environment,
+                        epilog_iterations,
+                        only_epilog,
+                        true /*parallel loop*/);
+
+                // Remove Simd node from epilog
+                simd_node_epilog.replace(simd_node_epilog.get_statement());
 
                 loop_environment.unload_environment();
             }
@@ -685,9 +697,21 @@ namespace TL {
                         only_epilog,
                         true /*parallel loop*/);
 
+                // Reload environment
+                // 'epilog_for_statement' could be no longer a ForStatement
+                for_environment.unload_environment();
+                for_environment.load_environment(net_epilog_node);
+
                 // Overlap
                 _vectorizer.opt_overlapped_accesses(
                         net_epilog_node, for_environment);
+
+                // 2nd step of transformation on epilog loop
+                _vectorizer.clean_up_epilog(net_epilog_node,
+                        for_environment,
+                        epilog_iterations,
+                        only_epilog,
+                        true /*parallel loop*/);
 
                 for_environment.unload_environment();
 
@@ -696,7 +720,8 @@ namespace TL {
                 // Create single node
                 Nodecl::OpenMP::Single single_epilog =
                     Nodecl::OpenMP::Single::make(single_environment,
-                            net_epilog_node.shallow_copy(),
+                            Nodecl::List::make(
+                                net_epilog_node.shallow_copy()),
                             net_epilog_node.get_locus());
 
                 net_epilog_node.replace(single_epilog);

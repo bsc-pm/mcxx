@@ -133,8 +133,9 @@ namespace Analysis {
         else // Insert new scope in the map
         {
             Node* scope_node = pcfg->find_nodecl_pointer(scope);
-            ERROR_CONDITION(scope_node==NULL, "No PCFG node found for scope Nodecl '%s:%s'. \n",
-                    scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+            ERROR_CONDITION(scope_node==NULL, "No PCFG node found for scope Nodecl (%p)'%s:%s'. \n",
+                    &scope.get_internal_nodecl(), scope.get_locus_str().c_str(),
+                    scope.prettyprint().c_str());
 
             _scope_nodecl_to_node_map.insert(nodecl_to_node_pair_t(scope, scope_node));
 

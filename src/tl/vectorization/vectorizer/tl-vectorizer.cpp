@@ -247,6 +247,31 @@ namespace Vectorization
         }
     }
 
+    void Vectorizer::clean_up_epilog(Nodecl::NodeclBase& net_epilog,
+            VectorizerEnvironment& environment,
+            int epilog_iterations,
+            bool only_epilog,
+            bool is_parallel_loop)
+    {
+        // Clean up vector epilog
+        if (environment._support_masking)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "Clean-up vector epilog\n");
+            }
+
+            VectorizerVisitorLoopEpilog visitor_epilog(environment,
+                    epilog_iterations, only_epilog, is_parallel_loop);
+
+            visitor_epilog.clean_up_epilog(net_epilog);
+
+            // Applying strenth reduction
+            TL::Optimizations::canonicalize_and_fold(
+                    net_epilog, _fast_math_enabled);
+        }
+    }
+
     bool Vectorizer::is_supported_reduction(bool is_builtin,
             const std::string& reduction_name,
             const TL::Type& reduction_type,

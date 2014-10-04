@@ -86,6 +86,11 @@ namespace TL
                         int epilog_iterations,
                         bool only_epilog,
                         bool is_parallel_loop);
+                void clean_up_epilog(Nodecl::NodeclBase& net_epilog_node,
+                        VectorizerEnvironment& environment,
+                        int epilog_iterations,
+                        bool only_epilog,
+                        bool is_parallel_loop);
                 int get_epilog_info(const Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
                         bool& only_epilog);
@@ -124,6 +129,7 @@ namespace TL
                 friend class VectorizerVisitorLocalSymbol;
                 friend class VectorizerLoopInfo;
                 friend class VectorizerVisitorLoopCond;
+                friend class VectorizerVisitorLoopEpilog;
         };
    }
 }

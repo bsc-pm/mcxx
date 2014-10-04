@@ -86,7 +86,6 @@ namespace TL
                 Nodecl::NodeclBase get_load_access(const Nodecl::ArraySubscript& n) const;
         };
 */
-        typedef TL::ObjectList<pair_nodecl_int_t> objlist_blocks_pairs_t;
         struct OverlapGroup
         {
             Nodecl::Symbol _subscripted;
@@ -100,8 +99,7 @@ namespace TL
             int _num_registers;
 
             Nodecl::List get_init_statements(
-                    const Nodecl::ForStatement& for_stmt,
-                    const objlist_nodecl_t& ivs_list) const;
+                    const Nodecl::ForStatement& for_stmt) const;
             Nodecl::List get_iteration_update_pre() const;
             Nodecl::List get_iteration_update_post() const;
 
@@ -128,9 +126,7 @@ namespace TL
                         objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses,
-                        const unsigned int min_group_size,
-                        const objlist_blocks_pairs_t& blocks_pairs,
-                        const objlist_nodecl_t& ivs_list);
+                        const unsigned int min_group_size);
 
                 void compute_group_properties(
                         OverlapGroup& ogroup,
@@ -140,14 +136,13 @@ namespace TL
                 void insert_group_update_stmts(
                         OverlapGroup& ogroup,
                         const Nodecl::ForStatement& n,
-                        const objlist_nodecl_t& ivs_list,
                         const bool is_group_epilog);
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
-                unsigned int get_loop_min_unroll_factor(Nodecl::ForStatement n,
-                        const objlist_nodecl_t& ivs_list);
-                objlist_blocks_pairs_t apply_overlap_blocked_unrolling(
+                unsigned int get_loop_min_unroll_factor(
+                        Nodecl::ForStatement n);
+                Nodecl::ForStatement get_overlap_blocked_unrolled_loop(
                         const Nodecl::ForStatement& n,
                         const unsigned int block_size);
 

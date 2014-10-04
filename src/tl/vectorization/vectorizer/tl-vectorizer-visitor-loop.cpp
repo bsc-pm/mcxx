@@ -47,13 +47,8 @@ namespace Vectorization
     {
     }
 
-
     void VectorizerVisitorLoop::visit(const Nodecl::ForStatement& for_statement)
     {
-        // CACHE: Before vectorizing!
-//        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
-//        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
-
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
         visitor_local_symbol.walk(for_statement);
@@ -69,6 +64,10 @@ namespace Vectorization
 
     void VectorizerVisitorLoop::visit(const Nodecl::WhileStatement& while_statement)
     {
+        // Vectorize Local Symbols
+        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+        visitor_local_symbol.walk(while_statement);
+
         // Vectorize Loop Header
         VectorizerVisitorLoopCond visitor_loop_cond(_environment);
         visitor_loop_cond.walk(while_statement.get_condition());
@@ -372,10 +371,168 @@ namespace Vectorization
         }
         else
         {
-            visit_scalar_epilog(loop_statement, loop_cond, net_epilog_node);
+            visit_scalar_epilog(loop_statement, net_epilog_node);
         }
     }
 
+    void VectorizerVisitorLoopEpilog::clean_up_epilog(
+            Nodecl::NodeclBase& net_epilog_node)
+    {
+        net_epilog_node.replace(
+                net_epilog_node.as<Nodecl::ForStatement>().
+                get_statement());
+    }
+
+    void VectorizerVisitorLoopEpilog::visit_vector_epilog(
+            const Nodecl::NodeclBase& loop_statement,
+            const Nodecl::NodeclBase& loop_cond,
+            Nodecl::NodeclBase& net_epilog_node)
+    {
+        Nodecl::CompoundStatement comp_statement =
+            Nodecl::Utils::skip_contexts_and_lists(
+                    loop_statement.as<Nodecl::ForStatement>().
+                    get_statement()).as<Nodecl::CompoundStatement>();
+
+        // Vectorize Local Symbols
+        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+        visitor_local_symbol.walk(loop_statement);
+
+        Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
+                _environment._analysis_simd_scope,
+                _environment._vectorization_factor, true);
+
+
+        Nodecl::List result_stmt_list;
+
+        // Set new IV init
+        Nodecl::ExpressionStatement new_iv_init;
+        Nodecl::NodeclBase iv;
+        Nodecl::NodeclBase iv_init;
+        if (_is_parallel_loop || _only_epilog)
+        {
+            // TODO:: get_updated_iv_init_for_epilog does not support WhileStatement
+            get_updated_iv_init_for_epilog(
+                    loop_statement.as<Nodecl::ForStatement>(),
+                    iv, iv_init);
+
+            new_iv_init = Nodecl::ExpressionStatement::make(
+                    Nodecl::Assignment::make(
+                        iv.shallow_copy(),
+                        iv_init.shallow_copy(),
+                        iv.get_type(),
+                        iv.get_locus()));
+
+            result_stmt_list.append(new_iv_init);
+        }
+
+        // Compute epilog mask expression and add it after vectorization
+        Nodecl::ExpressionStatement mask_exp;
+        if (_epilog_iterations != 1)
+        {
+            // Get mask for epilog instructions
+            Nodecl::NodeclBase mask_value;
+            if (_epilog_iterations > 0 || _only_epilog) // Constant value
+            {
+                mask_value = Vectorization::Utils::get_contiguous_mask_literal(
+                        _environment._vectorization_factor,
+                        _epilog_iterations);
+            }
+            else // Unknown number of iterations
+            {
+                // We are not shallow_copying.
+                // It's not possible because we need to use the analysis
+                mask_value = loop_cond;
+
+                // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
+                Nodecl::MaskLiteral all_one_mask =
+                    Vectorization::Utils::get_contiguous_mask_literal(
+                            _environment._vectorization_factor,
+                            _environment._vectorization_factor);
+                _environment._mask_list.push_back(all_one_mask);
+
+                // Vectorising mask
+                VectorizerVisitorExpression visitor_mask(_environment);
+                visitor_mask.walk(mask_value);
+
+                _environment._mask_list.pop_back();
+            }
+
+
+            if (mask_nodecl_sym.get_type().no_ref().is_same_type(mask_value.get_type().no_ref()))
+            {
+                //    std::cerr << "Masks have the same type" << std::endl;
+                mask_exp = Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(mask_nodecl_sym,
+                            mask_value.shallow_copy(),
+                            mask_nodecl_sym.get_type(),
+                            loop_statement.get_locus()));
+            }
+            else
+            {
+                //    std::cerr << "Masks don't have the same type" << std::endl;
+
+                mask_exp = Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(mask_nodecl_sym,
+                            Nodecl::VectorMaskConversion::make(
+                                mask_value.shallow_copy(),
+                                mask_nodecl_sym.get_type(),
+                                loop_statement.get_locus()),
+                            mask_nodecl_sym.get_type(),
+                            loop_statement.get_locus()));
+            }
+
+            result_stmt_list.append(mask_exp);
+        }
+
+        // Vectorize Loop Body if iterations > 1
+        if (_epilog_iterations != 1)
+        {
+            _environment._mask_list.push_back(mask_nodecl_sym);
+
+            VectorizerVisitorStatement visitor_stmt(_environment);
+            visitor_stmt.walk(comp_statement);
+
+            _environment._mask_list.pop_back();
+        }
+
+        // Same as comp_statement
+        Nodecl::NodeclBase loop_inner_statement = 
+            loop_statement.as<Nodecl::ForStatement>().
+                    get_statement();//.as<Nodecl::List>().front());
+
+        // Add IF check to skip epilog if mask is not zero
+        Nodecl::NodeclBase if_mask_is_not_zero;
+
+        Nodecl::ForStatement loop_statement_copy =
+            Vectorizer::_vectorizer_analysis->shallow_copy(
+                    loop_statement).as<Nodecl::ForStatement>();
+
+        if (_epilog_iterations == -1)
+        {
+            if_mask_is_not_zero =
+                Vectorization::Utils::get_if_mask_is_not_zero_nodecl(
+                        mask_nodecl_sym.shallow_copy(),
+                        loop_statement_copy);
+
+            result_stmt_list.append(if_mask_is_not_zero);
+        }
+        else
+        {
+            result_stmt_list.append(loop_statement_copy);
+        }
+
+        // Replace for by list of statements
+        Nodecl::CompoundStatement result_compound_statement =
+            Nodecl::CompoundStatement::make(result_stmt_list,
+                    Nodecl::NodeclBase::null());
+
+        // Replace the fake node with all the epilog statements
+        loop_statement.replace(result_compound_statement);
+
+        // Output reference to just the epilog code
+        net_epilog_node = loop_statement_copy;
+    }
+/*
     void VectorizerVisitorLoopEpilog::visit_vector_epilog(
             const Nodecl::NodeclBase& loop_statement,
             const Nodecl::NodeclBase& loop_cond,
@@ -519,10 +676,10 @@ namespace Vectorization
         // Output reference to just the epilog code
         net_epilog_node = loop_inner_statement;
     }
+*/
 
     void VectorizerVisitorLoopEpilog::visit_scalar_epilog(
             const Nodecl::NodeclBase& loop_statement,
-            const Nodecl::NodeclBase& loop_cond,
             Nodecl::NodeclBase& net_epilog_node)
     {
         // Set new IV init
@@ -602,3 +759,4 @@ namespace Vectorization
     }
 }
 }
+
