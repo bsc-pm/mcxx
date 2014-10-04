@@ -161,10 +161,6 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& n_copy);
 
-            virtual void register_non_identical_copy(
-                    const Nodecl::NodeclBase& n,
-                    const Nodecl::NodeclBase& n_copy);
-
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
 
