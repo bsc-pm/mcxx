@@ -55,14 +55,14 @@ struct implicit_info_tag
 
 static implicit_letter_set_t* allocate_implicit_letter_set(void)
 {
-    implicit_letter_set_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_letter_set_t* result = xcalloc(1, sizeof(*result));
 
     return result;
 }
 
 static implicit_info_data_t* allocate_implicit_info_data(void)
 {
-    implicit_info_data_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_data_t* result = xcalloc(1, sizeof(*result));
 
     result->implicit_letter_set = allocate_implicit_letter_set();
 
@@ -71,7 +71,7 @@ static implicit_info_data_t* allocate_implicit_info_data(void)
     
 static implicit_info_t* allocate_implicit_info(void)
 {
-    implicit_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_t* result = xcalloc(1, sizeof(*result));
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = allocate_implicit_letter_set();
@@ -81,7 +81,7 @@ static implicit_info_t* allocate_implicit_info(void)
 
 static implicit_info_t* allocate_implicit_info_sharing_set(implicit_info_t* implicit_letter_set)
 {
-    implicit_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_t* result = xcalloc(1, sizeof(*result));
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = implicit_letter_set->data->implicit_letter_set;

@@ -28,68 +28,29 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
-test_CFLAGS="--no-copy-deps"
+test_generator=config/mercurium
+test_CXXFLAGS="--instantiate"
 </testinfo>
 */
-
-#include <stdlib.h>
-
-#pragma omp task inout(*a)
-void foo1(int *a)
+template <typename T>
+struct A
 {
-    *a = 3 + *a;
-}
+    T *p;
+};
 
-#pragma omp task inout([1] a)
-void foo2(int *a)
+template <typename T>
+struct B
 {
-    a[0] = 3 + a[0];
-}
+    struct C
+    {
+        A<T> a;
+    };
+};
 
-#pragma omp task inout(a[3;1])
-void foo3(int *a)
+void f()
 {
-    a[3] = a[3] + 10;
-    a[4] = a[4] * 12;
-}
+    B<int>::C c;
+    int *p = 0;
 
-#pragma omp task inout(([10] a)[3;1])
-void foo4(int *a)
-{
-    a[3] = a[3] + 10;
-    a[4] = a[4] * 12;
-}
-
-int main(int argc, char *argv[])
-{
-    int a[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-
-    foo1(a);
-#pragma omp taskwait
-    if (a[0] != 3)
-        abort();
-    a[0] = 0;
-
-    foo2(a);
-#pragma omp taskwait
-    if (a[0] != 3)
-        abort();
-    a[0] = 0;
-
-    foo3(a);
-#pragma omp taskwait
-    if (a[3] != 13
-            || a[4] != 48)
-        abort();
-    a[3] = 3;
-    a[4] = 4;
-
-    foo4(a);
-#pragma omp taskwait
-    if (a[3] != 13
-            || a[4] != 48)
-        abort();
-
-    return 0;
+    c.a.p = p;
 }

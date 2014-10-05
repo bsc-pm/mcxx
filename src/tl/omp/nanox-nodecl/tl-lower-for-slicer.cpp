@@ -426,7 +426,7 @@ namespace TL { namespace Nanox {
                 && !enclosing_function.is_static()
                 && enclosing_function.is_member())
         {
-            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_this();
             ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
             Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);

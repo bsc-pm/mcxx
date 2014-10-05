@@ -42,13 +42,6 @@
 
 #include <string.h>
 
-static unsigned long long int _bytes_overload = 0;
-
-unsigned long long overload_used_memory(void)
-{
-    return _bytes_overload;
-}
-
 typedef
 enum implicit_conversion_sequence_kind_tag
 {
@@ -2628,7 +2621,7 @@ static overload_entry_list_t* compute_viable_functions(
 
             if (still_viable)
             {
-                overload_entry_list_t* new_result = counted_xcalloc(1, sizeof(*new_result), &_bytes_overload);
+                overload_entry_list_t* new_result = xcalloc(1, sizeof(*new_result));
                 new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
@@ -3179,7 +3172,6 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
     while (it != NULL)
     {
         overload_entry_list_t* next = it->next;
-        _bytes_overload -= sizeof(*it);
         xfree(it->ics_arguments);
         xfree(it);
         it = next;
@@ -4030,7 +4022,7 @@ candidate_t* candidate_set_add(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
-    candidate_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_overload);
+    candidate_t* result = xcalloc(1, sizeof(*result));
 
     result->next = candidate_set;
 
@@ -4063,7 +4055,6 @@ void candidate_set_free(candidate_t** p_candidate_set)
     while (candidate_set != NULL)
     {
         candidate_t* next = candidate_set->next;
-        _bytes_overload -= sizeof(*candidate_set);
         xfree(candidate_set);
         candidate_set = next;
     }

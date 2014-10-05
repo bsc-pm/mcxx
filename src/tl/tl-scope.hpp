@@ -216,6 +216,8 @@ namespace TL
             //! Returns the template parameters related to this scope
             template_parameter_list_t* get_template_parameters() const;
 
+            Symbol get_symbol_this() const;
+
             //! Returns all symbols signed in in this scope
             /*! 
               \param include_hidden If true, hidden symbols (most of 

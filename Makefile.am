@@ -70,9 +70,11 @@ BUILT_SOURCES =
 
 # These variables are not intended for any further modification
 if WINDOWS_BUILD
+DL_LIBRARY=
 no_undefined=-no-undefined
 dll_exports=-Wl,src/frontend/dll-exports.def
 else
+DL_LIBRARY=-ldl
 no_undefined=
 dll_exports=
 endif

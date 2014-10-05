@@ -229,8 +229,9 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxDecl& node);
             Ret visit(const Nodecl::CxxDef& node);
-            Ret visit(const Nodecl::CxxExplicitInstantiation& node);
-            Ret visit(const Nodecl::CxxExternExplicitInstantiation& node);
+            Ret visit(const Nodecl::CxxExplicitInstantiationDef& node);
+            Ret visit(const Nodecl::CxxExplicitInstantiationDecl& node);
+            Ret visit(const Nodecl::CxxImplicitInstantiation& node);
             Ret visit(const Nodecl::CxxUsingNamespace& node);
             Ret visit(const Nodecl::CxxUsingDecl& node);
             Ret visit(const Nodecl::CxxDepFunctionCall &);
