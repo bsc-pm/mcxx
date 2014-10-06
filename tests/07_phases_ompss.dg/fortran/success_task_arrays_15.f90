@@ -16,7 +16,7 @@ PROGRAM P
         SUBROUTINE FOO(ARR)
             USE MOO, ONLY : Z
             IMPLICIT NONE
-            INTEGER, ALLOCATABLE :: ARR(:)
+            INTEGER, POINTER :: ARR(:)
         END SUBROUTINE FOO
     END INTERFACE
 
