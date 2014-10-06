@@ -913,19 +913,11 @@ namespace TL
                 if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
                 {
                     Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
-                    DataReference data_ref(reference_expr);
-                    if (data_ref.is_valid())
-                    {
-                        Source lbound_src;
-                        lbound_src << "LBOUND(" << as_expression(reference_expr) << ", DIM = " << 
-                            ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+                    Source lbound_src;
+                    lbound_src << "LBOUND(" << as_expression(reference_expr) << ", DIM = " << 
+                        ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
 
-                        lower_bound = lbound_src.parse_expression(scope);
-                    }
-                    else
-                    {
-                        return Nodecl::NodeclBase::null();
-                    }
+                    lower_bound = lbound_src.parse_expression(scope);
                 }
 
                 // This means that it is OK to specify A(:)
@@ -957,10 +949,6 @@ namespace TL
                         if (IS_FORTRAN_LANGUAGE)
                         {
                             Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
-
-                            DataReference data_ref(reference_expr);
-                            if (!data_ref.is_valid())
-                                return Nodecl::NodeclBase::null();
 
                             Source lbound_src;
                             lbound_src << "SIZE(" << as_expression(reference_expr) << ", DIM = " << 
