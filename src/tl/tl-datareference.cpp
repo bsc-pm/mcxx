@@ -1026,9 +1026,29 @@ namespace TL
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted().no_conv();
 
             // a.b[e]
+            if (subscripted.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::NodeclBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
+
+                if (member.get_symbol().is_valid()
+                        && member.get_symbol().is_allocatable())
+                {
+                    // Skip this case, it acts like a pointer here
+                }
+                else
+                {
+                    DataReference subscripted_expr_ref = DataReference(subscripted);
+                    Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
+
+                    result = Nodecl::Add::make(
+                            Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
+                            Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                            get_ptrdiff_t_type(),
+                            expr.get_locus());
+                }
+            }
             // (p[e1])[e] -> This only happens when indexing a pointer p
-            if (subscripted.is<Nodecl::ClassMemberAccess>()
-                    || subscripted.is<Nodecl::ArraySubscript>())
+            else if (subscripted.is<Nodecl::ArraySubscript>())
             {
                 DataReference subscripted_expr_ref = DataReference(subscripted);
                 Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
@@ -1042,14 +1062,16 @@ namespace TL
             // (*p)[e]
             else if (subscripted.is<Nodecl::Dereference>())
             {
-                DataReference subscripted_expr_ref = DataReference(subscripted.as<Nodecl::Dereference>().get_rhs());
-                Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted.as<Nodecl::Dereference>().get_rhs(), subscripted_expr_ref, scope);
+                // Do nothing?
 
-                result = Nodecl::Add::make(
-                        Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
-                        Nodecl::ParenthesizedExpression::make(result, result.get_type()),
-                        get_ptrdiff_t_type(),
-                        expr.get_locus());
+                // DataReference subscripted_expr_ref = DataReference(subscripted.as<Nodecl::Dereference>().get_rhs());
+                // Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted.as<Nodecl::Dereference>().get_rhs(), subscripted_expr_ref, scope);
+
+                // result = Nodecl::Add::make(
+                //         Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
+                //         Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                //         get_ptrdiff_t_type(),
+                //         expr.get_locus());
             }
             // ([N]p)[X:Y]
             else if (subscripted.is<Nodecl::Shaping>())
