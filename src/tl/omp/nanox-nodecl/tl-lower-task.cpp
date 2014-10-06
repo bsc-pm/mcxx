@@ -2473,8 +2473,6 @@ void LoweringVisitor::handle_dependency_item(
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
-    // std::cerr << "OFFSETOF -> |" << dep_expr_offset.prettyprint() << "|" << std::endl;
-
     dependency_offset << as_expression(dep_expr_offset);
 
     if (num_dimensions == 0)

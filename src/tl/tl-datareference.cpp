@@ -712,15 +712,10 @@ namespace TL
 
                 t = t.get_pointer_to();
 
-                std::cerr << "TYPE -> " << print_declarator(t.get_internal_type()) << std::endl;
-                std::cerr << "EXPR -> " << expr.prettyprint() << std::endl;
-
                 Nodecl::NodeclBase reference = Nodecl::Reference::make(
                         rhs,
                         t,
                         rhs.get_locus());
-
-                std::cerr << "REF -> " << reference.prettyprint() << std::endl;
 
                 // We need to propagate some flags from the expression to the new reference node
                 nodecl_expr_set_is_type_dependent(
