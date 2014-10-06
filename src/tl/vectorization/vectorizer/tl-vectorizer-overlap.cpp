@@ -426,10 +426,12 @@ namespace Vectorization
     }
 
     void OverlappedAccessesOptimizer::update_alignment_info(
-            const Nodecl::NodeclBase& n)
+            const Nodecl::NodeclBase& main_loop,
+            const Nodecl::NodeclBase& if_epilog)
     {
         Nodecl::NodeclBase func_code = 
-            Nodecl::Utils::get_enclosing_function(n).get_function_code();
+            Nodecl::Utils::get_enclosing_function(
+                    main_loop).get_function_code();
 
         Optimizations::canonicalize_and_fold(func_code, false /*fast math*/);
 
@@ -443,24 +445,31 @@ namespace Vectorization
             << "END FUNCTION"
             << std::endl;
 
-        objlist_nodecl_t vector_loads = Nodecl::Utils::
-            nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(n);
+        objlist_nodecl_t main_vector_loads = Nodecl::Utils::
+            nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(main_loop);
 
-        for(objlist_nodecl_t::iterator it = vector_loads.begin();
-                it != vector_loads.end();
-                it++)
+        objlist_nodecl_t epilog_vector_loads = Nodecl::Utils::
+            nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(if_epilog);
+
+        // Epilog contains less vector loads
+        objlist_nodecl_t::iterator main_it = main_vector_loads.begin();
+        for(objlist_nodecl_t::iterator epilog_it = epilog_vector_loads.begin();
+                epilog_it != epilog_vector_loads.end();
+                main_it++, epilog_it++)
         {
             int alignment_output;
-            Nodecl::VectorLoad vl = it->as<Nodecl::VectorLoad>();
-            Nodecl::List flags = vl.get_flags().as<Nodecl::List>();
+            Nodecl::VectorLoad main_vl = main_it->as<Nodecl::VectorLoad>();
+            Nodecl::VectorLoad epilog_vl = epilog_it->as<Nodecl::VectorLoad>();
+           
+            Nodecl::List flags = main_vl.get_flags().as<Nodecl::List>();
 
             if(_analysis->is_simd_aligned_access(
                     _environment._analysis_simd_scope,
-                    Utils::get_vector_load_scalar_access(vl),
+                    Utils::get_vector_load_scalar_access(main_vl),
                     _environment._aligned_symbols_map,
                     _environment._suitable_exprs_list,
                     1, //vectorization factor. The code is already vectorized
-                    vl.get_type().get_size(),
+                    main_vl.get_type().get_size(),
                     alignment_output) &&
                     flags.find_first<Nodecl::AlignedFlag>().is_null())
             {
@@ -468,7 +477,7 @@ namespace Vectorization
 
                 VECTORIZATION_DEBUG()
                 {
-                    fprintf(stderr, "%s (aligned)\n", vl.prettyprint().c_str());
+                    fprintf(stderr, "%s (aligned)\n", main_vl.prettyprint().c_str());
                 }
             }
             else if (alignment_output != -1 &&
@@ -478,10 +487,51 @@ namespace Vectorization
                             const_value_get_signed_int(alignment_output)));
 
                 fprintf(stderr, "%s (alignment info = %d)\n",
-                        vl.prettyprint().c_str(), alignment_output);
+                        main_vl.prettyprint().c_str(), alignment_output);
             }
 
-            vl.set_flags(flags);
+            main_vl.set_flags(flags);
+            epilog_vl.set_flags(flags.shallow_copy());
+        }
+
+        // Update final vector loads from main loop
+        while(main_it != main_vector_loads.end())
+        {
+            int alignment_output;
+            Nodecl::VectorLoad main_vl = main_it->as<Nodecl::VectorLoad>();
+           
+            Nodecl::List flags = main_vl.get_flags().as<Nodecl::List>();
+
+            if(_analysis->is_simd_aligned_access(
+                    _environment._analysis_simd_scope,
+                    Utils::get_vector_load_scalar_access(main_vl),
+                    _environment._aligned_symbols_map,
+                    _environment._suitable_exprs_list,
+                    1, //vectorization factor. The code is already vectorized
+                    main_vl.get_type().get_size(),
+                    alignment_output) &&
+                    flags.find_first<Nodecl::AlignedFlag>().is_null())
+            {
+                flags.append(Nodecl::AlignedFlag::make());
+
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "%s (aligned)\n", main_vl.prettyprint().c_str());
+                }
+            }
+            else if (alignment_output != -1 &&
+                    flags.find_first<Nodecl::AlignmentInfo>().is_null())
+            {
+                flags.append(Nodecl::AlignmentInfo::make(
+                            const_value_get_signed_int(alignment_output)));
+
+                fprintf(stderr, "%s (alignment info = %d)\n",
+                        main_vl.prettyprint().c_str(), alignment_output);
+            }
+
+            main_vl.set_flags(flags);
+
+            main_it++;
         }
     }
 
@@ -526,14 +576,10 @@ namespace Vectorization
 
             // Update alignment info of "new" vector loads after unrolling
             // THIS CALL COMPUTES A NEW ANALYSIS
-            update_alignment_info(n);
+            update_alignment_info(n, if_epilog);
 
             // Add conditional epilog before the simple epilog
             last_epilog.prepend_sibling(if_epilog);
-            // And register it in the new analysis as copy of
-            // main_loop. This means that if_epilog will be
-            // translated (best effort) as if it was 'main_loop'
-            _analysis->register_identical_copy(main_loop, if_epilog);
         }
 
         // TODO:
@@ -611,7 +657,7 @@ namespace Vectorization
         }
 
         // Transform if epilogue loop into IfStatement
-        if (!if_epilog.is_null())
+        /*if (!if_epilog.is_null())
         {
             Nodecl::NodeclBase cond = 
                 TL::LoopControlAdapter(
@@ -625,9 +671,11 @@ namespace Vectorization
 
             if_epilog.replace(if_stmt);
         }
+        */
  
         walk(main_loop.get_statement());
-        walk(if_epilog);
+        if (!if_epilog.is_null())
+            walk(if_epilog.get_statement());
 
         // Add #pragma nounroll to main_loop and epilog
         if (min_unroll_factor > 1)
@@ -637,6 +685,12 @@ namespace Vectorization
 
             main_loop.prepend_sibling(unroll_pragma.shallow_copy());
             last_epilog.prepend_sibling(unroll_pragma.shallow_copy());
+
+            if (!if_epilog.is_null())
+            {
+                if_epilog.prepend_sibling(
+                        unroll_pragma.shallow_copy());
+            }
         }
 
         if (min_unroll_factor > 0)
@@ -691,15 +745,46 @@ namespace Vectorization
         return unroll_factor;
     }
 
+    /*
+    Nodecl::ForStatement OverlappedAccessesOptimizer::
+        get_overlap_unrolled_loop(
+            const Nodecl::ForStatement& n,
+            const unsigned int unroll_factor)
+    {
+        Nodecl::ForStatement unrolled_loop;
+
+        // If Epilog
+        if (unroll_factor > 1 )
+        {
+            TL::HLT::LoopUnroll loop_unroller;
+            loop_unroller.set_loop(n)
+                .set_create_epilog(false)
+                .set_unroll_factor(unroll_factor)
+                .unroll();
+
+            unrolled_loop = 
+                loop_unroller.get_unrolled_loop()
+                .as<Nodecl::ForStatement>();
+        }
+        else
+        {
+            unrolled_loop = n.shallow_copy()
+                .as<Nodecl::ForStatement>();
+        }
+
+        return unrolled_loop;
+    }
+    */
+
     Nodecl::ForStatement OverlappedAccessesOptimizer::
         get_overlap_blocked_unrolled_loop(
             const Nodecl::ForStatement& n,
             const unsigned int block_size)
     {
+        Nodecl::ForStatement blocked_unrolled_loop;
+
         const objlist_nodecl_t& ivs_list = _analysis->
             get_linear_nodecls(n);
-
-        Nodecl::ForStatement blocked_unrolled_loop;
 
         // If Epilog
         if (block_size > 1 )
@@ -737,14 +822,17 @@ namespace Vectorization
             Nodecl::ExpressionStatement::make(
                     next_node.shallow_copy());
 
-        Nodecl::List outer_stmt = loop_stmts;
-        // Copy loop_stmts withouth IV update
-        Nodecl::List stmts_copy = loop_stmts.shallow_copy().
-            as<Nodecl::List>();
+        Nodecl::NodeclBase if_statement_body = 
+            blocked_unrolled_loop.get_statement()
+            .as<Nodecl::List>().shallow_copy();
+
         // Add IV update to end of the first block
         Nodecl::Utils::append_items_in_outermost_compound_statement(
                 loop_stmts,
                 next_update_stmt.shallow_copy());
+
+        // Pointer
+        Nodecl::List outer_stmt = loop_stmts;
 
         //TODO:VL
         for (unsigned int i=1; i<(16/block_size)-1; i++)
@@ -753,10 +841,13 @@ namespace Vectorization
             Nodecl::IfElseStatement if_else_stmt =
                 Nodecl::IfElseStatement::make(
                         cond_node.shallow_copy(),
-                        stmts_copy.shallow_copy(),
+                        if_statement_body.shallow_copy(),
                         Nodecl::NodeclBase::null());
-
+            
             // Replace IV by IV + block offset in IfStatement
+            // WATCH OUT!: The code after this replacement is invalid
+            // because there is also an IV update. But there is no
+            // other way to do it so far.
             for (objlist_nodecl_t::const_iterator iv =
                     ivs_list.begin();
                     iv != ivs_list.end();
@@ -775,17 +866,25 @@ namespace Vectorization
                         iv_plus_boffset);
             }
             
-            // Add IV update to end of each block
+            // Add IV update to the end of each block
             Nodecl::Utils::append_items_in_outermost_compound_statement(
                     if_else_stmt.get_then(),
                     next_update_stmt.shallow_copy());
 
+            // std::cerr << "BLOCK " << i << if_else_stmt.prettyprint() << std::endl;
             // Add IfStatement
             Nodecl::Utils::append_items_in_outermost_compound_statement(
                     outer_stmt, if_else_stmt);
 
             outer_stmt = if_else_stmt.get_then().as<Nodecl::List>();
         }
+
+        // Replace loop by IfStatement
+       blocked_unrolled_loop.replace(
+               Nodecl::IfElseStatement::make(
+                   cond_node.shallow_copy(),
+                   blocked_unrolled_loop.get_statement().shallow_copy(),
+                   Nodecl::NodeclBase::null()));
 
         return blocked_unrolled_loop;
     }

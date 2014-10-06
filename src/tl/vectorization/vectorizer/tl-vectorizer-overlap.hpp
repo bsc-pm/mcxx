@@ -117,7 +117,9 @@ namespace TL
                 static VectorizationAnalysisInterface* _analysis;
                 const VectorizerEnvironment& _environment;
                 
-                void update_alignment_info(const Nodecl::NodeclBase& n);
+                void update_alignment_info(
+                        const Nodecl::NodeclBase& main_loop,
+                        const Nodecl::NodeclBase& epilog_loop);
 
                 objlist_nodecl_t get_adjacent_vector_loads_not_nested_in_for(
                         const Nodecl::NodeclBase& n,

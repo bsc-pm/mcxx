@@ -354,22 +354,46 @@ namespace Vectorization
             const Nodecl::NodeclBase& loop_statement,
             Nodecl::NodeclBase& net_epilog_node)
     {
-        Nodecl::NodeclBase loop_cond;
-       
-        if (loop_statement.is<Nodecl::ForStatement>())
-            loop_cond = loop_statement.as<Nodecl::ForStatement>().
-                get_loop_header().as<Nodecl::LoopControl>().get_cond();
-        else if (loop_statement.is<Nodecl::WhileStatement>())
-            loop_cond = loop_statement.as<Nodecl::WhileStatement>().get_condition();
-        else
-            internal_error("Vectorizer: Epilog visit. Neither a ForStatement"\
-                   " nor a WhileStatement", 0);
-
-        if(_environment._support_masking)
+        if(_environment._support_masking) // Vector epilog
         {
-            visit_vector_epilog(loop_statement, loop_cond, net_epilog_node);
+            Nodecl::NodeclBase loop_cond_copy;
+
+            if (loop_statement.is<Nodecl::ForStatement>())
+            {
+                Nodecl::ForStatement for_stmt = 
+                    loop_statement.as<Nodecl::ForStatement>();
+                Nodecl::LoopControl loop_control =
+                    for_stmt.get_loop_header().
+                    as<Nodecl::LoopControl>();
+
+                loop_cond_copy = Vectorizer::_vectorizer_analysis->
+                    shallow_copy(loop_control.get_cond());
+
+                // Vectorize Loop Header
+                VectorizerVisitorLoopHeader visitor_loop_header(_environment);
+                visitor_loop_header.walk(loop_control);
+            }
+            else if (loop_statement.is<Nodecl::WhileStatement>())
+            {
+                Nodecl::WhileStatement while_stmt =
+                    loop_statement.as<Nodecl::WhileStatement>();
+
+                loop_cond_copy = Vectorizer::_vectorizer_analysis->
+                    shallow_copy(while_stmt.get_condition());
+
+                // Vectorize Loop Header
+                VectorizerVisitorLoopCond visitor_loop_cond(_environment);
+                visitor_loop_cond.walk(while_stmt.get_condition());
+            }
+            else
+            {
+                internal_error("Vectorizer: Epilog visit. Neither a ForStatement"\
+                        " nor a WhileStatement", 0);
+            }
+
+            visit_vector_epilog(loop_statement, loop_cond_copy, net_epilog_node);
         }
-        else
+        else // Scalar epilog
         {
             visit_scalar_epilog(loop_statement, net_epilog_node);
         }
