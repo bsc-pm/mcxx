@@ -356,7 +356,7 @@ namespace Vectorization
     {
         if(_environment._support_masking) // Vector epilog
         {
-            Nodecl::NodeclBase loop_cond;
+            Nodecl::NodeclBase loop_cond_copy;
 
             if (loop_statement.is<Nodecl::ForStatement>())
             {
@@ -366,12 +366,23 @@ namespace Vectorization
                     for_stmt.get_loop_header().
                     as<Nodecl::LoopControl>();
 
+                loop_cond_copy = Vectorizer::_vectorizer_analysis->
+                    shallow_copy(loop_control.get_cond());
+
                 // Vectorize Epilog body before
                 // vectorizing Loop Header
                 visit_vector_epilog(loop_statement, 
-                        loop_control.get_cond(),
+                        loop_cond_copy,
                         net_epilog_node);
 
+                std::cerr << "!!!--->>>" << std::endl
+                    << net_epilog_node.prettyprint()
+                    << std::endl;
+
+                // Update loop control after visiting epilog
+                loop_control = net_epilog_node.
+                    as<Nodecl::ForStatement>().get_loop_header().
+                    as<Nodecl::LoopControl>();
 
                 // Vectorize Loop Header
                 VectorizerVisitorLoopHeader visitor_loop_header(_environment);
@@ -382,15 +393,19 @@ namespace Vectorization
                 Nodecl::WhileStatement while_stmt =
                     loop_statement.as<Nodecl::WhileStatement>();
 
+                loop_cond_copy = Vectorizer::_vectorizer_analysis->
+                    shallow_copy(while_stmt.get_condition());
+
                 // Vectorize Epilog body before
                 // vectorizing Loop Header
                 visit_vector_epilog(loop_statement, 
-                        while_stmt.get_condition(),
+                        loop_cond_copy,
                         net_epilog_node);
 
                 // Vectorize Loop Header
                 VectorizerVisitorLoopCond visitor_loop_cond(_environment);
-                visitor_loop_cond.walk(while_stmt.get_condition());
+                visitor_loop_cond.walk(net_epilog_node.as<Nodecl::WhileStatement>().
+                        get_condition());
             }
             else
             {
