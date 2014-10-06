@@ -1442,10 +1442,9 @@ void LoweringVisitor::fill_arguments(
                         DataReference data_ref((*it)->get_base_address_expression());
                         if (!data_ref.is_valid())
                         {
-                            std::cerr
-                                << (*it)->get_base_address_expression().get_locus()
-                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail"
-                                << std::endl;
+                            warn_printf(
+                                "%s: warning: an argument is not a valid data-reference, compilation is likely to fail\n",
+                                (*it)->get_base_address_expression().get_locus_str().c_str());
                         }
 
                         // This is a pointer reference
