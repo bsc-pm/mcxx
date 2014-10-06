@@ -1125,12 +1125,15 @@ namespace TL
                 if (!sym.get_scope()
                         .scope_is_enclosed_by(outer_statement.retrieve_context()))
                 {
-                    DataSharingAttribute sym_data_sharing = (DataSharingAttribute)(data_sharing.get_data_sharing(sym) & ~DS_IMPLICIT);
-                    bool is_implicit = (data_sharing.get_data_sharing(sym) & DS_IMPLICIT);
+                    DataSharingAttribute sym_data_sharing = (DataSharingAttribute)
+                        (data_sharing.get_data_sharing(sym, /* check enclosing */ false) & ~DS_IMPLICIT);
+
+                    bool is_implicit = (data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & DS_IMPLICIT);
 
                     if (!is_implicit
                             && sym_data_sharing != DS_UNDEFINED
                             && sym_data_sharing != DS_PRIVATE
+                            && sym_data_sharing != DS_LASTPRIVATE
                             && sym_data_sharing != DS_NONE)
                     {
                         running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
@@ -1138,8 +1141,17 @@ namespace TL
                                 sym.get_name().c_str()
                                 );
                     }
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
-                            "the induction variable of OpenMP loop construct has predetermined private data-sharing");
+
+                    if (is_implicit)
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                                "the induction variable of OpenMP loop construct has predetermined private data-sharing");
+                    }
+                    else
+                    {
+                        data_sharing.set_data_sharing(sym, sym_data_sharing,
+                                "the induction variable of OpenMP loop construct has explicit data-sharing");
+                    }
                 }
 
                 sanity_check_for_loop(statement);
