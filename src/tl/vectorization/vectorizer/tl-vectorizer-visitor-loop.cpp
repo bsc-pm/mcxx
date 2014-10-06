@@ -356,7 +356,7 @@ namespace Vectorization
     {
         if(_environment._support_masking) // Vector epilog
         {
-            Nodecl::NodeclBase loop_cond_copy;
+            Nodecl::NodeclBase loop_cond;
 
             if (loop_statement.is<Nodecl::ForStatement>())
             {
@@ -366,8 +366,12 @@ namespace Vectorization
                     for_stmt.get_loop_header().
                     as<Nodecl::LoopControl>();
 
-                loop_cond_copy = Vectorizer::_vectorizer_analysis->
-                    shallow_copy(loop_control.get_cond());
+                // Vectorize Epilog body before
+                // vectorizing Loop Header
+                visit_vector_epilog(loop_statement, 
+                        loop_control.get_cond(),
+                        net_epilog_node);
+
 
                 // Vectorize Loop Header
                 VectorizerVisitorLoopHeader visitor_loop_header(_environment);
@@ -378,8 +382,11 @@ namespace Vectorization
                 Nodecl::WhileStatement while_stmt =
                     loop_statement.as<Nodecl::WhileStatement>();
 
-                loop_cond_copy = Vectorizer::_vectorizer_analysis->
-                    shallow_copy(while_stmt.get_condition());
+                // Vectorize Epilog body before
+                // vectorizing Loop Header
+                visit_vector_epilog(loop_statement, 
+                        while_stmt.get_condition(),
+                        net_epilog_node);
 
                 // Vectorize Loop Header
                 VectorizerVisitorLoopCond visitor_loop_cond(_environment);
@@ -390,8 +397,6 @@ namespace Vectorization
                 internal_error("Vectorizer: Epilog visit. Neither a ForStatement"\
                         " nor a WhileStatement", 0);
             }
-
-            visit_vector_epilog(loop_statement, loop_cond_copy, net_epilog_node);
         }
         else // Scalar epilog
         {
