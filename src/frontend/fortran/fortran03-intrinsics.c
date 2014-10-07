@@ -1876,7 +1876,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
     scope_entry_t* entry = NULL;
 
     if (!nodecl_is_null(argument_expressions[0])
-            && (entry = nodecl_get_symbol(argument_expressions[0])))
+            && (entry = fortran_data_ref_get_symbol(argument_expressions[0])))
     {
         if (entry != NULL
                 && fortran_is_array_type(entry->type_information) && entry->entity_specs.is_allocatable)
