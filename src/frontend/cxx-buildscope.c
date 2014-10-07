@@ -19710,8 +19710,18 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
             {
+                decl_context_t block_context = new_block_context(decl_context);
+                build_scope_statement(pragma_stmt, block_context, &nodecl_statement);
+
                 build_scope_pragma_custom_construct_statement_or_decl_rec(pragma_stmt,
-                        decl_context, &nodecl_statement, info);
+                        block_context, &nodecl_statement, info);
+
+                nodecl_statement =
+                    nodecl_make_list_1(
+                            nodecl_make_context(
+                                nodecl_statement,
+                                block_context,
+                                nodecl_get_locus(nodecl_statement)));
                 break;
             }
         case AST_DECLARATION_STATEMENT:
