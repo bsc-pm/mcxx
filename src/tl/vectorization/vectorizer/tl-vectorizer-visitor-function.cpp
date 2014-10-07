@@ -70,10 +70,10 @@ namespace TL
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
 
-            objlist_tlsymbol_t parameters = vect_func_sym.get_function_parameters();
+            objlist_tlsym_t parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
 
-            for(objlist_tlsymbol_t::iterator it = parameters.begin();
+            for(objlist_tlsym_t::iterator it = parameters.begin();
                     it != parameters.end();
                     it ++)
             {

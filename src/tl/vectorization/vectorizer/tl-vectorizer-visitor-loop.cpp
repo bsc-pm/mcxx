@@ -375,10 +375,6 @@ namespace Vectorization
                         loop_cond_copy,
                         net_epilog_node);
 
-                std::cerr << "!!!--->>>" << std::endl
-                    << net_epilog_node.prettyprint()
-                    << std::endl;
-
                 // Update loop control after visiting epilog
                 loop_control = net_epilog_node.
                     as<Nodecl::ForStatement>().get_loop_header().

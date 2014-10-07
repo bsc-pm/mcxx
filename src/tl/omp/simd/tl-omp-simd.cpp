@@ -242,15 +242,15 @@ namespace TL {
                 as<Nodecl::List>();
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(simd_environment, aligned_expressions);
 
             // Aligned clause
-            map_tl_sym_int_t linear_symbols;
+            map_tlsym_int_t linear_symbols;
             process_linear_clause(simd_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(simd_environment, uniform_symbols);
 
             // Suitable clause
@@ -267,14 +267,14 @@ namespace TL {
                     vectorlengthfor_type);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_int_t overlap_symbols;
             process_overlap_clause(simd_environment, overlap_symbols);
 
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction and simd_reduction clauses
-            objlist_tlsymbol_t reductions;
+            objlist_tlsym_t reductions;
 
             Nodecl::List omp_reduction_list = process_reduction_clause(
                     simd_environment, reductions, 
@@ -526,15 +526,15 @@ namespace TL {
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_simd_for_environment, aligned_expressions);
 
             // Linear clause
-            map_tl_sym_int_t linear_symbols;
+            map_tlsym_int_t linear_symbols;
             process_linear_clause(omp_simd_for_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(omp_simd_for_environment, uniform_symbols);
 
             // Suitable clause
@@ -546,7 +546,7 @@ namespace TL {
             process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_int_t overlap_symbols;
             process_overlap_clause(omp_simd_for_environment, overlap_symbols);
 
             // Vectorlengthfor clause
@@ -557,7 +557,7 @@ namespace TL {
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction clause
-            objlist_tlsymbol_t reductions;
+            objlist_tlsym_t reductions;
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_for_environment,
                         reductions, new_external_vector_symbol_map,
@@ -870,15 +870,15 @@ namespace TL {
                 get_environment().as<Nodecl::List>();
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_environment, aligned_expressions);
 
             // Linear clause
-            map_tl_sym_int_t linear_symbols;
+            map_tlsym_int_t linear_symbols;
             process_linear_clause(omp_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(omp_environment, uniform_symbols);
 
             // Suitable clause
@@ -890,7 +890,7 @@ namespace TL {
             process_nontemporal_clause(omp_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_int_t overlap_symbols;
             process_overlap_clause(omp_environment, overlap_symbols);
 //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
@@ -972,15 +972,15 @@ namespace TL {
             walk(parallel_statements);
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
 
             // Aligned clause
-            map_tl_sym_int_t linear_symbols;
+            map_tlsym_int_t linear_symbols;
             process_aligned_clause(omp_simd_parallel_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(omp_simd_parallel_environment, uniform_symbols);
 
             // Suitable clause
@@ -992,7 +992,7 @@ namespace TL {
             process_nontemporal_clause(omp_simd_parallel_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_int_t overlap_symbols;
             process_overlap_clause(omp_simd_parallel_environment, overlap_symbols);
 //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
@@ -1004,7 +1004,7 @@ namespace TL {
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction clause
-            objlist_tlsymbol_t reductions;
+            objlist_tlsym_t reductions;
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_parallel_environment,
                         reductions, new_external_vector_symbol_map,
@@ -1122,7 +1122,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
-                map_tl_sym_int_t& aligned_expressions_map)
+                map_tlsym_int_t& aligned_expressions_map)
         {
             TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list =
                 environment.find_all<Nodecl::OpenMP::Aligned>();
@@ -1154,7 +1154,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_linear_clause(const Nodecl::List& environment,
-                map_tl_sym_int_t& linear_symbols_map)
+                map_tlsym_int_t& linear_symbols_map)
         {
             TL::ObjectList<Nodecl::OpenMP::Linear> omp_linear_list =
                 environment.find_all<Nodecl::OpenMP::Linear>();
@@ -1187,7 +1187,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_uniform_clause(const Nodecl::List& environment,
-                objlist_tlsymbol_t& uniform_symbols)
+                objlist_tlsym_t& uniform_symbols)
         {
             Nodecl::OpenMP::Uniform omp_uniform =
                 environment.find_first<Nodecl::OpenMP::Uniform>();
@@ -1314,7 +1314,7 @@ namespace TL {
         }
 */
         void SimdVisitor::process_overlap_clause(const Nodecl::List& environment,
-                map_tl_sym_int_t& overlap_symbols)
+                map_tlsym_int_t& overlap_symbols)
         {
             TL::ObjectList<Nodecl::OpenMP::Overlap> omp_overlap_list =
                 environment.find_all<Nodecl::OpenMP::Overlap>();

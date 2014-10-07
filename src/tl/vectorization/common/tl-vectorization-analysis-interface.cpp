@@ -223,12 +223,12 @@ namespace Vectorization
         return it->second;
     }
 
-    objlist_tlsymbol_t VectorizationAnalysisInterface::translate_input(
-            const objlist_tlsymbol_t& list) const
+    objlist_tlsym_t VectorizationAnalysisInterface::translate_input(
+            const objlist_tlsym_t& list) const
     {
-        objlist_tlsymbol_t result_list;
+        objlist_tlsym_t result_list;
 
-        for(objlist_tlsymbol_t::const_iterator it = list.begin();
+        for(objlist_tlsym_t::const_iterator it = list.begin();
                 it != list.end();
                 it++)
         {
@@ -592,7 +592,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_simd_aligned_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const map_tl_sym_int_t& aligned_expressions,
+            const map_tlsym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment,
             int& alignment_output)

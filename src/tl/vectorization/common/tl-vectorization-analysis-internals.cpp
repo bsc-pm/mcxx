@@ -87,7 +87,7 @@ namespace Vectorization
     bool is_simd_aligned_access_internal(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const map_tl_sym_int_t& aligned_expressions,
+            const map_tlsym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment,
             int& alignment_module,

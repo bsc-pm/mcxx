@@ -438,13 +438,13 @@ namespace Vectorization
         _analysis = new VectorizationAnalysisInterface(
                 func_code,
                 Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
-        
+        /*
         std::cerr << "FUNCTION: "
             << func_code.as<Nodecl::FunctionCode>().get_statements().prettyprint()
             << std::endl
             << "END FUNCTION"
             << std::endl;
-
+        */
         objlist_nodecl_t main_vector_loads = Nodecl::Utils::
             nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(main_loop);
 
@@ -587,7 +587,7 @@ namespace Vectorization
             retrieve_context();
 
         // OVERLAP
-        for(map_tl_sym_int_t::const_iterator it = 
+        for(map_tlsym_int_t::const_iterator it = 
                 _environment._overlap_symbols_map.begin();
                 it != _environment._overlap_symbols_map.end();
                 it++)
@@ -719,7 +719,7 @@ namespace Vectorization
 
         unsigned int unroll_factor = 0;
 
-        for(map_tl_sym_int_t::const_iterator it = 
+        for(map_tlsym_int_t::const_iterator it = 
                 _environment._overlap_symbols_map.begin();
                 it != _environment._overlap_symbols_map.end();
                 it++)
@@ -843,28 +843,55 @@ namespace Vectorization
                         cond_node.shallow_copy(),
                         if_statement_body.shallow_copy(),
                         Nodecl::NodeclBase::null());
-            
-            // Replace IV by IV + block offset in IfStatement
-            // WATCH OUT!: The code after this replacement is invalid
-            // because there is also an IV update. But there is no
-            // other way to do it so far.
-            for (objlist_nodecl_t::const_iterator iv =
-                    ivs_list.begin();
-                    iv != ivs_list.end();
-                    iv++)
-            {
-                Nodecl::Add iv_plus_boffset =
-                    Nodecl::Add::make(
-                            iv->shallow_copy(),
-                            const_value_to_nodecl(
-                                const_value_get_signed_int(i * block_size)),
-                            TL::Type::get_int_type());
+           
 
-                Nodecl::Utils::nodecl_replace_nodecl_by_structure(
-                        if_else_stmt,
-                        *iv,
-                        iv_plus_boffset);
+            // TEMPORAL PATCH: TO BE REMOVED FROM HERE
+            // Waiting for local iv increment
+            objlist_nodecl_t vector_loads = Nodecl::Utils::
+                nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(if_else_stmt);
+
+            for (objlist_nodecl_t::const_iterator vl = vector_loads.begin();
+                    vl != vector_loads.end();
+                    vl++)
+            {
+                bool found = false;
+                for (map_tlsym_int_t::const_iterator overlap_symbol =
+                        _environment._overlap_symbols_map.begin();
+                        overlap_symbol != _environment._overlap_symbols_map.end();
+                        overlap_symbol++)
+                {
+                    if ((overlap_symbol->first) == Utils::get_vector_load_subscripted(
+                                vl->as<Nodecl::VectorLoad>()).get_symbol())
+                    {
+                        // Replace IV by IV + block offset in IfStatement
+                        // WATCH OUT!: The code after this replacement is invalid
+                        // because there is also an IV update. But there is no
+                        // other way to do it so far.
+                        for (objlist_nodecl_t::const_iterator iv =
+                                ivs_list.begin();
+                                iv != ivs_list.end();
+                                iv++)
+                        {
+                            Nodecl::Add iv_plus_boffset =
+                                Nodecl::Add::make(
+                                        iv->shallow_copy(),
+                                        const_value_to_nodecl(
+                                            const_value_get_signed_int(i * block_size)),
+                                        TL::Type::get_int_type());
+
+                            Nodecl::Utils::nodecl_replace_nodecl_by_structure(
+                                    *vl,
+                                    *iv,
+                                    iv_plus_boffset);
+                        }
+
+                        found = true;
+                    }
+                }
+
+                ERROR_CONDITION(!found, "Overlap: This code is not going to work without local IV increment", 0);
             }
+            // REMOVE UNTIL HERE!
             
             // Add IV update to the end of each block
             Nodecl::Utils::append_items_in_outermost_compound_statement(

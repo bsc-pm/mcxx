@@ -89,8 +89,8 @@ namespace Vectorization
                     const objlist_nodecl_t& list);
             TL::Symbol translate_input(
                     const TL::Symbol& n) const;
-            objlist_tlsymbol_t translate_input(
-                    const objlist_tlsymbol_t& n) const;
+            objlist_tlsym_t translate_input(
+                    const objlist_tlsym_t& n) const;
             std::map<TL::Symbol, int> translate_input(
                     const std::map<TL::Symbol, int>& map);
 
@@ -148,7 +148,7 @@ namespace Vectorization
             virtual bool is_simd_aligned_access(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n,
-                    const map_tl_sym_int_t& aligned_expressions,
+                    const map_tlsym_int_t& aligned_expressions,
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment,
                     int& alignment_module);

@@ -89,7 +89,7 @@ namespace TL
         struct OverlapGroup
         {
             Nodecl::Symbol _subscripted;
-            objlist_tlsymbol_t _registers;
+            objlist_tlsym_t _registers;
             objlist_nodecl_t _registers_indexes;
             objlist_nodecl_t _loads;
             Nodecl::VectorLoad _leftmost_vload;
