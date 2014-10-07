@@ -1136,8 +1136,10 @@ namespace Vectorization
             const int num_group,
             const bool is_group_epilog)
     {
-        ogroup._vector_type = ogroup._loads.front().get_type().no_ref();
-        ogroup._basic_type = ogroup._loads.front().get_type().no_ref().basic_type();
+        ogroup._vector_type = ogroup._loads.front().
+            get_type().no_ref().get_unqualified_type();
+        ogroup._basic_type = ogroup._loads.front().
+            get_type().no_ref().basic_type();
         int vectorization_factor = ogroup._vector_type.vector_num_elements();
 
         ogroup.compute_leftmost_rightmost_vloads(_environment);
