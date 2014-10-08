@@ -2126,7 +2126,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             if (ASTType(init_declarator) == AST_AMBIGUITY)
             {
-                solve_ambiguous_init_declarator(init_declarator, decl_context);
+                solve_ambiguous_init_declarator(init_declarator, decl_context, &current_gather_info);
             }
 
             decl_context_t current_decl_context = decl_context;
@@ -13971,7 +13971,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
         if (ASTType(init_declarator) == AST_AMBIGUITY)
         {
-            solve_ambiguous_init_declarator(init_declarator, decl_context);
+            solve_ambiguous_init_declarator(init_declarator, decl_context, &gather_info);
         }
 
         if (ASTSon0(init_declarator_list) != NULL)
@@ -17088,7 +17088,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             {
                 case AST_AMBIGUITY:
                     {
-                        solve_ambiguous_init_declarator(declarator, decl_context);
+                        solve_ambiguous_init_declarator(declarator, decl_context, &current_gather_info);
                         // Restart the function
                         build_scope_member_simple_declaration(decl_context, a, current_access, class_info, 
                                 is_template, is_explicit_specialization,
@@ -19710,8 +19710,18 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
             {
+                decl_context_t block_context = new_block_context(decl_context);
+                build_scope_statement(pragma_stmt, block_context, &nodecl_statement);
+
                 build_scope_pragma_custom_construct_statement_or_decl_rec(pragma_stmt,
-                        decl_context, &nodecl_statement, info);
+                        block_context, &nodecl_statement, info);
+
+                nodecl_statement =
+                    nodecl_make_list_1(
+                            nodecl_make_context(
+                                nodecl_statement,
+                                block_context,
+                                nodecl_get_locus(nodecl_statement)));
                 break;
             }
         case AST_DECLARATION_STATEMENT:

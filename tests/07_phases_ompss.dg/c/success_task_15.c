@@ -26,35 +26,35 @@
 
 
 
-#ifndef FORTRAN_EXPRTYPE_H
-#define FORTRAN_EXPRTYPE_H
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include<assert.h>
 
-#include "cxx-macros.h"
-#include "libmf03-common.h"
+const int n = 1000;
+int main()
+{
+    int x1 = -1;
+    int x2 = -1;
 
-#include "cxx-ast-decls.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeutils.h"
-#include "libmf03-common.h"
+    #pragma omp task shared(x1, x2)
+    {
+        #pragma omp for lastprivate(x1)
+        for (x1 = 0; x1 < n; ++x1)
+        {
+        }
 
-MCXX_BEGIN_DECLS
+        #pragma omp for
+        for (x2 = 0; x2 < n; ++x2)
+        {
+        }
+    }
 
-LIBMF03_EXTERN char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+    #pragma omp taskwait
+    assert(x1 == n);
+    assert(x2 == -1);
 
-LIBMF03_EXTERN char fortran_check_array_bounds_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
-
-LIBMF03_EXTERN void fortran_check_initialization(
-        scope_entry_t* entry,
-        AST expr, 
-        decl_context_t decl_context, 
-        char is_pointer_initialization,
-        nodecl_t* nodecl_output);
-
-LIBMF03_EXTERN type_t* common_type_of_binary_operation(type_t* t1, type_t* t2);
-LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2);
-
-LIBMF03_EXTERN scope_entry_t* fortran_data_ref_get_symbol(nodecl_t n);
-
-MCXX_END_DECLS
-
-#endif // FORTRAN_EXPRTYPE_H
+    return 0;
+}
