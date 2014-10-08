@@ -24240,6 +24240,15 @@ char same_functional_expression(
         scope_entry_t* s2 = nodecl_get_symbol(n2);
 
         if (s1 != s2
+                && !(s1->kind == SK_VARIABLE
+                    && symbol_is_parameter_of_function(s1, get_function_declaration_proxy())
+                    && s2->kind == SK_VARIABLE
+                    && symbol_is_parameter_of_function(s2, get_function_declaration_proxy())
+                    && (symbol_get_parameter_nesting_in_function(s1, get_function_declaration_proxy()) ==
+                        symbol_get_parameter_nesting_in_function(s2, get_function_declaration_proxy()))
+                    && (symbol_get_parameter_position_in_function(s1, get_function_declaration_proxy()) ==
+                        symbol_get_parameter_position_in_function(s2, get_function_declaration_proxy()))
+                    && equivalent_types(s1->type_information, s2->type_information))
                 && !((s1->kind == SK_TEMPLATE_NONTYPE_PARAMETER
                         || s1->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
                     && s1->kind == s2->kind
