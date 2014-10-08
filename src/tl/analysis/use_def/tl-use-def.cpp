@@ -260,8 +260,8 @@ namespace {
         }
         
         // Initialize global variables usage to NONE (for recursive calls)
-        GlobalVarsSet global_vars = _graph->get_global_variables();
-        for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+        NodeclSet global_vars = _graph->get_global_variables();
+        for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
             _ipa_modif_vars[*it] = Utils::UsageKind::NONE;
         }

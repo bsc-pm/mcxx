@@ -179,8 +179,8 @@ namespace Analysis {
                 Utils::UsageKind usage_kind);
         
         void propagate_global_variables_usage(
-                const NodeclSet& called_func_usage, 
-                const GlobalVarsSet& called_global_vars, 
+                const NodeclSet& called_func_usage,
+                const NodeclSet& called_global_vars,
                 const sym_to_nodecl_map& param_to_arg_map,
                 Utils::UsageKind usage_kind);
         

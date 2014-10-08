@@ -621,8 +621,7 @@ namespace {
                 const Nodecl::List& correctness_incoherent_in_pointed = task->get_correctness_incoherent_in_pointed_vars();
                 const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
                 const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
-                const Nodecl::List& correctness_race = task->get_correctness_race_vars();
-
+                const Nodecl::List& correctness_race = task->get_true_correctness_race_vars();
                 compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
                                                        locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
                 compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,

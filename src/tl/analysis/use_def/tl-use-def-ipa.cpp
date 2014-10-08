@@ -123,7 +123,7 @@ propagate_usage:
     // This method accepts #called_func_usage sets of UE, KILLED and UNDEFINED variables (specified by #usage_kind)
     void UsageVisitor::propagate_global_variables_usage(
             const NodeclSet& called_func_usage, 
-            const GlobalVarsSet& ipa_global_vars, 
+            const NodeclSet& ipa_global_vars,
             const sym_to_nodecl_map& param_to_arg_map,
             Utils::UsageKind usage_kind)
     {
@@ -149,7 +149,6 @@ propagate_usage:
                 else
                     _node->add_undefined_behaviour_var(new_n);
             }
-            
         }
     }
     
@@ -216,7 +215,7 @@ propagate_usage:
         
         // 3. Usage of the global variables must be propagated too
         // 3.1 Add the global variables used in the called graph to the current graph
-        GlobalVarsSet ipa_global_vars = called_pcfg->get_global_variables();
+        NodeclSet ipa_global_vars = called_pcfg->get_global_variables();
         _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
         sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
@@ -259,7 +258,7 @@ propagate_usage:
         // 2.- Check for the usage in the graph of the function to propagate Usage 
         //     until the point we are currently (only for reference parameters and global variables)
         sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(params, args);
-        GlobalVarsSet global_vars = _pcfg->get_global_variables();
+        NodeclSet global_vars = _pcfg->get_global_variables();
         for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
         {
             NBase var = it->first;
@@ -359,8 +358,8 @@ propagate_usage:
 
                     if(attr_name == "pure")
                     {   // Set all global variables variables as upper exposed (if not previously killed or undefined)
-                        GlobalVarsSet global_vars = _pcfg->get_global_variables();
-                        for(GlobalVarsSet::iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
+                        NodeclSet global_vars = _pcfg->get_global_variables();
+                        for(NodeclSet::iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
                         {
                             if (Utils::nodecl_set_contains_enclosing_nodecl(*it_g, killed_vars).is_null() && 
                                 Utils::nodecl_set_contains_enclosing_nodecl(*it_g, undef_vars).is_null())
@@ -784,8 +783,8 @@ propagate_usage:
                     
                     // Set all global variables to undefined
                     NodeclSet killed = _node->get_killed_vars();
-                    GlobalVarsSet global_vars = _pcfg->get_global_variables();
-                    for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+                    NodeclSet global_vars = _pcfg->get_global_variables();
+                    for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
                     {
                         if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
                             Utils::nodecl_set_contains_enclosed_nodecl(*it, killed).is_null())
@@ -813,8 +812,8 @@ propagate_usage:
             }
         }
         
-        GlobalVarsSet global_vars = _pcfg->get_global_variables();
-        for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+        NodeclSet global_vars = _pcfg->get_global_variables();
+        for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
             if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
                 Utils::nodecl_set_contains_enclosed_nodecl(*it, killed).is_null())

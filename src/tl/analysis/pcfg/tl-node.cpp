@@ -2011,14 +2011,28 @@ namespace Analysis {
         add_var_to_list(n, _CORRECTNESS_INCOHERENT_P_VARS);
     }
     
-    Nodecl::List Node::get_correctness_race_vars()
+    NodeclTriboolMap Node::get_correctness_race_vars()
     {
-        return get_vars<Nodecl::List>(_CORRECTNESS_RACE_VARS);
+        return get_vars<NodeclTriboolMap>(_CORRECTNESS_RACE_VARS);
     }
     
-    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n)
+    Nodecl::List Node::get_true_correctness_race_vars()
     {
-        add_var_to_list(n, _CORRECTNESS_RACE_VARS);
+        const NodeclTriboolMap& all_race_vars = get_vars<NodeclTriboolMap>(_CORRECTNESS_RACE_VARS);
+        Nodecl::List true_race_vars;
+        for (NodeclTriboolMap::const_iterator it = all_race_vars.begin();
+             it != all_race_vars.end(); ++it)
+        {
+            if (it->second.is_true())
+                true_race_vars.append(it->first.shallow_copy());
+        }
+        return true_race_vars;
+    }
+
+    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n, tribool certainty)
+    {
+        NodeclTriboolMap& race_vars = get_data<NodeclTriboolMap>(_CORRECTNESS_RACE_VARS);
+        race_vars[n] = certainty;
     }
     
     Nodecl::List Node::get_correctness_dead_vars()

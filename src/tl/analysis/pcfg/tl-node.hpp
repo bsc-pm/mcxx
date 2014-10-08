@@ -828,8 +828,9 @@ namespace Analysis {
             Nodecl::List get_correctness_incoherent_p_vars();
             void add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n);
             
-            Nodecl::List get_correctness_race_vars();
-            void add_correctness_race_var(const Nodecl::NodeclBase& n);
+            NodeclTriboolMap get_correctness_race_vars();
+            Nodecl::List get_true_correctness_race_vars();
+            void add_correctness_race_var(const Nodecl::NodeclBase& n, tribool certainty);
 
             Nodecl::List get_correctness_dead_vars();
             void add_correctness_dead_var(const Nodecl::NodeclBase& n);

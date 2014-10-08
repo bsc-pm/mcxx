@@ -24,12 +24,6 @@
 #include "tl-analysis-internals.hpp"
 
 #include "tl-tribool.hpp"
-
-//#include "cxx-process.h"
-//#include "tl-analysis-utils.hpp"
-//#include "tl-analysis-static-info.hpp"
-//#include "tl-expression-reduction.hpp"
-//#include "tl-use-def.hpp"
  
 namespace TL  {
 namespace Analysis {
@@ -215,7 +209,7 @@ final_linear:
     
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
-            const GlobalVarsSet& global_variables)
+            const NodeclSet& global_variables)
     {
         bool result = false;
 
