@@ -28,6 +28,8 @@
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
+ test_compile_fail=yes
+ test_compile_faulty=yes
  </testinfo>
 */
 

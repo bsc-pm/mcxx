@@ -319,15 +319,15 @@ namespace {
         }
     }
     
-    void check_assertions_rec( Node* current )
+    void check_assertions_rec(Node* current)
     {
-        if( !current->is_visited( ) )
+        if (!current->is_visited())
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
             // Treat current node
             std::string locus_str = "";
-            if( current->is_graph_node( ) )
+            if (current->is_graph_node())
                 locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
             {
@@ -337,13 +337,27 @@ namespace {
             }
 
             // Check UseDef analysis
-            if( current->has_usage_assertion( ) )
+            if (current->has_usage_assertion())
             {
                 NodeclSet assert_ue = current->get_assert_ue_vars();
                 NodeclSet assert_killed = current->get_assert_killed_vars();
                 NodeclSet assert_undef = current->get_assert_undefined_behaviour_vars();
-                if (current->is_omp_task_creation_node())
-                    current = ExtensibleGraph::get_task_from_task_creation(current);
+                if (current->is_context_node())
+                {
+                    // Consider the case:
+                    //      #pragma analysis_check assert
+                    //      #pragma omp task
+                    // -> Context
+                    //       |_____ Entry
+                    //       |______Task Creation
+                    //       |______Exit
+                    // Although it could also contain any other nodes inside the context
+                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                    if (first_inner_node->is_omp_task_creation_node())
+                    {
+                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                    }
+                }
                 NodeclSet ue = current->get_ue_vars();
                 NodeclSet killed = current->get_killed_vars();
                 NodeclSet undef = current->get_undefined_behaviour_vars();
@@ -354,24 +368,38 @@ namespace {
             }
 
             // Check Liveness analysis
-            if( current->has_liveness_assertion( ) )
+            if (current->has_liveness_assertion())
             {
                 NodeclSet assert_live_in = current->get_assert_live_in_vars();
                 NodeclSet assert_live_out = current->get_assert_live_out_vars();
                 NodeclSet assert_dead = current->get_assert_dead_vars();
-                if (current->is_omp_task_creation_node())
-                    current = ExtensibleGraph::get_task_from_task_creation(current);
+                if (current->is_context_node())
+                {
+                    // Consider the case:
+                    //      #pragma analysis_check assert
+                    //      #pragma omp task
+                    // -> Context
+                    //       |_____ Entry
+                    //       |______Task Creation
+                    //       |______Exit
+                    // Although it could also contain any other nodes inside the context
+                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                    if (first_inner_node->is_omp_task_creation_node())
+                    {
+                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                    }
+                }
                 NodeclSet live_in = current->get_live_in_vars();
                 NodeclSet live_out = current->get_live_out_vars();
 
                 compare_assert_set_with_analysis_set( assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In" );
                 compare_assert_set_with_analysis_set( assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out" );
                 // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
-                if( !assert_dead.empty( ) )
+                if (!assert_dead.empty())
                 {
-                    for(NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
+                    for (NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
                     {
-                        if(Utils::nodecl_set_contains_nodecl(*it, live_in))
+                        if (Utils::nodecl_set_contains_nodecl(*it, live_in))
                         {
                             internal_error( "%s: Assertion 'dead(%s)' does not fulfill.\n"\
                                             "Expression '%s' is not Dead at the Entry point of node %d\n",
@@ -383,12 +411,26 @@ namespace {
             }
 
             // Check Reaching Definitions analysis
-            if( current->has_reach_defs_assertion( ) )
+            if (current->has_reach_defs_assertion())
             {
                 NodeclMap assert_reach_defs_in = current->get_assert_reaching_definitions_in();
                 NodeclMap assert_reach_defs_out = current->get_assert_reaching_definitions_out();
-                if (current->is_omp_task_creation_node())
-                    current = ExtensibleGraph::get_task_from_task_creation(current);
+                if (current->is_context_node())
+                {
+                    // Consider the case:
+                    //      #pragma analysis_check assert
+                    //      #pragma omp task
+                    // -> Context
+                    //       |_____ Entry
+                    //       |______Task Creation
+                    //       |______Exit
+                    // Although it could also contain any other nodes inside the context
+                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                    if (first_inner_node->is_omp_task_creation_node())
+                    {
+                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                    }
+                }
                 NodeclMap reach_defs_in = current->get_reaching_definitions_in();
                 NodeclMap reach_defs_out = current->get_reaching_definitions_out();
 
@@ -505,7 +547,7 @@ namespace {
                 }
                 else
                 {
-                    if(!assert_induction_vars.empty())
+                    if (!assert_induction_vars.empty())
                     {
                         WARNING_MESSAGE("%s: warning: #pragma analysis_check assert induction_variables is only used "
                                         "when associated with a loop structure. Ignoring it when associated with any other statement.",
@@ -515,18 +557,24 @@ namespace {
             }
 
             // Auto-scoping
-            if( current->has_autoscope_assertion( ) )
+            if (current->has_autoscope_assertion())
             {
-                // Autoscope is particular because the computed auto-scope is not in the current node (the task creation node),
-                // but in his task child node, which is the actual task
-                ObjectList<Node*> children = current->get_children( );
-                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least, 1 child, the created task, "\
-                                 "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
-                                 "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
+                // Context
+                //    |_____ Entry
+                //    |______Task Creation
+                //    |______Exit
+                ERROR_CONDITION(!current->is_context_node(),
+                                "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
+                                (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
+                Node* task_creation = current->get_graph_entry_node()->get_children()[0];
+                ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
+                                "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
+                                (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
+                Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
+
                 NodeclSet assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
                 NodeclSet assert_autosc_private = current->get_assert_auto_sc_private_vars();
                 NodeclSet assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
-                Node* task = ExtensibleGraph::get_task_from_task_creation(current);
                 NodeclSet autosc_firstprivate = task->get_sc_firstprivate_vars();
                 NodeclSet autosc_private = task->get_sc_private_vars();
                 NodeclSet autosc_shared = task->get_sc_shared_vars();
@@ -541,14 +589,21 @@ namespace {
             }
 
             // Correctness
-            if(current->has_correctness_assertion())
+            if (current->has_correctness_assertion())
             {
-                ObjectList<Node*> children = current->get_children();
-                ERROR_CONDITION(children.size() > 2, "A task creation node should have, at least, 1 child, the created task, "\
-                                "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
-                                "Nonetheless task %d has %d children.", current->get_id(), children.size());
-                Node* task = (children[0]->is_omp_task_node() ? children[0] : children[1]);
-                
+                // Context
+                //    |_____ Entry
+                //    |______Task Creation
+                //    |______Exit
+                ERROR_CONDITION(!current->is_context_node(),
+                                "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
+                                (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
+                Node* task_creation = current->get_graph_entry_node()->get_children()[0];
+                ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
+                                "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
+                                (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
+                Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
+
                 const Nodecl::List& assert_correctness_auto_storage = current->get_assert_correctness_auto_storage_vars();
                 const Nodecl::List& assert_correctness_dead = current->get_assert_correctness_dead_vars();
                 const Nodecl::List& assert_correctness_incoherent_fp = current->get_assert_correctness_incoherent_fp_vars();
@@ -567,6 +622,7 @@ namespace {
                 const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
                 const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
                 const Nodecl::List& correctness_race = task->get_correctness_race_vars();
+
                 compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
                                                        locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
                 compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
@@ -588,16 +644,16 @@ namespace {
             }
             
             // Recursively visit inner nodes
-            if( current->is_graph_node( ) )
+            if (current->is_graph_node())
             {
-                check_assertions_rec( current->get_graph_entry_node( ) );
+                check_assertions_rec(current->get_graph_entry_node());
             }
 
             // Recursively visit current children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            const ObjectList<Node*>& children = current->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             {
-                check_assertions_rec( *it );
+                check_assertions_rec(*it);
             }
         }
     }
