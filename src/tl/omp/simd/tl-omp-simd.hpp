@@ -95,13 +95,13 @@ namespace TL
                 void process_suitable_clause(const Nodecl::List& environment,
                         TL::Vectorization::objlist_nodecl_t& suitable_expressions);
                 void process_nontemporal_clause(const Nodecl::List& environment,
-                        TL::Vectorization::nontmp_expr_map_t& nontemporal_expressions);
+                        TL::Vectorization::map_tlsym_objlist_t& nontemporal_expressions);
                 int process_unroll_clause(const Nodecl::List& environment);
                 int process_unroll_and_jam_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment,
                         TL::Type& vectorlengthfor_type);
                 void process_overlap_clause(const Nodecl::List& environment,
-                        TL::Vectorization::map_tlsym_int_t& overlap_expressions);
+                        TL::Vectorization::map_tlsym_objlist_int_t& overlap_expressions);
 
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,

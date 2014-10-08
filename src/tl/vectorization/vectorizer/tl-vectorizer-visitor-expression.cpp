@@ -678,7 +678,7 @@ namespace Vectorization
                             basic_type = basic_type.references_to();
                         }
 
-                        nontmp_expr_map_t::const_iterator nontemporal_it =
+                        map_tlsym_objlist_t::const_iterator nontemporal_it =
                             _environment._nontemporal_exprs_map.find(
                                     subscripted_symbol.get_symbol());
 

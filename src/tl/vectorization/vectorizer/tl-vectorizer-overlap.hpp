@@ -128,7 +128,9 @@ namespace TL
                         objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses,
-                        const unsigned int min_group_size);
+                        const int min_group_loads,
+                        const int max_group_registers,
+                        const int max_groups);
 
                 void compute_group_properties(
                         OverlapGroup& ogroup,

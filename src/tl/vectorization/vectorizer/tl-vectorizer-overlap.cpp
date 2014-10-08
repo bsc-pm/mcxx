@@ -587,13 +587,17 @@ namespace Vectorization
             retrieve_context();
 
         // OVERLAP
-        for(map_tlsym_int_t::const_iterator it = 
+        for(map_tlsym_objlist_int_t::const_iterator it = 
                 _environment._overlap_symbols_map.begin();
                 it != _environment._overlap_symbols_map.end();
                 it++)
         {
             TL::Symbol sym = it->first;
-            int min_group_size = it->second;
+            objlist_int_t overlap_params = it->second;
+
+            int min_group_loads = overlap_params[0];
+            int max_group_registers = overlap_params[1];
+            int max_groups = overlap_params[2];
 
             // MAIN LOOP
             objlist_nodecl_t main_loop_vector_loads =
@@ -605,7 +609,9 @@ namespace Vectorization
                 objlist_ogroup_t overlap_groups = 
                     get_overlap_groups(
                             main_loop_vector_loads,
-                            min_group_size);
+                            min_group_loads,
+                            max_group_registers,
+                            max_groups);
 
                 int num_group = 0;
                 for(objlist_ogroup_t::iterator ogroup =
@@ -636,7 +642,9 @@ namespace Vectorization
                     objlist_ogroup_t if_epilog_overlap_groups = 
                         get_overlap_groups(
                                 if_epilog_vector_loads,
-                                min_group_size);
+                                min_group_loads,
+                                max_group_registers,
+                                max_groups);
 
                     int num_group = 0;
                     for(objlist_ogroup_t::iterator ogroup =
@@ -717,27 +725,27 @@ namespace Vectorization
                         n, iv), true))
                 return 0;
 
-        unsigned int unroll_factor = 0;
+        int unroll_factor = 0;
 
-        for(map_tlsym_int_t::const_iterator it = 
+        for(map_tlsym_objlist_int_t::const_iterator it = 
                 _environment._overlap_symbols_map.begin();
                 it != _environment._overlap_symbols_map.end();
                 it++)
         {
             TL::Symbol sym = it->first;
-            unsigned int min_group_size = it->second;
+            const int min_group_loads = it->second[0];
 
             objlist_nodecl_t vector_loads =
                 get_adjacent_vector_loads_not_nested_in_for(
                         n.get_statement(), sym);
 
-            unsigned int vector_loads_size = vector_loads.size();
+            const int vector_loads_size = vector_loads.size();
             if (vector_loads_size > 0 &&
-                    vector_loads_size <= min_group_size &&
+                    vector_loads_size <= min_group_loads &&
                     (unroll_factor * vector_loads_size)
-                    < min_group_size)
+                    < min_group_loads)
             {
-                unroll_factor = min_group_size /
+                unroll_factor = min_group_loads /
                     vector_loads_size; 
             }
         }
@@ -855,7 +863,7 @@ namespace Vectorization
                     vl++)
             {
                 bool found = false;
-                for (map_tlsym_int_t::const_iterator overlap_symbol =
+                for (map_tlsym_objlist_int_t::const_iterator overlap_symbol =
                         _environment._overlap_symbols_map.begin();
                         overlap_symbol != _environment._overlap_symbols_map.end();
                         overlap_symbol++)
@@ -1010,7 +1018,9 @@ namespace Vectorization
 
     objlist_ogroup_t OverlappedAccessesOptimizer::
         get_overlap_groups(const objlist_nodecl_t& vector_loads,
-                const unsigned int min_group_size)
+                const int min_group_loads,
+                const int max_group_registers,
+                const int max_groups)
     {
         objlist_ogroup_t ogroups;
 
@@ -1114,7 +1124,8 @@ namespace Vectorization
                 ogroups.begin();
                 it_ogroup != ogroups.end();)
         {
-            if (it_ogroup->_loads.size() < min_group_size)
+            if (it_ogroup->_loads.size() < 
+                    (unsigned int) min_group_loads)
             {
                 ogroups.erase(it_ogroup);
             }

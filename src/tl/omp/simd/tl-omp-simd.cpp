@@ -258,7 +258,7 @@ namespace TL {
             process_suitable_clause(simd_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(simd_environment, nontemporal_expressions);
 
             // Vectorlengthfor clause
@@ -267,7 +267,7 @@ namespace TL {
                     vectorlengthfor_type);
 
             // Overlap clause
-            map_tlsym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(simd_environment, overlap_symbols);
 
             // External symbols (loop)
@@ -542,11 +542,11 @@ namespace TL {
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tlsym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_for_environment, overlap_symbols);
 
             // Vectorlengthfor clause
@@ -886,11 +886,11 @@ namespace TL {
             process_suitable_clause(omp_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tlsym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_environment, overlap_symbols);
 //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
@@ -988,13 +988,12 @@ namespace TL {
             process_suitable_clause(omp_simd_parallel_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_simd_parallel_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tlsym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_parallel_environment, overlap_symbols);
-//            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -1221,7 +1220,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_nontemporal_clause(const Nodecl::List& environment,
-                nontmp_expr_map_t& nontemporal_expressions)
+                map_tlsym_objlist_t& nontemporal_expressions)
         {
             TL::ObjectList<Nodecl::OpenMP::Nontemporal> omp_nontemporal_list =
                 environment.find_all<Nodecl::OpenMP::Nontemporal>();
@@ -1314,7 +1313,7 @@ namespace TL {
         }
 */
         void SimdVisitor::process_overlap_clause(const Nodecl::List& environment,
-                map_tlsym_int_t& overlap_symbols)
+                map_tlsym_objlist_int_t& overlap_symbols)
         {
             TL::ObjectList<Nodecl::OpenMP::Overlap> omp_overlap_list =
                 environment.find_all<Nodecl::OpenMP::Overlap>();
@@ -1328,15 +1327,26 @@ namespace TL {
                 objlist_nodecl_t overlap_symbols_list =
                     omp_overlap.get_overlap_expressions().as<Nodecl::List>().to_object_list();
 
-                int overlap_factor = const_value_cast_to_signed_int(
-                        it->get_overlap_factor().as<Nodecl::IntegerLiteral>().get_constant());
+                int min_group_loads = const_value_cast_to_signed_int(
+                        it->get_min_group_loads().get_constant());
+                int max_group_registers = const_value_cast_to_signed_int(
+                        it->get_max_group_registers().get_constant());
+                int max_groups = const_value_cast_to_signed_int(
+                        it->get_max_groups().get_constant());
 
                 for(objlist_nodecl_t::iterator it2 = overlap_symbols_list.begin();
                         it2 != overlap_symbols_list.end();
                         it2++)
                 {
-                    if(!overlap_symbols.insert(std::pair<TL::Symbol, int>(
-                                    it2->as<Nodecl::Symbol>().get_symbol(), overlap_factor)).second)
+                    objlist_int_t overlap_params(3);
+                    overlap_params[0] = min_group_loads;
+                    overlap_params[1] = max_group_registers;
+                    overlap_params[2] = max_groups;
+                    
+
+                    if(!overlap_symbols.insert(std::pair<TL::Symbol, objlist_int_t>(
+                                    it2->as<Nodecl::Symbol>().get_symbol(),
+                                    overlap_params)).second)
                     {
                         running_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
                     }

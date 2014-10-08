@@ -45,7 +45,7 @@ void __attribute__((noinline)) moving_average(
 {
     int i, j;
 
-#pragma omp simd for aligned(b,c:64) suitable(N) nowait overlap(b:4) 
+#pragma omp simd for aligned(b,c:64) suitable(N) nowait overlap(b:4:0:0) 
     for(i=0; i<(N-points); i++)
     {
         float tmp = 0.0f;        
