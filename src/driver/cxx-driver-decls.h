@@ -177,6 +177,7 @@ typedef struct debug_options_tag
     char do_not_codegen;
     char show_template_packs;
     char vectorization_verbose;
+    char stats_string_table;
 } debug_options_t;
 
 typedef struct external_var_tag {
