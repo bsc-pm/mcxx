@@ -279,8 +279,9 @@ namespace {
     
     void ConstraintBuilderVisitor::visit_increment(const NBase& rhs, bool positive)
     {
-        ERROR_CONDITION(_input_constraints_map.find(rhs) == _input_constraints_map.end(), 
-                        "Some input constraint required for the increment's RHS %s.\n", 
+        ERROR_CONDITION(_input_constraints_map.find(rhs) == _input_constraints_map.end(),
+                        "Some input constraint required for the increment's RHS %s (%s).\n",
+                        rhs.prettyprint().c_str(),
                         ast_print_node_type(rhs.get_kind()));
         
         // Build a symbol for the new constraint based on the name of the original variable
@@ -1511,8 +1512,8 @@ root_done:  ;
         compute_parameters_constraints(constr_map);
         
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
-        compute_constraints_rec(entry, constr_map, propagated_constr_map);
-        ExtensibleGraph::clear_visits(entry);
+        std::set<Node*> treated;
+        compute_constraints_rec(entry, constr_map, propagated_constr_map, treated);
         
         propagate_constraints_from_back_edges(entry, constr_map, propagated_constr_map);
         ExtensibleGraph::clear_visits(entry);
@@ -1547,198 +1548,224 @@ root_done:  ;
     void RangeAnalysis::compute_constraints_rec(
             Node* entry, 
             std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
-            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map)
+            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map,
+            std::set<Node*>& treated)
     {
         ERROR_CONDITION(!entry->is_entry_node(), 
                         "Expected ENTRY node but found %s node.", entry->get_type_as_string().c_str());
-        
-        ObjectList<Node*> currents(1, entry);
-        while(!currents.empty())
+
+        std::queue<Node*> worklist;
+        worklist.push(entry);
+        while (!worklist.empty())
         {
-            ObjectList<Node*>::iterator it = currents.begin();
-            while(it != currents.end())
+            Node* n = worklist.front();
+            worklist.pop();
+
+            if (treated.find(n)!=treated.end())
+                continue;
+
+            // 1.- Check whether all n parents (coming from non-back-edges) are already computed
+            const ObjectList<Edge*>& entries = n->get_entry_edges();
+            bool ready = true;
+            for (ObjectList<Edge*>::const_iterator it = entries.begin(); it != entries.end() && ready; ++it)
             {
-                Node* n = *it;
-                if(n->is_visited())
+                if (!(*it)->is_back_edge()                                  // *it is a dominator of n
+                        && treated.find((*it)->get_source())==treated.end() // *it is not yet visited
+                        && !(*it)->get_source()->is_omp_task_node())        // *it is not a task node
                 {
-                    currents.erase(it);
-                    continue;
-                }
-                else
-                {
-                    n->set_visited(true);
-                    ++it;
-                }
-                if(n->is_graph_node())
-                {
-                    // 1.- Recursively compute the constraints for the inner nodes
-                    compute_constraints_rec(n->get_graph_entry_node(), constr_map, propagated_constr_map);
-                    
-                    // 2.- Propagate constraint from the inner nodes (summarized in the exit node) to the graph node
-                    Node* graph_exit = n->get_graph_exit_node();
-                    Utils::VarToConstraintMap exit_constrs = constr_map[graph_exit];
-                    propagated_constr_map[n] = propagated_constr_map[graph_exit];
-                    propagated_constr_map[n].insert(exit_constrs.begin(), exit_constrs.end());
-                }
-                else
-                {
-                    // 1.- Collect and join constraints computed for all the parents
-                    Utils::VarToConstraintMap input_constrs;            // Constraint coming directly from parents
-                    Utils::VarToConstraintMap new_input_constrs;        // Constraints resulting from the join of parents' constraints
-                    const ObjectList<Node*>& parents = (n->is_entry_node() ? n->get_outer_node()->get_parents() 
-                                                                           : n->get_parents());
-                    ConstraintBuilderVisitor cbv_propagated(n, &_constraints, &_ordered_constraints);
-                    for(ObjectList<Node*>::const_iterator itp = parents.begin(); itp != parents.end(); ++itp)
-                    {
-                        Utils::VarToConstraintMap itp_all_constrs = constr_map[*itp];
-                        Utils::VarToConstraintMap itp_propagated_constrs = propagated_constr_map[*itp];
-                        // We use the 'insert' method because when a constraint is already in the 'constr_map', we
-                        // do not take into account the constraints being propagated from the parents
-                        itp_all_constrs.insert(itp_propagated_constrs.begin(), itp_propagated_constrs.end());
-                        for (Utils::VarToConstraintMap::iterator itc = itp_all_constrs.begin(); 
-                             itc != itp_all_constrs.end(); ++itc)
-                        {
-                            const NBase& ssa_var = itc->first;
-                            const Utils::Constraint& c = itc->second;
-                            if(input_constrs.find(ssa_var)==input_constrs.end() && 
-                               new_input_constrs.find(ssa_var)==new_input_constrs.end())
-                            {   // No constraints already found for variable ssa_var
-                                input_constrs[ssa_var] = c;
-                            }
-                            else
-                            {   // Constraints for variable ssa_var already found: merge them with the new constraint
-                                // 1.1- Get the existing constraint
-                                Utils::Constraint old_c = 
-                                    ((input_constrs.find(ssa_var) != input_constrs.end()) ? input_constrs[ssa_var] 
-                                                                                          : new_input_constrs[ssa_var]);
-                                NBase old_c_val = old_c.get_constraint();
-                                
-                                // 1.2.- If the new constraint is different from the old one, compute the combination of both
-                                NBase c_nodecl = c.get_constraint();
-                                if(!Nodecl::Utils::structurally_equal_nodecls(old_c_val, c_nodecl, 
-                                                                              /*skip_conversion_nodes*/true))
-                                {
-                                    // 1.2.2.- Get a new symbol for the new constraint
-                                    std::stringstream ss; ss << get_next_id(ssa_var);
-                                    Symbol orig_s(ssa_var.get_symbol());
-                                    std::string constr_name = orig_s.get_name() + "_" + ss.str();
-                                    Symbol s(ssa_var.retrieve_context().new_symbol(constr_name));
-                                    Type t(orig_s.get_type());
-                                    s.set_type(t);
-                                    ssa_to_original_var[s] = ssa_var;
-                                    
-                                    // 1.2.3.- Build the value of the new constraint
-                                    NBase new_constraint_val;
-                                    if(old_c_val.is<Nodecl::Analysis::Phi>())
-                                    {   // Attach a new element to the list inside the node Phi
-                                        Nodecl::List expressions = old_c_val.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
-                                        expressions.append(ssa_var);
-                                        new_constraint_val = Nodecl::Analysis::Phi::make(expressions, ssa_var.get_type());
-                                    }
-                                    else
-                                    {   // Create a new node Phi with the combination of the old constraint and the new one
-                                        Nodecl::Symbol tmp1 = old_c.get_symbol().make_nodecl(/*set_ref_type*/false);
-                                        Nodecl::Symbol tmp2 = c.get_symbol().make_nodecl(/*set_ref_type*/false);
-                                        Nodecl::List expressions = Nodecl::List::make(tmp1, tmp2);
-                                        new_constraint_val = Nodecl::Analysis::Phi::make(expressions, c_nodecl.get_type());
-                                    }
-                                    
-                                    // 1.2.4.- Remove the old constraint from the input_constrs 
-                                    //         If it was in the new_input_constrs map, it will be deleted with the insertion
-                                    Utils::VarToConstraintMap::iterator it_tmp = input_constrs.find(ssa_var);
-                                    if(it_tmp != input_constrs.end())
-                                    {
-                                        input_constrs.erase(ssa_var);
-                                    }
-                                    // Build the actual constraint and insert it in the proper list
-                                    Utils::Constraint new_c = cbv_propagated.build_constraint(s, new_constraint_val, t, "Propagated");
-                                    new_input_constrs[ssa_var] = new_c;
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 2.- Propagate constraints from parent nodes to the current node
-                    constr_map[n].insert(new_input_constrs.begin(), new_input_constrs.end());
-                    
-                    // 3.- Compute the constraints generated in the current node
-                    if(n->has_statements())
-                    {
-                        // 3.1.- Compute the constraints of the current node
-                        // Note: take into account the constraints the node may already have (if it is the TRUE or FALSE child of a conditional)
-                        Utils::VarToConstraintMap& current_constraints_map = constr_map[n];
-                        ConstraintBuilderVisitor cbv(n, input_constrs, current_constraints_map, 
-                                                     &_constraints, &_ordered_constraints);
-                        NodeclList stmts = n->get_statements();
-                        for(NodeclList::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
-                            cbv.compute_stmt_constraints(*itt);
-                        
-                        Utils::VarToConstraintMap output_constrs = cbv.get_output_constraints_map();
-                        current_constraints_map.insert(output_constrs.begin(), output_constrs.end());
-                        
-                        // 3.2.- Set true/false output constraints to current children, if applies
-                        ObjectList<Edge*> exits = n->get_exit_edges();
-                        if (exits.size()==2 &&
-                            ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
-                        {
-                            Utils::VarToConstraintMap out_true_constrs = cbv.get_output_true_constraints_map();
-                            Utils::VarToConstraintMap out_false_constrs = cbv.get_output_false_constraints_map();
-                            
-                            // 3.2.1.- We always propagate to the TRUE edge
-                            Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
-                            Node* real_true_node = true_node;
-                            while(true_node->is_exit_node())
-                                true_node = true_node->get_outer_node()->get_children()[0];
-                            if(true_node->is_graph_node())
-                                true_node = true_node->get_graph_entry_node();
-                            constr_map[true_node].insert(out_true_constrs.begin(), out_true_constrs.end());
-                            
-                            // 3.2.2.- For the if_else cases, we only propagate to the FALSE edge when it contains statements ('else' statements)
-                            Node* false_node = (exits[0]->is_true_edge() ? exits[1]->get_target() : exits[0]->get_target());
-                            ObjectList<Node*> real_true_node_children = real_true_node->get_children();
-                            if((false_node->get_entry_edges().size() == 1) || !real_true_node_children.contains(false_node))
-                            {   // If the true_node is a parent of the false_node, then there are no statements
-                                // Avoid cases where the FALSE edge leads to the end of the graph
-                                ObjectList<Node*> children;
-                                while(false_node->is_exit_node())
-                                {
-                                    children = false_node->get_outer_node()->get_children();
-                                    if(!children.empty())
-                                        false_node = children[0];
-                                    else 
-                                    {
-                                        false_node = NULL;
-                                        break;
-                                    }
-                                }
-                                if(false_node!=NULL)
-                                {
-                                    if(false_node->is_graph_node())
-                                        false_node = false_node->get_graph_entry_node();
-                                    constr_map[false_node].insert(out_false_constrs.begin(), out_false_constrs.end());
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 4.- Purge propagated constraints:
-                    // When the node generates a constraint for a given variable
-                    // any propagated constraint from parents for that variable is deleted here
-                    for (Utils::VarToConstraintMap::iterator itt = constr_map[n].begin(); 
-                         itt != constr_map[n].end(); ++itt)
-                    {
-                        Utils::VarToConstraintMap::iterator ittt = input_constrs.find(itt->first);
-                        if(ittt != input_constrs.end())
-                            input_constrs.erase(ittt);
-                    }
-                    propagated_constr_map[n] = input_constrs;
+                    ready = false;
                 }
             }
-            
-            ObjectList<Node*> next_currents;
-            for(ObjectList<Node*>::iterator itt = currents.begin(); itt != currents.end(); ++itt)
-                next_currents.append((*itt)->get_children());
-            currents = next_currents;
+            if (!ready)
+            {
+                worklist.push(n);
+                continue;
+            }
+
+            // 2.- The element is ready to be computed
+            if (n->is_graph_node())
+            {   // 2.1.- For graph nodes, call recursively to compute inner nodes constraints
+                // 2.1.1.- Recursive call with the graph entry node
+                compute_constraints_rec(n->get_graph_entry_node(), constr_map, propagated_constr_map, treated);
+                // 2.1.2.- Propagate the information form the exit node to the graph node
+                Node* graph_exit = n->get_graph_exit_node();
+                Utils::VarToConstraintMap exit_constrs = constr_map[graph_exit];
+                propagated_constr_map[n] = propagated_constr_map[graph_exit];
+                propagated_constr_map[n].insert(exit_constrs.begin(), exit_constrs.end());
+            }
+            else
+            {
+                ConstraintBuilderVisitor cbv_propagated(n, &_constraints, &_ordered_constraints);
+                // 2.2.- For the rest of nodes,
+                //       - merge information from parents
+                //       - compute current node information
+                //       - merge parents' info with current node's info
+
+                // 2.2.1.- Collect and join constraints computed for all the parents
+                Utils::VarToConstraintMap input_constrs;            // Constraint coming directly from parents
+                Utils::VarToConstraintMap new_input_constrs;        // Constraints resulting from the join of parents' constraints
+
+                const ObjectList<Node*>& parents = (n->is_entry_node() ? n->get_outer_node()->get_parents()
+                                                                        : n->get_parents());
+                for (ObjectList<Node*>::const_iterator itp = parents.begin(); itp != parents.end(); ++itp)
+                {
+                    Utils::VarToConstraintMap itp_all_constrs = constr_map[*itp];
+                    Utils::VarToConstraintMap itp_propagated_constrs = propagated_constr_map[*itp];
+                    // We use the 'insert' method because when a constraint is already in the 'constr_map', we
+                    // do not take into account the constraints being propagated from the parents
+                    itp_all_constrs.insert(itp_propagated_constrs.begin(), itp_propagated_constrs.end());
+                    for (Utils::VarToConstraintMap::iterator itc = itp_all_constrs.begin();
+                        itc != itp_all_constrs.end(); ++itc)
+                    {
+                        const NBase& orig_var = itc->first;
+                        const Utils::Constraint& c = itc->second;
+                        if (input_constrs.find(orig_var)==input_constrs.end() &&
+                            new_input_constrs.find(orig_var)==new_input_constrs.end())
+                        {   // No constraints already found for variable orig_var
+                            input_constrs[orig_var] = c;
+                        }
+                        else
+                        {   // Constraints for variable orig_var already found: merge them with the new constraint
+                            // 2.2.1.1.- Get the existing constraint
+                            Utils::Constraint old_c =
+                                    ((input_constrs.find(orig_var) != input_constrs.end()) ? input_constrs[orig_var]
+                                                                                            : new_input_constrs[orig_var]);
+                            NBase old_c_val = old_c.get_constraint();
+
+                            // 2.2.1.2.- If the new constraint is different from the old one, compute the combination of both
+                            NBase c_nodecl = c.get_constraint();
+                            if (!Nodecl::Utils::structurally_equal_nodecls(old_c_val, c_nodecl,
+                                /*skip_conversion_nodes*/true))
+                            {
+                                // 2.2.1.2.1.- Get a new symbol for the new constraint
+                                std::stringstream ss; ss << get_next_id(orig_var);
+                                Symbol orig_sym(orig_var.get_symbol());
+                                std::string constr_name = orig_sym.get_name() + "_" + ss.str();
+                                Symbol ssa_var(orig_var.retrieve_context().new_symbol(constr_name));
+                                Type t(orig_sym.get_type());
+                                ssa_var.set_type(t);
+                                ssa_to_original_var[ssa_var] = orig_var;
+
+                                // 2.2.1.2.2.- Build the value of the new constraint
+                                NBase new_constraint_val;
+                                if (old_c_val.is<Nodecl::Analysis::Phi>())
+                                {   // Attach a new element to the list inside the node Phi
+                                    Nodecl::List expressions = old_c_val.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
+                                    Nodecl::Symbol new_expr = c.get_symbol().make_nodecl(/*set_ref_type*/false);
+                                    expressions.append(new_expr);
+                                    new_constraint_val = Nodecl::Analysis::Phi::make(expressions, orig_var.get_type());
+                                }
+                                else
+                                {   // Create a new node Phi with the combination of the old constraint and the new one
+                                    Nodecl::Symbol tmp1 = old_c.get_symbol().make_nodecl(/*set_ref_type*/false);
+                                    Nodecl::Symbol tmp2 = c.get_symbol().make_nodecl(/*set_ref_type*/false);
+                                    Nodecl::List expressions = Nodecl::List::make(tmp1, tmp2);
+                                    new_constraint_val = Nodecl::Analysis::Phi::make(expressions, c_nodecl.get_type());
+                                }
+
+                                // 2.2.1.2.3.- Remove the old constraint from the input_constrs
+                                //         If it was in the new_input_constrs map, it will be deleted with the insertion
+                                Utils::VarToConstraintMap::iterator it_tmp = input_constrs.find(orig_var);
+                                if (it_tmp != input_constrs.end())
+                                {
+                                    input_constrs.erase(orig_var);
+                                }
+                                // 2.2.1.2.4.- Build the current constraint and insert it in the proper list
+                                Utils::Constraint new_c = cbv_propagated.build_constraint(ssa_var, new_constraint_val, t, "Propagated");
+                                new_input_constrs[orig_var] = new_c;
+                            }
+                        }
+                    }
+                }
+
+                // 3.- Propagate constraints from parent nodes to the current node
+                constr_map[n].insert(new_input_constrs.begin(), new_input_constrs.end());
+
+                // 4.- Compute the constraints generated in the current node
+                if (n->has_statements())
+                {
+                    // 4.1.- Compute the constraints of the current node
+                    // Note: take into account the constraints the node may already have (if it is the TRUE or FALSE child of a conditional)
+                    Utils::VarToConstraintMap& current_constraints_map = constr_map[n];
+                    ConstraintBuilderVisitor cbv(n, input_constrs, current_constraints_map,
+                                                &_constraints, &_ordered_constraints);
+                    NodeclList stmts = n->get_statements();
+                    for (NodeclList::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
+                        cbv.compute_stmt_constraints(*itt);
+
+                    Utils::VarToConstraintMap output_constrs = cbv.get_output_constraints_map();
+                    current_constraints_map.insert(output_constrs.begin(), output_constrs.end());
+
+                    // 4.2.- Set true/false output constraints to current children, if applies
+                    ObjectList<Edge*> exits = n->get_exit_edges();
+                    if (exits.size()==2 &&
+                        ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
+                    {
+                        Utils::VarToConstraintMap out_true_constrs = cbv.get_output_true_constraints_map();
+                        Utils::VarToConstraintMap out_false_constrs = cbv.get_output_false_constraints_map();
+
+                        // 4.2.1.- We always propagate to the TRUE edge
+                        Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
+                        Node* real_true_node = true_node;
+                        while (true_node->is_exit_node())
+                            true_node = true_node->get_outer_node()->get_children()[0];
+                        if (true_node->is_graph_node())
+                            true_node = true_node->get_graph_entry_node();
+                        constr_map[true_node].insert(out_true_constrs.begin(), out_true_constrs.end());
+
+                        // 4.2.2.- For the if_else cases, we only propagate to the FALSE edge when it contains statements ('else' statements)
+                        Node* false_node = (exits[0]->is_true_edge() ? exits[1]->get_target() : exits[0]->get_target());
+                        ObjectList<Node*> real_true_node_children = real_true_node->get_children();
+                        if ((false_node->get_entry_edges().size() == 1) || !real_true_node_children.contains(false_node))
+                        {   // If the true_node is a parent of the false_node, then there are no statements
+                            // Avoid cases where the FALSE edge leads to the end of the graph
+                            ObjectList<Node*> children;
+                            while (false_node->is_exit_node())
+                            {
+                                children = false_node->get_outer_node()->get_children();
+                                if (!children.empty())
+                                    false_node = children[0];
+                                else
+                                {
+                                    false_node = NULL;
+                                    break;
+                                }
+                            }
+                            if (false_node!=NULL)
+                            {
+                                if (false_node->is_graph_node())
+                                    false_node = false_node->get_graph_entry_node();
+                                constr_map[false_node].insert(out_false_constrs.begin(), out_false_constrs.end());
+                            }
+                        }
+                    }
+                }
+
+                // 5.- Purge propagated constraints:
+                // When the node generates a constraint for a given variable
+                // any propagated constraint from parents for that variable is deleted here
+                for (Utils::VarToConstraintMap::iterator itt = constr_map[n].begin();
+                    itt != constr_map[n].end(); ++itt)
+                {
+                    Utils::VarToConstraintMap::iterator ittt = input_constrs.find(itt->first);
+                    if (ittt != input_constrs.end())
+                        input_constrs.erase(ittt);
+                }
+                propagated_constr_map[n] = input_constrs;
+            }
+            treated.insert(n);
+
+            if (!n->is_omp_task_node())
+            {
+                const ObjectList<Node*>& children = n->get_children();
+                for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    if (treated.find(*it)==treated.end())
+                    {
+                        worklist.push(*it);
+                    }
+                }
+            }
         }
     }
     

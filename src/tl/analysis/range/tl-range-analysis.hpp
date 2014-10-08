@@ -202,20 +202,35 @@ namespace Analysis {
         //! Method computing the constraints of the whole #pcfg
         //! It perform deep first search over the #pcfg without back edges
         void compute_constraints_rec(
-                Node* n, 
-                std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
-                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+                Node* n,
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map,
+                std::set<Node*>& treated);
         
         //! Method propagating constraints from the back edges of the #pcfg
         void propagate_constraints_from_back_edges(
                 Node* n, 
                 std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
                 std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
-        
+
+        //! Method joining the constraints of node #n parents into #new_input_constrs
+        void join_parents_constraints(
+                Node* n,
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map,
+                Utils::VarToConstraintMap& input_constrs,
+                Utils::VarToConstraintMap& new_input_constrs);
+
+        //! Method computing the constraints of node #n
+        void compute_current_constraints(
+                Node* n,
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                const Utils::VarToConstraintMap& input_constrs);
+
         //! Method generating all constraints of the #pcfg
         void compute_constraints(
-            std::map<Node*, Utils::VarToConstraintMap>& constr_map,
-            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
         
         //! Method building a Constraint Graph from a set of constraints
         void build_constraint_graph();
@@ -237,7 +252,7 @@ namespace Analysis {
 
     // ****************************** End class implementing range analysis ******************************* //
     // **************************************************************************************************** //
-    
+
 }
 }
 
