@@ -370,7 +370,9 @@ namespace TL { namespace Intel {
                     <<     "}"
                     << "}"
                     << lastprivate_code
+                    << statement_placeholder(appendix_code)
                     << statement_placeholder(reduction_code)
+                    << statement_placeholder(barrier_code)
                     ;
 
                 Nodecl::NodeclBase dynamic_loop_tree = dynamic_loop.parse_statement(stmt_placeholder);

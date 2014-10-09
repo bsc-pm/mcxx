@@ -41,7 +41,7 @@ void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int 
     {
         int j;
         x;
-#pragma omp simd for
+#pragma omp simd for schedule(dynamic)
         for (j=0; j<N; j+=1)
         {
             z[j] = a * x[j] + y[j];

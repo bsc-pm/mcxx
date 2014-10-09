@@ -51,7 +51,7 @@ int main()
             f += (i+1.0f);
         }
 
-#pragma omp simd for reduction(-:d, e) 
+#pragma omp simd for reduction(-:d, e) schedule(dynamic)
         for(i=0; i<N; i++)
         {
             d -= (i+1);
