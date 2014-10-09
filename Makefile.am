@@ -610,6 +610,11 @@ BUILT_SOURCES += src/frontend/cxx-entity-specs.h
 src/frontend/cxx-entity-specs.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def > $@
 
+CLEANFILES    += src/frontend/cxx-entity-specs-ops.h
+BUILT_SOURCES += src/frontend/cxx-entity-specs-ops.h
+src/frontend/cxx-entity-specs-ops.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def getters_and_setters > $@
+
 CLEANFILES    += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 BUILT_SOURCES += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 src/frontend/cxx-symbol-deep-copy-entity-specs.c : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py

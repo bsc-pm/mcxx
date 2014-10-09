@@ -884,11 +884,10 @@ namespace Analysis {
             ObjectList<Symbol> params;
 
             scope_entry_t* function_header = _function_sym.get_internal_symbol();
-            int num_params = function_header->entity_specs.num_related_symbols;
-            scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+            int num_params = symbol_entity_specs_get_num_related_symbols(function_header);
             for(int i=0; i<num_params; ++i)
             {
-                Symbol s(related_symbols[i]);
+                Symbol s(symbol_entity_specs_get_related_symbols_num(function_header, i));
                 params.append(s);
             }
 

@@ -8500,7 +8500,7 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
         }
 
         std::string gcc_attributes = "";
-        if (namespace_nesting_to[i]->entity_specs.num_gcc_attributes > 0)
+        if (symbol_entity_specs_get_num_gcc_attributes(namespace_nesting_to[i]) > 0)
         {
             gcc_attributes =
                 " " + gcc_attributes_to_str(namespace_nesting_to[i]);
@@ -9496,7 +9496,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             && ((sym->kind == SK_CLASS
                     && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM)
-            && !sym->entity_specs.is_member)
+            && !symbol_entity_specs_get_is_member(sym))
     {
         result = sym->symbol_name;
 

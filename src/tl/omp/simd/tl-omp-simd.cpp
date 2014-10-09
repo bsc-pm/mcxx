@@ -1351,7 +1351,7 @@ namespace TL {
                         TL::Symbol new_red_sym =
                             enclosing_scope.new_symbol("__vred_" + red_sym.get_name());
                         new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                        new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(new_red_sym.get_internal_symbol(), 1);
                         new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
 
                         // Add new TL::Symbol to map

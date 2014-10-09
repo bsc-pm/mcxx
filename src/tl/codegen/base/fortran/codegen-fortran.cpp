@@ -477,7 +477,8 @@ namespace Codegen
         }
 
         // Module procedures are only printed if we are in the current module
-        if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
+        if (get_current_declaring_module() !=
+                TL::Symbol(symbol_entity_specs_get_in_module(entry.get_internal_symbol())))
         {
 
            // The function can be contained in an other function, and this other function
@@ -2522,7 +2523,7 @@ OPERATOR_TABLE
 
             set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
 
-            if (!sym.get_internal_symbol()->entity_specs.is_renamed)
+            if (!symbol_entity_specs_get_is_renamed(sym.get_internal_symbol()))
             {
                 *(file) << get_generic_specifier_str(sym.get_name());
             }
@@ -3088,7 +3089,7 @@ OPERATOR_TABLE
                     && entry.get_value().is_null())
             {
                 // Make this an ALLOCATABLE
-                entry.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                symbol_entity_specs_set_is_allocatable(entry.get_internal_symbol(), 1);
             }
             else
             {
@@ -4070,7 +4071,7 @@ OPERATOR_TABLE
                 if (!function_type.returns().is_void()
                         // If nobody said anything about this function, we cannot assume
                         // it is a function
-                        && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
+                        && !symbol_entity_specs_get_is_implicit_basic_type(entry.get_internal_symbol()))
                 {
                     std::string type_spec;
                     std::string array_specifier;
@@ -5367,7 +5368,7 @@ OPERATOR_TABLE
                 if (it2 != item_list.begin())
                     *(file) << ", ";
 
-                if (!entry.get_internal_symbol()->entity_specs.is_renamed)
+                if (!symbol_entity_specs_get_is_renamed(entry.get_internal_symbol()))
                 {
                     *(file) << get_generic_specifier_str(entry.get_name())
                         ;
@@ -5454,7 +5455,7 @@ OPERATOR_TABLE
             module = entry.in_module();
 
             // Make sure it has been loaded
-            if (!module.get_internal_symbol()->entity_specs.is_builtin)
+            if (!symbol_entity_specs_get_is_builtin(module.get_internal_symbol()))
                 fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
         else

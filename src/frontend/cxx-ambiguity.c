@@ -940,7 +940,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                                 // The related scope of A is the same as the
                                 // current scope
                                 if (type_sym->kind == SK_CLASS
-                                        && type_sym->entity_specs.is_injected_class_name)
+                                        && symbol_entity_specs_get_is_injected_class_name(type_sym))
                                 {
                                     // In this case, and only in this case, this is
                                     // not a data member declaration

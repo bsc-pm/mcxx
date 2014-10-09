@@ -2055,8 +2055,8 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     primary_symbol->decl_context = decl_context;
 
     primary_symbol->locus = locus;
-    primary_symbol->entity_specs.is_user_declared = 1;
-    primary_symbol->entity_specs.is_instantiable = 1;
+    symbol_entity_specs_set_is_user_declared(primary_symbol, 1);
+    symbol_entity_specs_set_is_instantiable(primary_symbol, 1);
 
     *primary_type = *aliased_type;
     primary_type->info = new_common_type_info();
@@ -2141,8 +2141,8 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     primary_symbol->decl_context = decl_context;
 
     primary_symbol->locus = locus;
-    primary_symbol->entity_specs.is_user_declared = 1;
-    primary_symbol->entity_specs.is_instantiable = 1;
+    symbol_entity_specs_set_is_user_declared(primary_symbol, 1);
+    symbol_entity_specs_set_is_instantiable(primary_symbol, 1);
 
     primary_type->info->is_template_specialized_type = 1;
     primary_type->template_parameters = template_parameter_list;
@@ -2265,15 +2265,15 @@ int template_type_get_nesting_level(type_t* t)
             "Invalid template parameters", 0);
 
     // Use the first one since all template parameters will be in the same nesting 
-    int nesting 
-        = template_parameters->parameters[0]->entry->entity_specs.template_parameter_nesting;
+    int nesting
+        = symbol_entity_specs_get_template_parameter_nesting(template_parameters->parameters[0]->entry);
 
     // Sanity check
     int i;
     for (i = 1; i < template_parameters->num_parameters; i++)
     {
         // They must agree
-        ERROR_CONDITION( (template_parameters->parameters[i]->entry->entity_specs.template_parameter_nesting
+        ERROR_CONDITION((symbol_entity_specs_get_template_parameter_nesting(template_parameters->parameters[i]->entry)
                     != nesting),
                 "Invalid template parameters, their nesting is not the same", 0);
     }
@@ -2904,55 +2904,48 @@ static type_t* template_type_get_specialized_type_(
 
     // Keep information of the entity except for some attributes that
     // must be cleared
-    specialized_symbol->entity_specs = primary_symbol->entity_specs;
-    specialized_symbol->entity_specs.is_user_declared = 0;
-    specialized_symbol->entity_specs.is_instantiable = 0;
+    symbol_entity_specs_copy_from(specialized_symbol, primary_symbol);
+    symbol_entity_specs_set_is_user_declared(specialized_symbol, 0);
+    symbol_entity_specs_set_is_instantiable(specialized_symbol, 0);
 
     // Let this be filled later
-    specialized_symbol->entity_specs.num_related_symbols = 0;
-    specialized_symbol->entity_specs.related_symbols = NULL;
+    symbol_entity_specs_free_related_symbols(specialized_symbol);
 
     if (equivalent_match != NULL)
     {
-        specialized_symbol->entity_specs.alias_to = named_type_get_symbol(equivalent_match);
+        symbol_entity_specs_set_alias_to(specialized_symbol, named_type_get_symbol(equivalent_match));
     }
 
     // Copy function extra info
     if (specialized_symbol->kind == SK_FUNCTION)
     {
-        specialized_symbol->entity_specs.num_parameters = function_type_get_num_parameters(
-                specialized_symbol->type_information);
-
         // Empty default argument info for the specialization
-        specialized_symbol->entity_specs.default_argument_info =
-            xcalloc(specialized_symbol->entity_specs.num_parameters,
-                    specialized_symbol->entity_specs.num_parameters *
-                    sizeof(specialized_symbol->entity_specs.default_argument_info));
+        symbol_entity_specs_reserve_default_argument_info(
+                specialized_symbol,
+                function_type_get_num_parameters(
+                    specialized_symbol->type_information));
 
         // Do not reuse the exceptions of the primary symbol (they may need to be updated)
-        specialized_symbol->entity_specs.num_exceptions = 0;
-        specialized_symbol->entity_specs.exceptions = NULL;
+        symbol_entity_specs_free_exceptions(specialized_symbol);
 
         // Update exception specifications
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
-        int i;
-        for (i = 0; i < primary_symbol->entity_specs.num_exceptions; i++)
+        int i, num_exceptions = symbol_entity_specs_get_num_exceptions(primary_symbol);
+        for (i = 0; i < num_exceptions; i++)
         {
-            type_t* exception_type = primary_symbol->entity_specs.exceptions[i];
+            type_t* exception_type = symbol_entity_specs_get_exceptions_num(primary_symbol, i);
             type_t* updated_exception_type = update_type(exception_type, updated_context,
                     locus);
 
-            P_LIST_ADD(specialized_symbol->entity_specs.exceptions, 
-                    specialized_symbol->entity_specs.num_exceptions,
+            symbol_entity_specs_add_exceptions(specialized_symbol,
                     updated_exception_type);
         }
 
         // FIXME - noexcept?
-
         // Do not copy the function code because it must be first instantiated
-        specialized_symbol->entity_specs.function_code = nodecl_null();
+        symbol_entity_specs_set_function_code(specialized_symbol, nodecl_null());
     }
 
     type_t* result = get_user_defined_type(specialized_symbol);
@@ -4555,8 +4548,8 @@ char class_type_is_empty(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_bitfield
-                || const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.bitfield_size)))
+        if (!symbol_entity_specs_get_is_bitfield(entry)
+                || const_value_is_nonzero(nodecl_get_constant(symbol_entity_specs_get_bitfield_size(entry))))
         {
             num_of_non_empty_nonstatics_data_members++;
         }
@@ -4654,7 +4647,7 @@ char class_type_is_dynamic(type_t* t)
     scope_entry_t* destructor = class_type_get_destructor(class_type);
 
     if (destructor != NULL
-            && destructor->entity_specs.is_virtual)
+            && symbol_entity_specs_get_is_virtual(destructor))
         return 1;
 
     // If any of our bases is dynamic or a virtual base, we are dynamic
@@ -4756,8 +4749,8 @@ char class_type_is_nearly_empty(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_bitfield
-                || const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.bitfield_size)))
+        if (!symbol_entity_specs_get_is_bitfield(entry)
+                || const_value_is_nonzero(nodecl_get_constant(symbol_entity_specs_get_bitfield_size(entry))))
         {
             // If we are not empty, we are not nearly empty either
             empty = 0;
@@ -4991,8 +4984,8 @@ static scope_entry_list_t* _class_type_get_members_pred(type_t* t, void* data, c
 
 static char _member_is_conversion(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_member
-        && entry->entity_specs.is_conversion;
+    return symbol_entity_specs_get_is_member(entry)
+        && symbol_entity_specs_get_is_conversion(entry);
 }
 
 scope_entry_list_t* class_type_get_conversions(type_t* t)
@@ -5005,7 +4998,7 @@ scope_entry_list_t* class_type_get_conversions(type_t* t)
 
 static char _member_is_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_member && entry->kind == SK_FUNCTION;
+    return symbol_entity_specs_get_is_member(entry) && entry->kind == SK_FUNCTION;
 }
 
 scope_entry_list_t* class_type_get_member_functions(type_t* t)
@@ -5018,17 +5011,17 @@ scope_entry_list_t* class_type_get_member_functions(type_t* t)
 
 static char _member_is_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_member && entry->kind == SK_VARIABLE;
+    return symbol_entity_specs_get_is_member(entry) && entry->kind == SK_VARIABLE;
 }
 
 static char _member_is_static_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return _member_is_data_member(entry, data) && entry->entity_specs.is_static;
+    return _member_is_data_member(entry, data) && symbol_entity_specs_get_is_static(entry);
 }
 
 static char _member_is_nonstatic_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return _member_is_data_member(entry, data) && !entry->entity_specs.is_static;
+    return _member_is_data_member(entry, data) && !symbol_entity_specs_get_is_static(entry);
 }
 
 scope_entry_list_t* class_type_get_nonstatic_data_members(type_t* t)
@@ -5049,7 +5042,7 @@ scope_entry_list_t* class_type_get_static_data_members(type_t* t)
 
 static char _member_is_move_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_move_constructor;
+    return symbol_entity_specs_get_is_move_constructor(entry);
 }
 
 scope_entry_list_t* class_type_get_move_constructors(type_t* t)
@@ -5062,7 +5055,7 @@ scope_entry_list_t* class_type_get_move_constructors(type_t* t)
 
 static char _member_is_copy_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_copy_constructor;
+    return symbol_entity_specs_get_is_copy_constructor(entry);
 }
 
 scope_entry_list_t* class_type_get_copy_constructors(type_t* t)
@@ -5075,7 +5068,7 @@ scope_entry_list_t* class_type_get_copy_constructors(type_t* t)
 
 static char _member_is_move_assignment_operator(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_move_assignment_operator;
+    return symbol_entity_specs_get_is_move_assignment_operator(entry);
 }
 
 scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t)
@@ -5088,7 +5081,7 @@ scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t)
 
 static char _member_is_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_constructor;
+    return symbol_entity_specs_get_is_constructor(entry);
 }
 
 scope_entry_list_t* class_type_get_constructors(type_t* t)
@@ -5101,7 +5094,7 @@ scope_entry_list_t* class_type_get_constructors(type_t* t)
 
 static char _member_is_copy_assignment_operator(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_copy_assignment_operator;
+    return symbol_entity_specs_get_is_copy_assignment_operator(entry);
 }
 
 scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t)
@@ -5204,7 +5197,7 @@ scope_entry_list_t* class_type_get_direct_base_classes_canonical(type_t* t)
 
 static char _member_is_virtual_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return _member_is_member_function(entry, data) && entry->entity_specs.is_virtual;
+    return _member_is_member_function(entry, data) && symbol_entity_specs_get_is_virtual(entry);
 }
 
 scope_entry_list_t* class_type_get_virtual_functions(type_t* t)
@@ -5359,8 +5352,8 @@ void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_con
 
     if (is_template_specialized_type(get_actual_class_type(entry->type_information)))
         instantiate_template_class_if_needed(entry, decl_context, locus);
-    else if (entry->entity_specs.is_member
-            && entry->entity_specs.emission_template != NULL)
+    else if (symbol_entity_specs_get_is_member(entry)
+            && symbol_entity_specs_get_emission_template(entry) != NULL)
         instantiate_nontemplate_member_class_if_needed(entry, decl_context, locus);
 }
 
@@ -5372,8 +5365,8 @@ char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_c
 
     if (is_template_specialized_type(get_actual_class_type(entry->type_information)))
         return instantiate_template_class_if_possible(entry, decl_context, locus);
-    else if (entry->entity_specs.is_member
-            && entry->entity_specs.emission_template != NULL)
+    else if (symbol_entity_specs_get_is_member(entry)
+            && symbol_entity_specs_get_emission_template(entry) != NULL)
         return instantiate_nontemplate_member_class_if_possible(entry, decl_context, locus);
 
     return 1;
@@ -5692,8 +5685,8 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class,
     ERROR_CONDITION(is_expansion && !is_dependent, "An expansion base class should always be dependent", 0);
     class_type = get_actual_class_type(class_type);
 
-    if (base_class->entity_specs.is_injected_class_name)
-        base_class = named_type_get_symbol(base_class->entity_specs.class_type);
+    if (symbol_entity_specs_get_is_injected_class_name(base_class))
+        base_class = named_type_get_symbol(symbol_entity_specs_get_class_type(base_class));
 
     base_class_info_t* new_base_class = xcalloc(1, sizeof(*new_base_class));
     new_base_class->class_symbol = base_class;
@@ -5946,15 +5939,15 @@ extern inline char equivalent_types(type_t* t1, type_t* t2)
 
 static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
 {
-    if (s1->entity_specs.is_template_parameter
-            || s2->entity_specs.is_template_parameter)
+    if (symbol_entity_specs_get_is_template_parameter(s1)
+            || symbol_entity_specs_get_is_template_parameter(s2))
     {
-        if (s1->entity_specs.is_template_parameter
-                && s2->entity_specs.is_template_parameter)
+        if (symbol_entity_specs_get_is_template_parameter(s1)
+                && symbol_entity_specs_get_is_template_parameter(s2))
         {
             return ((s1->kind == s2->kind)
-                    && (s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting)
-                    && (s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position));
+                    && (symbol_entity_specs_get_template_parameter_nesting(s1) == symbol_entity_specs_get_template_parameter_nesting(s2))
+                    && (symbol_entity_specs_get_template_parameter_position(s1) == symbol_entity_specs_get_template_parameter_position(s2)));
         }
         else
         {
@@ -6019,12 +6012,12 @@ static char same_template_type(type_t* t1, type_t* t2)
             || (s1->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                 && s2->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
     {
-        ERROR_CONDITION(!s1->entity_specs.is_template_parameter
-                || !s2->entity_specs.is_template_parameter,
+        ERROR_CONDITION(!symbol_entity_specs_get_is_template_parameter(s1)
+                || !symbol_entity_specs_get_is_template_parameter(s2),
                 "Symbol is not set as a template parameter", 0);
 
-        return (s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting)
-            && (s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position);
+        return (symbol_entity_specs_get_template_parameter_nesting(s1) == symbol_entity_specs_get_template_parameter_nesting(s2))
+            && (symbol_entity_specs_get_template_parameter_position(s1) == symbol_entity_specs_get_template_parameter_position(s2));
     }
 
     return 0;
@@ -8657,7 +8650,7 @@ char is_function_or_template_function_name_or_extern_variable(scope_entry_t* ent
     return (is_nonspecialized_function_pred(entry, NULL)
             || is_template_function_pred(entry, NULL)
             || (entry->kind == SK_VARIABLE
-                && entry->entity_specs.is_extern));
+                && symbol_entity_specs_get_is_extern(entry)));
 }
 
 const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context,
@@ -9863,7 +9856,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             {
                 if (is_named_type(type_info)
                         && named_type_get_symbol(type_info)->kind == SK_TYPEDEF
-                        && named_type_get_symbol(type_info)->entity_specs.is_template_parameter)
+                        && symbol_entity_specs_get_is_template_parameter(named_type_get_symbol(type_info)))
                 {
                     get_type_name_string_internal_impl(decl_context,
                             named_type_get_symbol(type_info)->type_information,
@@ -9987,7 +9980,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     }
                     // If this is a saved expression and it IS a parameter we use its saved expression instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
+                            && symbol_entity_specs_get_is_saved_expression(
+                                nodecl_get_symbol(type_info->array->whole_size)))
                     {
                         scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
                         const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
@@ -10012,8 +10006,10 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     // A saved expression that is not user declared means that we have to ignore it
                     // when printing it
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression
-                            && !nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_user_declared)
+                            && symbol_entity_specs_get_is_saved_expression(
+                                nodecl_get_symbol(type_info->array->whole_size))
+                            && !symbol_entity_specs_get_is_user_declared(
+                                nodecl_get_symbol(type_info->array->whole_size)))
                     {
                         scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
                         const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
@@ -10278,48 +10274,48 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
         case SK_TEMPLATE_TYPE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TYPE_PARAMETER_PACK :
             snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter pack '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER_PACK :
             snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter pack '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_NONTYPE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter '%s' (%d,%d) %s>", 
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_NONTYPE_PARAMETER_PACK :
             snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter pack '%s' (%d,%d) %s>", 
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
@@ -10692,7 +10688,7 @@ static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_cont
     if (nodecl_is_null(n))
         return "<<<unknown>>>";
     if (nodecl_get_kind(n) == NODECL_SYMBOL
-            && nodecl_get_symbol(n)->entity_specs.is_saved_expression)
+            && symbol_entity_specs_get_is_saved_expression(nodecl_get_symbol(n)))
     {
         const char* result = NULL;
         uniquestr_sprintf(&result, "%s { => %s }",
@@ -12569,7 +12565,7 @@ char is_literal_type(type_t* t)
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (entry->entity_specs.is_trivial)
+            if (symbol_entity_specs_get_is_trivial(entry))
             {
                 found_bad_case = 0;
                 break;
@@ -12589,7 +12585,7 @@ char is_literal_type(type_t* t)
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (!entry->entity_specs.is_trivial)
+            if (!symbol_entity_specs_get_is_trivial(entry))
             {
                 found_bad_case = 1;
                 break;
@@ -12603,13 +12599,13 @@ char is_literal_type(type_t* t)
         // 2.3 a trivial destructor,
         scope_entry_t* destructor = class_type_get_destructor(t);
         if (destructor != NULL 
-                && !destructor->entity_specs.is_trivial)
+                && !symbol_entity_specs_get_is_trivial(destructor))
         {
             return 0;
         }
 
         scope_entry_t* default_ctor = class_type_get_default_constructor(t);
-        if (default_ctor != NULL && !default_ctor->entity_specs.is_trivial)
+        if (default_ctor != NULL && !symbol_entity_specs_get_is_trivial(default_ctor))
         {
             //  2.4 a trivial default constructor or at least one constexpr constructor
             //      other than the copy or move constructor
@@ -12623,9 +12619,9 @@ char is_literal_type(type_t* t)
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                if (entry->entity_specs.is_constexpr
-                        && !entry->entity_specs.is_move_constructor
-                        && !entry->entity_specs.is_copy_constructor)
+                if (symbol_entity_specs_get_is_constexpr(entry)
+                        && !symbol_entity_specs_get_is_move_constructor(entry)
+                        && !symbol_entity_specs_get_is_copy_constructor(entry))
                 {
                     found_bad_case = 0;
                     break;
@@ -12887,7 +12883,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(copy_constructors);
@@ -12904,7 +12900,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(move_constructors);
@@ -12921,7 +12917,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(copy_assignment_operators);
@@ -12938,7 +12934,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(move_assignment_operators);
@@ -12950,7 +12946,7 @@ char class_type_is_trivially_copiable(type_t* t)
 
     scope_entry_t* destructor = class_type_get_destructor(class_type);
     if (destructor != NULL
-            && !destructor->entity_specs.is_trivial)
+            && !symbol_entity_specs_get_is_trivial(destructor))
         return 0;
 
     return 1;
@@ -12963,7 +12959,7 @@ char class_type_is_trivial(type_t* t)
 
     scope_entry_t* default_ctr = class_type_get_default_constructor(class_type);
 
-    if (default_ctr != NULL && !default_ctr->entity_specs.is_trivial)
+    if (default_ctr != NULL && !symbol_entity_specs_get_is_trivial(default_ctr))
         return 0;
 
     if (!class_type_is_trivially_copiable(t))
@@ -13025,7 +13021,7 @@ char class_type_is_standard_layout(type_t* t)
     {
         scope_entry_t* member_function = entry_list_iterator_current(it);
 
-        if (member_function->entity_specs.is_virtual)
+        if (symbol_entity_specs_get_is_virtual(member_function))
         {
             entry_list_iterator_free(it);
             entry_list_free(member_functions);
@@ -13058,9 +13054,9 @@ char class_type_is_standard_layout(type_t* t)
 
         if (access == AS_UNKNOWN)
         {
-            access = data_member->entity_specs.access;
+            access = symbol_entity_specs_get_access(data_member);
         }
-        else if (access != data_member->entity_specs.access)
+        else if (access != symbol_entity_specs_get_access(data_member))
         {
             entry_list_iterator_free(it);
             entry_list_free(nonstatic_data_members);
@@ -13170,7 +13166,7 @@ char is_aggregate_type(type_t* t)
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            if (entry->entity_specs.is_user_declared)
+            if (symbol_entity_specs_get_is_user_declared(entry))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(constructors);
@@ -13199,8 +13195,8 @@ char is_aggregate_type(type_t* t)
             }
 
             // No private or protected non-static data members
-            if (entry->entity_specs.access == AS_PRIVATE
-                    || entry->entity_specs.access == AS_PROTECTED)
+            if (symbol_entity_specs_get_access(entry) == AS_PRIVATE
+                    || symbol_entity_specs_get_access(entry) == AS_PROTECTED)
             {
                 entry_list_iterator_free(it);
                 entry_list_free(nonstatic_data_members);
@@ -13222,7 +13218,7 @@ char is_aggregate_type(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             // No virtual functions
-            if (entry->entity_specs.is_virtual)
+            if (symbol_entity_specs_get_is_virtual(entry))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(member_functions);
@@ -13288,7 +13284,7 @@ char class_type_is_pod(type_t* t)
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            if (entry->entity_specs.is_user_declared)
+            if (symbol_entity_specs_get_is_user_declared(entry))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(copy_assignment_operators);
@@ -13299,7 +13295,7 @@ char class_type_is_pod(type_t* t)
         entry_list_free(copy_assignment_operators);
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
-        if (destructor != NULL && destructor->entity_specs.is_user_declared)
+        if (destructor != NULL && symbol_entity_specs_get_is_user_declared(destructor))
             return 0;
     }
 
@@ -13865,15 +13861,15 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
             type_t* used_type = NULL;
             scope_entry_t* item = entry_list_head(overload_set);
 
-            if (!item->entity_specs.is_member
-                    || item->entity_specs.is_static)
+            if (!symbol_entity_specs_get_is_member(item)
+                    || symbol_entity_specs_get_is_static(item))
             {
                 used_type = lvalue_ref(item->type_information);
             }
             else
             {
                 used_type = get_pointer_to_member_type(item->type_information,
-                        item->entity_specs.class_type);
+                        symbol_entity_specs_get_class_type(item));
             }
             return print_decl_type_str(used_type, decl_context, name);
         }
@@ -13921,7 +13917,7 @@ static type_t* get_foundation_type(type_t* t)
         if (is_named_type(t)
                 && named_type_get_symbol(t)->kind == SK_TYPEDEF
                 // These are the only typedefs that we always advance
-                && named_type_get_symbol(t)->entity_specs.is_template_parameter)
+                && symbol_entity_specs_get_is_template_parameter(named_type_get_symbol(t)))
         {
             return get_foundation_type(named_type_get_symbol(t)->type_information);
         }

@@ -165,7 +165,7 @@ namespace Utils
         TL::Symbol new_mask_sym = scope.new_symbol("__mask_" +
                 Utils::get_var_counter());
         new_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-        new_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_mask_sym.get_internal_symbol(), 1);
         new_mask_sym.set_type(TL::Type::get_mask_type(mask_size));
 
         return new_mask_sym.make_nodecl(ref_type, make_locus("", 0, 0));

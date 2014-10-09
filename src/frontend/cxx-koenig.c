@@ -127,7 +127,7 @@ scope_entry_list_t* koenig_lookup(
         {
             scope_entry_t* current_entry = entry_list_iterator_current(it);
 
-            if (!current_entry->entity_specs.is_friend_declared)
+            if (!symbol_entity_specs_get_is_friend_declared(current_entry))
             {
                 // Nothing to do
                 filtered_friends = entry_list_add(filtered_friends, current_entry);
@@ -150,7 +150,7 @@ scope_entry_list_t* koenig_lookup(
                         entry_list_iterator_next(it2))
                 {
                     scope_entry_t* friend_decl = entry_list_iterator_current(it2);
-                    scope_entry_t* current_friend = friend_decl->entity_specs.alias_to;
+                    scope_entry_t* current_friend = symbol_entity_specs_get_alias_to(friend_decl);
 
                     found_in_an_associated_class = (current_friend == current_entry);
                 }
@@ -228,7 +228,7 @@ static void add_associated_scope(koenig_lookup_info_t* koenig_info, scope_t* sc)
 
     // If this scope is an inline one, add the enclosing scope as well
     if (sc->related_entry != NULL
-            && sc->related_entry->entity_specs.is_inline)
+            && symbol_entity_specs_get_is_inline(sc->related_entry))
     {
         add_associated_scope(koenig_info, sc->contained_in);
     }
@@ -359,9 +359,9 @@ static void compute_associated_scopes_rec(
         if (is_named_type(argument_type))
         {
             scope_entry_t* symbol = named_type_get_symbol(argument_type);
-            if (symbol->entity_specs.is_member)
+            if (symbol_entity_specs_get_is_member(symbol))
             {
-                type_t* class_type = symbol->entity_specs.class_type;
+                type_t* class_type = symbol_entity_specs_get_class_type(symbol);
                 compute_associated_scopes_rec(koenig_info, class_type, locus);
             }
         }
@@ -482,9 +482,9 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
 
     add_associated_class(koenig_info, class_symbol);
 
-    if (class_symbol->entity_specs.is_member)
+    if (symbol_entity_specs_get_is_member(class_symbol))
     {
-        type_t* class_type = class_symbol->entity_specs.class_type;
+        type_t* class_type = symbol_entity_specs_get_class_type(class_symbol);
         compute_associated_scopes_rec(koenig_info, class_type, locus);
     }
 

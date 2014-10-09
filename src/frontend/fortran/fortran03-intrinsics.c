@@ -430,7 +430,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
 
-    if (entry->entity_specs.related_symbols != 0)
+    if (symbol_entity_specs_get_num_parameters(entry) != 0)
     {
         // Already updated
         return;
@@ -452,17 +452,15 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+            symbol_entity_specs_set_is_optional(new_keyword_sym, current_variant.is_optional[i]);
             new_keyword_sym->do_not_print = 1;
 
             symbol_set_as_parameter_of_function(new_keyword_sym, 
                     entry,
                     /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    new_keyword_sym);
+            symbol_entity_specs_add_related_symbols(entry, new_keyword_sym);
         }
     }
     else // current_variant.num_keywords > 0
@@ -479,12 +477,11 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
 
             symbol_set_as_parameter_of_function(new_keyword_sym, entry,
                     /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
-            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+            symbol_entity_specs_set_is_optional(new_keyword_sym, current_variant.is_optional[i]);
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
+            symbol_entity_specs_add_related_symbols(entry,
                     new_keyword_sym);
         }
     }
@@ -968,9 +965,9 @@ static char specific_keyword_check(
         {
             char found = 0;
             int j;
-            for (j = 0; j < symbol->entity_specs.num_related_symbols && !found; j++)
+            for (j = 0; j < symbol_entity_specs_get_num_related_symbols(symbol) && !found; j++)
             {
-                if (strcasecmp(symbol->entity_specs.related_symbols[j]->symbol_name, keyword) == 0)
+                if (strcasecmp(symbol_entity_specs_get_related_symbols_num(symbol, j)->symbol_name, keyword) == 0)
                 {
                     position = j;
                     found = 1;
@@ -1002,7 +999,7 @@ static char specific_keyword_check(
                 break;
             }
 
-            if (position > symbol->entity_specs.num_related_symbols)
+            if (position > symbol_entity_specs_get_num_related_symbols(symbol))
             {
                 ok = 0;
                 DEBUG_CODE()
@@ -1010,7 +1007,7 @@ static char specific_keyword_check(
                     fprintf(stderr, "INTRINSICS: Too many parameters (%d) for intrinsic '%s' (maximum is %d)\n",
                             position,
                             symbol->symbol_name,
-                            symbol->entity_specs.num_related_symbols);
+                            symbol_entity_specs_get_num_related_symbols(symbol));
                 }
                 break;
             }
@@ -1024,7 +1021,7 @@ static char specific_keyword_check(
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
-                                symbol->entity_specs.related_symbols[position]->symbol_name,
+                                symbol_entity_specs_get_related_symbols_num(symbol, position)->symbol_name,
                                 symbol->symbol_name);
                     }
                     ok = 0;
@@ -1038,7 +1035,7 @@ static char specific_keyword_check(
             DEBUG_CODE()
             {
                 fprintf(stderr, "INTRINSICS: Dummy argument '%s' (position %d) of intrinsic '%s' already got an actual argument\n",
-                        symbol->entity_specs.related_symbols[position]->symbol_name,
+                        symbol_entity_specs_get_related_symbols_num(symbol, position)->symbol_name,
                         position,
                         symbol->symbol_name);
             }
@@ -1051,10 +1048,10 @@ static char specific_keyword_check(
 
     // Now check every nonoptional dummy argument has a real argument
     int j;
-    for (j = 0; j < symbol->entity_specs.num_related_symbols && ok; j++)
+    for (j = 0; j < symbol_entity_specs_get_num_related_symbols(symbol) && ok; j++)
     {
         if (nodecl_is_null(reordered_exprs[j])
-                && !symbol->entity_specs.related_symbols[j]->entity_specs.is_optional)
+                && !symbol_entity_specs_get_is_optional(symbol_entity_specs_get_related_symbols_num(symbol, j)))
         {
             // fprintf(stderr, "%s: warning: no real argument given for dummy argument '%s' of intrinsic '%s'\n",
             //         ast_location(argument),
@@ -1063,7 +1060,7 @@ static char specific_keyword_check(
             DEBUG_CODE()
             {
                 fprintf(stderr, "INTRINSICS: No real argument given for nonoptional dummy argument '%s' of intrinsic '%s'\n",
-                        symbol->entity_specs.related_symbols[position]->symbol_name,
+                        symbol_entity_specs_get_related_symbols_num(symbol, position)->symbol_name,
                         symbol->symbol_name);
             }
             ok = 0;
@@ -1073,7 +1070,7 @@ static char specific_keyword_check(
 
     if (ok)
     {
-        *num_arguments = symbol->entity_specs.num_related_symbols;
+        *num_arguments = symbol_entity_specs_get_num_related_symbols(symbol);
         DEBUG_CODE()
         {
             fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' seems fine\n",
@@ -1212,19 +1209,19 @@ static scope_entry_t* get_intrinsic_symbol_(
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
         new_entry->type_information = function_type;
-        new_entry->entity_specs.emission_template = generic_symbol;
+        symbol_entity_specs_set_emission_template(new_entry, generic_symbol);
 
         if (generic_symbol != NULL)
-            new_entry->entity_specs.simplify_function = generic_symbol->entity_specs.simplify_function;
+            symbol_entity_specs_set_simplify_function(new_entry, symbol_entity_specs_get_simplify_function(generic_symbol));
 
-        new_entry->entity_specs.is_elemental = is_elemental;
-        new_entry->entity_specs.is_pure = (is_pure || is_elemental);
-        new_entry->entity_specs.is_global_hidden = 1;
-        new_entry->entity_specs.is_builtin = 1;
+        symbol_entity_specs_set_is_elemental(new_entry, is_elemental);
+        symbol_entity_specs_set_is_pure(new_entry, (is_pure || is_elemental));
+        symbol_entity_specs_set_is_global_hidden(new_entry, 1);
+        symbol_entity_specs_set_is_builtin(new_entry, 1);
 
         // A specific symbol can't have both bits enabled. Only the generic one
-        new_entry->entity_specs.is_intrinsic_subroutine = is_void_type(result_type);
-        new_entry->entity_specs.is_intrinsic_function = !is_void_type(result_type);
+        symbol_entity_specs_set_is_intrinsic_subroutine(new_entry, is_void_type(result_type));
+        symbol_entity_specs_set_is_intrinsic_function(new_entry, !is_void_type(result_type));
 
         if (decl_context.current_scope->related_entry != NULL
                 && decl_context.current_scope->related_entry->kind == SK_MODULE)
@@ -1332,27 +1329,26 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(keyword_compute_intrinsic_##name); \
-        new_intrinsic->entity_specs.is_global_hidden = (module_sym == NULL); \
-        new_intrinsic->entity_specs.is_builtin = 1; \
-        new_intrinsic->entity_specs.is_intrinsic_function = 1; \
+        symbol_entity_specs_set_is_global_hidden(new_intrinsic, (module_sym == NULL)); \
+        symbol_entity_specs_set_is_builtin(new_intrinsic, 1); \
+        symbol_entity_specs_set_is_intrinsic_function(new_intrinsic, 1); \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
         { \
-            new_intrinsic->entity_specs.is_intrinsic_function = 0; \
-            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
+            symbol_entity_specs_set_is_intrinsic_function(new_intrinsic, 0); \
+            symbol_entity_specs_set_is_intrinsic_subroutine(new_intrinsic, 1); \
         } \
         else if (kind0 == M) \
         { \
-            new_intrinsic->entity_specs.is_intrinsic_function = 1; \
-            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
+            symbol_entity_specs_set_is_intrinsic_function(new_intrinsic, 1); \
+            symbol_entity_specs_set_is_intrinsic_subroutine(new_intrinsic, 1); \
         } \
-        new_intrinsic->entity_specs.simplify_function = compute_code; \
+        symbol_entity_specs_set_simplify_function(new_intrinsic, compute_code); \
         if (module_sym != NULL) \
         { \
             new_intrinsic->locus = module_sym->locus; \
-            new_intrinsic->entity_specs.in_module = module_sym; \
-            new_intrinsic->entity_specs.is_module_procedure = 1; \
-            P_LIST_ADD(module_sym->entity_specs.related_symbols, \
-                    module_sym->entity_specs.num_related_symbols, \
+            symbol_entity_specs_set_in_module(new_intrinsic, module_sym); \
+            symbol_entity_specs_set_is_module_procedure(new_intrinsic, 1); \
+            symbol_entity_specs_add_related_symbols(module_sym, \
                     new_intrinsic); \
         } \
     }
@@ -1378,7 +1374,7 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
     entry->type_information = intrinsic->type_information;
 
 #define COPY_SPEC(x) \
-    entry->entity_specs.x = intrinsic->entity_specs.x
+    symbol_entity_specs_set_##x(entry, symbol_entity_specs_get_##x(intrinsic))
 
     COPY_SPEC(is_global_hidden);
     COPY_SPEC(is_builtin);
@@ -1386,14 +1382,13 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
     COPY_SPEC(is_intrinsic_subroutine);
     COPY_SPEC(simplify_function);
 
-    entry->entity_specs.num_related_symbols = 0;
-    entry->entity_specs.related_symbols = NULL;
+    symbol_entity_specs_free_related_symbols(entry);
 
     // Update the keywords
     int i;
-    for (i = 0; i < intrinsic->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(intrinsic); i++)
     {
-        scope_entry_t* dummy_arg = intrinsic->entity_specs.related_symbols[i];
+        scope_entry_t* dummy_arg = symbol_entity_specs_get_related_symbols_num(intrinsic, i);
 
         scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
         new_keyword_sym->kind = SK_VARIABLE;
@@ -1403,12 +1398,11 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
 
         symbol_set_as_parameter_of_function(new_keyword_sym, entry,
                 /* nesting */ 0,
-                /* position */ entry->entity_specs.num_related_symbols);
+                /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
-        new_keyword_sym->entity_specs.is_optional = dummy_arg->entity_specs.is_optional;
+        symbol_entity_specs_set_is_optional(new_keyword_sym, symbol_entity_specs_get_is_optional(dummy_arg));
 
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(entry,
                 new_keyword_sym);
     }
 }
@@ -1425,7 +1419,7 @@ static scope_entry_t* register_specific_intrinsic_name(
 #define MAX_SPECIFIC_PARAMETERS 7
     scope_entry_t* generic_entry = fortran_query_intrinsic_name_str(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
-            || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
+            || !symbol_entity_specs_get_is_builtin(generic_entry), "Invalid symbol when registering specific intrinsic name\n", 0);
 
     ERROR_CONDITION(num_args > MAX_SPECIFIC_PARAMETERS, "Too many arguments", 0);
 
@@ -1463,7 +1457,7 @@ static scope_entry_t* register_specific_intrinsic_name(
     if (strcasecmp(generic_name, specific_name) == 0)
     {
         // If the name is the same, mark it as the specific interface of this intrinsic
-        generic_entry->entity_specs.specific_intrinsic = specific_entry;
+        symbol_entity_specs_set_specific_intrinsic(generic_entry, specific_entry);
     }
     else
     {
@@ -1495,8 +1489,8 @@ static scope_entry_t* register_specific_intrinsic_name(
                 result_type,
                 real_num_parameters, param_types,
                 generic_entry->decl_context,
-                generic_entry->entity_specs.is_elemental,
-                generic_entry->entity_specs.is_pure,
+                symbol_entity_specs_get_is_elemental(generic_entry),
+                symbol_entity_specs_get_is_pure(generic_entry),
                 /* is_transformational */ 0,
                 /* is_inquiry */ 0);
 
@@ -1512,14 +1506,13 @@ static scope_entry_t* register_specific_intrinsic_name(
                 break;
 
             symbol_set_as_parameter_of_function(
-                    specific_entry->entity_specs.related_symbols[i],
+                    symbol_entity_specs_get_related_symbols_num(specific_entry, i),
                     new_specific_entry,
                     /* nesting */ 0,
-                    /* position */ new_specific_entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_specific_entry));
 
-            P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
-                    new_specific_entry->entity_specs.num_related_symbols,
-                    specific_entry->entity_specs.related_symbols[i]);
+            symbol_entity_specs_add_related_symbols(new_specific_entry,
+                    symbol_entity_specs_get_related_symbols_num(specific_entry, i));
         }
 
         insert_entry(generic_entry->decl_context.current_scope, new_specific_entry);
@@ -1879,7 +1872,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
             && (entry = fortran_data_ref_get_symbol(argument_expressions[0])))
     {
         if (entry != NULL
-                && fortran_is_array_type(entry->type_information) && entry->entity_specs.is_allocatable)
+                && fortran_is_array_type(entry->type_information) && symbol_entity_specs_get_is_allocatable(entry))
         {
             return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
         }
@@ -1901,7 +1894,7 @@ scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAME
     {
         if (entry != NULL
                 && !fortran_is_array_type(entry->type_information)
-                && entry->entity_specs.is_allocatable)
+                && symbol_entity_specs_get_is_allocatable(entry))
         {
             return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
         }
@@ -1988,7 +1981,7 @@ static char entity_is_target(nodecl_t n)
 {
     if (nodecl_get_kind(n) == NODECL_SYMBOL)
     {
-        return nodecl_get_symbol(n)->entity_specs.is_target;
+        return symbol_entity_specs_get_is_target(nodecl_get_symbol(n));
     }
     else if (nodecl_get_kind(n) == NODECL_ARRAY_SUBSCRIPT)
     {
@@ -4988,7 +4981,7 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
         else if (nodecl_get_symbol(argument_expressions[0]) != NULL)
         {
             scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
-            if (!sym->entity_specs.is_allocatable)
+            if (!symbol_entity_specs_get_is_allocatable(sym))
             {
                 return NULL;
             }
@@ -6721,8 +6714,8 @@ scope_entry_t* compute_intrinsic_c_associated(scope_entry_t* symbol UNUSED_PARAM
     type_t* t0 = no_ref(argument_types[0]);
     type_t* t1 = argument_types[1] != NULL ? no_ref(argument_types[1]) : t0;
 
-    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
-    scope_entry_t* module = symbol->entity_specs.from_module;
+    ERROR_CONDITION(symbol_entity_specs_get_from_module(symbol) == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol_entity_specs_get_from_module(symbol);
 
     scope_entry_t* c_ptr = get_c_ptr(module);
     scope_entry_t* c_funptr = get_c_funptr(module);
@@ -6761,8 +6754,8 @@ scope_entry_t* compute_intrinsic_c_f_pointer(scope_entry_t* symbol UNUSED_PARAME
     type_t* t1 = no_ref(nodecl_get_type(argument_ptr));
     type_t* t2 = (argument_types[2] != NULL) ? no_ref(argument_types[2]) : NULL;
 
-    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
-    scope_entry_t* module = symbol->entity_specs.from_module;
+    ERROR_CONDITION(symbol_entity_specs_get_from_module(symbol) == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol_entity_specs_get_from_module(symbol);
 
     scope_entry_t* c_ptr = get_c_ptr(module);
 
@@ -6798,8 +6791,8 @@ scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER
     if (num_arguments != 1)
         return NULL;
 
-    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
-    scope_entry_t* module = symbol->entity_specs.from_module;
+    ERROR_CONDITION(symbol_entity_specs_get_from_module(symbol) == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol_entity_specs_get_from_module(symbol);
 
     scope_entry_t* c_funptr = get_c_funptr(module);
     ERROR_CONDITION(c_funptr == NULL, "c_funptr not found!\n", 0);
@@ -6808,8 +6801,8 @@ scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER
     scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
 
     if (sym->kind == SK_FUNCTION
-            && !nodecl_is_null(sym->entity_specs.bind_info)
-            && nodecl_get_kind(sym->entity_specs.bind_info) == NODECL_FORTRAN_BIND_C)
+            && !nodecl_is_null(symbol_entity_specs_get_bind_info(sym))
+            && nodecl_get_kind(symbol_entity_specs_get_bind_info(sym)) == NODECL_FORTRAN_BIND_C)
     {
         return GET_INTRINSIC_INQUIRY(symbol, "c_funloc", get_user_defined_type(c_funptr),
                 lvalue_ref(t0));
@@ -6827,8 +6820,8 @@ scope_entry_t* compute_intrinsic_c_loc(scope_entry_t* symbol,
     if (num_arguments != 1)
         return NULL;
 
-    ERROR_CONDITION(symbol->entity_specs.from_module == NULL, "Invalid symbol", 0);
-    scope_entry_t* module = symbol->entity_specs.from_module;
+    ERROR_CONDITION(symbol_entity_specs_get_from_module(symbol) == NULL, "Invalid symbol", 0);
+    scope_entry_t* module = symbol_entity_specs_get_from_module(symbol);
 
     scope_entry_t* c_ptr = get_c_ptr(module);
     ERROR_CONDITION(c_ptr == NULL, "c_ptr not found!\n", 0);
@@ -6899,7 +6892,7 @@ scope_entry_t* compute_intrinsic_ompss_opencl_allocate(scope_entry_t* symbol,
     ERROR_CONDITION(sym == NULL, "Unreachable code\n", 0);
 
     ERROR_CONDITION(
-            !(sym->entity_specs.is_allocatable
+            !(symbol_entity_specs_get_is_allocatable(sym)
                 && fortran_is_array_type(sym->type_information))
             &&
             !(is_pointer_type(sym->type_information)
@@ -6930,7 +6923,7 @@ scope_entry_t* compute_intrinsic_ompss_opencl_deallocate(scope_entry_t* symbol,
     ERROR_CONDITION(sym == NULL, "Unreachable code\n", 0);
 
     ERROR_CONDITION(
-            !(sym->entity_specs.is_allocatable
+            !(symbol_entity_specs_get_is_allocatable(sym)
                 && fortran_is_array_type(sym->type_information))
             &&
             !(is_pointer_type(sym->type_information)
@@ -6974,7 +6967,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
                 nodecl_actual_arguments,
                 reordered_exprs))
     {
-        if (symbol->entity_specs.simplify_function != NULL)
+        if (symbol_entity_specs_get_simplify_function(symbol) != NULL)
         {
             nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
@@ -6987,7 +6980,7 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
                     nodecl_arguments[j] = nodecl_null();
             }
 
-            *nodecl_simplified = (symbol->entity_specs.simplify_function)(symbol, num_actual_arguments, nodecl_arguments);
+            *nodecl_simplified = (symbol_entity_specs_get_simplify_function(symbol))(symbol, num_actual_arguments, nodecl_arguments);
             if (!nodecl_is_null(*nodecl_simplified))
             {
                 nodecl_set_locus(*nodecl_simplified, locus);
@@ -7007,7 +7000,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     scope_entry_t* iso_c_binding = new_symbol(decl_context, decl_context.current_scope, iso_c_binding_name);
     iso_c_binding->kind = SK_MODULE;
     iso_c_binding->locus = locus;
-    iso_c_binding->entity_specs.is_builtin = 1;
+    symbol_entity_specs_set_is_builtin(iso_c_binding, 1);
     iso_c_binding->related_decl_context = module_context;
     iso_c_binding->defined = 1;
 
@@ -7082,10 +7075,9 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
         symbol->locus = locus;
         symbol->kind = SK_VARIABLE;
         symbol->type_information = get_const_qualified_type(named_constants[i].const_type);
-        symbol->entity_specs.in_module = iso_c_binding;
-        symbol->entity_specs.access = AS_PUBLIC;
-        P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
-                iso_c_binding->entity_specs.num_related_symbols,
+        symbol_entity_specs_set_in_module(symbol, iso_c_binding);
+        symbol_entity_specs_set_access(symbol, AS_PUBLIC);
+        symbol_entity_specs_add_related_symbols(iso_c_binding,
                 symbol);
 
         if (fortran_is_character_type(symbol->type_information))
@@ -7104,10 +7096,9 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     c_ptr->locus = locus;
     c_ptr->kind = SK_CLASS;
     c_ptr->type_information = get_new_class_type(module_context, TT_STRUCT);
-    c_ptr->entity_specs.in_module = iso_c_binding;
-    c_ptr->entity_specs.access = AS_PUBLIC;
-    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
-            iso_c_binding->entity_specs.num_related_symbols,
+    symbol_entity_specs_set_in_module(c_ptr, iso_c_binding);
+    symbol_entity_specs_set_access(c_ptr, AS_PUBLIC);
+    symbol_entity_specs_add_related_symbols(iso_c_binding,
             c_ptr);
 
     scope_entry_t* c_null_ptr = new_symbol(module_context, module_context.current_scope,
@@ -7115,10 +7106,9 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     c_null_ptr->locus = locus;
     c_null_ptr->kind = SK_VARIABLE;
     c_null_ptr->type_information = get_user_defined_type(c_ptr);
-    c_null_ptr->entity_specs.in_module = iso_c_binding;
-    c_null_ptr->entity_specs.access = AS_PUBLIC;
-    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
-            iso_c_binding->entity_specs.num_related_symbols,
+    symbol_entity_specs_set_in_module(c_null_ptr, iso_c_binding);
+    symbol_entity_specs_set_access(c_null_ptr, AS_PUBLIC);
+    symbol_entity_specs_add_related_symbols(iso_c_binding,
             c_null_ptr);
     }
 
@@ -7128,23 +7118,19 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     c_funptr->locus = locus;
     c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
     c_funptr->kind = SK_CLASS;
-    c_funptr->entity_specs.in_module = iso_c_binding;
-    c_funptr->entity_specs.access = AS_PUBLIC;
+    symbol_entity_specs_set_in_module(c_funptr, iso_c_binding);
+    symbol_entity_specs_set_access(c_funptr, AS_PUBLIC);
     c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
-    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
-            iso_c_binding->entity_specs.num_related_symbols,
-            c_funptr);
+    symbol_entity_specs_add_related_symbols(iso_c_binding, c_funptr);
 
     scope_entry_t* c_null_funptr = new_symbol(module_context, module_context.current_scope,
             UNIQUESTR_LITERAL("c_null_funptr"));
     c_null_funptr->locus = locus;
     c_null_funptr->kind = SK_VARIABLE;
     c_null_funptr->type_information = get_user_defined_type(c_funptr);
-    c_null_funptr->entity_specs.in_module = iso_c_binding;
-    c_null_funptr->entity_specs.access = AS_PUBLIC;
-    P_LIST_ADD(iso_c_binding->entity_specs.related_symbols,
-            iso_c_binding->entity_specs.num_related_symbols,
-            c_null_funptr);
+    symbol_entity_specs_set_in_module(c_null_funptr, iso_c_binding);
+    symbol_entity_specs_set_access(c_null_funptr, AS_PUBLIC);
+    symbol_entity_specs_add_related_symbols(iso_c_binding, c_null_funptr);
     }
 }
 
@@ -7160,7 +7146,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     scope_entry_t* ieee_exceptions = new_symbol(decl_context, decl_context.current_scope, ieee_exceptions_name);
     ieee_exceptions->locus = locus;
     ieee_exceptions->kind = SK_MODULE;
-    ieee_exceptions->entity_specs.is_builtin = 1;
+    symbol_entity_specs_set_is_builtin(ieee_exceptions, 1);
     ieee_exceptions->related_decl_context = module_context;
     ieee_exceptions->defined = 1;
 
@@ -7188,13 +7174,11 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
                 uniquestr(private_types[i].name));
         new_type->locus = locus;
         new_type->kind = SK_CLASS;
-        new_type->entity_specs.in_module = ieee_exceptions;
+        symbol_entity_specs_set_in_module(new_type, ieee_exceptions);
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
-        new_type->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(new_type, AS_PUBLIC);
 
-        P_LIST_ADD(ieee_exceptions->entity_specs.related_symbols,
-                ieee_exceptions->entity_specs.num_related_symbols,
-                new_type);
+        symbol_entity_specs_add_related_symbols(ieee_exceptions, new_type);
     }
 
     // Global names
@@ -7237,14 +7221,12 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
         new_var = new_symbol(module_context, module_context.current_scope, uniquestr(global_names[i].name));
         new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
-        new_var->entity_specs.in_module = ieee_exceptions;
+        symbol_entity_specs_set_in_module(new_var, ieee_exceptions);
         new_var->type_information = global_names[i].type;
         new_var->value = global_names[i].value;
-        new_var->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(new_var, AS_PUBLIC);
 
-        P_LIST_ADD(ieee_exceptions->entity_specs.related_symbols,
-                ieee_exceptions->entity_specs.num_related_symbols,
-                new_var);
+        symbol_entity_specs_add_related_symbols(ieee_exceptions, new_var);
     }
 }
 
@@ -7259,7 +7241,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 
     scope_entry_t* ieee_arithmetic = new_symbol(decl_context, decl_context.current_scope, ieee_arithmetic_name);
     ieee_arithmetic->kind = SK_MODULE;
-    ieee_arithmetic->entity_specs.is_builtin = 1;
+    symbol_entity_specs_set_is_builtin(ieee_arithmetic, 1);
     ieee_arithmetic->related_decl_context = module_context;
     ieee_arithmetic->defined = 1;
 
@@ -7287,12 +7269,11 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
                 uniquestr(private_types[i].name));
         new_type->locus = locus;
         new_type->kind = SK_CLASS;
-        new_type->entity_specs.in_module = ieee_arithmetic;
+        symbol_entity_specs_set_in_module(new_type, ieee_arithmetic);
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
-        new_type->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(new_type, AS_PUBLIC);
 
-        P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
-                ieee_arithmetic->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(ieee_arithmetic,
                 new_type);
     }
 
@@ -7339,13 +7320,12 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_var = new_symbol(module_context, module_context.current_scope, uniquestr(global_names[i].name));
         new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
-        new_var->entity_specs.in_module = ieee_arithmetic;
+        symbol_entity_specs_set_in_module(new_var, ieee_arithmetic);
         new_var->type_information = global_names[i].type;
         new_var->value = global_names[i].value;
-        new_var->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(new_var, AS_PUBLIC);
 
-        P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
-                ieee_arithmetic->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(ieee_arithmetic,
                 new_var);
     }
 
@@ -7381,8 +7361,8 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
             get_new_function_type(
                     fortran_get_default_logical_type(),
                     eq_class_type_parameter_info, 2, REF_QUALIFIER_NONE);
-        new_operator_eq_class_type->entity_specs.in_module = ieee_arithmetic;
-        new_operator_eq_class_type->entity_specs.access = AS_PRIVATE;
+        symbol_entity_specs_set_in_module(new_operator_eq_class_type, ieee_arithmetic);
+        symbol_entity_specs_set_access(new_operator_eq_class_type, AS_PRIVATE);
 
         // OPERATOR IEEE_ROUND_TYPE
         scope_entry_t* new_operator_eq_round_type = NULL;
@@ -7399,8 +7379,8 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
             get_new_function_type(
                     fortran_get_default_logical_type(),
                     eq_round_type_parameter_info, 2, REF_QUALIFIER_NONE);
-        new_operator_eq_round_type->entity_specs.in_module = ieee_arithmetic;
-        new_operator_eq_round_type->entity_specs.access = AS_PRIVATE;
+        symbol_entity_specs_set_in_module(new_operator_eq_round_type, ieee_arithmetic);
+        symbol_entity_specs_set_access(new_operator_eq_round_type, AS_PRIVATE);
 
         // OPERATOR Generic
         scope_entry_t* new_operator_eq = NULL;
@@ -7411,19 +7391,15 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq->kind = SK_FUNCTION;
         new_operator_eq->locus = locus;
         new_operator_eq->type_information = get_void_type();
-        new_operator_eq->entity_specs.in_module = ieee_arithmetic;
-        new_operator_eq->entity_specs.is_generic_spec = 1;
-        new_operator_eq->entity_specs.is_implicit_basic_type = 0;
+        symbol_entity_specs_set_in_module(new_operator_eq, ieee_arithmetic);
+        symbol_entity_specs_set_is_generic_spec(new_operator_eq, 1);
+        symbol_entity_specs_set_is_implicit_basic_type(new_operator_eq, 0);
 
-        P_LIST_ADD(new_operator_eq->entity_specs.related_symbols,
-                new_operator_eq->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(new_operator_eq,
                 new_operator_eq_class_type);
-        P_LIST_ADD(new_operator_eq->entity_specs.related_symbols,
-                new_operator_eq->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(new_operator_eq,
                 new_operator_eq_round_type);
-
-        P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
-                ieee_arithmetic->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(ieee_arithmetic,
                 new_operator_eq);
     }
 }
@@ -7440,7 +7416,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     scope_entry_t* ieee_features = new_symbol(decl_context, decl_context.current_scope, ieee_features_name);
     ieee_features->locus = locus;
     ieee_features->kind = SK_MODULE;
-    ieee_features->entity_specs.is_builtin = 1;
+    symbol_entity_specs_set_is_builtin(ieee_features, 1);
     ieee_features->related_decl_context = module_context;
     ieee_features->defined = 1;
 
@@ -7467,13 +7443,11 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
                 uniquestr(private_types[i].name));
         new_type->locus = locus;
         new_type->kind = SK_CLASS;
-        new_type->entity_specs.in_module = ieee_features;
+        symbol_entity_specs_set_in_module(new_type, ieee_features);
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
-        new_type->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(new_type, AS_PUBLIC);
 
-        P_LIST_ADD(ieee_features->entity_specs.related_symbols,
-                ieee_features->entity_specs.num_related_symbols,
-                new_type);
+        symbol_entity_specs_add_related_symbols(ieee_features, new_type);
     }
 
     // Global names
@@ -7508,14 +7482,12 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
         new_var = new_symbol(module_context, module_context.current_scope, uniquestr(global_names[i].name));
         new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
-        new_var->entity_specs.in_module = ieee_features;
+        symbol_entity_specs_set_in_module(new_var, ieee_features);
         new_var->type_information = global_names[i].type;
         new_var->value = global_names[i].value;
-        new_var->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(new_var, AS_PUBLIC);
 
-        P_LIST_ADD(ieee_features->entity_specs.related_symbols,
-                ieee_features->entity_specs.num_related_symbols,
-                new_var);
+        symbol_entity_specs_add_related_symbols(ieee_features, new_var);
     }
 }
 
@@ -8159,11 +8131,11 @@ static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_
     scope_entry_t* ieee_exceptions = get_module_in_cache("ieee_exceptions");
 
     int i;
-    for (i = 0; i < ieee_exceptions->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(ieee_exceptions); i++)
     {
-        scope_entry_t* sym_in_module = ieee_exceptions->entity_specs.related_symbols[i];
+        scope_entry_t* sym_in_module = symbol_entity_specs_get_related_symbols_num(ieee_exceptions, i);
 
-        if (sym_in_module->entity_specs.access == AS_PRIVATE)
+        if (symbol_entity_specs_get_access(sym_in_module) == AS_PRIVATE)
             continue;
 
         insert_symbol_from_module(sym_in_module,

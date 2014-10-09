@@ -37,43 +37,35 @@
 
 // Some gcc-isms
 #ifdef __GNUC__
-  #if __GNUC__ == 3 
-     #define NORETURN __attribute__((noreturn))
-
-     #if __GNUC_MINOR__ >= 1
-        #define DEPRECATED __attribute__((deprecated))
-        #define UNUSED_PARAMETER __attribute__((unused))
-     #else
-        #define DEPRECATED
-        #define UNUSED_PARAMETER
-     #endif
-     #if __GNUC_MINOR__ >= 4
-         #define WARN_UNUSED __attribute__((warn_unused_result))
-     #else
-         #define WARN_UNUSED
-     #endif
-  #elif __GNUC__ >= 4
-     #if (__GNUC__ > 4 || __GNUC_MINOR__ >= 4)
-        #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
-     #else
-        #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
-     #endif
+  #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 3
+     // Supported in >=4.3
      #define NORETURN __attribute__((noreturn))
      #define WARN_UNUSED __attribute__((warn_unused_result))
      #define DEPRECATED __attribute__((deprecated))
      #define UNUSED_PARAMETER __attribute__((unused))
      #define WARN_FUNCTION(x) __attribute__((warning(x)))
      #define MALLOC_RETURN __attribute__((xmalloc))
-  #elif __GNUC__ == 2
-     #error "This code will not compile with GCC 2"
+     // Supported in >=4.4
+     #if (__GNUC_MINOR__ >= 4)
+        #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
+     #else
+        #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
+     #endif
+     // Supported in >=4.5
+     #if (__GNUC_MINOR__ >= 5)
+        #define DEPRECATED_REASON(r) __attribute__((deprecated(r)))
+     #else
+        #define DEPRECATED_REASON(r) __attribute__((deprecated))
+     #endif
   #else
-     #error "Unsupported version of GCC"
+     #error "Unsupported version of GCC. It must be 4.3 or better"
   #endif
 #else
   #define NORETURN
   #define WARN_UNUSED
   #define UNUSED_PARAMETER
   #define DEPRECATED
+  #define DEPRECATED_REASON(r)
   #define WARN_FUNCTION(x)
 #endif
 

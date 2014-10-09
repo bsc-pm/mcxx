@@ -221,7 +221,7 @@ static char is_call_to_null(nodecl_t node, type_t** ptr_type)
             && nodecl_get_kind(node) == NODECL_FUNCTION_CALL
             && ((function_called = nodecl_get_symbol(nodecl_get_child(node, 0))) != NULL)
             && strcasecmp(function_called->symbol_name, "null") == 0
-            && function_called->entity_specs.is_builtin)
+            && symbol_entity_specs_get_is_builtin(function_called))
     {
         ok = 1;
     }
@@ -2379,7 +2379,7 @@ static char check_argument_association(
                             && array != NULL
                             && ((array_type_with_descriptor(no_ref(array->type_information))
                                     // allocatable arrays have descriptors but are not assumed shape
-                                    && !array->entity_specs.is_allocatable)
+                                    && !symbol_entity_specs_get_is_allocatable(array))
                                 || fortran_is_pointer_to_array_type(no_ref(array->type_information))))
                     {
                         ok = 0;
@@ -2445,11 +2445,11 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
 
     scope_entry_list_t* result = NULL;
     int k;
-    for (k = 0; k < symbol->entity_specs.num_related_symbols; k++)
+    for (k = 0; k < symbol_entity_specs_get_num_related_symbols(symbol); k++)
     {
-        scope_entry_t* specific_symbol = symbol->entity_specs.related_symbols[k];
+        scope_entry_t* specific_symbol = symbol_entity_specs_get_related_symbols_num(symbol, k);
 
-        if (specific_symbol->entity_specs.is_elemental
+        if (symbol_entity_specs_get_is_elemental(specific_symbol)
                 && ignore_elementals)
             continue;
 
@@ -2472,10 +2472,11 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
 
                 fprintf(stderr, "EXPRTYPE:    %sName: %s\n", 
-                        (specific_symbol->entity_specs.related_symbols[i]->entity_specs.is_optional
-                         && !specific_symbol->entity_specs.is_stmt_function) ? "Optional " : "",
-                        specific_symbol->entity_specs.related_symbols[i] != NULL ? 
-                        specific_symbol->entity_specs.related_symbols[i]->symbol_name : 
+                        (symbol_entity_specs_get_is_optional(
+                                 symbol_entity_specs_get_related_symbols_num(specific_symbol, i))
+                         && !symbol_entity_specs_get_is_stmt_function(specific_symbol)) ? "Optional " : "",
+                        symbol_entity_specs_get_related_symbols_num(specific_symbol, i) != NULL ? 
+                        symbol_entity_specs_get_related_symbols_num(specific_symbol, i)->symbol_name : 
                         "<<no-name>>");
                 fprintf(stderr, "EXPRTYPE:    Parameter: %s\n", 
                         fortran_print_type_str(formal_type));
@@ -2499,9 +2500,9 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             else
             {
                 int j;
-                for (j = 0; j < specific_symbol->entity_specs.num_related_symbols; j++)
+                for (j = 0; j < symbol_entity_specs_get_num_related_symbols(specific_symbol); j++)
                 {
-                    scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[j];
+                    scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(specific_symbol, j);
 
                     if (!symbol_is_parameter_of_function(related_sym, specific_symbol))
                         continue;
@@ -2530,16 +2531,16 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
         if (ok)
         {
             // Now complete with the optional ones
-            for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
+            for (i = 0; (i < symbol_entity_specs_get_num_related_symbols(specific_symbol)) && ok; i++)
             {
-                scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
+                scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(specific_symbol, i);
 
                 if (symbol_is_parameter_of_function(related_sym, specific_symbol))
                 {
                     if (argument_types[i].type == NULL)
                     {
-                        if (related_sym->entity_specs.is_optional
-                                && !specific_symbol->entity_specs.is_stmt_function)
+                        if (symbol_entity_specs_get_is_optional(related_sym)
+                                && !symbol_entity_specs_get_is_stmt_function(specific_symbol))
                         {
                             argument_types[i].type = related_sym->type_information;
                             argument_types[i].not_present = 1;
@@ -2574,7 +2575,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 type_t* real_type = no_ref(argument_types[i].type);
 
                 // Note that for ELEMENTAL some more checks should be done
-                if (specific_symbol->entity_specs.is_elemental) 
+                if (symbol_entity_specs_get_is_elemental(specific_symbol)) 
                 {
                     real_type = fortran_get_rank0_type(real_type);
                 }
@@ -2585,7 +2586,7 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                             real_type, 
                             argument_types[i].argument,
 
-                            /* ranks_must_agree only if non-elemental */ !specific_symbol->entity_specs.is_elemental,
+                            /* ranks_must_agree only if non-elemental */ !symbol_entity_specs_get_is_elemental(specific_symbol),
 
                             /* do_diagnostic */ 0,
                             /* argument_num */ i,
@@ -2668,7 +2669,7 @@ static void check_called_symbol_list(
 
     // First solve the generic specifier
     if (entry_list_size(symbol_list) > 1
-            || entry_list_head(symbol_list)->entity_specs.is_generic_spec)
+            || symbol_entity_specs_get_is_generic_spec(entry_list_head(symbol_list)))
     {
         scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
@@ -2678,7 +2679,7 @@ static void check_called_symbol_list(
         {
             scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
 
-            if (current_generic_spec->entity_specs.is_builtin
+            if (symbol_entity_specs_get_is_builtin(current_generic_spec)
                     && is_computed_function_type(current_generic_spec->type_information))
             {
                 scope_entry_t* specific_intrinsic = fortran_solve_generic_intrinsic_call(current_generic_spec,
@@ -2693,7 +2694,7 @@ static void check_called_symbol_list(
                             specific_symbol_set);
                 }
             }
-            else if (current_generic_spec->entity_specs.is_generic_spec)
+            else if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
             {
                 scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
                         explicit_num_actual_arguments,
@@ -2708,7 +2709,7 @@ static void check_called_symbol_list(
 
                     // If we find a USE consistent call to a associated name
                     // then INTRINSICS must be ignored to prioritize USEs
-                    if (current_generic_spec->entity_specs.from_module != NULL)
+                    if (symbol_entity_specs_get_from_module(current_generic_spec) != NULL)
                     {
                         hide_intrinsics = 1;
                     }
@@ -2736,7 +2737,7 @@ static void check_called_symbol_list(
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                if (hide_intrinsics && entry->entity_specs.is_builtin)
+                if (hide_intrinsics && symbol_entity_specs_get_is_builtin(entry))
                     continue;
 
                 filtered_specific_symbol_set = entry_list_add_once(filtered_specific_symbol_set, entry);
@@ -2767,13 +2768,13 @@ static void check_called_symbol_list(
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
-                if (current_generic_spec->entity_specs.is_generic_spec)
+                if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
                 {
                     info_printf("%s: info: specific interface '%s' matches\n",
                             locus_to_str(current_generic_spec->locus),
                             current_generic_spec->symbol_name);
                 }
-                else if (current_generic_spec->entity_specs.is_builtin)
+                else if (symbol_entity_specs_get_is_builtin(current_generic_spec))
                 {
                     info_printf("%s: info: intrinsic '%s' matches\n",
                             locus_to_str(current_generic_spec->locus),
@@ -2799,7 +2800,7 @@ static void check_called_symbol_list(
 
     ERROR_CONDITION(symbol == NULL, "Symbol function not set", 0);
 
-    if (!symbol->entity_specs.is_recursive
+    if (!symbol_entity_specs_get_is_recursive(symbol)
             && inside_context_of_symbol(decl_context, symbol))
     {
         error_printf("%s: error: cannot recursively call '%s'\n",
@@ -2809,7 +2810,7 @@ static void check_called_symbol_list(
 
     type_t* return_type = NULL;
     // This is a generic procedure reference
-    if (symbol->entity_specs.is_builtin
+    if (symbol_entity_specs_get_is_builtin(symbol)
             && is_computed_function_type(symbol->type_information))
     {
         if (CURRENT_CONFIGURATION->disable_intrinsics)
@@ -2860,7 +2861,7 @@ static void check_called_symbol_list(
         {
             return_type = nodecl_get_type(*nodecl_simplify);
         }
-        else if (entry->entity_specs.is_elemental)
+        else if (symbol_entity_specs_get_is_elemental(entry))
         {
             // Try to come up with a common_rank
             int common_rank = -1;
@@ -2944,9 +2945,9 @@ static void check_called_symbol_list(
             else
             {
                 int j;
-                for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
+                for (j = 0; j < symbol_entity_specs_get_num_related_symbols(symbol); j++)
                 {
-                    scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
+                    scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, j);
 
                     if (!symbol_is_parameter_of_function(related_sym, symbol))
                         continue;
@@ -2981,16 +2982,16 @@ static void check_called_symbol_list(
         int num_completed_arguments = explicit_num_actual_arguments;
 
         // Now complete with the optional ones
-        for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
+        for (i = 0; i < symbol_entity_specs_get_num_related_symbols(symbol); i++)
         {
-            scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
+            scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, i);
 
             if (symbol_is_parameter_of_function(related_sym, symbol))
             {
                 if (argument_info_items[i].type == NULL)
                 {
-                    if (related_sym->entity_specs.is_optional
-                            && !symbol->entity_specs.is_stmt_function)
+                    if (symbol_entity_specs_get_is_optional(related_sym)
+                            && !symbol_entity_specs_get_is_stmt_function(symbol))
                     {
                         argument_info_items[i].type = related_sym->type_information;
                         argument_info_items[i].not_present = 1;
@@ -3036,7 +3037,7 @@ static void check_called_symbol_list(
             actual_argument_info_t fixed_argument_info_items[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
             memcpy(fixed_argument_info_items, argument_info_items, sizeof(fixed_argument_info_items));
 
-            if (symbol->entity_specs.is_elemental)
+            if (symbol_entity_specs_get_is_elemental(symbol))
             {
                 // We may have to adjust the ranks, first check that all the
                 // ranks match
@@ -3111,7 +3112,7 @@ static void check_called_symbol_list(
 
         return_type = function_type_get_return_type(function_type);
 
-        if (symbol->entity_specs.is_elemental
+        if (symbol_entity_specs_get_is_elemental(symbol)
                 && !is_void_type(return_type))
         {
             if (common_rank > 0)
@@ -3122,7 +3123,7 @@ static void check_called_symbol_list(
     }
 
     // Simplify intrinsics
-    if (symbol->entity_specs.is_builtin)
+    if (symbol_entity_specs_get_is_builtin(symbol))
     {
         fortran_simplify_specific_intrinsic_call(symbol,
                 nodecl_actual_arguments,
@@ -3173,9 +3174,9 @@ static void check_called_symbol_list(
         else
         {
             int j;
-            for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
+            for (j = 0; j < symbol_entity_specs_get_num_related_symbols(symbol); j++)
             {
-                scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
+                scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, j);
 
                 if (!symbol_is_parameter_of_function(related_sym, symbol))
                     continue;
@@ -3989,8 +3990,8 @@ static void check_symbol_of_called_name(AST sym,
             entry_is_an_intrinsic = 1;
 
             // Make sure this intrinsic can be invoked as we intend to do
-            if (is_call_stmt != entry->entity_specs.is_intrinsic_subroutine
-                    && (!is_call_stmt) != entry->entity_specs.is_intrinsic_function)
+            if (is_call_stmt != symbol_entity_specs_get_is_intrinsic_subroutine(entry)
+                    && (!is_call_stmt) != symbol_entity_specs_get_is_intrinsic_function(entry))
             {
                 entry_is_an_intrinsic = 0;
                 entry = NULL;
@@ -4065,7 +4066,7 @@ static void check_symbol_of_called_name(AST sym,
             }
 
             // Do not allow its type be redefined anymore
-            entry->entity_specs.is_implicit_basic_type = 0;
+            symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
 
             // And we are done
             *call_list = entry_list_new(entry);
@@ -4078,8 +4079,8 @@ static void check_symbol_of_called_name(AST sym,
         // if more than one generic name is found, all the visible ones in the current scope are returned
         // thus we do not have to check anything
         if (entry_list_size(entry_list) == 1
-                && !entry_list_head(entry_list)->entity_specs.is_generic_spec
-                && !entry_list_head(entry_list)->entity_specs.is_builtin)
+                && !symbol_entity_specs_get_is_generic_spec(entry_list_head(entry_list))
+                && !symbol_entity_specs_get_is_builtin(entry_list_head(entry_list)))
         {
             scope_entry_t* entry = entry_list_head(entry_list);
             if (entry->kind == SK_UNDEFINED)
@@ -4095,8 +4096,9 @@ static void check_symbol_of_called_name(AST sym,
                     intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
                 }
 
-                if (entry->entity_specs.alias_to != NULL
-                        && entry->entity_specs.alias_to->entity_specs.is_builtin)
+                if (symbol_entity_specs_get_alias_to(entry) != NULL
+                        && symbol_entity_specs_get_is_builtin(
+                            symbol_entity_specs_get_alias_to(entry)))
                 {
                     /*
                      * Heads up here!
@@ -4121,7 +4123,7 @@ static void check_symbol_of_called_name(AST sym,
 
                     remove_untyped_symbol(decl_context, entry);
 
-                    scope_entry_t* intrinsic_symbol = entry->entity_specs.alias_to;
+                    scope_entry_t* intrinsic_symbol = symbol_entity_specs_get_alias_to(entry);
                     copy_intrinsic_function_info(entry, intrinsic_symbol);
                 }
                 else if (intrinsic_sym != NULL)
@@ -4140,7 +4142,7 @@ static void check_symbol_of_called_name(AST sym,
                         // This symbol is not untyped anymore
                         remove_untyped_symbol(decl_context, entry);
                         // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
-                        entry->entity_specs.is_implicit_basic_type = 0;
+                        symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
                     }
                     else
                     {
@@ -4156,7 +4158,7 @@ static void check_symbol_of_called_name(AST sym,
             if (entry->kind == SK_FUNCTION)
             {
                 // OK
-                if (entry->entity_specs.is_implicit_basic_type)
+                if (symbol_entity_specs_get_is_implicit_basic_type(entry))
                 {
                     // Case for
                     //
@@ -4177,7 +4179,7 @@ static void check_symbol_of_called_name(AST sym,
                     // This symbol is not untyped anymore
                     remove_untyped_symbol(decl_context, entry);
                     // nor its type can be redefined (this would never happen in real Fortran because of statement ordering)
-                    entry->entity_specs.is_implicit_basic_type = 0;
+                    symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
                 }
             }
             else if (entry->kind == SK_VARIABLE
@@ -4224,7 +4226,7 @@ static void check_symbol_name_as_a_variable(
     }
 
     if (is_void_type(no_ref(entry->type_information))
-            && entry->entity_specs.is_implicit_basic_type
+            && symbol_entity_specs_get_is_implicit_basic_type(entry)
             && is_implicit_none(decl_context))
     {
         if (symbol_is_parameter_of_function(entry, 
@@ -4245,7 +4247,7 @@ static void check_symbol_name_as_a_variable(
             // is set it a type and mark it as implicitly defined (even though we are under
             // IMPLICIT NONE)
             entry->type_information = get_lvalue_reference_type(fortran_get_default_integer_type());
-            entry->entity_specs.is_implicit_basic_type = 1;
+            symbol_entity_specs_set_is_implicit_basic_type(entry, 1);
 
             // Being unable to remember that this must be an integer hinders us to detect
             // the following (100% wrong) case
@@ -4302,8 +4304,8 @@ static void check_symbol_name_as_a_variable(
                 // Avoid a constant pointer be folded here
                 && !is_pointer_type(entry->type_information)
                 // Cruft from ISO_C_BINDING
-                && !(entry->entity_specs.from_module != NULL
-                    && strcasecmp(entry->entity_specs.from_module->symbol_name, "iso_c_binding") == 0))
+                && !(symbol_entity_specs_get_from_module(entry) != NULL
+                    && strcasecmp(symbol_entity_specs_get_from_module(entry)->symbol_name, "iso_c_binding") == 0))
         {
             nodecl_t nodecl_old = *nodecl_output;
 
@@ -4366,7 +4368,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
             }
 
             // Remember the intrinsic we named
-            entry->entity_specs.alias_to = original_intrinsic;
+            symbol_entity_specs_set_alias_to(entry, original_intrinsic);
         }
         else
         {   
@@ -4966,7 +4968,7 @@ void fortran_check_initialization(
         if (nodecl_get_kind(*nodecl_output) != NODECL_FUNCTION_CALL
                 || ((function_called = nodecl_get_symbol(nodecl_get_child(*nodecl_output, 0))) == NULL)
                 || strcasecmp(function_called->symbol_name, "null") != 0
-                || !function_called->entity_specs.is_builtin)
+                || !symbol_entity_specs_get_is_builtin(function_called))
         {
             wrong_ptr_init = 1;
         }
@@ -5131,7 +5133,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
                 if (sym != NULL)
                 {
                     is_target = is_target
-                        || sym->entity_specs.is_target;
+                        || symbol_entity_specs_get_is_target(sym);
                     is_pointer = is_pointer
                         || is_pointer_type(no_ref(sym->type_information));
                 }
@@ -5143,7 +5145,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
                 if (component != NULL)
                 {
                     is_target = is_target
-                        || component->entity_specs.is_target;
+                        || symbol_entity_specs_get_is_target(component);
                     is_pointer = is_pointer
                         || is_pointer_type(no_ref(component->type_information));
                 }
@@ -5180,7 +5182,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         //     scope_entry_t* sym = nodecl_get_symbol(auxiliar);
         //     if (sym != NULL)
         //     {
-        //         if (sym->entity_specs.is_target)
+        //         if (symbol_entity_specs_get_is_target(sym))
         //             target_is_subobject_of_target = 1;
         //         if (is_pointer_type(no_ref(sym->type_information)))
         //             is_transitively_a_pointer = 1;

@@ -59,7 +59,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
-        new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
         decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
@@ -78,11 +78,11 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             TL::Symbol field = class_scope.new_symbol("base");
             field.get_internal_symbol()->kind = SK_VARIABLE;
-            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
+            symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
@@ -97,13 +97,13 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             TL::Symbol field = class_scope.new_symbol("devices");
             field.get_internal_symbol()->kind = SK_VARIABLE;
-            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+            symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
 
 
-            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 

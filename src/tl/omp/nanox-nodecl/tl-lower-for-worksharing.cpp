@@ -441,7 +441,7 @@ namespace TL { namespace Nanox {
         TL::Symbol slicer_descriptor(slicer_descriptor_internal);
         slicer_descriptor.get_internal_symbol()->symbol_name = ::uniquestr(ss.str().c_str());
         slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
-        slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(slicer_descriptor.get_internal_symbol(), 1);
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();

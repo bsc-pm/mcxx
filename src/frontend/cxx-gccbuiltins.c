@@ -1107,12 +1107,6 @@ DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_LOCK_RELEASE_OVERLOAD, BT_FN_SYNC_LOCK_RELEA
 // DEF_PRIMITIVE_TYPE(BT_LAST, get_void_type())
 DEF_FUNCTION_TYPE_0(0, BT_VOID)
 
-static default_argument_info_t** empty_default_argument_info(int num_parameters)
-{
-    // FIXME - Not counted!
-    return xcalloc(sizeof(default_argument_info_t*), num_parameters);
-}
-
 #define  DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
                    FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT, COND, EXPAND) \
   { \
@@ -1121,15 +1115,14 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
       scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, uniquestr(NAME)); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
-      new_builtin->entity_specs.is_builtin = 1; \
+      symbol_entity_specs_set_is_builtin(new_builtin, 1); \
       new_builtin->do_not_print = 1; \
       new_builtin->locus = make_locus("(builtin-function)", 0, 0); \
       if (is_function_type(new_builtin->type_information)) \
       { \
-      new_builtin->entity_specs.num_parameters = function_type_get_num_parameters(new_builtin->type_information); \
-      new_builtin->entity_specs.default_argument_info = empty_default_argument_info(new_builtin->entity_specs.num_parameters); \
+          symbol_entity_specs_reserve_default_argument_info(new_builtin, symbol_entity_specs_get_num_parameters(new_builtin)); \
       } \
-      new_builtin->entity_specs.simplify_function = EXPAND; \
+      symbol_entity_specs_set_simplify_function(new_builtin, EXPAND); \
       /* DEBUG_CODE() */ \
       /* { */ \
       /*     fprintf(stderr, "GCC-BUILTIN: Registered gcc-builtin '%s' with type '%s'\n", NAME, */ \
@@ -3324,7 +3317,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             return_symbol->type_information = deduced_function_type;
 
             return_symbol->do_not_print = 1;
-            return_symbol->entity_specs.is_builtin = 1;
+            symbol_entity_specs_set_is_builtin(return_symbol, 1);
 
             return return_symbol;
         }
@@ -3438,7 +3431,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
                 sym->kind = SK_TYPEDEF;
                 sym->type_information = *(vector_names[i].field);
                 sym->defined = 1;
-                sym->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(sym, 1);
 
                 *(vector_names[i].typedef_name) = sym;
             }
