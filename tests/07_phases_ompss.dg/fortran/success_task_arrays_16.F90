@@ -20,6 +20,10 @@ PROGRAM P
         END SUBROUTINE FOO
     END INTERFACE
 
+#ifdef __INTEL_COMPILER
+    EXTERNAL :: SLEEP
+#endif
+
     TYPE(MY_TYPE) :: V
     Z = 0
 
@@ -43,6 +47,10 @@ SUBROUTINE FOO(ARR)
     USE MOO, ONLY : Z
     IMPLICIT NONE
     INTEGER, ALLOCATABLE :: ARR(:)
+
+#ifdef __INTEL_COMPILER
+    EXTERNAL :: ABORT
+#endif
 
     PRINT *, "BEFORE 2"
     IF (Z /= 1) THEN
