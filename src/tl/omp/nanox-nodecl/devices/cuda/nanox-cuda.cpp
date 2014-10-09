@@ -504,13 +504,13 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     // The unpacked function must not be static and must have external linkage because
     // It's called from the original source but It's defined in cudacc_filename.cu
-    symbol_entity_specs_set_is_static(unpacked_function, 0);
-    symbol_entity_specs_set_is_inline(unpacked_function, 0);
+    symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
+    symbol_entity_specs_set_is_inline(unpacked_function.get_internal_symbol(), 0);
     if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
     {
         // The unpacked function is declared in the C/Fortran source but
         // defined in the Cuda file. For this reason, It has C linkage
-        symbol_entity_specs_set_linkage_spec(unpacked_function_code, "\"C\"");
+        symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
