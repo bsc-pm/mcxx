@@ -1984,7 +1984,6 @@ src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags
 src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.cpp \
-       src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi-aux.hpp \
        $(END)
 
 endif
