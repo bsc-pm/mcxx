@@ -1163,7 +1163,8 @@ src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
 
 lib_LTLIBRARIES += src/tl/analysis/use_def/libuse_def.la
 
-EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList
+EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList \
+              src/tl/analysis/use_def/cppLibraryFunctionList
 
 analysisdatadir = $(pkgdatadir)/analysisdata
 
@@ -1183,6 +1184,7 @@ src_tl_analysis_use_def_libuse_def_la_SOURCES = \
 
 analysisdata_DATA = \
 		    src/tl/analysis/use_def/cLibraryFunctionList \
+		    src/tl/analysis/use_def/cppLibraryFunctionList \
 		    $(END)
 
 ##########################################################################

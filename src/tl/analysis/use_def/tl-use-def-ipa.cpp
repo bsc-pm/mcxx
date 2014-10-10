@@ -377,117 +377,85 @@ propagate_usage:
         }
         return side_effects;
     }
-    
-    void UsageVisitor::parse_parameter(std::string current_param, const NBase& arg)
-    {
-        size_t first_slash_pos = current_param.find("#");
-        if(first_slash_pos != std::string::npos)
-        {   // Parameter is pointer
-            // The address is used
-            set_var_usage_to_node(arg, Utils::UsageKind::USED);
-            size_t second_slash_pos = current_param.find("#", first_slash_pos);
-            std::string pointed_param_usage = current_param.substr(first_slash_pos, second_slash_pos - first_slash_pos);
-            // TODO: What do we want to do with the pointed value??
-        }
-        else
-        {
-            NodeclList obj = Nodecl::Utils::get_all_memory_accesses(arg);
-            for(NodeclList::iterator it_o = obj.begin(); it_o != obj.end(); ++it_o)
-            {
-                NBase n = *it_o;
-                // Set all arguments as upper exposed
-                set_var_usage_to_node(n, Utils::UsageKind::USED);
-            }
-        }
-    }
-    
-    bool UsageVisitor::parse_c_functions_file(Symbol func_sym, const Nodecl::List& args)
+
+    bool UsageVisitor::check_c_lib_functions(Symbol func_sym, const Nodecl::List& args)
     {
         bool side_effects = true;
-        
-        std::string cLibFuncsPath = std::string(MCXX_ANALYSIS_DATA_PATH) + "/cLibraryFunctionList" ;
-        std::ifstream cLibFuncs(cLibFuncsPath.c_str());
-        if(cLibFuncs.is_open())
-        {
-            std::string clib_func_decl;
-            while(cLibFuncs.good())
-            {
-                getline(cLibFuncs, clib_func_decl);
-                if(clib_func_decl.substr(0, 2) != "//")
-                {
-                    size_t open_parenth_pos = clib_func_decl.find("(");
-                    std::string clib_func_name = clib_func_decl.substr(0, open_parenth_pos - 1);
-                    if(func_sym.get_name() == clib_func_name)
-                    {   // No global variable is read / written
-                        // Check for parameters usage
-                        side_effects = false;
 
-                        size_t comma_pos = clib_func_decl.find(",");
-                        if(comma_pos == std::string::npos)
+        std::string func_name = func_sym.get_name();
+        // Look for the symbol in the Clib scope
+        Symbol s = _c_lib_sc.get_symbol_from_name_in_scope(func_name);
+        if (s.is_valid())
+        {
+            // TODO Check here the type for each parameter
+
+            ObjectList<Symbol> params = s.get_function_parameters();
+            if (params.size() < 1)
+                return false;
+            Scope param_sc = params[0].get_scope();
+            // Map arguments with parameters
+            sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(params, args);
+            // Parse the attributes looking for usage information
+            const ObjectList<GCCAttribute>& gcc_attrs = s.get_gcc_attributes();
+            for (ObjectList<GCCAttribute>::const_iterator it = gcc_attrs.begin();
+                 it != gcc_attrs.end(); ++it)
+            {
+                std::string attr_name = it->get_attribute_name();
+                if (attr_name == "analysis_void")
+                    continue;       // There is no usage in this function
+                if ((attr_name == "analysis_ue") || (attr_name == "analysis_def"))
+                {
+                    const Nodecl::List& exprs = it->get_expression_list();
+                    // Traverse all the expression in the attribute
+                    for (Nodecl::List::const_iterator ite = exprs.begin(); ite != exprs.end(); ++ite)
+                    {
+                        // Parse the expression of the attribute, which is a String and does not contain any symbol
+                        Source ss; ss << ite->prettyprint();
+                        Nodecl::NodeclBase e = ss.parse_expression(param_sc);
+                        // Replace the occurrences of each parameter in the expression with the corresponding argument
+                        for (sym_to_nodecl_map::iterator itm = param_to_arg_map.begin();
+                             itm != param_to_arg_map.end(); ++itm)
                         {
-                            comma_pos = clib_func_decl.find(")");
+                            Nodecl::NodeclBase n = itm->first.make_nodecl(/*set_ref_type*/false);
+                            Nodecl::Utils::nodecl_replace_nodecl_by_structure(e, n, itm->second);
                         }
-                        size_t last_comma_pos = open_parenth_pos + 1;
-                        std::string current_param;
-                        Nodecl::List::iterator it = args.begin();
-                        while(comma_pos != std::string::npos && /* not a default parameter*/ it != args.end())
+                        // Only arguments with some memory can have some usage
+                        const NodeclList& mem_accesses = Nodecl::Utils::get_all_memory_accesses(e);
+                        if (mem_accesses.empty())
+                            continue;
+                        // Set the usage information to the current node
+                        if (attr_name == "analysis_ue")
                         {
-                            current_param = clib_func_decl.substr(last_comma_pos, comma_pos - last_comma_pos);
-                            parse_parameter(current_param, *it);
-                            it++;
-                            last_comma_pos = comma_pos + 1;
-                            comma_pos = clib_func_decl.find(",", last_comma_pos);
+                            _node->add_ue_var(e);
+                            side_effects = false;
                         }
-                        // Last parameter
-                        if(it != args.end())
+                        else        // analysis_def
                         {
-                            current_param = clib_func_decl.substr(last_comma_pos, clib_func_decl.find(")", last_comma_pos) - last_comma_pos);
-                            if(current_param == "...")
-                            {   // Arguments are supposed to be only used
-                                NodeclList obj;
-                                while(it != args.end())
-                                {
-                                    obj = Nodecl::Utils::get_all_memory_accesses(*it);
-                                    for(NodeclList::iterator it_o = obj.begin(); it_o  != obj.end(); ++it_o)
-                                        set_var_usage_to_node(*it_o, Utils::UsageKind::USED);
-                                    ++it;
-                                }
-                            }
-                            else
-                            {
-                                parse_parameter(current_param, *it);
-                            }
+                            _node->add_killed_var(e);
+                            side_effects = false;
                         }
                     }
                 }
             }
-
-            if(side_effects && VERBOSE)
-            {
-                std::string func_name = func_sym.get_name();
-                // Each function is warned only once
-                if(_warned_unreach_funcs.empty())
-                {   // Long message for the first time only
-                    info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
-                                    "reference parameters is limited. \nIf you know the side effects of this function, "\
-                                    "add it to the file '%s' and recompile your code. \n"
-                                    "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).\n",
-                                    __FILE__, __LINE__, func_name.c_str(), cLibFuncsPath.c_str());
-                }
-                else
-                {
-                    info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and "\
-                                    "reference parameters is limited.\n",
-                                    __FILE__, __LINE__, func_name.c_str());
-                }
-                _warned_unreach_funcs.insert(func_sym);
-            }
-            cLibFuncs.close();
         }
         else
         {
-            WARNING_MESSAGE("File containing C library calls Usage info cannot be opened. \n"\
-                            "Path tried: '%s'", cLibFuncsPath.c_str());
+            // Each function is warned only once
+            if (_warned_unreach_funcs.empty())
+            {   // Long message for the first time only
+                std::string lib_file_name = IS_C_LANGUAGE ? "cLibraryFunctionList" : "cppLibraryFunctionList";
+                info_printf("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
+                            "reference parameters is limited. \nIf you know the side effects of this function, "
+                            "add it to the file '%s' and recompile your code. \n"
+                            "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/%s instead).\n",
+                            __FILE__, __LINE__, func_name.c_str(), _c_lib_file.c_str(), lib_file_name.c_str());
+            }
+            else
+            {
+                info_printf("%s:%d: info: Function's '%s' code not reached. Usage analysis is limited\n",
+                            __FILE__, __LINE__, func_name.c_str());
+            }
+            _warned_unreach_funcs.insert(func_sym);
         }
 
         return side_effects;
@@ -509,8 +477,8 @@ propagate_usage:
         // If the function may still have side effects...
         if(side_effects)
         {
-            // Check in Mercurium function attributes data-base
-            side_effects = parse_c_functions_file(func_sym, args);
+            // Check in the Mercurium function attributes data-base
+            side_effects = check_c_lib_functions(func_sym, args);
 
             // If still cannot determine which are the side effects of the function...
             if(side_effects)

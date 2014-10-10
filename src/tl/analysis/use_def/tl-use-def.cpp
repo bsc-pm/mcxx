@@ -31,6 +31,8 @@ Cambridge, MA 02139, USA.
 #include "tl-pcfg-visitor.hpp"      // For IPA analysis
 #include "tl-use-def.hpp"
 
+#include <fstream>
+
 namespace TL {
 namespace Analysis {
 
@@ -218,8 +220,11 @@ namespace {
 }
 
     UseDef::UseDef(ExtensibleGraph* graph, const ObjectList<ExtensibleGraph*>& pcfgs)
-        : _graph(graph), _ipa_modif_vars()
+            : _graph(graph), _ipa_modif_vars(), _c_lib_file(""), _c_lib_sc(Scope())
     {
+        // Load C lib functions
+        load_c_lib_functions();
+
         initialize_ipa_var_usage();
         
         _pointer_to_size_map = graph->get_pointer_n_elements_map();
@@ -232,6 +237,44 @@ namespace {
             {
                 _pcfgs[s] = *it;
             }
+        }
+    }
+
+    void UseDef::load_c_lib_functions()
+    {
+        std::string lib_file_name = IS_C_LANGUAGE ? "cLibraryFunctionList" : "cppLibraryFunctionList";
+        _c_lib_file = std::string(MCXX_ANALYSIS_DATA_PATH) + "/" + lib_file_name;
+        std::ifstream file(_c_lib_file.c_str());
+        if (file.is_open())
+        {
+            // Create the scope where the C lib functions will be registered
+            Symbol sym(Scope::get_global_scope().new_symbol("__CLIB_USAGE__"));
+            sym.get_internal_symbol()->kind = SK_NAMESPACE;
+            decl_context_t ctx = new_namespace_context(Scope::get_global_scope().get_decl_context(), sym.get_internal_symbol());
+            sym.get_internal_symbol()->related_decl_context = ctx;
+            _c_lib_sc = Scope(ctx);
+
+            // Parse the file
+            std::string line1, line2;
+            while (file.good())
+            {
+                getline(file, line1);
+                // Skip comented lines
+                if (line1.substr(0, 13) == "__attribute__")
+                {
+                    getline(file, line2);
+                    Source s; s << line1 << line2;
+                    std::string source = s.get_source();
+                    // Returned nodecl is null because declarations do not return any tree in C
+                    /*const Nodecl::NodeclBase& func = */s.parse_statement(_c_lib_sc);
+                }
+            }
+            file.close();
+        }
+        else
+        {
+            WARNING_MESSAGE("File containing C library calls Usage info cannot be opened. \n"\
+                            "Path tried: '%s'", _c_lib_file.c_str());
         }
     }
 
@@ -310,7 +353,7 @@ namespace {
             {
                 // Treat statements in the current node
                 const NodeclList& stmts = current->get_statements();
-                UsageVisitor uv(current, _graph, &_ipa_modif_vars);
+                UsageVisitor uv(current, _graph, &_ipa_modif_vars, _c_lib_file, _c_lib_sc);
                 for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     uv.compute_statement_usage(*it);
@@ -618,9 +661,14 @@ namespace {
         }
     };
     
-    UsageVisitor::UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars)
-        : _node(n), _define(false), _current_nodecl(NBase::null()),
-          _ipa_modif_vars(ipa_modifiable_vars), _avoid_func_calls(false), _pcfg(pcfg)
+    UsageVisitor::UsageVisitor(Node* n,
+            ExtensibleGraph* pcfg,
+            IpUsageMap* ipa_modifiable_vars,
+            std::string c_lib_file,
+            Scope c_lib_sc)
+            : _node(n), _define(false), _current_nodecl(NBase::null()),
+              _ipa_modif_vars(ipa_modifiable_vars), _c_lib_file(c_lib_file), _c_lib_sc(c_lib_sc),
+              _avoid_func_calls(false), _pcfg(pcfg)
     {}
     
     void UsageVisitor::set_var_usage_to_node(const NBase& var, Utils::UsageKind usage_kind)

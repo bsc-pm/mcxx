@@ -53,6 +53,15 @@ namespace Analysis {
         //!Usage of IPA modifiable variable (reference variables, pointed values of pointer parameters and global variables)
         IpUsageMap _ipa_modif_vars;
         
+        //! Path to the file with the c lib functions
+        std::string _c_lib_file;
+
+        //! Scope where the c_lib functions are registered
+        Scope _c_lib_sc;
+
+        //! Load the functions from the file with the C lib functions usage
+        void load_c_lib_functions();
+
         //!Initialize all IPA modifiable variables' usage to NONE
         void initialize_ipa_var_usage();
         
@@ -127,6 +136,12 @@ namespace Analysis {
         //! List of IPA modifiable variables appeared until a given point of the analysis
         IpUsageMap* _ipa_modif_vars;
 
+        //! Path to the file with the c lib functions
+        std::string _c_lib_file;
+
+        //! Scope where the c lib functions are registered
+        Scope _c_lib_sc;
+
         /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
          *  When a function call appears in a split statement we calculate the first time (the func_call node)
          *  but for the other nodes, we just propagate the information
@@ -190,10 +205,8 @@ namespace Analysis {
         
         
         // *** Unknown called function code use-def analysis *** //
-        void parse_parameter(std::string current_param, const NBase& arg);
-        
-        bool parse_c_functions_file(Symbol func_sym, const Nodecl::List& args);
-        
+        bool check_c_lib_functions(Symbol func_sym, const Nodecl::List& args);
+
         bool check_function_gcc_attributes(Symbol func_sym, const Nodecl::List& args);
         
         void ipa_propagate_unreachable_function_usage(Symbol func_sym, 
@@ -214,7 +227,11 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars);
+        UsageVisitor(Node* n,
+                ExtensibleGraph* pcfg,
+                IpUsageMap* ipa_modifiable_vars,
+                std::string c_lib_file,
+                Scope c_lib_sc);
         
         // *** Modifiers *** //
         void compute_statement_usage(NBase st);
