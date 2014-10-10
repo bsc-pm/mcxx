@@ -161,6 +161,7 @@ lib_libmcxx_utils_la_SOURCES = \
                           $(END)
 
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
+lib_libmcxx_utils_la_LIBADD= -lm
 
 noinst_LIBRARIES += lib/libperish.a
 lib_libperish_a_SOURCES= lib/perish.c
@@ -608,6 +609,11 @@ CLEANFILES    += src/frontend/cxx-entity-specs.h
 BUILT_SOURCES += src/frontend/cxx-entity-specs.h
 src/frontend/cxx-entity-specs.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def > $@
+
+CLEANFILES    += src/frontend/cxx-entity-specs-ops.h
+BUILT_SOURCES += src/frontend/cxx-entity-specs-ops.h
+src/frontend/cxx-entity-specs-ops.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def getters_and_setters > $@
 
 CLEANFILES    += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 BUILT_SOURCES += src/frontend/cxx-symbol-deep-copy-entity-specs.c
@@ -1396,8 +1402,8 @@ src_tl_analysis_interface_libanalysis_interface_la_LIBADD= \
 				$(END)
 
 src_tl_analysis_interface_libanalysis_interface_la_SOURCES= \
-                                  src/tl/analysis/interface/tl-analysis-singleton.hpp \
-                                  src/tl/analysis/interface/tl-analysis-singleton.cpp \
+                                  src/tl/analysis/interface/tl-analysis-base.hpp \
+                                  src/tl/analysis/interface/tl-analysis-base.cpp \
                                   src/tl/analysis/interface/tl-analysis-internals.hpp \
                                   src/tl/analysis/interface/tl-analysis-internals.cpp \
                                   src/tl/analysis/interface/tl-analysis-interface.hpp \
@@ -1983,7 +1989,6 @@ src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags
 src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.cpp \
-       src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi-aux.hpp \
        $(END)
 
 endif

@@ -38,6 +38,7 @@
 
 #include <errno.h>
 #include "cxx-driver-utils.h"
+#include "fortran03-scope.h"
 
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
@@ -53,6 +54,25 @@ static std::string cuda_outline_name(const std::string & name)
 bool DeviceCUDA::is_gpu_device() const
 {
     return true;
+}
+
+static TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string)
+{
+    decl_context_t decl_context = source.get_scope().get_decl_context();
+    decl_context_t function_context;
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        function_context = new_program_unit_context(decl_context);
+    }
+    else
+    {
+        function_context = new_function_context(decl_context);
+        function_context = new_block_context(function_context);
+    }
+
+    TL::Symbol dest = TL::Scope(function_context).new_symbol(source.get_name() + "_moved");
+    dest.get_internal_symbol()->kind = SK_FUNCTION;
+    return dest;
 }
 
 void DeviceCUDA::update_ndrange_and_shmem_arguments(
@@ -404,7 +424,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             {
                 if (!called_task.get_function_code().is_null())
                 {
-                    TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
+                    TL::Symbol new_function = new_function_symbol_for_deep_copy(
+                            called_task, called_task.get_name() + "_moved");
 
                     _copied_cuda_functions.add_map(called_task, new_function);
 
@@ -435,8 +456,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
                 new_function_internal->kind = called_task.get_internal_symbol()->kind;
                 new_function_internal->type_information = called_task.get_type().get_internal_type();
-                new_function_internal->entity_specs.is_user_declared = 1;
-                new_function_internal->entity_specs.is_extern = 1;
+                symbol_entity_specs_set_is_user_declared(new_function_internal, 1);
+                symbol_entity_specs_set_is_extern(new_function_internal, 1);
 
                 // if the 'ndrange' clause is defined, the called task is __global__
                 if (target_info.get_ndrange().size() != 0)
@@ -445,11 +466,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                     intern_global_attr.attribute_name = uniquestr("global");
                     intern_global_attr.expression_list = nodecl_null();
 
-                    new_function_internal->entity_specs.num_gcc_attributes = 1;
-                    new_function_internal->entity_specs.gcc_attributes =
-                        (gcc_attribute_t*) xcalloc(1, sizeof(gcc_attribute_t));
-
-                    memcpy(new_function_internal->entity_specs.gcc_attributes, &intern_global_attr, 1 * sizeof(gcc_attribute_t));
+                    symbol_entity_specs_add_gcc_attributes(new_function_internal,
+                            intern_global_attr);
                 }
 
                 _copied_cuda_functions.add_map(called_task, new_function);
@@ -507,13 +525,13 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     // The unpacked function must not be static and must have external linkage because
     // It's called from the original source but It's defined in cudacc_filename.cu
-    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
-    unpacked_function.get_internal_symbol()->entity_specs.is_inline = 0;
+    symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
+    symbol_entity_specs_set_is_inline(unpacked_function.get_internal_symbol(), 0);
     if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
     {
         // The unpacked function is declared in the C/Fortran source but
         // defined in the Cuda file. For this reason, It has C linkage
-        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
+        symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
@@ -860,10 +878,10 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
         if (it->is<Nodecl::FunctionCode>()
                 || it->is<Nodecl::TemplateFunctionCode>())
         {
-            TL::Symbol function = it->get_symbol();
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_moved");
+            TL::Symbol source = it->get_symbol();
+            TL::Symbol dest = new_function_symbol_for_deep_copy(source, source.get_name() + "_moved");
 
-            _copied_cuda_functions.add_map(function, new_function);
+            _copied_cuda_functions.add_map(source, dest);
             _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_cuda_functions));
         }
         else

@@ -344,6 +344,8 @@ namespace TL
                     && nested_pragma.is<Nodecl::List>())
             {
                 nested_pragma = nested_pragma.as<Nodecl::List>().front();
+                ERROR_CONDITION(!nested_pragma.is<Nodecl::Context>(), "Invalid node\n", 0);
+                nested_pragma = nested_pragma.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
             }
 
             if (nested_pragma.is_null()

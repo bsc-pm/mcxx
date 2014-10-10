@@ -805,8 +805,8 @@ static deduction_result_t deduce_empty_parameter_packs(
                     current_pack->symbol_name);
         }
 
-        new_deduction->parameter_position = current_pack->entity_specs.template_parameter_position;
-        new_deduction->parameter_nesting = current_pack->entity_specs.template_parameter_nesting;
+        new_deduction->parameter_position = symbol_entity_specs_get_template_parameter_position(current_pack);
+        new_deduction->parameter_nesting = symbol_entity_specs_get_template_parameter_nesting(current_pack);
         new_deduction->parameter_name = current_pack->symbol_name;
         // new_deduction->num_deduced_parameters = 0;
 
@@ -838,10 +838,10 @@ static char template_parameter_participates_in_deduction(
     {
         if ((explicit_template_arguments->parameters[i]->entry->kind
                     == sym->kind)
-                && (explicit_template_arguments->parameters[i]->entry->entity_specs.template_parameter_position
-                    == sym->entity_specs.template_parameter_position)
-                && (explicit_template_arguments->parameters[i]->entry->entity_specs.template_parameter_nesting
-                    == sym->entity_specs.template_parameter_nesting))
+                && (symbol_entity_specs_get_template_parameter_position(explicit_template_arguments->parameters[i]->entry)
+                    == symbol_entity_specs_get_template_parameter_position(sym))
+                && (symbol_entity_specs_get_template_parameter_nesting(explicit_template_arguments->parameters[i]->entry)
+                    == symbol_entity_specs_get_template_parameter_nesting(sym)))
         {
             if (sym->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
                     || sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
@@ -1281,8 +1281,8 @@ static deduction_result_t deduce_template_arguments_from_a_value(
             ? TPK_NONTYPE
             : TPK_NONTYPE_PACK;
 
-        new_deduction->parameter_position = template_parameter->entity_specs.template_parameter_position;
-        new_deduction->parameter_nesting = template_parameter->entity_specs.template_parameter_nesting;
+        new_deduction->parameter_position = symbol_entity_specs_get_template_parameter_position(template_parameter);
+        new_deduction->parameter_nesting = symbol_entity_specs_get_template_parameter_nesting(template_parameter);
         new_deduction->parameter_name = template_parameter->symbol_name;
 
         P_LIST_ADD(deduction_result->deduction_list,
@@ -2181,8 +2181,8 @@ deduction_result_t deduce_template_arguments_from_a_type(
             ? TPK_TYPE
             : TPK_TYPE_PACK;
 
-        new_deduction->parameter_position = template_parameter->entity_specs.template_parameter_position;
-        new_deduction->parameter_nesting = template_parameter->entity_specs.template_parameter_nesting;
+        new_deduction->parameter_position = symbol_entity_specs_get_template_parameter_position(template_parameter);
+        new_deduction->parameter_nesting = symbol_entity_specs_get_template_parameter_nesting(template_parameter);
         new_deduction->parameter_name = template_parameter->symbol_name;
 
         P_LIST_ADD(deduction_result->deduction_list,
@@ -2258,8 +2258,8 @@ deduction_result_t deduce_template_arguments_from_a_type(
             (template_parameter->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             ? TPK_TEMPLATE
             : TPK_TEMPLATE_PACK;
-        new_deduction->parameter_position = template_parameter->entity_specs.template_parameter_position;
-        new_deduction->parameter_nesting = template_parameter->entity_specs.template_parameter_nesting;
+        new_deduction->parameter_position = symbol_entity_specs_get_template_parameter_position(template_parameter);
+        new_deduction->parameter_nesting = symbol_entity_specs_get_template_parameter_nesting(template_parameter);
         new_deduction->parameter_name = template_parameter->symbol_name;
 
         P_LIST_ADD(deduction_result->deduction_list,
@@ -3012,13 +3012,13 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                 );
             type_t* function_type = current_function->type_information;
 
-            if (current_function->entity_specs.is_member
-                    && !current_function->entity_specs.is_static)
+            if (symbol_entity_specs_get_is_member(current_function)
+                    && !symbol_entity_specs_get_is_static(current_function))
             {
                 function_type =
                     get_pointer_to_member_type(
                             current_function->type_information,
-                            current_function->entity_specs.class_type);
+                            symbol_entity_specs_get_class_type(current_function));
             }
             else
             {
@@ -3103,12 +3103,12 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
             {
                 argument = simplified->type_information;
 
-                if (simplified->entity_specs.is_member
-                        && !simplified->entity_specs.is_static)
+                if (symbol_entity_specs_get_is_member(simplified)
+                        && !symbol_entity_specs_get_is_static(simplified))
                 {
                     argument = get_pointer_to_member_type(
                             simplified->type_information,
-                            simplified->entity_specs.class_type);
+                            symbol_entity_specs_get_class_type(simplified));
                 }
                 else
                 {
@@ -3679,9 +3679,9 @@ deduction_result_t finish_deduced_template_arguments(
         for (j = 0; j < deduction_result->num_deductions; j++)
         {
             if ((deduction_result->deduction_list[j]->parameter_nesting
-                        == deduced_template_arguments->parameters[i]->entry->entity_specs.template_parameter_nesting)
+                        == symbol_entity_specs_get_template_parameter_nesting(deduced_template_arguments->parameters[i]->entry))
                     && (deduction_result->deduction_list[j]->parameter_position
-                        == deduced_template_arguments->parameters[i]->entry->entity_specs.template_parameter_position))
+                        == symbol_entity_specs_get_template_parameter_position(deduced_template_arguments->parameters[i]->entry)))
             {
                 deduction = deduction_result->deduction_list[j];
                 break;
@@ -3963,9 +3963,9 @@ deduction_result_t give_explicit_empty_value_to_stray_template_parameter_packs(
         for (j = 0; j < deduction_result->num_deductions && !found; j++)
         {
             found = ((deduction_result->deduction_list[j]->parameter_position
-                        == current_pack->entity_specs.template_parameter_position)
+                        == symbol_entity_specs_get_template_parameter_position(current_pack))
                     && (deduction_result->deduction_list[j]->parameter_nesting
-                        == current_pack->entity_specs.template_parameter_nesting));
+                        == symbol_entity_specs_get_template_parameter_nesting(current_pack)));
         }
 
         if (found)
@@ -3976,10 +3976,10 @@ deduction_result_t give_explicit_empty_value_to_stray_template_parameter_packs(
         found = 0;
         for (j = 0; j < num_parameter_packs; j++)
         {
-            found = ((parameter_packs[j]->entity_specs.template_parameter_position
-                        == current_pack->entity_specs.template_parameter_position)
-                    && (parameter_packs[j]->entity_specs.template_parameter_nesting
-                        == current_pack->entity_specs.template_parameter_nesting));
+            found = ((symbol_entity_specs_get_template_parameter_position(parameter_packs[j])
+                        == symbol_entity_specs_get_template_parameter_position(current_pack))
+                    && (symbol_entity_specs_get_template_parameter_nesting(parameter_packs[j])
+                        == symbol_entity_specs_get_template_parameter_nesting(current_pack)));
         }
 
         if (found)
@@ -4008,8 +4008,8 @@ deduction_result_t give_explicit_empty_value_to_stray_template_parameter_packs(
                     current_pack->symbol_name);
         }
 
-        new_deduction->parameter_position = current_pack->entity_specs.template_parameter_position;
-        new_deduction->parameter_nesting = current_pack->entity_specs.template_parameter_nesting;
+        new_deduction->parameter_position = symbol_entity_specs_get_template_parameter_position(current_pack);
+        new_deduction->parameter_nesting = symbol_entity_specs_get_template_parameter_nesting(current_pack);
         new_deduction->parameter_name = current_pack->symbol_name;
         // new_deduction->num_deduced_parameters = 0;
 
@@ -4461,7 +4461,7 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
 {
     *out_deduced_template_arguments = NULL;
 
-    ERROR_CONDITION(!conversion_function->entity_specs.is_conversion,
+    ERROR_CONDITION(!symbol_entity_specs_get_is_conversion(conversion_function),
             "This is not a conversion", 0);
 
     type_t* original_required_type = required_type;
@@ -4700,10 +4700,10 @@ char deduce_arguments_of_auto_initialization(
     scope_entry_t* fake_template_parameter_symbol = xcalloc(1, sizeof(*fake_template_parameter_symbol));
     fake_template_parameter_symbol->symbol_name = UNIQUESTR_LITERAL("FakeTypeTemplateParameter");
     fake_template_parameter_symbol->kind = SK_TEMPLATE_TYPE_PARAMETER;
-    fake_template_parameter_symbol->entity_specs.is_template_parameter = 1;
+    symbol_entity_specs_set_is_template_parameter(fake_template_parameter_symbol, 1);
     fake_template_parameter_symbol->locus = locus;
-    fake_template_parameter_symbol->entity_specs.template_parameter_nesting = 1;
-    fake_template_parameter_symbol->entity_specs.template_parameter_position = 0;
+    symbol_entity_specs_set_template_parameter_nesting(fake_template_parameter_symbol, 1);
+    symbol_entity_specs_set_template_parameter_position(fake_template_parameter_symbol, 0);
 
     // Fake template parameter list
     template_parameter_list_t *fake_template_parameter_list = xcalloc(1, sizeof(*fake_template_parameter_list));

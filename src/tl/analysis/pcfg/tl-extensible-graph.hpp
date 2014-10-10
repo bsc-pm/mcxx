@@ -72,6 +72,11 @@ namespace Analysis {
          */
         Symbol _function_sym;
 
+        /*! Unique node in the PCFG representing an ulterior synchronization point
+         *  for any task in the graph not synchronized within the graph
+         */
+        Node* _post_sync;
+
         //! Map relating a symbol with pointer type and the number of elements hidden in the pointer
         SizeMap _pointer_to_size_map;
         
@@ -298,10 +303,6 @@ namespace Analysis {
         //! during the construction of the graph but do not represent any statement of the code, and also
         //! concatenates the nodes that will be executed sequentially for sure (Basic Blocks)
         void dress_up_graph();
-        
-        //! Return nodes may cause unconnected parts of the code to be connected
-        //! This method removes this dead connections
-        void remove_unnecessary_connections();
 
         //! This method concatenates a list of nodes into only one
         /*!
@@ -346,7 +347,7 @@ namespace Analysis {
         static void clear_visits_aux_in_level(Node* node, Node* outer_node);
 
         //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
-        static void clear_visits_backwards(Node* node);
+        static void clear_visits_backwards(Node* node, Node* graph);
 
 
         // *** DOT Graph *** //
@@ -374,6 +375,9 @@ namespace Analysis {
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code
         Symbol get_function_symbol() const;
+
+        Node* get_post_sync() const;
+        void set_post_sync(Node* post_sync);
 
         void set_pointer_n_elems(const NBase& s, const NBase& size);
         NBase get_pointer_n_elems(const NBase& s);
@@ -421,6 +425,7 @@ namespace Analysis {
         static Node* get_enclosing_control_structure(Node* node);
         static Node* get_task_creation_from_task(Node* task);
         static Node* get_task_from_task_creation(Node* task_creation);
+        static bool task_synchronizes_in_post_sync(Node* task);
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //

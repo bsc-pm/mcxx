@@ -112,16 +112,15 @@ namespace OpenMP {
             IsOmpssEnabled = _ompss_mode_enabled;
             
             // Automatically set the scope of the variables involved in the task, if possible
-            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(IsOmpssEnabled);
-            TL::Analysis::PCFGAnalysis_memento memento;
-            singleton.auto_scoping(memento, ast);
+            TL::Analysis::AnalysisBase analysis(IsOmpssEnabled);
+            analysis.auto_scoping(ast);
             
             // Print the results if any and modify the environment for later lowering
-            TL::ObjectList<TL::Analysis::ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-            for(TL::ObjectList<TL::Analysis::ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            const TL::ObjectList<TL::Analysis::ExtensibleGraph*>& pcfgs = analysis.get_pcfgs();
+            for(TL::ObjectList<TL::Analysis::ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
-                TL::ObjectList<TL::Analysis::Node*> tasks = (*it)->get_tasks_list();
-                for(TL::ObjectList<TL::Analysis::Node*>::iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
+                const TL::ObjectList<TL::Analysis::Node*>& tasks = (*it)->get_tasks_list();
+                for(TL::ObjectList<TL::Analysis::Node*>::const_iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
                 {
                     TL::Analysis::Node* task = *itt;
                     Nodecl::OpenMP::Task n = task->get_graph_related_ast().as<Nodecl::OpenMP::Task>();

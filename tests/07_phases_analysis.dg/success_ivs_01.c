@@ -26,31 +26,32 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-analysis
+test_nolink=yes
+</testinfo>
+*/
 
-#ifndef UNIQUESTR_H
-#define UNIQUESTR_H
+#include <stdio.h>
+#include <unistd.h>
 
-#include "libutils-common.h"
+#define N  4
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+void foo()
+{
+    int diag;
 
-#define uniqstr uniquestr
-LIBUTILS_EXTERN const char *uniquestr(const char*);
+    #pragma analysis_check assert induction_var(diag:0:6:1)
+    for (diag = 0; diag < 2 * N - 1; diag++) {
+        int j, i;
+        if (diag<N)
+            i = diag;
+        else
+            i = N-1;
 
-#define UNIQUESTR_LITERAL(literal) \
-  ({ static const char* _cached_uniquestr = NULL; \
-     if (_cached_uniquestr == NULL)  _cached_uniquestr = uniquestr(literal); \
-     _cached_uniquestr; \
-  })
-
-LIBUTILS_EXTERN unsigned long long int char_trie_used_memory(void);
-
-LIBUTILS_EXTERN void uniquestr_stats(void);
-
-#ifdef __cplusplus
+        #pragma analysis_check assert induction_var(i:0:diag,4-1:-1;j:diag-i:3:1)
+        for (j = diag - i; i >= 0 && j < N; i--, j++) 
+        {}
+    }
 }
-#endif
-
-#endif // UNIQUESTR_H

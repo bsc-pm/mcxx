@@ -9,7 +9,7 @@ p[3].type_info = get_pointer_type(get_unsigned_int_type());
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addcarryx_u32->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addcarryx_u32, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addcarryx_u64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addcarryx_u64"));
@@ -22,7 +22,7 @@ p[3].type_info = get_pointer_type(get_unsigned_long_long_int_type());
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addcarryx_u64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addcarryx_u64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addpd"));
@@ -33,7 +33,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addpd256"));
@@ -44,7 +44,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addps"));
@@ -55,7 +55,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addps256"));
@@ -66,7 +66,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addsd"));
@@ -77,7 +77,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addss"));
@@ -88,7 +88,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addsubpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addsubpd"));
@@ -99,7 +99,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addsubpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addsubpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addsubpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addsubpd256"));
@@ -110,7 +110,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addsubpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addsubpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addsubps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addsubps"));
@@ -121,7 +121,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addsubps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addsubps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_addsubps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_addsubps256"));
@@ -132,7 +132,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_addsubps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_addsubps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_aesdec128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_aesdec128"));
@@ -143,7 +143,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_aesdec128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_aesdec128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_aesdeclast128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_aesdeclast128"));
@@ -154,7 +154,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_aesdeclast128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_aesdeclast128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_aesenc128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_aesenc128"));
@@ -165,7 +165,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_aesenc128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_aesenc128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_aesenclast128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_aesenclast128"));
@@ -176,7 +176,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_aesenclast128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_aesenclast128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_aesimc128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_aesimc128"));
@@ -186,7 +186,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_aesimc128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_aesimc128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_aeskeygenassist128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_aeskeygenassist128"));
@@ -197,7 +197,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_aeskeygenassist128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_aeskeygenassist128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andnpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andnpd"));
@@ -208,7 +208,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andnpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andnpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andnpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andnpd256"));
@@ -219,7 +219,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andnpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andnpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andnps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andnps"));
@@ -230,7 +230,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andnps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andnps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andnps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andnps256"));
@@ -241,7 +241,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andnps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andnps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andpd"));
@@ -252,7 +252,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andpd256"));
@@ -263,7 +263,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andps"));
@@ -274,7 +274,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_andps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_andps256"));
@@ -285,7 +285,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_andps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_andps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendpd"));
@@ -297,7 +297,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendpd256"));
@@ -309,7 +309,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendps"));
@@ -321,7 +321,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendps256"));
@@ -333,7 +333,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendvpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendvpd"));
@@ -345,7 +345,7 @@ p[2].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendvpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendvpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendvpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendvpd256"));
@@ -357,7 +357,7 @@ p[2].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendvpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendvpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendvps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendvps"));
@@ -369,7 +369,7 @@ p[2].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendvps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendvps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_blendvps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_blendvps256"));
@@ -381,7 +381,7 @@ p[2].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_blendvps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_blendvps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_bsrdi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_bsrdi"));
@@ -391,7 +391,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_signed_long_
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_bsrdi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_bsrdi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_bsrsi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_bsrsi"));
@@ -401,7 +401,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_signed_int_t
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_bsrsi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_bsrsi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_clflush = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_clflush"));
@@ -411,7 +411,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_clflush->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_clflush, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpeqpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpeqpd"));
@@ -422,7 +422,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpeqpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpeqpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpeqps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpeqps"));
@@ -433,7 +433,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpeqps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpeqps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpeqsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpeqsd"));
@@ -444,7 +444,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpeqsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpeqsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpeqss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpeqss"));
@@ -455,7 +455,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpeqss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpeqss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpgepd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpgepd"));
@@ -466,7 +466,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpgepd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpgepd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpgeps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpgeps"));
@@ -477,7 +477,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpgeps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpgeps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpgtpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpgtpd"));
@@ -488,7 +488,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpgtpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpgtpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpgtps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpgtps"));
@@ -499,7 +499,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpgtps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpgtps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmplepd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmplepd"));
@@ -510,7 +510,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmplepd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmplepd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpleps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpleps"));
@@ -521,7 +521,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpleps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpleps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmplesd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmplesd"));
@@ -532,7 +532,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmplesd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmplesd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpless = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpless"));
@@ -543,7 +543,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpless->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpless, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpltpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpltpd"));
@@ -554,7 +554,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpltpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpltpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpltps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpltps"));
@@ -565,7 +565,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpltps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpltps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpltsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpltsd"));
@@ -576,7 +576,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpltsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpltsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpltss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpltss"));
@@ -587,7 +587,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpltss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpltss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpneqpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpneqpd"));
@@ -598,7 +598,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpneqpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpneqpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpneqps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpneqps"));
@@ -609,7 +609,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpneqps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpneqps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpneqsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpneqsd"));
@@ -620,7 +620,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpneqsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpneqsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpneqss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpneqss"));
@@ -631,7 +631,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpneqss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpneqss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpngepd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpngepd"));
@@ -642,7 +642,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpngepd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpngepd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpngeps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpngeps"));
@@ -653,7 +653,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpngeps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpngeps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpngtpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpngtpd"));
@@ -664,7 +664,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpngtpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpngtpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpngtps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpngtps"));
@@ -675,7 +675,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpngtps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpngtps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnlepd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnlepd"));
@@ -686,7 +686,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnlepd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnlepd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnleps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnleps"));
@@ -697,7 +697,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnleps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnleps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnlesd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnlesd"));
@@ -708,7 +708,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnlesd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnlesd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnless = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnless"));
@@ -719,7 +719,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnless->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnless, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnltpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnltpd"));
@@ -730,7 +730,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnltpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnltpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnltps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnltps"));
@@ -741,7 +741,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnltps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnltps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnltsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnltsd"));
@@ -752,7 +752,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnltsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnltsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpnltss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpnltss"));
@@ -763,7 +763,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpnltss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpnltss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpordpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpordpd"));
@@ -774,7 +774,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpordpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpordpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpordps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpordps"));
@@ -785,7 +785,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpordps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpordps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpordsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpordsd"));
@@ -796,7 +796,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpordsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpordsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpordss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpordss"));
@@ -807,7 +807,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpordss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpordss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmppd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmppd"));
@@ -819,7 +819,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmppd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmppd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmppd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmppd256"));
@@ -831,7 +831,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmppd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmppd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpps"));
@@ -843,7 +843,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpps256"));
@@ -855,7 +855,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpsd"));
@@ -867,7 +867,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpss"));
@@ -879,7 +879,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpunordpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpunordpd"));
@@ -890,7 +890,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpunordpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpunordpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpunordps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpunordps"));
@@ -901,7 +901,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpunordps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpunordps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpunordsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpunordsd"));
@@ -912,7 +912,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpunordsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpunordsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cmpunordss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cmpunordss"));
@@ -923,7 +923,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cmpunordss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cmpunordss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comieq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comieq"));
@@ -934,7 +934,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comieq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comieq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comige = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comige"));
@@ -945,7 +945,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comige->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comige, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comigt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comigt"));
@@ -956,7 +956,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comigt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comigt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comile = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comile"));
@@ -967,7 +967,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comile->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comile, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comilt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comilt"));
@@ -978,7 +978,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comilt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comilt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comineq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comineq"));
@@ -989,7 +989,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comineq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comineq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comisdeq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comisdeq"));
@@ -1000,7 +1000,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comisdeq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comisdeq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comisdge = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comisdge"));
@@ -1011,7 +1011,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comisdge->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comisdge, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comisdgt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comisdgt"));
@@ -1022,7 +1022,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comisdgt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comisdgt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comisdle = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comisdle"));
@@ -1033,7 +1033,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comisdle->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comisdle, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comisdlt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comisdlt"));
@@ -1044,7 +1044,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comisdlt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comisdlt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_comisdneq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_comisdneq"));
@@ -1055,7 +1055,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_comisdneq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_comisdneq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_crc32di = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_crc32di"));
@@ -1066,7 +1066,7 @@ p[1].type_info = get_unsigned_long_long_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_crc32di->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_crc32di, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_crc32hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_crc32hi"));
@@ -1077,7 +1077,7 @@ p[1].type_info = get_unsigned_short_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_crc32hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_crc32hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_crc32qi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_crc32qi"));
@@ -1088,7 +1088,7 @@ p[1].type_info = get_unsigned_char_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_crc32qi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_crc32qi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_crc32si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_crc32si"));
@@ -1099,7 +1099,7 @@ p[1].type_info = get_unsigned_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_crc32si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_crc32si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtdq2pd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtdq2pd"));
@@ -1109,7 +1109,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtdq2pd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtdq2pd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtdq2pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtdq2pd256"));
@@ -1119,7 +1119,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtdq2pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtdq2pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtdq2ps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtdq2ps"));
@@ -1129,7 +1129,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtdq2ps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtdq2ps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtdq2ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtdq2ps256"));
@@ -1139,7 +1139,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtdq2ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtdq2ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpd2dq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpd2dq"));
@@ -1149,7 +1149,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpd2dq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpd2dq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpd2dq256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpd2dq256"));
@@ -1159,7 +1159,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpd2dq256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpd2dq256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpd2pi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpd2pi"));
@@ -1169,7 +1169,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpd2pi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpd2pi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpd2ps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpd2ps"));
@@ -1179,7 +1179,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpd2ps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpd2ps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpd2ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpd2ps256"));
@@ -1189,7 +1189,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpd2ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpd2ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpi2pd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpi2pd"));
@@ -1199,7 +1199,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpi2pd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpi2pd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtpi2ps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtpi2ps"));
@@ -1210,7 +1210,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtpi2ps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtpi2ps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtps2dq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtps2dq"));
@@ -1220,7 +1220,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtps2dq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtps2dq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtps2dq256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtps2dq256"));
@@ -1230,7 +1230,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtps2dq256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtps2dq256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtps2pd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtps2pd"));
@@ -1240,7 +1240,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtps2pd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtps2pd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtps2pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtps2pd256"));
@@ -1250,7 +1250,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtps2pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtps2pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtps2pi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtps2pi"));
@@ -1260,7 +1260,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtps2pi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtps2pi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsd2si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsd2si"));
@@ -1270,7 +1270,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsd2si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsd2si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsd2si64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsd2si64"));
@@ -1280,7 +1280,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsd2si64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsd2si64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsd2ss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsd2ss"));
@@ -1291,7 +1291,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsd2ss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsd2ss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsi2sd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsi2sd"));
@@ -1302,7 +1302,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsi2sd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsi2sd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsi2ss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsi2ss"));
@@ -1313,7 +1313,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsi2ss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsi2ss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsi642sd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsi642sd"));
@@ -1324,7 +1324,7 @@ p[1].type_info = get_signed_long_long_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsi642sd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsi642sd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtsi642ss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtsi642ss"));
@@ -1335,7 +1335,7 @@ p[1].type_info = get_signed_long_long_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtsi642ss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtsi642ss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtss2sd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtss2sd"));
@@ -1346,7 +1346,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtss2sd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtss2sd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtss2si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtss2si"));
@@ -1356,7 +1356,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtss2si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtss2si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvtss2si64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvtss2si64"));
@@ -1366,7 +1366,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvtss2si64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvtss2si64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttpd2dq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttpd2dq"));
@@ -1376,7 +1376,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttpd2dq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttpd2dq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttpd2dq256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttpd2dq256"));
@@ -1386,7 +1386,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttpd2dq256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttpd2dq256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttpd2pi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttpd2pi"));
@@ -1396,7 +1396,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttpd2pi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttpd2pi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttps2dq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttps2dq"));
@@ -1406,7 +1406,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttps2dq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttps2dq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttps2dq256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttps2dq256"));
@@ -1416,7 +1416,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttps2dq256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttps2dq256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttps2pi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttps2pi"));
@@ -1426,7 +1426,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttps2pi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttps2pi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttsd2si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttsd2si"));
@@ -1436,7 +1436,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttsd2si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttsd2si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttsd2si64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttsd2si64"));
@@ -1446,7 +1446,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttsd2si64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttsd2si64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttss2si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttss2si"));
@@ -1456,7 +1456,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttss2si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttss2si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_cvttss2si64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_cvttss2si64"));
@@ -1466,7 +1466,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_cvttss2si64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_cvttss2si64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_divpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_divpd"));
@@ -1477,7 +1477,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_divpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_divpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_divpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_divpd256"));
@@ -1488,7 +1488,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_divpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_divpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_divps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_divps"));
@@ -1499,7 +1499,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_divps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_divps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_divps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_divps256"));
@@ -1510,7 +1510,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_divps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_divps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_divsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_divsd"));
@@ -1521,7 +1521,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_divsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_divsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_divss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_divss"));
@@ -1532,7 +1532,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_divss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_divss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_dppd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_dppd"));
@@ -1544,7 +1544,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_dppd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_dppd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_dpps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_dpps"));
@@ -1556,7 +1556,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_dpps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_dpps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_dpps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_dpps256"));
@@ -1568,7 +1568,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_dpps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_dpps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_emms = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_emms"));
@@ -1577,7 +1577,7 @@ sym___builtin_ia32_emms->type_information = ({type_t* return_type = get_void_typ
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_emms->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_emms, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pause = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pause"));
@@ -1586,7 +1586,7 @@ sym___builtin_ia32_pause->type_information = ({type_t* return_type = get_void_ty
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pause->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pause, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_fxrstor = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_fxrstor"));
@@ -1596,7 +1596,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_fxrstor->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_fxrstor, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_fxrstor64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_fxrstor64"));
@@ -1606,7 +1606,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_fxrstor64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_fxrstor64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_fxsave = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_fxsave"));
@@ -1616,7 +1616,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_fxsave->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_fxsave, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_fxsave64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_fxsave64"));
@@ -1626,7 +1626,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_fxsave64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_fxsave64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_haddpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_haddpd"));
@@ -1637,7 +1637,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_haddpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_haddpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_haddpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_haddpd256"));
@@ -1648,7 +1648,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_haddpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_haddpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_haddps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_haddps"));
@@ -1659,7 +1659,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_haddps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_haddps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_haddps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_haddps256"));
@@ -1670,7 +1670,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_haddps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_haddps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_hsubpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_hsubpd"));
@@ -1681,7 +1681,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_hsubpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_hsubpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_hsubpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_hsubpd256"));
@@ -1692,7 +1692,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_hsubpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_hsubpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_hsubps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_hsubps"));
@@ -1703,7 +1703,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_hsubps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_hsubps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_hsubps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_hsubps256"));
@@ -1714,7 +1714,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_hsubps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_hsubps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_insertps128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_insertps128"));
@@ -1726,7 +1726,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_insertps128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_insertps128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_lddqu = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_lddqu"));
@@ -1736,7 +1736,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_lddqu->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_lddqu, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_lddqu256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_lddqu256"));
@@ -1746,7 +1746,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_lddqu256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_lddqu256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ldmxcsr = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ldmxcsr"));
@@ -1756,7 +1756,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_int
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ldmxcsr->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ldmxcsr, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_lfence = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_lfence"));
@@ -1765,7 +1765,7 @@ sym___builtin_ia32_lfence->type_information = ({type_t* return_type = get_void_t
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_lfence->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_lfence, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loaddqu = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loaddqu"));
@@ -1775,7 +1775,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loaddqu->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loaddqu, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loaddqu256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loaddqu256"));
@@ -1785,7 +1785,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loaddqu256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loaddqu256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadhpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadhpd"));
@@ -1796,7 +1796,7 @@ p[1].type_info = get_pointer_type(get_const_qualified_type(get_double_type()));
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadhpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadhpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadhps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadhps"));
@@ -1807,7 +1807,7 @@ p[1].type_info = get_pointer_type(get_const_qualified_type(get_vector_type(get_f
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadhps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadhps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadlpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadlpd"));
@@ -1818,7 +1818,7 @@ p[1].type_info = get_pointer_type(get_const_qualified_type(get_double_type()));
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadlpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadlpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadlps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadlps"));
@@ -1829,7 +1829,7 @@ p[1].type_info = get_pointer_type(get_const_qualified_type(get_vector_type(get_f
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadlps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadlps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadupd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadupd"));
@@ -1839,7 +1839,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadupd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadupd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadupd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadupd256"));
@@ -1849,7 +1849,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadupd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadupd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadups = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadups"));
@@ -1859,7 +1859,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadups->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadups, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_loadups256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_loadups256"));
@@ -1869,7 +1869,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_loadups256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_loadups256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskloadpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskloadpd"));
@@ -1880,7 +1880,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskloadpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskloadpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskloadpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskloadpd256"));
@@ -1891,7 +1891,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskloadpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskloadpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskloadps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskloadps"));
@@ -1902,7 +1902,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskloadps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskloadps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskloadps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskloadps256"));
@@ -1913,7 +1913,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskloadps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskloadps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskmovdqu = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskmovdqu"));
@@ -1925,7 +1925,7 @@ p[2].type_info = get_pointer_type(get_char_type());
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskmovdqu->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskmovdqu, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskmovq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskmovq"));
@@ -1937,7 +1937,7 @@ p[2].type_info = get_pointer_type(get_char_type());
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskmovq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskmovq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskstorepd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskstorepd"));
@@ -1949,7 +1949,7 @@ p[2].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskstorepd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskstorepd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskstorepd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskstorepd256"));
@@ -1961,7 +1961,7 @@ p[2].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskstorepd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskstorepd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskstoreps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskstoreps"));
@@ -1973,7 +1973,7 @@ p[2].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskstoreps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskstoreps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maskstoreps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maskstoreps256"));
@@ -1985,7 +1985,7 @@ p[2].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maskstoreps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maskstoreps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maxpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maxpd"));
@@ -1996,7 +1996,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maxpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maxpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maxpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maxpd256"));
@@ -2007,7 +2007,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maxpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maxpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maxps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maxps"));
@@ -2018,7 +2018,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maxps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maxps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maxps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maxps256"));
@@ -2029,7 +2029,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maxps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maxps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maxsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maxsd"));
@@ -2040,7 +2040,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maxsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maxsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_maxss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_maxss"));
@@ -2051,7 +2051,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_maxss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_maxss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mfence = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mfence"));
@@ -2060,7 +2060,7 @@ sym___builtin_ia32_mfence->type_information = ({type_t* return_type = get_void_t
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mfence->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mfence, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_minpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_minpd"));
@@ -2071,7 +2071,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_minpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_minpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_minpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_minpd256"));
@@ -2082,7 +2082,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_minpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_minpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_minps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_minps"));
@@ -2093,7 +2093,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_minps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_minps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_minps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_minps256"));
@@ -2104,7 +2104,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_minps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_minps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_minsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_minsd"));
@@ -2115,7 +2115,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_minsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_minsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_minss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_minss"));
@@ -2126,7 +2126,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_minss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_minss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_monitor = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_monitor"));
@@ -2138,7 +2138,7 @@ p[2].type_info = get_unsigned_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_monitor->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_monitor, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movddup256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movddup256"));
@@ -2148,7 +2148,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movddup256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movddup256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movhlps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movhlps"));
@@ -2159,7 +2159,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movhlps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movhlps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movlhps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movlhps"));
@@ -2170,7 +2170,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movlhps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movlhps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movmskpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movmskpd"));
@@ -2180,7 +2180,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movmskpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movmskpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movmskpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movmskpd256"));
@@ -2190,7 +2190,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movmskpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movmskpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movmskps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movmskps"));
@@ -2200,7 +2200,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movmskps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movmskps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movmskps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movmskps256"));
@@ -2210,7 +2210,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movmskps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movmskps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntdq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntdq"));
@@ -2221,7 +2221,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntdq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntdq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntdq256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntdq256"));
@@ -2232,7 +2232,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntdq256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntdq256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntdqa = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntdqa"));
@@ -2242,7 +2242,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntdqa->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntdqa, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movnti = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movnti"));
@@ -2253,7 +2253,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movnti->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movnti, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movnti64 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movnti64"));
@@ -2264,7 +2264,7 @@ p[1].type_info = get_signed_long_long_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movnti64->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movnti64, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntpd"));
@@ -2275,7 +2275,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntpd256"));
@@ -2286,7 +2286,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntps"));
@@ -2297,7 +2297,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntps256"));
@@ -2308,7 +2308,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movntq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movntq"));
@@ -2319,7 +2319,7 @@ p[1].type_info = get_unsigned_long_long_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movntq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movntq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movq128"));
@@ -2329,7 +2329,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movsd"));
@@ -2340,7 +2340,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movshdup = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movshdup"));
@@ -2350,7 +2350,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movshdup->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movshdup, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movshdup256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movshdup256"));
@@ -2360,7 +2360,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movshdup256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movshdup256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movsldup = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movsldup"));
@@ -2370,7 +2370,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movsldup->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movsldup, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movsldup256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movsldup256"));
@@ -2380,7 +2380,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movsldup256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movsldup256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_movss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_movss"));
@@ -2391,7 +2391,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_movss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_movss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mpsadbw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mpsadbw128"));
@@ -2403,7 +2403,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mpsadbw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mpsadbw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mulpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mulpd"));
@@ -2414,7 +2414,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mulpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mulpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mulpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mulpd256"));
@@ -2425,7 +2425,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mulpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mulpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mulps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mulps"));
@@ -2436,7 +2436,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mulps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mulps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mulps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mulps256"));
@@ -2447,7 +2447,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mulps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mulps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mulsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mulsd"));
@@ -2458,7 +2458,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mulsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mulsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mulss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mulss"));
@@ -2469,7 +2469,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mulss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mulss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_mwait = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_mwait"));
@@ -2480,7 +2480,7 @@ p[1].type_info = get_unsigned_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_mwait->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_mwait, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_orpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_orpd"));
@@ -2491,7 +2491,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_orpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_orpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_orpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_orpd256"));
@@ -2502,7 +2502,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_orpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_orpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_orps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_orps"));
@@ -2513,7 +2513,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_orps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_orps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_orps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_orps256"));
@@ -2524,7 +2524,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_orps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_orps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pabsb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pabsb"));
@@ -2534,7 +2534,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pabsb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pabsb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pabsb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pabsb128"));
@@ -2544,7 +2544,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pabsb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pabsb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pabsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pabsd"));
@@ -2554,7 +2554,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pabsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pabsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pabsd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pabsd128"));
@@ -2564,7 +2564,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pabsd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pabsd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pabsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pabsw"));
@@ -2574,7 +2574,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pabsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pabsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pabsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pabsw128"));
@@ -2584,7 +2584,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pabsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pabsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packssdw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packssdw"));
@@ -2595,7 +2595,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packssdw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packssdw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packssdw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packssdw128"));
@@ -2606,7 +2606,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packssdw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packssdw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packsswb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packsswb"));
@@ -2617,7 +2617,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packsswb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packsswb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packsswb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packsswb128"));
@@ -2628,7 +2628,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packsswb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packsswb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packusdw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packusdw128"));
@@ -2639,7 +2639,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packusdw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packusdw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packuswb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packuswb"));
@@ -2650,7 +2650,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packuswb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packuswb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_packuswb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_packuswb128"));
@@ -2661,7 +2661,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_packuswb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_packuswb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddb"));
@@ -2672,7 +2672,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddb128"));
@@ -2683,7 +2683,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddd"));
@@ -2694,7 +2694,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddd128"));
@@ -2705,7 +2705,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddq"));
@@ -2716,7 +2716,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddq128"));
@@ -2727,7 +2727,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddsb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddsb"));
@@ -2738,7 +2738,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddsb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddsb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddsb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddsb128"));
@@ -2749,7 +2749,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddsb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddsb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddsw"));
@@ -2760,7 +2760,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddsw128"));
@@ -2771,7 +2771,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddusb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddusb"));
@@ -2782,7 +2782,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddusb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddusb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddusb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddusb128"));
@@ -2793,7 +2793,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddusb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddusb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddusw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddusw"));
@@ -2804,7 +2804,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddusw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddusw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddusw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddusw128"));
@@ -2815,7 +2815,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddusw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddusw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddw"));
@@ -2826,7 +2826,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_paddw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_paddw128"));
@@ -2837,7 +2837,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_paddw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_paddw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_palignr = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_palignr"));
@@ -2849,7 +2849,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_palignr->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_palignr, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_palignr128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_palignr128"));
@@ -2861,7 +2861,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_palignr128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_palignr128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pand = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pand"));
@@ -2872,7 +2872,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pand->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pand, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pand128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pand128"));
@@ -2883,7 +2883,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pand128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pand128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pandn = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pandn"));
@@ -2894,7 +2894,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pandn->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pandn, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pandn128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pandn128"));
@@ -2905,7 +2905,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pandn128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pandn128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pavgb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pavgb"));
@@ -2916,7 +2916,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pavgb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pavgb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pavgb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pavgb128"));
@@ -2927,7 +2927,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pavgb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pavgb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pavgw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pavgw"));
@@ -2938,7 +2938,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pavgw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pavgw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pavgw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pavgw128"));
@@ -2949,7 +2949,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pavgw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pavgw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pblendvb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pblendvb128"));
@@ -2961,7 +2961,7 @@ p[2].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pblendvb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pblendvb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pblendw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pblendw128"));
@@ -2973,7 +2973,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pblendw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pblendw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pclmulqdq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pclmulqdq128"));
@@ -2985,7 +2985,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pclmulqdq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pclmulqdq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqb"));
@@ -2996,7 +2996,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqb128"));
@@ -3007,7 +3007,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqd"));
@@ -3018,7 +3018,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqd128"));
@@ -3029,7 +3029,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqq"));
@@ -3040,7 +3040,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqw"));
@@ -3051,7 +3051,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpeqw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpeqw128"));
@@ -3062,7 +3062,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpeqw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpeqw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestri128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestri128"));
@@ -3076,7 +3076,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestri128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestri128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestria128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestria128"));
@@ -3090,7 +3090,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestria128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestria128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestric128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestric128"));
@@ -3104,7 +3104,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestric128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestric128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestrio128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestrio128"));
@@ -3118,7 +3118,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestrio128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestrio128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestris128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestris128"));
@@ -3132,7 +3132,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestris128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestris128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestriz128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestriz128"));
@@ -3146,7 +3146,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestriz128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestriz128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpestrm128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpestrm128"));
@@ -3160,7 +3160,7 @@ p[4].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpestrm128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpestrm128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtb"));
@@ -3171,7 +3171,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtb128"));
@@ -3182,7 +3182,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtd"));
@@ -3193,7 +3193,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtd128"));
@@ -3204,7 +3204,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtq"));
@@ -3215,7 +3215,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtw"));
@@ -3226,7 +3226,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpgtw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpgtw128"));
@@ -3237,7 +3237,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpgtw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpgtw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistri128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistri128"));
@@ -3249,7 +3249,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistri128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistri128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistria128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistria128"));
@@ -3261,7 +3261,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistria128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistria128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistric128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistric128"));
@@ -3273,7 +3273,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistric128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistric128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistrio128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistrio128"));
@@ -3285,7 +3285,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistrio128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistrio128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistris128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistris128"));
@@ -3297,7 +3297,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistris128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistris128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistriz128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistriz128"));
@@ -3309,7 +3309,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistriz128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistriz128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pcmpistrm128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pcmpistrm128"));
@@ -3321,7 +3321,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pcmpistrm128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pcmpistrm128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pd256_pd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pd256_pd"));
@@ -3331,7 +3331,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pd256_pd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pd256_pd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pd_pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pd_pd256"));
@@ -3341,7 +3341,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pd_pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pd_pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phaddd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phaddd"));
@@ -3352,7 +3352,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phaddd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phaddd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phaddd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phaddd128"));
@@ -3363,7 +3363,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phaddd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phaddd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phaddsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phaddsw"));
@@ -3374,7 +3374,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phaddsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phaddsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phaddsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phaddsw128"));
@@ -3385,7 +3385,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phaddsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phaddsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phaddw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phaddw"));
@@ -3396,7 +3396,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phaddw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phaddw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phaddw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phaddw128"));
@@ -3407,7 +3407,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phaddw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phaddw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phminposuw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phminposuw128"));
@@ -3417,7 +3417,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phminposuw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phminposuw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phsubd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phsubd"));
@@ -3428,7 +3428,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phsubd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phsubd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phsubd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phsubd128"));
@@ -3439,7 +3439,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phsubd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phsubd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phsubsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phsubsw"));
@@ -3450,7 +3450,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phsubsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phsubsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phsubsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phsubsw128"));
@@ -3461,7 +3461,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phsubsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phsubsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phsubw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phsubw"));
@@ -3472,7 +3472,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phsubw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phsubw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_phsubw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_phsubw128"));
@@ -3483,7 +3483,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_phsubw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_phsubw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaddubsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaddubsw"));
@@ -3494,7 +3494,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaddubsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaddubsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaddubsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaddubsw128"));
@@ -3505,7 +3505,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaddubsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaddubsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaddwd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaddwd"));
@@ -3516,7 +3516,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaddwd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaddwd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaddwd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaddwd128"));
@@ -3527,7 +3527,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaddwd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaddwd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxsb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxsb128"));
@@ -3538,7 +3538,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxsb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxsb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxsd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxsd128"));
@@ -3549,7 +3549,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxsd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxsd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxsw"));
@@ -3560,7 +3560,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxsw128"));
@@ -3571,7 +3571,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxub"));
@@ -3582,7 +3582,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxub128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxub128"));
@@ -3593,7 +3593,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxub128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxub128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxud128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxud128"));
@@ -3604,7 +3604,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxud128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxud128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmaxuw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmaxuw128"));
@@ -3615,7 +3615,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmaxuw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmaxuw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminsb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminsb128"));
@@ -3626,7 +3626,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminsb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminsb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminsd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminsd128"));
@@ -3637,7 +3637,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminsd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminsd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminsw"));
@@ -3648,7 +3648,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminsw128"));
@@ -3659,7 +3659,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminub"));
@@ -3670,7 +3670,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminub128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminub128"));
@@ -3681,7 +3681,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminub128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminub128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminud128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminud128"));
@@ -3692,7 +3692,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminud128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminud128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pminuw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pminuw128"));
@@ -3703,7 +3703,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pminuw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pminuw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovmskb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovmskb"));
@@ -3713,7 +3713,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovmskb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovmskb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovmskb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovmskb128"));
@@ -3723,7 +3723,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovmskb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovmskb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovsxbd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovsxbd128"));
@@ -3733,7 +3733,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovsxbd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovsxbd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovsxbq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovsxbq128"));
@@ -3743,7 +3743,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovsxbq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovsxbq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovsxbw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovsxbw128"));
@@ -3753,7 +3753,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovsxbw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovsxbw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovsxdq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovsxdq128"));
@@ -3763,7 +3763,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovsxdq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovsxdq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovsxwd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovsxwd128"));
@@ -3773,7 +3773,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovsxwd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovsxwd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovsxwq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovsxwq128"));
@@ -3783,7 +3783,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovsxwq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovsxwq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovzxbd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovzxbd128"));
@@ -3793,7 +3793,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovzxbd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovzxbd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovzxbq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovzxbq128"));
@@ -3803,7 +3803,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovzxbq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovzxbq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovzxbw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovzxbw128"));
@@ -3813,7 +3813,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovzxbw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovzxbw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovzxdq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovzxdq128"));
@@ -3823,7 +3823,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovzxdq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovzxdq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovzxwd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovzxwd128"));
@@ -3833,7 +3833,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovzxwd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovzxwd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmovzxwq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmovzxwq128"));
@@ -3843,7 +3843,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmovzxwq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmovzxwq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmuldq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmuldq128"));
@@ -3854,7 +3854,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmuldq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmuldq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulhrsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulhrsw"));
@@ -3865,7 +3865,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulhrsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulhrsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulhrsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulhrsw128"));
@@ -3876,7 +3876,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulhrsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulhrsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulhuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulhuw"));
@@ -3887,7 +3887,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulhuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulhuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulhuw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulhuw128"));
@@ -3898,7 +3898,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulhuw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulhuw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulhw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulhw"));
@@ -3909,7 +3909,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulhw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulhw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulhw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulhw128"));
@@ -3920,7 +3920,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulhw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulhw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmulld128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmulld128"));
@@ -3931,7 +3931,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmulld128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmulld128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmullw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmullw"));
@@ -3942,7 +3942,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmullw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmullw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmullw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmullw128"));
@@ -3953,7 +3953,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmullw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmullw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmuludq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmuludq"));
@@ -3964,7 +3964,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmuludq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmuludq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pmuludq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pmuludq128"));
@@ -3975,7 +3975,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pmuludq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pmuludq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_por = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_por"));
@@ -3986,7 +3986,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_por->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_por, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_por128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_por128"));
@@ -3997,7 +3997,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_por128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_por128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ps256_ps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ps256_ps"));
@@ -4007,7 +4007,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ps256_ps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ps256_ps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psadbw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psadbw"));
@@ -4018,7 +4018,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psadbw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psadbw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psadbw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psadbw128"));
@@ -4029,7 +4029,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psadbw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psadbw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pshufb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pshufb"));
@@ -4040,7 +4040,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pshufb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pshufb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pshufb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pshufb128"));
@@ -4051,7 +4051,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pshufb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pshufb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pshufd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pshufd"));
@@ -4062,7 +4062,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pshufd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pshufd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pshufhw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pshufhw"));
@@ -4073,7 +4073,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pshufhw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pshufhw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pshuflw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pshuflw"));
@@ -4084,7 +4084,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pshuflw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pshuflw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pshufw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pshufw"));
@@ -4095,7 +4095,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pshufw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pshufw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psignb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psignb"));
@@ -4106,7 +4106,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psignb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psignb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psignb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psignb128"));
@@ -4117,7 +4117,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psignb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psignb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psignd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psignd"));
@@ -4128,7 +4128,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psignd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psignd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psignd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psignd128"));
@@ -4139,7 +4139,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psignd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psignd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psignw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psignw"));
@@ -4150,7 +4150,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psignw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psignw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psignw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psignw128"));
@@ -4161,7 +4161,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psignw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psignw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pslld = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pslld"));
@@ -4172,7 +4172,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pslld->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pslld, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pslld128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pslld128"));
@@ -4183,7 +4183,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pslld128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pslld128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pslldi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pslldi"));
@@ -4194,7 +4194,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pslldi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pslldi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pslldi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pslldi128"));
@@ -4205,7 +4205,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pslldi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pslldi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pslldqi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pslldqi128"));
@@ -4216,7 +4216,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pslldqi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pslldqi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllq"));
@@ -4227,7 +4227,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllq128"));
@@ -4238,7 +4238,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllqi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllqi"));
@@ -4249,7 +4249,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllqi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllqi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllqi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllqi128"));
@@ -4260,7 +4260,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllqi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllqi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllw"));
@@ -4271,7 +4271,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllw128"));
@@ -4282,7 +4282,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllwi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllwi"));
@@ -4293,7 +4293,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllwi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllwi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psllwi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psllwi128"));
@@ -4304,7 +4304,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psllwi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psllwi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ps_ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ps_ps256"));
@@ -4314,7 +4314,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ps_ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ps_ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrad = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrad"));
@@ -4325,7 +4325,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrad->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrad, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrad128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrad128"));
@@ -4336,7 +4336,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrad128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrad128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psradi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psradi"));
@@ -4347,7 +4347,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psradi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psradi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psradi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psradi128"));
@@ -4358,7 +4358,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psradi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psradi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psraw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psraw"));
@@ -4369,7 +4369,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psraw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psraw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psraw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psraw128"));
@@ -4380,7 +4380,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psraw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psraw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrawi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrawi"));
@@ -4391,7 +4391,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrawi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrawi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrawi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrawi128"));
@@ -4402,7 +4402,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrawi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrawi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrld = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrld"));
@@ -4413,7 +4413,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrld->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrld, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrld128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrld128"));
@@ -4424,7 +4424,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrld128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrld128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrldi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrldi"));
@@ -4435,7 +4435,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrldi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrldi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrldi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrldi128"));
@@ -4446,7 +4446,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrldi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrldi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrldqi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrldqi128"));
@@ -4457,7 +4457,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrldqi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrldqi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlq"));
@@ -4468,7 +4468,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlq128"));
@@ -4479,7 +4479,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlqi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlqi"));
@@ -4490,7 +4490,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlqi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlqi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlqi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlqi128"));
@@ -4501,7 +4501,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlqi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlqi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlw"));
@@ -4512,7 +4512,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlw128"));
@@ -4523,7 +4523,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlwi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlwi"));
@@ -4534,7 +4534,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlwi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlwi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psrlwi128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psrlwi128"));
@@ -4545,7 +4545,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psrlwi128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psrlwi128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubb"));
@@ -4556,7 +4556,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubb128"));
@@ -4567,7 +4567,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubd"));
@@ -4578,7 +4578,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubd128"));
@@ -4589,7 +4589,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubq"));
@@ -4600,7 +4600,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubq128"));
@@ -4611,7 +4611,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubsb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubsb"));
@@ -4622,7 +4622,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubsb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubsb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubsb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubsb128"));
@@ -4633,7 +4633,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubsb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubsb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubsw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubsw"));
@@ -4644,7 +4644,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubsw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubsw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubsw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubsw128"));
@@ -4655,7 +4655,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubsw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubsw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubusb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubusb"));
@@ -4666,7 +4666,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubusb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubusb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubusb128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubusb128"));
@@ -4677,7 +4677,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubusb128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubusb128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubusw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubusw"));
@@ -4688,7 +4688,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubusw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubusw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubusw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubusw128"));
@@ -4699,7 +4699,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubusw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubusw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubw"));
@@ -4710,7 +4710,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_psubw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_psubw128"));
@@ -4721,7 +4721,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_psubw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_psubw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ptestc128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ptestc128"));
@@ -4732,7 +4732,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ptestc128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ptestc128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ptestc256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ptestc256"));
@@ -4743,7 +4743,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ptestc256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ptestc256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ptestnzc128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ptestnzc128"));
@@ -4754,7 +4754,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ptestnzc128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ptestnzc128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ptestnzc256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ptestnzc256"));
@@ -4765,7 +4765,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ptestnzc256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ptestnzc256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ptestz128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ptestz128"));
@@ -4776,7 +4776,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ptestz128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ptestz128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ptestz256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ptestz256"));
@@ -4787,7 +4787,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ptestz256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ptestz256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhbw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhbw"));
@@ -4798,7 +4798,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhbw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhbw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhbw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhbw128"));
@@ -4809,7 +4809,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhbw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhbw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhdq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhdq"));
@@ -4820,7 +4820,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhdq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhdq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhdq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhdq128"));
@@ -4831,7 +4831,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhdq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhdq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhqdq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhqdq128"));
@@ -4842,7 +4842,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhqdq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhqdq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhwd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhwd"));
@@ -4853,7 +4853,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhwd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhwd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckhwd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckhwd128"));
@@ -4864,7 +4864,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckhwd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckhwd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpcklbw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpcklbw"));
@@ -4875,7 +4875,7 @@ p[1].type_info = get_vector_type(get_char_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpcklbw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpcklbw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpcklbw128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpcklbw128"));
@@ -4886,7 +4886,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpcklbw128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpcklbw128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckldq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckldq"));
@@ -4897,7 +4897,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckldq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckldq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpckldq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpckldq128"));
@@ -4908,7 +4908,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpckldq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpckldq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpcklqdq128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpcklqdq128"));
@@ -4919,7 +4919,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpcklqdq128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpcklqdq128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpcklwd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpcklwd"));
@@ -4930,7 +4930,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpcklwd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpcklwd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_punpcklwd128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_punpcklwd128"));
@@ -4941,7 +4941,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_punpcklwd128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_punpcklwd128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pxor = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pxor"));
@@ -4952,7 +4952,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 8);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pxor->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pxor, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_pxor128 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_pxor128"));
@@ -4963,7 +4963,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_pxor128->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_pxor128, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rcpps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rcpps"));
@@ -4973,7 +4973,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rcpps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rcpps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rcpps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rcpps256"));
@@ -4983,7 +4983,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rcpps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rcpps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rcpss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rcpss"));
@@ -4993,7 +4993,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rcpss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rcpss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rdpmc = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rdpmc"));
@@ -5003,7 +5003,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_signed_int_t
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rdpmc->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rdpmc, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rdtsc = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rdtsc"));
@@ -5012,7 +5012,7 @@ sym___builtin_ia32_rdtsc->type_information = ({type_t* return_type = get_unsigne
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rdtsc->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rdtsc, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rdtscp = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rdtscp"));
@@ -5022,7 +5022,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rdtscp->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rdtscp, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rolhi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rolhi"));
@@ -5033,7 +5033,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rolhi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rolhi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rolqi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rolqi"));
@@ -5044,7 +5044,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rolqi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rolqi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rorhi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rorhi"));
@@ -5055,7 +5055,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rorhi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rorhi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rorqi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rorqi"));
@@ -5066,7 +5066,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rorqi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rorqi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_roundpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_roundpd"));
@@ -5077,7 +5077,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_roundpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_roundpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_roundpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_roundpd256"));
@@ -5088,7 +5088,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_roundpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_roundpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_roundps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_roundps"));
@@ -5099,7 +5099,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_roundps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_roundps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_roundps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_roundps256"));
@@ -5110,7 +5110,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_roundps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_roundps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_roundsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_roundsd"));
@@ -5122,7 +5122,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_roundsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_roundsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_roundss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_roundss"));
@@ -5134,7 +5134,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_roundss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_roundss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rsqrtps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rsqrtps"));
@@ -5144,7 +5144,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rsqrtps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rsqrtps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rsqrtps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rsqrtps256"));
@@ -5154,7 +5154,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rsqrtps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rsqrtps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rsqrtps_nr256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rsqrtps_nr256"));
@@ -5164,7 +5164,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rsqrtps_nr256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rsqrtps_nr256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_rsqrtss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_rsqrtss"));
@@ -5174,7 +5174,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_rsqrtss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_rsqrtss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sfence = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sfence"));
@@ -5183,7 +5183,7 @@ sym___builtin_ia32_sfence->type_information = ({type_t* return_type = get_void_t
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sfence->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sfence, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_shufpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_shufpd"));
@@ -5195,7 +5195,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_shufpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_shufpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_shufpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_shufpd256"));
@@ -5207,7 +5207,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_shufpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_shufpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_shufps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_shufps"));
@@ -5219,7 +5219,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_shufps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_shufps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_shufps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_shufps256"));
@@ -5231,7 +5231,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_shufps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_shufps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_si256_si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_si256_si"));
@@ -5241,7 +5241,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_si256_si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_si256_si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_si_si256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_si_si256"));
@@ -5251,7 +5251,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_si_si256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_si_si256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtpd"));
@@ -5261,7 +5261,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtpd256"));
@@ -5271,7 +5271,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtps"));
@@ -5281,7 +5281,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtps256"));
@@ -5291,7 +5291,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtps_nr256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtps_nr256"));
@@ -5301,7 +5301,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtps_nr256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtps_nr256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtsd"));
@@ -5311,7 +5311,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_sqrtss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_sqrtss"));
@@ -5321,7 +5321,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_sqrtss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_sqrtss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_stmxcsr = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_stmxcsr"));
@@ -5330,7 +5330,7 @@ sym___builtin_ia32_stmxcsr->type_information = ({type_t* return_type = get_unsig
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_stmxcsr->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_stmxcsr, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storedqu = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storedqu"));
@@ -5341,7 +5341,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storedqu->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storedqu, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storedqu256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storedqu256"));
@@ -5352,7 +5352,7 @@ p[1].type_info = get_vector_type(get_char_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storedqu256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storedqu256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storehps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storehps"));
@@ -5363,7 +5363,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storehps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storehps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storelps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storelps"));
@@ -5374,7 +5374,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storelps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storelps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storeupd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storeupd"));
@@ -5385,7 +5385,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storeupd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storeupd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storeupd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storeupd256"));
@@ -5396,7 +5396,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storeupd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storeupd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storeups = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storeups"));
@@ -5407,7 +5407,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storeups->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storeups, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_storeups256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_storeups256"));
@@ -5418,7 +5418,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_storeups256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_storeups256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_subpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_subpd"));
@@ -5429,7 +5429,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_subpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_subpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_subpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_subpd256"));
@@ -5440,7 +5440,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_subpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_subpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_subps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_subps"));
@@ -5451,7 +5451,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_subps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_subps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_subps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_subps256"));
@@ -5462,7 +5462,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_subps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_subps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_subsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_subsd"));
@@ -5473,7 +5473,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_subsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_subsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_subss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_subss"));
@@ -5484,7 +5484,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_subss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_subss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomieq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomieq"));
@@ -5495,7 +5495,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomieq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomieq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomige = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomige"));
@@ -5506,7 +5506,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomige->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomige, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomigt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomigt"));
@@ -5517,7 +5517,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomigt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomigt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomile = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomile"));
@@ -5528,7 +5528,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomile->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomile, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomilt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomilt"));
@@ -5539,7 +5539,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomilt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomilt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomineq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomineq"));
@@ -5550,7 +5550,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomineq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomineq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomisdeq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomisdeq"));
@@ -5561,7 +5561,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomisdeq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomisdeq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomisdge = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomisdge"));
@@ -5572,7 +5572,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomisdge->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomisdge, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomisdgt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomisdgt"));
@@ -5583,7 +5583,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomisdgt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomisdgt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomisdle = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomisdle"));
@@ -5594,7 +5594,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomisdle->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomisdle, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomisdlt = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomisdlt"));
@@ -5605,7 +5605,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomisdlt->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomisdlt, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_ucomisdneq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_ucomisdneq"));
@@ -5616,7 +5616,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_ucomisdneq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_ucomisdneq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpckhpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpckhpd"));
@@ -5627,7 +5627,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpckhpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpckhpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpckhpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpckhpd256"));
@@ -5638,7 +5638,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpckhpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpckhpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpckhps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpckhps"));
@@ -5649,7 +5649,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpckhps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpckhps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpckhps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpckhps256"));
@@ -5660,7 +5660,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpckhps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpckhps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpcklpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpcklpd"));
@@ -5671,7 +5671,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpcklpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpcklpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpcklpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpcklpd256"));
@@ -5682,7 +5682,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpcklpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpcklpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpcklps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpcklps"));
@@ -5693,7 +5693,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpcklps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpcklps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_unpcklps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_unpcklps256"));
@@ -5704,7 +5704,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_unpcklps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_unpcklps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vbroadcastf128_pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vbroadcastf128_pd256"));
@@ -5714,7 +5714,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vbroadcastf128_pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vbroadcastf128_pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vbroadcastf128_ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vbroadcastf128_ps256"));
@@ -5724,7 +5724,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vbroadcastf128_ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vbroadcastf128_ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vbroadcastsd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vbroadcastsd256"));
@@ -5734,7 +5734,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vbroadcastsd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vbroadcastsd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vbroadcastss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vbroadcastss"));
@@ -5744,7 +5744,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vbroadcastss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vbroadcastss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vbroadcastss256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vbroadcastss256"));
@@ -5754,7 +5754,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vbroadcastss256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vbroadcastss256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v16qi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v16qi"));
@@ -5765,7 +5765,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v16qi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v16qi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v2df = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v2df"));
@@ -5776,7 +5776,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v2df->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v2df, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v2di = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v2di"));
@@ -5787,7 +5787,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v2di->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v2di, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v2si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v2si"));
@@ -5798,7 +5798,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v2si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v2si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v4hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v4hi"));
@@ -5809,7 +5809,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v4hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v4hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v4sf = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v4sf"));
@@ -5820,7 +5820,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v4sf->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v4sf, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v4si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v4si"));
@@ -5831,7 +5831,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v4si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v4si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_ext_v8hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_ext_v8hi"));
@@ -5842,7 +5842,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_ext_v8hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_ext_v8hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_init_v2si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_init_v2si"));
@@ -5853,7 +5853,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_init_v2si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_init_v2si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_init_v4hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_init_v4hi"));
@@ -5866,7 +5866,7 @@ p[3].type_info = get_signed_short_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_init_v4hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_init_v4hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_init_v8qi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_init_v8qi"));
@@ -5883,7 +5883,7 @@ p[7].type_info = get_char_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_init_v8qi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_init_v8qi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_set_v16qi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_set_v16qi"));
@@ -5895,7 +5895,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_set_v16qi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_set_v16qi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_set_v2di = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_set_v2di"));
@@ -5907,7 +5907,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_set_v2di->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_set_v2di, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_set_v4hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_set_v4hi"));
@@ -5919,7 +5919,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_set_v4hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_set_v4hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_set_v4si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_set_v4si"));
@@ -5931,7 +5931,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_set_v4si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_set_v4si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vec_set_v8hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vec_set_v8hi"));
@@ -5943,7 +5943,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vec_set_v8hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vec_set_v8hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vextractf128_pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vextractf128_pd256"));
@@ -5954,7 +5954,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vextractf128_pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vextractf128_pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vextractf128_ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vextractf128_ps256"));
@@ -5965,7 +5965,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vextractf128_ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vextractf128_ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vextractf128_si256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vextractf128_si256"));
@@ -5976,7 +5976,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vextractf128_si256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vextractf128_si256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vfrczpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vfrczpd"));
@@ -5986,7 +5986,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vfrczpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vfrczpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vfrczpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vfrczpd256"));
@@ -5996,7 +5996,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vfrczpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vfrczpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vfrczps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vfrczps"));
@@ -6006,7 +6006,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vfrczps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vfrczps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vfrczps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vfrczps256"));
@@ -6016,7 +6016,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vfrczps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vfrczps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vfrczsd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vfrczsd"));
@@ -6026,7 +6026,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vfrczsd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vfrczsd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vfrczss = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vfrczss"));
@@ -6036,7 +6036,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vfrczss->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vfrczss, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vinsertf128_pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vinsertf128_pd256"));
@@ -6048,7 +6048,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vinsertf128_pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vinsertf128_pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vinsertf128_ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vinsertf128_ps256"));
@@ -6060,7 +6060,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vinsertf128_ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vinsertf128_ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vinsertf128_si256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vinsertf128_si256"));
@@ -6072,7 +6072,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vinsertf128_si256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vinsertf128_si256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov"));
@@ -6084,7 +6084,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v16hi256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v16hi256"));
@@ -6096,7 +6096,7 @@ p[2].type_info = get_vector_type(get_signed_short_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v16hi256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v16hi256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v16qi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v16qi"));
@@ -6108,7 +6108,7 @@ p[2].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v16qi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v16qi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v2df = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v2df"));
@@ -6120,7 +6120,7 @@ p[2].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v2df->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v2df, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v2di = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v2di"));
@@ -6132,7 +6132,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v2di->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v2di, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v32qi256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v32qi256"));
@@ -6144,7 +6144,7 @@ p[2].type_info = get_vector_type(get_char_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v32qi256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v32qi256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v4df256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v4df256"));
@@ -6156,7 +6156,7 @@ p[2].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v4df256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v4df256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v4di256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v4di256"));
@@ -6168,7 +6168,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v4di256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v4di256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v4sf = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v4sf"));
@@ -6180,7 +6180,7 @@ p[2].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v4sf->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v4sf, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v4si = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v4si"));
@@ -6192,7 +6192,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v4si->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v4si, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v8hi = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v8hi"));
@@ -6204,7 +6204,7 @@ p[2].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v8hi->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v8hi, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v8sf256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v8sf256"));
@@ -6216,7 +6216,7 @@ p[2].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v8sf256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v8sf256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcmov_v8si256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcmov_v8si256"));
@@ -6228,7 +6228,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcmov_v8si256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcmov_v8si256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomeqb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomeqb"));
@@ -6239,7 +6239,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomeqb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomeqb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomeqd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomeqd"));
@@ -6250,7 +6250,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomeqd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomeqd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomeqq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomeqq"));
@@ -6261,7 +6261,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomeqq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomeqq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomequb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomequb"));
@@ -6272,7 +6272,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomequb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomequb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomequd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomequd"));
@@ -6283,7 +6283,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomequd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomequd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomequq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomequq"));
@@ -6294,7 +6294,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomequq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomequq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomequw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomequw"));
@@ -6305,7 +6305,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomequw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomequw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomeqw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomeqw"));
@@ -6316,7 +6316,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomeqw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomeqw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalseb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalseb"));
@@ -6327,7 +6327,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalseb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalseb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalsed = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalsed"));
@@ -6338,7 +6338,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalsed->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalsed, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalseq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalseq"));
@@ -6349,7 +6349,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalseq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalseq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalseub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalseub"));
@@ -6360,7 +6360,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalseub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalseub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalseud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalseud"));
@@ -6371,7 +6371,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalseud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalseud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalseuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalseuq"));
@@ -6382,7 +6382,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalseuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalseuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalseuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalseuw"));
@@ -6393,7 +6393,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalseuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalseuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomfalsew = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomfalsew"));
@@ -6404,7 +6404,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomfalsew->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomfalsew, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgeb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgeb"));
@@ -6415,7 +6415,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgeb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgeb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomged = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomged"));
@@ -6426,7 +6426,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomged->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomged, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgeq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgeq"));
@@ -6437,7 +6437,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgeq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgeq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgeub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgeub"));
@@ -6448,7 +6448,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgeub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgeub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgeud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgeud"));
@@ -6459,7 +6459,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgeud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgeud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgeuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgeuq"));
@@ -6470,7 +6470,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgeuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgeuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgeuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgeuw"));
@@ -6481,7 +6481,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgeuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgeuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgew = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgew"));
@@ -6492,7 +6492,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgew->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgew, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtb"));
@@ -6503,7 +6503,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtd"));
@@ -6514,7 +6514,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtq"));
@@ -6525,7 +6525,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtub"));
@@ -6536,7 +6536,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtud"));
@@ -6547,7 +6547,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtuq"));
@@ -6558,7 +6558,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtuw"));
@@ -6569,7 +6569,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomgtw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomgtw"));
@@ -6580,7 +6580,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomgtw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomgtw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomleb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomleb"));
@@ -6591,7 +6591,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomleb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomleb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomled = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomled"));
@@ -6602,7 +6602,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomled->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomled, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomleq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomleq"));
@@ -6613,7 +6613,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomleq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomleq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomleub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomleub"));
@@ -6624,7 +6624,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomleub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomleub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomleud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomleud"));
@@ -6635,7 +6635,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomleud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomleud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomleuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomleuq"));
@@ -6646,7 +6646,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomleuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomleuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomleuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomleuw"));
@@ -6657,7 +6657,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomleuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomleuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomlew = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomlew"));
@@ -6668,7 +6668,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomlew->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomlew, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltb"));
@@ -6679,7 +6679,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltd"));
@@ -6690,7 +6690,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltq"));
@@ -6701,7 +6701,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltub"));
@@ -6712,7 +6712,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltud"));
@@ -6723,7 +6723,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltuq"));
@@ -6734,7 +6734,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltuw"));
@@ -6745,7 +6745,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomltw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomltw"));
@@ -6756,7 +6756,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomltw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomltw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomneb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomneb"));
@@ -6767,7 +6767,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomneb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomneb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomned = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomned"));
@@ -6778,7 +6778,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomned->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomned, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomneq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomneq"));
@@ -6789,7 +6789,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomneq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomneq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomneub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomneub"));
@@ -6800,7 +6800,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomneub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomneub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomneud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomneud"));
@@ -6811,7 +6811,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomneud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomneud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomneuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomneuq"));
@@ -6822,7 +6822,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomneuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomneuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomneuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomneuw"));
@@ -6833,7 +6833,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomneuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomneuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomnew = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomnew"));
@@ -6844,7 +6844,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomnew->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomnew, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrueb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrueb"));
@@ -6855,7 +6855,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrueb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrueb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrued = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrued"));
@@ -6866,7 +6866,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrued->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrued, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrueq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrueq"));
@@ -6877,7 +6877,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrueq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrueq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrueub = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrueub"));
@@ -6888,7 +6888,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrueub->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrueub, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrueud = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrueud"));
@@ -6899,7 +6899,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrueud->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrueud, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrueuq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrueuq"));
@@ -6910,7 +6910,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrueuq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrueuq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtrueuw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtrueuw"));
@@ -6921,7 +6921,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtrueuw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtrueuw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpcomtruew = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpcomtruew"));
@@ -6932,7 +6932,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpcomtruew->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpcomtruew, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vperm2f128_pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vperm2f128_pd256"));
@@ -6944,7 +6944,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vperm2f128_pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vperm2f128_pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vperm2f128_ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vperm2f128_ps256"));
@@ -6956,7 +6956,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vperm2f128_ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vperm2f128_ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vperm2f128_si256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vperm2f128_si256"));
@@ -6968,7 +6968,7 @@ p[2].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vperm2f128_si256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vperm2f128_si256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermil2pd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermil2pd"));
@@ -6981,7 +6981,7 @@ p[3].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermil2pd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermil2pd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermil2pd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermil2pd256"));
@@ -6994,7 +6994,7 @@ p[3].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermil2pd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermil2pd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermil2ps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermil2ps"));
@@ -7007,7 +7007,7 @@ p[3].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermil2ps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermil2ps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermil2ps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermil2ps256"));
@@ -7020,7 +7020,7 @@ p[3].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermil2ps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermil2ps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilpd"));
@@ -7031,7 +7031,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilpd256"));
@@ -7042,7 +7042,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilps"));
@@ -7053,7 +7053,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilps256"));
@@ -7064,7 +7064,7 @@ p[1].type_info = get_signed_int_type();
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilvarpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilvarpd"));
@@ -7075,7 +7075,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilvarpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilvarpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilvarpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilvarpd256"));
@@ -7086,7 +7086,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilvarpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilvarpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilvarps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilvarps"));
@@ -7097,7 +7097,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilvarps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilvarps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpermilvarps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpermilvarps256"));
@@ -7108,7 +7108,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpermilvarps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpermilvarps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddbd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddbd"));
@@ -7118,7 +7118,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddbd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddbd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddbq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddbq"));
@@ -7128,7 +7128,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddbq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddbq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddbw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddbw"));
@@ -7138,7 +7138,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddbw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddbw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphadddq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphadddq"));
@@ -7148,7 +7148,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphadddq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphadddq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddubd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddubd"));
@@ -7158,7 +7158,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddubd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddubd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddubq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddubq"));
@@ -7168,7 +7168,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddubq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddubq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddubw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddubw"));
@@ -7178,7 +7178,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddubw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddubw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddudq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddudq"));
@@ -7188,7 +7188,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddudq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddudq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphadduwd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphadduwd"));
@@ -7198,7 +7198,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphadduwd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphadduwd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphadduwq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphadduwq"));
@@ -7208,7 +7208,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphadduwq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphadduwq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddwd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddwd"));
@@ -7218,7 +7218,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddwd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddwd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphaddwq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphaddwq"));
@@ -7228,7 +7228,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphaddwq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphaddwq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphsubbw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphsubbw"));
@@ -7238,7 +7238,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphsubbw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphsubbw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphsubdq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphsubdq"));
@@ -7248,7 +7248,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphsubdq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphsubdq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vphsubwd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vphsubwd"));
@@ -7258,7 +7258,7 @@ parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_vector_type(
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vphsubwd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vphsubwd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacsdd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacsdd"));
@@ -7270,7 +7270,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacsdd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacsdd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacsdqh = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacsdqh"));
@@ -7282,7 +7282,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacsdqh->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacsdqh, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacsdql = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacsdql"));
@@ -7294,7 +7294,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacsdql->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacsdql, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacssdd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacssdd"));
@@ -7306,7 +7306,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacssdd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacssdd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacssdqh = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacssdqh"));
@@ -7318,7 +7318,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacssdqh->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacssdqh, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacssdql = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacssdql"));
@@ -7330,7 +7330,7 @@ p[2].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacssdql->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacssdql, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacsswd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacsswd"));
@@ -7342,7 +7342,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacsswd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacsswd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacssww = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacssww"));
@@ -7354,7 +7354,7 @@ p[2].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacssww->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacssww, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacswd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacswd"));
@@ -7366,7 +7366,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacswd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacswd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmacsww = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmacsww"));
@@ -7378,7 +7378,7 @@ p[2].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmacsww->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmacsww, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmadcsswd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmadcsswd"));
@@ -7390,7 +7390,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmadcsswd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmadcsswd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpmadcswd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpmadcswd"));
@@ -7402,7 +7402,7 @@ p[2].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpmadcswd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpmadcswd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpperm = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpperm"));
@@ -7414,7 +7414,7 @@ p[2].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpperm->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpperm, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vprotb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vprotb"));
@@ -7425,7 +7425,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vprotb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vprotb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vprotd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vprotd"));
@@ -7436,7 +7436,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vprotd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vprotd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vprotq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vprotq"));
@@ -7447,7 +7447,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vprotq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vprotq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vprotw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vprotw"));
@@ -7458,7 +7458,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vprotw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vprotw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshab = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshab"));
@@ -7469,7 +7469,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshab->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshab, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshad = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshad"));
@@ -7480,7 +7480,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshad->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshad, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshaq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshaq"));
@@ -7491,7 +7491,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshaq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshaq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshaw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshaw"));
@@ -7502,7 +7502,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshaw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshaw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshlb = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshlb"));
@@ -7513,7 +7513,7 @@ p[1].type_info = get_vector_type(get_char_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshlb->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshlb, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshld = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshld"));
@@ -7524,7 +7524,7 @@ p[1].type_info = get_vector_type(get_signed_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshld->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshld, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshlq = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshlq"));
@@ -7535,7 +7535,7 @@ p[1].type_info = get_vector_type(get_signed_long_long_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshlq->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshlq, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vpshlw = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vpshlw"));
@@ -7546,7 +7546,7 @@ p[1].type_info = get_vector_type(get_signed_short_int_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vpshlw->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vpshlw, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestcpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestcpd"));
@@ -7557,7 +7557,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestcpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestcpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestcpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestcpd256"));
@@ -7568,7 +7568,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestcpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestcpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestcps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestcps"));
@@ -7579,7 +7579,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestcps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestcps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestcps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestcps256"));
@@ -7590,7 +7590,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestcps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestcps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestnzcpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestnzcpd"));
@@ -7601,7 +7601,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestnzcpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestnzcpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestnzcpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestnzcpd256"));
@@ -7612,7 +7612,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestnzcpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestnzcpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestnzcps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestnzcps"));
@@ -7623,7 +7623,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestnzcps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestnzcps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestnzcps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestnzcps256"));
@@ -7634,7 +7634,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestnzcps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestnzcps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestzpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestzpd"));
@@ -7645,7 +7645,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestzpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestzpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestzpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestzpd256"));
@@ -7656,7 +7656,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestzpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestzpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestzps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestzps"));
@@ -7667,7 +7667,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestzps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestzps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vtestzps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vtestzps256"));
@@ -7678,7 +7678,7 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vtestzps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vtestzps256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vzeroall = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vzeroall"));
@@ -7687,7 +7687,7 @@ sym___builtin_ia32_vzeroall->type_information = ({type_t* return_type = get_void
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vzeroall->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vzeroall, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_vzeroupper = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_vzeroupper"));
@@ -7696,7 +7696,7 @@ sym___builtin_ia32_vzeroupper->type_information = ({type_t* return_type = get_vo
 get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_vzeroupper->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_vzeroupper, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_xorpd = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_xorpd"));
@@ -7707,7 +7707,7 @@ p[1].type_info = get_vector_type(get_double_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_xorpd->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_xorpd, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_xorpd256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_xorpd256"));
@@ -7718,7 +7718,7 @@ p[1].type_info = get_vector_type(get_double_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_xorpd256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_xorpd256, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_xorps = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_xorps"));
@@ -7729,7 +7729,7 @@ p[1].type_info = get_vector_type(get_float_type(), 16);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_xorps->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_xorps, 1);
 }
 {
 scope_entry_t* sym___builtin_ia32_xorps256 = new_symbol(decl_context, decl_context.current_scope, uniquestr("__builtin_ia32_xorps256"));
@@ -7740,5 +7740,5 @@ p[1].type_info = get_vector_type(get_float_type(), 32);
 get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);
 })
 ;
-sym___builtin_ia32_xorps256->entity_specs.is_builtin = 1;
+symbol_entity_specs_set_is_builtin(sym___builtin_ia32_xorps256, 1);
 }

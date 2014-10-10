@@ -445,7 +445,7 @@ void f(const std::string& str)
         << "sym_" << str << "->kind = SK_FUNCTION;"
         << "sym_" << str << "->do_not_print = 1;\n"
         << "sym_" << str << "->type_information = " << generate_type<T>::g() << ";\n"
-        << "sym_" << str << "->entity_specs.is_builtin = 1;\n"
+        << "symbol_entity_specs_set_is_builtin(sym_" << str << ", 1);\n"
         << "}\n"
         ;
 }

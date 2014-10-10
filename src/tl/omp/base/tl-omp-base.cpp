@@ -2491,8 +2491,7 @@ namespace TL { namespace OpenMP {
 
                 // Mark as __thread
                 scope_entry_t* entry = sym.get_internal_symbol();
-
-                entry->entity_specs.is_thread = 1;
+                symbol_entity_specs_set_is_thread(entry, 1);
             }
         }
 

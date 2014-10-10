@@ -399,6 +399,7 @@ namespace {
         return result;
     }
     
+#if 0
     // If this function returns false it may mean both unknown/no
     tribool data_ref_is_local(TL::DataReference data_ref, Nodecl::List& local_data_refs)
     {
@@ -411,6 +412,7 @@ namespace {
         
         return data_ref_is_local_rec(data_ref, local_data_refs);
     }
+#endif
     
     tribool any_symbol_is_local(const TL::Analysis::NodeclSet& item_list, Nodecl::List& local_syms)
     {
@@ -420,6 +422,7 @@ namespace {
         return result;
     }
     
+#if 0
     tribool any_data_ref_is_local(Nodecl::List item_list, Nodecl::List& local_data_refs)
     {
         tribool result( false );
@@ -427,6 +430,7 @@ namespace {
             result = result || data_ref_is_local( *it, local_data_refs );
         return result;
     }
+#endif
     
     tribool task_is_locally_bound( TL::Analysis::Node *n, Nodecl::List& local_vars )
     {
@@ -440,6 +444,7 @@ namespace {
         return any_symbol_is_local(shared_vars, local_vars);
     }
     
+#if 0
     bool enclosing_context_contains_node(TL::Analysis::Node* ctx, TL::Analysis::Node* node)
     {
         bool found = false;
@@ -450,6 +455,7 @@ namespace {
         }
         return found;
     }
+#endif
     
     // Returns false when task may synchronize at some point 
     // which is not enclosed in the scope where the task is created
@@ -1432,14 +1438,14 @@ next_iteration: ;
     }
 
     void launch_correctness(
-            const TL::Analysis::PCFGAnalysis_memento& memento,
+            const TL::Analysis::AnalysisBase& analysis,
             std::string file_path)
     {
         // 1.- Create the log file that will store the logs
         create_logs_file(file_path);
 
         // 2.- Execute all correctness logs in each file we have analyzed previously
-        const TL::ObjectList<TL::Analysis::ExtensibleGraph*>& extensible_graphs = memento.get_pcfgs();
+        const TL::ObjectList<TL::Analysis::ExtensibleGraph*>& extensible_graphs = analysis.get_pcfgs();
         for (TL::ObjectList<TL::Analysis::ExtensibleGraph*>::const_iterator it = extensible_graphs.begin();
              it != extensible_graphs.end(); ++it)
         {
@@ -1660,8 +1666,7 @@ next_iteration: ;
             ompss_mode_enabled = _ompss_mode_enabled;
             
             // 2.- Compute the necessary analyses for reporting correctness logs
-            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
-            TL::Analysis::PCFGAnalysis_memento memento;
+            TL::Analysis::AnalysisBase analysis(ompss_mode_enabled);
             // We compute liveness analysis (that includes PCFG and use-def) because 
             // we need the information computed by TaskConcurrency (last and next synchronization points of a task)
             if (VERBOSE)
@@ -1670,14 +1675,14 @@ next_iteration: ;
                 std::cerr << "OMP-LINT_ Executing analysis required for OpenMP/OmpSs correctness checking in file '" 
                           << top_level.get_filename() << "'" << std::endl;
             }
-            singleton.tune_task_synchronizations(memento, top_level);
+            analysis.tune_task_synchronizations(top_level);
             if (VERBOSE)
             {
-                singleton.print_all_pcfg(memento);
+                analysis.print_all_pcfg();
             }
             
             // 3.- Launch the correctness process
-            launch_correctness(memento, log_file_path);
+            launch_correctness(analysis, log_file_path);
             
             if (VERBOSE)
             {

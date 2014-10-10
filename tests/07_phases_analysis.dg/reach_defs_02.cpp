@@ -26,31 +26,39 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-analysis
+test_nolink=yes
+</testinfo>
+*/
 
-#ifndef UNIQUESTR_H
-#define UNIQUESTR_H
+#include <string>
 
-#include "libutils-common.h"
+std::string UNKNOWN = "UNKNOWN";
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+int foo(int n)
+{
+    int result;
 
-#define uniqstr uniquestr
-LIBUTILS_EXTERN const char *uniquestr(const char*);
-
-#define UNIQUESTR_LITERAL(literal) \
-  ({ static const char* _cached_uniquestr = NULL; \
-     if (_cached_uniquestr == NULL)  _cached_uniquestr = uniquestr(literal); \
-     _cached_uniquestr; \
-  })
-
-LIBUTILS_EXTERN unsigned long long int char_trie_used_memory(void);
-
-LIBUTILS_EXTERN void uniquestr_stats(void);
-
-#ifdef __cplusplus
+    if (n > 2)
+    {
+        if (n < 100)
+        {
+            if (n > 50)
+                return 1;
+            return 2;
+        }
+        else
+        {
+            #pragma analysis_check assert live_in(n) live_out(n)
+            result = n / 0;
+        }
+        
+        #pragma analysis_check assert reaching_definition_in(n: UNKNOWN) reaching_definition_out(result: n/0)
+        result = n / 0;
+    }
+    
+    #pragma analysis_check assert reaching_definition_in(result: n/0)
+    return result;
 }
-#endif
-
-#endif // UNIQUESTR_H

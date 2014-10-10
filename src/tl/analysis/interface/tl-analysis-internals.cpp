@@ -301,32 +301,22 @@ final_linear:
         return result;
     }
 
-    Nodecl::NodeclBase get_iv_lower_bound_internal(Node* const scope_node,
+    NodeclSet get_iv_lower_bound_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n)
     {
-        Nodecl::NodeclBase result;
+        NodeclSet result;
 
-        Utils::InductionVarList ivs = scope_node->get_induction_variables();
-
+        const Utils::InductionVarList& ivs = scope_node->get_induction_variables();
         Utils::InductionVarList::const_iterator it;
-        for( it = ivs.begin( );
-             it != ivs.end( ); ++it )
+        for (it = ivs.begin(); it != ivs.end(); ++it)
         {
-            if ( Nodecl::Utils::structurally_equal_nodecls(
-                        ( *it )->get_variable( ), n,
-                        /* skip conversion nodes */ true ) )
-            {
-                result = ( *it )->get_lb( );
-                break;
-            }
+            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), n, /*skip_conversions*/ true))
+                return (*it)->get_lb();
         }
 
-        if( it == ivs.end( ) )
-        {
-            WARNING_MESSAGE( "You are asking for the lower bound of an Object ( %s ) "\
-                             "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
-        }
-
+        WARNING_MESSAGE("You are asking for the lower bound of an Object (%s) "
+                        "which is not an Induction Variable\n",
+                        n.prettyprint().c_str());
         return result;
     }
 
@@ -435,7 +425,7 @@ final_get_linear:
         return result;
     }
     
-    NBase get_linear_variable_lower_bound_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
+    NodeclSet get_linear_variable_lower_bound_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
     {
         Utils::InductionVarList scope_ivs = get_linear_variables_internal(scope_node);
         for(Utils::InductionVarList::iterator it = scope_ivs.begin(); it != scope_ivs.end(); it++)
@@ -445,7 +435,7 @@ final_get_linear:
                 return (*it)->get_lb();
         }
         
-        return NBase::null();
+        return NodeclSet();
     }
     
     NBase get_linear_variable_increment_internal(Node* const scope_node, const Nodecl::NodeclBase& n)

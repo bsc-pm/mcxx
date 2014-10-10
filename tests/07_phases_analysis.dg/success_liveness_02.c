@@ -26,31 +26,33 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-analysis
+test_nolink=yes
+</testinfo>
+*/
 
-#ifndef UNIQUESTR_H
-#define UNIQUESTR_H
+int h;
 
-#include "libutils-common.h"
+int main(void)
+{
+    int i,j;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define uniqstr uniquestr
-LIBUTILS_EXTERN const char *uniquestr(const char*);
-
-#define UNIQUESTR_LITERAL(literal) \
-  ({ static const char* _cached_uniquestr = NULL; \
-     if (_cached_uniquestr == NULL)  _cached_uniquestr = uniquestr(literal); \
-     _cached_uniquestr; \
-  })
-
-LIBUTILS_EXTERN unsigned long long int char_trie_used_memory(void);
-
-LIBUTILS_EXTERN void uniquestr_stats(void);
-
-#ifdef __cplusplus
+    for (i = 0; i < 10; ++i) {
+        if (i % 2) {
+            
+            #pragma omp task out(h)
+            h=i-1;
+        } else {
+            #pragma omp task in(h)
+            h+=1;
+        }
+    }
+    
+    #pragma analysis_check assert live_in(h) live_out(h) dead(i, j)
+    #pragma omp task inout(h)
+    h += 4;
+    
+    return 0;
 }
-#endif
-
-#endif // UNIQUESTR_H

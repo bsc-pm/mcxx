@@ -57,7 +57,7 @@ namespace Analysis {
             const Nodecl::NodeclBase& n);
     Utils::InductionVarList get_linear_variables_internal(
             Node* const scope_node);
-    NBase get_linear_variable_lower_bound_internal(
+    NodeclSet get_linear_variable_lower_bound_internal(
             Node* const scope_node,
             const Nodecl::NodeclBase& n);
     NBase get_linear_variable_increment_internal(
@@ -72,7 +72,7 @@ namespace Analysis {
     bool is_iv_internal(Node* const scope_node, const Nodecl::NodeclBase& n);
     bool is_non_reduction_basic_iv_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
-    Nodecl::NodeclBase get_iv_lower_bound_internal(Node* const scope_node,
+    NodeclSet get_iv_lower_bound_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
     Nodecl::NodeclBase get_iv_increment_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);

@@ -59,7 +59,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
-        new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
         decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
@@ -78,11 +78,11 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             TL::Symbol field = class_scope.new_symbol("base");
             field.get_internal_symbol()->kind = SK_VARIABLE;
-            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
+            symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
@@ -97,13 +97,13 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             TL::Symbol field = class_scope.new_symbol("devices");
             field.get_internal_symbol()->kind = SK_VARIABLE;
-            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+            symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
 
 
-            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
@@ -1442,10 +1442,9 @@ void LoweringVisitor::fill_arguments(
                         DataReference data_ref((*it)->get_base_address_expression());
                         if (!data_ref.is_valid())
                         {
-                            std::cerr
-                                << (*it)->get_base_address_expression().get_locus()
-                                << ": warning: an argument is not a valid data-reference, compilation is likely to fail"
-                                << std::endl;
+                            warn_printf(
+                                "%s: warning: an argument is not a valid data-reference, compilation is likely to fail\n",
+                                (*it)->get_base_address_expression().get_locus_str().c_str());
                         }
 
                         // This is a pointer reference
@@ -1546,104 +1545,104 @@ int LoweringVisitor::count_copies_dimensions(OutlineInfo& outline_info)
     return num_copies_dimensions;
 }
 
-void LoweringVisitor::fill_copies_nonregion(
-        Nodecl::NodeclBase ctr,
-        OutlineInfo& outline_info,
-        int num_copies,
-        // Source arguments_accessor,
-        // out
-        Source& copy_ol_decl,
-        Source& copy_ol_arg,
-        Source& copy_ol_setup,
-        Source& copy_imm_arg,
-        Source& copy_imm_setup)
-{
-    if (IS_C_LANGUAGE
-            || IS_CXX_LANGUAGE)
-    {
-        copy_ol_arg << "&ol_copy_data";
-        copy_imm_arg << "imm_copy_data";
-
-        copy_ol_decl
-            << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
-            ;
-        copy_imm_setup 
-            << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
-    }
-    else if (IS_FORTRAN_LANGUAGE)
-    {
-        copy_ol_arg << "(nanos_copy_data_t**)0";
-        copy_imm_arg << "imm_copy_data";
-
-        copy_ol_decl
-            << "nanos_copy_data_t ol_copy_data[" << num_copies << "];";
-            ;
-        copy_imm_setup
-            << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
-    }
-
-    // typedef struct {
-    //    uint64_t address;
-    //    nanos_sharing_t sharing;
-    //    struct {
-    //       bool input: 1;
-    //       bool output: 1;
-    //    } flags;
-    //    size_t size;
-    // } nanos_copy_data_internal_t;
-
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-
-    int current_copy_num = 0;
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        if (copies.empty())
-            continue;
-
-        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
-                copy_it != copies.end();
-                copy_it++)
-        {
-            TL::DataReference data_ref((*copy_it).expression);
-            OutlineDataItem::CopyDirectionality dir = (*copy_it).directionality;
-
-
-            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-            int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-
-            copy_ol_setup
-                << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-                << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-                << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-                << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-                << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-                ;
-            copy_imm_setup
-                << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-                << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-                << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-                << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-                << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-                ;
-            current_copy_num++;
-        }
-    }
-
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        copy_ol_setup
-            << "{"
-            << "nanos_err_t err;"
-            << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "}"
-            ;
-    }
-}
+// void LoweringVisitor::fill_copies_nonregion(
+//         Nodecl::NodeclBase ctr,
+//         OutlineInfo& outline_info,
+//         int num_copies,
+//         // Source arguments_accessor,
+//         // out
+//         Source& copy_ol_decl,
+//         Source& copy_ol_arg,
+//         Source& copy_ol_setup,
+//         Source& copy_imm_arg,
+//         Source& copy_imm_setup)
+// {
+//     if (IS_C_LANGUAGE
+//             || IS_CXX_LANGUAGE)
+//     {
+//         copy_ol_arg << "&ol_copy_data";
+//         copy_imm_arg << "imm_copy_data";
+// 
+//         copy_ol_decl
+//             << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
+//             ;
+//         copy_imm_setup 
+//             << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+//     }
+//     else if (IS_FORTRAN_LANGUAGE)
+//     {
+//         copy_ol_arg << "(nanos_copy_data_t**)0";
+//         copy_imm_arg << "imm_copy_data";
+// 
+//         copy_ol_decl
+//             << "nanos_copy_data_t ol_copy_data[" << num_copies << "];";
+//             ;
+//         copy_imm_setup
+//             << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+//     }
+// 
+//     // typedef struct {
+//     //    uint64_t address;
+//     //    nanos_sharing_t sharing;
+//     //    struct {
+//     //       bool input: 1;
+//     //       bool output: 1;
+//     //    } flags;
+//     //    size_t size;
+//     // } nanos_copy_data_internal_t;
+// 
+//     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+// 
+//     int current_copy_num = 0;
+//     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//             it != data_items.end();
+//             it++)
+//     {
+//         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+// 
+//         if (copies.empty())
+//             continue;
+// 
+//         for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+//                 copy_it != copies.end();
+//                 copy_it++)
+//         {
+//             TL::DataReference data_ref((*copy_it).expression);
+//             OutlineDataItem::CopyDirectionality dir = (*copy_it).directionality;
+// 
+// 
+//             int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+//             int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+// 
+//             copy_ol_setup
+//                 << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+//                 << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+//                 << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+//                 << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+//                 << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+//                 ;
+//             copy_imm_setup
+//                 << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
+//                 << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
+//                 << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
+//                 << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
+//                 << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
+//                 ;
+//             current_copy_num++;
+//         }
+//     }
+// 
+//     if (IS_FORTRAN_LANGUAGE)
+//     {
+//         copy_ol_setup
+//             << "{"
+//             << "nanos_err_t err;"
+//             << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
+//             << "if (err != NANOS_OK) nanos_handle_error(err);"
+//             << "}"
+//             ;
+//     }
+// }
 
 void LoweringVisitor::fill_copies_region(
         Nodecl::NodeclBase ctr,
@@ -2012,7 +2011,7 @@ void LoweringVisitor::fill_copies(
                     copy_imm_arg,
                     copy_imm_setup);
 
-            if (bool allow_multiple_copies = Nanos::Version::interface_is_at_least("copies_api", 1002))
+            if (/* bool allow_multiple_copies = */Nanos::Version::interface_is_at_least("copies_api", 1002))
             {
                 emit_translation_function_region(ctr,
                         outline_info,
@@ -2022,40 +2021,42 @@ void LoweringVisitor::fill_copies(
             }
             else
             {
-                emit_translation_function_nonregion(ctr,
-                        outline_info,
-                        parameter_outline_info,
-                        structure_symbol,
-                        allow_multiple_copies,
-                        xlate_function_symbol);
+                internal_error("Code unreachable", 0);
+                // emit_translation_function_nonregion(ctr,
+                //         outline_info,
+                //         parameter_outline_info,
+                //         structure_symbol,
+                //         allow_multiple_copies,
+                //         xlate_function_symbol);
             }
         }
     }
     else
     {
-        if (num_copies == 0)
-        {
-            copy_ol_arg << "(nanos_copy_data_t**)0";
-            copy_imm_arg << "(nanos_copy_data_t*)0";
-        }
-        else
-        {
-            fill_copies_nonregion(ctr,
-                    outline_info,
-                    num_copies,
-                    copy_ol_decl,
-                    copy_ol_arg,
-                    copy_ol_setup,
-                    copy_imm_arg,
-                    copy_imm_setup);
-
-            emit_translation_function_nonregion(ctr,
-                    outline_info,
-                    parameter_outline_info,
-                    structure_symbol,
-                    /* allow_multiple_copies */ false,
-                    xlate_function_symbol);
-        }
+        internal_error("Code unreachable", 0);
+//         if (num_copies == 0)
+//         {
+//             copy_ol_arg << "(nanos_copy_data_t**)0";
+//             copy_imm_arg << "(nanos_copy_data_t*)0";
+//         }
+//         else
+//         {
+//             fill_copies_nonregion(ctr,
+//                     outline_info,
+//                     num_copies,
+//                     copy_ol_decl,
+//                     copy_ol_arg,
+//                     copy_ol_setup,
+//                     copy_imm_arg,
+//                     copy_imm_setup);
+// 
+//             emit_translation_function_nonregion(ctr,
+//                     outline_info,
+//                     parameter_outline_info,
+//                     structure_symbol,
+//                     /* allow_multiple_copies */ false,
+//                     xlate_function_symbol);
+//         }
     }
 }
 
@@ -2093,142 +2094,142 @@ bool is_not_alnum(int charact) {
     return !std::isalnum(charact);
 }
 
-void LoweringVisitor::emit_translation_function_nonregion(
-        Nodecl::NodeclBase ctr,
-        OutlineInfo& outline_info,
-        OutlineInfo* parameter_outline_info,
-        TL::Symbol structure_symbol,
-        bool allow_multiple_copies,
-        // Out
-        TL::Symbol& translation_function_symbol
-        )
-{
-    TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
-    Source fun_name;
-    std::string filename = TL::CompilationProcess::get_current_file().get_filename();
-    //Remove non-alphanumeric characters from the string
-    filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
-    fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
-    fun_num++;
-
-    TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
-    argument_type = argument_type.get_lvalue_reference_to();
-
-    ObjectList<std::string> parameter_names;
-    ObjectList<TL::Type> parameter_types;
-
-    parameter_names.append("arg");
-    parameter_types.append(argument_type);
-
-    TL::Symbol sym_nanos_wd_t = ReferenceScope(ctr).get_scope().get_symbol_from_name("nanos_wd_t");
-    ERROR_CONDITION(!sym_nanos_wd_t.is_valid(), "Typename nanos_wd_t not found", 0);
-    parameter_names.append("wd");
-    parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
-
-    translation_function_symbol = SymbolUtils::new_function_symbol(
-            Nodecl::Utils::get_enclosing_function(ctr),
-            fun_name.get_source(),
-            TL::Type::get_void_type(),
-            parameter_names,
-            parameter_types);
-
-    Nodecl::NodeclBase function_code, empty_statement;
-    SymbolUtils::build_empty_body_for_function(
-            translation_function_symbol,
-            function_code,
-            empty_statement);
-
-    TL::ObjectList<OutlineDataItem*> data_items;
-    data_items = outline_info.get_fields();
-
-    Source translations;
-
-    Nodecl::Utils::SimpleSymbolMap symbol_map;
-
-    // Initialize the rewrite visitor
-    RewriteAddressExpression rewrite_base_address;
-    TL::Symbol argument_structure_symbol = ReferenceScope(empty_statement).get_scope().get_symbol_from_name("arg");
-    ERROR_CONDITION(!argument_structure_symbol.is_valid(), "Invalid symbol 'arg' just created!", 0);
-    rewrite_base_address.structure = argument_structure_symbol;
-
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end(); it++)
-    {
-        // Create a mapping "var" to "args->var"
-        ERROR_CONDITION(!(*it)->get_field_symbol().is_valid(), "Invalid field symbol", 0);
-        rewrite_base_address.sym_to_field[(*it)->get_symbol()] = (*it)->get_field_symbol();
-    }
-
-    int copy_num = 0;
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-
-        if (copies.empty())
-            continue;
-
-        if (!allow_multiple_copies
-                && copies.size() > 1)
-        {
-            info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
-                    "Only the first copy (%s) will be translated\n",
-                    ctr.get_locus_str().c_str(),
-                    (*it)->get_symbol().get_name().c_str(),
-                    copies[0].expression.prettyprint().c_str());
-        }
-
-        TL::DataReference data_ref(copies[0].expression);
-
-        // if (IS_FORTRAN_LANGUAGE)
-        // {
-        //     base_address = data_ref.get_base_address_as_integer();
-        // }
-        // else
-        // {
-        //     base_address = data_ref.get_base_address().shallow_copy();
-        // }
-
-        // // rewrite
-        // rewrite_base_address.walk(base_address);
-
-        Nodecl::NodeclBase offset = data_ref.get_offsetof();
-        rewrite_base_address.walk(offset);
-
-        translations
-            << "{"
-            << "intptr_t device_base_address;"
-            << "signed long offset;"
-            << "nanos_err_t err;"
-            << "intptr_t host_base_address;"
-
-            << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
-            << "offset = " << as_expression(offset) << ";"
-            << "device_base_address = 0;"
-            << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
-            << "device_base_address -= offset;"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-            << "}"
-            ;
-        copy_num += copies.size();
-    }
-
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        Source::source_language = SourceLanguage::C;
-    }
-    Nodecl::NodeclBase translations_tree = translations.parse_statement(empty_statement);
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        Source::source_language = SourceLanguage::Current;
-    }
-
-    empty_statement.replace(translations_tree);
-
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_code);
-}
+// void LoweringVisitor::emit_translation_function_nonregion(
+//         Nodecl::NodeclBase ctr,
+//         OutlineInfo& outline_info,
+//         OutlineInfo* parameter_outline_info,
+//         TL::Symbol structure_symbol,
+//         bool allow_multiple_copies,
+//         // Out
+//         TL::Symbol& translation_function_symbol
+//         )
+// {
+//     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
+//     Source fun_name;
+//     std::string filename = TL::CompilationProcess::get_current_file().get_filename();
+//     //Remove non-alphanumeric characters from the string
+//     filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
+//     fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
+//     fun_num++;
+// 
+//     TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
+//     argument_type = argument_type.get_lvalue_reference_to();
+// 
+//     ObjectList<std::string> parameter_names;
+//     ObjectList<TL::Type> parameter_types;
+// 
+//     parameter_names.append("arg");
+//     parameter_types.append(argument_type);
+// 
+//     TL::Symbol sym_nanos_wd_t = ReferenceScope(ctr).get_scope().get_symbol_from_name("nanos_wd_t");
+//     ERROR_CONDITION(!sym_nanos_wd_t.is_valid(), "Typename nanos_wd_t not found", 0);
+//     parameter_names.append("wd");
+//     parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
+// 
+//     translation_function_symbol = SymbolUtils::new_function_symbol(
+//             Nodecl::Utils::get_enclosing_function(ctr),
+//             fun_name.get_source(),
+//             TL::Type::get_void_type(),
+//             parameter_names,
+//             parameter_types);
+// 
+//     Nodecl::NodeclBase function_code, empty_statement;
+//     SymbolUtils::build_empty_body_for_function(
+//             translation_function_symbol,
+//             function_code,
+//             empty_statement);
+// 
+//     TL::ObjectList<OutlineDataItem*> data_items;
+//     data_items = outline_info.get_fields();
+// 
+//     Source translations;
+// 
+//     Nodecl::Utils::SimpleSymbolMap symbol_map;
+// 
+//     // Initialize the rewrite visitor
+//     RewriteAddressExpression rewrite_base_address;
+//     TL::Symbol argument_structure_symbol = ReferenceScope(empty_statement).get_scope().get_symbol_from_name("arg");
+//     ERROR_CONDITION(!argument_structure_symbol.is_valid(), "Invalid symbol 'arg' just created!", 0);
+//     rewrite_base_address.structure = argument_structure_symbol;
+// 
+//     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//             it != data_items.end(); it++)
+//     {
+//         // Create a mapping "var" to "args->var"
+//         ERROR_CONDITION(!(*it)->get_field_symbol().is_valid(), "Invalid field symbol", 0);
+//         rewrite_base_address.sym_to_field[(*it)->get_symbol()] = (*it)->get_field_symbol();
+//     }
+// 
+//     int copy_num = 0;
+//     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//             it != data_items.end();
+//             it++)
+//     {
+//         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+// 
+//         if (copies.empty())
+//             continue;
+// 
+//         if (!allow_multiple_copies
+//                 && copies.size() > 1)
+//         {
+//             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
+//                     "Only the first copy (%s) will be translated\n",
+//                     ctr.get_locus_str().c_str(),
+//                     (*it)->get_symbol().get_name().c_str(),
+//                     copies[0].expression.prettyprint().c_str());
+//         }
+// 
+//         TL::DataReference data_ref(copies[0].expression);
+// 
+//         // if (IS_FORTRAN_LANGUAGE)
+//         // {
+//         //     base_address = data_ref.get_base_address_as_integer();
+//         // }
+//         // else
+//         // {
+//         //     base_address = data_ref.get_base_address().shallow_copy();
+//         // }
+// 
+//         // // rewrite
+//         // rewrite_base_address.walk(base_address);
+// 
+//         Nodecl::NodeclBase offset = data_ref.get_offsetof();
+//         rewrite_base_address.walk(offset);
+// 
+//         translations
+//             << "{"
+//             << "intptr_t device_base_address;"
+//             << "signed long offset;"
+//             << "nanos_err_t err;"
+//             << "intptr_t host_base_address;"
+// 
+//             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
+//             << "offset = " << as_expression(offset) << ";"
+//             << "device_base_address = 0;"
+//             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
+//             << "device_base_address -= offset;"
+//             << "if (err != NANOS_OK) nanos_handle_error(err);"
+//             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+//             << "}"
+//             ;
+//         copy_num += copies.size();
+//     }
+// 
+//     if (IS_FORTRAN_LANGUAGE)
+//     {
+//         Source::source_language = SourceLanguage::C;
+//     }
+//     Nodecl::NodeclBase translations_tree = translations.parse_statement(empty_statement);
+//     if (IS_FORTRAN_LANGUAGE)
+//     {
+//         Source::source_language = SourceLanguage::Current;
+//     }
+// 
+//     empty_statement.replace(translations_tree);
+// 
+//     Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_code);
+// }
 
 void LoweringVisitor::emit_translation_function_region(
         Nodecl::NodeclBase ctr,
@@ -2411,6 +2412,8 @@ void LoweringVisitor::handle_dependency_item(
         base_address = dep_expr.get_base_address().shallow_copy();
     }
 
+    // std::cerr << "BASE ADDRESS -> |" << base_address.prettyprint() << "|" << std::endl;
+
     dependency_flags
         << "{"
         << dependency_flags_in << ","
@@ -2467,11 +2470,6 @@ void LoweringVisitor::handle_dependency_item(
         ;
 
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
-
-    if (dep_expr_offset.is_null())
-    {
-        dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
-    }
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
     dependency_offset << as_expression(dep_expr_offset);

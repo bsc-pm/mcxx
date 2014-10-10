@@ -105,7 +105,7 @@ namespace SymbolUtils
                 it++, it_ptypes++, type_it++)
         {
             scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
-            param->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(param, 1);
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
 
@@ -138,7 +138,7 @@ namespace SymbolUtils
                 || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
             new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
-            new_function_sym->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
@@ -160,8 +160,8 @@ namespace SymbolUtils
 
             if (current_function.is_member())
             {
-                new_template_sym->entity_specs.is_member = 1;
-                new_template_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+                symbol_entity_specs_set_is_member(new_template_sym, 1);
+                symbol_entity_specs_set_class_type(new_template_sym, current_function.get_class_type().get_internal_type());
             }
 
             // The new function is the primary template specialization
@@ -175,47 +175,45 @@ namespace SymbolUtils
 
         new_function_sym->related_decl_context = function_context;
 
-        new_function_sym->entity_specs.related_symbols = parameter_list;
-        new_function_sym->entity_specs.num_related_symbols = num_parameters;
-        for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
+        for (int i = 0; i < num_parameters; i++)
         {
+            symbol_entity_specs_add_related_symbols(new_function_sym, parameter_list[i]);
             symbol_set_as_parameter_of_function(
-                    new_function_sym->entity_specs.related_symbols[i], new_function_sym,
+                    parameter_list[i], new_function_sym,
                     /* parameter nesting */ 0,
                     /* parameter position */ i);
         }
+        xfree(parameter_list); parameter_list = NULL;
 
         // Make it static
-        new_function_sym->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(new_function_sym, 1);
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
         {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            symbol_entity_specs_set_is_member(new_function_sym, 1);
+            symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());
 
-            new_function_sym->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
             // We make it as a declaration because we do not expect it to be defined inside class
-            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym,
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym), new_function_sym,
                     /* is_declaration */ 0);
         }
 
         if (current_function.is_inline())
-            new_function_sym->entity_specs.is_inline = 1;
+            symbol_entity_specs_set_is_inline(new_function_sym, 1);
 
-        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
-        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+        // symbol_entity_specs_set_is_defined_inside_class_specifier(new_function_sym,
+        //     symbol_entity_specs_get_is_defined_inside_class_specifier(current_function.get_internal_symbol()));
 
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
             scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-            new_function_sym->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
+            symbol_entity_specs_set_in_module(new_function_sym, module_sym);
+            symbol_entity_specs_add_related_symbols(module_sym,
                     new_function_sym);
-            new_function_sym->entity_specs.is_module_procedure = 1;
+            symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
         }
 
         // Result symbol
@@ -230,9 +228,9 @@ namespace SymbolUtils
             scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, uniquestr(result_name));
             result_sym->kind = SK_VARIABLE;
             result_sym->type_information = function_type_get_return_type(new_function_sym->type_information);
-            result_sym->entity_specs.is_result_var = 1;
+            symbol_entity_specs_set_is_result_var(result_sym, 1);
 
-            new_function_sym->entity_specs.result_var = result_sym;
+            symbol_entity_specs_set_result_var(new_function_sym, result_sym);
         }
 
         return new_function_sym;
@@ -256,7 +254,7 @@ namespace SymbolUtils
         }
 
         scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
-        entry->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(entry, 1);
 
         entry->kind = SK_FUNCTION;
         entry->locus = make_locus("", 0, 0);
@@ -287,7 +285,7 @@ namespace SymbolUtils
                 it++, it_ptypes++, type_it++)
         {
             scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
-            param->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(param, 1);
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
 
@@ -295,7 +293,7 @@ namespace SymbolUtils
 
             symbol_set_as_parameter_of_function(param, entry,
                     /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
             if (type_it->is_restrict())
@@ -304,9 +302,7 @@ namespace SymbolUtils
                 param->type_information = get_restrict_qualified_type(param->type_information);
             }
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    param);
+            symbol_entity_specs_add_related_symbols(entry, param);
 
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
@@ -317,17 +313,17 @@ namespace SymbolUtils
         {
             // Return symbol
             scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, uniquestr(return_symbol_name.c_str()));
-            return_sym->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(return_sym, 1);
             return_sym->kind = SK_VARIABLE;
             return_sym->locus = make_locus("", 0, 0);
 
             return_sym->defined = 1;
 
-            return_sym->entity_specs.is_result_var = 1;
+            symbol_entity_specs_set_is_result_var(return_sym, 1);
 
             return_sym->type_information = get_unqualified_type(return_type.get_internal_type());
 
-            entry->entity_specs.result_var = return_sym;
+            symbol_entity_specs_set_result_var(entry, return_sym);
         }
 
         // Type of the function
@@ -383,7 +379,8 @@ namespace SymbolUtils
                     make_locus("", 0, 0));
         }
 
-        function_symbol.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
-
+        symbol_entity_specs_set_function_code(
+                function_symbol.get_internal_symbol(),
+                function_code.get_internal_nodecl());
     }
 }

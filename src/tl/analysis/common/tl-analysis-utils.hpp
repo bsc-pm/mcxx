@@ -29,6 +29,7 @@
 
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include <time.h>
 
 #include <set>
 #include <map>
@@ -39,6 +40,15 @@
 namespace TL {
 namespace Analysis {
     
+    // #define ANALYSIS_PERFORMANCE_MEASURE
+
+    static inline double time_nsec()
+    {
+        struct timespec tp;
+        clock_gettime(CLOCK_MONOTONIC, &tp);
+        return (tp.tv_sec * 1e9 + tp.tv_nsec);
+    }
+
     typedef Nodecl::NodeclBase NBase;
     typedef ObjectList<NBase> NodeclList;
     typedef std::set<NBase, Nodecl::Utils::Nodecl_structural_less> NodeclSet;

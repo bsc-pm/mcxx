@@ -103,7 +103,7 @@ namespace TL
 
         scope_entry_t* entry = module.get_internal_symbol();
 
-        fortran_modules_data_set_t* extra_module_info = entry->entity_specs.module_extra_info;
+        fortran_modules_data_set_t* extra_module_info = symbol_entity_specs_get_module_extra_info(entry);
 
         if (extra_module_info != NULL)
         {

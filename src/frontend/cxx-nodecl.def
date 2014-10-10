@@ -149,7 +149,7 @@ expression : literal
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
@@ -668,7 +668,7 @@ expression : constraint_expression
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
 
-induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression, [upper] expression, [stride] expression)
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression-seq, [upper] expression-seq, [stride] expression)
 
 analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
                           | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)

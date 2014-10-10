@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------
  * (C) Copyright 2006-2012 Barcelona Supercomputing Center
- *                        Centro Nacional de Supercomputacion
+ *                         Centro Nacional de Supercomputacion
  * 
  * This file is part of Mercurium C/C++ source-to-source compiler.
  * 
@@ -22,34 +22,33 @@
  * License along with Mercurium C/C++ source-to-source compiler; if
  * not, write to the Free Software Foundation, Inc., 675 Mass Ave,
  * Cambridge, MA 02139, USA.
---------------------------------------------------------------------*/
+ - *-------------------------------------------------------------------*/
+
 
 
 /*
- <testinfo>
- test_generator=config/mercurium-analysis
- test_compile_fail=yes
- test_compile_faulty=yes
- </testinfo>
+<testinfo>
+test_generator=config/mercurium-analysis
+test_nolink=yes
+</testinfo>
 */
 
-void bar(int&);
+int z = 10;
 
-int x=0;
-int y;
-
-
-void foo() {
-    #pragma analysis_check assert upper_exposed(x) defined(x,y)
-    #pragma omp task
+void foo(int y)
+{
+    int task_res = 0;
+    int res2 = 0;
+    int x = 5;
+    int l = 5;
+    #pragma analysis_check assert live_in(task_res, x, y, z) live_out(task_res, z) dead(l)
+    #pragma omp task shared(task_res) private(l)
     {
-        #pragma analysis_check assert defined(x)
-        #pragma omp task
-            x = 1;
-        y = x;
+        l = 10;
+        task_res += x + y + z + l;
     }
     
-    #pragma analysis_check assert undefined(x,y)
-    #pragma omp task
-    bar(x);
+    res2 = task_res + z;
+    #pragma omp taskwait
+    res2 += task_res + y + l;
 }

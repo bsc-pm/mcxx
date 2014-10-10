@@ -319,12 +319,14 @@ namespace TL { namespace Nanox {
                                 .get_lvalue_reference_to()
                                 .get_internal_type();
                         }
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-                        private_sym->entity_specs.is_allocatable =
-                            (((*it)->get_allocation_policy()
-                              & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
-                             == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
+
+                        symbol_entity_specs_set_is_allocatable(private_sym,
+                                (((*it)->get_allocation_policy()
+                                  & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                                 == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE));
 
                         parameter_symbols.append(private_sym);
                         break;
@@ -338,23 +340,23 @@ namespace TL { namespace Nanox {
 
         // Now everything is set to register the function
         scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
-        new_function_sym->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
         new_function_sym->kind = SK_FUNCTION;
         new_function_sym->locus = make_locus("", 0, 0);
 
         // Make it static
-        new_function_sym->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(new_function_sym, 1);
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
         {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            symbol_entity_specs_set_is_member(new_function_sym, 1);
+            symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());
 
-            new_function_sym->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
-            ::class_type_add_member(new_function_sym->entity_specs.class_type,
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
                     new_function_sym,
                     /* is_definition */ 0);
         }
@@ -375,11 +377,9 @@ namespace TL { namespace Nanox {
 
             symbol_set_as_parameter_of_function(param, new_function_sym,
                     /* nesting */ 0,
-                    /* position */ new_function_sym->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
 
-            P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
-                    new_function_sym->entity_specs.num_related_symbols,
-                    param);
+            symbol_entity_specs_add_related_symbols(new_function_sym, param);
 
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
@@ -525,26 +525,30 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, uniquestr(name.c_str()));
+                        scope_entry_t* private_sym = ::new_symbol(function_context,
+                                function_context.current_scope,
+                                uniquestr(name.c_str()));
+
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
 
                         if (sym.is_valid())
                         {
                             symbol_map->add_map(sym, private_sym);
 
                             // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable =
-                                (!sym.is_member() && sym.is_allocatable());
+                            symbol_entity_specs_set_is_allocatable(private_sym,
+                                    (!sym.is_member() && sym.is_allocatable()));
 
                             // Cray pointeers are handled a bit special
                             if (sym.is_cray_pointee())
                             {
-                                private_sym->entity_specs.is_cray_pointee = 1;
+                                symbol_entity_specs_set_is_cray_pointee(private_sym, 1);
 
                                 // We cannot set the right cray_pointer symbol yet because It's possible that has not been created
-                                private_sym->entity_specs.cray_pointer = sym.get_cray_pointer().get_internal_symbol();
+                                symbol_entity_specs_set_cray_pointer(private_sym, sym.get_cray_pointer().get_internal_symbol());
 
                                 cray_pointee_list.append(private_sym);
                             }
@@ -577,23 +581,24 @@ namespace TL { namespace Nanox {
 
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
 
                         if (sym.is_valid())
                         {
-                            private_sym->entity_specs.is_optional = sym.is_optional();
-                            private_sym->entity_specs.is_allocatable =
+                            symbol_entity_specs_set_is_optional(private_sym, sym.is_optional());
+                            symbol_entity_specs_set_is_allocatable(private_sym,
                                 (!sym.is_member() && sym.is_allocatable())
-                                || (*it)->is_copy_of_array_descriptor_allocatable();
+                                || (*it)->is_copy_of_array_descriptor_allocatable());
 
                             symbol_map->add_map(sym, private_sym);
                         }
 
-                        private_sym->entity_specs.is_allocatable =
-                            private_sym->entity_specs.is_allocatable ||
-                            (((*it)->get_allocation_policy()
-                              & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
-                             == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                        symbol_entity_specs_set_is_allocatable(private_sym,
+                                symbol_entity_specs_get_is_allocatable(private_sym) ||
+                                (((*it)->get_allocation_policy()
+                                  & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                                 == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE));
 
                         parameter_symbols.append(private_sym);
 
@@ -611,7 +616,8 @@ namespace TL { namespace Nanox {
                             {
                                 vla_private_sym->type_information = get_pointer_type(array_type_get_element_type(vla_private_sym->type_information));
                             }
-                            vla_private_sym->defined = vla_private_sym->entity_specs.is_user_declared = 1;
+                            symbol_entity_specs_set_is_user_declared(vla_private_sym, 1);
+                            vla_private_sym->defined = 1;
 
                             initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
                                         vla_private_sym));
@@ -721,13 +727,15 @@ namespace TL { namespace Nanox {
                                 uniquestr((*it)->get_field_name().c_str()));
                         shared_reduction_sym->kind = SK_VARIABLE;
                         shared_reduction_sym->type_information = param_type.get_internal_type();
-                        shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(shared_reduction_sym, 1);
+                        shared_reduction_sym->defined = 1;
                         parameter_symbols.append(shared_reduction_sym);
 
-                        shared_reduction_sym->entity_specs.is_allocatable = (sym.is_valid()
-                                && !sym.is_member()
-                                && sym.is_allocatable())
-                            || (*it)->is_copy_of_array_descriptor_allocatable();
+                        symbol_entity_specs_set_is_allocatable(shared_reduction_sym,
+                                (sym.is_valid()
+                                    && !sym.is_member()
+                                    && sym.is_allocatable())
+                                || (*it)->is_copy_of_array_descriptor_allocatable());
 
                         (*it)->reduction_set_shared_symbol_in_outline(shared_reduction_sym);
 
@@ -758,8 +766,8 @@ namespace TL { namespace Nanox {
                                 uniquestr(("rdv_" + name).c_str()));
                         private_reduction_vector_sym->kind = SK_VARIABLE;
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
-                        private_reduction_vector_sym->defined
-                            = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_reduction_vector_sym, 1);
+                        private_reduction_vector_sym->defined = 1;
 
                         reduction_vector_symbols.append(private_reduction_vector_sym);
 
@@ -774,7 +782,8 @@ namespace TL { namespace Nanox {
                                 uniquestr(("rdp_" + name).c_str()));
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
 
                         reduction_private_symbols.append(private_sym);
 
@@ -786,10 +795,11 @@ namespace TL { namespace Nanox {
 
                         if (sym.is_valid())
                         {
-                            private_sym->entity_specs.is_allocatable = (!sym.is_member() && sym.is_allocatable())
-                                || (*it)->is_copy_of_array_descriptor_allocatable();
+                            symbol_entity_specs_set_is_allocatable(private_sym,
+                                    (!sym.is_member() && sym.is_allocatable())
+                                    || (*it)->is_copy_of_array_descriptor_allocatable());
 
-                            if (private_sym->entity_specs.is_allocatable)
+                            if (symbol_entity_specs_get_is_allocatable(private_sym))
                             {
                                 initial_statements << emit_allocate_statement(private_sym, is_allocated_index,
                                         lower_bound_index, upper_bound_index);
@@ -875,7 +885,7 @@ namespace TL { namespace Nanox {
             {
                 TL::Symbol cray_pointee = *it_cray_pointee;
                 TL::Symbol updated_cray_pointer =  symbol_map->map(cray_pointee.get_cray_pointer());
-                cray_pointee.get_internal_symbol()->entity_specs.cray_pointer = updated_cray_pointer.get_internal_symbol();
+                symbol_entity_specs_set_cray_pointer(cray_pointee.get_internal_symbol(), updated_cray_pointer.get_internal_symbol());
             }
         }
 
@@ -903,7 +913,7 @@ namespace TL { namespace Nanox {
                 private_sym->kind = SK_VARIABLE;
                 private_sym->type_information = sym.get_type().get_internal_type();
                 private_sym->value = v.get_internal_nodecl();
-                private_sym->entity_specs.is_saved_expression = 1;
+                symbol_entity_specs_set_is_saved_expression(private_sym, 1);
 
                 symbol_map->add_map(sym, private_sym);
             }
@@ -1061,7 +1071,7 @@ namespace TL { namespace Nanox {
             new_function_sym = new_symbol(new_decl_context,
                     new_decl_context.current_scope,
                     uniquestr(function_name.c_str()));
-            new_function_sym->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
@@ -1083,8 +1093,8 @@ namespace TL { namespace Nanox {
 
             if (current_function.is_member())
             {
-                new_template_sym->entity_specs.is_member = 1;
-                new_template_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+                symbol_entity_specs_set_is_member(new_template_sym, 1);
+                symbol_entity_specs_set_class_type(new_template_sym, current_function.get_class_type().get_internal_type());
             }
 
             // The new function is the primary template specialization
@@ -1094,14 +1104,14 @@ namespace TL { namespace Nanox {
         }
 
         // Make it static
-        new_function_sym->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(new_function_sym, 1);
 
         if (IS_CXX_LANGUAGE
                 && !is_function_task
                 && current_function.is_member()
                 && !current_function.is_static())
         {
-            new_function_sym->entity_specs.is_static = 0;
+            symbol_entity_specs_set_is_static(new_function_sym, 0);
         }
 
         // Finally, we update the parameters of the new function symbol
@@ -1112,19 +1122,20 @@ namespace TL { namespace Nanox {
             scope_entry_t* param = it2->get_internal_symbol();
             symbol_set_as_parameter_of_function(param, new_function_sym,
                     /* nesting */ 0,
-                    /* position */ new_function_sym->entity_specs.num_related_symbols);
-            P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
+            symbol_entity_specs_add_related_symbols(new_function_sym,
+                    param);
         }
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
         {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            symbol_entity_specs_set_is_member(new_function_sym, 1);
+            symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());
 
-            new_function_sym->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
-            ::class_type_add_member(new_function_sym->entity_specs.class_type,
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
                     new_function_sym,
                     /* is_definition */ 0);
         }
@@ -1137,20 +1148,18 @@ namespace TL { namespace Nanox {
         }
 
         if (current_function.is_inline())
-            new_function_sym->entity_specs.is_inline = 1;
+            symbol_entity_specs_set_is_inline(new_function_sym, 1);
 
-        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
-        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+        // symbol_entity_specs_get_is_defined_inside_class_specifier(new_function_sym) =
+        //     symbol_entity_specs_get_is_defined_inside_class_specifier(current_function.get_internal_symbol());
 
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
             scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-            new_function_sym->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
+            symbol_entity_specs_set_in_module(new_function_sym, module_sym);
+            symbol_entity_specs_add_related_symbols(module_sym,
                     new_function_sym);
-            new_function_sym->entity_specs.is_module_procedure = 1;
+            symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
         }
 
         function_context.function_scope->related_entry = new_function_sym;

@@ -161,7 +161,7 @@ namespace TL { namespace Nanox {
                 scope_entry_t* shared_symbol_proxy = (scope_entry_t*)xcalloc(1, sizeof(*shared_symbol_proxy));
                 shared_symbol_proxy->symbol_name = UNIQUESTR_LITERAL("<<reduction-variable>>"); // Crude way to ensure it is replaced
                 shared_symbol_proxy->kind = shared_symbol->kind;
-                shared_symbol_proxy->entity_specs = shared_symbol->entity_specs;
+                symbol_entity_specs_copy_from(shared_symbol_proxy, shared_symbol);
                 shared_symbol_proxy->decl_context = shared_symbol->decl_context;
                 shared_symbol_proxy->type_information = shared_symbol->type_information;
                 shared_symbol_proxy->locus = shared_symbol->locus;

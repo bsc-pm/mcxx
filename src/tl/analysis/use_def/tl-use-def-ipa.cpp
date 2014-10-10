@@ -33,7 +33,7 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
-    std::set<std::string> _warned_unreach_funcs;
+    std::set<Symbol> _warned_unreach_funcs;
     
     // ******************************************************************************************** //
     // ********************* Known function code IP usage propagation methods ********************* //
@@ -405,44 +405,44 @@ propagate_usage:
     bool UsageVisitor::parse_c_functions_file(Symbol func_sym, const Nodecl::List& args)
     {
         bool side_effects = true;
-
+        
         std::string cLibFuncsPath = std::string(MCXX_ANALYSIS_DATA_PATH) + "/cLibraryFunctionList" ;
         std::ifstream cLibFuncs(cLibFuncsPath.c_str());
         if(cLibFuncs.is_open())
         {
-            std::string func_decl;
+            std::string clib_func_decl;
             while(cLibFuncs.good())
             {
-                getline(cLibFuncs, func_decl);
-                if(func_decl.substr(0, 2) != "//")
+                getline(cLibFuncs, clib_func_decl);
+                if(clib_func_decl.substr(0, 2) != "//")
                 {
-                    size_t open_parenth_pos = func_decl.find("(");
-                    std::string func_name = func_decl.substr(0, open_parenth_pos - 1);
-                    if(func_sym.get_name() == func_name)
+                    size_t open_parenth_pos = clib_func_decl.find("(");
+                    std::string clib_func_name = clib_func_decl.substr(0, open_parenth_pos - 1);
+                    if(func_sym.get_name() == clib_func_name)
                     {   // No global variable is read / written
                         // Check for parameters usage
                         side_effects = false;
 
-                        size_t comma_pos = func_decl.find(",");
+                        size_t comma_pos = clib_func_decl.find(",");
                         if(comma_pos == std::string::npos)
                         {
-                            comma_pos = func_decl.find(")");
+                            comma_pos = clib_func_decl.find(")");
                         }
                         size_t last_comma_pos = open_parenth_pos + 1;
                         std::string current_param;
                         Nodecl::List::iterator it = args.begin();
                         while(comma_pos != std::string::npos && /* not a default parameter*/ it != args.end())
                         {
-                            current_param = func_decl.substr(last_comma_pos, comma_pos - last_comma_pos);
+                            current_param = clib_func_decl.substr(last_comma_pos, comma_pos - last_comma_pos);
                             parse_parameter(current_param, *it);
                             it++;
                             last_comma_pos = comma_pos + 1;
-                            comma_pos = func_decl.find(",", last_comma_pos);
+                            comma_pos = clib_func_decl.find(",", last_comma_pos);
                         }
                         // Last parameter
                         if(it != args.end())
                         {
-                            current_param = func_decl.substr(last_comma_pos, func_decl.find(")", last_comma_pos) - last_comma_pos);
+                            current_param = clib_func_decl.substr(last_comma_pos, clib_func_decl.find(")", last_comma_pos) - last_comma_pos);
                             if(current_param == "...")
                             {   // Arguments are supposed to be only used
                                 NodeclList obj;
@@ -466,24 +466,22 @@ propagate_usage:
             if(side_effects && VERBOSE)
             {
                 std::string func_name = func_sym.get_name();
-                if(_warned_unreach_funcs.find(func_name)==_warned_unreach_funcs.end())
-                {   // Each function is warned only once
-                    if(_warned_unreach_funcs.empty())
-                    {   // Long message for the first time only
-                        info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
-                                     "reference parameters is limited. \nIf you know the side effects of this function, "\
-                                     "add it to the file '%s' and recompile your code. \n"
-                                     "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).\n",
-                                     __FILE__, __LINE__, func_name.c_str(), cLibFuncsPath.c_str());
-                    }
-                    else
-                    {
-                        info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and "\
-                                     "reference parameters is limited.\n",
-                                     __FILE__, __LINE__, func_name.c_str());
-                    }
-                    _warned_unreach_funcs.insert(func_name);
+                // Each function is warned only once
+                if(_warned_unreach_funcs.empty())
+                {   // Long message for the first time only
+                    info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
+                                    "reference parameters is limited. \nIf you know the side effects of this function, "\
+                                    "add it to the file '%s' and recompile your code. \n"
+                                    "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).\n",
+                                    __FILE__, __LINE__, func_name.c_str(), cLibFuncsPath.c_str());
                 }
+                else
+                {
+                    info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and "\
+                                    "reference parameters is limited.\n",
+                                    __FILE__, __LINE__, func_name.c_str());
+                }
+                _warned_unreach_funcs.insert(func_sym);
             }
             cLibFuncs.close();
         }
@@ -501,6 +499,10 @@ propagate_usage:
                                                                 const Nodecl::List& args, 
                                                                 const SizeMap& ptr_to_size_map)
     {
+        // Avoid looking for an unreachable function which has already been warned
+        if (_warned_unreach_funcs.find(func_sym)!=_warned_unreach_funcs.end())
+            return;
+
         // Check whether we have enough attributes in the function symbol
         // to determine the function side effects
         bool side_effects = check_function_gcc_attributes(func_sym, args);

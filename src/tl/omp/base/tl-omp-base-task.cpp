@@ -263,7 +263,7 @@ namespace TL { namespace OpenMP {
                         sym.get_scope().get_decl_context(),
                         call.get_locus());
 
-                spec_param_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(spec_param_sym.get_internal_symbol(), 1);
 
                 spec_related_symbols.append(spec_param_sym);
 
@@ -1459,7 +1459,7 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase new_function_code,new_function_body;
             SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
 
-            new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
+            symbol_entity_specs_set_function_code(new_function.get_internal_symbol(), new_function_code.get_internal_nodecl());
 
             // Update the map of transformed tasks
             _transformed_task_map.insert(std::make_pair(function_called, new_function));
@@ -1517,7 +1517,7 @@ namespace TL { namespace OpenMP {
 
         return_arg_sym.get_internal_symbol()->kind = SK_VARIABLE;
         return_arg_sym.get_internal_symbol()->type_information = return_type.get_internal_type();
-        return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(return_arg_sym.get_internal_symbol(), 1);
 
         // Create the new argument's list of the new function call to the void function task
         Nodecl::List new_arguments;
@@ -1769,7 +1769,7 @@ namespace TL { namespace OpenMP {
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = value.get_type().get_internal_type();
-        new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
         Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(new_symbol, locus);
         sym_nodecl.set_type(lvalue_ref(new_symbol.get_type().get_internal_type()));
@@ -2089,7 +2089,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase new_function_code,new_function_body;
         SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
 
-        new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
+        symbol_entity_specs_set_function_code(new_function.get_internal_symbol(), new_function_code.get_internal_nodecl());
 
         // Create the code of the new void function task
         Nodecl::NodeclBase new_stmts = create_body_for_new_optmized_function_task(
@@ -2343,7 +2343,7 @@ namespace TL { namespace OpenMP {
             TL::Symbol aux_var = new_funct_body.retrieve_context().new_symbol("tmp");
             aux_var.get_internal_symbol()->kind = SK_VARIABLE;
             aux_var.get_internal_symbol()->type_information = task_call.get_type().no_ref().get_internal_type();
-            aux_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(aux_var.get_internal_symbol(), 1);
 
             Nodecl::NodeclBase task_call_copied = task_call.shallow_copy();
             aux_var.get_internal_symbol()->value = task_call_copied.get_internal_nodecl();
