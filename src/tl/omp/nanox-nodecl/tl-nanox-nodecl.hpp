@@ -45,6 +45,7 @@ namespace TL { namespace Nanox {
             static Nodecl::List& get_extra_c_code();
 
             bool in_ompss_mode() const;
+            bool nanos_debug_enabled() const;
             bool instrumentation_enabled() const;
             bool final_clause_transformation_disabled() const;
 
@@ -69,6 +70,10 @@ namespace TL { namespace Nanox {
             std::string _instrumentation_str;
             bool _instrumentation_enabled;
             void set_instrumentation(const std::string& str);
+
+            std::string _nanos_debug_str;
+            bool _nanos_debug_enabled;
+            void set_nanos_debug(const std::string& str);
 
             std::string _final_clause_transformation_str;
             bool _final_clause_transformation_disabled;

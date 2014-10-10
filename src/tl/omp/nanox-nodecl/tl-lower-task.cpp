@@ -221,21 +221,19 @@ Source LoweringVisitor::fill_const_wd_info(
             ;
     }
 
-    if (Nanos::Version::interface_is_at_least("master", 5022))
+    if (Nanos::Version::interface_is_at_least("master", 5022)
+        && (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        && _lowering->nanos_debug_enabled())
     {
-        if (_lowering->instrumentation_enabled()
-                && (IS_C_LANGUAGE || IS_CXX_LANGUAGE))
-        {
-            result
-                << /* ".description = " */ "\"" << wd_description << "\",\n"
-                ;
-        }
-        else
-        {
-            result
-                << /* ".description = " */ "0,\n"
-                ;
-        }
+        result
+            << /* ".description = " */ "\"" << wd_description << "\",\n"
+            ;
+    }
+    else
+    {
+        result
+            << /* ".description = " */ "0,\n"
+            ;
     }
 
     result
@@ -332,8 +330,9 @@ Source LoweringVisitor::fill_const_wd_info(
         }
     }
 
-    if (IS_FORTRAN_LANGUAGE &&
-            Nanos::Version::interface_is_at_least("master", 5022))
+    if ( Nanos::Version::interface_is_at_least("master", 5022)
+            && IS_FORTRAN_LANGUAGE
+            && _lowering->nanos_debug_enabled())
     {
         result
             << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\";\n"
