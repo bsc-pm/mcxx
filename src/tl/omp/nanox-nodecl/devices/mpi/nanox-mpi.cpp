@@ -464,21 +464,19 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 //If it's firstprivate (sharing capture), copy input and change address to the global/private var
                 if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
                    std::string symbol_name=(*it)->get_symbol().get_name();
-                   if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE){
-                       if (!(*it)->get_copies().empty())
-                       data_input_global << "offload_err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";  
-                       
-                       data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
+                   if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE && !(*it)->get_symbol().get_type().is_const()){
+                        //Copy value of the captured to the global (aka initialize the global)
+                        data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<",&args." << symbol_name <<",sizeof(" << symbol_name << "));";  
                    }
                 }
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                {  
+                {
                     //If is from module(fort)/common (fort)/global (C) and is sharing ca or sharing shared (no sharing capture)
                     //copy address and data
                     if ((*it)->get_symbol().is_allocatable() && (*it)->get_copy_of_array_descriptor()!=NULL){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
                         std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
-                        
+
                         data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
                         //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
                         //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
@@ -487,22 +485,23 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                             TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
                                     info._original_statements.retrieve_context());
 
-                            data_input_global << "offload_err =  nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
+                            data_input_global << "offload_err = nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
                         }
                     }
-                    
-                    if (!(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                            ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){  
+
+                    //Copy and swap addresses
+                    if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                            ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
                         data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
-                        
+
                         if (!(*it)->get_copies().empty())
-                        data_input_global << "offload_err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
-                        
+                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+
                         data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
 
                         if (!(*it)->get_copies().empty())
-                        data_output_global << "offload_err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
+                        data_output_global << "offload_err = nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
                     }
                     
                     TL::Type param_type = (*it)->get_in_outline_type();
