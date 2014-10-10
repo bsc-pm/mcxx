@@ -342,8 +342,8 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_DEF([context] context-opt) symbol
          | NODECL_CXX_EXPLICIT_INSTANTIATION_DEF([declarator_name] cxx-dependent-name-opt, [context] context) symbol
          | NODECL_CXX_EXPLICIT_INSTANTIATION_DECL([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_USING_NAMESPACE([context] context) symbol
-         | NODECL_CXX_USING_DECL([context] context) symbol
+         | NODECL_CXX_USING_NAMESPACE([context] context, [used_name]cxx-dependent-name) symbol
+         | NODECL_CXX_USING_DECL([context] context, [used_name]cxx-dependent-name) symbol
          # Used only in weird cases where parsing must be delayed in the frontend itself
          # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()

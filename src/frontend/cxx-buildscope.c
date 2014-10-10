@@ -1363,36 +1363,18 @@ static void build_scope_explicit_instantiation(AST a,
                     ast_get_locus(a)));
 }
 
-static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void check_nodecl_using_directive(nodecl_t nodecl_name,
+        decl_context_t decl_context,
+        char turn_into_inline,
+        nodecl_t* nodecl_output)
 {
-    // First get the involved namespace
-    AST id_expression = ASTSon0(a);
-
-    char turn_into_inline = 0;
-
-    AST attr_list = ASTSon1(a);
-
-    if (attr_list != NULL)
-    {
-        gather_decl_spec_t gather_info;
-        memset(&gather_info, 0, sizeof(gather_info));
-
-        gather_extra_attributes(attr_list, &gather_info, decl_context);
-
-        if (gather_info.is_inline)
-        {
-            turn_into_inline = 1;
-        }
-    }
-
-    scope_entry_list_t* result_list = query_id_expression(decl_context, 
-            id_expression, NULL);
+    scope_entry_list_t* result_list = query_nodecl_name(decl_context, nodecl_name, NULL);
 
     if (result_list == NULL)
     {
         error_printf("%s: error: unknown namespace '%s'\n",
-                ast_location(a), 
-                prettyprint_in_buffer(id_expression));
+                nodecl_locus_to_str(nodecl_name), 
+                codegen_to_str(nodecl_name, decl_context));
         return;
     }
 
@@ -1400,8 +1382,8 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
             || entry_list_head(result_list)->kind != SK_NAMESPACE)
     {
         error_printf("%s: error: '%s' does not name a namespace\n",
-                ast_location(a), 
-                prettyprint_in_buffer(id_expression));
+                nodecl_locus_to_str(nodecl_name), 
+                codegen_to_str(nodecl_name, decl_context));
         return;
     }
 
@@ -1426,12 +1408,43 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
                 nodecl_make_context(
                     /* optional statement sequence */ nodecl_null(),
                     decl_context,
-                    ast_get_locus(a)),
+                    nodecl_get_locus(nodecl_name)),
+                nodecl_name,
                 entry,
-                ast_get_locus(a));
+                nodecl_get_locus(nodecl_name));
 
     *nodecl_output =
         nodecl_make_list_1(cxx_using_namespace);
+}
+
+static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    // First get the involved namespace
+    AST id_expression = ASTSon0(a);
+
+    char turn_into_inline = 0;
+
+    AST attr_list = ASTSon1(a);
+
+    if (attr_list != NULL)
+    {
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        gather_extra_attributes(attr_list, &gather_info, decl_context);
+
+        if (gather_info.is_inline)
+        {
+            turn_into_inline = 1;
+        }
+    }
+
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+    if (nodecl_is_err_expr(nodecl_name))
+        return;
+
+    check_nodecl_using_directive(nodecl_name, decl_context, turn_into_inline, nodecl_output);
 }
 
 void introduce_using_entities_in_class(
@@ -1710,6 +1723,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
                             /* optional statement sequence */ nodecl_null(),
                             decl_context,
                             nodecl_get_locus(nodecl_name)),
+                        nodecl_name,
                         entry,
                         nodecl_get_locus(nodecl_name)));
     }
@@ -21072,6 +21086,35 @@ static void instantiate_cxx_member_init(
                 );
 }
 
+static void instantiate_cxx_using_namespace(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t orig_used_expression = nodecl_get_child(node, 1);
+    nodecl_t used_expression = update_cxx_dep_qualified_name(orig_used_expression,
+            v->new_decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    check_nodecl_using_directive(used_expression,
+            v->new_decl_context,
+            // FIXME - Devise a way to remember this
+            /* turn_into_inline */ 0,
+            &v->nodecl_result);
+}
+
+static void instantiate_cxx_using_decl(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t orig_used_expression = nodecl_get_child(node, 1);
+    nodecl_t used_expression = update_cxx_dep_qualified_name(orig_used_expression,
+            v->new_decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    introduce_using_entity_nodecl_name(used_expression, v->new_decl_context,
+            /* current_access */ AS_UNKNOWN,
+            /* is_typename */ 0,
+            &v->nodecl_result);
+}
+
 static void instantiate_do_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_stmt = nodecl_get_child(node, 0);
@@ -21445,8 +21488,8 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_cxx_decl = instantiate_stmt_visitor_fun(instantiate_cxx_decl); // --
     NODECL_VISITOR(v)->visit_cxx_explicit_instantiation_def = NULL;
     NODECL_VISITOR(v)->visit_cxx_explicit_instantiation_decl = NULL;
-    NODECL_VISITOR(v)->visit_cxx_using_namespace = NULL;
-    NODECL_VISITOR(v)->visit_cxx_using_decl = NULL;
+    NODECL_VISITOR(v)->visit_cxx_using_namespace = instantiate_stmt_visitor_fun(instantiate_cxx_using_namespace);
+    NODECL_VISITOR(v)->visit_cxx_using_decl = instantiate_stmt_visitor_fun(instantiate_cxx_using_decl);
 
     NODECL_VISITOR(v)->visit_cxx_member_init = instantiate_stmt_visitor_fun(instantiate_cxx_member_init);
 
