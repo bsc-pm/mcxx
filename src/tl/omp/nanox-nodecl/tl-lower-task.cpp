@@ -223,7 +223,8 @@ Source LoweringVisitor::fill_const_wd_info(
 
     if (Nanos::Version::interface_is_at_least("master", 5022)
         && (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        && _lowering->nanos_debug_enabled())
+        && (_lowering->nanos_debug_enabled()
+            || _lowering->instrumentation_enabled()))
     {
         result
             << /* ".description = " */ "\"" << wd_description << "\",\n"
@@ -330,9 +331,10 @@ Source LoweringVisitor::fill_const_wd_info(
         }
     }
 
-    if ( Nanos::Version::interface_is_at_least("master", 5022)
+    if (Nanos::Version::interface_is_at_least("master", 5022)
             && IS_FORTRAN_LANGUAGE
-            && _lowering->nanos_debug_enabled())
+            && (_lowering->nanos_debug_enabled()
+                || _lowering->instrumentation_enabled()))
     {
         result
             << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\";\n"
