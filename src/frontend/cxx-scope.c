@@ -3589,7 +3589,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Specialization request failed\n");
                 }
-                xfree(expanded_template_parameters->parameters);
                 return NULL;
             }
 
