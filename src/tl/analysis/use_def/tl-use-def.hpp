@@ -285,11 +285,8 @@ namespace Analysis {
     
     NBase split_var_depending_on_usage(NBase container, NBase contained);
     
-    void get_modifiable_parameters_to_arguments_map(
-        const ObjectList<Symbol>& params, 
-        const Nodecl::List& args,
-        sym_to_nodecl_map& ptr_params, 
-        sym_to_nodecl_map& ref_params);
+    bool any_parameter_is_pointer(const ObjectList<Symbol>& params);
+    bool any_parameter_is_reference(const ObjectList<Symbol>& params);
     
     sym_to_nodecl_map get_parameters_to_arguments_map(
         const ObjectList<Symbol>& params, 

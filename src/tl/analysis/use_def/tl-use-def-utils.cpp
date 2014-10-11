@@ -375,39 +375,30 @@ namespace Analysis {
         return result;
     }
     
-    void get_modifiable_parameters_to_arguments_map(
-        const ObjectList<Symbol>& params, 
-        const Nodecl::List& args,
-        sym_to_nodecl_map& ptr_params, 
-        sym_to_nodecl_map& ref_params)
+    bool any_parameter_is_pointer(const ObjectList<Symbol>& params)
     {
-        int n_iters = std::min(params.size(), args.size());
-        if(n_iters > 0)
+        for (ObjectList<Symbol>::const_iterator it = params.begin();
+             it != params.end(); ++it)
         {
-            Nodecl::List::const_iterator ita = args.begin();
-            ObjectList<Symbol>::const_iterator itp = params.begin();
-            for(int i = 0; i<n_iters; ++i)
+            if (it->get_type().is_pointer()
+                    || (it->get_type().is_any_reference()
+                            && it->get_type().references_to().is_pointer()))
             {
-                // Skip conversions and castings in the current argument
-                Nodecl::NodeclBase arg = ita->no_conv();
-                if(arg.is<Nodecl::Cast>())
-                    arg = arg.as<Nodecl::Cast>().get_rhs();
-
-                // Reference parameters
-                if(itp->get_type().is_any_reference())
-                {
-                    ref_params[*itp] = arg;
-                }
-                // Pointer parameters
-                if(itp->get_type().is_pointer() || 
-                    (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
-                {
-                    ptr_params[*itp] = arg;
-                }
-                
-                ita++; itp++;
+                return true;
             }
         }
+        return false;
+    }
+
+    bool any_parameter_is_reference(const ObjectList<Symbol>& params)
+    {
+        for (ObjectList<Symbol>::const_iterator it = params.begin();
+             it != params.end(); ++it)
+        {
+            if (it->get_type().is_any_reference())
+                return true;
+        }
+        return false;
     }
     
     sym_to_nodecl_map get_parameters_to_arguments_map(

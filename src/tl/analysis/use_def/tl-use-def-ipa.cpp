@@ -45,45 +45,45 @@ namespace Analysis {
             const sym_to_nodecl_map& ptr_param_to_arg_map, 
             Utils::UsageKind usage_kind)
     {
-        Symbol s;
-
-        for(NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
+        for (NodeclSet::const_iterator it = called_func_usage.begin();
+            it != called_func_usage.end(); ++it)
         {
             NBase n = it->no_conv();
-            // Current usage variable is the dereference of a parameter symbol
-            if(n.is<Nodecl::Dereference>() && 
-               n.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Symbol>() && 
-               (ptr_param_to_arg_map.find(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end()))
-            {   // The value pointed by a pointer parameter has some usage
-                s = n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol(); // parameter
-                goto propagate_usage;
-            }
-            // Current usage variable is an array subscript of a parameter symbol
-            else if(n.is<Nodecl::ArraySubscript>())
+            // If current variable is not a dereference nor an array,
+            // then there is no pointed variable usage to propagate
+            if (!n.is<Nodecl::Dereference>() && !n.is<Nodecl::ArraySubscript>())
+                continue;
+
+            // Store all the symbols that are parameters of the function
+            std::set<Symbol> params;
+            const ObjectList<Symbol>& all_syms = Nodecl::Utils::get_all_symbols(n);
+            for (ObjectList<Symbol>::const_iterator itt = all_syms.begin();
+                 itt != all_syms.end(); ++itt)
             {
-                const Nodecl::NodeclBase& subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
-                if (subscripted.is<Nodecl::Symbol>()
-                    && ptr_param_to_arg_map.find(subscripted.as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end())
-                {
-                    s = subscripted.as<Nodecl::Symbol>().get_symbol();                      // parameter
-                    goto propagate_usage;
-                }
+                if (ptr_param_to_arg_map.find(*itt) != ptr_param_to_arg_map.end())
+                    params.insert(*itt);
             }
+            if (params.empty())
+                continue;
 
-            continue;
-
-propagate_usage:
-            NBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
-            sym_to_nodecl_map rename_map; rename_map[s] = replacement;
+            // Build the rename map with the original symbols (parameters) and the arguments
+            sym_to_nodecl_map rename_map;
+            for (std::set<Symbol>::iterator itt = params.begin(); itt != params.end(); ++itt)
+            {
+                NBase replacement = ptr_param_to_arg_map.find(*itt)->second.shallow_copy();
+                rename_map[*itt] = replacement;
+            }
+            // Replace the parameters with the arguments
             RenameVisitor rv(rename_map);
             NBase new_n = n.shallow_copy();
             rv.walk(new_n);
-            if(usage_kind._usage_type & Utils::UsageKind::USED)
-                _node->add_ue_var(new_n);
-            else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                _node->add_killed_var(new_n);
+            // Set the new values as UseDef information to the current node
+            if (usage_kind._usage_type & Utils::UsageKind::USED)
+                _node->add_ue_var(simplify_pointer(new_n));
+            else if (usage_kind._usage_type & Utils::UsageKind::DEFINED)
+                _node->add_killed_var(simplify_pointer(new_n));
             else
-                _node->add_undefined_behaviour_var(new_n);
+                _node->add_undefined_behaviour_var(simplify_pointer(new_n));
         }
     }
     
@@ -181,44 +181,42 @@ propagate_usage:
         }
         
         // 2.- Pointer and reference parameters can also be KILLED | UNDEFINED
-        // 2.1.- Get all modifiable parameters to arguments map slit in two sets: pointer parameters and reference parameters
-        ObjectList<Symbol> called_params = called_pcfg->get_function_symbol().get_function_parameters();
-        sym_to_nodecl_map ptr_param_to_arg_map;     // Map relating pointer parameters to their corresponding arguments
-        sym_to_nodecl_map ref_param_to_arg_map;     // Map relating reference parameters to their corresponding arguments
-        get_modifiable_parameters_to_arguments_map(called_params, args,
-                                                   ptr_param_to_arg_map, ref_param_to_arg_map);
+        // 2.1.- Map parameters to arguments in the current function call
+        const ObjectList<Symbol>& called_params = called_pcfg->get_function_symbol().get_function_parameters();
+        const sym_to_nodecl_map& param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
+
         // 2.2.- Get the usage computed for the called function
         NodeclSet called_ue_vars = pcfg_node->get_ue_vars();
         NodeclSet called_killed_vars = pcfg_node->get_killed_vars();
         NodeclSet called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
         // 2.3.- Propagate pointer parameters usage to the current node
-        if(!ptr_param_to_arg_map.empty())
+
+        if (any_parameter_is_pointer(called_params))
         {
             propagate_called_func_pointed_values_usage_to_func_call(
-                    called_ue_vars, ptr_param_to_arg_map, Utils::UsageKind::USED);
+                    called_ue_vars, param_to_arg_map, Utils::UsageKind::USED);
             propagate_called_func_pointed_values_usage_to_func_call(
-                    called_killed_vars, ptr_param_to_arg_map, Utils::UsageKind::DEFINED);
+                    called_killed_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
             propagate_called_func_pointed_values_usage_to_func_call(
-                    called_undef_vars, ptr_param_to_arg_map, Utils::UsageKind::UNDEFINED);
+                    called_undef_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
         }
         // 2.4.- Treat parameters by reference
         //       Do not take into account pointed values here, we already did it in step
-        if(!ref_param_to_arg_map.empty())
+        if (any_parameter_is_reference(called_params))
         {
             propagate_called_func_ref_params_usage_to_func_call(
-                    called_ue_vars, ref_param_to_arg_map, Utils::UsageKind::USED);
+                    called_ue_vars, param_to_arg_map, Utils::UsageKind::USED);
             propagate_called_func_ref_params_usage_to_func_call(
-                    called_killed_vars, ref_param_to_arg_map, Utils::UsageKind::DEFINED);
+                    called_killed_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
             propagate_called_func_ref_params_usage_to_func_call(
-                called_undef_vars, ref_param_to_arg_map, Utils::UsageKind::UNDEFINED);
+                    called_undef_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
         }
-        
+
         // 3. Usage of the global variables must be propagated too
         // 3.1 Add the global variables used in the called graph to the current graph
         NodeclSet ipa_global_vars = called_pcfg->get_global_variables();
         _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
-        sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
         propagate_global_variables_usage(called_ue_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
         propagate_global_variables_usage(called_killed_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
         propagate_global_variables_usage(called_undef_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
@@ -411,29 +409,37 @@ propagate_usage:
                     {
                         // Parse the expression of the attribute, which is a String and does not contain any symbol
                         Source ss; ss << ite->prettyprint();
-                        Nodecl::NodeclBase e = ss.parse_expression(param_sc);
+                        NBase e = ss.parse_expression(param_sc);
                         // Replace the occurrences of each parameter in the expression with the corresponding argument
                         for (sym_to_nodecl_map::iterator itm = param_to_arg_map.begin();
                              itm != param_to_arg_map.end(); ++itm)
                         {
-                            Nodecl::NodeclBase n = itm->first.make_nodecl(/*set_ref_type*/false);
+                            NBase n = itm->first.make_nodecl(/*set_ref_type*/false);
                             Nodecl::Utils::nodecl_replace_nodecl_by_structure(e, n, itm->second);
                         }
                         // Only arguments with some memory can have some usage
-                        const NodeclList& mem_accesses = Nodecl::Utils::get_all_memory_accesses(e);
-                        if (mem_accesses.empty())
+                        const ObjectList<Symbol>& syms = Nodecl::Utils::get_all_symbols(e);
+                        if (syms.empty())
                             continue;
                         // Set the usage information to the current node
+                        const ObjectList<NBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses(e);
                         if (attr_name == "analysis_ue")
                         {
-                            _node->add_ue_var(e);
-                            side_effects = false;
+                            for (ObjectList<NBase>::const_iterator itm = mem_accesses.begin();
+                                 itm != mem_accesses.end(); ++itm)
+                            {
+                                _node->add_ue_var(*itm);
+                            }
                         }
-                        else        // analysis_def
+                        else            // analysis_def
                         {
-                            _node->add_killed_var(e);
-                            side_effects = false;
+                            for (ObjectList<NBase>::const_iterator itm = mem_accesses.begin();
+                                 itm != mem_accesses.end(); ++itm)
+                            {
+                                _node->add_killed_var(*itm);
+                            }
                         }
+                        side_effects = false;
                     }
                 }
             }
