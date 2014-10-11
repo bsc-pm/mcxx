@@ -282,14 +282,14 @@ int remove (const char * filename);
 __attribute__((analysis_ue(old_name, *old_name, new_name, *new_name)))
 int rename ( const char * old_name, const char * new_name);
 
-__attribute__((analysis_ue(stream, format, *format), analysis_def(*stream)))
-int fprintf ( FILE * stream, const char * format, ... );
+// __attribute__((analysis_ue(stream, format, *format), analysis_def(*stream)))
+// int fprintf ( FILE * stream, const char * format, ... );
 
 __attribute__((analysis_ue(format, *format)))
 int printf ( const char * format, ... );
 
-__attribute__((analysis_ue(stream, stream[0:num-1], str), analysis_def(str[0:num-1])))
-char* fgets ( char * str, int num, FILE * stream );
+// __attribute__((analysis_ue(stream, stream[0:num-1], str), analysis_def(str[0:num-1])))
+// char* fgets ( char * str, int num, FILE * stream );
 
 // ***************************** STDIO ****************************** //
 // ****************************************************************** //
