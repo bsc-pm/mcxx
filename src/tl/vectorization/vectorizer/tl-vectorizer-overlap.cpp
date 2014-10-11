@@ -1135,7 +1135,7 @@ namespace Vectorization
             }
         }
 
-        std::cerr << "    - Groups after group size filtering: "
+        std::cerr << "    - Groups after min cardinality filtering: "
             << ogroups.size() << std::endl;
 
         return ogroups;
@@ -1145,7 +1145,7 @@ namespace Vectorization
             OverlapGroup& ogroup,
             TL::Scope& scope,
             const int num_group,
-            const bool is_group_epilog)
+            const bool is_group_epilog) // Remove unused parameter
     {
         ogroup._vector_type = ogroup._loads.front().
             get_type().no_ref().get_unqualified_type();
@@ -1175,7 +1175,10 @@ namespace Vectorization
                 << num_group << "_"
                 << i;
 
-            if (is_group_epilog)
+            bool already_declared = scope.get_symbol_from_name(
+                    new_sym_name.str()).is_valid();
+
+            if (already_declared) // if (is_group_epilog)
             {
                 // Use previous symbols
                 TL::Symbol sym = 
@@ -1197,6 +1200,11 @@ namespace Vectorization
             else
             {
                 // Create new symbols
+
+                std::cerr << "Creating new cache symbol: "
+                    << new_sym_name.str()
+                    << std::endl;
+
                 TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
                 new_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
