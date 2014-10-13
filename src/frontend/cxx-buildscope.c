@@ -19164,7 +19164,18 @@ static void build_scope_nodecl_case_statement(nodecl_t nodecl_case_expression_li
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    if (nodecl_get_kind(nodecl_list_head(nodecl_statement)) == NODECL_CASE_STATEMENT)
+    if (nodecl_is_null(nodecl_statement))
+    {
+        // This case may happen when the case statement is just a declaration
+        // case 3: int x;
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_case_statement(
+                    nodecl_case_expression_list,
+                    nodecl_make_list_1(
+                        nodecl_make_empty_statement(locus)),
+                    locus));
+    }
+    else if (nodecl_get_kind(nodecl_list_head(nodecl_statement)) == NODECL_CASE_STATEMENT)
     {
         // If we find a
         //
