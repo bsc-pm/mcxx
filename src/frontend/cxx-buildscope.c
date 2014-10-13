@@ -375,8 +375,6 @@ static void call_destructors_of_classes(decl_context_t block_context,
         const locus_t* locus,
         nodecl_t* nodecl_output);
 
-static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context);
-
 typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_stack_t;
 
 // Current linkage: NULL means the default linkage (if any) of the symbol
@@ -6686,7 +6684,7 @@ static char is_union_type_or_thereof_with_one_initializer(type_t* t)
     return (num_initializers == 1);
 }
 
-static void register_symbol_this(decl_context_t decl_context,
+void register_symbol_this(decl_context_t decl_context,
         scope_entry_t* class_symbol,
         const locus_t* locus)
 {
@@ -6708,7 +6706,7 @@ static void register_symbol_this(decl_context_t decl_context,
     this_symbol->do_not_print = 1;
 }
 
-static void update_symbol_this(scope_entry_t* entry,
+void update_symbol_this(scope_entry_t* entry,
         decl_context_t block_context)
 {
     // The class we belong to
@@ -15757,7 +15755,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
     return entry;
 }
 
-static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context)
+scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context)
 {
     const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
     const char* mercurium_pretty_function_str = UNIQUESTR_LITERAL("__MERCURIUM_PRETTY_FUNCTION__");
@@ -17869,7 +17867,7 @@ struct stmt_scope_handler_map_tag
     stmt_scope_handler_t handler;
 } stmt_scope_handler_map_t;
 
-static void build_scope_nodecl_compound_statement(
+void build_scope_nodecl_compound_statement(
         nodecl_t nodecl_statement_list,
         decl_context_t decl_context,
         const locus_t* locus,
@@ -20915,8 +20913,9 @@ static void instantiate_return_statement(
             v->instantiation_symbol_map, /* pack_index */ -1);
 
     scope_entry_t* function = v->new_decl_context.current_scope->related_entry;
-    ERROR_CONDITION(function->kind != SK_FUNCTION
-            && function->kind != SK_LAMBDA,
+    ERROR_CONDITION(function == NULL
+            || (function->kind != SK_FUNCTION
+                && function->kind != SK_LAMBDA),
             "Invalid related entry!", 0);
 
     type_t* return_type = function_type_get_return_type(function->type_information);
@@ -21030,8 +21029,10 @@ static void instantiate_cxx_def_or_decl(
         new_nodecl_context = nodecl_make_context(nodecl_null(), v->new_decl_context, nodecl_get_locus(node));
     }
 
+    v->nodecl_result = flush_extra_declared_symbols(nodecl_get_locus(node));
     v->nodecl_result =
-        nodecl_make_list_1(
+        nodecl_append_to_list(
+                v->nodecl_result,
                 fun(new_nodecl_context, new_entry, nodecl_get_locus(node))
                 );
 }
@@ -21063,10 +21064,11 @@ static void instantiate_object_init(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
+    nodecl_t n = instantiate_object_init_node(v, node);
     v->nodecl_result =
-        nodecl_make_list_1(
-                instantiate_object_init_node(v, node)
-                );
+        flush_extra_declared_symbols(nodecl_get_locus(node));
+    v->nodecl_result =
+        nodecl_append_to_list(v->nodecl_result, n);
 }
 
 static void instantiate_cxx_member_init(

@@ -239,6 +239,28 @@ def print_getters_setters(lines):
               raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
           print "    symbol_entity_specs_copy_%s_from(dest, source);" % (list_name)
     print "}"
+    print ""
+    print "static inline void symbol_entity_specs_free(scope_entry_t* symbol)"
+    print "{"
+    # Now copy every list
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[0] == "*":
+          name = name[1:]
+      if _type.startswith("array"):
+          type_name = get_up_to_matching_paren(_type[len("array"):])
+          field_names = name.split(",")
+          if (len(field_names) == 1):
+             num_name = "num_" + name
+             list_name = name
+          elif (len(field_names) == 2):
+              num_name = field_names[0]
+              list_name = field_names[1]
+          else:
+              raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+          print "    symbol_entity_specs_free_%s(symbol);" % (list_name)
+    print "}"
 
     print "#endif"
 

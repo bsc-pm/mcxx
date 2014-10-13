@@ -310,7 +310,6 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
@@ -318,8 +317,8 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | cxx-pack
 
 # Used for C++11 lambdas
-explicit-capture: NODECL_CAPTURE_COPY() symbol
-                | NODECL_CAPTURE_REFERENCE() symbol
+explicit-capture: NODECL_CXX_CAPTURE_COPY() symbol
+                | NODECL_CXX_CAPTURE_REFERENCE() symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 
@@ -395,6 +394,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
 # noexcept(expr)
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
+# [dependent] C+11 lambdas
+    | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt

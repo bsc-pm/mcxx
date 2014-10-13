@@ -212,6 +212,21 @@ void check_nodecl_member_initializer_list(
         const locus_t* locus,
         nodecl_t* nodecl_output);
 
+void register_symbol_this(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus);
+
+void update_symbol_this(scope_entry_t* entry,
+        decl_context_t block_context);
+
+void build_scope_nodecl_compound_statement(
+        nodecl_t nodecl_statement_list,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output);
+
+scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

@@ -2927,7 +2927,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     walk(next);
 }
 
-void CxxBase::visit(const Nodecl::Lambda& node)
+void CxxBase::visit(const Nodecl::CxxLambda& node)
 {
     (*file) << "[";
 
@@ -2946,7 +2946,7 @@ void CxxBase::visit(const Nodecl::Lambda& node)
             continue;
         }
 
-        if (it->is<Nodecl::CaptureReference>())
+        if (it->is<Nodecl::CxxCaptureReference>())
         {
                 (*file) << "&";
         }
@@ -8755,8 +8755,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
         case NODECL_COMPOUND_EXPRESSION:
-        case NODECL_LAMBDA:
 
+        case NODECL_CXX_LAMBDA:
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_NAME_CONVERSION:
         case NODECL_CXX_DEP_NAME_NESTED:
