@@ -3238,13 +3238,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
         *(file) << entry.get_name();
     }
 
-    TL::Type type = entry.get_type();
-    if (entry.is_class())
-    {
-        type = entry.get_user_defined_type();
-    }
-
-    if (nodecl_calls_to_constructor(init_expr, type))
+    if (nodecl_calls_to_constructor(init_expr))
     {
         // Ignore top level constructor
         *(file) << "(";
@@ -3328,7 +3322,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     {
         *(file) << "(";
         // A a; we cannot emmit it as A a(); since this would declare a function () returning A
-        if (nodecl_calls_to_constructor(initializer, init_real_type))
+        if (nodecl_calls_to_constructor(initializer))
         {
             Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(initializer);
 
@@ -6851,7 +6845,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     *(file) << " = ";
                     walk(init);
                 }
-                else if (nodecl_is_zero_args_call_to_constructor(init, symbol.get_type()))
+                else if (nodecl_is_zero_args_call_to_constructor(init))
                 {
                     // A a; we cannot emmit it as A a(); since this would declare a function () returning A
                     (*file) << " = ";
@@ -6860,7 +6854,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                 else
                 {
                     *(file) << "(";
-                    if (nodecl_calls_to_constructor(init, symbol.get_type()))
+                    if (nodecl_calls_to_constructor(init))
                     {
                         Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
 
@@ -6872,7 +6866,8 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // [extra blanks added for clarity in the example above]
                         walk_initializer_list(constructor_args, ", ");
                     }
-                    else if (nodecl_is_parenthesized_explicit_type_conversion(init))
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init)
+                            || nodecl_calls_to_constructor_indirectly(init))
                     {
                         // Same reason above
                         *file << "(";
@@ -9085,6 +9080,16 @@ bool CxxBase::nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBas
         && node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is<Nodecl::CxxParenthesizedInitializer>();
 }
 
+bool CxxBase::nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase node)
+{
+    return nodecl_calls_to_constructor(node)
+        || (node.is<Nodecl::FunctionCall>()
+                && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormImplicit>()
+                && !node.as<Nodecl::FunctionCall>().get_arguments().is_null()
+                && nodecl_calls_to_constructor_indirectly(
+                    node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0]));
+}
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
@@ -9094,7 +9099,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
     return node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
 }
 
-bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
@@ -9109,11 +9114,11 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
     return 0;
 }
 
-bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
-    return (nodecl_calls_to_constructor(node, t)
+    return (nodecl_calls_to_constructor(node)
             && nodecl_calls_to_constructor_get_arguments(node).empty());
 }
 

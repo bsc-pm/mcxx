@@ -513,10 +513,11 @@ namespace Codegen
             bool same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand);
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, const std::string& prefix);
-            static bool nodecl_calls_to_constructor(Nodecl::NodeclBase, TL::Type t);
+            static bool nodecl_calls_to_constructor(Nodecl::NodeclBase);
+            static bool nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase);
             static bool nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase);
             static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
-            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type);
+            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node);
 
             static std::string unmangle_symbol_name(TL::Symbol);
 
