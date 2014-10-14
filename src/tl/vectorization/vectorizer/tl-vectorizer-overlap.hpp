@@ -97,6 +97,7 @@ namespace TL
             TL::Type _basic_type;
             TL::Type _vector_type;
             int _num_registers;
+            bool _aligned_strategy;
 
             Nodecl::List get_init_statements(
                     const Nodecl::ForStatement& for_stmt) const;
@@ -104,7 +105,12 @@ namespace TL
             Nodecl::List get_iteration_update_post() const;
 
             void compute_leftmost_rightmost_vloads(
-                    const Vectorization::VectorizerEnvironment& environment);
+                    const Vectorization::VectorizerEnvironment& environment,
+                    const int max_registers);
+            void leftmost_rightmost_strategy(
+                    const Vectorization::VectorizerEnvironment& environment,
+                    const bool aligned_strategy);
+ 
             void compute_num_registers(
                     const Vectorization::VectorizerEnvironment& environment);
         };
@@ -135,6 +141,7 @@ namespace TL
                 void compute_group_properties(
                         OverlapGroup& ogroup,
                         TL::Scope& scope,
+                        const int max_registers,
                         const int num_group,
                         const bool is_group_epilog);
                 void insert_group_update_stmts(
