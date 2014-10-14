@@ -20978,7 +20978,7 @@ static scope_entry_t* instantiate_declaration_common(
                                     new_entry,
                                     get_unqualified_type(new_entry->type_information),
                                     &nodecl_init,
-                                    /* FIXME is_auto */ 0);
+                                    is_auto_type(new_entry->type_information));
                         }
                         else
                         {
