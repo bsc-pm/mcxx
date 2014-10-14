@@ -23267,7 +23267,8 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else if (sym->kind == SK_VARIABLE
             && sym->symbol_name != NULL
-            && strcmp(sym->symbol_name, "this") == 0)
+            && strcmp(sym->symbol_name, "this") == 0
+            && instantiation_symbol_do_map(v->instantiation_symbol_map, sym) == NULL)
     {
         // 'this'
         resolve_symbol_this_nodecl(v->decl_context, nodecl_get_locus(node), &result);
@@ -23418,8 +23419,7 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
 
 static void instantiate_class_member_access(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    // This node is not dependent but we have to compute the access to the subobject anyway
-    nodecl_t nodecl_accessed = nodecl_shallow_copy(nodecl_get_child(node, 0));
+    nodecl_t nodecl_accessed = instantiate_expr_walk(v, nodecl_get_child(node, 0));
     nodecl_t nodecl_member_literal = nodecl_get_child(node, 2);
 
     ERROR_CONDITION(nodecl_is_null(nodecl_member_literal), "Cannot instantiate this tree", 0);
