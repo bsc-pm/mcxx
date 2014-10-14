@@ -12596,6 +12596,11 @@ static void compute_implicit_captures(nodecl_t node,
                         entry->symbol_name);
                 *ok = 0;
             }
+            else if (strcmp(entry->symbol_name, "this") == 0)
+            {
+                *capture_copy_entities =
+                    entry_list_add(*capture_copy_entities, entry);
+            }
             else if (lambda_capture_default == LAMBDA_CAPTURE_COPY)
             {
                 *capture_copy_entities =
@@ -12772,11 +12777,20 @@ void implement_lambda_expression(
             scope_entry_t* sym = nodecl_get_symbol(capture_list[i]);
             char is_capture_by_copy = (nodecl_get_kind(capture_list[i]) == NODECL_CXX_CAPTURE_COPY);
 
+            char is_symbol_this = (strcmp(sym->symbol_name, "this") == 0);
+
             // type of the parameter (for the function type)
             if (is_capture_by_copy)
             {
-                parameter_info[i].type_info =
-                    lvalue_ref(get_const_qualified_type(no_ref(sym->type_information)));
+                if (is_symbol_this)
+                {
+                    parameter_info[i].type_info = sym->type_information;
+                }
+                else
+                {
+                    parameter_info[i].type_info =
+                        lvalue_ref(get_const_qualified_type(no_ref(sym->type_information)));
+                }
             }
             else
             {
@@ -12784,10 +12798,15 @@ void implement_lambda_expression(
                     lvalue_ref(no_ref(sym->type_information));
             }
 
-            const char* new_name = sym->symbol_name;
-            if (strcmp(new_name, "this") == 0)
+            // special fix for this that does not behave like a normal variable
+            const char* new_name = NULL;
+            if (is_symbol_this)
             {
-                new_name = "_this_";
+                new_name = "__this__";
+            }
+            else
+            {
+                new_name = sym->symbol_name;
             }
 
             // register parameter
