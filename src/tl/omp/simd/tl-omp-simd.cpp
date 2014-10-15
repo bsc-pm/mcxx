@@ -344,8 +344,11 @@ namespace TL {
             {
                 _vectorizer.vectorize_loop(
                         loop_statement, loop_environment);
-                _vectorizer.opt_overlapped_accesses(
-                        loop_statement, loop_environment);
+                if (!loop_environment._overlap_symbols_map.empty())
+                {
+                    _vectorizer.opt_overlapped_accesses(
+                            loop_statement, loop_environment);
+                }
             }
 
             // Add new vector symbols
@@ -431,8 +434,11 @@ namespace TL {
                 loop_environment.load_environment(net_epilog_node);
 
                 // Overlap
-                _vectorizer.opt_overlapped_accesses(
-                        net_epilog_node, loop_environment);
+                if (!loop_environment._overlap_symbols_map.empty())
+                {
+                    _vectorizer.opt_overlapped_accesses(
+                            net_epilog_node, loop_environment);
+                }
 
                 // 2nd step of transformation on epilog loop
                 _vectorizer.clean_up_epilog(net_epilog_node,
@@ -613,8 +619,12 @@ namespace TL {
             {
                 _vectorizer.vectorize_loop(
                         for_statement, for_environment);
-                _vectorizer.opt_overlapped_accesses(
-                        for_statement, for_environment);
+
+                if (!for_environment._overlap_symbols_map.empty())
+                { 
+                    _vectorizer.opt_overlapped_accesses(
+                            for_statement, for_environment);
+                }
             }
 
             // Add new vector symbols
@@ -703,8 +713,11 @@ namespace TL {
                 for_environment.load_environment(net_epilog_node);
 
                 // Overlap
-                _vectorizer.opt_overlapped_accesses(
-                        net_epilog_node, for_environment);
+                if (!for_environment._overlap_symbols_map.empty())
+                {
+                    _vectorizer.opt_overlapped_accesses(
+                            net_epilog_node, for_environment);
+                }
 
                 // 2nd step of transformation on epilog loop
                 _vectorizer.clean_up_epilog(net_epilog_node,
@@ -1298,20 +1311,7 @@ namespace TL {
                 vectorlengthfor_type = omp_vector_length_for.get_type();
             }
         }
-/*
-        void SimdVisitor::process_overlap_clause(const Nodecl::List& environment,
-                objlist_nodecl_t& overlap_expressions)
-        {
-            Nodecl::OpenMP::Overlap omp_overlap =
-                environment.find_first<Nodecl::OpenMP::Overlap>();
 
-            if(!omp_overlap.is_null())
-            {
-                overlap_expressions = omp_overlap.get_overlap_expressions().
-                    as<Nodecl::List>().to_object_list();
-            }
-        }
-*/
         void SimdVisitor::process_overlap_clause(const Nodecl::List& environment,
                 map_tlsym_objlist_int_t& overlap_symbols)
         {
