@@ -48,6 +48,7 @@ namespace TL { namespace Nanox {
             bool nanos_debug_enabled() const;
             bool instrumentation_enabled() const;
             bool final_clause_transformation_disabled() const;
+            bool firstprivates_always_by_reference() const;
 
         private:
             void load_headers(DTO& dto);
@@ -78,6 +79,10 @@ namespace TL { namespace Nanox {
             std::string _final_clause_transformation_str;
             bool _final_clause_transformation_disabled;
             void set_disable_final_clause_transformation(const std::string& str);
+
+            std::string _firstprivates_always_references_str;
+            bool _firstprivates_always_references;
+            void set_firstprivates_always_references(const std::string& str);
 
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);

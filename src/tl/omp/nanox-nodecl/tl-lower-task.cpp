@@ -828,7 +828,7 @@ void LoweringVisitor::visit_task(
     Scope  enclosing_scope = construct.retrieve_context();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
-    OutlineInfo outline_info(environment,function_symbol);
+    OutlineInfo outline_info(*_lowering, environment, function_symbol);
 
     // Handle the special object 'this'
     if (IS_CXX_LANGUAGE

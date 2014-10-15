@@ -887,7 +887,6 @@ namespace TL { namespace Nanox {
         add_capture_with_value(sym, Nodecl::NodeclBase::null(), Nodecl::NodeclBase::null());
     }
 
-
     void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr)
     {
         add_capture_with_value(sym, expr, Nodecl::NodeclBase::null());
@@ -912,7 +911,32 @@ namespace TL { namespace Nanox {
         }
         outline_info.set_field_type(t);
 
-        TL::Type in_outline_type = t.get_lvalue_reference_to();
+        TL::Type in_outline_type;
+
+        if (IS_FORTRAN_LANGUAGE
+                || _outline_info.firstprivates_always_by_reference())
+        {
+            in_outline_type = t.get_lvalue_reference_to();
+        }
+        else
+        {
+            if (t.is_integral_type()
+                    || t.is_floating_type()
+                    || t.is_pointer())
+            {
+                in_outline_type = t;
+            }
+            else if (t.is_array()
+                    && !t.depends_on_nonconstant_values())
+            {
+                in_outline_type = t.array_element().get_pointer_to().get_restrict_type();
+            }
+            else
+            {
+                in_outline_type = t.get_lvalue_reference_to();
+            }
+        }
+
         in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
         if ((outline_info.get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
@@ -1244,7 +1268,7 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo() : _data_env_items() { }
+    OutlineInfo::OutlineInfo(Nanox::Lowering& lowering) : _lowering(lowering), _data_env_items() { }
 
     OutlineInfo::~OutlineInfo()
     {
@@ -1256,9 +1280,11 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment,
+    OutlineInfo::OutlineInfo(
+            Nanox::Lowering& lowering,
+            Nodecl::NodeclBase environment,
             TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
-        : _data_env_items(), _function_task_set(function_task_set)
+        : _lowering(lowering), _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         if (!environment.is_null())
@@ -1589,5 +1615,10 @@ namespace TL { namespace Nanox {
             }
         }
         return true;
+    }
+
+    bool OutlineInfo::firstprivates_always_by_reference() const
+    {
+        return _lowering.firstprivates_always_by_reference();
     }
 } }

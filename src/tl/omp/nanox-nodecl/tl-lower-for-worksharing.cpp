@@ -447,7 +447,7 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase environment = construct.get_environment();
         Scope  enclosing_scope = construct.retrieve_context();
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
-        OutlineInfo outline_info(environment, enclosing_function);
+        OutlineInfo outline_info(*_lowering, environment, enclosing_function);
 
         // Handle the special object 'this'
         if (IS_CXX_LANGUAGE

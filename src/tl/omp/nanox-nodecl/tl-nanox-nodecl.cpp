@@ -42,7 +42,8 @@ namespace TL { namespace Nanox {
         _ompss_mode(false),
         _instrumentation_enabled(false),
         _nanos_debug_enabled(false),
-        _final_clause_transformation_disabled(false)
+        _final_clause_transformation_disabled(false),
+        _firstprivates_always_references(false)
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");
@@ -77,6 +78,10 @@ namespace TL { namespace Nanox {
                 _final_clause_transformation_str,
                 "0").connect(functor(&Lowering::set_disable_final_clause_transformation, *this));
 
+        register_parameter("firstprivates_always_references",
+                "For C/C++, passes firstprivates always by reference",
+                _firstprivates_always_references_str,
+                "0").connect(functor(&Lowering::set_firstprivates_always_references, *this));
     }
 
     void Lowering::run(DTO& dto)
@@ -128,6 +133,11 @@ namespace TL { namespace Nanox {
         parse_boolean_option("disable_final_clause_transformation", str, _final_clause_transformation_disabled, "Assuming false.");
     }
 
+    void Lowering::set_firstprivates_always_references(const std::string& str)
+    {
+        parse_boolean_option("firstprivates_always_references", str, _firstprivates_always_references, "Assuming false.");
+    }
+
     bool Lowering::nanos_debug_enabled() const
     {
         return _nanos_debug_enabled;
@@ -146,6 +156,11 @@ namespace TL { namespace Nanox {
     bool Lowering::final_clause_transformation_disabled() const
     {
         return _final_clause_transformation_disabled;
+    }
+
+    bool Lowering::firstprivates_always_by_reference() const
+    {
+        return _firstprivates_always_references;
     }
 
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
