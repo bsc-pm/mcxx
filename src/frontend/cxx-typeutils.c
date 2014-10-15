@@ -573,6 +573,9 @@ static type_t* copy_type_for_class_alias(type_t* t)
 
 static type_t* copy_type_for_variant(type_t* t)
 {
+    ERROR_CONDITION(t->cv_qualifier != CV_NONE,
+            "Invalid type to copy for variant: it must be unqualified", 0);
+
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
 
@@ -12269,8 +12272,7 @@ type_t* get_variant_type_zero(type_t* t)
         return t;
 
     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
-
-    t = get_unqualified_type(advance_over_typedefs(t));
+    t = get_cv_qualified_type(advance_over_typedefs(t), CV_NONE);
 
     if (_zero_types_hash == NULL)
     {
@@ -12287,7 +12289,7 @@ type_t* get_variant_type_zero(type_t* t)
         dhash_ptr_insert(_zero_types_hash, (const char*)t, result);
     }
 
-    return get_cv_qualified_type(result, cv_qualif);;
+    return get_cv_qualified_type(result, cv_qualif);
 }
 
 // Special variant type for '0' constants
@@ -14686,6 +14688,11 @@ parameter_info_t get_parameter_info_for_type(type_t* t)
 
 type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr)
 {
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
+    // We do not use get_unqualified_type because it preserves restrict
+    t = get_cv_qualified_type(t, CV_NONE);
+
     type_t* result = copy_type_for_variant(t);
 
     ERROR_CONDITION(!nodecl_is_null(attr.expression_list) && !nodecl_is_list(attr.expression_list),
@@ -14710,11 +14717,18 @@ type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr)
         P_LIST_ADD(result->info->gcc_attributes, result->info->num_gcc_attributes, attr);
     }
 
+    result = get_cv_qualified_type(result, cv_qualif);
+
     return result;
 }
 
 type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr)
 {
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
+    // We do not use get_unqualified_type because it preserves restrict
+    t = get_cv_qualified_type(t, CV_NONE);
+
     type_t* result = copy_type_for_variant(t);
 
     int i;
@@ -14735,6 +14749,8 @@ type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr)
         // Add
         P_LIST_ADD(result->info->ms_attributes, result->info->num_ms_attributes, attr);
     }
+
+    result = get_cv_qualified_type(result, cv_qualif);
 
     return result;
 }
