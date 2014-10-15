@@ -340,7 +340,7 @@ namespace TL {
 //                    vectorizer_overlap.get_init_statements(loop_environment));
 
             // MAIN LOOP VECTORIZATION
-            if (!only_epilog)
+            if (!only_epilog && !loop_environment._overlap_symbols_map.empty())
             {
                 _vectorizer.vectorize_loop(
                         loop_statement, loop_environment);
