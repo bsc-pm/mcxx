@@ -408,8 +408,8 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
 
             // It's not user declared code, but we must generate it.
             // For this reason, we do this trick
-            new_vla_dim->entity_specs.is_user_declared = 1;
-            new_vla_dim->entity_specs.is_saved_expression = 1;
+            symbol_entity_specs_set_is_user_declared(new_vla_dim, 1);
+            symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
             stmt_initializations << as_statement(Nodecl::ObjectInit::make(new_vla_dim));
             symbol_map.add_map(old_vla_dim, new_vla_dim);
@@ -476,7 +476,7 @@ namespace InputValueUtils
                 // FIXME - Wrap this sort of things
                 new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
                 new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
-                new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
                 new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
                         expr.shallow_copy(),
                         expr.get_type().no_ref().get_pointer_to(),
@@ -632,7 +632,7 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
             // FIXME - Wrap this sort of things
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_symbol.get_internal_symbol()->type_information = arg_copy.get_type().no_ref().get_internal_type();
-            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
             //param_sym_to_arg_sym[parameter] = new_symbol;
             new_symbol.get_internal_symbol()->value = arg_copy.get_internal_nodecl();
 
@@ -793,13 +793,13 @@ void LoweringVisitor::visit_task_call_c(
         << std::endl;
 
     // Get parameters outline info
-    OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
+    OutlineInfo parameters_outline_info(*_lowering, parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
-    OutlineInfo arguments_outline_info;
+    OutlineInfo arguments_outline_info(*_lowering);
 
     Scope sc = construct.retrieve_context();
     Scope new_block_context_sc = new_block_context(sc.get_decl_context());
@@ -832,7 +832,7 @@ void LoweringVisitor::visit_task_call_c(
 
         TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
 
-        TL::Symbol this_symbol = parse_scope.get_symbol_from_name("this");
+        TL::Symbol this_symbol = parse_scope.get_symbol_this();
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
         seen_parameters.insert(this_symbol);
@@ -845,7 +845,7 @@ void LoweringVisitor::visit_task_call_c(
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
-        new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
         sym_ref.set_type(this_symbol.get_type());
@@ -934,7 +934,7 @@ void LoweringVisitor::visit_task_call_c(
             // FIXME - Wrap this sort of things
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_symbol.get_internal_symbol()->type_information = parameter.get_type().get_internal_type();
-            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
             param_sym_to_arg_sym[parameter] = new_symbol;
 
             if (new_symbol.get_type().depends_on_nonconstant_values())
@@ -1233,7 +1233,7 @@ static void handle_save_expressions(decl_context_t function_context,
                 new_save_expression->kind = SK_VARIABLE;
                 new_save_expression->type_information = orig_save_expression->type_information;
 
-                new_save_expression->entity_specs.is_saved_expression = 1;
+                symbol_entity_specs_set_is_saved_expression(new_save_expression, 1);
 
                 new_save_expression->value = nodecl_deep_copy(orig_save_expression->value,
                         function_context,
@@ -1280,7 +1280,7 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
         // Do not forget the ALLOCATABLE attributes
-        new_parameter_symbol->entity_specs.is_allocatable = it->get_internal_symbol()->entity_specs.is_allocatable;
+        symbol_entity_specs_set_is_allocatable(new_parameter_symbol, symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
 
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
@@ -1320,7 +1320,7 @@ static TL::Symbol new_function_symbol_adapter(
 
     // Now everything is set to register the function
     scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
-    new_function_sym->entity_specs.is_user_declared = 1;
+    symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
     new_function_sym->kind = SK_FUNCTION;
     new_function_sym->locus = make_locus("", 0, 0);
@@ -1341,11 +1341,9 @@ static TL::Symbol new_function_symbol_adapter(
 
         symbol_set_as_parameter_of_function(param, new_function_sym,
                 /* nesting */ 0,
-                /* position */ new_function_sym->entity_specs.num_related_symbols);
+                /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
 
-        P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
-                new_function_sym->entity_specs.num_related_symbols,
-                param);
+        symbol_entity_specs_add_related_symbols(new_function_sym, param);
 
         it_ptypes->is_ellipsis = 0;
         it_ptypes->nonadjusted_type_info = NULL;
@@ -1379,12 +1377,12 @@ static TL::Symbol new_function_symbol_adapter(
     if (current_function.is_in_module()
             && current_function.is_module_procedure())
     {
-        new_function_sym->entity_specs.in_module = current_function.in_module().get_internal_symbol();
-        new_function_sym->entity_specs.access = AS_PRIVATE;
-        new_function_sym->entity_specs.is_module_procedure = 1;
+        symbol_entity_specs_set_in_module(new_function_sym, current_function.in_module().get_internal_symbol());
+        symbol_entity_specs_set_access(new_function_sym, AS_PRIVATE);
+        symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
 
-        P_LIST_ADD(new_function_sym->entity_specs.in_module->entity_specs.related_symbols,
-                new_function_sym->entity_specs.in_module->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(
+                symbol_entity_specs_get_in_module(new_function_sym),
                 new_function_sym);
     }
 
@@ -1501,7 +1499,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
+    OutlineInfo dummy_outline_info(*_lowering, new_environment, called_function, _function_task_set);
 
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024)
@@ -1557,7 +1555,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
                 /* initializers */ Nodecl::NodeclBase::null(),
                 adapter_function);
 
-    adapter_function.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
+    symbol_entity_specs_set_function_code(adapter_function.get_internal_symbol(), function_code.get_internal_nodecl());
 
     return function_code;
 }
@@ -1669,7 +1667,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
+    OutlineInfo new_outline_info(*_lowering, new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);

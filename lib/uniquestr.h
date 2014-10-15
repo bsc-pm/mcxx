@@ -47,6 +47,8 @@ LIBUTILS_EXTERN const char *uniquestr(const char*);
 
 LIBUTILS_EXTERN unsigned long long int char_trie_used_memory(void);
 
+LIBUTILS_EXTERN void uniquestr_stats(void);
+
 #ifdef __cplusplus
 }
 #endif

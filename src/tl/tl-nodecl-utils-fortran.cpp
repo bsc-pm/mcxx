@@ -39,22 +39,20 @@ namespace Nodecl { namespace Utils {
             = orig_scope.get_related_symbol().get_used_modules().get_internal_symbol();
 
         if (original_used_modules_info != NULL &&
-                original_used_modules_info->entity_specs.num_related_symbols != 0)
+                symbol_entity_specs_get_num_related_symbols(original_used_modules_info) != 0)
         {
             scope_entry_t* new_used_modules_info
                 = ::get_or_create_used_modules_symbol_info(new_scope.get_decl_context());
 
             // Append all the symbols of the original_used_modules_info  to the new list
-            for (int j = 0; j < original_used_modules_info->entity_specs.num_related_symbols; j++)
+            for (int j = 0; j < symbol_entity_specs_get_num_related_symbols(original_used_modules_info); j++)
             {
                 scope_entry_t* appended_module =
-                        original_used_modules_info->entity_specs.related_symbols[j];
-                P_LIST_ADD_ONCE(new_used_modules_info->entity_specs.related_symbols,
-                        new_used_modules_info->entity_specs.num_related_symbols,
-                        appended_module);
+                        symbol_entity_specs_get_related_symbols_num(original_used_modules_info, j);
+                symbol_entity_specs_insert_related_symbols(new_used_modules_info, appended_module);
 
                 // Make sure the module has been loaded...
-                if (!appended_module->entity_specs.is_builtin)
+                if (!symbol_entity_specs_get_is_builtin(appended_module))
                     fortran_load_module(appended_module->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
             }
         }
@@ -68,11 +66,10 @@ namespace Nodecl { namespace Utils {
         scope_entry_t* used_modules_info
             = ::get_or_create_used_modules_symbol_info(scope.get_decl_context());
 
-        P_LIST_ADD_ONCE(used_modules_info->entity_specs.related_symbols,
-                used_modules_info->entity_specs.num_related_symbols,
+        symbol_entity_specs_insert_related_symbols(used_modules_info,
                 module.get_internal_symbol());
 
-        if (!module.get_internal_symbol()->entity_specs.is_builtin)
+        if (!symbol_entity_specs_get_num_related_symbols(module.get_internal_symbol()))
             fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
     }
 

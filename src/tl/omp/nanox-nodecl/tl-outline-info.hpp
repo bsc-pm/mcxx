@@ -40,6 +40,7 @@
 
 #include "tl-omp.hpp"
 #include "tl-target-information.hpp"
+#include "tl-nanox-nodecl.hpp"
 
 namespace TL
 {
@@ -465,7 +466,8 @@ namespace TL
         //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo
         {
-
+            private:
+                Nanox::Lowering& _lowering;
             public:
                 typedef std::map<TL::Symbol, TL::Nanox::TargetInformation> implementation_table_t;
                 TL::Symbol _funct_symbol;
@@ -483,10 +485,9 @@ namespace TL
                 implementation_table_t _implementation_table;
 
             public:
-
-
-                OutlineInfo();
-                OutlineInfo(Nodecl::NodeclBase environment,
+                OutlineInfo(Nanox::Lowering& lowering);
+                OutlineInfo(Nanox::Lowering& lowering,
+                        Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
                         RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
 
@@ -540,6 +541,8 @@ namespace TL
                 void move_at_end(OutlineDataItem&);
 
                 bool only_has_smp_or_mpi_implementations() const;
+
+                bool firstprivates_always_by_reference() const;
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);

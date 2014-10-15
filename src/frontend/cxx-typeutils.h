@@ -411,6 +411,9 @@ LIBMCXX_EXTERN char is_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_unnamed_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_named_class_type(type_t* possible_class);
 
+// Convenience
+LIBMCXX_EXTERN char is_class_type_or_array_thereof(type_t* t);
+
 LIBMCXX_EXTERN char is_literal_type(type_t* possible_union);
 
 LIBMCXX_EXTERN char is_trivial_type(type_t* possible_union);
@@ -785,7 +788,6 @@ LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);
-LIBMCXX_EXTERN long long unsigned int type_system_used_memory(void);
 
 LIBMCXX_EXTERN const char* sci_conversion_to_str(standard_conversion_item_t e);
 

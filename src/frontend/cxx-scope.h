@@ -41,6 +41,8 @@
 
 MCXX_BEGIN_DECLS
 
+#include "cxx-entity-specs-ops.h"
+
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
 LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
@@ -179,9 +181,6 @@ LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         const locus_t* locus,
         int pack_index);
 
-LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
-LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
-
 // Template parameter names
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
         int template_parameter_nesting, int template_parameter_position);
@@ -318,10 +317,10 @@ LIBMCXX_EXTERN int get_length_of_pack_expansion_from_type(type_t* pack_type,
         const locus_t* locus);
 
 LIBMCXX_EXTERN nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry);
-LIBMCXX_EXTERN gcc_attribute_t* symbol_get_gcc_attribute(scope_entry_t* entry, const char* name);
+LIBMCXX_EXTERN char symbol_has_gcc_attribute(scope_entry_t* entry, const char* name, gcc_attribute_t* gcc_attr);
+LIBMCXX_EXTERN void symbol_update_gcc_attribute(scope_entry_t* entry, const char* name, gcc_attribute_t gcc_attr);
 
 LIBMCXX_EXTERN scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol);
-
 
 MCXX_END_DECLS
 

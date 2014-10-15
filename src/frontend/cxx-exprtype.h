@@ -113,8 +113,6 @@ LIBMCXX_EXTERN char check_move_assignment_operator(scope_entry_t* entry,
         const locus_t* locus,
         scope_entry_t** constructor);
 
-LIBMCXX_EXTERN unsigned long long exprtype_used_memory(void);
-
 LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* result_from_lookup,
         scope_entry_list_t* builtin_list,
@@ -138,6 +136,7 @@ LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t d
 LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char**, const locus_t* locus);
 
 LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
+        decl_context_t decl_context,
         const locus_t* locus);
 
 LIBMCXX_EXTERN char check_nontype_template_argument_type(type_t* t);
@@ -174,11 +173,13 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(
         decl_context_t,
         const locus_t* locus);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus);
+
+LIBMCXX_EXTERN scope_entry_t* resolve_symbol_this(decl_context_t decl_context);
  
 // Given a base NODECL_SYMBOL it integrates it in an accessor that can be a NODECL_SYMBOL or a NODECL_CLASS_MEMBER_ACCESS
 LIBMCXX_EXTERN nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor);
 
-// Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c)
+// Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c and cxx-buildscope.c)
 void check_function_arguments(AST arguments, decl_context_t decl_context, nodecl_t* nodecl_output);
 void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument_list,
         decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -186,6 +187,11 @@ void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument
 void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand);
+
+void call_destructor_for_data_layout_members(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus);
 
 // Used in overload
 char builtin_needs_contextual_conversion(scope_entry_t* candidate,
@@ -198,6 +204,10 @@ void check_contextual_conversion(nodecl_t expression,
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index);
+
+nodecl_t instantiate_expression_non_executable(nodecl_t nodecl_expr, decl_context_t decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 
@@ -215,6 +225,9 @@ scope_entry_t* expand_template_function_given_template_arguments(
 LIBMCXX_EXTERN char same_functional_expression(
         nodecl_t n1,
         nodecl_t n2);
+
+// Used by the lexer
+char* interpret_schar(const char* schar, const locus_t* locus);
 
 MCXX_END_DECLS
 

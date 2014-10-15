@@ -149,26 +149,23 @@ void keep_ms_declspecs_in_symbol(
     {
         char found = 0;
         int j;
-        for (j = 0; j < entry->entity_specs.num_ms_attributes && !found; j++)
+        for (j = 0; j < symbol_entity_specs_get_num_ms_attributes(entry) && !found; j++)
         {
-            found = (strcmp(entry->entity_specs.ms_attributes[j].attribute_name,
+            found = (strcmp(symbol_entity_specs_get_ms_attributes_num(entry, j).attribute_name,
                         gather_info->ms_attributes[i].attribute_name) == 0);
         }
 
         if (found)
         {
-            // Update with the freshest value
-            entry->entity_specs.ms_attributes[j-1].expression_list
-                = gather_info->ms_attributes[i].expression_list;
+            // Update with the freshest value 
+            gcc_attribute_t ms_attr = symbol_entity_specs_get_ms_attributes_num(entry, j - 1);
+            ms_attr.expression_list = gather_info->ms_attributes[i].expression_list;
+            symbol_entity_specs_set_ms_attributes_num(entry, j - 1, ms_attr);
         }
         else
         {
-            entry->entity_specs.num_ms_attributes++;
-
-            entry->entity_specs.ms_attributes = xrealloc(entry->entity_specs.ms_attributes,
-                    sizeof(*entry->entity_specs.ms_attributes) * entry->entity_specs.num_ms_attributes);
-            entry->entity_specs.ms_attributes[entry->entity_specs.num_ms_attributes - 1] =
-                gather_info->ms_attributes[i];
+            symbol_entity_specs_add_ms_attributes(entry,
+                    gather_info->ms_attributes[i]);
         }
     }
 }

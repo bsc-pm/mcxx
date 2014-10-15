@@ -68,7 +68,7 @@ namespace TL { namespace Nanox {
 
         Scope  enclosing_scope = construct.retrieve_context();
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-        OutlineInfo outline_info(environment,function_symbol);
+        OutlineInfo outline_info(*_lowering, environment,function_symbol);
 
         Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
             .find_first<Nodecl::OpenMP::TaskLabel>();
@@ -78,7 +78,7 @@ namespace TL { namespace Nanox {
                 && !function_symbol.is_static()
                 && function_symbol.is_member())
         {
-            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_this();
             ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
             Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);

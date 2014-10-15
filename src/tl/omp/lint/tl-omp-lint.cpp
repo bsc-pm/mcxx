@@ -399,6 +399,7 @@ namespace {
         return result;
     }
     
+#if 0
     // If this function returns false it may mean both unknown/no
     tribool data_ref_is_local(TL::DataReference data_ref, Nodecl::List& local_data_refs)
     {
@@ -411,6 +412,7 @@ namespace {
         
         return data_ref_is_local_rec(data_ref, local_data_refs);
     }
+#endif
     
     tribool any_symbol_is_local(const TL::Analysis::NodeclSet& item_list, Nodecl::List& local_syms)
     {
@@ -420,6 +422,7 @@ namespace {
         return result;
     }
     
+#if 0
     tribool any_data_ref_is_local(Nodecl::List item_list, Nodecl::List& local_data_refs)
     {
         tribool result( false );
@@ -427,6 +430,7 @@ namespace {
             result = result || data_ref_is_local( *it, local_data_refs );
         return result;
     }
+#endif
     
     tribool task_is_locally_bound( TL::Analysis::Node *n, Nodecl::List& local_vars )
     {
@@ -440,6 +444,7 @@ namespace {
         return any_symbol_is_local(shared_vars, local_vars);
     }
     
+#if 0
     bool enclosing_context_contains_node(TL::Analysis::Node* ctx, TL::Analysis::Node* node)
     {
         bool found = false;
@@ -450,6 +455,7 @@ namespace {
         }
         return found;
     }
+#endif
     
     // Returns false when task may synchronize at some point 
     // which is not enclosed in the scope where the task is created

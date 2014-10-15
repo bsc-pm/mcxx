@@ -182,8 +182,8 @@ namespace Utils {
         Ret visit(const Nodecl::GccBuiltinVaArg& n);
         Ret visit(const Nodecl::CxxDecl& n);
         Ret visit(const Nodecl::CxxDef& n);
-        Ret visit(const Nodecl::CxxExplicitInstantiation& n);
-        Ret visit(const Nodecl::CxxExternExplicitInstantiation& n);
+        Ret visit(const Nodecl::CxxExplicitInstantiationDef& n);
+        Ret visit(const Nodecl::CxxExplicitInstantiationDecl& n);
         Ret visit(const Nodecl::CxxUsingNamespace& n);
         Ret visit(const Nodecl::CxxUsingDecl& n);
         Ret visit(const Nodecl::FunctionCode& n);

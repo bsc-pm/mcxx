@@ -109,8 +109,6 @@ LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_
 LIBMCXX_EXTERN void enter_class_specifier(void);
 LIBMCXX_EXTERN void leave_class_specifier(nodecl_t*);
 
-LIBMCXX_EXTERN unsigned long long int buildscope_used_memory(void);
-
 LIBMCXX_EXTERN nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context);
 
 LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list,
@@ -167,6 +165,9 @@ LIBMCXX_EXTERN nodecl_t instantiate_statement(nodecl_t orig_tree,
         decl_context_t new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map);
 
+LIBMCXX_EXTERN nodecl_t flush_instantiated_entities(void);
+LIBMCXX_EXTERN void push_instantiated_entity(scope_entry_t* entry);
+
 // Only to be called from cxx-instantiation.c
 nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
@@ -187,6 +188,8 @@ void build_scope_friend_class_declaration(
         decl_context_t decl_context,
         const locus_t* locus);
 
+void register_symbol_this_in_class_scope(scope_entry_t* class_entry);
+
 // Only to be called from cxx-exprtype.c
 char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         char diagnose,
@@ -202,6 +205,27 @@ char check_constexpr_function_code(scope_entry_t* entry,
         char emit_error);
 scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus);
 
+void check_nodecl_member_initializer_list(
+        nodecl_t nodecl_cxx_member_init_list,
+        scope_entry_t* function_entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output);
+
+void register_symbol_this(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus);
+
+void update_symbol_this(scope_entry_t* entry,
+        decl_context_t block_context);
+
+void build_scope_nodecl_compound_statement(
+        nodecl_t nodecl_statement_list,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output);
+
+scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context);
 
 MCXX_END_DECLS
 

@@ -35,8 +35,6 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);
-
 LIBMCXX_EXTERN deduction_result_t deduce_template_arguments_from_a_type(
         type_t* parameter,
         type_t* argument,

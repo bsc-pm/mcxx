@@ -150,7 +150,7 @@ expression : literal
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
@@ -308,10 +308,9 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_IMAG_PART([rhs]expression) type const-value-opt
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
-                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
@@ -319,8 +318,8 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | cxx-pack
 
 # Used for C++11 lambdas
-explicit-capture: NODECL_CAPTURE_COPY() symbol
-                | NODECL_CAPTURE_REFERENCE() symbol
+explicit-capture: NODECL_CXX_CAPTURE_COPY() symbol
+                | NODECL_CXX_CAPTURE_REFERENCE() symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 
@@ -341,13 +340,15 @@ cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
 # will not be able to get rid of them until we instantiate template functions
 cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_DEF([context] context-opt) symbol
-         | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_USING_NAMESPACE([context] context) symbol
-         | NODECL_CXX_USING_DECL([context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DEF([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DECL([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_USING_NAMESPACE([context] context, [used_name]cxx-dependent-name) symbol
+         | NODECL_CXX_USING_DECL([context] context, [used_name]cxx-dependent-name) symbol
          # Used only in weird cases where parsing must be delayed in the frontend itself
          # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()
+# experimental
+         | NODECL_CXX_IMPLICIT_INSTANTIATION() symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
@@ -394,6 +395,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
 # noexcept(expr)
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
+# [dependent] C+11 lambdas
+    | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt

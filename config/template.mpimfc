@@ -81,9 +81,13 @@ then
 	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
    echo "This Offload compiler uses internally $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_FC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
          or remove $ORIGINAL_MPI_COMPILER from your PATH"
+   echo "General guidelines about Offloading can be found in http://pm.bsc.es/ompss-docs/user-guide/run-programs-archs-offload.html"
+elif [[ "$USER_FLAGS" == *-showme:* ]]
+then
+   echo "Showme is not supported. Offload will not work if this wrapper is not used"
 elif [[ "$USER_FLAGS" == *-show\ * ]]
 then
-	${ORIGINAL_MPI_COMPILER} $EXTRA_MCC_FLAGS $USER_FLAGS
+   echo "Show is not supported. Offload will not work if this wrapper is not used"
 else
    #remove possible remainders from previous compilations
    rm -f $OLDPPWD/temporaloffloadplugin*.o > /dev/null 2>&1
@@ -108,26 +112,21 @@ else
 	MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS_FILE $MPI_PLUGIN_FLAGS"
 	ORIGINAL_NANOX_COMPILER="`cat $NANOX_INSTALL/src/arch/mpi/nanox_compiler`"
    trap "rm -f $OLDPPWD/temporaloffloadplugin$$.o" EXIT
-	if [[ "$USER_FLAGS" == *--verbose* ]]
-	then	
-      echo "Compiling OmpSs MPI Offload library"
-      echo $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o
-      if which $ORIGINAL_NANOX_COMPILER >/dev/null 2>&1; then	
-        I_MPI_CXX=$ORIGINAL_NANOX_COMPILER OMPI_CXX=$ORIGINAL_NANOX_COMPILER MPICH_CXX=$ORIGINAL_NANOX_COMPILER $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o	
-      else
-        $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o	
-      fi
-	else
-      if which $ORIGINAL_NANOX_COMPILER >/dev/null 2>&1; then	
-        I_MPI_CXX=$ORIGINAL_NANOX_COMPILER OMPI_CXX=$ORIGINAL_NANOX_COMPILER MPICH_CXX=$ORIGINAL_NANOX_COMPILER $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o >/dev/null 2>&1	
-      else
-        $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o >/dev/null 2>&1
-      fi
-	fi
+   if which $ORIGINAL_NANOX_COMPILER >/dev/null 2>&1; then	
+     I_MPI_CXX=$ORIGINAL_NANOX_COMPILER OMPI_CXX=$ORIGINAL_NANOX_COMPILER MPICH_CXX=$ORIGINAL_NANOX_COMPILER $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o >/dev/null 2>&1	
+   else
+     $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o >/dev/null 2>&1
+   fi
    if [[ ! -f $OLDPPWD/temporaloffloadplugin$$.o ]] ;
    then 
-       echo "OmpSs MPI Offload library could not be compiled, compile with --verbose and check why it's failing, if it's not a fault of your environment or compiler
-            , submit a ticket to https://pm.bsc.es/projects/nanox/newticket"
+       echo "Compiling OmpSs MPI Offload library"
+       echo $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o
+       if which $ORIGINAL_NANOX_COMPILER >/dev/null 2>&1; then	
+         I_MPI_CXX=$ORIGINAL_NANOX_COMPILER OMPI_CXX=$ORIGINAL_NANOX_COMPILER MPICH_CXX=$ORIGINAL_NANOX_COMPILER $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o	
+       else
+         $ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/temporaloffloadplugin$$.o	
+       fi
+       echo "OmpSs MPI Offload library could not be compiled. Try to solve the problem if its related to your environment. If its not a problem from your environment, plase submit a ticket to https://pm.bsc.es/projects/nanox/newticket"
        exit -1
    fi
    #If the compiler has lmpi_cxx (openmpi), link manually with it because we'll use fortran mpi wrapper

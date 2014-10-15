@@ -28,6 +28,7 @@
 #include "codegen-fortran.hpp"
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
+#include "fortran03-exprtype.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-cexpr.h"
 #include "tl-compilerpipeline.hpp"
@@ -476,7 +477,8 @@ namespace Codegen
         }
 
         // Module procedures are only printed if we are in the current module
-        if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
+        if (get_current_declaring_module() !=
+                TL::Symbol(symbol_entity_specs_get_in_module(entry.get_internal_symbol())))
         {
 
            // The function can be contained in an other function, and this other function
@@ -1515,9 +1517,11 @@ OPERATOR_TABLE
             walk(node.get_rhs());
             *(file) << ")";
         }
-        else if (n.is<Nodecl::Symbol>()
-                && n.get_symbol().is_parameter()
-                && t.is_fortran_array()
+        // else if (n.is<Nodecl::Symbol>()
+        //         && n.get_symbol().is_parameter()
+        //         && t.is_fortran_array()
+        //         && t.array_requires_descriptor())
+        else if (t.is_fortran_array()
                 && t.array_requires_descriptor())
         {
             *file << "LOC(";
@@ -1580,9 +1584,12 @@ OPERATOR_TABLE
             array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
         }
 
+        TL::Symbol subscripted_symbol =
+            ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
+
         walk(subscripted);
         *(file) << "(";
-        codegen_array_subscripts(subscripted.get_symbol(), subscripts);
+        codegen_array_subscripts(subscripted_symbol, subscripts);
         *(file) << ")";
     }
 
@@ -2516,7 +2523,7 @@ OPERATOR_TABLE
 
             set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
 
-            if (!sym.get_internal_symbol()->entity_specs.is_renamed)
+            if (!symbol_entity_specs_get_is_renamed(sym.get_internal_symbol()))
             {
                 *(file) << get_generic_specifier_str(sym.get_name());
             }
@@ -3082,7 +3089,7 @@ OPERATOR_TABLE
                     && entry.get_value().is_null())
             {
                 // Make this an ALLOCATABLE
-                entry.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                symbol_entity_specs_set_is_allocatable(entry.get_internal_symbol(), 1);
             }
             else
             {
@@ -4064,7 +4071,7 @@ OPERATOR_TABLE
                 if (!function_type.returns().is_void()
                         // If nobody said anything about this function, we cannot assume
                         // it is a function
-                        && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
+                        && !symbol_entity_specs_get_is_implicit_basic_type(entry.get_internal_symbol()))
                 {
                     std::string type_spec;
                     std::string array_specifier;
@@ -5041,9 +5048,7 @@ OPERATOR_TABLE
                 // Check it matches the symbol
                 // (Note that if the user added a call here this args[0] would
                 // be a FortranActualArgument and not directly the symbol)
-                && ((args[0].is<Nodecl::Symbol>() && args[0].get_symbol() == array_symbol)
-                    || (args[0].is<Nodecl::Dereference>()
-                        && args[0].as<Nodecl::Dereference>().get_rhs().get_symbol() == array_symbol))
+                && (TL::Symbol(::fortran_data_ref_get_symbol(args[0].get_internal_nodecl())) == array_symbol)
                 // Check it matches the dimension
                 && args[1].is_constant()
                 && const_value_is_nonzero(
@@ -5363,7 +5368,7 @@ OPERATOR_TABLE
                 if (it2 != item_list.begin())
                     *(file) << ", ";
 
-                if (!entry.get_internal_symbol()->entity_specs.is_renamed)
+                if (!symbol_entity_specs_get_is_renamed(entry.get_internal_symbol()))
                 {
                     *(file) << get_generic_specifier_str(entry.get_name())
                         ;
@@ -5450,7 +5455,7 @@ OPERATOR_TABLE
             module = entry.in_module();
 
             // Make sure it has been loaded
-            if (!module.get_internal_symbol()->entity_specs.is_builtin)
+            if (!symbol_entity_specs_get_is_builtin(module.get_internal_symbol()))
                 fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
         else

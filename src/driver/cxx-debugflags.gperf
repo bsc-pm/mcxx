@@ -64,6 +64,7 @@ struct debug_flags_list_t;
 "do_not_codegen", DEBUG_OPTION_REF(do_not_codegen), "Does not perform codegen step"
 "show_template_packs", DEBUG_OPTION_REF(show_template_packs), "Adds a marker to show the extent of a template pack expansion"
 "vectorization_verbose", DEBUG_OPTION_REF(vectorization_verbose), "Enable vectorization debug messages"
+"stats_string_table", DEBUG_OPTION_REF(stats_string_table), "Prints statistics of the global string table"
 %%
 
 static int cmpstringp(const void *p1, const void *p2)

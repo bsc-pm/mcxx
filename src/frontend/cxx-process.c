@@ -95,13 +95,6 @@ translation_unit_t* add_new_file_to_compilation_process(
     return translation_unit;
 }
 
-unsigned long long int _bytes_dynamic_lists = 0;
-
-unsigned long long dynamic_lists_used_memory(void)
-{
-    return _bytes_dynamic_lists;
-}
-
 void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...)
 {
     va_list ap;
@@ -126,7 +119,12 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     {
         // Desperate message
         const char *oom_message = "allocation failure in vasprintf\n";
-        write(fileno(stderr), oom_message, strlen(oom_message));
+        int r = write(fileno(stderr), oom_message, strlen(oom_message));
+        if (r < 0)
+        {
+            // Drama. Resort to perror and hope for the best
+            perror("write");
+        }
         abort();
     }
 

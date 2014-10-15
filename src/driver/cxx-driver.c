@@ -543,6 +543,7 @@ static void enable_debug_flag(const char* flag);
 static void help_message(void);
 
 static void print_memory_report(void);
+static void stats_string_table(void);
 
 static int parse_special_parameters(int *should_advance, int argc, 
         const char* argv[], char dry_run);
@@ -636,6 +637,11 @@ int main(int argc, char* argv[])
     if (CURRENT_CONFIGURATION->debug_options.print_memory_report)
     {
         print_memory_report();
+    }
+
+    if (CURRENT_CONFIGURATION->debug_options.stats_string_table)
+    {
+        stats_string_table();
     }
 
     return compilation_process.execution_result;
@@ -2271,6 +2277,8 @@ static void enable_debug_flag(const char* flags)
                     flag);
         }
     }
+
+    xfree(flag_list);
 }
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
@@ -4849,6 +4857,11 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
 }
 #endif
 
+static void stats_string_table(void)
+{
+    uniquestr_stats();
+}
+
 static void print_memory_report(void)
 {
     char c[256];
@@ -4888,79 +4901,16 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 #endif
 
-    unsigned long long accounted_memory = 0;
-    //
-    // -- AST
-
-    accounted_memory += ast_astmake_used_memory();
-    print_human(c, ast_astmake_used_memory());
-    fprintf(stderr, " - Memory used to create AST nodes: %s\n", c);
-
-    accounted_memory += ast_instantiation_used_memory();
-    print_human(c, ast_instantiation_used_memory());
-    fprintf(stderr, " - Memory used to copy AST nodes when instantiating: %s\n", c);
+    fprintf(stderr, "Size of a symbol (bytes): %zd\n",
+            sizeof(scope_entry_t));
+    fprintf(stderr, "Size of entity specifiers (bytes): %zd\n",
+            sizeof(entity_specifiers_t));
+    fprintf(stderr, "Size of a context (bytes): %zd\n",
+            sizeof(decl_context_t));
+    fprintf(stderr, "Size of a type (bytes): %zd\n",
+            get_type_t_size());
 
     // -- AST
-
-    accounted_memory += type_system_used_memory();
-    print_human(c, type_system_used_memory());
-    fprintf(stderr, " - Memory usage due to type system: %s\n", c);
-
-    {
-        fprintf(stderr, " - Type system breakdown:\n");
-        fprintf(stderr, "    - Size of type node (bytes): %zu\n", get_type_t_size());
-        fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
-        fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
-        fprintf(stderr, "    - Number of requested function types: %d\n", get_function_type_requested());
-        fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
-        fprintf(stderr, "    - Number of reused function types: %d\n", get_function_type_reused());
-        fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());
-        fprintf(stderr, "    - Number of pointer types: %d\n", get_pointer_type_counter());
-        fprintf(stderr, "    - Number of pointer to member types: %d\n", get_pointer_to_member_type_counter());
-        fprintf(stderr, "    - Number of reference types: %d\n", get_reference_type_counter());
-        fprintf(stderr, "    - Number of template types: %d\n", get_template_type_counter());
-        fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
-        fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
-    }
-
-    accounted_memory += char_trie_used_memory();
-    print_human(c, char_trie_used_memory());
-    fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
-
-    accounted_memory += buildscope_used_memory();
-    print_human(c, buildscope_used_memory());
-    fprintf(stderr, " - Memory usage due to scope building: %s\n", c);
-
-    accounted_memory += symbols_used_memory();
-    print_human(c, symbols_used_memory());
-    fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
-    fprintf(stderr, "    - Size of each symbol (bytes): %zu\n", sizeof(scope_entry_t));
-    fprintf(stderr, "    - Size of entity specifiers (bytes): %zu\n", sizeof(entity_specifiers_t));
-
-    accounted_memory += scope_used_memory();
-    print_human(c, scope_used_memory());
-    fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
-    fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
-    fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
-    fprintf(stderr, "    - Size of a temporary gathering context structure (bytes): %zu\n", sizeof(gather_decl_spec_t));
-
-    accounted_memory += exprtype_used_memory();
-    print_human(c, exprtype_used_memory());
-    fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
-
-    accounted_memory += typededuc_used_memory();
-    print_human(c, typededuc_used_memory());
-    fprintf(stderr, " - Memory usage due to type deduction: %s\n", c);
-
-    accounted_memory += overload_used_memory();
-    print_human(c, overload_used_memory());
-    fprintf(stderr, " - Memory usage due to overload resolution: %s\n", c);
-
-    fprintf(stderr, "\n");
-
-    print_human(c, accounted_memory);
-    fprintf(stderr, " - Total accounted memory: %s\n", c);
-
     fprintf(stderr, "\n");
     fprintf(stderr, "Abstract Syntax Tree(s) breakdown\n");
     fprintf(stderr, "---------------------------------\n");

@@ -633,7 +633,7 @@ namespace Vectorization
             _environment._function_return = Nodecl::Utils::get_enclosing_function(n).
                 get_function_code().retrieve_context().new_symbol("__function_return");
             _environment._function_return.get_internal_symbol()->kind = SK_VARIABLE;
-            _environment._function_return.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(_environment._function_return.get_internal_symbol(), 1);
 
             TL::Type return_type = return_value.get_type();
             if(return_type.is_any_reference())

@@ -99,7 +99,7 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = placeholder_scope.new_symbol("sp_" + orig_sym.get_name());
                 sym.get_internal_symbol()->kind = SK_VARIABLE;
                 sym.get_internal_symbol()->type_information = orig_sym.get_type().no_ref().get_internal_type();
-                sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
 
                 symbol_map.add_map(orig_sym, sym);
 
@@ -129,7 +129,7 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = placeholder_scope.new_symbol("sfp_" + orig_sym.get_name());
                 sym.get_internal_symbol()->kind = SK_VARIABLE;
                 sym.get_internal_symbol()->type_information = orig_sym.get_type().no_ref().get_internal_type();
-                sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
 
                 symbol_map.add_map(orig_sym, sym);
 

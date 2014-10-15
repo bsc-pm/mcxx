@@ -558,9 +558,9 @@ namespace Utils {
 
     void TopLevelVisitor::visit( const Nodecl::CxxDef& n ) {}
 
-    void TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiation& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiationDef& n ) {}
 
-    void TopLevelVisitor::visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiationDecl& n ) {}
 
     void TopLevelVisitor::visit( const Nodecl::CxxUsingNamespace& n ) {}
 

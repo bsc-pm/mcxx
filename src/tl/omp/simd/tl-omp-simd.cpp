@@ -340,10 +340,11 @@ namespace TL {
 //                    vectorizer_overlap.get_init_statements(loop_environment));
 
             // MAIN LOOP VECTORIZATION
-            if (!only_epilog && !loop_environment._overlap_symbols_map.empty())
+            if (!only_epilog)
             {
                 _vectorizer.vectorize_loop(
                         loop_statement, loop_environment);
+
                 if (!loop_environment._overlap_symbols_map.empty())
                 {
                     _vectorizer.opt_overlapped_accesses(
@@ -1386,7 +1387,7 @@ namespace TL {
                         TL::Symbol new_red_sym =
                             enclosing_scope.new_symbol("__vred_" + red_sym.get_name());
                         new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                        new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(new_red_sym.get_internal_symbol(), 1);
                         new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
 
                         // Add new TL::Symbol to map

@@ -56,7 +56,6 @@
 /*
  * --
  */
-static long long unsigned int _bytes_due_to_type_system = 0;
 
 // An exception specifier used in function info
 typedef struct {
@@ -544,7 +543,7 @@ struct type_tag
 
 static common_type_info_t* new_common_type_info(void)
 {
-    common_type_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    common_type_info_t* result = xcalloc(1, sizeof(*result));
     return result;
 }
 
@@ -574,6 +573,9 @@ static type_t* copy_type_for_class_alias(type_t* t)
 
 static type_t* copy_type_for_variant(type_t* t)
 {
+    ERROR_CONDITION(t->cv_qualifier != CV_NONE,
+            "Invalid type to copy for variant: it must be unqualified", 0);
+
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
 
@@ -599,7 +601,7 @@ type_t* variant_type_get_nonvariant(type_t* t)
 
 static type_t* new_empty_type_without_info(void)
 {
-    type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    type_t* result = xcalloc(1, sizeof(*result));
     return result;
 }
 
@@ -719,18 +721,13 @@ static char equivalent_pack_types(type_t* t1, type_t *t2);
 static char equivalent_sequence_types(type_t* t1, type_t *t2);
 
 
-long long unsigned int type_system_used_memory(void)
-{
-    return _bytes_due_to_type_system;
-}
-
 /* Type constructors : Builtins */
 
 static type_t* get_simple_type(void)
 {
     type_t* result = new_empty_type();
     result->kind = TK_DIRECT;
-    result->type = counted_xcalloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
+    result->type = xcalloc(1, sizeof(*result->type));
     result->unqualified_type = result;
     return result;
 }
@@ -1851,7 +1848,7 @@ type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
 
     type_t* type_info = get_simple_type();
 
-    type_info->type->enum_info = (enum_info_t*) counted_xcalloc(1, sizeof(*type_info->type->enum_info), &_bytes_due_to_type_system);
+    type_info->type->enum_info = (enum_info_t*) xcalloc(1, sizeof(*type_info->type->enum_info));
     type_info->type->kind = STK_ENUM;
     type_info->type->type_decl_context = decl_context;
 
@@ -1869,7 +1866,7 @@ type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_ki
 
     type_t* type_info = get_simple_type();
 
-    type_info->type->class_info = counted_xcalloc(1, sizeof(*type_info->type->class_info), &_bytes_due_to_type_system);
+    type_info->type->class_info = xcalloc(1, sizeof(*type_info->type->class_info));
     type_info->type->class_info->class_kind = class_kind;
     type_info->type->kind = STK_CLASS;
     type_info->type->type_decl_context = decl_context;
@@ -1967,7 +1964,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     for (i = 0; i < template_parameter_list->num_parameters; i++)
     {
         template_parameter_t* param = result->parameters[i];
-        template_parameter_value_t* new_value = counted_xcalloc(1, sizeof(*new_value), &_bytes_due_to_type_system);
+        template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
 
         switch (param->kind)
         {
@@ -2044,7 +2041,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
 
 static int template_argument_list_identical_comp(const void*, const void*);
 
-type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
+type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* aliased_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
     type_t* type_info = get_simple_type();
@@ -2052,32 +2049,43 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     type_info->template_parameters = template_parameter_list;
 
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = counted_xcalloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
+    primary_symbol = xcalloc(1, sizeof(*primary_symbol));
     primary_symbol->symbol_name = template_name;
     primary_symbol->kind = SK_TEMPLATE_ALIAS;
 
+    type_t* primary_type = new_empty_type_without_info();
     primary_symbol->type_information = primary_type;
     primary_symbol->decl_context = decl_context;
 
     primary_symbol->locus = locus;
-    primary_symbol->entity_specs.is_user_declared = 1;
-    primary_symbol->entity_specs.is_instantiable = 1;
+    symbol_entity_specs_set_is_user_declared(primary_symbol, 1);
+    symbol_entity_specs_set_is_instantiable(primary_symbol, 1);
+
+    *primary_type = *aliased_type;
+    primary_type->info = new_common_type_info();
+    *primary_type->info = *aliased_type->info;
 
     primary_type->info->is_template_specialized_type = 1;
     primary_type->template_parameters = template_parameter_list;
     primary_type->template_arguments = compute_template_parameter_values_of_primary(template_parameter_list);
     primary_type->related_template_type = type_info;
 
-    if (template_parameter_list->num_parameters != 0)
-    {
-        set_is_dependent_type(primary_type, 1);
-    }
-    else
-    {
-        // If it is zero this means it is a special uninstantiated
-        // (non-template) class member
-        set_is_dependent_type(primary_type, 0);
-    }
+    // Note that we do not set whether primary_type is dependent because we
+    // will used the attribute from aliased_type. For nondependent aliased types
+    // like
+    //
+    //    template <typename T>
+    //    using Foo = int;
+    //
+    // this has the side effect that
+    //
+    // template <typename T>
+    // void f()
+    // {
+    //   A<T> a;
+    //   a = (int*)0; // will fail at "declaration of the template"-time
+    //                // rather than instantiation. This should be OK
+    // }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
 
@@ -2116,7 +2124,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
 
     // Primary "specialization"
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = counted_xcalloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
+    primary_symbol = xcalloc(1, sizeof(*primary_symbol));
     primary_symbol->symbol_name = template_name;
     if (is_unnamed_class_type(primary_type))
     {
@@ -2136,8 +2144,8 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     primary_symbol->decl_context = decl_context;
 
     primary_symbol->locus = locus;
-    primary_symbol->entity_specs.is_user_declared = 1;
-    primary_symbol->entity_specs.is_instantiable = 1;
+    symbol_entity_specs_set_is_user_declared(primary_symbol, 1);
+    symbol_entity_specs_set_is_instantiable(primary_symbol, 1);
 
     primary_type->info->is_template_specialized_type = 1;
     primary_type->template_parameters = template_parameter_list;
@@ -2197,9 +2205,12 @@ void free_temporary_template_type(type_t* t)
         internal_error("Code unreachable", 0);
     }
 
-    xfree(primary_specialization->type_information->info);
 
+    free_template_parameter_list(primary_specialization->type_information->template_arguments);
+    xfree(primary_specialization->type_information->info);
     xfree(primary_specialization);
+
+    free_template_parameter_list(t->template_parameters);
     xfree(t->type);
     xfree(t);
 }
@@ -2257,15 +2268,15 @@ int template_type_get_nesting_level(type_t* t)
             "Invalid template parameters", 0);
 
     // Use the first one since all template parameters will be in the same nesting 
-    int nesting 
-        = template_parameters->parameters[0]->entry->entity_specs.template_parameter_nesting;
+    int nesting
+        = symbol_entity_specs_get_template_parameter_nesting(template_parameters->parameters[0]->entry);
 
     // Sanity check
     int i;
     for (i = 1; i < template_parameters->num_parameters; i++)
     {
         // They must agree
-        ERROR_CONDITION( (template_parameters->parameters[i]->entry->entity_specs.template_parameter_nesting
+        ERROR_CONDITION((symbol_entity_specs_get_template_parameter_nesting(template_parameters->parameters[i]->entry)
                     != nesting),
                 "Invalid template parameters, their nesting is not the same", 0);
     }
@@ -2883,7 +2894,7 @@ static type_t* template_type_get_specialized_type_(
     }
 
     // Create a fake symbol with the just created specialized type
-    scope_entry_t* specialized_symbol = counted_xcalloc(1, sizeof(*specialized_symbol), &_bytes_due_to_type_system);
+    scope_entry_t* specialized_symbol = xcalloc(1, sizeof(*specialized_symbol));
 
     specialized_symbol->symbol_name = primary_symbol->symbol_name;
     specialized_symbol->kind = primary_symbol->kind;
@@ -2896,46 +2907,48 @@ static type_t* template_type_get_specialized_type_(
 
     // Keep information of the entity except for some attributes that
     // must be cleared
-    specialized_symbol->entity_specs = primary_symbol->entity_specs;
-    specialized_symbol->entity_specs.is_user_declared = 0;
-    specialized_symbol->entity_specs.is_instantiable = 0;
+    symbol_entity_specs_copy_from(specialized_symbol, primary_symbol);
+    symbol_entity_specs_set_is_user_declared(specialized_symbol, 0);
+    symbol_entity_specs_set_is_instantiable(specialized_symbol, 0);
 
     // Let this be filled later
-    specialized_symbol->entity_specs.num_related_symbols = 0;
-    specialized_symbol->entity_specs.related_symbols = NULL;
+    symbol_entity_specs_free_related_symbols(specialized_symbol);
 
     if (equivalent_match != NULL)
     {
-        specialized_symbol->entity_specs.alias_to = named_type_get_symbol(equivalent_match);
+        symbol_entity_specs_set_alias_to(specialized_symbol, named_type_get_symbol(equivalent_match));
     }
 
-    // Copy exception stuff
+    // Copy function extra info
     if (specialized_symbol->kind == SK_FUNCTION)
     {
+        // Empty default argument info for the specialization
+        symbol_entity_specs_reserve_default_argument_info(
+                specialized_symbol,
+                function_type_get_num_parameters(
+                    specialized_symbol->type_information));
+
         // Do not reuse the exceptions of the primary symbol (they may need to be updated)
-        specialized_symbol->entity_specs.num_exceptions = 0;
-        specialized_symbol->entity_specs.exceptions = NULL;
+        symbol_entity_specs_free_exceptions(specialized_symbol);
 
         // Update exception specifications
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
-        int i;
-        for (i = 0; i < primary_symbol->entity_specs.num_exceptions; i++)
+        int i, num_exceptions = symbol_entity_specs_get_num_exceptions(primary_symbol);
+        for (i = 0; i < num_exceptions; i++)
         {
-            type_t* exception_type = primary_symbol->entity_specs.exceptions[i];
+            type_t* exception_type = symbol_entity_specs_get_exceptions_num(primary_symbol, i);
             type_t* updated_exception_type = update_type(exception_type, updated_context,
                     locus);
 
-            P_LIST_ADD(specialized_symbol->entity_specs.exceptions, 
-                    specialized_symbol->entity_specs.num_exceptions,
+            symbol_entity_specs_add_exceptions(specialized_symbol,
                     updated_exception_type);
         }
 
         // FIXME - noexcept?
-
         // Do not copy the function code because it must be first instantiated
-        specialized_symbol->entity_specs.function_code = nodecl_null();
+        symbol_entity_specs_set_function_code(specialized_symbol, nodecl_null());
     }
 
     type_t* result = get_user_defined_type(specialized_symbol);
@@ -3176,7 +3189,10 @@ static void _get_array_type_components(type_t* array_type,
         char *is_string_literal);
 
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
+        nodecl_t whole_size,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context,
         array_region_t* array_region,
         char with_descriptor,
         char is_string_literal);
@@ -3200,9 +3216,9 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
-                nodecl_shallow_copy(whole_size), 
-                nodecl_shallow_copy(lower_bound), 
-                nodecl_shallow_copy(upper_bound), 
+                whole_size,
+                lower_bound,
+                upper_bound,
                 decl_context,
                 array_region,
                 with_descriptor,
@@ -3334,7 +3350,7 @@ type_t* get_pointer_type(type_t* t)
         pointed_type = new_empty_type();
         pointed_type->kind = TK_POINTER;
         pointed_type->unqualified_type = pointed_type;
-        pointed_type->pointer = counted_xcalloc(1, sizeof(*pointed_type->pointer), &_bytes_due_to_type_system);
+        pointed_type->pointer = xcalloc(1, sizeof(*pointed_type->pointer));
         pointed_type->pointer->pointee = t;
 
         if (is_array_type(t)
@@ -3423,7 +3439,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
         referenced_type = new_empty_type();
         referenced_type->kind = reference_kind;
         referenced_type->unqualified_type = referenced_type;
-        referenced_type->pointer = counted_xcalloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
+        referenced_type->pointer = xcalloc(1, sizeof(*referenced_type->pointer));
         referenced_type->pointer->pointee = t;
 
         referenced_type->info->is_dependent = is_dependent_type(t);
@@ -3478,7 +3494,7 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
         pointer_to_member = new_empty_type();
         pointer_to_member->kind = TK_POINTER_TO_MEMBER;
         pointer_to_member->unqualified_type = pointer_to_member;
-        pointer_to_member->pointer = counted_xcalloc(1, sizeof(*pointer_to_member->pointer), &_bytes_due_to_type_system);
+        pointer_to_member->pointer = xcalloc(1, sizeof(*pointer_to_member->pointer));
         pointer_to_member->pointer->pointee = t;
         pointer_to_member->pointer->pointee_class_type = class_type;
 
@@ -3666,8 +3682,11 @@ static void _get_array_type_components(type_t* array_type,
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
-        array_region_t* array_region, 
+        nodecl_t whole_size,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context,
+        array_region_t* array_region,
         char with_descriptor,
         char is_string_literal)
 {
@@ -3731,7 +3750,7 @@ static type_t* _get_array_type(type_t* element_type,
                 *(data[i].value) = const_value_cast_to_8(
                         nodecl_get_constant(*(data[i].nodecl)));
                 // Simplify the tree now
-                *(data[i].nodecl) = const_value_to_nodecl(
+                *(data[i].nodecl) = const_value_to_nodecl_cached(
                         nodecl_get_constant(*(data[i].nodecl)));
             }
         }
@@ -3765,7 +3784,7 @@ static type_t* _get_array_type(type_t* element_type,
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
-            result->array = counted_xcalloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+            result->array = xcalloc(1, sizeof(*(result->array)));
             result->array->element_type = element_type;
             result->array->whole_size = nodecl_null();
 
@@ -3833,7 +3852,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result = new_empty_type();
                 result->kind = TK_ARRAY;
                 result->unqualified_type = result;
-                result->array = counted_xcalloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+                result->array = xcalloc(1, sizeof(*(result->array)));
                 result->array->element_type = element_type;
 
                 result->array->with_descriptor = with_descriptor;
@@ -3870,7 +3889,7 @@ static type_t* _get_array_type(type_t* element_type,
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
-            result->array = counted_xcalloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+            result->array = xcalloc(1, sizeof(*(result->array)));
             result->array->element_type = element_type;
             result->array->whole_size = whole_size;
             result->array->lower_bound = lower_bound;
@@ -3936,7 +3955,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                     nodecl_get_constant(whole_size),
                     const_value_get_one(/* bytes */ 4, /* signed */ 1));
 
-            upper_bound = const_value_to_nodecl(c);
+            upper_bound = const_value_to_nodecl_cached(c);
         }
         else
         {
@@ -3949,10 +3968,10 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                     get_one_tree(nodecl_get_locus(whole_size)),
                     get_signed_int_type(),
                     nodecl_get_locus(whole_size));
-        }
 
-        nodecl_expr_set_is_value_dependent(upper_bound,
-                nodecl_expr_is_value_dependent(whole_size));
+            nodecl_expr_set_is_value_dependent(upper_bound,
+                    nodecl_expr_is_value_dependent(whole_size));
+        }
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
@@ -3976,7 +3995,7 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
                     nodecl_get_constant(whole_size),
                     const_value_get_one(/* bytes */ 4, /* signed */ 1));
 
-            upper_bound = const_value_to_nodecl(c);
+            upper_bound = const_value_to_nodecl_cached(c);
         }
         else
         {
@@ -3989,10 +4008,10 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
                     get_one_tree(nodecl_get_locus(whole_size)),
                     get_signed_int_type(),
                     nodecl_get_locus(whole_size));
-        }
 
-        nodecl_expr_set_is_value_dependent(upper_bound,
-                nodecl_expr_is_value_dependent(whole_size));
+            nodecl_expr_set_is_value_dependent(upper_bound,
+                    nodecl_expr_is_value_dependent(whole_size));
+        }
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
@@ -4011,7 +4030,7 @@ static nodecl_t compute_whole_size_given_bounds(
     if (nodecl_is_constant(lower_bound)
             && nodecl_is_constant(upper_bound))
     {
-        whole_size = const_value_to_nodecl(
+        whole_size = const_value_to_nodecl_cached(
                 const_value_add(
                     const_value_sub(
                         nodecl_get_constant(upper_bound),
@@ -4089,7 +4108,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     
     nodecl_t region_whole_size = compute_whole_size_given_bounds(region_lower_bound, region_upper_bound);
 
-    array_region_t* array_region = counted_xcalloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
+    array_region_t* array_region = xcalloc(1, sizeof(*array_region));
     array_region->lower_bound = region_lower_bound;
     array_region->upper_bound = region_upper_bound;
     array_region->stride = region_stride;
@@ -4214,18 +4233,18 @@ static type_t* _get_new_function_type(type_t* t,
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function = xcalloc(1, sizeof(*(result->function)));
     result->function->ref_qualifier = ref_qualifier;
     result->function->is_trailing = is_trailing;
     result->function->return_type = t;
 
-    result->function->parameter_list = counted_xcalloc(num_parameters, sizeof(*( result->function->parameter_list )), &_bytes_due_to_type_system);
+    result->function->parameter_list = xcalloc(num_parameters, sizeof(*( result->function->parameter_list )));
     result->function->num_parameters = num_parameters;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = counted_xcalloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
+        parameter_info_t* new_parameter = xcalloc(1, sizeof(*new_parameter));
 
         *new_parameter = parameter_info[i];
 
@@ -4247,19 +4266,19 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
 
-    type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    type_t* result = xcalloc(1, sizeof(*result));
     *result = *class_type;
 
     result->unqualified_type = result;
 
     // These are the parts relevant for duplication
-    result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+    result->info = xcalloc(1, sizeof(*result->info));
     *result->info = *class_type->info;
 
-    result->type = counted_xcalloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
+    result->type = xcalloc(1, sizeof(*result->type));
     *result->type = *class_type->type;
 
-    result->type->class_info = counted_xcalloc(1, sizeof(*result->type->class_info), &_bytes_due_to_type_system);
+    result->type->class_info = xcalloc(1, sizeof(*result->type->class_info));
     *result->type->class_info = *class_type->type->class_info;
 
     return result;
@@ -4414,14 +4433,14 @@ type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function = xcalloc(1, sizeof(*(result->function)));
     result->function->return_type = t;
     result->function->lacks_prototype = 1;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = counted_xcalloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
+        parameter_info_t* new_parameter = xcalloc(1, sizeof(*new_parameter));
 
         new_parameter->type_info = get_signed_int_type();
 
@@ -4532,8 +4551,8 @@ char class_type_is_empty(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_bitfield
-                || const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.bitfield_size)))
+        if (!symbol_entity_specs_get_is_bitfield(entry)
+                || const_value_is_nonzero(nodecl_get_constant(symbol_entity_specs_get_bitfield_size(entry))))
         {
             num_of_non_empty_nonstatics_data_members++;
         }
@@ -4631,7 +4650,7 @@ char class_type_is_dynamic(type_t* t)
     scope_entry_t* destructor = class_type_get_destructor(class_type);
 
     if (destructor != NULL
-            && destructor->entity_specs.is_virtual)
+            && symbol_entity_specs_get_is_virtual(destructor))
         return 1;
 
     // If any of our bases is dynamic or a virtual base, we are dynamic
@@ -4733,8 +4752,8 @@ char class_type_is_nearly_empty(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_bitfield
-                || const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.bitfield_size)))
+        if (!symbol_entity_specs_get_is_bitfield(entry)
+                || const_value_is_nonzero(nodecl_get_constant(symbol_entity_specs_get_bitfield_size(entry))))
         {
             // If we are not empty, we are not nearly empty either
             empty = 0;
@@ -4968,8 +4987,8 @@ static scope_entry_list_t* _class_type_get_members_pred(type_t* t, void* data, c
 
 static char _member_is_conversion(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_member
-        && entry->entity_specs.is_conversion;
+    return symbol_entity_specs_get_is_member(entry)
+        && symbol_entity_specs_get_is_conversion(entry);
 }
 
 scope_entry_list_t* class_type_get_conversions(type_t* t)
@@ -4982,7 +5001,7 @@ scope_entry_list_t* class_type_get_conversions(type_t* t)
 
 static char _member_is_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_member && entry->kind == SK_FUNCTION;
+    return symbol_entity_specs_get_is_member(entry) && entry->kind == SK_FUNCTION;
 }
 
 scope_entry_list_t* class_type_get_member_functions(type_t* t)
@@ -4995,17 +5014,17 @@ scope_entry_list_t* class_type_get_member_functions(type_t* t)
 
 static char _member_is_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_member && entry->kind == SK_VARIABLE;
+    return symbol_entity_specs_get_is_member(entry) && entry->kind == SK_VARIABLE;
 }
 
 static char _member_is_static_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return _member_is_data_member(entry, data) && entry->entity_specs.is_static;
+    return _member_is_data_member(entry, data) && symbol_entity_specs_get_is_static(entry);
 }
 
 static char _member_is_nonstatic_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return _member_is_data_member(entry, data) && !entry->entity_specs.is_static;
+    return _member_is_data_member(entry, data) && !symbol_entity_specs_get_is_static(entry);
 }
 
 scope_entry_list_t* class_type_get_nonstatic_data_members(type_t* t)
@@ -5026,7 +5045,7 @@ scope_entry_list_t* class_type_get_static_data_members(type_t* t)
 
 static char _member_is_move_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_move_constructor;
+    return symbol_entity_specs_get_is_move_constructor(entry);
 }
 
 scope_entry_list_t* class_type_get_move_constructors(type_t* t)
@@ -5039,7 +5058,7 @@ scope_entry_list_t* class_type_get_move_constructors(type_t* t)
 
 static char _member_is_copy_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_copy_constructor;
+    return symbol_entity_specs_get_is_copy_constructor(entry);
 }
 
 scope_entry_list_t* class_type_get_copy_constructors(type_t* t)
@@ -5052,7 +5071,7 @@ scope_entry_list_t* class_type_get_copy_constructors(type_t* t)
 
 static char _member_is_move_assignment_operator(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_move_assignment_operator;
+    return symbol_entity_specs_get_is_move_assignment_operator(entry);
 }
 
 scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t)
@@ -5065,7 +5084,7 @@ scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t)
 
 static char _member_is_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_constructor;
+    return symbol_entity_specs_get_is_constructor(entry);
 }
 
 scope_entry_list_t* class_type_get_constructors(type_t* t)
@@ -5078,7 +5097,7 @@ scope_entry_list_t* class_type_get_constructors(type_t* t)
 
 static char _member_is_copy_assignment_operator(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return entry->entity_specs.is_copy_assignment_operator;
+    return symbol_entity_specs_get_is_copy_assignment_operator(entry);
 }
 
 scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t)
@@ -5181,7 +5200,7 @@ scope_entry_list_t* class_type_get_direct_base_classes_canonical(type_t* t)
 
 static char _member_is_virtual_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
-    return _member_is_member_function(entry, data) && entry->entity_specs.is_virtual;
+    return _member_is_member_function(entry, data) && symbol_entity_specs_get_is_virtual(entry);
 }
 
 scope_entry_list_t* class_type_get_virtual_functions(type_t* t)
@@ -5336,8 +5355,8 @@ void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_con
 
     if (is_template_specialized_type(get_actual_class_type(entry->type_information)))
         instantiate_template_class_if_needed(entry, decl_context, locus);
-    else if (entry->entity_specs.is_member
-            && entry->entity_specs.emission_template != NULL)
+    else if (symbol_entity_specs_get_is_member(entry)
+            && symbol_entity_specs_get_emission_template(entry) != NULL)
         instantiate_nontemplate_member_class_if_needed(entry, decl_context, locus);
 }
 
@@ -5349,8 +5368,8 @@ char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_c
 
     if (is_template_specialized_type(get_actual_class_type(entry->type_information)))
         return instantiate_template_class_if_possible(entry, decl_context, locus);
-    else if (entry->entity_specs.is_member
-            && entry->entity_specs.emission_template != NULL)
+    else if (symbol_entity_specs_get_is_member(entry)
+            && symbol_entity_specs_get_emission_template(entry) != NULL)
         return instantiate_nontemplate_member_class_if_possible(entry, decl_context, locus);
 
     return 1;
@@ -5669,10 +5688,10 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class,
     ERROR_CONDITION(is_expansion && !is_dependent, "An expansion base class should always be dependent", 0);
     class_type = get_actual_class_type(class_type);
 
-    if (base_class->entity_specs.is_injected_class_name)
-        base_class = named_type_get_symbol(base_class->entity_specs.class_type);
+    if (symbol_entity_specs_get_is_injected_class_name(base_class))
+        base_class = named_type_get_symbol(symbol_entity_specs_get_class_type(base_class));
 
-    base_class_info_t* new_base_class = counted_xcalloc(1, sizeof(*new_base_class), &_bytes_due_to_type_system);
+    base_class_info_t* new_base_class = xcalloc(1, sizeof(*new_base_class));
     new_base_class->class_symbol = base_class;
     /* redundant */ new_base_class->class_type = base_class->type_information;
     new_base_class->is_virtual = is_virtual;
@@ -5923,15 +5942,15 @@ extern inline char equivalent_types(type_t* t1, type_t* t2)
 
 static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
 {
-    if (s1->entity_specs.is_template_parameter
-            || s2->entity_specs.is_template_parameter)
+    if (symbol_entity_specs_get_is_template_parameter(s1)
+            || symbol_entity_specs_get_is_template_parameter(s2))
     {
-        if (s1->entity_specs.is_template_parameter
-                && s2->entity_specs.is_template_parameter)
+        if (symbol_entity_specs_get_is_template_parameter(s1)
+                && symbol_entity_specs_get_is_template_parameter(s2))
         {
             return ((s1->kind == s2->kind)
-                    && (s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting)
-                    && (s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position));
+                    && (symbol_entity_specs_get_template_parameter_nesting(s1) == symbol_entity_specs_get_template_parameter_nesting(s2))
+                    && (symbol_entity_specs_get_template_parameter_position(s1) == symbol_entity_specs_get_template_parameter_position(s2)));
         }
         else
         {
@@ -5996,12 +6015,12 @@ static char same_template_type(type_t* t1, type_t* t2)
             || (s1->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                 && s2->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
     {
-        ERROR_CONDITION(!s1->entity_specs.is_template_parameter
-                || !s2->entity_specs.is_template_parameter,
+        ERROR_CONDITION(!symbol_entity_specs_get_is_template_parameter(s1)
+                || !symbol_entity_specs_get_is_template_parameter(s2),
                 "Symbol is not set as a template parameter", 0);
 
-        return (s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting)
-            && (s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position);
+        return (symbol_entity_specs_get_template_parameter_nesting(s1) == symbol_entity_specs_get_template_parameter_nesting(s2))
+            && (symbol_entity_specs_get_template_parameter_position(s1) == symbol_entity_specs_get_template_parameter_position(s2));
     }
 
     return 0;
@@ -6997,7 +7016,7 @@ static template_parameter_list_t* rebuild_template_arguments_advancing_dependent
     int i;
     for (i = 0; i < fixed_tpl->num_parameters; i++)
     {
-        template_parameter_value_t* new_value = counted_xcalloc(1, sizeof(*new_value), &_bytes_due_to_type_system);
+        template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
         *new_value = *fixed_tpl->arguments[i];
         new_value->value = nodecl_shallow_copy(fixed_tpl->arguments[i]->value);
 
@@ -8290,6 +8309,12 @@ char is_named_class_type(type_t* possible_class)
             && possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS);
 }
 
+char is_class_type_or_array_thereof(type_t* t)
+{
+    return is_class_type(t)
+        || (is_array_type(t) && is_class_type(array_type_get_element_type(t)));
+}
+
 static char class_type_is_base_(type_t* possible_base,
         type_t* possible_derived,
         char allow_incomplete_independent)
@@ -8628,7 +8653,7 @@ char is_function_or_template_function_name_or_extern_variable(scope_entry_t* ent
     return (is_nonspecialized_function_pred(entry, NULL)
             || is_template_function_pred(entry, NULL)
             || (entry->kind == SK_VARIABLE
-                && entry->entity_specs.is_extern));
+                && symbol_entity_specs_get_is_extern(entry)));
 }
 
 const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context,
@@ -9542,7 +9567,9 @@ const char* get_declaration_string_ex(type_t* type_info,
 
     while (is_indirect_type(type_info)
             // Advance indirects unless they refer to existing typedefs
-            && type_info->type->user_defined_type->kind != SK_TYPEDEF)
+            // or template-aliases
+            && type_info->type->user_defined_type->kind != SK_TYPEDEF
+            && type_info->type->user_defined_type->kind != SK_TEMPLATE_ALIAS)
     {
         type_info = type_info->type->user_defined_type->type_information;
     }
@@ -9832,7 +9859,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             {
                 if (is_named_type(type_info)
                         && named_type_get_symbol(type_info)->kind == SK_TYPEDEF
-                        && named_type_get_symbol(type_info)->entity_specs.is_template_parameter)
+                        && symbol_entity_specs_get_is_template_parameter(named_type_get_symbol(type_info)))
                 {
                     get_type_name_string_internal_impl(decl_context,
                             named_type_get_symbol(type_info)->type_information,
@@ -9956,7 +9983,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     }
                     // If this is a saved expression and it IS a parameter we use its saved expression instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
+                            && symbol_entity_specs_get_is_saved_expression(
+                                nodecl_get_symbol(type_info->array->whole_size)))
                     {
                         scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
                         const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
@@ -9981,8 +10009,10 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     // A saved expression that is not user declared means that we have to ignore it
                     // when printing it
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression
-                            && !nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_user_declared)
+                            && symbol_entity_specs_get_is_saved_expression(
+                                nodecl_get_symbol(type_info->array->whole_size))
+                            && !symbol_entity_specs_get_is_user_declared(
+                                nodecl_get_symbol(type_info->array->whole_size)))
                     {
                         scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
                         const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
@@ -10208,7 +10238,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     const char* result = UNIQUESTR_LITERAL("");
 
     const int MAX_LENGTH = 1023;
-    char* user_defined_str = counted_xcalloc(MAX_LENGTH + 1, sizeof(char), &_bytes_due_to_type_system);
+    char* user_defined_str = xcalloc(MAX_LENGTH + 1, sizeof(char));
 
     switch (user_defined_type->kind)
     {
@@ -10222,6 +10252,13 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
         case SK_CLASS :
             {
                 snprintf(user_defined_str, MAX_LENGTH, "class %s {%s}", 
+                        get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
+                        locus_to_str(user_defined_type->locus));
+                break;
+            }
+        case SK_TEMPLATE_ALIAS :
+            {
+                snprintf(user_defined_str, MAX_LENGTH, "template-alias %s {%s}", 
                         get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
                         locus_to_str(user_defined_type->locus));
                 break;
@@ -10240,55 +10277,54 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
         case SK_TEMPLATE_TYPE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TYPE_PARAMETER_PACK :
             snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter pack '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER_PACK :
             snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter pack '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_NONTYPE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter '%s' (%d,%d) %s>", 
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_NONTYPE_PARAMETER_PACK :
             snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter pack '%s' (%d,%d) %s>", 
                     user_defined_type->symbol_name,
-                    user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position,
+                    symbol_entity_specs_get_template_parameter_nesting(user_defined_type),
+                    symbol_entity_specs_get_template_parameter_position(user_defined_type),
                     locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE :
             snprintf(user_defined_str, MAX_LENGTH, "<template-name '%s'>", 
                     user_defined_type->symbol_name);
-            break;
             break;
         case SK_GCC_BUILTIN_TYPE :
             snprintf(user_defined_str, MAX_LENGTH, "__builtin_va_list");
@@ -10655,7 +10691,7 @@ static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_cont
     if (nodecl_is_null(n))
         return "<<<unknown>>>";
     if (nodecl_get_kind(n) == NODECL_SYMBOL
-            && nodecl_get_symbol(n)->entity_specs.is_saved_expression)
+            && symbol_entity_specs_get_is_saved_expression(nodecl_get_symbol(n)))
     {
         const char* result = NULL;
         uniquestr_sprintf(&result, "%s { => %s }",
@@ -12236,8 +12272,7 @@ type_t* get_variant_type_zero(type_t* t)
         return t;
 
     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
-
-    t = get_unqualified_type(advance_over_typedefs(t));
+    t = get_cv_qualified_type(advance_over_typedefs(t), CV_NONE);
 
     if (_zero_types_hash == NULL)
     {
@@ -12254,7 +12289,7 @@ type_t* get_variant_type_zero(type_t* t)
         dhash_ptr_insert(_zero_types_hash, (const char*)t, result);
     }
 
-    return get_cv_qualified_type(result, cv_qualif);;
+    return get_cv_qualified_type(result, cv_qualif);
 }
 
 // Special variant type for '0' constants
@@ -12317,11 +12352,11 @@ type_t* get_error_type(void)
 {
     if (_error_type == NULL)
     {
-        _error_type = counted_xcalloc(1, sizeof(*_error_type), &_bytes_due_to_type_system);
+        _error_type = xcalloc(1, sizeof(*_error_type));
         _error_type->kind = TK_ERROR;
         _error_type->unqualified_type = _error_type;
         _error_type->info = 
-            counted_xcalloc(1, sizeof(*_error_type->info), &_bytes_due_to_type_system);
+            xcalloc(1, sizeof(*_error_type->info));
     }
     return _error_type;
 }
@@ -12400,11 +12435,10 @@ type_t* get_braced_list_type(int num_types, type_t** type_list)
 
     result->unqualified_type = result;
 
-    result->braced_type = counted_xcalloc(1, sizeof(*result->braced_type), &_bytes_due_to_type_system);
+    result->braced_type = xcalloc(1, sizeof(*result->braced_type));
 
     result->braced_type->num_types = num_types;
-    result->braced_type->type_list = counted_xcalloc(num_types, sizeof(*result->braced_type->type_list),
-            &_bytes_due_to_type_system);
+    result->braced_type->type_list = xcalloc(num_types, sizeof(*result->braced_type->type_list));
     memcpy(result->braced_type->type_list, type_list,
             num_types* sizeof(*result->braced_type->type_list));
 
@@ -12533,7 +12567,7 @@ char is_literal_type(type_t* t)
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (entry->entity_specs.is_trivial)
+            if (symbol_entity_specs_get_is_trivial(entry))
             {
                 found_bad_case = 0;
                 break;
@@ -12553,7 +12587,7 @@ char is_literal_type(type_t* t)
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (!entry->entity_specs.is_trivial)
+            if (!symbol_entity_specs_get_is_trivial(entry))
             {
                 found_bad_case = 1;
                 break;
@@ -12567,13 +12601,13 @@ char is_literal_type(type_t* t)
         // 2.3 a trivial destructor,
         scope_entry_t* destructor = class_type_get_destructor(t);
         if (destructor != NULL 
-                && !destructor->entity_specs.is_trivial)
+                && !symbol_entity_specs_get_is_trivial(destructor))
         {
             return 0;
         }
 
         scope_entry_t* default_ctor = class_type_get_default_constructor(t);
-        if (default_ctor != NULL && !default_ctor->entity_specs.is_trivial)
+        if (default_ctor != NULL && !symbol_entity_specs_get_is_trivial(default_ctor))
         {
             //  2.4 a trivial default constructor or at least one constexpr constructor
             //      other than the copy or move constructor
@@ -12587,9 +12621,9 @@ char is_literal_type(type_t* t)
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                if (entry->entity_specs.is_constexpr
-                        && !entry->entity_specs.is_move_constructor
-                        && !entry->entity_specs.is_copy_constructor)
+                if (symbol_entity_specs_get_is_constexpr(entry)
+                        && !symbol_entity_specs_get_is_move_constructor(entry)
+                        && !symbol_entity_specs_get_is_copy_constructor(entry))
                 {
                     found_bad_case = 0;
                     break;
@@ -12851,7 +12885,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(copy_constructors);
@@ -12868,7 +12902,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(move_constructors);
@@ -12885,7 +12919,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(copy_assignment_operators);
@@ -12902,7 +12936,7 @@ char class_type_is_trivially_copiable(type_t* t)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!entry->entity_specs.is_trivial)
+        if (!symbol_entity_specs_get_is_trivial(entry))
         {
             entry_list_iterator_free(it);
             entry_list_free(move_assignment_operators);
@@ -12914,7 +12948,7 @@ char class_type_is_trivially_copiable(type_t* t)
 
     scope_entry_t* destructor = class_type_get_destructor(class_type);
     if (destructor != NULL
-            && !destructor->entity_specs.is_trivial)
+            && !symbol_entity_specs_get_is_trivial(destructor))
         return 0;
 
     return 1;
@@ -12927,7 +12961,7 @@ char class_type_is_trivial(type_t* t)
 
     scope_entry_t* default_ctr = class_type_get_default_constructor(class_type);
 
-    if (default_ctr != NULL && !default_ctr->entity_specs.is_trivial)
+    if (default_ctr != NULL && !symbol_entity_specs_get_is_trivial(default_ctr))
         return 0;
 
     if (!class_type_is_trivially_copiable(t))
@@ -12989,7 +13023,7 @@ char class_type_is_standard_layout(type_t* t)
     {
         scope_entry_t* member_function = entry_list_iterator_current(it);
 
-        if (member_function->entity_specs.is_virtual)
+        if (symbol_entity_specs_get_is_virtual(member_function))
         {
             entry_list_iterator_free(it);
             entry_list_free(member_functions);
@@ -13022,9 +13056,9 @@ char class_type_is_standard_layout(type_t* t)
 
         if (access == AS_UNKNOWN)
         {
-            access = data_member->entity_specs.access;
+            access = symbol_entity_specs_get_access(data_member);
         }
-        else if (access != data_member->entity_specs.access)
+        else if (access != symbol_entity_specs_get_access(data_member))
         {
             entry_list_iterator_free(it);
             entry_list_free(nonstatic_data_members);
@@ -13134,7 +13168,7 @@ char is_aggregate_type(type_t* t)
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            if (entry->entity_specs.is_user_declared)
+            if (symbol_entity_specs_get_is_user_declared(entry))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(constructors);
@@ -13163,8 +13197,8 @@ char is_aggregate_type(type_t* t)
             }
 
             // No private or protected non-static data members
-            if (entry->entity_specs.access == AS_PRIVATE
-                    || entry->entity_specs.access == AS_PROTECTED)
+            if (symbol_entity_specs_get_access(entry) == AS_PRIVATE
+                    || symbol_entity_specs_get_access(entry) == AS_PROTECTED)
             {
                 entry_list_iterator_free(it);
                 entry_list_free(nonstatic_data_members);
@@ -13186,7 +13220,7 @@ char is_aggregate_type(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             // No virtual functions
-            if (entry->entity_specs.is_virtual)
+            if (symbol_entity_specs_get_is_virtual(entry))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(member_functions);
@@ -13252,7 +13286,7 @@ char class_type_is_pod(type_t* t)
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            if (entry->entity_specs.is_user_declared)
+            if (symbol_entity_specs_get_is_user_declared(entry))
             {
                 entry_list_iterator_free(it);
                 entry_list_free(copy_assignment_operators);
@@ -13263,7 +13297,7 @@ char class_type_is_pod(type_t* t)
         entry_list_free(copy_assignment_operators);
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
-        if (destructor != NULL && destructor->entity_specs.is_user_declared)
+        if (destructor != NULL && symbol_entity_specs_get_is_user_declared(destructor))
             return 0;
     }
 
@@ -13706,9 +13740,8 @@ void class_type_set_offset_virtual_base(type_t* t, scope_entry_t* virtual_base, 
     }
 
     // Add the virtual base
-    virtual_base_class_info_t* virtual_base_info = counted_xcalloc(
-            1, sizeof(*virtual_base_info),
-            &_bytes_due_to_type_system);
+    virtual_base_class_info_t* virtual_base_info = xcalloc(
+            1, sizeof(*virtual_base_info));
 
     virtual_base_info->virtual_base = virtual_base;
     virtual_base_info->virtual_base_offset = offset;
@@ -13830,15 +13863,15 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
             type_t* used_type = NULL;
             scope_entry_t* item = entry_list_head(overload_set);
 
-            if (!item->entity_specs.is_member
-                    || item->entity_specs.is_static)
+            if (!symbol_entity_specs_get_is_member(item)
+                    || symbol_entity_specs_get_is_static(item))
             {
                 used_type = lvalue_ref(item->type_information);
             }
             else
             {
                 used_type = get_pointer_to_member_type(item->type_information,
-                        item->entity_specs.class_type);
+                        symbol_entity_specs_get_class_type(item));
             }
             return print_decl_type_str(used_type, decl_context, name);
         }
@@ -13886,7 +13919,7 @@ static type_t* get_foundation_type(type_t* t)
         if (is_named_type(t)
                 && named_type_get_symbol(t)->kind == SK_TYPEDEF
                 // These are the only typedefs that we always advance
-                && named_type_get_symbol(t)->entity_specs.is_template_parameter)
+                && symbol_entity_specs_get_is_template_parameter(named_type_get_symbol(t)))
         {
             return get_foundation_type(named_type_get_symbol(t)->type_information);
         }
@@ -14233,13 +14266,13 @@ type_t* get_variant_type_interoperable(type_t* t)
 
     if (result == NULL)
     {
-        result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+        result = xcalloc(1, sizeof(*result));
         *result = *t;
 
         // The unqualified type must point to itself
         result->unqualified_type = result;
 
-        result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+        result->info = xcalloc(1, sizeof(*result->info));
         *result->info = *t->info;
 
         result->info->is_interoperable = 1;
@@ -14325,7 +14358,7 @@ type_t* get_mask_type(unsigned int mask_size_bits)
         result->type->kind = STK_MASK;
         result->type->vector_size = mask_size_bits;
 
-        int *k = counted_xcalloc(sizeof(int), 1, &_bytes_due_to_type_system);
+        int *k = xcalloc(sizeof(int), 1);
         *k = mask_size_bits;
 
         rb_tree_insert(_mask_hash, k, result);
@@ -14421,7 +14454,7 @@ type_t* get_pack_type(type_t* t)
         pack_type = new_empty_type();
         pack_type->kind = TK_PACK;
         pack_type->unqualified_type = pack_type;
-        pack_type->pack_type = counted_xcalloc(1, sizeof(*pack_type->pack_type), &_bytes_due_to_type_system);
+        pack_type->pack_type = xcalloc(1, sizeof(*pack_type->pack_type));
         pack_type->pack_type->packed = t;
 
         pack_type->info->is_dependent = is_dependent_type(t);
@@ -14479,10 +14512,9 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
         seq_type = new_empty_type();
         seq_type->unqualified_type = seq_type;
         seq_type->kind = TK_SEQUENCE;
-        seq_type->sequence_type = counted_xcalloc(1, sizeof(*seq_type->sequence_type), &_bytes_due_to_type_system);
+        seq_type->sequence_type = xcalloc(1, sizeof(*seq_type->sequence_type));
         seq_type->sequence_type->num_types = num_types;
-        seq_type->sequence_type->types = counted_xcalloc(num_types, sizeof(*seq_type->sequence_type->types),
-                &_bytes_due_to_type_system);
+        seq_type->sequence_type->types = xcalloc(num_types, sizeof(*seq_type->sequence_type->types));
         memcpy(seq_type->sequence_type->types, types,
                 sizeof(*seq_type->sequence_type->types) * num_types);
 
@@ -14656,6 +14688,11 @@ parameter_info_t get_parameter_info_for_type(type_t* t)
 
 type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr)
 {
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
+    // We do not use get_unqualified_type because it preserves restrict
+    t = get_cv_qualified_type(t, CV_NONE);
+
     type_t* result = copy_type_for_variant(t);
 
     ERROR_CONDITION(!nodecl_is_null(attr.expression_list) && !nodecl_is_list(attr.expression_list),
@@ -14680,11 +14717,18 @@ type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr)
         P_LIST_ADD(result->info->gcc_attributes, result->info->num_gcc_attributes, attr);
     }
 
+    result = get_cv_qualified_type(result, cv_qualif);
+
     return result;
 }
 
 type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr)
 {
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
+    // We do not use get_unqualified_type because it preserves restrict
+    t = get_cv_qualified_type(t, CV_NONE);
+
     type_t* result = copy_type_for_variant(t);
 
     int i;
@@ -14705,6 +14749,8 @@ type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr)
         // Add
         P_LIST_ADD(result->info->ms_attributes, result->info->num_ms_attributes, attr);
     }
+
+    result = get_cv_qualified_type(result, cv_qualif);
 
     return result;
 }
@@ -14823,6 +14869,60 @@ void get_packs_in_type(type_t* pack_type,
 
             get_packs_in_type(param_type, packs_to_expand, num_packs_to_expand);
         }
+    }
+    else if (is_dependent_typename_type(pack_type))
+    {
+        scope_entry_t *dependent_entry = NULL;
+        nodecl_t dependent_parts = nodecl_null();
+
+        dependent_typename_get_components(pack_type,
+                &dependent_entry,
+                &dependent_parts);
+
+        get_packs_in_type(
+                get_user_defined_type(dependent_entry),
+                packs_to_expand,
+                num_packs_to_expand);
+
+        nodecl_t nodecl_nested_parts = nodecl_get_child(dependent_parts, 0);
+
+        int num_items = 0;
+        nodecl_t* dep_parts = nodecl_unpack_list(nodecl_nested_parts, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
+        {
+            if (nodecl_get_kind(dep_parts[i]) == NODECL_CXX_DEP_TEMPLATE_ID)
+            {
+                template_parameter_list_t* template_parameters =
+                    nodecl_get_template_parameters(dep_parts[i]);
+
+                int j;
+                for (j = 0; j < template_parameters->num_parameters; j++)
+                {
+                    template_parameter_value_t* v = template_parameters->arguments[j];
+
+                    enum template_parameter_kind k = template_parameter_kind_get_base_kind(v->kind);
+
+                    if (k == TPK_TYPE
+                            || k == TPK_TEMPLATE)
+                    {
+                        get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                    }
+                    else if (k == TPK_NONTYPE)
+                    {
+                        get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                        get_packs_in_expression(v->value, packs_to_expand, num_packs_to_expand);
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+                }
+            }
+        }
+
+        xfree(dep_parts);
     }
     else if (is_sequence_of_types(pack_type))
     {

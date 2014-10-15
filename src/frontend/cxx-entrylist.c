@@ -49,13 +49,13 @@ struct scope_entry_list_tag
 
 static scope_entry_list_node_t* entry_list_node_allocate(void)
 {
-    return counted_xcalloc(1, sizeof(scope_entry_list_node_t), &_bytes_entry_lists);
+    return xcalloc(1, sizeof(scope_entry_list_node_t));
 }
 
 static scope_entry_list_t* entry_list_allocate(void)
 {
     scope_entry_list_t* new_entry_list =
-        counted_xcalloc(1, sizeof(scope_entry_list_t), &_bytes_entry_lists);
+        xcalloc(1, sizeof(scope_entry_list_t));
 
     new_entry_list->next = entry_list_node_allocate();
 
@@ -384,7 +384,7 @@ struct scope_entry_list_iterator_tag
 
 static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
 {
-    return counted_xcalloc(1, sizeof(scope_entry_list_iterator_t), &_bytes_entry_lists);
+    return xcalloc(1, sizeof(scope_entry_list_iterator_t));
 }
 
 scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list)
@@ -605,7 +605,7 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
 void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
 {
     int size = entry_list_size(list);
-    *array = counted_xcalloc(size, sizeof(scope_entry_t*), &_bytes_entry_lists);
+    *array = xcalloc(size, sizeof(scope_entry_t*));
 
     *num_items = 0;
     scope_entry_list_iterator_t* it = NULL;

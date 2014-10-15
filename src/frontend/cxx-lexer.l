@@ -51,6 +51,7 @@
 #include "cxx-lexer.h"
 #include "cxx-diagnostic.h"
 #include "cxx-ast.h"
+#include "cxx-exprtype.h"
 /*!if C99*/
 #include "c99-parser-internal.h"
 /*!endif*/
@@ -195,6 +196,8 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         pragma_directive_kind_t* kind,
         char* original_directive);
 
+static char* inline_pragma_str = NULL;
+
  /*!if CPLUSPLUS*/
 static int std_attribute_parenthesis_nesting = 0;
 
@@ -202,7 +205,7 @@ static int raw_string_buffer_capacity = 0;
 static int raw_string_buffer_position = 0;
 static char* raw_string_buffer = NULL;
 static const char* raw_string_delimiter = NULL;
-static int raw_string_delimiter_length = NULL;
+static int raw_string_delimiter_length = 0;
 static int raw_string_delimiter_index = 0;
 
 #define RAW_STRING_APPEND_CHAR(_x) \
@@ -220,6 +223,8 @@ static int raw_string_delimiter_index = 0;
 }
 
  /*!endif*/
+
+static void unput_string(const char* c);
 
 %}
 
@@ -335,6 +340,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x preprocess
 %x pragma_line
 %x inline_pragma
+%x inline_pragma_after_string
 %x unknown_pragma
 %x gcc_pragma
 %x pragma_custom_directive
@@ -793,6 +799,58 @@ type {
 
 }
 
+ /* _Pragma */
+
+"_Pragma"[ \t]*"("[ \t]* {
+        BEGIN(inline_pragma);
+        xfree(inline_pragma_str);
+        inline_pragma_str = NULL;
+}
+
+<inline_pragma>{
+
+\"{schar}*\" {
+    inline_pragma_str = interpret_schar(yytext,
+            make_locus(
+                uniquestr(scanning_now.current_filename),
+                scanning_now.line_number, 0));
+
+    BEGIN(inline_pragma_after_string);
+}
+
+}
+
+<inline_pragma_after_string>{
+[\t ]*")" {
+    if (inline_pragma_str != NULL)
+    {
+        char whole_pragma_line[MCXX_MAX_FILENAME];
+        int s = snprintf(whole_pragma_line,
+                MCXX_MAX_FILENAME - 1,
+                "%s\n# %d \"%s\"\n",
+                inline_pragma_str,
+                scanning_now.line_number,
+                scanning_now.current_filename);
+        if (s == MCXX_MAX_FILENAME - 1)
+        {
+            internal_error("Inline pragma is too long (> %d) at %s:%d",
+                    MCXX_MAX_FILENAME,
+                    scanning_now.current_filename,
+                    scanning_now.line_number);
+        }
+        whole_pragma_line[MCXX_MAX_FILENAME - 1] = '\0';
+
+        unput_string(whole_pragma_line);
+        BEGIN(pragma_line);
+    }
+    else
+    {
+        BEGIN(INITIAL);
+    }
+}
+}
+
+
 <preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n]* {
  const char *p = yytext;
 
@@ -1022,26 +1080,6 @@ type {
 
 <preprocess>.       { /* ignore line */  }
 <preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
-
- /* _Pragma */
-"_Pragma" { BEGIN(inline_pragma); pragma_custom_var_list_parentheses = 0; }
-<inline_pragma>{
-"(" {
-    pragma_custom_var_list_parentheses++;
-}
-
-")" {
-    pragma_custom_var_list_parentheses--;
-
-    if (pragma_custom_var_list_parentheses == 0)
-        BEGIN(INITIAL);
-}
-
- /* Ignore it */
-. {
-}
-      
-}
 
  /* C comments ( 6.4.9 ) */
 
@@ -2259,6 +2297,19 @@ static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* k
     UNUSED_PARAMETER static int input  (void);
 #endif
 #endif
+
+static void unput_string(const char* c)
+{
+    if (c == NULL)
+        return;
+
+    int N = strlen(c);
+    int i;
+    for (i = N-1; i >= 0; i--)
+    {
+        unput(c[i]);
+    }
+}
 
 /*!if C99*/
 void * mc99alloc (size_t bytes)

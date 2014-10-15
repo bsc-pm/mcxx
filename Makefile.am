@@ -70,9 +70,11 @@ BUILT_SOURCES =
 
 # These variables are not intended for any further modification
 if WINDOWS_BUILD
+DL_LIBRARY=
 no_undefined=-no-undefined
 dll_exports=-Wl,src/frontend/dll-exports.def
 else
+DL_LIBRARY=-ldl
 no_undefined=
 dll_exports=
 endif
@@ -159,6 +161,7 @@ lib_libmcxx_utils_la_SOURCES = \
                           $(END)
 
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
+lib_libmcxx_utils_la_LIBADD= -lm
 
 noinst_LIBRARIES += lib/libperish.a
 lib_libperish_a_SOURCES= lib/perish.c
@@ -606,6 +609,11 @@ CLEANFILES    += src/frontend/cxx-entity-specs.h
 BUILT_SOURCES += src/frontend/cxx-entity-specs.h
 src/frontend/cxx-entity-specs.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def > $@
+
+CLEANFILES    += src/frontend/cxx-entity-specs-ops.h
+BUILT_SOURCES += src/frontend/cxx-entity-specs-ops.h
+src/frontend/cxx-entity-specs-ops.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def getters_and_setters > $@
 
 CLEANFILES    += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 BUILT_SOURCES += src/frontend/cxx-symbol-deep-copy-entity-specs.c
@@ -1983,7 +1991,6 @@ src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags
 src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.cpp \
-       src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi-aux.hpp \
        $(END)
 
 endif

@@ -1330,7 +1330,7 @@ namespace Vectorization
 
                 TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
                 new_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(new_sym.get_internal_symbol(), 1);
                 new_sym.set_type(ogroup._vector_type);
 
                 ogroup._registers.push_back(new_sym);

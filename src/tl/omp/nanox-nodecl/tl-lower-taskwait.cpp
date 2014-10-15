@@ -112,7 +112,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 {
-    OutlineInfo outline_info(Nodecl::NodeclBase::null());
+    OutlineInfo outline_info(*_lowering, Nodecl::NodeclBase::null());
     TaskWaitVisitor taskwait_info;
     taskwait_info.walk(construct.get_environment());
 
@@ -122,7 +122,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 void LoweringVisitor::visit(const Nodecl::OpenMP::WaitOnDependences& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
-    OutlineInfo outline_info(environment);
+    OutlineInfo outline_info(*_lowering, environment);
 
     TaskWaitVisitor taskwait_info;
     taskwait_info.walk(construct.get_environment());
