@@ -719,9 +719,12 @@ namespace Vectorization
                         {
                             store_flags.append(Nodecl::AlignmentInfo::make(
                                         const_value_get_signed_int(alignment_output)));
-
-                            fprintf(stderr, " (alignment info = %d)",
-                                    alignment_output);
+                            
+                            VECTORIZATION_DEBUG()
+                            {
+                                fprintf(stderr, " (alignment info = %d)",
+                                        alignment_output);
+                            }
                         }
 
                         if (nontemporal_store)
