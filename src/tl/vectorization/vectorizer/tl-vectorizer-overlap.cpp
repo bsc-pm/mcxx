@@ -269,7 +269,6 @@ namespace Vectorization
                     << " negative offset " << negative_num_elements
                     << " num elements" << std::endl;
 
-
                 // New flags
                 Nodecl::List new_flags = flags.shallow_copy().as<Nodecl::List>();
                 new_flags.append(Nodecl::AlignedFlag::make());
@@ -1121,11 +1120,14 @@ namespace Vectorization
             TL::Optimizations::UnitaryReductor unitary_reductor;
             unitary_reductor.reduce(minus);
 
-            std::cerr << "Difference: " << vl_subscripts.prettyprint()
-                << " MINUS " << it_subscripts.prettyprint()
-                << " = "
-                << minus.prettyprint()
-                << std::endl;
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "Difference: " << vl_subscripts.prettyprint()
+                    << " MINUS " << it_subscripts.prettyprint()
+                    << " = "
+                    << minus.prettyprint()
+                    << std::endl;
+            }
 
             if (minus.is_constant() && 
                     abs(const_value_cast_to_4(minus.get_constant())) < VF)
@@ -1424,6 +1426,7 @@ namespace Vectorization
                                 get_mask().shallow_copy(),
                                 ogroup._registers[first_register].get_type()));
                 }
+
 
                 std::cerr << "Align elements: " << load_subscript.prettyprint()
                     << " MINUS " << ogroup._registers_indexes[0].prettyprint()
