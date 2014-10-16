@@ -1147,7 +1147,6 @@ namespace TL
             }
 
             TL::ObjectList<std::string> input_private_names;
-            input_private_names.append("in_private");
             input_private_names.append("inprivate");
             PragmaCustomClause input_private_clause = pragma_line.get_clause(input_private_names);
             ObjectList<Nodecl::NodeclBase> input_private_arguments;
