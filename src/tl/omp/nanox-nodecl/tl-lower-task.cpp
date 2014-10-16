@@ -2425,24 +2425,22 @@ void LoweringVisitor::handle_dependency_item(
         << "}"
         ;
 
-    Type dependency_type = dep_expr.get_data_type();
-
-    int num_dimensions = dependency_type.get_num_dimensions();
-
-    bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
-    bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
-    bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool input         = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+    bool input_value   = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+    bool input_alloca  = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
     bool input_private = ((dir & OutlineDataItem::DEP_IN_PRIVATE) == OutlineDataItem::DEP_IN_PRIVATE);
-    bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-    bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
+    bool output        = ((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT);
+    bool concurrent    = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+    bool commutative   = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-    dependency_flags_in << ( input || input_value || input_alloca || input_private || concurrent || commutative);
-
-    dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
-            || concurrent || commutative);
+    dependency_flags_in  << (input || input_value || input_alloca || input_private || concurrent || commutative);
+    dependency_flags_out << (output || concurrent || commutative);
     dependency_flags_concurrent << concurrent;
     dependency_flags_commutative << commutative;
-    //
+
+    Type dependency_type = dep_expr.get_data_type();
+    int num_dimensions = dependency_type.get_num_dimensions();
+
     // Compute the base type of the dependency and the array containing the size of each dimension
     Type dependency_base_type = dependency_type;
 
