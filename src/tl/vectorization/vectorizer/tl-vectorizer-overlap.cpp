@@ -1213,6 +1213,7 @@ namespace Vectorization
                     it_ogroup->_loads.append(*target_load);
 
                     og_found = true;
+                    break;
                 }
             }
 
