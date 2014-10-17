@@ -1199,7 +1199,17 @@ namespace Optimizations {
         nullify_nodecl(n);
     }
 
+    void UnitaryReductor::visit(const Nodecl::BitwiseShl& n)
+    {
+        nullify_nodecl(n);
+    }
+
     void UnitaryReductor::visit(const Nodecl::Div& n)
+    {
+        nullify_nodecl(n);
+    }
+
+    void UnitaryReductor::visit(const Nodecl::BitwiseShr& n)
     {
         nullify_nodecl(n);
     }
@@ -1258,7 +1268,21 @@ namespace Optimizations {
         return result;
     }
 
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::BitwiseShl& n)
+    {
+        UnitaryDecomposer::Ret result;
+        result.append(n);
+        return result;
+    }
+
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Div& n)
+    {
+        UnitaryDecomposer::Ret result;
+        result.append(n);
+        return result;
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::BitwiseShr& n)
     {
         UnitaryDecomposer::Ret result;
         result.append(n);
