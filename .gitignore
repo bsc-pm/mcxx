@@ -86,6 +86,7 @@ src/frontend/cxx-asttype.c
 src/frontend/cxx-asttype.def
 src/frontend/cxx-asttype.h
 src/frontend/cxx-entity-specs.h
+src/frontend/cxx-entity-specs-ops.h 
 src/frontend/cxx-nodecl-checker.c
 src/frontend/cxx-nodecl-deep-copy-base.c
 src/frontend/cxx-nodecl-output.c
