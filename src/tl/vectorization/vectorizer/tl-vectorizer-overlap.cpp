@@ -963,7 +963,7 @@ namespace Vectorization
             (_environment._vectorization_factor / block_size) -1 :
             _environment._vectorization_factor / block_size;
 
-        for (unsigned int i=1; i<num_unrolled_blocks; i++)
+        for (int i=1; i<num_unrolled_blocks; i++)
         {
             // New IfStatement unrolling block
             Nodecl::IfElseStatement if_else_stmt =
