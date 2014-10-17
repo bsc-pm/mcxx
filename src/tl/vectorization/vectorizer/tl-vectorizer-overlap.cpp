@@ -736,9 +736,8 @@ namespace Vectorization
                 {
                     // MAIN LOOP
                     compute_group_properties(*ogroup, scope,
-                            max_group_registers, num_group, /* epilog */ false);
-                    insert_group_update_stmts(*ogroup,
-                            main_loop, /* group epilog */ false);
+                            max_group_registers, num_group);
+                    insert_group_update_stmts(*ogroup, main_loop);
                     replace_overlapped_loads(*ogroup);
 
                     num_group++;
@@ -768,10 +767,8 @@ namespace Vectorization
                             ogroup++)
                     {
                         compute_group_properties(*ogroup, scope,
-                                max_group_registers, num_group,
-                                /* group epilog */ true);
-                        insert_group_update_stmts(*ogroup,
-                                if_epilog, /* group epilog */ true);
+                                max_group_registers, num_group);
+                        insert_group_update_stmts(*ogroup, if_epilog);
                         replace_overlapped_loads(*ogroup);
 
                         num_group++;
@@ -1269,8 +1266,7 @@ namespace Vectorization
             OverlapGroup& ogroup,
             TL::Scope& scope,
             const int max_registers,
-            const int num_group,
-            const bool is_group_epilog) // Remove unused parameter
+            const int num_group)
     {
         ogroup._vector_type = ogroup._loads.front().
             get_type().no_ref().get_unqualified_type();
@@ -1289,9 +1285,6 @@ namespace Vectorization
         Nodecl::NodeclBase leftmost_index = 
             Utils::get_vector_load_subscript(ogroup._leftmost_vload);
 
-        //ogroup.compute_num_registers(_environment);
-
-        // TODO # registers
         // Declare group registers
         for (int i=0; i<ogroup._num_registers; i++)
         {
@@ -1301,32 +1294,12 @@ namespace Vectorization
                 << num_group << "_"
                 << i;
 
-            bool already_declared = scope.get_symbol_from_name(
+            ogroup._init_cache = !scope.get_symbol_from_name(
                     new_sym_name.str()).is_valid();
 
-            if (already_declared) // if (is_group_epilog)
-            {
-                // Use previous symbols
-                TL::Symbol sym = 
-                    scope.get_symbol_from_name(new_sym_name.str());
-
-                ERROR_CONDITION(!sym.is_valid(), "cache symbol is invalid.", 0);
-
-                ogroup._registers.push_back(sym);
-                ogroup._registers_indexes.push_back(
-                        (i == 0) ? leftmost_index : 
-                        Nodecl::Add::make(
-                            leftmost_index.shallow_copy(),
-                            const_value_to_nodecl(const_value_mul(
-                                    const_value_get_signed_int(i),
-                                    const_value_get_signed_int(
-                                        vectorization_factor))),
-                            leftmost_index.get_type()));
-            }
-            else
+            if (ogroup._init_cache) 
             {
                 // Create new symbols
-
                 std::cerr << "Creating new cache symbol: "
                     << new_sym_name.str()
                     << std::endl;
@@ -1347,17 +1320,35 @@ namespace Vectorization
                                         vectorization_factor))),
                             leftmost_index.get_type()));
             }
+            else
+            {
+                // Use previous symbols
+                TL::Symbol sym = 
+                    scope.get_symbol_from_name(new_sym_name.str());
+
+                ERROR_CONDITION(!sym.is_valid(), "cache symbol is invalid.", 0);
+
+                ogroup._registers.push_back(sym);
+                ogroup._registers_indexes.push_back(
+                        (i == 0) ? leftmost_index : 
+                        Nodecl::Add::make(
+                            leftmost_index.shallow_copy(),
+                            const_value_to_nodecl(const_value_mul(
+                                    const_value_get_signed_int(i),
+                                    const_value_get_signed_int(
+                                        vectorization_factor))),
+                            leftmost_index.get_type()));
+            }
         }
     }
 
 
     void OverlappedAccessesOptimizer::insert_group_update_stmts(
             OverlapGroup& ogroup,
-            const Nodecl::ForStatement& n,
-            const bool is_group_epilog)
+            const Nodecl::ForStatement& n)
     {
         // Init Statements
-        if (!is_group_epilog)
+        if (ogroup._init_cache)
         {
             Nodecl::List init_stmts = 
                 ogroup.get_init_statements(n);

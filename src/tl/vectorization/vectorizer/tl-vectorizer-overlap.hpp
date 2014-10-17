@@ -98,6 +98,7 @@ namespace TL
             TL::Type _vector_type;
             int _num_registers;
             bool _aligned_strategy;
+            bool _init_cache;
 
             Nodecl::List get_init_statements(
                     const Nodecl::ForStatement& for_stmt) const;
@@ -142,12 +143,10 @@ namespace TL
                         OverlapGroup& ogroup,
                         TL::Scope& scope,
                         const int max_registers,
-                        const int num_group,
-                        const bool is_group_epilog);
+                        const int num_group);
                 void insert_group_update_stmts(
                         OverlapGroup& ogroup,
-                        const Nodecl::ForStatement& n,
-                        const bool is_group_epilog);
+                        const Nodecl::ForStatement& n);
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
