@@ -74,6 +74,7 @@ namespace TL
             _device_list(target_info._device_list),
             _file(target_info._file),
             _name(target_info._name),
+            _copy_deps(target_info._copy_deps),
             _implementation_table(target_info._implementation_table)
         {
             for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
