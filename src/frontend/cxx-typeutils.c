@@ -4291,7 +4291,7 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
     function_type = advance_over_typedefs(function_type);
 
     int num_parameters = function_type->function->num_parameters;
-    parameter_info_t parameter_list[num_parameters];
+    parameter_info_t parameter_list[num_parameters + 1];
     ref_qualifier_t ref_qualifier = function_type->function->ref_qualifier;
     char is_trailing = function_type->function->is_trailing;
 

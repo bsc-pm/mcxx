@@ -2446,7 +2446,7 @@ void LoweringVisitor::handle_dependency_item(
     // Compute the base type of the dependency and the array containing the size of each dimension
     Type dependency_base_type = dependency_type;
 
-    Nodecl::NodeclBase dimension_sizes[num_dimensions];
+    Nodecl::NodeclBase dimension_sizes[num_dimensions + 1];
     for (int dim = 0; dim < num_dimensions; dim++)
     {
         dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
