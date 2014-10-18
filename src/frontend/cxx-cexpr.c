@@ -2381,6 +2381,30 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     return NULL; \
 }
 
+const_value_t* const_value_bitshl(const_value_t* v1, const_value_t* v2)
+{
+    ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0);
+    if ((v1->kind == CVK_INTEGER)
+            && (v2->kind == CVK_INTEGER))
+    {
+       int bytes = 0; char sign = 0;
+       common_bytes(v1, v2, &bytes, &sign);
+       cvalue_uint_t value = 0;
+       if (sign)
+       {
+           // It is undefined behaviour to SHL a negative lhs (assuming a valid
+           // rhs), so we have to make sure it looks like a positive number
+           (*((cvalue_int_t*)&value)) = v1->value.i << v2->value.si;
+       }
+       else
+       {
+           value = v1->value.i << v2->value.i;
+       }
+       return const_value_get_integer(value, bytes, sign);
+    }
+    return NULL;
+}
+
 #ifdef HAVE_QUADMATH_H
 
 #define CAST_TO_FLOAT_FIRST_IS_FLOAT128(a, b, _binop) \
@@ -3385,7 +3409,7 @@ BINOP_FUN(mul, *)
 BINOP_FUN(div, /)
 BINOP_FUN_I(mod, %)
 BINOP_FUN_I(shr, >>)
-BINOP_FUN_I(bitshl, <<)
+// BINOP_FUN_I(bitshl, <<)
 BINOP_FUN_I(bitand, &)
 BINOP_FUN_I(bitor, |)
 BINOP_FUN_I(bitxor, ^)
