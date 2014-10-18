@@ -1528,9 +1528,11 @@ namespace TL
                 std::string reason;
                 if (data_attr == DS_UNDEFINED)
                 {
-                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT), std::string("foo"));
+                     data_sharing.set_data_sharing(sym,
+                             (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                             std::string("the variable does not have any explicit or "
+                                 "predetermined data-sharing, assuming firstprivate"));
                 }
-
             }
         }
 

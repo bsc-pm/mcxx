@@ -14228,6 +14228,32 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
                 vector_type_get_vector_size(orig));
     }
 
+    // GCC attributes
+    int num_attrs = 0;
+    gcc_attribute_t* gcc_attrs = NULL;
+    variant_type_get_gcc_attributes(orig, &num_attrs, &gcc_attrs);
+    int i;
+    for (i = 0; i < num_attrs; i++)
+    {
+        result = get_variant_type_add_gcc_attribute(result, gcc_attrs[i]);
+    }
+
+    // Microsoft
+    num_attrs = 0;
+    gcc_attrs = NULL;
+    variant_type_get_ms_attributes(orig, &num_attrs, &gcc_attrs);
+    for (i = 0; i < num_attrs; i++)
+    {
+        result = get_variant_type_add_ms_attribute(result, gcc_attrs[i]);
+    }
+
+    // Fortran interop
+    if (variant_type_is_interoperable(orig))
+    {
+        result = get_variant_type_interoperable(result);
+    }
+
+    // cv-qualifiers
     result = get_cv_qualified_type(result, get_cv_qualifier(orig) | get_cv_qualifier(result));
 
     return result;
