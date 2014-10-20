@@ -789,7 +789,32 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         // is a declaration if "A" names a type. Otherwise this is not a valid
         // simple declaration
 
-        // Additional check. Ensure we are using the longest possible nested name seq
+        // Check that this type specifier is really a type specifier
+        AST type_spec = ASTSon1(decl_specifier_seq);
+        if (type_spec != NULL)
+        {
+            if (!check_type_specifier(type_spec, decl_context))
+            {
+                return 0;
+            }
+        }
+
+        // A typedef declaration without a type specifier should be an error
+        AST decl_specifier_seq_list = ASTSon0(decl_specifier_seq);
+        if (type_spec == NULL
+                && decl_specifier_seq_list != NULL)
+        {
+            AST iter;
+            for_each_element(decl_specifier_seq_list, iter)
+            {
+                AST spec = ASTSon1(iter);
+                if (ASTType(spec) == AST_TYPEDEF_SPEC)
+                {
+                    return 0;
+                }
+            }
+        }
+
         AST first_init_declarator = NULL;
         AST declarator_list = ASTSon1(a);
         AST declarator_iter;
@@ -803,15 +828,6 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             }
         }
 
-        AST type_spec = ASTSon1(decl_specifier_seq);
-
-        if (type_spec != NULL)
-        {
-            if (!check_type_specifier(type_spec, decl_context))
-            {
-                return 0;
-            }
-        }
 
         AST first_declarator = NULL;
         if (first_init_declarator != NULL)
