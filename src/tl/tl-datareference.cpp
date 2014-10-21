@@ -855,163 +855,188 @@ namespace TL
         }
     }
 
-    Nodecl::NodeclBase DataReference::compute_offsetof(Nodecl::NodeclBase expr,
-            Nodecl::NodeclBase /*reference_expr*/,
+
+    // Note that this method is used for computing the offset of a dependence
+    // and for computing the offset of a copy
+    Nodecl::NodeclBase TL::DataReference::compute_offsetof_array_subscript(
+            Nodecl::NodeclBase expr, TL::Scope scope) const
+    {
+        ERROR_CONDITION(!expr.is<Nodecl::ArraySubscript>(), "Unreachable code\n", 0);
+
+        // E[X]
+        // E[X:Y]
+        // E[X;Y]
+        //
+        // Note that E[X:Y] and E[X;Y] will have array (with region) type
+        // while E may have array (with or without region) or pointer type
+        Nodecl::ArraySubscript array_subscript = expr.as<Nodecl::ArraySubscript>();
+        TL::Type t = _data_type;
+
+        Nodecl::List subscripts = array_subscript.get_subscripts().as<Nodecl::List>();
+        Nodecl::List::iterator it = subscripts.begin(), first = it;
+
+        TL::ObjectList<Nodecl::NodeclBase> indexes;
+        TL::ObjectList<Nodecl::NodeclBase> sizes;
+
+        while (it != subscripts.end())
+        {
+            Nodecl::NodeclBase lower_bound;
+            if (t.is_array())
+            {
+                Nodecl::NodeclBase upper_bound;
+                t.array_get_bounds(lower_bound, upper_bound);
+            }
+            else if (t.is_pointer())
+            {
+                lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
+            }
+            else
+            {
+                internal_error("Unexpected type %s", print_declarator(t.get_internal_type()));
+            }
+
+            Nodecl::NodeclBase lower = *it;
+            if (it->is<Nodecl::Range>())
+            {
+                lower = it->as<Nodecl::Range>().get_lower();
+            }
+
+            if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
+            {
+                Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+                Source lbound_src;
+                lbound_src << "LBOUND(" << as_expression(reference_expr) << ", DIM = " << 
+                    ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                lower_bound = lbound_src.parse_expression(scope);
+            }
+
+            // This means that it is OK to specify A(:)
+            if (lower.is_null())
+                lower = lower_bound;
+
+            Nodecl::NodeclBase current_index =
+                Nodecl::ParenthesizedExpression::make(
+                        Nodecl::Minus::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                lower.shallow_copy(),
+                                TL::Type::get_int_type(),
+                                expr.get_locus()),
+                            Nodecl::ParenthesizedExpression::make(
+                                lower_bound.shallow_copy(),
+                                TL::Type::get_int_type(),
+                                lower_bound.get_locus()),
+                            TL::Type::get_int_type(),
+                            expr.get_locus()),
+                        TL::Type::get_int_type(),
+                        expr.get_locus());
+
+            indexes.append(current_index);
+            if (t.is_array())
+            {
+                Nodecl::NodeclBase current_size = t.array_get_size();
+                if (current_size.is_null())
+                {
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
+
+                        Source lbound_src;
+                        lbound_src << "SIZE(" << as_expression(reference_expr) << ", DIM = " << 
+                            ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
+
+                        current_size = lbound_src.parse_expression(scope);
+                    }
+                    else
+                    {
+                        if ((it + 1) != subscripts.end())
+                        {
+                            return Nodecl::NodeclBase::null();
+                        }
+                        current_size = Nodecl::NodeclBase::null();
+                    }
+                }
+                sizes.append(current_size.shallow_copy());
+            }
+            else
+            {
+                // This way it will have the same length as indexes
+                sizes.append(const_value_to_nodecl(const_value_get_one(4, 1)));
+            }
+
+
+            if (t.is_array())
+            {
+                t = t.array_element();
+            }
+            else if (t.is_pointer())
+            {
+                t = t.points_to();
+            }
+
+            it++;
+        }
+
+        ERROR_CONDITION(indexes.size() != sizes.size(), "Mismatch between indexes and sizes", 0);
+
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it_indexes = indexes.begin();
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it_sizes = sizes.begin();
+
+        Nodecl::NodeclBase result;
+
+        // Horner algorithm
+        while (it_indexes != indexes.end())
+        {
+            // First one is special
+            if (it_indexes == indexes.begin())
+            {
+                result = *it_indexes;
+            }
+            else
+            {
+                result = Nodecl::Add::make(
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Mul::make(
+                                Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
+                                Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                                get_ptrdiff_t_type()), get_ptrdiff_t_type()),
+                        Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
+                        get_ptrdiff_t_type());
+            }
+
+            it_indexes++;
+            it_sizes++;
+        }
+
+        result = Nodecl::Mul::make(
+                compute_sizeof_of_type(t, /* ignore regions */ true),
+                Nodecl::ParenthesizedExpression::make(result, result.get_type()),
+                get_ptrdiff_t_type(),
+                result.get_locus());
+
+        return result;
+    }
+
+    Nodecl::NodeclBase DataReference::compute_offsetof_dependence(Nodecl::NodeclBase expr,
             TL::Scope scope) const
     {
         if (expr.is<Nodecl::ArraySubscript>())
         {
-            // E[X]
-            // E[X:Y]
-            // E[X;Y]
-            //
-            // Note that E[X:Y] and E[X;Y] will have array (with region) type
-            // while E may have array (with or without region) or pointer type
+            return compute_offsetof_array_subscript(expr, scope);
+        }
+
+        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
+    }
+
+    Nodecl::NodeclBase DataReference::compute_offsetof_copy(
+            Nodecl::NodeclBase expr,
+            TL::Scope scope) const
+    {
+        if (expr.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::NodeclBase result = compute_offsetof_array_subscript(expr, scope);
+
             Nodecl::ArraySubscript array_subscript = expr.as<Nodecl::ArraySubscript>();
-            TL::Type t = _data_type;
-
-            Nodecl::List subscripts = array_subscript.get_subscripts().as<Nodecl::List>();
-            Nodecl::List::iterator it = subscripts.begin(), first = it;
-
-            TL::ObjectList<Nodecl::NodeclBase> indexes;
-            TL::ObjectList<Nodecl::NodeclBase> sizes;
-
-            while (it != subscripts.end())
-            {
-                Nodecl::NodeclBase lower_bound;
-                if (t.is_array())
-                {
-                    Nodecl::NodeclBase upper_bound;
-                    t.array_get_bounds(lower_bound, upper_bound);
-                }
-                else if (t.is_pointer())
-                {
-                    lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
-                }
-                else
-                {
-                    internal_error("Unexpected type %s", print_declarator(t.get_internal_type()));
-                }
-
-                Nodecl::NodeclBase lower = *it;
-                if (it->is<Nodecl::Range>())
-                {
-                    lower = it->as<Nodecl::Range>().get_lower();
-                }
-
-                if (lower_bound.is_null() && IS_FORTRAN_LANGUAGE)
-                {
-                    Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
-                    Source lbound_src;
-                    lbound_src << "LBOUND(" << as_expression(reference_expr) << ", DIM = " << 
-                        ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
-
-                    lower_bound = lbound_src.parse_expression(scope);
-                }
-
-                // This means that it is OK to specify A(:)
-                if (lower.is_null())
-                    lower = lower_bound;
-
-                Nodecl::NodeclBase current_index =
-                    Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Minus::make(
-                                Nodecl::ParenthesizedExpression::make(
-                                    lower.shallow_copy(),
-                                    TL::Type::get_int_type(),
-                                    expr.get_locus()),
-                                Nodecl::ParenthesizedExpression::make(
-                                    lower_bound.shallow_copy(),
-                                    TL::Type::get_int_type(),
-                                    lower_bound.get_locus()),
-                                TL::Type::get_int_type(),
-                                expr.get_locus()),
-                            TL::Type::get_int_type(),
-                            expr.get_locus());
-
-                indexes.append(current_index);
-                if (t.is_array())
-                {
-                    Nodecl::NodeclBase current_size = t.array_get_size();
-                    if (current_size.is_null())
-                    {
-                        if (IS_FORTRAN_LANGUAGE)
-                        {
-                            Nodecl::NodeclBase reference_expr = expr.as<Nodecl::ArraySubscript>().get_subscripted();
-
-                            Source lbound_src;
-                            lbound_src << "SIZE(" << as_expression(reference_expr) << ", DIM = " << 
-                                ::fortran_get_rank_of_type(t.get_internal_type()) << ")";
-
-                            current_size = lbound_src.parse_expression(scope);
-                        }
-                        else
-                        {
-                            if ((it + 1) != subscripts.end())
-                            {
-                                return Nodecl::NodeclBase::null();
-                            }
-                            current_size = Nodecl::NodeclBase::null();
-                        }
-                    }
-                    sizes.append(current_size.shallow_copy());
-                }
-                else
-                {
-                    // This way it will have the same length as indexes
-                    sizes.append(const_value_to_nodecl(const_value_get_one(4, 1)));
-                }
-
-
-                if (t.is_array())
-                {
-                    t = t.array_element();
-                }
-                else if (t.is_pointer())
-                {
-                    t = t.points_to();
-                }
-
-                it++;
-            }
-
-            ERROR_CONDITION(indexes.size() != sizes.size(), "Mismatch between indexes and sizes", 0);
-
-            TL::ObjectList<Nodecl::NodeclBase>::iterator it_indexes = indexes.begin();
-            TL::ObjectList<Nodecl::NodeclBase>::iterator it_sizes = sizes.begin();
-
-            Nodecl::NodeclBase result;
-
-            // Horner algorithm
-            while (it_indexes != indexes.end())
-            {
-                // First one is special
-                if (it_indexes == indexes.begin())
-                {
-                    result = *it_indexes;
-                }
-                else
-                {
-                    result = Nodecl::Add::make(
-                            Nodecl::ParenthesizedExpression::make(
-                                Nodecl::Mul::make(
-                                    Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
-                                    Nodecl::ParenthesizedExpression::make(result, result.get_type()),
-                                    get_ptrdiff_t_type()), get_ptrdiff_t_type()),
-                            Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
-                            get_ptrdiff_t_type());
-                }
-
-                it_indexes++;
-                it_sizes++;
-            }
-
-            result = Nodecl::Mul::make(
-                    compute_sizeof_of_type(t, /* ignore regions */ true),
-                    Nodecl::ParenthesizedExpression::make(result, result.get_type()),
-                    get_ptrdiff_t_type(),
-                    result.get_locus());
-
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted().no_conv();
 
             // a.b[e]
@@ -1026,8 +1051,7 @@ namespace TL
                 }
                 else
                 {
-                    DataReference subscripted_expr_ref = DataReference(subscripted);
-                    Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
+                    Nodecl::NodeclBase result_subscripted = compute_offsetof_copy(subscripted, scope);
 
                     result = Nodecl::Add::make(
                             Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
@@ -1039,8 +1063,7 @@ namespace TL
             // (p[e1])[e] -> This only happens when indexing a pointer p
             else if (subscripted.is<Nodecl::ArraySubscript>())
             {
-                DataReference subscripted_expr_ref = DataReference(subscripted);
-                Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted, subscripted_expr_ref, scope);
+                Nodecl::NodeclBase result_subscripted = compute_offsetof_copy(subscripted, scope);
 
                 result = Nodecl::Add::make(
                         Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
@@ -1053,8 +1076,7 @@ namespace TL
             {
                 // Do nothing?
 
-                // DataReference subscripted_expr_ref = DataReference(subscripted.as<Nodecl::Dereference>().get_rhs());
-                // Nodecl::NodeclBase result_subscripted = compute_offsetof(subscripted.as<Nodecl::Dereference>().get_rhs(), subscripted_expr_ref, scope);
+                // Nodecl::NodeclBase result_subscripted = compute_offsetof_copy(subscripted.as<Nodecl::Dereference>().get_rhs(), scope);
 
                 // result = Nodecl::Add::make(
                 //         Nodecl::ParenthesizedExpression::make(result_subscripted, result_subscripted.get_type()),
@@ -1071,9 +1093,8 @@ namespace TL
                 if (!shaped_data_ref.is_valid())
                     return Nodecl::NodeclBase::null();
 
-                Nodecl::NodeclBase shaped_offset = compute_offsetof(
+                Nodecl::NodeclBase shaped_offset = compute_offsetof_copy(
                         shaping.get_postfix(),
-                        shaped_data_ref,
                         scope);
 
                 result = Nodecl::Add::make(
@@ -1126,15 +1147,23 @@ namespace TL
         return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
     }
 
-    Nodecl::NodeclBase DataReference::get_offsetof() const
+    Nodecl::NodeclBase DataReference::get_offsetof_dependence() const
     {
-        Nodecl::NodeclBase offset = this->compute_offsetof(*this, Nodecl::NodeclBase::null(), CURRENT_COMPILED_FILE->global_decl_context);
+        Nodecl::NodeclBase offset =
+            this->compute_offsetof_dependence(*this, CURRENT_COMPILED_FILE->global_decl_context);
         return offset;
     }
 
-    Nodecl::NodeclBase DataReference::get_offsetof(Nodecl::NodeclBase reference, TL::Scope sc) const
+
+    Nodecl::NodeclBase DataReference::get_offsetof_copy() const
     {
-        Nodecl::NodeclBase offset = this->compute_offsetof(*this, reference, sc);
+        Nodecl::NodeclBase offset = this->compute_offsetof_copy(*this, CURRENT_COMPILED_FILE->global_decl_context);
+        return offset;
+    }
+
+    Nodecl::NodeclBase DataReference::get_offsetof_copy(Nodecl::NodeclBase reference, TL::Scope sc) const
+    {
+        Nodecl::NodeclBase offset = this->compute_offsetof_copy(*this, sc);
         return offset;
     }
 
