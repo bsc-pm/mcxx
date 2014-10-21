@@ -193,25 +193,19 @@ namespace TL
 
                 if (subscripted.is<Nodecl::Symbol>())
                 {
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
-                        // float x[10][20]       x[1][2]      (we are in [1][2])
-                        // float *p              p[3]         (we are in [3])
-                        //
-                        // Use x (or p) directly
-                        _data_ref._base_address = subscripted;
-                    }
+                    // float x[10][20]       x[1][2]      (we are in [1][2])
+                    // float *p              p[3]         (we are in [3])
+                    //
+                    // Use x (or p) directly
+                    _data_ref._base_address = subscripted;
                 }
                 else if (subscripted.is<Nodecl::ClassMemberAccess>())
                 {
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
-                        // struct A { float x[10][20]; float *p; } a;
-                        //                      a.x[1][2]     (we are in [1][2])
-                        //                      a.p[3]        (we are in [3])
-                        // Use a.x or (a.p) directly
-                        _data_ref._base_address = subscripted;
-                    }
+                    // struct A { float x[10][20]; float *p; } a;
+                    //                      a.x[1][2]     (we are in [1][2])
+                    //                      a.p[3]        (we are in [3])
+                    // Use a.x or (a.p) directly
+                    _data_ref._base_address = subscripted;
                 }
                 else if (subscripted.is<Nodecl::Shaping>())
                 {
