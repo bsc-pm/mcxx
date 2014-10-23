@@ -1789,6 +1789,21 @@ static void check_component_ref_(AST expr,
 
     nodecl_t nodecl_rhs = nodecl_make_symbol(component_symbol, ast_get_locus(name));
     type_t* component_type = no_ref(component_symbol->type_information);
+
+    if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT
+            && !fortran_is_array_type(component_type)
+            && !fortran_is_pointer_to_array_type(component_type)
+            && !fortran_is_character_type(no_ref(component_type))
+            && !fortran_is_pointer_to_character_type(no_ref(component_type)))
+    {
+        error_printf("%s: error: component '%s' of '%s' is not an array or character\n",
+                ast_location(rhs),
+                component_symbol->symbol_name,
+                fortran_print_type_str(class_type));
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+        return;
+    }
+
     nodecl_set_type(nodecl_rhs, component_type);
 
     type_t* synthesized_type = NULL;
@@ -1880,6 +1895,10 @@ static void check_component_ref_(AST expr,
                 || fortran_is_pointer_to_character_type(no_ref(component_type)))
         {
             check_substring(rhs, decl_context, *nodecl_output, nodecl_output);
+        }
+        else
+        {
+            internal_error("code unreachable", 0);
         }
 
         if (fortran_is_array_type(lhs_type)
