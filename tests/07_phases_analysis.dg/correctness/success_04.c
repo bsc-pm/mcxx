@@ -33,43 +33,51 @@ test_nolink=yes
 </testinfo>
 */
 
-#include <stdio.h>
 
-void f( )
+#include <omp.h>
+
+#define N 2     /* size of problem space (x, y from -N to N) */
+
+/* Structure definition for complex numbers */
+typedef struct {
+    double real, imag;
+} complex;
+
+void mandelbrot(int height, 
+                int width, 
+                double real_min, 
+                double imag_min,
+                double scale_real, 
+                double scale_imag, 
+                int maxiter, 
+                int ** output)
 {
-    #pragma omp task
+    /* Calculate points and save */
+    int col;
+    for (int row = 0; row < height; ++row)
     {
-        printf("1");
+        #pragma analysis_check assert correctness_race() correctness_incoherent_fp(col)
         #pragma omp task
+        for (col = 0; col < width; ++col) 
         {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
+            complex z, c;
+            z.real = z.imag = 0;
+
+            /* Scale display coordinates to actual region  */
+            c.real = real_min + ((double) col * scale_real);
+
+            /* Calculate z0, z1, .... until divergence or maximum iterations */
+            int k = 0;
+            double lengthsq, temp;
+            do  {
+                temp = z.real*z.real - z.imag*z.imag + c.real;
+                z.imag = 2*z.real*z.imag + c.imag;
+                z.real = temp;
+                lengthsq = z.real*z.real + z.imag*z.imag;
+                ++k;
+            } while (lengthsq < (N*N) && k < maxiter);
+
+            output[row][col]=k;
         }
     }
-    #pragma omp task
-    {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
-    }
-    #pragma omp barrier
 }

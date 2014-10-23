@@ -230,22 +230,62 @@ namespace Analysis {
     {
         _id = id;
     }
-    
+
     bool Node::has_usage_assertion() const
     {
-        return (has_key(_ASSERT_UPPER_EXPOSED) || has_key(_ASSERT_KILLED) || has_key(_ASSERT_DEAD));
+        return (has_key(_ASSERT_UPPER_EXPOSED) || has_key(_ASSERT_KILLED) || has_key(_ASSERT_UNDEFINED));
     }
-    
+
+    bool Node::has_upper_exposed_assertion() const
+    {
+        return has_key(_ASSERT_UPPER_EXPOSED);
+    }
+
+    bool Node::has_defined_assertion() const
+    {
+        return has_key(_ASSERT_KILLED);
+    }
+
+    bool Node::has_undefined_assertion() const
+    {
+        return has_key(_ASSERT_UNDEFINED);
+    }
+
     bool Node::has_liveness_assertion() const
     {
-        return (has_key(_ASSERT_LIVE_IN) || has_key(_ASSERT_LIVE_OUT));
+        return (has_key(_ASSERT_LIVE_IN) || has_key(_ASSERT_LIVE_OUT) || has_key(_ASSERT_DEAD));
     }
-    
+
+    bool Node::has_live_in_assertion() const
+    {
+        return has_key(_ASSERT_LIVE_IN);
+    }
+
+    bool Node::has_live_out_assertion() const
+    {
+        return has_key(_ASSERT_LIVE_OUT);
+    }
+
+    bool Node::has_dead_assertion() const
+    {
+        return has_key(_ASSERT_DEAD);
+    }
+
     bool Node::has_reach_defs_assertion() const
     {
         return (has_key(_ASSERT_REACH_DEFS_IN) || has_key(_ASSERT_REACH_DEFS_OUT));
     }
-    
+
+    bool Node::has_reach_defs_in_assertion() const
+    {
+        return has_key(_ASSERT_REACH_DEFS_IN);
+    }
+
+    bool Node::has_reach_defs_out_assertion() const
+    {
+        return has_key(_ASSERT_REACH_DEFS_OUT);
+    }
+
     bool Node::has_induction_vars_assertion() const
     {
         return has_key(_ASSERT_INDUCTION_VARS);
@@ -256,7 +296,22 @@ namespace Analysis {
         return (has_key(_ASSERT_AUTOSC_FIRSTPRIVATE) || has_key(_ASSERT_AUTOSC_PRIVATE) || 
                 has_key(_ASSERT_AUTOSC_SHARED));
     }
+
+    bool Node::has_autoscope_fp_assertion() const
+    {
+        return has_key(_ASSERT_AUTOSC_FIRSTPRIVATE);
+    }
     
+    bool Node::has_autoscope_p_assertion() const
+    {
+        return has_key(_ASSERT_AUTOSC_PRIVATE);
+    }
+
+    bool Node::has_autoscope_s_assertion() const
+    {
+        return has_key(_ASSERT_AUTOSC_SHARED);
+    }
+
     bool Node::has_correctness_assertion() const
     {
         return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
@@ -269,7 +324,52 @@ namespace Analysis {
                 has_key(_ASSERT_CORRECTNESS_RACE_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_DEAD_VARS));
     }
-    
+
+    bool Node::has_correctness_auto_storage_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_fp_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_p_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_in_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_in_pointed_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_out_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_out_pointed_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+
+    bool Node::has_correctness_race_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_RACE_VARS);
+    }
+
+    bool Node::has_correctness_dead_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+
     bool Node::is_visited( ) const
     {
         return _visited;
@@ -1167,8 +1267,16 @@ namespace Analysis {
     template <typename T>
     void Node::add_vars_to_container(const T& vars, std::string data_name)
     {
-        for (typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
-            add_var_to_container<T>(*it, data_name);
+        if (vars.empty())
+        {   // ensure that, in case no attribute called #data_name was attached to the node, now it will be attached
+            T c = get_data<T>(data_name);
+            set_data(data_name, c);
+        }
+        else
+        {
+            for (typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
+                add_var_to_container<T>(*it, data_name);
+        }
     }
     
     void Node::add_var_to_list(const NBase& var, std::string data_name)
@@ -1186,8 +1294,16 @@ namespace Analysis {
     
     void Node::add_vars_to_list(const Nodecl::List& vars, std::string data_name)
     {
-        for (Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
-            add_var_to_list(*it, data_name);
+        if (vars.empty())
+        {   // ensure that, in case no attribute called #data_name was attached to the node, now it will be attached
+            Nodecl::List list = get_data<Nodecl::List>(data_name);
+            set_data(data_name, list);
+        }
+        else
+        {
+            for (Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
+                add_var_to_list(*it, data_name);
+        }
     }
     
     void Node::remove_var_from_set(const NBase& var, std::string data_name)
@@ -2011,14 +2127,28 @@ namespace Analysis {
         add_var_to_list(n, _CORRECTNESS_INCOHERENT_P_VARS);
     }
     
-    Nodecl::List Node::get_correctness_race_vars()
+    NodeclTriboolMap Node::get_correctness_race_vars()
     {
-        return get_vars<Nodecl::List>(_CORRECTNESS_RACE_VARS);
+        return get_vars<NodeclTriboolMap>(_CORRECTNESS_RACE_VARS);
     }
     
-    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n)
+    Nodecl::List Node::get_true_correctness_race_vars()
     {
-        add_var_to_list(n, _CORRECTNESS_RACE_VARS);
+        const NodeclTriboolMap& all_race_vars = get_vars<NodeclTriboolMap>(_CORRECTNESS_RACE_VARS);
+        Nodecl::List true_race_vars;
+        for (NodeclTriboolMap::const_iterator it = all_race_vars.begin();
+             it != all_race_vars.end(); ++it)
+        {
+            if (it->second.is_true())
+                true_race_vars.append(it->first.shallow_copy());
+        }
+        return true_race_vars;
+    }
+
+    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n, tribool certainty)
+    {
+        NodeclTriboolMap& race_vars = get_data<NodeclTriboolMap>(_CORRECTNESS_RACE_VARS);
+        race_vars[n] = certainty;
     }
     
     Nodecl::List Node::get_correctness_dead_vars()
