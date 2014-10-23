@@ -1167,8 +1167,16 @@ namespace Analysis {
     template <typename T>
     void Node::add_vars_to_container(const T& vars, std::string data_name)
     {
-        for (typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
-            add_var_to_container<T>(*it, data_name);
+        if (vars.empty())
+        {   // ensure that, in case no attribute called #data_name was attached to the node, now it will be attached
+            T c = get_data<T>(data_name);
+            set_data(data_name, c);
+        }
+        else
+        {
+            for (typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
+                add_var_to_container<T>(*it, data_name);
+        }
     }
     
     void Node::add_var_to_list(const NBase& var, std::string data_name)
@@ -1186,8 +1194,16 @@ namespace Analysis {
     
     void Node::add_vars_to_list(const Nodecl::List& vars, std::string data_name)
     {
-        for (Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
-            add_var_to_list(*it, data_name);
+        if (vars.empty())
+        {   // ensure that, in case no attribute called #data_name was attached to the node, now it will be attached
+            Nodecl::List list = get_data<Nodecl::List>(data_name);
+            set_data(data_name, list);
+        }
+        else
+        {
+            for (Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
+                add_var_to_list(*it, data_name);
+        }
     }
     
     void Node::remove_var_from_set(const NBase& var, std::string data_name)

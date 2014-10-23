@@ -36,8 +36,6 @@ namespace TL {
 namespace Analysis {
 
 namespace {
-
-    const std::string analysis_none_sym_name = "__ANALYSIS_NONE__";
     
     NBase get_nodecl_from_string(std::string str, ReferenceScope sc)
     {
@@ -160,45 +158,40 @@ namespace {
         }
     }
 
-    void compare_assert_set_with_analysis_set(const NodeclSet& assert_set, const NodeclSet& analysis_set,
-                                               std::string locus_str, int node_id,
-                                               std::string clause_name, std::string analysis_name )
+    void compare_assert_set_with_analysis_set(
+            const NodeclSet& assert_set,
+            const NodeclSet& analysis_set,
+            std::string locus_str,
+            int node_id,
+            std::string clause_name,
+            std::string analysis_name)
     {
-        if( !assert_set.empty( ) )
+        size_t assert_set_size = assert_set.size();
+        size_t analysis_set_size = analysis_set.size();
+        if (assert_set_size != analysis_set_size)
         {
-            if((assert_set.size() == 1) && 
-               (assert_set.begin()->is<Nodecl::Symbol>()) && 
-               (assert_set.begin()->get_symbol().get_name()==analysis_none_sym_name))
+            internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                           "because analysis %s for node %d has computed set (%s).\n",
+                           locus_str.c_str(),
+                           clause_name.c_str(),
+                           Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
+                           analysis_name.c_str(),
+                           node_id,
+                           Utils::prettyprint_nodecl_set(analysis_set, /*dot*/ false).c_str());
+        }
+        else
+        {
+            NodeclSet diff = Utils::nodecl_set_difference(assert_set, analysis_set);
+            if (!diff.empty())
             {
-                if(!analysis_set.empty())
-                {
-                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                   "There should not be %s variables associated to node %d\n",
-                                   locus_str.c_str( ),
-                                   clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
-                                   analysis_name.c_str( ), node_id );
-                }
-            }
-            else if( analysis_set.empty( ) )
-            {
-                internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                "There are no %s variables associated to node %d\n",
-                                locus_str.c_str( ),
-                                clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
-                                analysis_name.c_str( ), node_id );
-            }
-            else
-            {
-                NodeclSet diff = Utils::nodecl_set_difference(assert_set, analysis_set);
-                if( !diff.empty( ) )
-                {
-                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "Expressions '%s' are no %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
-                                    Utils::prettyprint_nodecl_set(diff, /*dot*/ false).c_str(),
-                                    analysis_name.c_str( ), node_id );
-                }
+                internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                               "Expressions '%s' are no %s variables associated to node %d\n",
+                               locus_str.c_str(),
+                               clause_name.c_str(),
+                               Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
+                               Utils::prettyprint_nodecl_set(diff, /*dot*/ false).c_str(),
+                               analysis_name.c_str(),
+                               node_id);
             }
         }
     }
@@ -264,57 +257,41 @@ namespace {
     }
     
     void compare_assert_list_with_analysis_list(
-            const Nodecl::List& assert_list, const Nodecl::List& analysis_list,
-            std::string locus_str, int node_id,
-            std::string clause_name, std::string analysis_name)
+            const Nodecl::List& assert_list,
+            const Nodecl::List& analysis_list,
+            std::string locus_str,
+            int node_id,
+            std::string clause_name,
+            std::string analysis_name)
     {
-        if(assert_list.size() != analysis_list.size())
+        size_t assert_list_size = assert_list.size();
+        size_t analysis_list_size = analysis_list.size();
+        if (assert_list_size != analysis_list_size)
         {
-            std::string assert_list_str = (assert_list.empty() ? "null" : assert_list.prettyprint());
-            internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                            "The number of %s variables associated to node %d is not the same as in the assert list\n",
-                            locus_str.c_str( ),
-                            clause_name.c_str( ), assert_list_str.c_str(),
-                            analysis_name.c_str( ), node_id );
+            std::string assert_list_str = (assert_list.empty() ? "" : assert_list.prettyprint());
+            std::string analysis_list_str = (analysis_list.empty() ? "" : analysis_list.prettyprint());
+            internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                           "because analysis %s for node %d has computed set (%s).\n",
+                           locus_str.c_str(),
+                           clause_name.c_str(),
+                           assert_list_str.c_str(),
+                           analysis_name.c_str(),
+                           node_id,
+                           analysis_list_str.c_str());
         }
         else
         {
-            if(!assert_list.empty())
+            Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
+            if (!diff.empty())
             {
-                if((assert_list.size() == 1) &&
-                (assert_list.begin()->is<Nodecl::Symbol>()) &&
-                (assert_list.begin()->get_symbol().get_name()==analysis_none_sym_name))
-                {
-                    if(!analysis_list.empty())
-                    {
-                        internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "There are %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                    analysis_name.c_str( ), node_id );
-                    }
-                }
-                else if(analysis_list.empty())
-                {
-                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "There are no %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                    analysis_name.c_str( ), node_id );
-                }
-                else
-                {
-                    Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
-                    if( !diff.empty( ) )
-                    {
-                        internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                        "Expressions '%s' are no %s variables associated to node %d\n",
-                                        locus_str.c_str( ),
-                                        clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                        diff.prettyprint().c_str(),
-                                        analysis_name.c_str( ), node_id );
-                    }
-                }
+                internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                               "Expressions '%s' are no %s variables associated to node %d\n",
+                               locus_str.c_str(),
+                               clause_name.c_str(),
+                               assert_list.prettyprint().c_str(),
+                               diff.prettyprint().c_str(),
+                               analysis_name.c_str(),
+                               node_id);
             }
         }
     }
@@ -339,6 +316,8 @@ namespace {
             // Check UseDef analysis
             if (current->has_usage_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d usage assertion.\n", current->get_id());
                 NodeclSet assert_ue = current->get_assert_ue_vars();
                 NodeclSet assert_killed = current->get_assert_killed_vars();
                 NodeclSet assert_undef = current->get_assert_undefined_behaviour_vars();
@@ -370,6 +349,8 @@ namespace {
             // Check Liveness analysis
             if (current->has_liveness_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d liveness assertion.\n", current->get_id());
                 NodeclSet assert_live_in = current->get_assert_live_in_vars();
                 NodeclSet assert_live_out = current->get_assert_live_out_vars();
                 NodeclSet assert_dead = current->get_assert_dead_vars();
@@ -413,6 +394,8 @@ namespace {
             // Check Reaching Definitions analysis
             if (current->has_reach_defs_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d reaching definitions assertion.\n", current->get_id());
                 NodeclMap assert_reach_defs_in = current->get_assert_reaching_definitions_in();
                 NodeclMap assert_reach_defs_out = current->get_assert_reaching_definitions_out();
                 if (current->is_context_node())
@@ -443,6 +426,8 @@ namespace {
             // Induction Variables
             if (current->has_induction_vars_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d induction variables assertion.\n", current->get_id());
                 Utils::InductionVarList assert_induction_vars = current->get_assert_induction_vars();
                 // 'current' is the context created by the checking pragma -> get the inner loop node
                 Node* inner_loop = current->get_graph_entry_node()->get_children()[0];
@@ -559,6 +544,8 @@ namespace {
             // Auto-scoping
             if (current->has_autoscope_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d auto-scope assertion.\n", current->get_id());
                 // Context
                 //    |_____ Entry
                 //    |______Task Creation
@@ -591,6 +578,8 @@ namespace {
             // Correctness
             if (current->has_correctness_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d correctness assertion.\n", current->get_id());
                 // Context
                 //    |_____ Entry
                 //    |______Task Creation
@@ -908,16 +897,6 @@ namespace {
 
         pragma_line.diagnostic_unused_clauses( );
         directive.replace( assert_nodecl );
-    }
-
-    void AnalysisCheckPhase::pre_run( TL::DTO& dto )
-    {
-        // Add a new symbol to the empty translation unit that can be used in this phase
-        // to specify that an analysis set must be empty
-        TL::Scope sc = CURRENT_COMPILED_FILE->global_decl_context;
-        TL::Symbol none_symbol = sc.new_symbol(analysis_none_sym_name);
-        none_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        none_symbol.get_internal_symbol()->type_information = ::get_void_type();
     }
     
     void AnalysisCheckPhase::run(TL::DTO& dto)

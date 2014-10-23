@@ -227,13 +227,15 @@ namespace Utils {
     
     static NBase nodecl_set_contains_enclosing_nodecl_rec(const NBase& n, const NodeclSet& set)
     {
-        if (nodecl_set_contains_nodecl(n, set) && !n.get_type().no_ref().is_pointer())
+        const Nodecl::NodeclBase& m = n.no_conv();
+
+        if (nodecl_set_contains_nodecl(m, set) && !m.get_type().no_ref().is_pointer())
             return n;
 
-        if (n.is<Nodecl::ArraySubscript>())
+        if (m.is<Nodecl::ArraySubscript>())
         {
-            Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
-            if (!n.get_type().no_ref().is_pointer())
+            Nodecl::NodeclBase subscripted = m.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+            if (!m.get_type().no_ref().is_pointer())
             {
                 return nodecl_set_contains_enclosing_nodecl_rec(subscripted, set);
             }
@@ -249,9 +251,13 @@ namespace Utils {
                 }
             }
         }
-        else if (n.is<Nodecl::ClassMemberAccess>())
+        else if (m.is<Nodecl::ClassMemberAccess>())
         {
-            return nodecl_set_contains_enclosing_nodecl_rec(n.as<Nodecl::ClassMemberAccess>().get_lhs(), set);
+            return nodecl_set_contains_enclosing_nodecl_rec(m.as<Nodecl::ClassMemberAccess>().get_lhs(), set);
+        }
+        else if (m.is<Nodecl::Cast>())
+        {
+            return nodecl_set_contains_enclosing_nodecl_rec(m.as<Nodecl::Cast>().get_rhs(), set);
         }
 
         return NBase::null();
@@ -284,15 +290,17 @@ namespace Utils {
         }
         else
         {   // But check whether the pointer is in the set
-            if(nodecl_set_contains_nodecl(n, set))
+            if(nodecl_set_contains_nodecl(n.no_conv(), set))
                 result.append(n.shallow_copy());
         }
         return result;
     }
     
-    Nodecl::NodeclBase unflatten_subscripts(const Nodecl::NodeclBase& n)
+    Nodecl::NodeclBase unflatten_subscripts(Nodecl::NodeclBase n)
     {
-        if(n.is<Nodecl::ArraySubscript>())
+        if (n.is<Nodecl::Cast>())
+            n = n.as<Nodecl::Cast>().get_rhs().no_conv();
+        if (n.is<Nodecl::ArraySubscript>())
         {
             const Nodecl::NodeclBase& subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
             const Nodecl::List& subscripts = n.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
@@ -344,25 +352,49 @@ namespace Utils {
                         continue;
                     }
 
-                    // Flatten all consecutive dimensions:
+                    Nodecl::NodeclBase sub1 = sub;
+                    while (true)
+                    {
+                        sub1 = sub1.no_conv();
+                        if (sub1.is<Nodecl::Cast>())
+                            sub1 = sub1.as<Nodecl::Cast>().get_rhs().no_conv();
+                        if (Nodecl::Utils::structurally_equal_nodecls(n, sub1, /*skip conversions*/true))
+                        {
+                            result.append(sub1.shallow_copy());
+                            goto ptd_nodecl_found;
+                        }
+                        if (!sub1.is<Nodecl::ArraySubscript>())
+                            break;
+                        sub1 = sub1.as<Nodecl::ArraySubscript>().get_subscripted();
+                    }
+
+                    // If not found, flatten all consecutive dimensions:
                     // in order to find any possible subscript access
                     // we need to check all dimensions accesses, so, we will transform:
                     // A[i][j]  ->  subscripted: A, subscripts: i, j into
                     //              subscripted: A[i], subscript: j
-                    sub = unflatten_subscripts(sub);
-
-                    // Traverse each subscripted individually comparing it with the nodecl we are looking for
-                    while (true)
                     {
-                        if (Nodecl::Utils::structurally_equal_nodecls(n, sub, /*skip conversions*/true))
+                        Nodecl::NodeclBase sub2 = sub;
+                        sub2 = unflatten_subscripts(sub);
+
+                        // Traverse each subscripted individually comparing it with the nodecl we are looking for
+                        while (true)
                         {
-                            result.append(sub.shallow_copy());
-                            break;
+                            sub2 = sub2.no_conv();
+                            if (sub2.is<Nodecl::Cast>())
+                                sub2 = sub2.as<Nodecl::Cast>().get_rhs().no_conv();
+                            if (Nodecl::Utils::structurally_equal_nodecls(n, sub2, /*skip conversions*/true))
+                            {
+                                result.append(sub2.shallow_copy());
+                                goto ptd_nodecl_found;
+                            }
+                            if (!sub2.is<Nodecl::ArraySubscript>())
+                                break;
+                            sub2 = sub2.as<Nodecl::ArraySubscript>().get_subscripted();
                         }
-                        if(!sub.is<Nodecl::ArraySubscript>())
-                            break;
-                        sub = sub.as<Nodecl::ArraySubscript>().get_subscripted();
                     }
+
+ptd_nodecl_found:   ;
                 }
                 // Nothing to do, only ArraySubscript may be pointed
                 else {}

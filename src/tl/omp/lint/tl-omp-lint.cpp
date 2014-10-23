@@ -596,7 +596,7 @@ check_sync:
         for (TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
             if (!skip_other_tasks || !(*it)->is_omp_task_node())
-            {   // Call recursively is this is not a task or it is a task and we do not slip tasks
+            {   // Call recursively if this is not a task or it is a task and we do not slip tasks
                 compute_usage_between_nodes(
                         *it,
                         ini,
@@ -828,10 +828,11 @@ check_sync:
         }
         else
         {
+            // 1.- Traverse any possible path between all last_syncs and all next_syncs
             for (TL::ObjectList<TL::Analysis::Node*>::const_iterator itl = last_syncs.begin();
                     itl != last_syncs.end(); ++itl)
             {
-                for (TL::ObjectList<TL::Analysis::Node*>::const_iterator     itn = next_syncs.begin();
+                for (TL::ObjectList<TL::Analysis::Node*>::const_iterator itn = next_syncs.begin();
                         itn != next_syncs.end(); ++itn)
                 {
                     compute_usage_between_nodes(
@@ -844,9 +845,63 @@ check_sync:
                             /*result: var->node*/ result);
                 }
             }
+            // 2.- Clean up all visits
+            // We do not clean for each pair to avoid visiting the same node twice
+            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator itl = last_syncs.begin();
+                    itl != last_syncs.end(); ++itl)
+            {
+                TL::Analysis::ExtensibleGraph::clear_visits(*itl);
+            }
+
             if (scope != NULL)
                 treated_scopes[scope] = result;
         }
+    }
+
+    bool var_is_defined_between_nodes(
+            TL::Analysis::Node* source,
+            TL::Analysis::Node* target,
+            const Nodecl::NodeclBase& n,
+            bool& is_defined)
+    {
+        if (source == target)
+            return true;
+
+        if(source->is_visited_aux())
+            return false;
+
+        source->set_visited_aux(true);
+
+        // Treat the current node
+        const TL::Analysis::NodeclSet& killed_vars = source->get_killed_vars();
+        if (TL::Analysis::Utils::nodecl_set_contains_nodecl(n, killed_vars))
+            is_defined = true;
+
+        // Treat the children
+        bool target_found = false;
+        TL::ObjectList<TL::Analysis::Node*> children = source->get_children();
+        if (source->is_exit_node())
+        {
+            TL::Analysis::Node* outer = source->get_outer_node();
+            if (outer != NULL)
+                children = outer->get_children();
+        }
+        for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
+             it != children.end() && !target_found; ++it)
+        {
+            TL::Analysis::Node* c = *it;
+            if (!c->is_omp_task_node())
+            {
+                if (c->is_graph_node())
+                {
+                    c->set_visited_aux(true);
+                    c = c->get_graph_entry_node();
+                }
+                target_found = var_is_defined_between_nodes(c, target, n, is_defined);
+            }
+        }
+
+        return target_found;
     }
 
     tribool task_may_cause_race_condition(
@@ -1063,6 +1118,7 @@ check_sync:
                 }
 
                 // Global variables and reference parameters may still be in a race condition
+                // TODO dynamic storage locations may also be in a race condition!
                 if (!tmp
                         && ((!n_base.is_null() && is_global_var(n_base, pcfg))      // global variable
                                 || (n_sc == NULL && t.is_any_reference())))     // reference parameter
@@ -1072,7 +1128,7 @@ check_sync:
                     warned_vars.insert(n);
                 }
 
-                result = tmp;
+                result = result || tmp;
             }
         }
 
@@ -1081,33 +1137,104 @@ check_sync:
         for (ObjectList<TL::Analysis::Node*>::const_iterator it = concurrent_tasks.begin(); it != concurrent_tasks.end(); ++it)
         {
             TL::Analysis::Node* concurrent_task = *it;
-            TL::Analysis::Node* concurrent_task_entry = concurrent_task->get_graph_entry_node();
             VarToNodesMap in_concurrent_task_vars_to_nodes;
-            compute_usage_between_nodes(
-                    /*current*/ concurrent_task_entry,
-                    /*initial*/ concurrent_task_entry,
-                    /*final*/ concurrent_task->get_graph_exit_node(),
-                    /*omitted node*/ task,
-                    /*skip tasks*/ false,
-                    /*considered vars*/ task_shared_variables,
-                    /*result: var->node*/ in_concurrent_task_vars_to_nodes);
-            TL::Analysis::ExtensibleGraph::clear_visits_in_level(concurrent_task_entry, concurrent_task);
-            TL::Analysis::Node* concurrent_task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_from_task(concurrent_task);
-            for (TL::Analysis::NodeclSet::const_iterator itt = task_shared_variables.begin();
-                 itt != task_shared_variables.end(); ++itt)
+            if (concurrent_task == task)
             {
-                const Nodecl::NodeclBase& n = *itt;
-                const TL::ObjectList<TL::Analysis::Node*>& in_concurrent_task_nodes = in_concurrent_task_vars_to_nodes[n];
-                const TL::ObjectList<TL::Analysis::Node*>& task_nodes = task_vars_to_nodes[n];
-                result = result || check_concurrency(
-                                        /*analyzed task*/ task,
-                                        /*analyzed variable*/ n,
-                                        /*nodes in task involving n*/ task_nodes,
-                                        /*nodes in concurrent task involving n*/ in_concurrent_task_nodes,
-                                        /*variables defined in task*/ task_defs,
-                                        /*race certainty*/ tribool::True,
-                                        /*already warned vars*/ warned_vars,
-                                        /*result*/ race_vars_certainty);
+                in_concurrent_task_vars_to_nodes = task_vars_to_nodes;
+            }
+            else
+            {
+                TL::Analysis::Node* concurrent_task_entry = concurrent_task->get_graph_entry_node();
+                compute_usage_between_nodes(
+                        /*current*/ concurrent_task_entry,
+                        /*initial*/ concurrent_task_entry,
+                        /*final*/ concurrent_task->get_graph_exit_node(),
+                        /*omitted node*/ task,
+                        /*skip tasks*/ false,
+                        /*considered vars*/ task_shared_variables,
+                        /*result: var->node*/ in_concurrent_task_vars_to_nodes);
+                TL::Analysis::ExtensibleGraph::clear_visits_in_level(concurrent_task_entry, concurrent_task);
+            }
+
+            for (TL::Analysis::NodeclSet::const_iterator itt = task_shared_variables.begin();
+                itt != task_shared_variables.end(); ++itt)
+            {
+                const Nodecl::NodeclBase& n = itt->no_conv();
+                // For sub-objects, check whether the subscripts are modified between the two tasks
+                if (n.is<Nodecl::ArraySubscript>())
+                {
+                    TL::Analysis::Node* concurrent_task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_from_task(concurrent_task);
+                    TL::Analysis::Node* source = task_creation;
+                    TL::Analysis::Node* target = concurrent_task_creation;
+                    // When a task may be concurrent with itself, we start looking for definitions from the children of the task
+                    if (task_creation == concurrent_task_creation)
+                    {
+                        TL::ObjectList<TL::Analysis::Node*> conc_task_creation_children = concurrent_task_creation->get_children();
+                        ERROR_CONDITION(conc_task_creation_children.size()!=2,
+                                        "Task creation %d has %d children, but 2 are expected.\n",
+                                        concurrent_task_creation->get_id(), conc_task_creation_children.size());
+                        target = source;
+                        source = conc_task_creation_children[0]->is_omp_task_node() ? conc_task_creation_children[1]
+                                                                                    : conc_task_creation_children[0];
+                    }
+                    // If a subscript is modified, then the accessed element is not the same
+                    const TL::ObjectList<Nodecl::NodeclBase>& accessed_vars = Nodecl::Utils::get_all_memory_accesses(n);
+                    bool def = false;
+                    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator ittt = accessed_vars.begin();
+                         ittt != accessed_vars.end(); ++ittt)
+                    {
+                        // Skip the variable itself, because the source task may contain it in the kill set
+                        // (usage information is propagated from task nodes to their task creation nodes)
+                        if (Nodecl::Utils::structurally_equal_nodecls(n, *ittt, /*skip_conversion_nodes*/true))
+                            continue;
+                        bool target_found = var_is_defined_between_nodes(source, target, *ittt, def);
+                        TL::Analysis::ExtensibleGraph::clear_visits_aux(source);
+                        // Between these two tasks, there is a path that defines the variable
+                        // In case the two tasks are different, all paths must define the variable, otherwise, the race may still exist
+                        // In case the tasks are the same no other path must be checked, so no race may occur
+                        if (target_found && def)
+                        {
+                            if (task_creation == concurrent_task_creation)
+                                goto skip_current_var;
+                            else
+                                break;
+                        }
+                    }
+                    if (task_creation != concurrent_task_creation
+                            && TL::Analysis::ExtensibleGraph::node_is_ancestor_of_node(target, source))
+                    {
+                        TL::Analysis::Node* tmp = source;
+                        source = target;
+                        target = tmp;
+                        def = false;
+                        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator ittt = accessed_vars.begin();
+                            ittt != accessed_vars.end(); ++ittt)
+                        {
+                            // Skip the variable itself, because the source task may contain it in the kill set
+                            // (usage information is propagated from task nodes to their task creation nodes)
+                            if (Nodecl::Utils::structurally_equal_nodecls(n, *ittt, /*skip_conversion_nodes*/true))
+                                continue;
+                            bool target_found = var_is_defined_between_nodes(source, target, *ittt, def);
+                            TL::Analysis::ExtensibleGraph::clear_visits_aux(source);
+                            if (target_found && def)
+                                goto skip_current_var;
+                        }
+                    }
+                }
+                {
+                    const TL::ObjectList<TL::Analysis::Node*>& in_concurrent_task_nodes = in_concurrent_task_vars_to_nodes[n];
+                    const TL::ObjectList<TL::Analysis::Node*>& task_nodes = task_vars_to_nodes[n];
+                    result = result || check_concurrency(
+                                            /*analyzed task*/ task,
+                                            /*analyzed variable*/ n,
+                                            /*nodes in task involving n*/ task_nodes,
+                                            /*nodes in concurrent task involving n*/ in_concurrent_task_nodes,
+                                            /*variables defined in task*/ task_defs,
+                                            /*race certainty*/ tribool::True,
+                                            /*already warned vars*/ warned_vars,
+                                            /*result*/ race_vars_certainty);
+                }
+skip_current_var: ;
             }
         }
 
@@ -1116,44 +1243,41 @@ check_sync:
 
     bool var_is_used_between_nodes(TL::Analysis::Node* source, TL::Analysis::Node* target, const Nodecl::NodeclBase& n)
     {
-        if((source == target) || source->is_exit_node())
+        if(source->is_visited() || (source == target) || source->is_exit_node())
             return false;
-        
+
         bool result = false;
-        
-        if(!source->is_visited())
+
+        source->set_visited(true);
+
+        // Treat the current node
+        if (source->is_graph_node())
+            result = var_is_used_between_nodes(source->get_graph_entry_node(), target, n);
+        else if(source->has_statements())
         {
-            source->set_visited(true);
-            
-            // Treat the current node
-            if (source->is_graph_node())
-                result = var_is_used_between_nodes(source->get_graph_entry_node(), target, n);
-            else if(source->has_statements())
+            const TL::ObjectList<Nodecl::NodeclBase>& stmts = source->get_statements();
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end() && !result; ++it)
             {
-                const TL::ObjectList<Nodecl::NodeclBase>& stmts = source->get_statements();
-                for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end() && !result; ++it)
+                const TL::ObjectList<Nodecl::NodeclBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
+                if (Nodecl::Utils::list_contains_nodecl_by_structure(mem_accesses, n))
                 {
-                    const TL::ObjectList<Nodecl::NodeclBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
-                    if (Nodecl::Utils::list_contains_nodecl_by_structure(mem_accesses, n))
-                    {
-                        result = true;
-                        break;
-                    }
-                }
-            }
-            
-            // Treat the children
-            if (!result)
-            {
-                const TL::ObjectList<TL::Analysis::Node*>& children = source->get_children();
-                for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
-                    (it != children.end()) && !result; ++it)
-                {
-                    result = var_is_used_between_nodes(*it, target, n);
+                    result = true;
+                    break;
                 }
             }
         }
-        
+
+        // Treat the children
+        if (!result)
+        {
+            const TL::ObjectList<TL::Analysis::Node*>& children = source->get_children();
+            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
+                (it != children.end()) && !result; ++it)
+            {
+                result = var_is_used_between_nodes(*it, target, n);
+            }
+        }
+
         return result;
     }
     
@@ -1507,9 +1631,28 @@ check_sync:
             if(it->is<Nodecl::Shaping>())
             {   // Check for uses of the variable, any sub-part or the object pointed by the variable
                 const Nodecl::NodeclBase& var = it->as<Nodecl::Shaping>().get_postfix();
-                const Nodecl::NodeclBase enclosed = TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars);
-                if ((enclosed.is_null() || !Nodecl::Utils::structurally_equal_nodecls(var, enclosed, /*skip conversions*/true))
-                    && TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
+                Nodecl::List enclosed = TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars);
+                bool report_var = false;
+                if (enclosed.is_null())
+                {
+                    if (TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
+                        report_var = true;
+                }
+                else
+                {
+                    report_var = true;
+                    for (Nodecl::List::const_iterator itt = enclosed.begin(); itt != enclosed.end(); ++itt)
+                    {
+                        const Nodecl::NodeclBase& e = itt->no_conv();
+                        if (Nodecl::Utils::structurally_equal_nodecls(e, var, /*skip conversions*/true)
+                                || !TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(e, ue_vars).is_null())
+                        {
+                            report_var = false;
+                            break;
+                        }
+                    }
+                }
+                if (report_var)
                 {
                     incoherent_depin_vars += it->prettyprint() + ", ";
                     task->add_correctness_incoherent_in_var(*it);
@@ -1525,7 +1668,7 @@ check_sync:
                     task->add_correctness_incoherent_in_pointed_var(var);
                     n_incoherent_depin_pointed_vars++;
                 }
-                else if(!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
+                else if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
                     TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars).is_null())
                 {
                     incoherent_depin_vars += it->prettyprint() + ", ";
@@ -1559,9 +1702,28 @@ check_sync:
             if(it->is<Nodecl::Shaping>())
             {   // Check for uses of the variable, any sub-part or the object pointed by the variable
                 const Nodecl::NodeclBase& var = it->as<Nodecl::Shaping>().get_postfix();
-                const Nodecl::NodeclBase enclosed = TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars);
-                if ((enclosed.is_null() || !Nodecl::Utils::structurally_equal_nodecls(var, enclosed, /*skip conversions*/true))
-                    && TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
+                Nodecl::List enclosed = TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars);
+                bool report_var = false;
+                if (enclosed.is_null())
+                {
+                    if (TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
+                        report_var = true;
+                }
+                else
+                {
+                    report_var = true;
+                    for (Nodecl::List::const_iterator itt = enclosed.begin(); itt != enclosed.end(); ++itt)
+                    {
+                        const Nodecl::NodeclBase& e = itt->no_conv();
+                        if (Nodecl::Utils::structurally_equal_nodecls(var, e, /*skip conversions*/true)
+                                || !TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(e, killed_vars).is_null())
+                        {
+                            report_var = false;
+                            break;
+                        }
+                    }
+                }
+                if (report_var)
                 {
                     incoherent_depout_vars += it->prettyprint() + ", ";
                     task->add_correctness_incoherent_out_var(*it);
@@ -1670,6 +1832,8 @@ check_sync:
 
     static void execute_correctness_checks(TL::Analysis::ExtensibleGraph* graph)
     {
+        if (VERBOSE)
+            std::cerr << "Correctness checks of PCFG '" << graph->get_name() << "'" << std::endl;
         // Get all task nodes
         ObjectList<TL::Analysis::Node*> tasks = graph->get_tasks_list();
         for (ObjectList<TL::Analysis::Node*>::iterator it = tasks.begin(); it != tasks.end(); it++)
