@@ -90,16 +90,43 @@ namespace Analysis {
     }
     
     // This method simplifies arguments in the way "*&v and &*v -> v"
-    Nodecl::List simplify_pointers(const Nodecl::List& original_variables)
+    Nodecl::List simplify_pointers(const Nodecl::List& original_args)
     {
-        Nodecl::List simplified_variables;
-        for(Nodecl::List::iterator it = original_variables.begin(); it != original_variables.end(); ++it)
+        Nodecl::List simplified_args;
+        for(Nodecl::List::iterator it = original_args.begin(); it != original_args.end(); ++it)
         {
-            simplified_variables.append(simplify_pointer(*it));
+            simplified_args.append(simplify_pointer(*it));
         }
-        return simplified_variables;
+        return simplified_args;
     }
-    
+
+    class LIBTL_CLASS ArgumentSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        void unhandled_node(const NBase& n)
+        {
+            WARNING_MESSAGE("Unhandled node of type '%s' while ArgumentSimplifierVisitor.\n",
+                            ast_print_node_type(n.get_kind()));
+        }
+
+        void visit(const Nodecl::DefaultArgument& n)
+        {
+            n.replace(n.get_argument());
+        }
+    };
+
+    Nodecl::List simplify_arguments(const Nodecl::List& original_args)
+    {
+        Nodecl::List simplified_args;
+        ArgumentSimplifierVisitor asv;
+        for (Nodecl::List::iterator it = original_args.begin(); it != original_args.end(); ++it)
+        {
+            Nodecl::NodeclBase arg = it->no_conv().shallow_copy();
+            asv.walk(arg);
+            simplified_args.append(arg);
+        }
+        return simplified_args;
+    }
+
     // *********************** End class implementing pointer simplification visitor ********************** //
     // **************************************************************************************************** //
     

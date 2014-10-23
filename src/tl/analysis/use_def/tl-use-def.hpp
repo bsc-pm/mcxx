@@ -69,7 +69,9 @@ namespace Analysis {
          * \param current Node from which the method begins the computation
          */
         void compute_usage_rec(Node* current);
-        
+
+        void purge_local_variables(Scope graph_sc, NodeclSet& vars_set);
+
         /*!Recursive method that returns a list with three elements:
          * - The first is the list of upper exposed variables of the graph node;
          * - The second is the list of killed variables of the graph node
@@ -188,7 +190,7 @@ namespace Analysis {
                 const sym_to_nodecl_map& ptr_param_to_arg_map, 
                 Utils::UsageKind usage_kind);
         
-        void propagate_called_func_ref_params_usage_to_func_call(
+        void propagate_called_func_params_usage_to_func_call(
                 const NodeclSet& called_func_usage,
                 const sym_to_nodecl_map& ref_param_to_arg_map,
                 Utils::UsageKind usage_kind);
@@ -282,6 +284,7 @@ namespace Analysis {
     
     NBase simplify_pointer(const NBase& original_variables);
     Nodecl::List simplify_pointers(const Nodecl::List& original_variables);
+    Nodecl::List simplify_arguments(const Nodecl::List& original_args);
     
     NBase split_var_depending_on_usage(NBase container, NBase contained);
     

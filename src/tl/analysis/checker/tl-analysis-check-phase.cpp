@@ -318,9 +318,9 @@ namespace {
             {
                 if (VERBOSE)
                     printf("   Check node %d usage assertion.\n", current->get_id());
-                NodeclSet assert_ue = current->get_assert_ue_vars();
-                NodeclSet assert_killed = current->get_assert_killed_vars();
-                NodeclSet assert_undef = current->get_assert_undefined_behaviour_vars();
+                const NodeclSet& assert_ue = current->get_assert_ue_vars();
+                const NodeclSet& assert_killed = current->get_assert_killed_vars();
+                const NodeclSet& assert_undef = current->get_assert_undefined_behaviour_vars();
                 if (current->is_context_node())
                 {
                     // Consider the case:
@@ -337,13 +337,16 @@ namespace {
                         current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
                     }
                 }
-                NodeclSet ue = current->get_ue_vars();
-                NodeclSet killed = current->get_killed_vars();
-                NodeclSet undef = current->get_undefined_behaviour_vars();
+                const NodeclSet& ue = current->get_ue_vars();
+                const NodeclSet& killed = current->get_killed_vars();
+                const NodeclSet& undef = current->get_undefined_behaviour_vars();
 
-                compare_assert_set_with_analysis_set( assert_ue, ue, locus_str, current->get_id( ), "upper_exposed", "Upper Exposed" );
-                compare_assert_set_with_analysis_set( assert_killed, killed, locus_str, current->get_id( ), "defined", "Killed" );
-                compare_assert_set_with_analysis_set( assert_undef, undef, locus_str, current->get_id( ), "undefined", "Undefined Behavior" );
+                if (current->has_upper_exposed_assertion())
+                    compare_assert_set_with_analysis_set(assert_ue, ue, locus_str, current->get_id(), "upper_exposed", "Upper Exposed");
+                if (current->has_defined_assertion())
+                    compare_assert_set_with_analysis_set(assert_killed, killed, locus_str, current->get_id(), "defined", "Killed");
+                if (current->has_undefined_assertion())
+                    compare_assert_set_with_analysis_set(assert_undef, undef, locus_str, current->get_id(), "undefined", "Undefined Behavior");
             }
 
             // Check Liveness analysis
@@ -351,9 +354,9 @@ namespace {
             {
                 if (VERBOSE)
                     printf("   Check node %d liveness assertion.\n", current->get_id());
-                NodeclSet assert_live_in = current->get_assert_live_in_vars();
-                NodeclSet assert_live_out = current->get_assert_live_out_vars();
-                NodeclSet assert_dead = current->get_assert_dead_vars();
+                const NodeclSet& assert_live_in = current->get_assert_live_in_vars();
+                const NodeclSet& assert_live_out = current->get_assert_live_out_vars();
+                const NodeclSet& assert_dead = current->get_assert_dead_vars();
                 if (current->is_context_node())
                 {
                     // Consider the case:
@@ -370,22 +373,24 @@ namespace {
                         current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
                     }
                 }
-                NodeclSet live_in = current->get_live_in_vars();
-                NodeclSet live_out = current->get_live_out_vars();
+                const NodeclSet& live_in = current->get_live_in_vars();
+                const NodeclSet& live_out = current->get_live_out_vars();
 
-                compare_assert_set_with_analysis_set( assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In" );
-                compare_assert_set_with_analysis_set( assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out" );
+                if (current->has_live_in_assertion())
+                    compare_assert_set_with_analysis_set(assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In");
+                if (current->has_live_out_assertion())
+                    compare_assert_set_with_analysis_set(assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out");
                 // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
-                if (!assert_dead.empty())
+                if (current->has_dead_assertion())
                 {
                     for (NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
                     {
                         if (Utils::nodecl_set_contains_nodecl(*it, live_in))
                         {
-                            internal_error( "%s: Assertion 'dead(%s)' does not fulfill.\n"\
-                                            "Expression '%s' is not Dead at the Entry point of node %d\n",
-                                            locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
-                                            it->prettyprint().c_str(), current->get_id());
+                            internal_error("%s: Assertion 'dead(%s)' does not fulfill.\n"\
+                                           "Expression '%s' is not Dead at the Entry point of node %d\n",
+                                           locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
+                                           it->prettyprint().c_str(), current->get_id());
                         }
                     }
                 }
@@ -396,8 +401,8 @@ namespace {
             {
                 if (VERBOSE)
                     printf("   Check node %d reaching definitions assertion.\n", current->get_id());
-                NodeclMap assert_reach_defs_in = current->get_assert_reaching_definitions_in();
-                NodeclMap assert_reach_defs_out = current->get_assert_reaching_definitions_out();
+                const NodeclMap& assert_reach_defs_in = current->get_assert_reaching_definitions_in();
+                const NodeclMap& assert_reach_defs_out = current->get_assert_reaching_definitions_out();
                 if (current->is_context_node())
                 {
                     // Consider the case:
@@ -414,13 +419,15 @@ namespace {
                         current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
                     }
                 }
-                NodeclMap reach_defs_in = current->get_reaching_definitions_in();
-                NodeclMap reach_defs_out = current->get_reaching_definitions_out();
+                const NodeclMap& reach_defs_in = current->get_reaching_definitions_in();
+                const NodeclMap& reach_defs_out = current->get_reaching_definitions_out();
 
-                compare_assert_map_with_analysis_map( assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ),
-                                                        "reaching_definition_in", "Input Reaching Definitions" );
-                compare_assert_map_with_analysis_map( assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ),
-                                                        "reaching_definition_out", "Output Reaching Definitions" );
+                if (current->has_reach_defs_in_assertion())
+                    compare_assert_map_with_analysis_map(assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ),
+                                                         "reaching_definition_in", "Input Reaching Definitions");
+                if (current->has_reach_defs_out_assertion())
+                    compare_assert_map_with_analysis_map(assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ),
+                                                         "reaching_definition_out", "Output Reaching Definitions");
             }
 
             // Induction Variables
@@ -559,19 +566,22 @@ namespace {
                                 (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
                 Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
 
-                NodeclSet assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
-                NodeclSet assert_autosc_private = current->get_assert_auto_sc_private_vars();
-                NodeclSet assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
-                NodeclSet autosc_firstprivate = task->get_sc_firstprivate_vars();
-                NodeclSet autosc_private = task->get_sc_private_vars();
-                NodeclSet autosc_shared = task->get_sc_shared_vars();
+                const NodeclSet& assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
+                const NodeclSet& assert_autosc_private = current->get_assert_auto_sc_private_vars();
+                const NodeclSet& assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
+                const NodeclSet& autosc_firstprivate = task->get_sc_firstprivate_vars();
+                const NodeclSet& autosc_private = task->get_sc_private_vars();
+                const NodeclSet& autosc_shared = task->get_sc_shared_vars();
 
-                compare_assert_set_with_analysis_set( assert_autosc_firstprivate, autosc_firstprivate,
-                                                      locus_str, task->get_id( ), "auto_sc_firstprivate", "AutoScope Firstprivate" );
-                compare_assert_set_with_analysis_set( assert_autosc_private, autosc_private,
-                                                      locus_str, task->get_id( ), "auto_sc_private", "AutoScope Private" );
-                compare_assert_set_with_analysis_set( assert_autosc_shared, autosc_shared,
-                                                      locus_str, task->get_id( ), "auto_sc_shared", "AutoScope Shared" );
+                if (current->has_autoscope_fp_assertion())
+                    compare_assert_set_with_analysis_set(assert_autosc_firstprivate, autosc_firstprivate,
+                                                         locus_str, task->get_id(), "auto_sc_firstprivate", "AutoScope Firstprivate");
+                if (current->has_autoscope_p_assertion())
+                    compare_assert_set_with_analysis_set(assert_autosc_private, autosc_private,
+                                                         locus_str, task->get_id(), "auto_sc_private", "AutoScope Private");
+                if (current->has_autoscope_s_assertion())
+                    compare_assert_set_with_analysis_set(assert_autosc_shared, autosc_shared,
+                                                         locus_str, task->get_id(), "auto_sc_shared", "AutoScope Shared");
 
             }
 
@@ -611,24 +621,33 @@ namespace {
                 const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
                 const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
                 const Nodecl::List& correctness_race = task->get_true_correctness_race_vars();
-                compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
-                                                       locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
-                compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
-                                                       locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
-                                                       locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
-                                                       locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
-                                                       locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
-                                                       locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
-                                                       locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
-                                                       locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
-                                                       locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
+                if (current->has_correctness_auto_storage_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
+                                                           locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
+                if (current->has_correctness_dead_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
+                                                           locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
+                if (current->has_correctness_incoherent_fp_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
+                                                           locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
+                if (current->has_correctness_incoherent_p_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
+                                                           locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
+                if (current->has_correctness_incoherent_in_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
+                                                           locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
+                if (current->has_correctness_incoherent_in_pointed_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
+                                                           locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
+                if (current->has_correctness_incoherent_out_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
+                                                           locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
+                if (current->has_correctness_incoherent_out_pointed_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
+                                                           locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
+                if (current->has_correctness_race_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
+                                                           locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
             }
             
             // Recursively visit inner nodes

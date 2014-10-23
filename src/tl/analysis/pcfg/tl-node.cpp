@@ -230,22 +230,62 @@ namespace Analysis {
     {
         _id = id;
     }
-    
+
     bool Node::has_usage_assertion() const
     {
-        return (has_key(_ASSERT_UPPER_EXPOSED) || has_key(_ASSERT_KILLED) || has_key(_ASSERT_DEAD));
+        return (has_key(_ASSERT_UPPER_EXPOSED) || has_key(_ASSERT_KILLED) || has_key(_ASSERT_UNDEFINED));
     }
-    
+
+    bool Node::has_upper_exposed_assertion() const
+    {
+        return has_key(_ASSERT_UPPER_EXPOSED);
+    }
+
+    bool Node::has_defined_assertion() const
+    {
+        return has_key(_ASSERT_KILLED);
+    }
+
+    bool Node::has_undefined_assertion() const
+    {
+        return has_key(_ASSERT_UNDEFINED);
+    }
+
     bool Node::has_liveness_assertion() const
     {
-        return (has_key(_ASSERT_LIVE_IN) || has_key(_ASSERT_LIVE_OUT));
+        return (has_key(_ASSERT_LIVE_IN) || has_key(_ASSERT_LIVE_OUT) || has_key(_ASSERT_DEAD));
     }
-    
+
+    bool Node::has_live_in_assertion() const
+    {
+        return has_key(_ASSERT_LIVE_IN);
+    }
+
+    bool Node::has_live_out_assertion() const
+    {
+        return has_key(_ASSERT_LIVE_OUT);
+    }
+
+    bool Node::has_dead_assertion() const
+    {
+        return has_key(_ASSERT_DEAD);
+    }
+
     bool Node::has_reach_defs_assertion() const
     {
         return (has_key(_ASSERT_REACH_DEFS_IN) || has_key(_ASSERT_REACH_DEFS_OUT));
     }
-    
+
+    bool Node::has_reach_defs_in_assertion() const
+    {
+        return has_key(_ASSERT_REACH_DEFS_IN);
+    }
+
+    bool Node::has_reach_defs_out_assertion() const
+    {
+        return has_key(_ASSERT_REACH_DEFS_OUT);
+    }
+
     bool Node::has_induction_vars_assertion() const
     {
         return has_key(_ASSERT_INDUCTION_VARS);
@@ -256,7 +296,22 @@ namespace Analysis {
         return (has_key(_ASSERT_AUTOSC_FIRSTPRIVATE) || has_key(_ASSERT_AUTOSC_PRIVATE) || 
                 has_key(_ASSERT_AUTOSC_SHARED));
     }
+
+    bool Node::has_autoscope_fp_assertion() const
+    {
+        return has_key(_ASSERT_AUTOSC_FIRSTPRIVATE);
+    }
     
+    bool Node::has_autoscope_p_assertion() const
+    {
+        return has_key(_ASSERT_AUTOSC_PRIVATE);
+    }
+
+    bool Node::has_autoscope_s_assertion() const
+    {
+        return has_key(_ASSERT_AUTOSC_SHARED);
+    }
+
     bool Node::has_correctness_assertion() const
     {
         return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
@@ -269,7 +324,52 @@ namespace Analysis {
                 has_key(_ASSERT_CORRECTNESS_RACE_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_DEAD_VARS));
     }
-    
+
+    bool Node::has_correctness_auto_storage_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_fp_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_p_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_in_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_in_pointed_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_out_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+
+    bool Node::has_correctness_incoherent_out_pointed_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+
+    bool Node::has_correctness_race_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_RACE_VARS);
+    }
+
+    bool Node::has_correctness_dead_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+
     bool Node::is_visited( ) const
     {
         return _visited;

@@ -496,6 +496,28 @@ namespace {
         }
     }
 
+    void UseDef::purge_local_variables(Scope graph_sc, NodeclSet& vars_set)
+    {
+        for (NodeclSet::iterator it = vars_set.begin(); it != vars_set.end(); ++it)
+        {
+            const NBase& n = it->no_conv();
+            const NBase& n_base = Utils::get_nodecl_base(n);
+            if (!n_base.is_null())
+            {
+                if (n_base.get_symbol().get_type().is_pointer()
+                        || n_base.get_symbol().get_type().is_array())
+                    continue;
+                const ObjectList<Symbol>& func_params = _graph->get_function_parameters();
+                if (func_params.contains(n_base.get_symbol())
+                        && n_base.get_symbol().get_type().is_any_reference())
+                    continue;
+                Scope var_sc(n_base.get_symbol().get_scope());
+                if (var_sc.scope_is_enclosed_by(graph_sc))
+                    vars_set.erase(*it);
+            }
+        }
+    }
+
     void UseDef::set_graph_node_use_def(Node* current)
     {
         if(current->is_graph_node())
@@ -568,6 +590,18 @@ namespace {
                             }
                         }
                     }
+                }
+                else
+                {   // Purge variables local to the current graph
+                    const Nodecl::NodeclBase ast = current->get_graph_related_ast();
+                    Scope graph_sc(ast.retrieve_context());
+                    purge_local_variables(graph_sc, ue_vars);
+                    purge_local_variables(graph_sc, killed_vars);
+                    purge_local_variables(graph_sc, undef_vars);
+                    purge_local_variables(graph_sc, used_addresses);
+                    purge_local_variables(graph_sc, private_ue_vars);
+                    purge_local_variables(graph_sc, private_killed_vars);
+                    purge_local_variables(graph_sc, private_undef_vars);
                 }
 
                 current->set_ue_var(ue_vars);
@@ -785,7 +819,8 @@ namespace {
 
         // The function called must be analyzed only in case it has not been analyzed previously
         TL::Symbol func_sym = called_sym.get_symbol();
-        Nodecl::List simplified_arguments = simplify_pointers(real_arguments);
+        Nodecl::List simplified_arguments = simplify_arguments(real_arguments);
+        simplified_arguments = simplify_pointers(simplified_arguments);
         if(func_sym.is_valid())
         {   // The called function is not a pointer to function
             const ObjectList<TL::Symbol>& params = func_sym.get_function_parameters();

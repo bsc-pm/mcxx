@@ -78,7 +78,9 @@ namespace Analysis {
             NBase new_n = n.shallow_copy();
             rv.walk(new_n);
             // Set the new values as UseDef information to the current node
-            if (usage_kind._usage_type & Utils::UsageKind::USED)
+            if (new_n.no_conv().is<Nodecl::Reference>())
+                _node->add_used_address(new_n);
+            else if (usage_kind._usage_type & Utils::UsageKind::USED)
                 _node->add_ue_var(simplify_pointer(new_n));
             else if (usage_kind._usage_type & Utils::UsageKind::DEFINED)
                 _node->add_killed_var(simplify_pointer(new_n));
@@ -89,12 +91,12 @@ namespace Analysis {
     
     // This method only accepts #called_func_usage sets of KILLED and UNDEFINED variables (specified by #usage_kind)
     // The UE variables are treated in a different way
-    void UsageVisitor::propagate_called_func_ref_params_usage_to_func_call(
+    void UsageVisitor::propagate_called_func_params_usage_to_func_call(
             const NodeclSet& called_func_usage,
-            const sym_to_nodecl_map& ref_param_to_arg_map,
+            const sym_to_nodecl_map& param_to_arg_map,
             Utils::UsageKind usage_kind)
     {
-        for(NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
+        for (NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
         {
             NBase n = it->no_conv();
             NBase n_base = Utils::get_nodecl_base(n);
@@ -102,10 +104,10 @@ namespace Analysis {
                             "The nodecl base of a nodecl appearing in a usage set must not be null, but base of '%s' is.\n", 
                             n.prettyprint().c_str());
             Symbol s(n_base.get_symbol());
-            if(!n.is<Nodecl::Dereference>() && 
-               (ref_param_to_arg_map.find(s) != ref_param_to_arg_map.end()))
+            if (!n.is<Nodecl::Dereference>()
+                    && (param_to_arg_map.find(s) != param_to_arg_map.end()))
             {   // The usage is of the variable, and not any possible value pointed by the variable
-                NBase replacement = ref_param_to_arg_map.find(s)->second.shallow_copy();
+                NBase replacement = param_to_arg_map.find(s)->second.shallow_copy();
                 sym_to_nodecl_map rename_map; rename_map[s] = replacement;
                 RenameVisitor rv(rename_map);
                 NBase new_n = n.shallow_copy();
@@ -113,7 +115,10 @@ namespace Analysis {
                 if(usage_kind._usage_type & Utils::UsageKind::USED)
                     _node->add_ue_var(new_n);
                 else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                    _node->add_killed_var(new_n);
+                {
+                    if (s.get_type().is_any_reference())
+                        _node->add_killed_var(new_n);
+                }
                 else
                     _node->add_undefined_behaviour_var(new_n);
             }
@@ -204,11 +209,11 @@ namespace Analysis {
         //       Do not take into account pointed values here, we already did it in step
         if (any_parameter_is_reference(called_params))
         {
-            propagate_called_func_ref_params_usage_to_func_call(
+            propagate_called_func_params_usage_to_func_call(
                     called_ue_vars, param_to_arg_map, Utils::UsageKind::USED);
-            propagate_called_func_ref_params_usage_to_func_call(
+            propagate_called_func_params_usage_to_func_call(
                     called_killed_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
-            propagate_called_func_ref_params_usage_to_func_call(
+            propagate_called_func_params_usage_to_func_call(
                     called_undef_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
         }
 
@@ -521,12 +526,9 @@ namespace Analysis {
                     {
                         NBase arg = *ita;
 
-                        if (arg.is<Nodecl::DefaultArgument>())
-                            arg = arg.as<Nodecl::DefaultArgument>().get_argument();
-
                         arg = arg.no_conv();
                         Type par_t = (itp != params.end() ? itp->get_type() : Type());
-                        
+
                         if(arg.is<Nodecl::Symbol>() || arg.is<Nodecl::ArraySubscript>() || arg.is<Nodecl::ClassMemberAccess>())
                         {   // foo(v);
                             // Get the type of the base element
@@ -612,11 +614,11 @@ namespace Analysis {
                                 }
                             }
                         }
-                        else if(arg.is<Nodecl::Reference>())
+                        else if (arg.is<Nodecl::Reference>())
                         {   // foo(&v)
                             NBase arg_referenced = arg.as<Nodecl::Reference>().get_rhs().no_conv();
-                            if(arg_referenced.is<Nodecl::Symbol>() || arg_referenced.is<Nodecl::ArraySubscript>() || 
-                                arg_referenced.is<Nodecl::ClassMemberAccess>())
+                            if (arg_referenced.is<Nodecl::Symbol>() || arg_referenced.is<Nodecl::ArraySubscript>()
+                                    || arg_referenced.is<Nodecl::ClassMemberAccess>())
                             {
                                 // Get the type of the base element
                                 Type arg_t;
@@ -628,12 +630,12 @@ namespace Analysis {
                                     arg_t = arg_referenced.as<Nodecl::ClassMemberAccess>().get_type().no_ref();
                                 
                                 NBase modifiable_arg = arg;
-                                if(arg_t.is_pointer() || arg_t.is_array())
+                                if (arg_t.is_pointer() || arg_t.is_array())
                                 {
                                     NBase arg_points_to;
-                                    if(arg_t.is_pointer())
+                                    if (arg_t.is_pointer())
                                     {   // type* v;
-                                        if(ptr_to_size_map.find(arg_referenced) != ptr_to_size_map.end())
+                                        if (ptr_to_size_map.find(arg_referenced) != ptr_to_size_map.end())
                                         {   // type* v = malloc(...) || type* v = calloc(...)
                                             NBase lb, ub, step;
                                             lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
@@ -665,6 +667,10 @@ namespace Analysis {
                                     }
                                 }
                                 
+                                // The address of a variable cannot be modified
+                                if (modifiable_arg.is<Nodecl::Reference>())
+                                    continue;
+
                                 if((par_t.is_valid() && par_t.is_pointer()) /*void foo(int **v)*/ || 
                                     (!par_t.is_valid()) /*void foo(...);*/)
                                 {
@@ -869,54 +875,7 @@ namespace Analysis {
                         set_ipa_variable_as_defined(n);
                     else
                         set_ipa_variable_as_upwards_exposed(n);
-
-//                     NBase non_used_vars = split_var_depending_on_usage(n_base, n);
-//                     if(non_used_vars.is_null())
-//                     {   // The separation has not been possible => set to UNDEF the whole object
-//                         // If the object is a pointer, then set to UNDEF the object and values pointed by the object
-//                         // Otherwise, set to undef the object itself
-//                         Type t = n_base.get_symbol().get_type();
-//                         if(!t.is_const())
-//                         {   // The object can be modified
-//                             (*_ipa_modif_vars)[n_base] = Utils::UsageKind::UNDEFINED;
-//                         }
-//                         if(t.is_pointer())
-//                         {
-//                             if(!t.points_to().is_const())
-//                             {
-//                                 if(n.no_conv().is<Nodecl::Reference>())
-//                                 {   // No need to dereference a reference!
-//                                     (*_ipa_modif_vars)[n.as<Nodecl::Reference>().get_rhs()] = Utils::UsageKind::UNDEFINED;
-//                                 }
-//                                 else
-//                                 {
-//                                     NBase pointed_value = Nodecl::Dereference::make(n_base.shallow_copy(), 
-//                                                                                                 t.get_pointer_to());
-//                                     (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
-//                                 }
-//                             }
-//                         }
-//                         else if(t.is_array())
-//                         {
-//                             if(!t.array_element().is_const())
-//                             {
-//                                 NBase lb, ub/*, reg_lb, reg_ub*/;
-//                                 t.array_get_bounds(lb, ub);
-//                                 // t.array_get_region_bounds(reg_lb, reg_ub);
-//                                 NBase one = NBase(const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1)));
-//                                 Nodecl::Range range = Nodecl::Range::make(lb.shallow_copy(), ub.shallow_copy(), one, t.array_element());
-//                                 NBase pointed_value = 
-//                                 Nodecl::ArraySubscript::make(n_base.shallow_copy(), Nodecl::List::make(range), t.get_pointer_to());
-//                                 (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
-//                             }
-//                         }
-//                     }
-//                     else
-//                     {   // The separation has been possible: leave one part as it was and the other as DEFINED
-//                         (*_ipa_modif_vars)[non_used_vars] = Utils::UsageKind::UNDEFINED;
-//                         (*_ipa_modif_vars)[n] = Utils::UsageKind::DEFINED;
-//                     }
-    exit:           ;
+exit:               ;
                 }
             }
         }
