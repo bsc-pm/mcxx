@@ -91,7 +91,7 @@ test_CFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} -std=gnu99 ${COMMON_NANOX_CFLA
 test_CXXFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_FFLAGS_nanox_mercurium="${PROGRAMMING_MODEL}"
 
-test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_mercurium="@abs_top_builddir@/lib/perish.o"
 
 EOF
 
@@ -104,7 +104,7 @@ IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imcc"
 test_CC_nanox_imcc="\${IMCC}"
 test_CFLAGS_nanox_imcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_imcc="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
 
@@ -115,7 +115,7 @@ XLMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/te
 compile_versions="\${compile_versions} nanox_xlmcc"
 test_CC_nanox_xlmcc="\${XLMCC}"
 test_CFLAGS_nanox_xlmcc="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_LDFLAGS_nanox_xlmcc="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_xlmcc="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
 fi
@@ -129,7 +129,7 @@ IMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/te
 compile_versions="\${compile_versions} nanox_imcxx"
 test_CXX_nanox_imcxx="\${IMCXX}"
 test_CXXFLAGS_nanox_imcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_LDFLAGS_nanox_imcxx="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_imcxx="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
 
@@ -140,7 +140,7 @@ XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/t
 compile_versions="\${compile_versions} nanox_xlmcxx"
 test_CXX_nanox_xlmcxx="\${XLMCXX}"
 test_CXXFLAGS_nanox_xlmcxx="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_LDFLAGS_nanox_xlmcxx="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_xlmcxx="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
 fi
@@ -154,7 +154,7 @@ IMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tes
 compile_versions="\${compile_versions} nanox_imfc"
 test_FC_nanox_imfc="\${IMFC}"
 test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL}"
-test_LDFLAGS_nanox_imfc="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_imfc="@abs_top_builddir@/lib/perish.o"
 test_ENV_nanox_imfc="FOR_IGNORE_EXCEPTIONS=1"
 EOF
   fi
@@ -166,7 +166,7 @@ XLMFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/te
 compile_versions="\${compile_versions} nanox_xlmfc"
 test_FC_nanox_xlmfc="\${XLMFC}"
 test_FFLAGS_nanox_xlmfc="${PROGRAMMING_MODEL}"
-test_LDFLAGS_nanox_xlmfc="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_xlmfc="@abs_top_builddir@/lib/perish.o"
 EOF
   fi
 fi
@@ -185,7 +185,7 @@ test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_mercurium} --instrument"
 test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_mercurium} --instrument"
 test_FFLAGS_nanox_instrument="\${test_FFLAGS_nanox_mercurium} --instrument"
 
-test_LDFLAGS_nanox_instrument="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_instrument="@abs_top_builddir@/lib/perish.o"
 EOF
 
 fi
