@@ -32,6 +32,11 @@
 
 namespace SymbolUtils
 {
+    // This function returns a new almost empty function symbol
+    TL::Symbol new_function_symbol_for_deep_copy(
+            TL::Symbol source,
+            std::string new_symbol_name);
+
     TL::Symbol new_function_symbol(
             TL::Symbol function,
             const std::string& name);

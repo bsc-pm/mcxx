@@ -33,6 +33,25 @@
 
 namespace SymbolUtils
 {
+    TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string name)
+    {
+        decl_context_t decl_context = source.get_scope().get_decl_context();
+        decl_context_t function_context;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+
+        TL::Symbol dest = TL::Scope(function_context).new_symbol(name);
+        dest.get_internal_symbol()->kind = SK_FUNCTION;
+        return dest;
+    }
+
     TL::Symbol new_function_symbol(
             TL::Symbol function,
             const std::string& name)
