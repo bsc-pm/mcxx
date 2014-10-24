@@ -469,13 +469,14 @@ namespace {
             return _dependecy_size;
         }
 
-        void collect_condition_info(Node* n, const NBase& cond_expr, bool is_source)
+        void collect_condition_info(TDG_Node* n, const NBase& cond_expr, bool is_source)
         {
             // 1.- Get all the variables involved in cond_expr
             NodeclList tmp = Nodecl::Utils::get_all_memory_accesses(cond_expr);
             std::queue<NBase, std::deque<NBase> > vars(std::deque<NBase>(tmp.begin(), tmp.end()));
 
             // 2.- For each variable involved in the condition, gather its values
+            Node* pcfg_n = n->get_pcfg_node();
             NodeclSet already_treated;
             while (!vars.empty())
             {
@@ -483,30 +484,56 @@ namespace {
                 NBase v = vars.front();
                 vars.pop();
 
-                // 2.2.- Make sure we have some value for the variable
-                NBase values = n->get_range(v);
-                ERROR_CONDITION(values.is_null(),
-                                "No range computed in node %d for variable '%s', in condition's %s expression '%s'.\n",
-                                n->get_id(), v.prettyprint().c_str(), (is_source ? "LHS" : "RHS"), cond_expr.prettyprint().c_str());
+                // 2.2.- Compute the value(s) of the variable
+                NBase values;
 
-                // 2.3.- Store the variable so we do not treat it again (to avoid recursive definitions)
-                if (already_treated.find(v) == already_treated.end())
-                    already_treated.insert(v);
-
-                // 2.4.- Add to 'vars' all the symbols involved in 'values' that has not yet been treated
-                NodeclSet to_treat;
-                tmp = Nodecl::Utils::get_all_memory_accesses(values);
-                for (NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
+                // 2.2.1.- First check whether this is an induction variable of any loop enclosing the task
+                const ControlStList& cs_list = n->get_control_structures();
+                for (ControlStList::const_iterator it = cs_list.begin(); it != cs_list.end(); ++it)
                 {
-                    NBase var = *itt;
-                    if ((already_treated.find(var) == already_treated.end())
-                        && (to_treat.find(var) == to_treat.end()))
+                    ControlStructure* cs = it->first;
+                    if(cs->get_type() == Loop)
                     {
-                        vars.push(var);
-                        to_treat.insert(var);
+                        Utils::InductionVarList ivs = cs->get_pcfg_node()->get_induction_variables();
+                        if(Utils::induction_variable_list_contains_variable(ivs, v))
+                        {   // The variable is an IV
+                            WARNING_MESSAGE("Retrieving values for variable %s in node %d which is the IV of loop %d."
+                                            "This is not yet implemented. We set the offset '0' by default.\n",
+                                            v.prettyprint().c_str(), pcfg_n->get_id(), cs->get_pcfg_node()->get_id());
+                            values = Nodecl::IntegerLiteral::make(Type::get_int_type(), const_value_get_zero(/* bytes */ 4, /* signed */ 1));
+                            goto insert_values;
+                        }
                     }
                 }
 
+                // 2.2.2.- The variable is not an induction variable. Retrieve values from range analysis
+                {
+                    // 2.2.2.1.-  Make sure we have some value for the variable
+                    values = pcfg_n->get_range(v);
+                    ERROR_CONDITION(values.is_null(),
+                                    "No range computed in node %d for variable '%s', in condition's %s expression '%s'.\n",
+                                    pcfg_n->get_id(), v.prettyprint().c_str(), (is_source ? "LHS" : "RHS"), cond_expr.prettyprint().c_str());
+
+                    // 2.2.2.2.- Store the variable so we do not treat it again (to avoid recursive definitions)
+                    if (already_treated.find(v) == already_treated.end())
+                        already_treated.insert(v);
+
+                    // 2.2.2.3.- Add to 'vars' all the symbols involved in 'values' that has not yet been treated
+                    NodeclSet to_treat;
+                    tmp = Nodecl::Utils::get_all_memory_accesses(values);
+                    for (NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
+                    {
+                        NBase var = *itt;
+                        if ((already_treated.find(var) == already_treated.end())
+                            && (to_treat.find(var) == to_treat.end()))
+                        {
+                            vars.push(var);
+                            to_treat.insert(var);
+                        }
+                    }
+                }
+
+insert_values:
                 // 2.5.- Store the reaching definition related with the identifier of the variable defined
                 if (is_source)
                     _source_var_to_value_map[v] = values.prettyprint();
@@ -562,8 +589,7 @@ namespace {
                 _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, t);
             
             // Transform the variables of the inequality into its corresponding identifiers
-            Node* source = _edge->get_source()->get_pcfg_node();
-            collect_condition_info(source, lhs, /*is_source*/true);
+            collect_condition_info(_edge->get_source(), lhs, /*is_source*/true);
             return (lhs.prettyprint() + " != ∅");
         }
         
@@ -583,10 +609,8 @@ namespace {
                 _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, lhs.get_type());
             
             // Recursively call with the LHS and RHS of the condition
-            Node* source = _edge->get_source()->get_pcfg_node();
-            collect_condition_info(source, lhs, /*is_source*/true);
-            Node* target = _edge->get_target()->get_pcfg_node();
-            collect_condition_info(target, rhs, /*is_source*/false);
+            collect_condition_info(_edge->get_source(), lhs, /*is_source*/true);
+            collect_condition_info(_edge->get_target(), rhs, /*is_source*/false);
             return (lhs.prettyprint() + " == " + rhs.prettyprint());
         }
         
@@ -594,9 +618,16 @@ namespace {
         {
             std::string lhs_result = walk(n.get_lhs());
             std::string rhs_result = walk(n.get_rhs());
-            return (lhs_result + " && " + rhs_result);
+            return ("(" + lhs_result + ") && (" + rhs_result + ")");
         }
-        
+
+        std::string visit(const Nodecl::LogicalOr& n)
+        {
+            std::string lhs_result = walk(n.get_lhs());
+            std::string rhs_result = walk(n.get_rhs());
+            return ("(" + lhs_result + ") || (" + rhs_result + ")");
+        }
+
         std::string visit(const Nodecl::Analysis::RangeIntersection& n)
         {
             std::string lhs_result = walk(n.get_lhs());
@@ -622,15 +653,17 @@ namespace {
             while (init != std::string::npos)
             {
                 // check whether this occurrence belongs to the LHS or the RHS of the condition
+                size_t tmp_or = cond.find("||", init);
                 size_t tmp_and = cond.find("&&", init);
+                size_t min_op = (tmp_or < tmp_and ? tmp_or : tmp_and);
                 size_t tmp_eq = cond.find("==", init);
-                if ((is_source && (tmp_eq < tmp_and))
-                        || (!is_source && ((tmp_and < tmp_eq) || (tmp_and == std::string::npos))))
+                if ((is_source && (tmp_eq < min_op))
+                        || (!is_source && ((min_op < tmp_eq) || (min_op == std::string::npos))))
                 {   // It is a LHS occurrence => replace
                     cond.replace(init, var.size(), ss.str());
                 }
                 // prepare the next iteration
-                init = cond.find(var, tmp_and);
+                init = cond.find(var, min_op);
             }
 
             var_to_id_map[it->first] = id;
