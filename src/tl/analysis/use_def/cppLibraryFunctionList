@@ -1,0 +1,297 @@
+/*! Set of functions in C++ LIBRARIES that:
+ * - do not modify any global variable
+ * - reference parameters are never modified
+ * - pointer parameters are never modified ( the value they point to may be modified )
+ *
+ * The syntax in this file is the following:
+ * __attribute__((list_of_attributes))
+ * function_declaration
+ * where the items in 'list_of_attributes' can be one of the following:
+ * - analysis_ue(list_of_expressions_being_upwards_exposed)
+ * - analysis_def(list_of_expressions_being_defined)
+ * - analysis_void() -> no variable in use
+ */
+
+
+
+// ****************************************************************** //
+// ****************************** MATH ****************************** //
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double abs (double x);
+__attribute__((analysis_ue(x)))
+float abs (float x);
+__attribute__((analysis_ue(x)))
+long double abs (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double acos (double x);
+__attribute__((analysis_ue(x)))
+float acos (float x);
+__attribute__((analysis_ue(x)))
+long double acos (long double x);
+
+// C++11
+__attribute__((analysis_ue(x)))
+float acosh (float x);
+__attribute__((analysis_ue(x)))
+long double acosh (long double x);
+__attribute__((analysis_ue(x)))
+double acosh (double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double asin (double x);
+__attribute__((analysis_ue(x)))
+float asin (float x);
+__attribute__((analysis_ue(x)))
+long double asin (long double x);
+
+// C++11
+__attribute__((analysis_ue(x)))
+double asinh (double x);
+__attribute__((analysis_ue(x)))
+float asinh (float x);
+__attribute__((analysis_ue(x)))
+long double asinh (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double atan (double x);
+__attribute__((analysis_ue(x)))
+float atan (float x);
+__attribute__((analysis_ue(x)))
+long double atan (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double atan2 (double x);
+__attribute__((analysis_ue(x)))
+float atan2 (float x);
+__attribute__((analysis_ue(x)))
+long double atan2 (long double x);
+
+// C++11
+__attribute__((analysis_ue(x)))
+double atanh (double x);
+__attribute__((analysis_ue(x)))
+float atanh (float x);
+__attribute__((analysis_ue(x)))
+long double atanh (long double x);
+
+// C++11
+__attribute__((analysis_ue(x)))
+double cbrt (double x);
+__attribute__((analysis_ue(x)))
+float cbrt (float x);
+__attribute__((analysis_ue(x)))
+long double cbrt (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double ceil (double x);
+__attribute__((analysis_ue(x)))
+float ceil (float x);
+__attribute__((analysis_ue(x)))
+long double ceil (long double x);
+
+// C++11
+__attribute__((analysis_ue(x, y)))
+double copysign (double x, double y);
+__attribute__((analysis_ue(x, y)))
+float copysign (float x, float y);
+__attribute__((analysis_ue(x, y)))
+long double copysign (long double x, long double y);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double cos (double x);
+__attribute__((analysis_ue(x)))
+float cos (float x);
+__attribute__((analysis_ue(x)))
+long double cos (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double cosh (double x);
+__attribute__((analysis_ue(x)))
+float cosh (float x);
+__attribute__((analysis_ue(x)))
+long double cosh (long double x);
+
+// C++11
+__attribute__((analysis_ue(x)))
+double erf (double x);
+__attribute__((analysis_ue(x)))
+float erf (float x);
+__attribute__((analysis_ue(x)))
+long double erf (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double exp (double x);
+__attribute__((analysis_ue(x)))
+float exp (float x);
+__attribute__((analysis_ue(x)))
+long double exp (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double exp2 (double x);
+__attribute__((analysis_ue(x)))
+float exp2 (float x);
+__attribute__((analysis_ue(x)))
+long double exp2 (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double log (double x);
+__attribute__((analysis_ue(x)))
+float log (float x);
+__attribute__((analysis_ue(x)))
+long double log (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double log10 (double x);
+__attribute__((analysis_ue(x)))
+float log10 (float x);
+__attribute__((analysis_ue(x)))
+long double log10 (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double pow (double x);
+__attribute__((analysis_ue(x)))
+float pow (float x);
+__attribute__((analysis_ue(x)))
+long double pow (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double sin (double x);
+__attribute__((analysis_ue(x)))
+float sin (float x);
+__attribute__((analysis_ue(x)))
+long double sin (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double sinh (double x);
+__attribute__((analysis_ue(x)))
+float sinh (float x);
+__attribute__((analysis_ue(x)))
+long double sinh (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double sqrt (double x);
+__attribute__((analysis_ue(x)))
+float sqrt (float x);
+__attribute__((analysis_ue(x)))
+long double sqrt (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double tan (double x);
+__attribute__((analysis_ue(x)))
+float tan (float x);
+__attribute__((analysis_ue(x)))
+long double tan (long double x);
+
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double tanh (double x);
+__attribute__((analysis_ue(x)))
+float tanh (float x);
+__attribute__((analysis_ue(x)))
+long double tanh (long double x);
+
+// ****************************** MATH ****************************** //
+// ****************************************************************** //
+
+
+// ****************************************************************** //
+// ***************************** STDLIB ***************************** //
+
+// C++11
+__attribute__((analysis_void))
+void abort (void);
+
+// C++98, C++11
+__attribute__((analysis_ue(n)))
+int abs (int n);
+
+// C++98
+__attribute__((analysis_ue(n)))
+long int abs (long int n);
+// C++98
+__attribute__((analysis_ue(n)))
+long long int abs (long long int n);
+
+__attribute__((analysis_ue(str, *str)))
+long double atof (const char* str);
+__attribute__((analysis_ue(str, *str)))
+int atoi (const char* str);
+__attribute__((analysis_ue(str, *str)))
+long int atol (const char* str);
+__attribute__((analysis_ue(str, *str)))
+long long int atoll (const char* str);
+
+__attribute__((analysis_ue(num, size)))
+void* calloc (size_t num, size_t size);
+
+__attribute__((analysis_void))
+void exit (int);
+
+__attribute__((analysis_ue(ptr)))
+void free (void* ptr);
+
+__attribute__((analysis_ue(size)))
+void* malloc (size_t size);
+
+__attribute__((analysis_ue(base, num, size), analysis_def(base[0:num-1])))
+void qsort (void* base, size_t num, size_t size, int (*compar)(const void*,const void*));
+
+__attribute__((analysis_ue(ptr, size)))
+void* realloc (void * ptr, size_t size);
+
+// ***************************** STDLIB ***************************** //
+// ****************************************************************** //
+
+
+// ****************************************************************** //
+// ***************************** STRING ***************************** //
+
+__attribute__((analysis_ue(*str)))
+size_t strlen (const char * str);
+
+__attribute__((analysis_ue(source, destination, num, source[0:num-1]), analysis_def(destination[0:num-1])))
+char* strncpy (char * destination, const char * source, size_t num);
+
+// ***************************** STRING ***************************** //
+// ****************************************************************** //
+
+
+// ****************************************************************** //
+// ***************************** STDIO ****************************** //
+
+__attribute__((analysis_ue(filename, *filename)))
+int remove (const char * filename);
+
+__attribute__((analysis_ue(old_name, *old_name, new_name, *new_name)))
+int rename ( const char * old_name, const char * new_name);
+
+// __attribute__((analysis_ue(stream, format, *format), analysis_def(*stream)))
+// int fprintf ( FILE * stream, const char * format, ... );
+
+__attribute__((analysis_ue(format, *format)))
+int printf ( const char * format, ... );
+
+// __attribute__((analysis_ue(stream, stream[0:num-1], str), analysis_def(str[0:num-1])))
+// char* fgets ( char * str, int num, FILE * stream );
+
+// ***************************** STDIO ****************************** //
+// ****************************************************************** //

@@ -1132,42 +1132,6 @@ namespace TL
 
             Symbol function_sym = construct.get_symbol();
 
-            if (function_sym.is_member()
-                    && !function_sym.is_static())
-            {
-                TL::Symbol this_symbol = parsing_scope.get_symbol_from_name("this");
-                if (!this_symbol.is_valid())
-                {
-                    // In some cases the symbol 'this is not available. This happens
-                    // if the function had not been defined
-                    //
-                    // Example:
-                    //
-                    //  struct X
-                    //  {
-                    //      char var[10];
-                    //
-                    //      #pragma omp task inout(var[i])
-                    //      void foo(int i);
-                    //  };
-                    //  void X::foo(int j) { var[j]++; }
-                    //
-                    // We create a new prototype scope to register "this" this
-                    // way we do not pollute the class scope (prototypes can be
-                    // nested)
-                    parsing_scope = TL::Scope(new_prototype_context(parsing_scope.get_decl_context()));
-                    this_symbol = parsing_scope.new_symbol("this");
-
-                    Type pointed_this = function_sym.get_class_type();
-                    Type this_type = pointed_this.get_pointer_to().get_const_type();
-
-                    this_symbol.get_internal_symbol()->type_information = this_type.get_internal_type();
-                    this_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                    this_symbol.get_internal_symbol()->defined = 1;
-                    this_symbol.get_internal_symbol()->do_not_print = 1;
-                }
-            }
-
             PragmaCustomClause input_clause = pragma_line.get_clause("in",
                     /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;

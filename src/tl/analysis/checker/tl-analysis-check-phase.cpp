@@ -36,8 +36,6 @@ namespace TL {
 namespace Analysis {
 
 namespace {
-
-    const std::string analysis_none_sym_name = "__ANALYSIS_NONE__";
     
     NBase get_nodecl_from_string(std::string str, ReferenceScope sc)
     {
@@ -160,45 +158,40 @@ namespace {
         }
     }
 
-    void compare_assert_set_with_analysis_set(const NodeclSet& assert_set, const NodeclSet& analysis_set,
-                                               std::string locus_str, int node_id,
-                                               std::string clause_name, std::string analysis_name )
+    void compare_assert_set_with_analysis_set(
+            const NodeclSet& assert_set,
+            const NodeclSet& analysis_set,
+            std::string locus_str,
+            int node_id,
+            std::string clause_name,
+            std::string analysis_name)
     {
-        if( !assert_set.empty( ) )
+        size_t assert_set_size = assert_set.size();
+        size_t analysis_set_size = analysis_set.size();
+        if (assert_set_size != analysis_set_size)
         {
-            if((assert_set.size() == 1) && 
-               (assert_set.begin()->is<Nodecl::Symbol>()) && 
-               (assert_set.begin()->get_symbol().get_name()==analysis_none_sym_name))
+            internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                           "because analysis %s for node %d has computed set (%s).\n",
+                           locus_str.c_str(),
+                           clause_name.c_str(),
+                           Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
+                           analysis_name.c_str(),
+                           node_id,
+                           Utils::prettyprint_nodecl_set(analysis_set, /*dot*/ false).c_str());
+        }
+        else
+        {
+            NodeclSet diff = Utils::nodecl_set_difference(assert_set, analysis_set);
+            if (!diff.empty())
             {
-                if(!analysis_set.empty())
-                {
-                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                   "There should not be %s variables associated to node %d\n",
-                                   locus_str.c_str( ),
-                                   clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
-                                   analysis_name.c_str( ), node_id );
-                }
-            }
-            else if( analysis_set.empty( ) )
-            {
-                internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                "There are no %s variables associated to node %d\n",
-                                locus_str.c_str( ),
-                                clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
-                                analysis_name.c_str( ), node_id );
-            }
-            else
-            {
-                NodeclSet diff = Utils::nodecl_set_difference(assert_set, analysis_set);
-                if( !diff.empty( ) )
-                {
-                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "Expressions '%s' are no %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
-                                    Utils::prettyprint_nodecl_set(diff, /*dot*/ false).c_str(),
-                                    analysis_name.c_str( ), node_id );
-                }
+                internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                               "Expressions '%s' are no %s variables associated to node %d\n",
+                               locus_str.c_str(),
+                               clause_name.c_str(),
+                               Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
+                               Utils::prettyprint_nodecl_set(diff, /*dot*/ false).c_str(),
+                               analysis_name.c_str(),
+                               node_id);
             }
         }
     }
@@ -264,70 +257,54 @@ namespace {
     }
     
     void compare_assert_list_with_analysis_list(
-            const Nodecl::List& assert_list, const Nodecl::List& analysis_list,
-            std::string locus_str, int node_id,
-            std::string clause_name, std::string analysis_name)
+            const Nodecl::List& assert_list,
+            const Nodecl::List& analysis_list,
+            std::string locus_str,
+            int node_id,
+            std::string clause_name,
+            std::string analysis_name)
     {
-        if(assert_list.size() != analysis_list.size())
+        size_t assert_list_size = assert_list.size();
+        size_t analysis_list_size = analysis_list.size();
+        if (assert_list_size != analysis_list_size)
         {
-            std::string assert_list_str = (assert_list.empty() ? "null" : assert_list.prettyprint());
-            internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                            "The number of %s variables associated to node %d is not the same as in the assert list\n",
-                            locus_str.c_str( ),
-                            clause_name.c_str( ), assert_list_str.c_str(),
-                            analysis_name.c_str( ), node_id );
+            std::string assert_list_str = (assert_list.empty() ? "" : assert_list.prettyprint());
+            std::string analysis_list_str = (analysis_list.empty() ? "" : analysis_list.prettyprint());
+            internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"
+                           "because analysis %s for node %d has computed set (%s).\n",
+                           locus_str.c_str(),
+                           clause_name.c_str(),
+                           assert_list_str.c_str(),
+                           analysis_name.c_str(),
+                           node_id,
+                           analysis_list_str.c_str());
         }
         else
         {
-            if(!assert_list.empty())
+            Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
+            if (!diff.empty())
             {
-                if((assert_list.size() == 1) &&
-                (assert_list.begin()->is<Nodecl::Symbol>()) &&
-                (assert_list.begin()->get_symbol().get_name()==analysis_none_sym_name))
-                {
-                    if(!analysis_list.empty())
-                    {
-                        internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "There are %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                    analysis_name.c_str( ), node_id );
-                    }
-                }
-                else if(analysis_list.empty())
-                {
-                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "There are no %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                    analysis_name.c_str( ), node_id );
-                }
-                else
-                {
-                    Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
-                    if( !diff.empty( ) )
-                    {
-                        internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                        "Expressions '%s' are no %s variables associated to node %d\n",
-                                        locus_str.c_str( ),
-                                        clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                        diff.prettyprint().c_str(),
-                                        analysis_name.c_str( ), node_id );
-                    }
-                }
+                internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                               "Expressions '%s' are no %s variables associated to node %d\n",
+                               locus_str.c_str(),
+                               clause_name.c_str(),
+                               assert_list.prettyprint().c_str(),
+                               diff.prettyprint().c_str(),
+                               analysis_name.c_str(),
+                               node_id);
             }
         }
     }
     
-    void check_assertions_rec( Node* current )
+    void check_assertions_rec(Node* current)
     {
-        if( !current->is_visited( ) )
+        if (!current->is_visited())
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
             // Treat current node
             std::string locus_str = "";
-            if( current->is_graph_node( ) )
+            if (current->is_graph_node())
                 locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
             {
@@ -337,70 +314,127 @@ namespace {
             }
 
             // Check UseDef analysis
-            if( current->has_usage_assertion( ) )
+            if (current->has_usage_assertion())
             {
-                NodeclSet assert_ue = current->get_assert_ue_vars();
-                NodeclSet assert_killed = current->get_assert_killed_vars();
-                NodeclSet assert_undef = current->get_assert_undefined_behaviour_vars();
-                if (current->is_omp_task_creation_node())
-                    current = ExtensibleGraph::get_task_from_task_creation(current);
-                NodeclSet ue = current->get_ue_vars();
-                NodeclSet killed = current->get_killed_vars();
-                NodeclSet undef = current->get_undefined_behaviour_vars();
+                if (VERBOSE)
+                    printf("   Check node %d usage assertion.\n", current->get_id());
+                const NodeclSet& assert_ue = current->get_assert_ue_vars();
+                const NodeclSet& assert_killed = current->get_assert_killed_vars();
+                const NodeclSet& assert_undef = current->get_assert_undefined_behaviour_vars();
+                if (current->is_context_node())
+                {
+                    // Consider the case:
+                    //      #pragma analysis_check assert
+                    //      #pragma omp task
+                    // -> Context
+                    //       |_____ Entry
+                    //       |______Task Creation
+                    //       |______Exit
+                    // Although it could also contain any other nodes inside the context
+                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                    if (first_inner_node->is_omp_task_creation_node())
+                    {
+                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                    }
+                }
+                const NodeclSet& ue = current->get_ue_vars();
+                const NodeclSet& killed = current->get_killed_vars();
+                const NodeclSet& undef = current->get_undefined_behaviour_vars();
 
-                compare_assert_set_with_analysis_set( assert_ue, ue, locus_str, current->get_id( ), "upper_exposed", "Upper Exposed" );
-                compare_assert_set_with_analysis_set( assert_killed, killed, locus_str, current->get_id( ), "defined", "Killed" );
-                compare_assert_set_with_analysis_set( assert_undef, undef, locus_str, current->get_id( ), "undefined", "Undefined Behavior" );
+                if (current->has_upper_exposed_assertion())
+                    compare_assert_set_with_analysis_set(assert_ue, ue, locus_str, current->get_id(), "upper_exposed", "Upper Exposed");
+                if (current->has_defined_assertion())
+                    compare_assert_set_with_analysis_set(assert_killed, killed, locus_str, current->get_id(), "defined", "Killed");
+                if (current->has_undefined_assertion())
+                    compare_assert_set_with_analysis_set(assert_undef, undef, locus_str, current->get_id(), "undefined", "Undefined Behavior");
             }
 
             // Check Liveness analysis
-            if( current->has_liveness_assertion( ) )
+            if (current->has_liveness_assertion())
             {
-                NodeclSet assert_live_in = current->get_assert_live_in_vars();
-                NodeclSet assert_live_out = current->get_assert_live_out_vars();
-                NodeclSet assert_dead = current->get_assert_dead_vars();
-                if (current->is_omp_task_creation_node())
-                    current = ExtensibleGraph::get_task_from_task_creation(current);
-                NodeclSet live_in = current->get_live_in_vars();
-                NodeclSet live_out = current->get_live_out_vars();
-
-                compare_assert_set_with_analysis_set( assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In" );
-                compare_assert_set_with_analysis_set( assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out" );
-                // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
-                if( !assert_dead.empty( ) )
+                if (VERBOSE)
+                    printf("   Check node %d liveness assertion.\n", current->get_id());
+                const NodeclSet& assert_live_in = current->get_assert_live_in_vars();
+                const NodeclSet& assert_live_out = current->get_assert_live_out_vars();
+                const NodeclSet& assert_dead = current->get_assert_dead_vars();
+                if (current->is_context_node())
                 {
-                    for(NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
+                    // Consider the case:
+                    //      #pragma analysis_check assert
+                    //      #pragma omp task
+                    // -> Context
+                    //       |_____ Entry
+                    //       |______Task Creation
+                    //       |______Exit
+                    // Although it could also contain any other nodes inside the context
+                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                    if (first_inner_node->is_omp_task_creation_node())
                     {
-                        if(Utils::nodecl_set_contains_nodecl(*it, live_in))
+                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                    }
+                }
+                const NodeclSet& live_in = current->get_live_in_vars();
+                const NodeclSet& live_out = current->get_live_out_vars();
+
+                if (current->has_live_in_assertion())
+                    compare_assert_set_with_analysis_set(assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In");
+                if (current->has_live_out_assertion())
+                    compare_assert_set_with_analysis_set(assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out");
+                // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
+                if (current->has_dead_assertion())
+                {
+                    for (NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
+                    {
+                        if (Utils::nodecl_set_contains_nodecl(*it, live_in))
                         {
-                            internal_error( "%s: Assertion 'dead(%s)' does not fulfill.\n"\
-                                            "Expression '%s' is not Dead at the Entry point of node %d\n",
-                                            locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
-                                            it->prettyprint().c_str(), current->get_id());
+                            internal_error("%s: Assertion 'dead(%s)' does not fulfill.\n"\
+                                           "Expression '%s' is not Dead at the Entry point of node %d\n",
+                                           locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
+                                           it->prettyprint().c_str(), current->get_id());
                         }
                     }
                 }
             }
 
             // Check Reaching Definitions analysis
-            if( current->has_reach_defs_assertion( ) )
+            if (current->has_reach_defs_assertion())
             {
-                NodeclMap assert_reach_defs_in = current->get_assert_reaching_definitions_in();
-                NodeclMap assert_reach_defs_out = current->get_assert_reaching_definitions_out();
-                if (current->is_omp_task_creation_node())
-                    current = ExtensibleGraph::get_task_from_task_creation(current);
-                NodeclMap reach_defs_in = current->get_reaching_definitions_in();
-                NodeclMap reach_defs_out = current->get_reaching_definitions_out();
+                if (VERBOSE)
+                    printf("   Check node %d reaching definitions assertion.\n", current->get_id());
+                const NodeclMap& assert_reach_defs_in = current->get_assert_reaching_definitions_in();
+                const NodeclMap& assert_reach_defs_out = current->get_assert_reaching_definitions_out();
+                if (current->is_context_node())
+                {
+                    // Consider the case:
+                    //      #pragma analysis_check assert
+                    //      #pragma omp task
+                    // -> Context
+                    //       |_____ Entry
+                    //       |______Task Creation
+                    //       |______Exit
+                    // Although it could also contain any other nodes inside the context
+                    Node* first_inner_node = current->get_graph_entry_node()->get_children()[0];
+                    if (first_inner_node->is_omp_task_creation_node())
+                    {
+                        current = ExtensibleGraph::get_task_from_task_creation(first_inner_node);
+                    }
+                }
+                const NodeclMap& reach_defs_in = current->get_reaching_definitions_in();
+                const NodeclMap& reach_defs_out = current->get_reaching_definitions_out();
 
-                compare_assert_map_with_analysis_map( assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ),
-                                                        "reaching_definition_in", "Input Reaching Definitions" );
-                compare_assert_map_with_analysis_map( assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ),
-                                                        "reaching_definition_out", "Output Reaching Definitions" );
+                if (current->has_reach_defs_in_assertion())
+                    compare_assert_map_with_analysis_map(assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ),
+                                                         "reaching_definition_in", "Input Reaching Definitions");
+                if (current->has_reach_defs_out_assertion())
+                    compare_assert_map_with_analysis_map(assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ),
+                                                         "reaching_definition_out", "Output Reaching Definitions");
             }
 
             // Induction Variables
             if (current->has_induction_vars_assertion())
             {
+                if (VERBOSE)
+                    printf("   Check node %d induction variables assertion.\n", current->get_id());
                 Utils::InductionVarList assert_induction_vars = current->get_assert_induction_vars();
                 // 'current' is the context created by the checking pragma -> get the inner loop node
                 Node* inner_loop = current->get_graph_entry_node()->get_children()[0];
@@ -505,7 +539,7 @@ namespace {
                 }
                 else
                 {
-                    if(!assert_induction_vars.empty())
+                    if (!assert_induction_vars.empty())
                     {
                         WARNING_MESSAGE("%s: warning: #pragma analysis_check assert induction_variables is only used "
                                         "when associated with a loop structure. Ignoring it when associated with any other statement.",
@@ -515,40 +549,60 @@ namespace {
             }
 
             // Auto-scoping
-            if( current->has_autoscope_assertion( ) )
+            if (current->has_autoscope_assertion())
             {
-                // Autoscope is particular because the computed auto-scope is not in the current node (the task creation node),
-                // but in his task child node, which is the actual task
-                ObjectList<Node*> children = current->get_children( );
-                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least, 1 child, the created task, "\
-                                 "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
-                                 "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
-                NodeclSet assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
-                NodeclSet assert_autosc_private = current->get_assert_auto_sc_private_vars();
-                NodeclSet assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
-                Node* task = ExtensibleGraph::get_task_from_task_creation(current);
-                NodeclSet autosc_firstprivate = task->get_sc_firstprivate_vars();
-                NodeclSet autosc_private = task->get_sc_private_vars();
-                NodeclSet autosc_shared = task->get_sc_shared_vars();
+                if (VERBOSE)
+                    printf("   Check node %d auto-scope assertion.\n", current->get_id());
+                // Context
+                //    |_____ Entry
+                //    |______Task Creation
+                //    |______Exit
+                ERROR_CONDITION(!current->is_context_node(),
+                                "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
+                                (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
+                Node* task_creation = current->get_graph_entry_node()->get_children()[0];
+                ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
+                                "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
+                                (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
+                Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
 
-                compare_assert_set_with_analysis_set( assert_autosc_firstprivate, autosc_firstprivate,
-                                                      locus_str, task->get_id( ), "auto_sc_firstprivate", "AutoScope Firstprivate" );
-                compare_assert_set_with_analysis_set( assert_autosc_private, autosc_private,
-                                                      locus_str, task->get_id( ), "auto_sc_private", "AutoScope Private" );
-                compare_assert_set_with_analysis_set( assert_autosc_shared, autosc_shared,
-                                                      locus_str, task->get_id( ), "auto_sc_shared", "AutoScope Shared" );
+                const NodeclSet& assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
+                const NodeclSet& assert_autosc_private = current->get_assert_auto_sc_private_vars();
+                const NodeclSet& assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
+                const NodeclSet& autosc_firstprivate = task->get_sc_firstprivate_vars();
+                const NodeclSet& autosc_private = task->get_sc_private_vars();
+                const NodeclSet& autosc_shared = task->get_sc_shared_vars();
+
+                if (current->has_autoscope_fp_assertion())
+                    compare_assert_set_with_analysis_set(assert_autosc_firstprivate, autosc_firstprivate,
+                                                         locus_str, task->get_id(), "auto_sc_firstprivate", "AutoScope Firstprivate");
+                if (current->has_autoscope_p_assertion())
+                    compare_assert_set_with_analysis_set(assert_autosc_private, autosc_private,
+                                                         locus_str, task->get_id(), "auto_sc_private", "AutoScope Private");
+                if (current->has_autoscope_s_assertion())
+                    compare_assert_set_with_analysis_set(assert_autosc_shared, autosc_shared,
+                                                         locus_str, task->get_id(), "auto_sc_shared", "AutoScope Shared");
 
             }
 
             // Correctness
-            if(current->has_correctness_assertion())
+            if (current->has_correctness_assertion())
             {
-                ObjectList<Node*> children = current->get_children();
-                ERROR_CONDITION(children.size() > 2, "A task creation node should have, at least, 1 child, the created task, "\
-                                "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
-                                "Nonetheless task %d has %d children.", current->get_id(), children.size());
-                Node* task = (children[0]->is_omp_task_node() ? children[0] : children[1]);
-                
+                if (VERBOSE)
+                    printf("   Check node %d correctness assertion.\n", current->get_id());
+                // Context
+                //    |_____ Entry
+                //    |______Task Creation
+                //    |______Exit
+                ERROR_CONDITION(!current->is_context_node(),
+                                "Correctness assertion pragmas are expected to be associated with a Context node. '%s' found instead.\n",
+                                (current->is_graph_node() ? current->get_graph_type_as_string() : current->get_type_as_string()).c_str());
+                Node* task_creation = current->get_graph_entry_node()->get_children()[0];
+                ERROR_CONDITION(!task_creation->is_omp_task_creation_node(),
+                                "Correctness assertion pragmas' Context is expected to contain just a TaskCreation node. '%s' found instead.\n",
+                                (task_creation->is_graph_node() ? task_creation->get_graph_type_as_string() : task_creation->get_type_as_string()).c_str());
+                Node* task = ExtensibleGraph::get_task_from_task_creation(task_creation);
+
                 const Nodecl::List& assert_correctness_auto_storage = current->get_assert_correctness_auto_storage_vars();
                 const Nodecl::List& assert_correctness_dead = current->get_assert_correctness_dead_vars();
                 const Nodecl::List& assert_correctness_incoherent_fp = current->get_assert_correctness_incoherent_fp_vars();
@@ -566,38 +620,47 @@ namespace {
                 const Nodecl::List& correctness_incoherent_in_pointed = task->get_correctness_incoherent_in_pointed_vars();
                 const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
                 const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
-                const Nodecl::List& correctness_race = task->get_correctness_race_vars();
-                compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
-                                                       locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
-                compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
-                                                       locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
-                                                       locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
-                                                       locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
-                                                       locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
-                                                       locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
-                                                       locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
-                                                       locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
-                                                       locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
+                const Nodecl::List& correctness_race = task->get_true_correctness_race_vars();
+                if (current->has_correctness_auto_storage_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
+                                                           locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
+                if (current->has_correctness_dead_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
+                                                           locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
+                if (current->has_correctness_incoherent_fp_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
+                                                           locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
+                if (current->has_correctness_incoherent_p_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
+                                                           locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
+                if (current->has_correctness_incoherent_in_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
+                                                           locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
+                if (current->has_correctness_incoherent_in_pointed_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
+                                                           locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
+                if (current->has_correctness_incoherent_out_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
+                                                           locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
+                if (current->has_correctness_incoherent_out_pointed_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
+                                                           locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
+                if (current->has_correctness_race_assertion())
+                    compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
+                                                           locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
             }
             
             // Recursively visit inner nodes
-            if( current->is_graph_node( ) )
+            if (current->is_graph_node())
             {
-                check_assertions_rec( current->get_graph_entry_node( ) );
+                check_assertions_rec(current->get_graph_entry_node());
             }
 
             // Recursively visit current children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            const ObjectList<Node*>& children = current->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             {
-                check_assertions_rec( *it );
+                check_assertions_rec(*it);
             }
         }
     }
@@ -853,16 +916,6 @@ namespace {
 
         pragma_line.diagnostic_unused_clauses( );
         directive.replace( assert_nodecl );
-    }
-
-    void AnalysisCheckPhase::pre_run( TL::DTO& dto )
-    {
-        // Add a new symbol to the empty translation unit that can be used in this phase
-        // to specify that an analysis set must be empty
-        TL::Scope sc = CURRENT_COMPILED_FILE->global_decl_context;
-        TL::Symbol none_symbol = sc.new_symbol(analysis_none_sym_name);
-        none_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        none_symbol.get_internal_symbol()->type_information = ::get_void_type();
     }
     
     void AnalysisCheckPhase::run(TL::DTO& dto)

@@ -29,10 +29,11 @@
 
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
-#include <time.h>
+#include "tl-tribool.hpp"
 
 #include <set>
 #include <map>
+#include <time.h>
 
 #define VERBOSE (CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
                  CURRENT_CONFIGURATION->debug_options.enable_debug_code)
@@ -54,6 +55,7 @@ namespace Analysis {
     typedef std::set<NBase, Nodecl::Utils::Nodecl_structural_less> NodeclSet;
     typedef std::pair<NBase, NBase> NodeclPair;
     typedef std::multimap<NBase, NodeclPair, Nodecl::Utils::Nodecl_structural_less> NodeclMap; 
+    typedef std::map<Nodecl::NodeclBase, tribool, Nodecl::Utils::Nodecl_structural_less> NodeclTriboolMap;
 
 namespace Utils {
 
@@ -182,8 +184,8 @@ namespace Utils {
         Ret visit(const Nodecl::GccBuiltinVaArg& n);
         Ret visit(const Nodecl::CxxDecl& n);
         Ret visit(const Nodecl::CxxDef& n);
-        Ret visit(const Nodecl::CxxExplicitInstantiation& n);
-        Ret visit(const Nodecl::CxxExternExplicitInstantiation& n);
+        Ret visit(const Nodecl::CxxExplicitInstantiationDef& n);
+        Ret visit(const Nodecl::CxxExplicitInstantiationDecl& n);
         Ret visit(const Nodecl::CxxUsingNamespace& n);
         Ret visit(const Nodecl::CxxUsingDecl& n);
         Ret visit(const Nodecl::FunctionCode& n);

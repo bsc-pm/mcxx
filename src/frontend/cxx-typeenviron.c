@@ -49,13 +49,6 @@
 #undef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-static long long unsigned int _bytes_due_to_type_environment = 0;
-
-long long unsigned int type_environment_used_memory(void)
-{
-    return _bytes_due_to_type_environment;
-}
-
 /* Utility functions */
 static void next_offset_with_align(_size_t* current_offset, _size_t required_align)
 {
@@ -772,8 +765,8 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
     // Cases: previous_offset == NULL means we are at the beginning
     // current_offset == NULL means we are the largest offset
 
-    offset_info_t* new_offset_info = counted_xcalloc(1, 
-            sizeof(*new_offset_info), &_bytes_due_to_type_environment);
+    offset_info_t* new_offset_info = xcalloc(1, 
+            sizeof(*new_offset_info));
     new_offset_info->offset = offset;
 
     scope_entry_list_t* new_entry_list = entry_list_new(entry);

@@ -56,9 +56,9 @@ int main(int argc, char *argv[])
 {
     int a, b;
     
-    #pragma analysis_check assert upper_exposed(argc) defined(argc)
+    #pragma analysis_check assert upper_exposed(argc) defined(argc, a)
     a = function((int (*)(int))foo, argc++);
-    #pragma analysis_check assert upper_exposed(argc) defined(argc)
+    #pragma analysis_check assert upper_exposed(argc) defined(argc, b)
     b = function((int (*)(int))bar, argc++);
     
     #pragma analysis_check assert upper_exposed(a, b)

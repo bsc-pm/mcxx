@@ -1430,7 +1430,7 @@ namespace TL { namespace OpenMP {
                     _function_task_set->get_function_task(function_called);
 
                 Scope sc = function_called_task_info.get_parsing_scope();
-                TL::Symbol this_ = sc.get_symbol_from_name("this");
+                TL::Symbol this_ = sc.get_symbol_this();
                 ERROR_CONDITION(this_.is_invalid(), "Unreachable code", 0);
                 parameter_names.append("this__");
                 parameter_types.append(this_.get_type());
@@ -2043,7 +2043,7 @@ namespace TL { namespace OpenMP {
                 _function_task_set->get_function_task(function_called);
 
             Scope sc = function_called_task_info.get_parsing_scope();
-            TL::Symbol this_ = sc.get_symbol_from_name("this");
+            TL::Symbol this_ = sc.get_symbol_this();
             ERROR_CONDITION(this_.is_invalid(), "Unreachable code", 0);
             parameter_names.append("this__");
             parameter_types.append(this_.get_type());

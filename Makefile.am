@@ -70,9 +70,11 @@ BUILT_SOURCES =
 
 # These variables are not intended for any further modification
 if WINDOWS_BUILD
+DL_LIBRARY=
 no_undefined=-no-undefined
 dll_exports=-Wl,src/frontend/dll-exports.def
 else
+DL_LIBRARY=-ldl
 no_undefined=
 dll_exports=
 endif
@@ -1161,7 +1163,8 @@ src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
 
 lib_LTLIBRARIES += src/tl/analysis/use_def/libuse_def.la
 
-EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList
+EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList \
+              src/tl/analysis/use_def/cppLibraryFunctionList
 
 analysisdatadir = $(pkgdatadir)/analysisdata
 
@@ -1181,6 +1184,7 @@ src_tl_analysis_use_def_libuse_def_la_SOURCES = \
 
 analysisdata_DATA = \
 		    src/tl/analysis/use_def/cLibraryFunctionList \
+		    src/tl/analysis/use_def/cppLibraryFunctionList \
 		    $(END)
 
 ##########################################################################

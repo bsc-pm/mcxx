@@ -28,6 +28,7 @@
 #include "codegen-fortran.hpp"
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
+#include "fortran03-exprtype.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-cexpr.h"
 #include "tl-compilerpipeline.hpp"
@@ -1515,9 +1516,11 @@ OPERATOR_TABLE
             walk(node.get_rhs());
             *(file) << ")";
         }
-        else if (n.is<Nodecl::Symbol>()
-                && n.get_symbol().is_parameter()
-                && t.is_fortran_array()
+        // else if (n.is<Nodecl::Symbol>()
+        //         && n.get_symbol().is_parameter()
+        //         && t.is_fortran_array()
+        //         && t.array_requires_descriptor())
+        else if (t.is_fortran_array()
                 && t.array_requires_descriptor())
         {
             *file << "LOC(";
@@ -1580,9 +1583,12 @@ OPERATOR_TABLE
             array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
         }
 
+        TL::Symbol subscripted_symbol =
+            ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
+
         walk(subscripted);
         *(file) << "(";
-        codegen_array_subscripts(subscripted.get_symbol(), subscripts);
+        codegen_array_subscripts(subscripted_symbol, subscripts);
         *(file) << ")";
     }
 
@@ -5041,9 +5047,7 @@ OPERATOR_TABLE
                 // Check it matches the symbol
                 // (Note that if the user added a call here this args[0] would
                 // be a FortranActualArgument and not directly the symbol)
-                && ((args[0].is<Nodecl::Symbol>() && args[0].get_symbol() == array_symbol)
-                    || (args[0].is<Nodecl::Dereference>()
-                        && args[0].as<Nodecl::Dereference>().get_rhs().get_symbol() == array_symbol))
+                && (TL::Symbol(::fortran_data_ref_get_symbol(args[0].get_internal_nodecl())) == array_symbol)
                 // Check it matches the dimension
                 && args[1].is_constant()
                 && const_value_is_nonzero(

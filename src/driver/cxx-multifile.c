@@ -132,7 +132,13 @@ void multifile_extract_extended_info(const char* filename)
 
         // Change to temporal directory
         temporal_file_t temporal_dir = new_temporal_dir();
-        chdir(temporal_dir->name);
+        int r = chdir(temporal_dir->name);
+        if (r < 0)
+        {
+            running_error("Error during chdir to '%s'. %s\n",
+                    temporal_dir->name,
+                    strerror(errno));
+        }
 
         const char* list_arguments[] = {
             "x",
@@ -147,7 +153,13 @@ void multifile_extract_extended_info(const char* filename)
         xfree(full_path);
 
         // Go back to previous directory
-        chdir(current_directory);
+        r = chdir(current_directory);
+        if (r < 0)
+        {
+            running_error("Error during chdir to '%s'. %s\n",
+                    temporal_dir->name,
+                    strerror(errno));
+        }
 
         DIR* archive_dir = opendir(temporal_dir->name);
         // Now scan the temporary directory where we unpacked the archive

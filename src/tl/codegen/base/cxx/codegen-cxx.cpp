@@ -3533,7 +3533,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PseudoDestructorName& node)
 {
     Nodecl::NodeclBase lhs = node.get_accessed();
-    Nodecl::NodeclBase rhs = node.get_destructor_name();
+
+    TL::Type t = lhs.get_type().no_ref();
+    ERROR_CONDITION(!t.is_class(), "Invalid pseudo destructor name", 0);
+
+    TL::Symbol destructor = class_type_get_destructor(t.get_internal_type());
+    ERROR_CONDITION(!destructor.is_valid(), "Invalid class", 0);
 
     char needs_parentheses = operand_has_lower_priority(node, lhs);
     if (needs_parentheses)
@@ -3546,7 +3551,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PseudoDestructorName& node)
         *(file) << ")";
     }
     *(file) << ".";
-    walk(rhs);
+    *file << this->get_qualified_name(destructor);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
@@ -4427,6 +4432,29 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxImplicitInstantiation& node)
+{
+    *file << start_inline_comment();
+    *file << "Instantiation of ";
+    TL::Symbol sym = node.get_symbol();
+    if (sym.is_class())
+    {
+       *file << "class template";
+    }
+    else if (sym.is_function())
+    {
+       *file << "template function";
+    }
+    else
+    {
+        *file << "<<unexpected-symbol-kind>>";
+    }
+    *file << " '";
+    *file << this->get_qualified_name(node.get_symbol());
+    *file << "'";
+    *file << end_inline_comment() << "\n";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
@@ -4523,6 +4551,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
 {
     if (sym.is_class())
     {
+        indent();
         std::string class_key;
         switch (sym.get_type().class_type_get_class_kind())
         {
@@ -4552,6 +4581,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
     else if (sym.is_function())
     {
+        indent();
         decl_context_t decl_context = context.retrieve_context().get_decl_context();
         move_to_namespace(decl_context.namespace_scope->related_entry);
 
@@ -4581,6 +4611,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
     else if (sym.is_variable())
     {
+        indent();
         // This should be a nonstatic member
         if (is_extern)
             *(file) << "extern ";
@@ -4600,7 +4631,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiationDef& node)
 {
     TL::Symbol sym = node.get_symbol();
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
@@ -4612,7 +4643,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
     codegen_explicit_instantiation(sym, declarator_name, context);
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiationDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
@@ -5717,7 +5748,8 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                     }
                 }
             }
-            else
+            else if (symbol.get_type().is_dependent()
+                        || !CURRENT_CONFIGURATION->explicit_instantiation)
             {
                 if (!defined_inside_class)
                 {

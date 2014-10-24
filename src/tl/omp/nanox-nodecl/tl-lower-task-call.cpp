@@ -832,7 +832,7 @@ void LoweringVisitor::visit_task_call_c(
 
         TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
 
-        TL::Symbol this_symbol = parse_scope.get_symbol_from_name("this");
+        TL::Symbol this_symbol = parse_scope.get_symbol_this();
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
         seen_parameters.insert(this_symbol);

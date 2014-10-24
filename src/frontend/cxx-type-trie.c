@@ -33,13 +33,6 @@
 #include <string.h>
 #include "cxx-typeutils.h"
 
-static unsigned long long int _bytes_used_type_trie = 0;
-
-unsigned long long int type_trie_used_memory(void)
-{
-    return _bytes_used_type_trie;
-}
-
 typedef struct type_trie_element_tag
 {
     const type_t* elem;
@@ -207,14 +200,13 @@ static const type_t* create_elements(type_trie_t* type_trie, const type_t** type
         type_trie->elements[lower].next = NULL;
         // Create the type itself
         type_trie->elements[lower].function_type = function_type;
-        
+
         return type_trie->elements[lower].function_type;
     }
     else
     {
         type_trie->elements[lower].elem = *type_seq;
         type_trie->elements[lower].next = allocate_type_trie();
-        _bytes_used_type_trie += sizeof(type_trie_t);
 
         const type_t* result =
         create_elements(type_trie->elements[lower].next,

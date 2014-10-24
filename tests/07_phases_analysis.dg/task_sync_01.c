@@ -33,6 +33,8 @@ test_nolink=yes
 </testinfo>
 */
 
+#include <stdio.h>
+
 void f( )
 {
     #pragma omp task

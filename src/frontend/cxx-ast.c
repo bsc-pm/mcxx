@@ -131,24 +131,11 @@ static inline char ast_has_son(const_AST a, int son)
     return (((1 << son) & a->bitmap_sons) != 0);
 }
 
-static long long unsigned int _bytes_due_to_astmake = 0;
-static long long unsigned int _bytes_due_to_instantiation = 0;
-
-long long unsigned int ast_astmake_used_memory(void)
-{
-    return _bytes_due_to_astmake;
-}
-
-long long unsigned int ast_instantiation_used_memory(void)
-{
-    return _bytes_due_to_instantiation;
-}
-
 AST ast_make(node_t type, int __num_children UNUSED_PARAMETER, 
         AST child0, AST child1, AST child2, AST child3, 
         const locus_t* location, const char *text)
 {
-    AST result = counted_xmalloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = xmalloc(sizeof(*result));
     // ERROR_CONDITION(result & 0x1 != 0, "Invalid pointer for AST", 0);
 
     result->node_type = type;
@@ -175,10 +162,9 @@ AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
 #undef COUNT_SON
 
     result->bitmap_sons = bitmap_sons;
-    result->children = counted_xmalloc(
-            sizeof(*result->children), 
-            num_children,
-            &_bytes_due_to_astmake);
+    result->children = xmalloc(
+            sizeof(*result->children) *
+            num_children);
 
     int idx = 0;
 #define ADD_SON(n) \
@@ -266,9 +252,8 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
     }
 
-    a->children = counted_xmalloc(sizeof(*a->children), 
-            (count_bitmap(a->bitmap_sons)), 
-            &_bytes_due_to_astmake);
+    a->children = xmalloc(sizeof(*a->children) *
+            (count_bitmap(a->bitmap_sons)));
 
     // Now for every old son, update the new children
     int i;
@@ -295,9 +280,6 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
     // Now xfree the old children (if any)
     if (old_children != NULL)
         xfree(old_children);
-
-    // Count this free
-    _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
 }
 
 void ast_set_child_but_parent(AST a, int num_child, AST new_child)
@@ -402,7 +384,7 @@ AST ast_copy(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = xcalloc(1, sizeof(*result));
 
     ast_copy_one_node(result, (AST)a);
 
@@ -411,7 +393,7 @@ AST ast_copy(const_AST a)
             && a->num_ambig > 0)
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
+        result->ambig = xcalloc(a->num_ambig, sizeof(*(result->ambig)));
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -422,7 +404,7 @@ AST ast_copy(const_AST a)
         result->bitmap_sons = a->bitmap_sons;
         int num_children = count_bitmap(result->bitmap_sons);
 
-        result->children = counted_xcalloc(num_children, sizeof(*(result->children)), &_bytes_due_to_astmake);
+        result->children = xcalloc(num_children, sizeof(*(result->children)));
 
         for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
@@ -670,7 +652,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, make_locus("", 0, 0), NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_xmalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
+        result->ambig = xmalloc(sizeof(*(result->ambig))* result->num_ambig);
         result->ambig[0] = son0;
         result->ambig[1] = son1;
         result->locus = son0->locus;
@@ -706,7 +688,6 @@ void ast_free(AST a)
         {
             ast_free(ast_get_ambiguity(a, i));
         }
-        _bytes_due_to_astmake -= sizeof(*(a->ambig[0])) * a->num_ambig;
     }
     else
     {
@@ -715,7 +696,6 @@ void ast_free(AST a)
         {
             ast_free(ast_get_child(a, i));
         }
-        _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
     }
 
     xfree(a->expr_info);
@@ -723,8 +703,6 @@ void ast_free(AST a)
     // Clear the node for safety
     memset(a, 0, sizeof(*a));
     xfree(a);
-
-    _bytes_due_to_astmake -= sizeof(*a);
 }
 
 void ast_replace_with_ambiguity(AST a, int n)

@@ -61,10 +61,6 @@ MCXX_BEGIN_DECLS
 
 #define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
 
-// Special xmalloc/xcalloc that count
-LIBMCXX_EXTERN void *counted_xmalloc(size_t nmemb, size_t size, unsigned long long *counter);
-LIBMCXX_EXTERN void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter);
-
 MCXX_END_DECLS
 
 #endif // CXX_UTILS_H

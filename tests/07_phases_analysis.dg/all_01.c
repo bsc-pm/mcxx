@@ -45,7 +45,7 @@ void f(int x)
 
 #pragma analysis_check assert reaching_definition_in(k: 1, 2)
     if (x > 3) {
-#pragma analysis_check assert live_in(k)
+#pragma analysis_check assert live_in(x, k)
         k = k + x;
     }
     

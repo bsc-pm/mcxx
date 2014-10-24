@@ -90,16 +90,43 @@ namespace Analysis {
     }
     
     // This method simplifies arguments in the way "*&v and &*v -> v"
-    Nodecl::List simplify_pointers(const Nodecl::List& original_variables)
+    Nodecl::List simplify_pointers(const Nodecl::List& original_args)
     {
-        Nodecl::List simplified_variables;
-        for(Nodecl::List::iterator it = original_variables.begin(); it != original_variables.end(); ++it)
+        Nodecl::List simplified_args;
+        for(Nodecl::List::iterator it = original_args.begin(); it != original_args.end(); ++it)
         {
-            simplified_variables.append(simplify_pointer(*it));
+            simplified_args.append(simplify_pointer(*it));
         }
-        return simplified_variables;
+        return simplified_args;
     }
-    
+
+    class LIBTL_CLASS ArgumentSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        void unhandled_node(const NBase& n)
+        {
+            WARNING_MESSAGE("Unhandled node of type '%s' while ArgumentSimplifierVisitor.\n",
+                            ast_print_node_type(n.get_kind()));
+        }
+
+        void visit(const Nodecl::DefaultArgument& n)
+        {
+            n.replace(n.get_argument());
+        }
+    };
+
+    Nodecl::List simplify_arguments(const Nodecl::List& original_args)
+    {
+        Nodecl::List simplified_args;
+        ArgumentSimplifierVisitor asv;
+        for (Nodecl::List::iterator it = original_args.begin(); it != original_args.end(); ++it)
+        {
+            Nodecl::NodeclBase arg = it->no_conv().shallow_copy();
+            asv.walk(arg);
+            simplified_args.append(arg);
+        }
+        return simplified_args;
+    }
+
     // *********************** End class implementing pointer simplification visitor ********************** //
     // **************************************************************************************************** //
     
@@ -375,39 +402,30 @@ namespace Analysis {
         return result;
     }
     
-    void get_modifiable_parameters_to_arguments_map(
-        const ObjectList<Symbol>& params, 
-        const Nodecl::List& args,
-        sym_to_nodecl_map& ptr_params, 
-        sym_to_nodecl_map& ref_params)
+    bool any_parameter_is_pointer(const ObjectList<Symbol>& params)
     {
-        int n_iters = std::min(params.size(), args.size());
-        if(n_iters > 0)
+        for (ObjectList<Symbol>::const_iterator it = params.begin();
+             it != params.end(); ++it)
         {
-            Nodecl::List::const_iterator ita = args.begin();
-            ObjectList<Symbol>::const_iterator itp = params.begin();
-            for(int i = 0; i<n_iters; ++i)
+            if (it->get_type().is_pointer()
+                    || (it->get_type().is_any_reference()
+                            && it->get_type().references_to().is_pointer()))
             {
-                // Skip conversions and castings in the current argument
-                Nodecl::NodeclBase arg = ita->no_conv();
-                if(arg.is<Nodecl::Cast>())
-                    arg = arg.as<Nodecl::Cast>().get_rhs();
-
-                // Reference parameters
-                if(itp->get_type().is_any_reference())
-                {
-                    ref_params[*itp] = arg;
-                }
-                // Pointer parameters
-                if(itp->get_type().is_pointer() || 
-                    (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
-                {
-                    ptr_params[*itp] = arg;
-                }
-                
-                ita++; itp++;
+                return true;
             }
         }
+        return false;
+    }
+
+    bool any_parameter_is_reference(const ObjectList<Symbol>& params)
+    {
+        for (ObjectList<Symbol>::const_iterator it = params.begin();
+             it != params.end(); ++it)
+        {
+            if (it->get_type().is_any_reference())
+                return true;
+        }
+        return false;
     }
     
     sym_to_nodecl_map get_parameters_to_arguments_map(

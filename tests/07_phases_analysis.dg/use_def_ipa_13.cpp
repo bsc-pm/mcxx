@@ -89,7 +89,7 @@ int main(int argc, char** argv)
     int c3[2];
     int c4[2];
     
-    #pragma analysis_check assert undefined(c1[0:N-1], c2[0:1], c3[0:1], *t1.b, c4[0:1])
+    #pragma analysis_check assert undefined(c1[0:3], c2[0:1], c3[0:1], c4[0:1])
     foo4(c1, &c2, c3, &c4[0]);
     
     return 0;
