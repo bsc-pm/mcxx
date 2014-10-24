@@ -16345,7 +16345,7 @@ void check_nodecl_braced_initializer(
                     // In this case, we only handle one element of the list
                     nodecl_t nodecl_init_output = nodecl_null();
                     check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_to_be_initialized,
-                            /* disallow_narrowing */ IS_CXX11_LANGUAGE,
+                            /* disallow_narrowing */ IS_CXX11_LANGUAGE && !is_vector_type(current_type),
                             &nodecl_init_output);
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
@@ -16399,7 +16399,7 @@ void check_nodecl_braced_initializer(
                         nodecl_t nodecl_tmp = nodecl_shallow_copy(nodecl_initializer_clause);
                         check_nodecl_initializer_clause(nodecl_tmp, decl_context,
                                 type_to_be_initialized,
-                                /* disallow_narrowing */ IS_CXX_LANGUAGE,
+                                /* disallow_narrowing */ IS_CXX11_LANGUAGE,
                                 &nodecl_init_output);
                         if (!nodecl_is_err_expr(nodecl_init_output))
                         {
