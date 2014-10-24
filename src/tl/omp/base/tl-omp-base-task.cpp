@@ -229,27 +229,32 @@ namespace TL { namespace OpenMP {
             task_info = _function_task_set->get_function_task(sym);
             valid_task_info = true;
         }
-        else if (sym.get_type().is_template_specialized_type()
-                && _function_task_set->is_function_task(sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
+        else if ( // if the type of the current function symbol is a template specialized type
+                sym.get_type().is_template_specialized_type()
+                // and the primary template is registered as a function task
+                && _function_task_set->is_function_task(
+                    sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
         {
             // Note that the pragma of the current task is written in terms of the primary symbol
             TL::Symbol primary_sym  = sym.get_type().get_related_template_type().get_primary_template().get_symbol();
 
             // This map will be used to instantiate the function task info
-            instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(/* parent */ NULL);
+            instantiation_symbol_map_t* instantiation_symbol_map =
+                instantiation_symbol_map_push(/* parent */ NULL);
 
             TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
             prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
 
             TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
             TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();
-            ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "", 0);
+            ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "Unreachable code", 0);
 
-            int num_params = primary_params.size();
-
-            // Create the related symbols of the new specialization, using the parameter types of the specialization function type
-            // FIXME: I'm not sure, but maybe the instantiation phase should provided the related symbols of the specialization
+            // Create the related symbols of the new specialization, using the
+            // parameter types of the specialization function type
+            // FIXME: I'm not sure, but maybe the instantiation phase should
+            // provided the related symbols of the specialization
             TL::ObjectList<TL::Symbol> spec_related_symbols;
+            int num_params = primary_params.size();
             for (int i = 0; i < num_params; ++i)
             {
                 TL::Symbol prim_param_sym = primary_params[i];
@@ -267,8 +272,11 @@ namespace TL { namespace OpenMP {
 
                 spec_related_symbols.append(spec_param_sym);
 
-                symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(), sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
-                instantiation_symbol_map_add(instantiation_symbol_map, prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
+                symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(),
+                        sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
+
+                instantiation_symbol_map_add(instantiation_symbol_map,
+                        prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
             }
 
             sym.set_related_symbols(spec_related_symbols);
@@ -283,6 +291,7 @@ namespace TL { namespace OpenMP {
             _function_task_set->add_function_task(sym, task_info);
         }
 
+        // The current function call is not a task, ignore it!
         if (!valid_task_info)
             return;
 
