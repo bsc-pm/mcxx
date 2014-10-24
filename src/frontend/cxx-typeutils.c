@@ -13343,10 +13343,13 @@ static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
     if (is_array_type(t))
         return closure_of_simple_properties(array_type_get_element_type(t), class_prop);
 
+    if (is_vector_type(t))
+        return closure_of_simple_properties(vector_type_get_element_type(t), class_prop);
+
     if (is_class_type(t))
         return class_prop(t);
 
-    internal_error("Unhandled type", 0);
+    internal_error("Unhandled type '%s'", print_declarator(t));
 }
 
 char is_pod_type(type_t* t)

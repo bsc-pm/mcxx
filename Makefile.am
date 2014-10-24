@@ -311,7 +311,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.h \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-gccbuiltins.h \
-  src/frontend/cxx-gccbuiltins-sse.h \
+  src/frontend/cxx-gccbuiltins-ia32.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -2967,6 +2967,7 @@ config_DATA = \
 EXTRA_DIST += \
 			scripts/bison-2.3-rofi-patch \
 			scripts/mcxx-rpm.spec \
+			scripts/builtins_ia32.cpp \
 			$(DEBIAN_EXTRA)
 			$(END)
 
@@ -2977,16 +2978,23 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-4.8
-GXX_FLAGS=-fabi-version=6 -mavx -maes -mpclmul -mxop
+LATEST_GXX=g++-4.9
+LATEST_GXX_FLAGS=-fabi-version=6 \
+				 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx \
+				 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha \
+				 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 \
+				 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt \
+				 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mrdseed \
+				 $(END)
 
-generate_sse.bin : builtins_ia32_sse.cpp
-	$(LATEST_GXX) $(GXX_FLAGS) -o scripts/generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
+	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
 
-generate_sse: generate_sse.bin
-	./scripts/generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
-
-CLEANFILES += generate_sse.bin
+# These files are only regenerated manually
+.PHONY: generate_builtins_ia32
+CLEANFILES += scripts/generate_builtins_ia32.bin
+generate_builtins_ia32: scripts/generate_builtins_ia32.bin
+	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"
