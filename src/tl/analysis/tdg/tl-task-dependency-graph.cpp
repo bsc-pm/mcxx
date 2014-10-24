@@ -1400,7 +1400,8 @@ insert_values:
             const VarToIdMap& var_to_id_map,
             const NBase& condition,
             std::string indent,
-            bool is_source) const
+            bool is_source,
+            bool add_final_comma) const
     {
         for (VarToValueMap::const_iterator it = var_to_value_map.begin(); it != var_to_value_map.end(); )
         {
@@ -1416,7 +1417,7 @@ insert_values:
             json_tdg << indent << "\t\t\"values\" : \""<< value << "\",\n";
             json_tdg << indent << "\t\t\"side\" : \"" << (is_source ? "source" : "target") << "\"\n";
             ++it;
-            if (it != var_to_value_map.end())
+            if (it != var_to_value_map.end() || add_final_comma)
                 json_tdg << indent << "\t},\n";
             else
                 json_tdg << indent << "\t}\n";
@@ -1479,9 +1480,9 @@ insert_values:
                 // Generate the list of involved variables
                 json_tdg << indent << "\"vars\" : [\n";
                 print_dependency_variables_to_json(json_tdg, source_var_to_value_map, source_var_to_id_map,
-                                                   condition, indent, /*is_source*/true);
+                                                   condition, indent, /*is_source*/true, /*add_final_comma*/true);
                 print_dependency_variables_to_json(json_tdg, target_var_to_value_map, target_var_to_id_map,
-                                                   condition, indent, /*is_source*/false);
+                                                   condition, indent, /*is_source*/false, /*add_final_comma*/false);
             }
             
             json_tdg << indent << "]\n";

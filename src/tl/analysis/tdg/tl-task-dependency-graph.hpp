@@ -182,7 +182,8 @@ namespace Analysis {
             const VarToIdMap& var_to_id_map,
             const NBase& condition,
             std::string indent,
-            bool is_source) const;
+            bool is_source,
+            bool add_final_comma) const;
         void print_tdg_nodes_to_json(std::ofstream& json_tdg) const;
         void print_tdg_edges_to_json(std::ofstream& json_tdg) const;
         
