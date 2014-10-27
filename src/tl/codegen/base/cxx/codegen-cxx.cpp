@@ -6889,6 +6889,10 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
 std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& symbol)
 {
+    // Unnamed bitfields do not have a visible name
+    if (symbol.is_unnamed_bitfield())
+        return "";
+
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
