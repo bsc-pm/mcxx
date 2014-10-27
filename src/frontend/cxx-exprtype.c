@@ -16297,7 +16297,18 @@ void check_nodecl_braced_initializer(
                 else if (is_class_type(current_type))
                 {
                     int item = type_stack[type_stack_idx].item;
-                    type_to_be_initialized = type_stack[type_stack_idx].fields[item]->type_information;
+                    scope_entry_t* member = type_stack[type_stack_idx].fields[item];
+                    if (symbol_entity_specs_get_is_unnamed_bitfield(member))
+                    {
+                        // An unnamed bitfield cannot be initialized
+                        // Note that we are not consuming any item here
+                        type_stack[type_stack_idx].item++;
+                        continue;
+                    }
+                    else
+                    {
+                        type_to_be_initialized = type_stack[type_stack_idx].fields[item]->type_information;
+                    }
                 }
                 else
                 {
