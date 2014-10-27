@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,48 +28,40 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-analysis
-test_nolink=yes
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#include <stdio.h>
+#include <assert.h>
 
-void f( )
+int main_wd = 0;
+
+int main(int argc, char *argv[])
 {
-    #pragma omp task
-    {
-        printf("1");
-        #pragma omp task
-        {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
-        }
-    }
-    #pragma omp task
-    {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
-    }
-    #pragma omp barrier
+    int y;
+    main_wd = nanos_get_wd_id(nanos_current_wd());
+
+#pragma omp target device(smp) no_copy_deps
+#pragma omp task inout(*x)
+    void g(int *x);
+
+    y = 1;
+    g(&y);
+    g(&y);
+    g(&y);
+    g(&y);
+    g(&y);
+
+#pragma omp taskwait
+
+    return 0;
+}
+
+void g(int *x)
+{
+    // We use this to check that we are actually running in a task
+    int local_wd = nanos_get_wd_id(nanos_current_wd());
+    assert(local_wd != main_wd);
+
+    (*x)++;
 }

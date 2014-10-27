@@ -1,4 +1,4 @@
-/*! Set of functions in C LIBRARIES that:
+/*! Set of functions in C++ LIBRARIES that:
  * - do not modify any global variable
  * - reference parameters are never modified
  * - pointer parameters are never modified ( the value they point to may be modified )
@@ -17,204 +17,197 @@
 // ****************************************************************** //
 // ****************************** MATH ****************************** //
 
-// C90, C99
+// C++98, C++11
+__attribute__((analysis_ue(x)))
+double abs (double x);
+__attribute__((analysis_ue(x)))
+float abs (float x);
+__attribute__((analysis_ue(x)))
+long double abs (long double x);
+
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double acos (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float acosf (float x);
+float acos (float x);
 __attribute__((analysis_ue(x)))
-long double acosl (long double x);
+long double acos (long double x);
 
-// C99
+// C++11
+__attribute__((analysis_ue(x)))
+float acosh (float x);
+__attribute__((analysis_ue(x)))
+long double acosh (long double x);
 __attribute__((analysis_ue(x)))
 double acosh (double x);
-__attribute__((analysis_ue(x)))
-float acoshf (float x);
-__attribute__((analysis_ue(x)))
-long double acoshl (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double asin (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float asinf (float x);
+float asin (float x);
 __attribute__((analysis_ue(x)))
-long double asinl (long double x);
+long double asin (long double x);
 
-// C99
+// C++11
 __attribute__((analysis_ue(x)))
 double asinh (double x);
 __attribute__((analysis_ue(x)))
-float asinhf (float x);
+float asinh (float x);
 __attribute__((analysis_ue(x)))
-long double asinhl (long double x);
+long double asinh (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double atan (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float atanf (float x);
+float atan (float x);
 __attribute__((analysis_ue(x)))
-long double atanl (long double x);
+long double atan (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double atan2 (double x);
 __attribute__((analysis_ue(x)))
-float atan2f (float x);
+float atan2 (float x);
 __attribute__((analysis_ue(x)))
-long double atan2l (long double x);
+long double atan2 (long double x);
 
-// C99
+// C++11
 __attribute__((analysis_ue(x)))
 double atanh (double x);
 __attribute__((analysis_ue(x)))
-float atanhf (float x);
+float atanh (float x);
 __attribute__((analysis_ue(x)))
-long double atanhl (long double x);
+long double atanh (long double x);
 
-// C99
+// C++11
 __attribute__((analysis_ue(x)))
 double cbrt (double x);
 __attribute__((analysis_ue(x)))
-float cbrtf (float x);
+float cbrt (float x);
 __attribute__((analysis_ue(x)))
-long double cbrtl (long double x);
+long double cbrt (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double ceil (double x);
 __attribute__((analysis_ue(x)))
-float ceilf (float x);
+float ceil (float x);
 __attribute__((analysis_ue(x)))
-long double ceill (long double x);
+long double ceil (long double x);
 
-// C99
+// C++11
 __attribute__((analysis_ue(x, y)))
 double copysign (double x, double y);
 __attribute__((analysis_ue(x, y)))
-float copysignf (float x, float y);
+float copysign (float x, float y);
 __attribute__((analysis_ue(x, y)))
-long double copysignl (long double x, long double y);
+long double copysign (long double x, long double y);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double cos (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float cosf (float x);
+float cos (float x);
 __attribute__((analysis_ue(x)))
-long double cosl (long double x);
+long double cos (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double cosh (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float coshf (float x);
+float cosh (float x);
 __attribute__((analysis_ue(x)))
-long double coshl (long double x);
+long double cosh (long double x);
 
-// C99
+// C++11
 __attribute__((analysis_ue(x)))
 double erf (double x);
 __attribute__((analysis_ue(x)))
-float erff (float x);
+float erf (float x);
 __attribute__((analysis_ue(x)))
-long double erfl (long double x);
+long double erf (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double exp (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float expf (float x);
+float exp (float x);
 __attribute__((analysis_ue(x)))
-long double expl (long double x);
+long double exp (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double exp2 (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float exp2f (float x);
+float exp2 (float x);
 __attribute__((analysis_ue(x)))
-long double exp2l (long double x);
+long double exp2 (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double log (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float logf (float x);
+float log (float x);
 __attribute__((analysis_ue(x)))
-long double logl (long double x);
+long double log (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double log10 (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float log10f (float x);
+float log10 (float x);
 __attribute__((analysis_ue(x)))
-long double log10l (long double x);
+long double log10 (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double pow (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float powf (float x);
+float pow (float x);
 __attribute__((analysis_ue(x)))
-long double powl (long double x);
+long double pow (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double sin (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float sinf (float x);
+float sin (float x);
 __attribute__((analysis_ue(x)))
-long double sinl (long double x);
+long double sin (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double sinh (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float sinhf (float x);
+float sinh (float x);
 __attribute__((analysis_ue(x)))
-long double sinhl (long double x);
+long double sinh (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double sqrt (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float sqrtf (float x);
+float sqrt (float x);
 __attribute__((analysis_ue(x)))
-long double sqrtl (long double x);
+long double sqrt (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double tan (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float tanf (float x);
+float tan (float x);
 __attribute__((analysis_ue(x)))
-long double tanl (long double x);
+long double tan (long double x);
 
-// C90, C99
+// C++98, C++11
 __attribute__((analysis_ue(x)))
 double tanh (double x);
-// C99
 __attribute__((analysis_ue(x)))
-float tanhf (float x);
+float tanh (float x);
 __attribute__((analysis_ue(x)))
-long double tanhl (long double x);
+long double tanh (long double x);
 
 // ****************************** MATH ****************************** //
 // ****************************************************************** //
@@ -223,11 +216,20 @@ long double tanhl (long double x);
 // ****************************************************************** //
 // ***************************** STDLIB ***************************** //
 
+// C++11
 __attribute__((analysis_void))
 void abort (void);
 
+// C++98, C++11
 __attribute__((analysis_ue(n)))
 int abs (int n);
+
+// C++98
+__attribute__((analysis_ue(n)))
+long int abs (long int n);
+// C++98
+__attribute__((analysis_ue(n)))
+long long int abs (long long int n);
 
 __attribute__((analysis_ue(str, *str)))
 long double atof (const char* str);

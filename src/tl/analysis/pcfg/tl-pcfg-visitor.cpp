@@ -1388,14 +1388,14 @@ next_it:    ;
         
         // Traverse the statements of the function code
         _utils->_last_nodes = ObjectList<Node*>(1, func_entry);
-        ObjectList<Node*> func_code = walk(n.get_statements());
+        walk(n.get_statements());
         
         func_exit->set_id(++_utils->_nid);
         _pcfg->connect_nodes(_utils->_last_nodes, func_exit);
         
         if(_asserted_funcs.find(func_sym) != _asserted_funcs.end())
         {   // Walk the clauses to add its information in the PCFG
-            _utils->_assert_nodes.push(func_code[0]);
+            _utils->_assert_nodes.push(func_node);
             PCFGPragmaInfo current_pragma;
             _utils->_pragma_nodes.push(current_pragma);
             walk(_asserted_funcs[func_sym]);
@@ -3034,7 +3034,7 @@ next_it:    ;
     {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
-        if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
+        if (!s_sc.scope_is_enclosed_by(_pcfg->_sc) && !n.get_symbol().is_function())
             _pcfg->_global_vars.insert( n );
 
         // Create the node

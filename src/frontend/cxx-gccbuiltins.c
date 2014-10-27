@@ -2357,6 +2357,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_CTZ, "ctz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_
 DEF_GCC_BUILTIN        (BUILT_IN_CTZIMAX, "ctzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZL, "ctzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctzl)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZLL, "ctzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctzll)
+DEF_GCC_BUILTIN        (BUILT_IN_CLZS, "ctzs", BT_FN_INT_UINT16, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DCGETTEXT, "dcgettext", BT_FN_STRING_CONST_STRING_CONST_STRING_INT, ATTR_FORMAT_ARG_2, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DGETTEXT, "dgettext", BT_FN_STRING_CONST_STRING_CONST_STRING, ATTR_FORMAT_ARG_2, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_DWARF_CFA, "dwarf_cfa", BT_FN_PTR, ATTR_NULL, NO_EXPAND_FUN)
@@ -3447,7 +3448,8 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
         }
     }
 
-#include "cxx-gccbuiltins-sse.h"
+    // Intel architecture gcc builtins
+#include "cxx-gccbuiltins-ia32.h"
 }
 
 void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)

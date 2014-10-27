@@ -33,6 +33,16 @@
 
 namespace SymbolUtils
 {
+    TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string name)
+    {
+        decl_context_t decl_context = source.get_scope().get_decl_context();
+
+        TL::Symbol dest = TL::Scope(decl_context).new_symbol(name);
+        dest.get_internal_symbol()->kind = SK_FUNCTION;
+        symbol_entity_specs_set_is_user_declared(dest.get_internal_symbol(), 1);
+        return dest;
+    }
+
     TL::Symbol new_function_symbol(
             TL::Symbol function,
             const std::string& name)

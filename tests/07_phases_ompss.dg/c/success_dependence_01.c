@@ -28,48 +28,49 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-analysis
-test_nolink=yes
+test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<unistd.h>
+#include<assert.h>
 
-#include <stdio.h>
+#define N 10
+#define M 100
 
-void f( )
+
+struct A
 {
-    #pragma omp task
+    int x[M];
+};
+
+int main()
+{
+    struct A a[N];
+    int i, j;
+    for (i = 0; i < N; ++i)
     {
-        printf("1");
-        #pragma omp task
+        for (j = 0; j < M; ++j)
         {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
+            a[i].x[j] = -1;
         }
     }
-    #pragma omp task
+
+    int z = 3, ub = 10, lb = 0;
+    int *p = &(a[z].x[lb]);
+    #pragma omp task out(a[z].x[lb:ub])
     {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
+        sleep(1);
+        int k;
+        for (k = lb; k <= ub; k++)
+            a[z].x[k] = 2;
     }
-    #pragma omp barrier
+
+    #pragma omp task in(*p)
+    {
+        int i;
+        for (i = 0; i <= (ub - lb); i++)
+            assert(p[i] == 2);
+    }
+    #pragma omp taskwait
+    return 0;
 }

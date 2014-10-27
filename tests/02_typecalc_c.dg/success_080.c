@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,51 +25,34 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-analysis
-test_nolink=yes
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdio.h>
+#include <assert.h>
 
-void f( )
+struct A {
+    int x : 2;
+    int : 30;
+
+    int y: 2;
+};
+
+struct A s = { 1, 2 };
+
+struct B
 {
-    #pragma omp task
-    {
-        printf("1");
-        #pragma omp task
-        {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
-        }
-    }
-    #pragma omp task
-    {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
-    }
-    #pragma omp barrier
+    int x:2;
+    int y:2;
+};
+
+int main(int argc, char *argv[])
+{
+    assert(sizeof(struct A) > sizeof(struct B));
+    assert(sizeof(struct B) == sizeof(int));
+
+    return 0;
 }
+

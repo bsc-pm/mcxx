@@ -1,454 +1,12 @@
 //
 // Generator of src/frontend/cxx-gccbuiltin-sse.h for gcc
 //
-// Compile it with g++-4.8 -fabi-version=6 -mavx -maes -mpclmul -mxop
-// or use make generate_sse
+// Use make generate_builtins_ia32 (at the tp level) to compile this file
 //
 
-#include <iostream> 
-#include <sstream> 
-
-template <typename T>
-struct generate_type
-{
-};
-
-template <>
-struct generate_type<void>
-{
-    static std::string g() { return "get_void_type()"; }
-};
-
-template <>
-struct generate_type<int>
-{
-    static std::string g() { return "get_signed_int_type()"; }
-};
-
-template <>
-struct generate_type<char>
-{
-    static std::string g() { return "get_char_type()"; }
-};
-
-template <>
-struct generate_type<signed char>
-{
-    static std::string g() { return "get_signed_char_type()"; }
-};
-
-template <>
-struct generate_type<short>
-{
-    static std::string g() { return "get_signed_short_int_type()"; }
-};
-
-template <>
-struct generate_type<long>
-{
-    static std::string g() { return "get_signed_long_int_type()"; }
-};
-
-template <>
-struct generate_type<long long>
-{
-    static std::string g() { return "get_signed_long_long_int_type()"; }
-};
-
-template <>
-struct generate_type<unsigned int>
-{
-    static std::string g() { return "get_unsigned_int_type()"; }
-};
-
-template <>
-struct generate_type<unsigned char>
-{
-    static std::string g() { return "get_unsigned_char_type()"; }
-};
-
-template <>
-struct generate_type<unsigned short>
-{
-    static std::string g() { return "get_unsigned_short_int_type()"; }
-};
-
-template <>
-struct generate_type<unsigned long>
-{
-    static std::string g() { return "get_unsigned_long_int_type()"; }
-};
-
-template <>
-struct generate_type<unsigned long long>
-{
-    static std::string g() { return "get_unsigned_long_long_int_type()"; }
-};
-
-template <>
-struct generate_type<float>
-{
-    static std::string g() { return "get_float_type()"; }
-};
-
-template <>
-struct generate_type<double>
-{
-    static std::string g() { return "get_double_type()"; }
-};
-
-template <>
-struct generate_type<long double>
-{
-    static std::string g() { return "get_long_double_type()"; }
-};
-
-#define GENERATE_VECTOR(N, T) \
-template <>\
-struct generate_type<__attribute__((vector_size(N))) T>\
-{\
-    static const int size = N;\
-    typedef T element_type;\
-\
-    static std::string g() \
-    {\
-        std::stringstream ss;\
-\
-        ss << "get_vector_type(" << generate_type<element_type>::g() << ", " << N << ")";\
-\
-        return ss.str();\
-    }\
-};\
-
-#define GENERATE_MANY(T) \
-   GENERATE_VECTOR(8, T) \
-   GENERATE_VECTOR(16, T) \
-   GENERATE_VECTOR(32, T)
-
-
-GENERATE_MANY(int)
-GENERATE_MANY(signed char)
-GENERATE_MANY(char)
-GENERATE_MANY(short)
-GENERATE_MANY(long)
-GENERATE_MANY(long long)
-
-GENERATE_MANY(unsigned int)
-GENERATE_MANY(unsigned char)
-GENERATE_MANY(unsigned short)
-GENERATE_MANY(unsigned long)
-GENERATE_MANY(unsigned long long)
-
-GENERATE_MANY(float)
-GENERATE_MANY(double)
-
-template <typename T>
-struct generate_type<T*>
-{
-    static std::string g() 
-    { 
-        std::stringstream ss;
-
-        ss << "get_pointer_type(" << generate_type<T>::g() << ")";
-        return ss.str();
-    }
-};
-
-template <typename T>
-struct generate_type<const T*>
-{
-    static std::string g() 
-    { 
-        std::stringstream ss;
-
-        ss << "get_pointer_type(get_const_qualified_type(" << generate_type<T>::g() << "))";
-        return ss.str();
-    }
-};
-
-template <typename T>
-struct generate_type<volatile T*>
-{
-    static std::string g() 
-    { 
-        std::stringstream ss;
-
-        ss << "get_pointer_type(get_volatile_qualified_type(" << generate_type<T>::g() << "))";
-        return ss.str();
-    }
-};
-
-template <typename T>
-struct generate_type<const volatile T*>
-{
-    static std::string g() 
-    { 
-        std::stringstream ss;
-
-        ss << "get_pointer_type(get_const_qualified_type(get_volatile_qualified_type(" << generate_type<T>::g() << ")))";
-        return ss.str();
-    }
-};
-
-template <typename R>
-struct generate_type<R()>
-{
-    typedef R return_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-
-        ss 
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1>
-struct generate_type<R(T1)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-
-        ss 
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[1]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2>
-struct generate_type<R(T1, T2)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-
-        ss 
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[2]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2, typename T3>
-struct generate_type<R(T1, T2, T3)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-    typedef T3 param3_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-        ss 
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[3]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2, typename T3, typename T4>
-struct generate_type<R(T1, T2, T3, T4)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-    typedef T3 param3_type;
-    typedef T4 param4_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-        ss
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[4]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2, typename T3, typename T4, typename T5>
-struct generate_type<R(T1, T2, T3, T4, T5)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-    typedef T3 param3_type;
-    typedef T4 param4_type;
-    typedef T5 param5_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-        ss
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[5]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
-            << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
-struct generate_type<R(T1, T2, T3, T4, T5, T6)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-    typedef T3 param3_type;
-    typedef T4 param4_type;
-    typedef T5 param5_type;
-    typedef T6 param6_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-        ss
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[6]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
-            << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
-            << "p[5].type_info = " << generate_type<param6_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-struct generate_type<R(T1, T2, T3, T4, T5, T6, T7)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-    typedef T3 param3_type;
-    typedef T4 param4_type;
-    typedef T5 param5_type;
-    typedef T6 param6_type;
-    typedef T7 param7_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-        ss
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[7]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
-            << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
-            << "p[5].type_info = " << generate_type<param6_type>::g() << ";\n"
-            << "p[6].type_info = " << generate_type<param7_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename R, typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-struct generate_type<R(T1, T2, T3, T4, T5, T6, T7, T8)>
-{
-    typedef R return_type;
-    typedef T1 param1_type;
-    typedef T2 param2_type;
-    typedef T3 param3_type;
-    typedef T4 param4_type;
-    typedef T5 param5_type;
-    typedef T6 param6_type;
-    typedef T7 param7_type;
-    typedef T8 param8_type;
-
-    static std::string g() 
-    {
-        std::stringstream ss;
-        ss
-            << "({"
-            << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "parameter_info_t p[8]; memset(p, 0, sizeof(p));"
-            << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
-            << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
-            << "p[5].type_info = " << generate_type<param6_type>::g() << ";\n"
-            << "p[6].type_info = " << generate_type<param7_type>::g() << ";\n"
-            << "p[7].type_info = " << generate_type<param8_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
-            << "})\n"
-            ;
-        return ss.str();
-    }
-};
-
-template <typename T>
-void f(const std::string& str)
-{
-    std::cout 
-        << "{\n"
-        << "scope_entry_t* sym_" << str << " = new_symbol(decl_context, decl_context.current_scope, uniquestr(\"" << str << "\"));\n"
-        << "sym_" << str << "->kind = SK_FUNCTION;"
-        << "sym_" << str << "->do_not_print = 1;\n"
-        << "sym_" << str << "->type_information = " << generate_type<T>::g() << ";\n"
-        << "symbol_entity_specs_set_is_builtin(sym_" << str << ", 1);\n"
-        << "}\n"
-        ;
-}
+#include <iostream>
+#include <sstream>
+#include "builtins-common.hpp"
 
 #define END
 
@@ -458,8 +16,10 @@ VECTOR_INTRIN(__builtin_ia32_addcarryx_u32) \
 VECTOR_INTRIN(__builtin_ia32_addcarryx_u64) \
 VECTOR_INTRIN(__builtin_ia32_addpd) \
 VECTOR_INTRIN(__builtin_ia32_addpd256) \
+VECTOR_INTRIN(__builtin_ia32_addpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_addps) \
 VECTOR_INTRIN(__builtin_ia32_addps256) \
+VECTOR_INTRIN(__builtin_ia32_addps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_addsd) \
 VECTOR_INTRIN(__builtin_ia32_addss) \
 VECTOR_INTRIN(__builtin_ia32_addsubpd) \
@@ -472,6 +32,7 @@ VECTOR_INTRIN(__builtin_ia32_aesenc128) \
 VECTOR_INTRIN(__builtin_ia32_aesenclast128) \
 VECTOR_INTRIN(__builtin_ia32_aesimc128) \
 VECTOR_INTRIN(__builtin_ia32_aeskeygenassist128) \
+VECTOR_INTRIN(__builtin_ia32_andnotsi256) \
 VECTOR_INTRIN(__builtin_ia32_andnpd) \
 VECTOR_INTRIN(__builtin_ia32_andnpd256) \
 VECTOR_INTRIN(__builtin_ia32_andnps) \
@@ -480,6 +41,13 @@ VECTOR_INTRIN(__builtin_ia32_andpd) \
 VECTOR_INTRIN(__builtin_ia32_andpd256) \
 VECTOR_INTRIN(__builtin_ia32_andps) \
 VECTOR_INTRIN(__builtin_ia32_andps256) \
+VECTOR_INTRIN(__builtin_ia32_andsi256) \
+VECTOR_INTRIN(__builtin_ia32_bextr_u32) \
+VECTOR_INTRIN(__builtin_ia32_bextr_u64) \
+VECTOR_INTRIN(__builtin_ia32_blendmd_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_blendmpd_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_blendmps_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_blendmq_512_mask) \
 VECTOR_INTRIN(__builtin_ia32_blendpd) \
 VECTOR_INTRIN(__builtin_ia32_blendpd256) \
 VECTOR_INTRIN(__builtin_ia32_blendps) \
@@ -488,9 +56,20 @@ VECTOR_INTRIN(__builtin_ia32_blendvpd) \
 VECTOR_INTRIN(__builtin_ia32_blendvpd256) \
 VECTOR_INTRIN(__builtin_ia32_blendvps) \
 VECTOR_INTRIN(__builtin_ia32_blendvps256) \
+VECTOR_INTRIN(__builtin_ia32_broadcastf32x4_512) \
+VECTOR_INTRIN(__builtin_ia32_broadcastf64x4_512) \
+VECTOR_INTRIN(__builtin_ia32_broadcasti32x4_512) \
+VECTOR_INTRIN(__builtin_ia32_broadcasti64x4_512) \
+VECTOR_INTRIN(__builtin_ia32_broadcastmb512) \
+VECTOR_INTRIN(__builtin_ia32_broadcastmw512) \
+VECTOR_INTRIN(__builtin_ia32_broadcastsd512) \
+VECTOR_INTRIN(__builtin_ia32_broadcastss512) \
 VECTOR_INTRIN(__builtin_ia32_bsrdi) \
 VECTOR_INTRIN(__builtin_ia32_bsrsi) \
+VECTOR_INTRIN(__builtin_ia32_bzhi_di) \
+VECTOR_INTRIN(__builtin_ia32_bzhi_si) \
 VECTOR_INTRIN(__builtin_ia32_clflush) \
+VECTOR_INTRIN(__builtin_ia32_cmpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cmpeqpd) \
 VECTOR_INTRIN(__builtin_ia32_cmpeqps) \
 VECTOR_INTRIN(__builtin_ia32_cmpeqsd) \
@@ -531,6 +110,7 @@ VECTOR_INTRIN(__builtin_ia32_cmppd) \
 VECTOR_INTRIN(__builtin_ia32_cmppd256) \
 VECTOR_INTRIN(__builtin_ia32_cmpps) \
 VECTOR_INTRIN(__builtin_ia32_cmpps256) \
+VECTOR_INTRIN(__builtin_ia32_cmpq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cmpsd) \
 VECTOR_INTRIN(__builtin_ia32_cmpss) \
 VECTOR_INTRIN(__builtin_ia32_cmpunordpd) \
@@ -549,26 +129,42 @@ VECTOR_INTRIN(__builtin_ia32_comisdgt) \
 VECTOR_INTRIN(__builtin_ia32_comisdle) \
 VECTOR_INTRIN(__builtin_ia32_comisdlt) \
 VECTOR_INTRIN(__builtin_ia32_comisdneq) \
+VECTOR_INTRIN(__builtin_ia32_compressdf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compressdi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compresssf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compresssi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compressstoredf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compressstoredi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compressstoresf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_compressstoresi512_mask) \
 VECTOR_INTRIN(__builtin_ia32_crc32di) \
 VECTOR_INTRIN(__builtin_ia32_crc32hi) \
 VECTOR_INTRIN(__builtin_ia32_crc32qi) \
 VECTOR_INTRIN(__builtin_ia32_crc32si) \
 VECTOR_INTRIN(__builtin_ia32_cvtdq2pd) \
 VECTOR_INTRIN(__builtin_ia32_cvtdq2pd256) \
+VECTOR_INTRIN(__builtin_ia32_cvtdq2pd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtdq2ps) \
 VECTOR_INTRIN(__builtin_ia32_cvtdq2ps256) \
+VECTOR_INTRIN(__builtin_ia32_cvtdq2ps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtpd2dq) \
 VECTOR_INTRIN(__builtin_ia32_cvtpd2dq256) \
+VECTOR_INTRIN(__builtin_ia32_cvtpd2dq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtpd2pi) \
 VECTOR_INTRIN(__builtin_ia32_cvtpd2ps) \
 VECTOR_INTRIN(__builtin_ia32_cvtpd2ps256) \
+VECTOR_INTRIN(__builtin_ia32_cvtpd2ps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_cvtpd2udq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtpi2pd) \
 VECTOR_INTRIN(__builtin_ia32_cvtpi2ps) \
 VECTOR_INTRIN(__builtin_ia32_cvtps2dq) \
 VECTOR_INTRIN(__builtin_ia32_cvtps2dq256) \
+VECTOR_INTRIN(__builtin_ia32_cvtps2dq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtps2pd) \
 VECTOR_INTRIN(__builtin_ia32_cvtps2pd256) \
+VECTOR_INTRIN(__builtin_ia32_cvtps2pd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtps2pi) \
+VECTOR_INTRIN(__builtin_ia32_cvtps2udq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvtsd2si) \
 VECTOR_INTRIN(__builtin_ia32_cvtsd2si64) \
 VECTOR_INTRIN(__builtin_ia32_cvtsd2ss) \
@@ -581,25 +177,54 @@ VECTOR_INTRIN(__builtin_ia32_cvtss2si) \
 VECTOR_INTRIN(__builtin_ia32_cvtss2si64) \
 VECTOR_INTRIN(__builtin_ia32_cvttpd2dq) \
 VECTOR_INTRIN(__builtin_ia32_cvttpd2dq256) \
+VECTOR_INTRIN(__builtin_ia32_cvttpd2dq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvttpd2pi) \
+VECTOR_INTRIN(__builtin_ia32_cvttpd2udq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvttps2dq) \
 VECTOR_INTRIN(__builtin_ia32_cvttps2dq256) \
+VECTOR_INTRIN(__builtin_ia32_cvttps2dq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvttps2pi) \
+VECTOR_INTRIN(__builtin_ia32_cvttps2udq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_cvttsd2si) \
 VECTOR_INTRIN(__builtin_ia32_cvttsd2si64) \
 VECTOR_INTRIN(__builtin_ia32_cvttss2si) \
 VECTOR_INTRIN(__builtin_ia32_cvttss2si64) \
+VECTOR_INTRIN(__builtin_ia32_cvtudq2pd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_cvtudq2ps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_cvtusi2sd32) \
+VECTOR_INTRIN(__builtin_ia32_cvtusi2sd64) \
+VECTOR_INTRIN(__builtin_ia32_cvtusi2ss32) \
+VECTOR_INTRIN(__builtin_ia32_cvtusi2ss64) \
 VECTOR_INTRIN(__builtin_ia32_divpd) \
 VECTOR_INTRIN(__builtin_ia32_divpd256) \
+VECTOR_INTRIN(__builtin_ia32_divpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_divps) \
 VECTOR_INTRIN(__builtin_ia32_divps256) \
+VECTOR_INTRIN(__builtin_ia32_divps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_divsd) \
 VECTOR_INTRIN(__builtin_ia32_divss) \
 VECTOR_INTRIN(__builtin_ia32_dppd) \
 VECTOR_INTRIN(__builtin_ia32_dpps) \
 VECTOR_INTRIN(__builtin_ia32_dpps256) \
 VECTOR_INTRIN(__builtin_ia32_emms) \
-VECTOR_INTRIN(__builtin_ia32_pause) \
+VECTOR_INTRIN(__builtin_ia32_expanddf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expanddf512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expanddi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expanddi512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expandloaddf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expandloaddf512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expandloaddi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expandloaddi512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expandloadsf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expandloadsf512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expandloadsi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expandloadsi512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expandsf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expandsf512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_expandsi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_expandsi512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_extrq) \
+VECTOR_INTRIN(__builtin_ia32_femms) \
 VECTOR_INTRIN(__builtin_ia32_fxrstor) \
 VECTOR_INTRIN(__builtin_ia32_fxrstor64) \
 VECTOR_INTRIN(__builtin_ia32_fxsave) \
@@ -613,45 +238,84 @@ VECTOR_INTRIN(__builtin_ia32_hsubpd256) \
 VECTOR_INTRIN(__builtin_ia32_hsubps) \
 VECTOR_INTRIN(__builtin_ia32_hsubps256) \
 VECTOR_INTRIN(__builtin_ia32_insertps128) \
+VECTOR_INTRIN(__builtin_ia32_insertq) \
+VECTOR_INTRIN(__builtin_ia32_kandhi) \
+VECTOR_INTRIN(__builtin_ia32_kandnhi) \
+VECTOR_INTRIN(__builtin_ia32_kmov16) \
+VECTOR_INTRIN(__builtin_ia32_knothi) \
+VECTOR_INTRIN(__builtin_ia32_korhi) \
+VECTOR_INTRIN(__builtin_ia32_kortestchi) \
+VECTOR_INTRIN(__builtin_ia32_kortestzhi) \
+VECTOR_INTRIN(__builtin_ia32_kunpckhi) \
+VECTOR_INTRIN(__builtin_ia32_kxnorhi) \
+VECTOR_INTRIN(__builtin_ia32_kxorhi) \
 VECTOR_INTRIN(__builtin_ia32_lddqu) \
 VECTOR_INTRIN(__builtin_ia32_lddqu256) \
 VECTOR_INTRIN(__builtin_ia32_ldmxcsr) \
 VECTOR_INTRIN(__builtin_ia32_lfence) \
+VECTOR_INTRIN(__builtin_ia32_llwpcb) \
+VECTOR_INTRIN(__builtin_ia32_loadapd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_loadaps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_loaddqu) \
 VECTOR_INTRIN(__builtin_ia32_loaddqu256) \
+VECTOR_INTRIN(__builtin_ia32_loaddqudi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_loaddqusi512_mask) \
 VECTOR_INTRIN(__builtin_ia32_loadhpd) \
 VECTOR_INTRIN(__builtin_ia32_loadhps) \
 VECTOR_INTRIN(__builtin_ia32_loadlpd) \
 VECTOR_INTRIN(__builtin_ia32_loadlps) \
 VECTOR_INTRIN(__builtin_ia32_loadupd) \
 VECTOR_INTRIN(__builtin_ia32_loadupd256) \
+VECTOR_INTRIN(__builtin_ia32_loadupd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_loadups) \
 VECTOR_INTRIN(__builtin_ia32_loadups256) \
+VECTOR_INTRIN(__builtin_ia32_loadups512_mask) \
+VECTOR_INTRIN(__builtin_ia32_maskloadd) \
+VECTOR_INTRIN(__builtin_ia32_maskloadd256) \
 VECTOR_INTRIN(__builtin_ia32_maskloadpd) \
 VECTOR_INTRIN(__builtin_ia32_maskloadpd256) \
 VECTOR_INTRIN(__builtin_ia32_maskloadps) \
 VECTOR_INTRIN(__builtin_ia32_maskloadps256) \
+VECTOR_INTRIN(__builtin_ia32_maskloadq) \
+VECTOR_INTRIN(__builtin_ia32_maskloadq256) \
 VECTOR_INTRIN(__builtin_ia32_maskmovdqu) \
 VECTOR_INTRIN(__builtin_ia32_maskmovq) \
+VECTOR_INTRIN(__builtin_ia32_maskstored) \
+VECTOR_INTRIN(__builtin_ia32_maskstored256) \
 VECTOR_INTRIN(__builtin_ia32_maskstorepd) \
 VECTOR_INTRIN(__builtin_ia32_maskstorepd256) \
 VECTOR_INTRIN(__builtin_ia32_maskstoreps) \
 VECTOR_INTRIN(__builtin_ia32_maskstoreps256) \
+VECTOR_INTRIN(__builtin_ia32_maskstoreq) \
+VECTOR_INTRIN(__builtin_ia32_maskstoreq256) \
 VECTOR_INTRIN(__builtin_ia32_maxpd) \
 VECTOR_INTRIN(__builtin_ia32_maxpd256) \
+VECTOR_INTRIN(__builtin_ia32_maxpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_maxps) \
 VECTOR_INTRIN(__builtin_ia32_maxps256) \
+VECTOR_INTRIN(__builtin_ia32_maxps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_maxsd) \
 VECTOR_INTRIN(__builtin_ia32_maxss) \
 VECTOR_INTRIN(__builtin_ia32_mfence) \
 VECTOR_INTRIN(__builtin_ia32_minpd) \
 VECTOR_INTRIN(__builtin_ia32_minpd256) \
+VECTOR_INTRIN(__builtin_ia32_minpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_minps) \
 VECTOR_INTRIN(__builtin_ia32_minps256) \
+VECTOR_INTRIN(__builtin_ia32_minps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_minsd) \
 VECTOR_INTRIN(__builtin_ia32_minss) \
 VECTOR_INTRIN(__builtin_ia32_monitor) \
+VECTOR_INTRIN(__builtin_ia32_movapd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movaps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_movddup256) \
+VECTOR_INTRIN(__builtin_ia32_movddup512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movdqa32_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movdqa32load512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movdqa32store512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movdqa64_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movdqa64load512_mask) \
+VECTOR_INTRIN(__builtin_ia32_movdqa64store512_mask) \
 VECTOR_INTRIN(__builtin_ia32_movhlps) \
 VECTOR_INTRIN(__builtin_ia32_movlhps) \
 VECTOR_INTRIN(__builtin_ia32_movmskpd) \
@@ -660,26 +324,37 @@ VECTOR_INTRIN(__builtin_ia32_movmskps) \
 VECTOR_INTRIN(__builtin_ia32_movmskps256) \
 VECTOR_INTRIN(__builtin_ia32_movntdq) \
 VECTOR_INTRIN(__builtin_ia32_movntdq256) \
+VECTOR_INTRIN(__builtin_ia32_movntdq512) \
 VECTOR_INTRIN(__builtin_ia32_movntdqa) \
+VECTOR_INTRIN(__builtin_ia32_movntdqa256) \
+VECTOR_INTRIN(__builtin_ia32_movntdqa512) \
 VECTOR_INTRIN(__builtin_ia32_movnti) \
 VECTOR_INTRIN(__builtin_ia32_movnti64) \
 VECTOR_INTRIN(__builtin_ia32_movntpd) \
 VECTOR_INTRIN(__builtin_ia32_movntpd256) \
+VECTOR_INTRIN(__builtin_ia32_movntpd512) \
 VECTOR_INTRIN(__builtin_ia32_movntps) \
 VECTOR_INTRIN(__builtin_ia32_movntps256) \
+VECTOR_INTRIN(__builtin_ia32_movntps512) \
 VECTOR_INTRIN(__builtin_ia32_movntq) \
+VECTOR_INTRIN(__builtin_ia32_movntsd) \
+VECTOR_INTRIN(__builtin_ia32_movntss) \
 VECTOR_INTRIN(__builtin_ia32_movq128) \
 VECTOR_INTRIN(__builtin_ia32_movsd) \
 VECTOR_INTRIN(__builtin_ia32_movshdup) \
 VECTOR_INTRIN(__builtin_ia32_movshdup256) \
+VECTOR_INTRIN(__builtin_ia32_movshdup512_mask) \
 VECTOR_INTRIN(__builtin_ia32_movsldup) \
 VECTOR_INTRIN(__builtin_ia32_movsldup256) \
+VECTOR_INTRIN(__builtin_ia32_movsldup512_mask) \
 VECTOR_INTRIN(__builtin_ia32_movss) \
 VECTOR_INTRIN(__builtin_ia32_mpsadbw128) \
 VECTOR_INTRIN(__builtin_ia32_mulpd) \
 VECTOR_INTRIN(__builtin_ia32_mulpd256) \
+VECTOR_INTRIN(__builtin_ia32_mulpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_mulps) \
 VECTOR_INTRIN(__builtin_ia32_mulps256) \
+VECTOR_INTRIN(__builtin_ia32_mulps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_mulsd) \
 VECTOR_INTRIN(__builtin_ia32_mulss) \
 VECTOR_INTRIN(__builtin_ia32_mwait) \
@@ -689,53 +364,99 @@ VECTOR_INTRIN(__builtin_ia32_orps) \
 VECTOR_INTRIN(__builtin_ia32_orps256) \
 VECTOR_INTRIN(__builtin_ia32_pabsb) \
 VECTOR_INTRIN(__builtin_ia32_pabsb128) \
+VECTOR_INTRIN(__builtin_ia32_pabsb256) \
 VECTOR_INTRIN(__builtin_ia32_pabsd) \
 VECTOR_INTRIN(__builtin_ia32_pabsd128) \
+VECTOR_INTRIN(__builtin_ia32_pabsd256) \
+VECTOR_INTRIN(__builtin_ia32_pabsd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pabsq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pabsw) \
 VECTOR_INTRIN(__builtin_ia32_pabsw128) \
+VECTOR_INTRIN(__builtin_ia32_pabsw256) \
 VECTOR_INTRIN(__builtin_ia32_packssdw) \
 VECTOR_INTRIN(__builtin_ia32_packssdw128) \
+VECTOR_INTRIN(__builtin_ia32_packssdw256) \
 VECTOR_INTRIN(__builtin_ia32_packsswb) \
 VECTOR_INTRIN(__builtin_ia32_packsswb128) \
+VECTOR_INTRIN(__builtin_ia32_packsswb256) \
 VECTOR_INTRIN(__builtin_ia32_packusdw128) \
+VECTOR_INTRIN(__builtin_ia32_packusdw256) \
 VECTOR_INTRIN(__builtin_ia32_packuswb) \
 VECTOR_INTRIN(__builtin_ia32_packuswb128) \
+VECTOR_INTRIN(__builtin_ia32_packuswb256) \
 VECTOR_INTRIN(__builtin_ia32_paddb) \
 VECTOR_INTRIN(__builtin_ia32_paddb128) \
+VECTOR_INTRIN(__builtin_ia32_paddb256) \
 VECTOR_INTRIN(__builtin_ia32_paddd) \
 VECTOR_INTRIN(__builtin_ia32_paddd128) \
+VECTOR_INTRIN(__builtin_ia32_paddd256) \
+VECTOR_INTRIN(__builtin_ia32_paddd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_paddq) \
 VECTOR_INTRIN(__builtin_ia32_paddq128) \
+VECTOR_INTRIN(__builtin_ia32_paddq256) \
+VECTOR_INTRIN(__builtin_ia32_paddq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_paddsb) \
 VECTOR_INTRIN(__builtin_ia32_paddsb128) \
+VECTOR_INTRIN(__builtin_ia32_paddsb256) \
 VECTOR_INTRIN(__builtin_ia32_paddsw) \
 VECTOR_INTRIN(__builtin_ia32_paddsw128) \
+VECTOR_INTRIN(__builtin_ia32_paddsw256) \
 VECTOR_INTRIN(__builtin_ia32_paddusb) \
 VECTOR_INTRIN(__builtin_ia32_paddusb128) \
+VECTOR_INTRIN(__builtin_ia32_paddusb256) \
 VECTOR_INTRIN(__builtin_ia32_paddusw) \
 VECTOR_INTRIN(__builtin_ia32_paddusw128) \
+VECTOR_INTRIN(__builtin_ia32_paddusw256) \
 VECTOR_INTRIN(__builtin_ia32_paddw) \
 VECTOR_INTRIN(__builtin_ia32_paddw128) \
+VECTOR_INTRIN(__builtin_ia32_paddw256) \
 VECTOR_INTRIN(__builtin_ia32_palignr) \
 VECTOR_INTRIN(__builtin_ia32_palignr128) \
 VECTOR_INTRIN(__builtin_ia32_pand) \
 VECTOR_INTRIN(__builtin_ia32_pand128) \
+VECTOR_INTRIN(__builtin_ia32_pandd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pandn) \
 VECTOR_INTRIN(__builtin_ia32_pandn128) \
+VECTOR_INTRIN(__builtin_ia32_pandnd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pandnq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pandq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pause) \
 VECTOR_INTRIN(__builtin_ia32_pavgb) \
 VECTOR_INTRIN(__builtin_ia32_pavgb128) \
+VECTOR_INTRIN(__builtin_ia32_pavgb256) \
+VECTOR_INTRIN(__builtin_ia32_pavgusb) \
 VECTOR_INTRIN(__builtin_ia32_pavgw) \
 VECTOR_INTRIN(__builtin_ia32_pavgw128) \
+VECTOR_INTRIN(__builtin_ia32_pavgw256) \
 VECTOR_INTRIN(__builtin_ia32_pblendvb128) \
+VECTOR_INTRIN(__builtin_ia32_pblendvb256) \
 VECTOR_INTRIN(__builtin_ia32_pblendw128) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastb128) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastb256) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastd128) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastd256) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastd512) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastd512_gpr_mask) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastq128) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastq256) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastq512) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastq512_mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastw128) \
+VECTOR_INTRIN(__builtin_ia32_pbroadcastw256) \
 VECTOR_INTRIN(__builtin_ia32_pclmulqdq128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqb) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqb128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqb256) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqd) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqd128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqd256) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqq) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqq256) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqw) \
 VECTOR_INTRIN(__builtin_ia32_pcmpeqw128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpeqw256) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestri128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestria128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestric128) \
@@ -745,11 +466,17 @@ VECTOR_INTRIN(__builtin_ia32_pcmpestriz128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpestrm128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtb) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtb128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtb256) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtd) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtd128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtd256) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtq) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtq256) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtw) \
 VECTOR_INTRIN(__builtin_ia32_pcmpgtw128) \
+VECTOR_INTRIN(__builtin_ia32_pcmpgtw256) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistri128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistria128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistric128) \
@@ -758,162 +485,377 @@ VECTOR_INTRIN(__builtin_ia32_pcmpistris128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistriz128) \
 VECTOR_INTRIN(__builtin_ia32_pcmpistrm128) \
 VECTOR_INTRIN(__builtin_ia32_pd256_pd) \
+VECTOR_INTRIN(__builtin_ia32_pdep_di) \
+VECTOR_INTRIN(__builtin_ia32_pdep_si) \
 VECTOR_INTRIN(__builtin_ia32_pd_pd256) \
+VECTOR_INTRIN(__builtin_ia32_permvardf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_permvardi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_permvarsf256) \
+VECTOR_INTRIN(__builtin_ia32_permvarsf512_mask) \
+VECTOR_INTRIN(__builtin_ia32_permvarsi256) \
+VECTOR_INTRIN(__builtin_ia32_permvarsi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pext_di) \
+VECTOR_INTRIN(__builtin_ia32_pext_si) \
+VECTOR_INTRIN(__builtin_ia32_pf2id) \
+VECTOR_INTRIN(__builtin_ia32_pfacc) \
+VECTOR_INTRIN(__builtin_ia32_pfadd) \
+VECTOR_INTRIN(__builtin_ia32_pfcmpeq) \
+VECTOR_INTRIN(__builtin_ia32_pfcmpge) \
+VECTOR_INTRIN(__builtin_ia32_pfcmpgt) \
+VECTOR_INTRIN(__builtin_ia32_pfmax) \
+VECTOR_INTRIN(__builtin_ia32_pfmin) \
+VECTOR_INTRIN(__builtin_ia32_pfmul) \
+VECTOR_INTRIN(__builtin_ia32_pfrcp) \
+VECTOR_INTRIN(__builtin_ia32_pfrcpit1) \
+VECTOR_INTRIN(__builtin_ia32_pfrcpit2) \
+VECTOR_INTRIN(__builtin_ia32_pfrsqit1) \
+VECTOR_INTRIN(__builtin_ia32_pfrsqrt) \
+VECTOR_INTRIN(__builtin_ia32_pfsub) \
+VECTOR_INTRIN(__builtin_ia32_pfsubr) \
 VECTOR_INTRIN(__builtin_ia32_phaddd) \
 VECTOR_INTRIN(__builtin_ia32_phaddd128) \
+VECTOR_INTRIN(__builtin_ia32_phaddd256) \
 VECTOR_INTRIN(__builtin_ia32_phaddsw) \
 VECTOR_INTRIN(__builtin_ia32_phaddsw128) \
+VECTOR_INTRIN(__builtin_ia32_phaddsw256) \
 VECTOR_INTRIN(__builtin_ia32_phaddw) \
 VECTOR_INTRIN(__builtin_ia32_phaddw128) \
+VECTOR_INTRIN(__builtin_ia32_phaddw256) \
 VECTOR_INTRIN(__builtin_ia32_phminposuw128) \
 VECTOR_INTRIN(__builtin_ia32_phsubd) \
 VECTOR_INTRIN(__builtin_ia32_phsubd128) \
+VECTOR_INTRIN(__builtin_ia32_phsubd256) \
 VECTOR_INTRIN(__builtin_ia32_phsubsw) \
 VECTOR_INTRIN(__builtin_ia32_phsubsw128) \
+VECTOR_INTRIN(__builtin_ia32_phsubsw256) \
 VECTOR_INTRIN(__builtin_ia32_phsubw) \
 VECTOR_INTRIN(__builtin_ia32_phsubw128) \
+VECTOR_INTRIN(__builtin_ia32_phsubw256) \
+VECTOR_INTRIN(__builtin_ia32_pi2fd) \
 VECTOR_INTRIN(__builtin_ia32_pmaddubsw) \
 VECTOR_INTRIN(__builtin_ia32_pmaddubsw128) \
+VECTOR_INTRIN(__builtin_ia32_pmaddubsw256) \
 VECTOR_INTRIN(__builtin_ia32_pmaddwd) \
 VECTOR_INTRIN(__builtin_ia32_pmaddwd128) \
+VECTOR_INTRIN(__builtin_ia32_pmaddwd256) \
 VECTOR_INTRIN(__builtin_ia32_pmaxsb128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsb256) \
 VECTOR_INTRIN(__builtin_ia32_pmaxsd128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsd256) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmaxsw) \
 VECTOR_INTRIN(__builtin_ia32_pmaxsw128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxsw256) \
 VECTOR_INTRIN(__builtin_ia32_pmaxub) \
 VECTOR_INTRIN(__builtin_ia32_pmaxub128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxub256) \
 VECTOR_INTRIN(__builtin_ia32_pmaxud128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxud256) \
+VECTOR_INTRIN(__builtin_ia32_pmaxud512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmaxuq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmaxuw128) \
+VECTOR_INTRIN(__builtin_ia32_pmaxuw256) \
 VECTOR_INTRIN(__builtin_ia32_pminsb128) \
+VECTOR_INTRIN(__builtin_ia32_pminsb256) \
 VECTOR_INTRIN(__builtin_ia32_pminsd128) \
+VECTOR_INTRIN(__builtin_ia32_pminsd256) \
+VECTOR_INTRIN(__builtin_ia32_pminsd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pminsq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pminsw) \
 VECTOR_INTRIN(__builtin_ia32_pminsw128) \
+VECTOR_INTRIN(__builtin_ia32_pminsw256) \
 VECTOR_INTRIN(__builtin_ia32_pminub) \
 VECTOR_INTRIN(__builtin_ia32_pminub128) \
+VECTOR_INTRIN(__builtin_ia32_pminub256) \
 VECTOR_INTRIN(__builtin_ia32_pminud128) \
+VECTOR_INTRIN(__builtin_ia32_pminud256) \
+VECTOR_INTRIN(__builtin_ia32_pminud512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pminuq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pminuw128) \
+VECTOR_INTRIN(__builtin_ia32_pminuw256) \
+VECTOR_INTRIN(__builtin_ia32_pmovdb512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovdb512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovdw512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovdw512mem_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovmskb) \
 VECTOR_INTRIN(__builtin_ia32_pmovmskb128) \
+VECTOR_INTRIN(__builtin_ia32_pmovmskb256) \
+VECTOR_INTRIN(__builtin_ia32_pmovqb512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovqb512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovqd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovqd512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovqw512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovqw512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsdb512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsdb512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsdw512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsdw512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsqb512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsqb512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsqd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsqd512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsqw512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovsqw512mem_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovsxbd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbd256) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovsxbq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbq256) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovsxbw128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxbw256) \
 VECTOR_INTRIN(__builtin_ia32_pmovsxdq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxdq256) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxdq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovsxwd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxwd256) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxwd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovsxwq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxwq256) \
+VECTOR_INTRIN(__builtin_ia32_pmovsxwq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusdb512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusdb512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusdw512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusdw512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusqb512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusqb512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusqd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusqd512mem_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusqw512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pmovusqw512mem_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovzxbd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbd256) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovzxbq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbq256) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovzxbw128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxbw256) \
 VECTOR_INTRIN(__builtin_ia32_pmovzxdq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxdq256) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxdq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovzxwd128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxwd256) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxwd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmovzxwq128) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxwq256) \
+VECTOR_INTRIN(__builtin_ia32_pmovzxwq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmuldq128) \
+VECTOR_INTRIN(__builtin_ia32_pmuldq256) \
+VECTOR_INTRIN(__builtin_ia32_pmuldq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmulhrsw) \
 VECTOR_INTRIN(__builtin_ia32_pmulhrsw128) \
+VECTOR_INTRIN(__builtin_ia32_pmulhrsw256) \
+VECTOR_INTRIN(__builtin_ia32_pmulhrw) \
 VECTOR_INTRIN(__builtin_ia32_pmulhuw) \
 VECTOR_INTRIN(__builtin_ia32_pmulhuw128) \
+VECTOR_INTRIN(__builtin_ia32_pmulhuw256) \
 VECTOR_INTRIN(__builtin_ia32_pmulhw) \
 VECTOR_INTRIN(__builtin_ia32_pmulhw128) \
+VECTOR_INTRIN(__builtin_ia32_pmulhw256) \
 VECTOR_INTRIN(__builtin_ia32_pmulld128) \
+VECTOR_INTRIN(__builtin_ia32_pmulld256) \
+VECTOR_INTRIN(__builtin_ia32_pmulld512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pmullw) \
 VECTOR_INTRIN(__builtin_ia32_pmullw128) \
+VECTOR_INTRIN(__builtin_ia32_pmullw256) \
 VECTOR_INTRIN(__builtin_ia32_pmuludq) \
 VECTOR_INTRIN(__builtin_ia32_pmuludq128) \
+VECTOR_INTRIN(__builtin_ia32_pmuludq256) \
+VECTOR_INTRIN(__builtin_ia32_pmuludq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_por) \
 VECTOR_INTRIN(__builtin_ia32_por128) \
+VECTOR_INTRIN(__builtin_ia32_por256) \
+VECTOR_INTRIN(__builtin_ia32_pord512_mask) \
+VECTOR_INTRIN(__builtin_ia32_porq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_prolvd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_prolvq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_prorvd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_prorvq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_ps256_ps) \
 VECTOR_INTRIN(__builtin_ia32_psadbw) \
 VECTOR_INTRIN(__builtin_ia32_psadbw128) \
+VECTOR_INTRIN(__builtin_ia32_psadbw256) \
 VECTOR_INTRIN(__builtin_ia32_pshufb) \
 VECTOR_INTRIN(__builtin_ia32_pshufb128) \
+VECTOR_INTRIN(__builtin_ia32_pshufb256) \
 VECTOR_INTRIN(__builtin_ia32_pshufd) \
 VECTOR_INTRIN(__builtin_ia32_pshufhw) \
 VECTOR_INTRIN(__builtin_ia32_pshuflw) \
 VECTOR_INTRIN(__builtin_ia32_pshufw) \
 VECTOR_INTRIN(__builtin_ia32_psignb) \
 VECTOR_INTRIN(__builtin_ia32_psignb128) \
+VECTOR_INTRIN(__builtin_ia32_psignb256) \
 VECTOR_INTRIN(__builtin_ia32_psignd) \
 VECTOR_INTRIN(__builtin_ia32_psignd128) \
+VECTOR_INTRIN(__builtin_ia32_psignd256) \
 VECTOR_INTRIN(__builtin_ia32_psignw) \
 VECTOR_INTRIN(__builtin_ia32_psignw128) \
+VECTOR_INTRIN(__builtin_ia32_psignw256) \
 VECTOR_INTRIN(__builtin_ia32_pslld) \
 VECTOR_INTRIN(__builtin_ia32_pslld128) \
+VECTOR_INTRIN(__builtin_ia32_pslld256) \
+VECTOR_INTRIN(__builtin_ia32_pslld512_mask) \
 VECTOR_INTRIN(__builtin_ia32_pslldi) \
 VECTOR_INTRIN(__builtin_ia32_pslldi128) \
+VECTOR_INTRIN(__builtin_ia32_pslldi256) \
 VECTOR_INTRIN(__builtin_ia32_pslldqi128) \
 VECTOR_INTRIN(__builtin_ia32_psllq) \
 VECTOR_INTRIN(__builtin_ia32_psllq128) \
+VECTOR_INTRIN(__builtin_ia32_psllq256) \
+VECTOR_INTRIN(__builtin_ia32_psllq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_psllqi) \
 VECTOR_INTRIN(__builtin_ia32_psllqi128) \
+VECTOR_INTRIN(__builtin_ia32_psllqi256) \
+VECTOR_INTRIN(__builtin_ia32_psllv16si_mask) \
+VECTOR_INTRIN(__builtin_ia32_psllv2di) \
+VECTOR_INTRIN(__builtin_ia32_psllv4di) \
+VECTOR_INTRIN(__builtin_ia32_psllv4si) \
+VECTOR_INTRIN(__builtin_ia32_psllv8di_mask) \
+VECTOR_INTRIN(__builtin_ia32_psllv8si) \
 VECTOR_INTRIN(__builtin_ia32_psllw) \
 VECTOR_INTRIN(__builtin_ia32_psllw128) \
+VECTOR_INTRIN(__builtin_ia32_psllw256) \
 VECTOR_INTRIN(__builtin_ia32_psllwi) \
 VECTOR_INTRIN(__builtin_ia32_psllwi128) \
+VECTOR_INTRIN(__builtin_ia32_psllwi256) \
 VECTOR_INTRIN(__builtin_ia32_ps_ps256) \
 VECTOR_INTRIN(__builtin_ia32_psrad) \
 VECTOR_INTRIN(__builtin_ia32_psrad128) \
+VECTOR_INTRIN(__builtin_ia32_psrad256) \
+VECTOR_INTRIN(__builtin_ia32_psrad512_mask) \
 VECTOR_INTRIN(__builtin_ia32_psradi) \
 VECTOR_INTRIN(__builtin_ia32_psradi128) \
+VECTOR_INTRIN(__builtin_ia32_psradi256) \
+VECTOR_INTRIN(__builtin_ia32_psraq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_psrav16si_mask) \
+VECTOR_INTRIN(__builtin_ia32_psrav4si) \
+VECTOR_INTRIN(__builtin_ia32_psrav8di_mask) \
+VECTOR_INTRIN(__builtin_ia32_psrav8si) \
 VECTOR_INTRIN(__builtin_ia32_psraw) \
 VECTOR_INTRIN(__builtin_ia32_psraw128) \
+VECTOR_INTRIN(__builtin_ia32_psraw256) \
 VECTOR_INTRIN(__builtin_ia32_psrawi) \
 VECTOR_INTRIN(__builtin_ia32_psrawi128) \
+VECTOR_INTRIN(__builtin_ia32_psrawi256) \
 VECTOR_INTRIN(__builtin_ia32_psrld) \
 VECTOR_INTRIN(__builtin_ia32_psrld128) \
+VECTOR_INTRIN(__builtin_ia32_psrld256) \
+VECTOR_INTRIN(__builtin_ia32_psrld512_mask) \
 VECTOR_INTRIN(__builtin_ia32_psrldi) \
 VECTOR_INTRIN(__builtin_ia32_psrldi128) \
+VECTOR_INTRIN(__builtin_ia32_psrldi256) \
 VECTOR_INTRIN(__builtin_ia32_psrldqi128) \
 VECTOR_INTRIN(__builtin_ia32_psrlq) \
 VECTOR_INTRIN(__builtin_ia32_psrlq128) \
+VECTOR_INTRIN(__builtin_ia32_psrlq256) \
+VECTOR_INTRIN(__builtin_ia32_psrlq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_psrlqi) \
 VECTOR_INTRIN(__builtin_ia32_psrlqi128) \
+VECTOR_INTRIN(__builtin_ia32_psrlqi256) \
+VECTOR_INTRIN(__builtin_ia32_psrlv16si_mask) \
+VECTOR_INTRIN(__builtin_ia32_psrlv2di) \
+VECTOR_INTRIN(__builtin_ia32_psrlv4di) \
+VECTOR_INTRIN(__builtin_ia32_psrlv4si) \
+VECTOR_INTRIN(__builtin_ia32_psrlv8di_mask) \
+VECTOR_INTRIN(__builtin_ia32_psrlv8si) \
 VECTOR_INTRIN(__builtin_ia32_psrlw) \
 VECTOR_INTRIN(__builtin_ia32_psrlw128) \
+VECTOR_INTRIN(__builtin_ia32_psrlw256) \
 VECTOR_INTRIN(__builtin_ia32_psrlwi) \
 VECTOR_INTRIN(__builtin_ia32_psrlwi128) \
+VECTOR_INTRIN(__builtin_ia32_psrlwi256) \
 VECTOR_INTRIN(__builtin_ia32_psubb) \
 VECTOR_INTRIN(__builtin_ia32_psubb128) \
+VECTOR_INTRIN(__builtin_ia32_psubb256) \
 VECTOR_INTRIN(__builtin_ia32_psubd) \
 VECTOR_INTRIN(__builtin_ia32_psubd128) \
+VECTOR_INTRIN(__builtin_ia32_psubd256) \
+VECTOR_INTRIN(__builtin_ia32_psubd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_psubq) \
 VECTOR_INTRIN(__builtin_ia32_psubq128) \
+VECTOR_INTRIN(__builtin_ia32_psubq256) \
+VECTOR_INTRIN(__builtin_ia32_psubq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_psubsb) \
 VECTOR_INTRIN(__builtin_ia32_psubsb128) \
+VECTOR_INTRIN(__builtin_ia32_psubsb256) \
 VECTOR_INTRIN(__builtin_ia32_psubsw) \
 VECTOR_INTRIN(__builtin_ia32_psubsw128) \
+VECTOR_INTRIN(__builtin_ia32_psubsw256) \
 VECTOR_INTRIN(__builtin_ia32_psubusb) \
 VECTOR_INTRIN(__builtin_ia32_psubusb128) \
+VECTOR_INTRIN(__builtin_ia32_psubusb256) \
 VECTOR_INTRIN(__builtin_ia32_psubusw) \
 VECTOR_INTRIN(__builtin_ia32_psubusw128) \
+VECTOR_INTRIN(__builtin_ia32_psubusw256) \
 VECTOR_INTRIN(__builtin_ia32_psubw) \
 VECTOR_INTRIN(__builtin_ia32_psubw128) \
+VECTOR_INTRIN(__builtin_ia32_psubw256) \
 VECTOR_INTRIN(__builtin_ia32_ptestc128) \
 VECTOR_INTRIN(__builtin_ia32_ptestc256) \
+VECTOR_INTRIN(__builtin_ia32_ptestmd512) \
+VECTOR_INTRIN(__builtin_ia32_ptestmq512) \
+VECTOR_INTRIN(__builtin_ia32_ptestnmd512) \
+VECTOR_INTRIN(__builtin_ia32_ptestnmq512) \
 VECTOR_INTRIN(__builtin_ia32_ptestnzc128) \
 VECTOR_INTRIN(__builtin_ia32_ptestnzc256) \
 VECTOR_INTRIN(__builtin_ia32_ptestz128) \
 VECTOR_INTRIN(__builtin_ia32_ptestz256) \
 VECTOR_INTRIN(__builtin_ia32_punpckhbw) \
 VECTOR_INTRIN(__builtin_ia32_punpckhbw128) \
+VECTOR_INTRIN(__builtin_ia32_punpckhbw256) \
 VECTOR_INTRIN(__builtin_ia32_punpckhdq) \
 VECTOR_INTRIN(__builtin_ia32_punpckhdq128) \
+VECTOR_INTRIN(__builtin_ia32_punpckhdq256) \
+VECTOR_INTRIN(__builtin_ia32_punpckhdq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_punpckhqdq128) \
+VECTOR_INTRIN(__builtin_ia32_punpckhqdq256) \
+VECTOR_INTRIN(__builtin_ia32_punpckhqdq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_punpckhwd) \
 VECTOR_INTRIN(__builtin_ia32_punpckhwd128) \
+VECTOR_INTRIN(__builtin_ia32_punpckhwd256) \
 VECTOR_INTRIN(__builtin_ia32_punpcklbw) \
 VECTOR_INTRIN(__builtin_ia32_punpcklbw128) \
+VECTOR_INTRIN(__builtin_ia32_punpcklbw256) \
 VECTOR_INTRIN(__builtin_ia32_punpckldq) \
 VECTOR_INTRIN(__builtin_ia32_punpckldq128) \
+VECTOR_INTRIN(__builtin_ia32_punpckldq256) \
+VECTOR_INTRIN(__builtin_ia32_punpckldq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_punpcklqdq128) \
+VECTOR_INTRIN(__builtin_ia32_punpcklqdq256) \
+VECTOR_INTRIN(__builtin_ia32_punpcklqdq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_punpcklwd) \
 VECTOR_INTRIN(__builtin_ia32_punpcklwd128) \
+VECTOR_INTRIN(__builtin_ia32_punpcklwd256) \
 VECTOR_INTRIN(__builtin_ia32_pxor) \
 VECTOR_INTRIN(__builtin_ia32_pxor128) \
+VECTOR_INTRIN(__builtin_ia32_pxor256) \
+VECTOR_INTRIN(__builtin_ia32_pxord512_mask) \
+VECTOR_INTRIN(__builtin_ia32_pxorq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_rcp14pd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_rcp14ps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_rcp14sd) \
+VECTOR_INTRIN(__builtin_ia32_rcp14ss) \
 VECTOR_INTRIN(__builtin_ia32_rcpps) \
 VECTOR_INTRIN(__builtin_ia32_rcpps256) \
 VECTOR_INTRIN(__builtin_ia32_rcpss) \
+VECTOR_INTRIN(__builtin_ia32_rdfsbase32) \
+VECTOR_INTRIN(__builtin_ia32_rdfsbase64) \
+VECTOR_INTRIN(__builtin_ia32_rdgsbase32) \
+VECTOR_INTRIN(__builtin_ia32_rdgsbase64) \
 VECTOR_INTRIN(__builtin_ia32_rdpmc) \
+VECTOR_INTRIN(__builtin_ia32_rdrand16_step) \
+VECTOR_INTRIN(__builtin_ia32_rdrand32_step) \
+VECTOR_INTRIN(__builtin_ia32_rdrand64_step) \
+VECTOR_INTRIN(__builtin_ia32_rdseed_di_step) \
+VECTOR_INTRIN(__builtin_ia32_rdseed_hi_step) \
+VECTOR_INTRIN(__builtin_ia32_rdseed_si_step) \
 VECTOR_INTRIN(__builtin_ia32_rdtsc) \
 VECTOR_INTRIN(__builtin_ia32_rdtscp) \
+VECTOR_INTRIN(__builtin_ia32_readeflags_u64) \
+VECTOR_INTRIN(__builtin_ia32_rndscalepd_mask) \
+VECTOR_INTRIN(__builtin_ia32_rndscaleps_mask) \
 VECTOR_INTRIN(__builtin_ia32_rolhi) \
 VECTOR_INTRIN(__builtin_ia32_rolqi) \
 VECTOR_INTRIN(__builtin_ia32_rorhi) \
@@ -924,39 +866,66 @@ VECTOR_INTRIN(__builtin_ia32_roundps) \
 VECTOR_INTRIN(__builtin_ia32_roundps256) \
 VECTOR_INTRIN(__builtin_ia32_roundsd) \
 VECTOR_INTRIN(__builtin_ia32_roundss) \
+VECTOR_INTRIN(__builtin_ia32_rsqrt14pd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_rsqrt14ps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_rsqrt14sd) \
+VECTOR_INTRIN(__builtin_ia32_rsqrt14ss) \
 VECTOR_INTRIN(__builtin_ia32_rsqrtps) \
 VECTOR_INTRIN(__builtin_ia32_rsqrtps256) \
 VECTOR_INTRIN(__builtin_ia32_rsqrtps_nr256) \
 VECTOR_INTRIN(__builtin_ia32_rsqrtss) \
+VECTOR_INTRIN(__builtin_ia32_scalefpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_scalefps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_scalefsd_round) \
+VECTOR_INTRIN(__builtin_ia32_scalefss_round) \
 VECTOR_INTRIN(__builtin_ia32_sfence) \
+VECTOR_INTRIN(__builtin_ia32_sha1msg1) \
+VECTOR_INTRIN(__builtin_ia32_sha1msg2) \
+VECTOR_INTRIN(__builtin_ia32_sha1nexte) \
+VECTOR_INTRIN(__builtin_ia32_sha256msg1) \
+VECTOR_INTRIN(__builtin_ia32_sha256msg2) \
+VECTOR_INTRIN(__builtin_ia32_sha256rnds2) \
 VECTOR_INTRIN(__builtin_ia32_shufpd) \
 VECTOR_INTRIN(__builtin_ia32_shufpd256) \
 VECTOR_INTRIN(__builtin_ia32_shufps) \
 VECTOR_INTRIN(__builtin_ia32_shufps256) \
 VECTOR_INTRIN(__builtin_ia32_si256_si) \
 VECTOR_INTRIN(__builtin_ia32_si_si256) \
+VECTOR_INTRIN(__builtin_ia32_slwpcb) \
 VECTOR_INTRIN(__builtin_ia32_sqrtpd) \
 VECTOR_INTRIN(__builtin_ia32_sqrtpd256) \
+VECTOR_INTRIN(__builtin_ia32_sqrtpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_sqrtps) \
 VECTOR_INTRIN(__builtin_ia32_sqrtps256) \
+VECTOR_INTRIN(__builtin_ia32_sqrtps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_sqrtps_nr256) \
 VECTOR_INTRIN(__builtin_ia32_sqrtsd) \
 VECTOR_INTRIN(__builtin_ia32_sqrtss) \
 VECTOR_INTRIN(__builtin_ia32_stmxcsr) \
+VECTOR_INTRIN(__builtin_ia32_storeapd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_storeaps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_storedqu) \
 VECTOR_INTRIN(__builtin_ia32_storedqu256) \
+VECTOR_INTRIN(__builtin_ia32_storedqudi512_mask) \
+VECTOR_INTRIN(__builtin_ia32_storedqusi512_mask) \
 VECTOR_INTRIN(__builtin_ia32_storehps) \
 VECTOR_INTRIN(__builtin_ia32_storelps) \
 VECTOR_INTRIN(__builtin_ia32_storeupd) \
 VECTOR_INTRIN(__builtin_ia32_storeupd256) \
+VECTOR_INTRIN(__builtin_ia32_storeupd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_storeups) \
 VECTOR_INTRIN(__builtin_ia32_storeups256) \
+VECTOR_INTRIN(__builtin_ia32_storeups512_mask) \
 VECTOR_INTRIN(__builtin_ia32_subpd) \
 VECTOR_INTRIN(__builtin_ia32_subpd256) \
+VECTOR_INTRIN(__builtin_ia32_subpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_subps) \
 VECTOR_INTRIN(__builtin_ia32_subps256) \
+VECTOR_INTRIN(__builtin_ia32_subps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_subsd) \
 VECTOR_INTRIN(__builtin_ia32_subss) \
+VECTOR_INTRIN(__builtin_ia32_ucmpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_ucmpq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_ucomieq) \
 VECTOR_INTRIN(__builtin_ia32_ucomige) \
 VECTOR_INTRIN(__builtin_ia32_ucomigt) \
@@ -971,17 +940,40 @@ VECTOR_INTRIN(__builtin_ia32_ucomisdlt) \
 VECTOR_INTRIN(__builtin_ia32_ucomisdneq) \
 VECTOR_INTRIN(__builtin_ia32_unpckhpd) \
 VECTOR_INTRIN(__builtin_ia32_unpckhpd256) \
+VECTOR_INTRIN(__builtin_ia32_unpckhpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_unpckhps) \
 VECTOR_INTRIN(__builtin_ia32_unpckhps256) \
+VECTOR_INTRIN(__builtin_ia32_unpckhps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_unpcklpd) \
 VECTOR_INTRIN(__builtin_ia32_unpcklpd256) \
+VECTOR_INTRIN(__builtin_ia32_unpcklpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_unpcklps) \
 VECTOR_INTRIN(__builtin_ia32_unpcklps256) \
+VECTOR_INTRIN(__builtin_ia32_unpcklps512_mask) \
 VECTOR_INTRIN(__builtin_ia32_vbroadcastf128_pd256) \
 VECTOR_INTRIN(__builtin_ia32_vbroadcastf128_ps256) \
 VECTOR_INTRIN(__builtin_ia32_vbroadcastsd256) \
+VECTOR_INTRIN(__builtin_ia32_vbroadcastsd_pd256) \
+VECTOR_INTRIN(__builtin_ia32_vbroadcastsi256) \
 VECTOR_INTRIN(__builtin_ia32_vbroadcastss) \
 VECTOR_INTRIN(__builtin_ia32_vbroadcastss256) \
+VECTOR_INTRIN(__builtin_ia32_vbroadcastss_ps) \
+VECTOR_INTRIN(__builtin_ia32_vbroadcastss_ps256) \
+VECTOR_INTRIN(__builtin_ia32_vcvtph2ps) \
+VECTOR_INTRIN(__builtin_ia32_vcvtph2ps256) \
+VECTOR_INTRIN(__builtin_ia32_vcvtph2ps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vcvtsd2usi32) \
+VECTOR_INTRIN(__builtin_ia32_vcvtsd2usi64) \
+VECTOR_INTRIN(__builtin_ia32_vcvtss2usi32) \
+VECTOR_INTRIN(__builtin_ia32_vcvtss2usi64) \
+VECTOR_INTRIN(__builtin_ia32_vcvttsd2si32) \
+VECTOR_INTRIN(__builtin_ia32_vcvttsd2si64) \
+VECTOR_INTRIN(__builtin_ia32_vcvttsd2usi32) \
+VECTOR_INTRIN(__builtin_ia32_vcvttsd2usi64) \
+VECTOR_INTRIN(__builtin_ia32_vcvttss2si32) \
+VECTOR_INTRIN(__builtin_ia32_vcvttss2si64) \
+VECTOR_INTRIN(__builtin_ia32_vcvttss2usi32) \
+VECTOR_INTRIN(__builtin_ia32_vcvttss2usi64) \
 VECTOR_INTRIN(__builtin_ia32_vec_ext_v16qi) \
 VECTOR_INTRIN(__builtin_ia32_vec_ext_v2df) \
 VECTOR_INTRIN(__builtin_ia32_vec_ext_v2di) \
@@ -1001,6 +993,40 @@ VECTOR_INTRIN(__builtin_ia32_vec_set_v8hi) \
 VECTOR_INTRIN(__builtin_ia32_vextractf128_pd256) \
 VECTOR_INTRIN(__builtin_ia32_vextractf128_ps256) \
 VECTOR_INTRIN(__builtin_ia32_vextractf128_si256) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddpd) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddpd256) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddpd512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddpd512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddps) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddps256) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddps512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddps512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsd) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsd3) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddss) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddss3) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubpd) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubpd256) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubpd512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubpd512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubps) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubps256) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubps512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmaddsubps512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vfmsubaddpd512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmsubaddps512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmsubpd512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfmsubps512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfnmaddpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfnmaddps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfnmsubpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfnmsubpd512_mask3) \
+VECTOR_INTRIN(__builtin_ia32_vfnmsubps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vfnmsubps512_mask3) \
 VECTOR_INTRIN(__builtin_ia32_vfrczpd) \
 VECTOR_INTRIN(__builtin_ia32_vfrczpd256) \
 VECTOR_INTRIN(__builtin_ia32_vfrczps) \
@@ -1074,6 +1100,14 @@ VECTOR_INTRIN(__builtin_ia32_vpcomltw) \
 VECTOR_INTRIN(__builtin_ia32_vpcomneb) \
 VECTOR_INTRIN(__builtin_ia32_vpcomned) \
 VECTOR_INTRIN(__builtin_ia32_vpcomneq) \
+VECTOR_INTRIN(__builtin_ia32_vpcomneqb) \
+VECTOR_INTRIN(__builtin_ia32_vpcomneqd) \
+VECTOR_INTRIN(__builtin_ia32_vpcomneqq) \
+VECTOR_INTRIN(__builtin_ia32_vpcomnequb) \
+VECTOR_INTRIN(__builtin_ia32_vpcomnequd) \
+VECTOR_INTRIN(__builtin_ia32_vpcomnequq) \
+VECTOR_INTRIN(__builtin_ia32_vpcomnequw) \
+VECTOR_INTRIN(__builtin_ia32_vpcomneqw) \
 VECTOR_INTRIN(__builtin_ia32_vpcomneub) \
 VECTOR_INTRIN(__builtin_ia32_vpcomneud) \
 VECTOR_INTRIN(__builtin_ia32_vpcomneuq) \
@@ -1087,9 +1121,15 @@ VECTOR_INTRIN(__builtin_ia32_vpcomtrueud) \
 VECTOR_INTRIN(__builtin_ia32_vpcomtrueuq) \
 VECTOR_INTRIN(__builtin_ia32_vpcomtrueuw) \
 VECTOR_INTRIN(__builtin_ia32_vpcomtruew) \
+VECTOR_INTRIN(__builtin_ia32_vpconflictdi_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpconflictsi_512_mask) \
 VECTOR_INTRIN(__builtin_ia32_vperm2f128_pd256) \
 VECTOR_INTRIN(__builtin_ia32_vperm2f128_ps256) \
 VECTOR_INTRIN(__builtin_ia32_vperm2f128_si256) \
+VECTOR_INTRIN(__builtin_ia32_vpermi2vard512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermi2varpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermi2varps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermi2varq512_mask) \
 VECTOR_INTRIN(__builtin_ia32_vpermil2pd) \
 VECTOR_INTRIN(__builtin_ia32_vpermil2pd256) \
 VECTOR_INTRIN(__builtin_ia32_vpermil2ps) \
@@ -1100,8 +1140,18 @@ VECTOR_INTRIN(__builtin_ia32_vpermilps) \
 VECTOR_INTRIN(__builtin_ia32_vpermilps256) \
 VECTOR_INTRIN(__builtin_ia32_vpermilvarpd) \
 VECTOR_INTRIN(__builtin_ia32_vpermilvarpd256) \
+VECTOR_INTRIN(__builtin_ia32_vpermilvarpd512_mask) \
 VECTOR_INTRIN(__builtin_ia32_vpermilvarps) \
 VECTOR_INTRIN(__builtin_ia32_vpermilvarps256) \
+VECTOR_INTRIN(__builtin_ia32_vpermilvarps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2vard512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2vard512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2varpd512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2varpd512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2varps512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2varps512_maskz) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2varq512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vpermt2varq512_maskz) \
 VECTOR_INTRIN(__builtin_ia32_vphaddbd) \
 VECTOR_INTRIN(__builtin_ia32_vphaddbq) \
 VECTOR_INTRIN(__builtin_ia32_vphaddbw) \
@@ -1117,6 +1167,8 @@ VECTOR_INTRIN(__builtin_ia32_vphaddwq) \
 VECTOR_INTRIN(__builtin_ia32_vphsubbw) \
 VECTOR_INTRIN(__builtin_ia32_vphsubdq) \
 VECTOR_INTRIN(__builtin_ia32_vphsubwd) \
+VECTOR_INTRIN(__builtin_ia32_vplzcntd_512_mask) \
+VECTOR_INTRIN(__builtin_ia32_vplzcntq_512_mask) \
 VECTOR_INTRIN(__builtin_ia32_vpmacsdd) \
 VECTOR_INTRIN(__builtin_ia32_vpmacsdqh) \
 VECTOR_INTRIN(__builtin_ia32_vpmacsdql) \
@@ -1156,10 +1208,24 @@ VECTOR_INTRIN(__builtin_ia32_vtestzps) \
 VECTOR_INTRIN(__builtin_ia32_vtestzps256) \
 VECTOR_INTRIN(__builtin_ia32_vzeroall) \
 VECTOR_INTRIN(__builtin_ia32_vzeroupper) \
+VECTOR_INTRIN(__builtin_ia32_wrfsbase32) \
+VECTOR_INTRIN(__builtin_ia32_wrfsbase64) \
+VECTOR_INTRIN(__builtin_ia32_wrgsbase32) \
+VECTOR_INTRIN(__builtin_ia32_wrgsbase64) \
+VECTOR_INTRIN(__builtin_ia32_writeeflags_u64) \
+VECTOR_INTRIN(__builtin_ia32_xbegin) \
+VECTOR_INTRIN(__builtin_ia32_xend) \
 VECTOR_INTRIN(__builtin_ia32_xorpd) \
 VECTOR_INTRIN(__builtin_ia32_xorpd256) \
 VECTOR_INTRIN(__builtin_ia32_xorps) \
 VECTOR_INTRIN(__builtin_ia32_xorps256) \
+VECTOR_INTRIN(__builtin_ia32_xrstor) \
+VECTOR_INTRIN(__builtin_ia32_xrstor64) \
+VECTOR_INTRIN(__builtin_ia32_xsave) \
+VECTOR_INTRIN(__builtin_ia32_xsave64) \
+VECTOR_INTRIN(__builtin_ia32_xsaveopt) \
+VECTOR_INTRIN(__builtin_ia32_xsaveopt64) \
+VECTOR_INTRIN(__builtin_ia32_xtest) \
 END
 
 

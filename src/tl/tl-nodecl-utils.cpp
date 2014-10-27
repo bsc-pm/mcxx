@@ -271,7 +271,7 @@ namespace Nodecl
             Nodecl::ArraySubscript as = n.as<Nodecl::ArraySubscript>();
             if (!in_class_member)
             {
-                Nodecl::NodeclBase subscripted = as.get_subscripted();
+                Nodecl::NodeclBase subscripted = as.get_subscripted().no_conv();
                 if (!in_ref && !subscripted.get_type().is_pointer())
                 {    // a[...] (if a array) only access memory for the subscripts
                     get_all_memory_accesses_rec(subscripted, /*in_ref*/false, in_class_member, result);
@@ -280,7 +280,7 @@ namespace Nodecl
             Nodecl::List subscripts = as.get_subscripts().as<Nodecl::List>( );
             for (Nodecl::List::iterator it = subscripts.begin(); it != subscripts.end(); it++)
             {
-                get_all_memory_accesses_rec(*it, /*in_ref*/false, /*in_class_member*/false, result);
+                get_all_memory_accesses_rec(it->no_conv(), /*in_ref*/false, /*in_class_member*/false, result);
             }
 
         }
@@ -291,11 +291,11 @@ namespace Nodecl
                 if (n.is<Nodecl::ClassMemberAccess>())
                     in_class_member = true;
 
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            const TL::ObjectList<Nodecl::NodeclBase>& children = n.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = children.begin();
                 it != children.end(); it++)
             {
-                get_all_memory_accesses_rec(*it, in_ref, in_class_member, result);
+                get_all_memory_accesses_rec(it->no_conv(), in_ref, in_class_member, result);
             }
         }
     }

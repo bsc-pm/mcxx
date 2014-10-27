@@ -124,8 +124,8 @@ TL::Scope CxxBase::get_current_scope() const
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
     PREFIX_UNARY_EXPRESSION(Dereference, "*") \
-    PREFIX_UNARY_EXPRESSION(Preincrement, "++") \
-    PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
+    PREFIX_UNARY_EXPRESSION(Preincrement, " ++") \
+    PREFIX_UNARY_EXPRESSION(Predecrement, " --") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(DeleteArray, "delete[] ") \
     PREFIX_UNARY_EXPRESSION(RealPart, "__real__ ") \
@@ -6889,6 +6889,10 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
 std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& symbol)
 {
+    // Unnamed bitfields do not have a visible name
+    if (symbol.is_unnamed_bitfield())
+        return "";
+
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
@@ -9804,7 +9808,7 @@ CxxBase::CxxBase()
     register_parameter("old_method_for_class_definitions",
             "Uses an old method to emit class definitions. If you need to enable this, please report a ticket",
             _use_old_method_for_class_definitions_str,
-            "1").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
+            "0").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
 }
 
 void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)

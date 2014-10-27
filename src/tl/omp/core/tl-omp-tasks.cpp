@@ -74,6 +74,7 @@ namespace TL
             _device_list(target_info._device_list),
             _file(target_info._file),
             _name(target_info._name),
+            _copy_deps(target_info._copy_deps),
             _implementation_table(target_info._implementation_table)
         {
             for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
@@ -1146,7 +1147,6 @@ namespace TL
             }
 
             TL::ObjectList<std::string> input_private_names;
-            input_private_names.append("in_private");
             input_private_names.append("inprivate");
             PragmaCustomClause input_private_clause = pragma_line.get_clause(input_private_names);
             ObjectList<Nodecl::NodeclBase> input_private_arguments;

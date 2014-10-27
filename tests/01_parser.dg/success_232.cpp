@@ -24,52 +24,16 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 /*
 <testinfo>
-test_generator=config/mercurium-analysis
-test_nolink=yes
+test_generator=config/mercurium
 </testinfo>
 */
-
-#include <stdio.h>
-
-void f( )
+void f(int a)
 {
-    #pragma omp task
-    {
-        printf("1");
-        #pragma omp task
-        {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
-        }
-    }
-    #pragma omp task
-    {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
-    }
-    #pragma omp barrier
+    + ++a;
+    - --a;
+
+    - ++a;
+    + --a;
 }

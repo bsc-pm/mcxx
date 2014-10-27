@@ -28,48 +28,46 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-analysis
-test_nolink=yes
+test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<unistd.h>
+#include<assert.h>
 
-#include <stdio.h>
-
-void f( )
+void f(int (*v)[10])
 {
-    #pragma omp task
+    #pragma omp task inout(v[1][0:9])
     {
-        printf("1");
-        #pragma omp task
+        sleep(1);
+        int k = 0;
+        for (k = 0; k < 10; ++k)
         {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
+            v[1][k] = 2;
         }
     }
-    #pragma omp task
-    {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
-    }
-    #pragma omp barrier
+
+    int *v2 = &((*(v+1))[0]);
+    #pragma omp task in(([10]v2)[0:9])
+     {
+         int k = 0;
+         for (k = 0; k < 10; ++k)
+         {
+             assert(v2[k]==2);
+         }
+     }
+    #pragma omp taskwait
+}
+
+
+int main()
+{
+    int x[10][10];
+    int i, j;
+
+    for (i  = 0; i < 10; ++i)
+        for (j = 0; j < 10; ++j)
+            x[i][j] = -1;
+
+    f(x);
+    return 0;
 }

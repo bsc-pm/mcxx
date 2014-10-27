@@ -204,9 +204,19 @@ namespace TL
              */
             ObjectList<Symbol> get_symbols_from_name(const std::string& str) const;
 
+            //! Get a list of symbols only in this scope with name \a str
+            /*!
+             * \param str The unqualified name looked up
+             * \return A list of Symbol that have this name \a str in the current scope
+             */
+            ObjectList<Symbol> get_symbols_from_name_in_scope(const std::string& str) const;
+
             //! Convenience function where only one symbol is expected
             Symbol get_symbol_from_name(const std::string& str) const;
-           
+
+            //! Convenience function where only one symbol is expected
+            Symbol get_symbol_from_name_in_scope(const std::string& str) const;
+
             //! Returns the global scope of the current compiled file 
             static Scope get_global_scope();
 

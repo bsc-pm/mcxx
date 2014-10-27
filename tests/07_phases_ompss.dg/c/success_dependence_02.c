@@ -28,48 +28,32 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-analysis
-test_nolink=yes
+test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<unistd.h>
+#include<assert.h>
 
-#include <stdio.h>
-
-void f( )
+struct A
 {
-    #pragma omp task
+    int x;
+};
+
+int main()
+{
+    struct A a = { -1 };
+    int *p = &a.x;
+
+    #pragma omp task out(a.x)
     {
-        printf("1");
-        #pragma omp task
-        {
-            printf("2");
-            #pragma omp task
-            {
-                printf("3");
-            }
-            #pragma omp barrier
-        }
+        sleep(1);
+        a.x = 2;
     }
-    #pragma omp task
+
+    #pragma omp task in(*p)
     {
-        printf("4");
-        #pragma omp task
-        {
-            printf("5");
-            #pragma omp task
-            {
-                printf("7");
-            }
-            #pragma omp task
-            {
-                printf("8");
-            }
-            #pragma omp taskwait
-        }
-        #pragma omp task
-        {
-            printf("6");
-        }
+        assert(*p == 2);
     }
-    #pragma omp barrier
+    #pragma omp taskwait
+    return 0;
 }

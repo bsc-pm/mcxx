@@ -56,24 +56,6 @@ bool DeviceCUDA::is_gpu_device() const
     return true;
 }
 
-static TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string)
-{
-    decl_context_t decl_context = source.get_scope().get_decl_context();
-    decl_context_t function_context;
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        function_context = new_program_unit_context(decl_context);
-    }
-    else
-    {
-        function_context = new_function_context(decl_context);
-        function_context = new_block_context(function_context);
-    }
-
-    TL::Symbol dest = TL::Scope(function_context).new_symbol(source.get_name() + "_moved");
-    dest.get_internal_symbol()->kind = SK_FUNCTION;
-    return dest;
-}
 
 void DeviceCUDA::update_ndrange_and_shmem_arguments(
         const TL::Symbol& called_task,
@@ -424,7 +406,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             {
                 if (!called_task.get_function_code().is_null())
                 {
-                    TL::Symbol new_function = new_function_symbol_for_deep_copy(
+                    TL::Symbol new_function = SymbolUtils::new_function_symbol_for_deep_copy(
                             called_task, called_task.get_name() + "_moved");
 
                     _copied_cuda_functions.add_map(called_task, new_function);
@@ -879,7 +861,7 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
                 || it->is<Nodecl::TemplateFunctionCode>())
         {
             TL::Symbol source = it->get_symbol();
-            TL::Symbol dest = new_function_symbol_for_deep_copy(source, source.get_name() + "_moved");
+            TL::Symbol dest = SymbolUtils::new_function_symbol_for_deep_copy(source, source.get_name() + "_moved");
 
             _copied_cuda_functions.add_map(source, dest);
             _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_cuda_functions));

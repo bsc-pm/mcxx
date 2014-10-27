@@ -163,8 +163,14 @@ lib_libmcxx_utils_la_SOURCES = \
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
 lib_libmcxx_utils_la_LIBADD= -lm
 
-noinst_LIBRARIES += lib/libperish.a
-lib_libperish_a_SOURCES= lib/perish.c
+BUILT_SOURCES += lib/perish.o
+CLEANFILES += lib/perish.o
+
+EXTRA_DIST += lib/perish.c
+lib/perish.o : lib/perish.c
+	$(CCBUILD_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(top_srcdir)/lib/perish.c $(DEFAULT_INCLUDES) \
+	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
+
 
 ##########################################################################
 # src
@@ -305,7 +311,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.h \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-gccbuiltins.h \
-  src/frontend/cxx-gccbuiltins-sse.h \
+  src/frontend/cxx-gccbuiltins-ia32.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -1169,7 +1175,8 @@ src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
 
 lib_LTLIBRARIES += src/tl/analysis/use_def/libuse_def.la
 
-EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList
+EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList \
+              src/tl/analysis/use_def/cppLibraryFunctionList
 
 analysisdatadir = $(pkgdatadir)/analysisdata
 
@@ -1189,6 +1196,7 @@ src_tl_analysis_use_def_libuse_def_la_SOURCES = \
 
 analysisdata_DATA = \
 		    src/tl/analysis/use_def/cLibraryFunctionList \
+		    src/tl/analysis/use_def/cppLibraryFunctionList \
 		    $(END)
 
 ##########################################################################
@@ -2957,6 +2965,7 @@ config_DATA = \
 EXTRA_DIST += \
 			scripts/bison-2.3-rofi-patch \
 			scripts/mcxx-rpm.spec \
+			scripts/builtins_ia32.cpp \
 			$(DEBIAN_EXTRA)
 			$(END)
 
@@ -2967,16 +2976,23 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-4.8
-GXX_FLAGS=-fabi-version=6 -mavx -maes -mpclmul -mxop
+LATEST_GXX=g++-4.9
+LATEST_GXX_FLAGS=-fabi-version=6 \
+				 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx \
+				 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha \
+				 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 \
+				 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt \
+				 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mrdseed \
+				 $(END)
 
-generate_sse.bin : builtins_ia32_sse.cpp
-	$(LATEST_GXX) $(GXX_FLAGS) -o scripts/generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
+	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
 
-generate_sse: generate_sse.bin
-	./scripts/generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
-
-CLEANFILES += generate_sse.bin
+# These files are only regenerated manually
+.PHONY: generate_builtins_ia32
+CLEANFILES += scripts/generate_builtins_ia32.bin
+generate_builtins_ia32: scripts/generate_builtins_ia32.bin
+	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"

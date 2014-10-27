@@ -471,6 +471,11 @@ namespace TL
         return (symbol_entity_specs_get_is_bitfield(_symbol));
     }
 
+    bool Symbol::is_unnamed_bitfield() const
+    {
+        return (symbol_entity_specs_get_is_unnamed_bitfield(_symbol));
+    }
+
     Nodecl::NodeclBase Symbol::get_bitfield_size() const
     {
         return symbol_entity_specs_get_bitfield_size(_symbol);
@@ -996,12 +1001,5 @@ namespace TL
     std::string Symbol::get_from_module_name() const
     {
         return symbol_entity_specs_get_from_module_name(_symbol);
-    }
-
-    bool Symbol::is_unnamed()
-    {
-        return (_symbol->kind == SK_CLASS
-                || _symbol->kind == SK_ENUM)
-            && symbol_entity_specs_get_is_unnamed(_symbol);
     }
 }
