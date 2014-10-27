@@ -19683,6 +19683,7 @@ struct pragma_block_level_info_tag
 
 static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma,
         decl_context_t decl_context, 
+        decl_context_t top_level_decl_context, 
         nodecl_t* nodecl_output, 
         pragma_block_level_info_t* info)
 {
@@ -19721,7 +19722,9 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
                 build_scope_statement(pragma_stmt, block_context, &nodecl_statement);
 
                 build_scope_pragma_custom_construct_statement_or_decl_rec(pragma_stmt,
-                        block_context, &nodecl_statement, info);
+                        block_context,
+                        top_level_decl_context,
+                        &nodecl_statement, info);
 
                 nodecl_statement =
                     nodecl_make_list_1(
@@ -19738,7 +19741,14 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
 
                 AST declaration = ASTSon0(pragma_stmt);
                 // Note that here we use nodecl_output instead of nodecl_statement
-                build_scope_declaration(declaration, decl_context, nodecl_output,
+
+                // Note also that here we use top_level_decl_context rather
+                // than any computed decl_context (which may be nested when
+                // there are nested pragmas) because we want the side-effect
+                // (i.e. registering new entities) to happen in the outermost
+                // decl-context (i.e. the context where we found the outermost
+                // pragma)
+                build_scope_declaration(declaration, top_level_decl_context, nodecl_output,
                         info->declaration_pragma.declared_symbols,
                         info->declaration_pragma.gather_decl_spec_list);
                 break;
@@ -19879,7 +19889,7 @@ static void build_scope_pragma_custom_construct_statement(AST a,
     info.declaration_pragma.declared_symbols = &declared_symbols;
     info.declaration_pragma.gather_decl_spec_list = &gather_decl_spec_list;
 
-    build_scope_pragma_custom_construct_statement_or_decl_rec(a, decl_context, nodecl_output, &info);
+    build_scope_pragma_custom_construct_statement_or_decl_rec(a, decl_context, decl_context, nodecl_output, &info);
 
     if (info.is_declaration)
     {
