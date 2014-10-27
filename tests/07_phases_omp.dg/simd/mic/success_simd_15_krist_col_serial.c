@@ -27,8 +27,6 @@
 /*
 <testinfo>
 test_generator="config/mercurium-serial-simd-mic svml"
-test_ignore=yes
-test_ignore_reason="Stopped working as of b044f50e08efddd7823e0f8f29fab483d971e5dc"
 </testinfo>
 */
 

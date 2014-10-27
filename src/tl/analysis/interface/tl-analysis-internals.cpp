@@ -183,7 +183,7 @@ namespace Analysis {
             if(!new_scope->is_omp_simd_node())
                 goto iv_as_linear;
 
-            // First try to get the information form the user clauses
+            // First try to get the information from the user clauses
             {
                 ObjectList<Utils::LinearVars> linear_syms = new_scope->get_linear_symbols();
                 for (ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
@@ -195,10 +195,15 @@ namespace Analysis {
                             return true;
                     }
                 }
+
+                // Reduction vars are not considered linear
+                ObjectList<TL::Symbol> reductions = new_scope->get_reductions();
+                if(reductions.contains(n.get_symbol()))
+                    return false;
             }
         }
         
-        // Second get the information form the analysis: IV
+        // Second get the information from the analysis: IV
 iv_as_linear:
         if(scope_node->is_loop_node())
             return is_iv_internal(scope_node, n);
