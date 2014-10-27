@@ -124,8 +124,8 @@ TL::Scope CxxBase::get_current_scope() const
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
     PREFIX_UNARY_EXPRESSION(Dereference, "*") \
-    PREFIX_UNARY_EXPRESSION(Preincrement, "++") \
-    PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
+    PREFIX_UNARY_EXPRESSION(Preincrement, " ++") \
+    PREFIX_UNARY_EXPRESSION(Predecrement, " --") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(DeleteArray, "delete[] ") \
     PREFIX_UNARY_EXPRESSION(RealPart, "__real__ ") \
