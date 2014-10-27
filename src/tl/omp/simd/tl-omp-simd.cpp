@@ -245,7 +245,7 @@ namespace TL {
             map_tlsym_int_t aligned_expressions;
             process_aligned_clause(simd_environment, aligned_expressions);
 
-            // Aligned clause
+            // Linear clause
             map_tlsym_int_t linear_symbols;
             process_linear_clause(simd_environment, linear_symbols);
 
@@ -989,9 +989,9 @@ namespace TL {
             map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
 
-            // Aligned clause
+            // Linear clause
             map_tlsym_int_t linear_symbols;
-            process_aligned_clause(omp_simd_parallel_environment, linear_symbols);
+            process_linear_clause(omp_simd_parallel_environment, linear_symbols);
 
             // Uniform clause
             objlist_tlsym_t uniform_symbols;
