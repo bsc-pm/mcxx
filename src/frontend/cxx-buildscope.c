@@ -17124,6 +17124,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     get_unique_name());
                             bitfield_symbol->kind = SK_VARIABLE;
                             bitfield_symbol->type_information = declarator_type;
+                            symbol_entity_specs_set_is_user_declared(bitfield_symbol, 1);
                             // Remember that is unnamed, this is relevant for the size
                             symbol_entity_specs_set_is_unnamed_bitfield(bitfield_symbol, 1);
                         }
