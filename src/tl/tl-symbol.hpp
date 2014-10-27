@@ -751,20 +751,6 @@ namespace TL
              */
             Nodecl::NodeclBase get_bind_c_name() const;
 
-            //! States if this class or enum was not given a name
-            /*!
-             * Typical cases are
-             *
-             *   struct { ... } x;
-             *   enum { ...  } y;
-             *
-             * Note that typedefs may be used to give names to classes or enums
-             *  
-             *   typedef struct { ... } C;
-             *   typedef enum { ... } E;
-             */
-            bool is_unnamed();
-
         private:
             scope_entry_t* _symbol;
     };
