@@ -412,6 +412,8 @@ match_array_subscripts_end:
             {
                 NBase cond_part;
                 modification_type = modification_type | match_dependence(source, target, *its, *itt, cond_part);
+                if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
+                    continue;
                 if (condition.is_null())
                     condition = cond_part;
                 else
@@ -423,6 +425,8 @@ match_array_subscripts_end:
             {
                 NBase cond_part;
                 modification_type = modification_type | match_dependence(source, target, *its, *itt, cond_part);
+                if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
+                    continue;
                 if (condition.is_null())
                     condition = cond_part;
                 else
