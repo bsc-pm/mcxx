@@ -176,6 +176,10 @@ struct gather_decl_spec_tag {
 
     AST gcc_asm_spec;
 
+    // _Pragma("map") inlined in a declarator
+    int num_xl_pragmas;
+    const char** xl_pragmas;
+
 } gather_decl_spec_t;
 
 typedef

@@ -210,14 +210,17 @@ namespace TL { namespace OpenMP {
                 // About the data-sharings of the variables involved in the dependence expression:
                 // - Fortran: the base symbol of the dependence expression is always SHARED
                 // - C/C++:
-                //  * Trivial dependences must always be SHARED:
+                //  * The base symbol of a trivial dependence (the expression is a symbol) must always be SHARED:
                 //          int x, a[10];
                 //          inout(x) -> shared(x)
                 //          inout(a) -> shared(a)
-                //  * Arrays and references to arrays must be SHARED too:
+                //  * The base symbol of an array expression or a reference to an array must be SHARED too:
                 //          int a[10];
                 //          inout(a[4])   -> shared(a)
                 //          inout(a[1:2]) -> shared(a)
+                //  * The base symbol of a class member access must be shared too:
+                //          struct C { int z; } c;
+                //          in(c.z)       -> shared(c)
                 //  * Otherwise, the data-sharing of the base symbol is FIRSTPRIVATE:
                 //          int* p;
                 //          inout(*p)     -> firstprivate(p)
@@ -240,6 +243,12 @@ namespace TL { namespace OpenMP {
                 {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
                             "the variable is an array mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
+                }
+                else if (sym.get_type().is_class())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is an object mentioned in a non-trivial dependence "
                             "and it did not have an explicit data-sharing");
                 }
                 else

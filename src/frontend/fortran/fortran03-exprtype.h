@@ -53,6 +53,8 @@ LIBMF03_EXTERN void fortran_check_initialization(
 LIBMF03_EXTERN type_t* common_type_of_binary_operation(type_t* t1, type_t* t2);
 LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2);
 
+LIBMF03_EXTERN scope_entry_t* fortran_data_ref_get_symbol(nodecl_t n);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN_EXPRTYPE_H

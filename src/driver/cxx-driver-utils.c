@@ -66,52 +66,58 @@ void temporal_files_cleanup(void)
 {
     temporal_file_list_t iter = temporal_file_list;
 
-    for (iter = temporal_file_list; iter != NULL; iter = iter->next)
+    while (iter != NULL)
     {
-        if (iter->info == NULL)
-            continue;
-
-        if (!iter->info->is_temporary
-                && CURRENT_CONFIGURATION->keep_files)
-            continue;
-
-        if (iter->info->is_temporary
-                && CURRENT_CONFIGURATION->keep_temporaries)
-            continue;
-
-        if(!iter->info->is_dir)
+        if (iter->info == NULL
+                || (!iter->info->is_temporary
+                    && CURRENT_CONFIGURATION->keep_files)
+                || (iter->info->is_temporary
+                    && CURRENT_CONFIGURATION->keep_temporaries))
         {
-            if (CURRENT_CONFIGURATION->verbose)
-            {
-                fprintf(stderr, "Removing %s filename '%s'\n", 
-                        iter->info->is_temporary ? "temporal" : "intermediate",
-                        iter->info->name);
-            }
-            if (remove(iter->info->name) != 0
-                    && errno != ENOENT)
-            {
-                fprintf(stderr, "Error while removing filename: '%s'\n", strerror(errno));
-            }
+            // Skip this file
         }
         else
         {
-            if (CURRENT_CONFIGURATION->verbose)
+            if (!iter->info->is_dir)
             {
-                fprintf(stderr, "Removing %s directory '%s'\n", 
-                        iter->info->is_temporary ? "temporal" : "intermediate",
-                        iter->info->name);
+                if (CURRENT_CONFIGURATION->verbose)
+                {
+                    fprintf(stderr, "Removing %s filename '%s'\n", 
+                            iter->info->is_temporary ? "temporal" : "intermediate",
+                            iter->info->name);
+                }
+                if (remove(iter->info->name) != 0
+                        && errno != ENOENT)
+                {
+                    fprintf(stderr, "Error while removing filename: '%s'\n", strerror(errno));
+                }
             }
-            // FIXME - We really should improve this...
-            char rm_fr[256];
-            snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
-            rm_fr[255] = '\0';
-            int ret = system(rm_fr);
+            else
+            {
+                if (CURRENT_CONFIGURATION->verbose)
+                {
+                    fprintf(stderr, "Removing %s directory '%s'\n", 
+                            iter->info->is_temporary ? "temporal" : "intermediate",
+                            iter->info->name);
+                }
+                // FIXME - We really should improve this...
+                char rm_fr[256];
+                snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
+                rm_fr[255] = '\0';
+                int ret = system(rm_fr);
 
-            if (ret == -1)
-            {
-                running_error("Execution of 'rm -fr' failed\n");
+                if (ret == -1)
+                {
+                    running_error("Execution of 'rm -fr' failed\n");
+                }
             }
+
         }
+
+        temporal_file_list_t prev = iter;
+        iter = iter->next;
+        xfree(prev->info);
+        xfree(prev);
     }
 
     temporal_file_list = NULL;

@@ -31,6 +31,8 @@ Cambridge, MA 02139, USA.
 #include "tl-pcfg-visitor.hpp"      // For IPA analysis
 #include "tl-use-def.hpp"
 
+#include <fstream>
+
 namespace TL {
 namespace Analysis {
 
@@ -47,26 +49,40 @@ namespace {
      * - we are computing the usage of a node: since there may be more than one statement within the same node,
      *                                         we need to take into account the usage computed for the already treated statements
      */
-    void propagate_usage_to_ancestors(NodeclSet& ue_vars, NodeclSet& killed_vars,
-                                      NodeclSet& undef_vars, NodeclSet& used_addresses,
-                                      const NodeclSet& ue_children, const NodeclSet& killed_children, 
-                                      const NodeclSet& undef_children, const NodeclSet& used_addresses_children)
+    void propagate_usage_to_ancestor(
+            Node* ancestor,
+            NodeclSet& ue_vars, NodeclSet& killed_vars,
+            NodeclSet& undef_vars, NodeclSet& used_addresses,
+            const NodeclSet& ue_children, const NodeclSet& killed_children,
+            const NodeclSet& undef_children, const NodeclSet& used_addresses_children)
     {
         // Propagate the upwards exposed variables
         NBase ue_previously_killed_subobject, ue_previously_undef_subobject;
         for(NodeclSet::iterator it = ue_children.begin(); it != ue_children.end(); ++it)
         {
             NBase n_it = *it;
+
+            // There is a special case when dealing with Tasks: even though a task may kill a variable
+            // (and this usage is propagated to its task creation node), we still have to propagate the usage of the children,
+            // because we do not know what is happening first
+            bool is_task_creation_context = (ancestor->is_context_node()
+                    && ancestor->get_graph_entry_node()->get_children().size()==1
+                    && ancestor->get_graph_entry_node()->get_children()[0]->is_omp_task_creation_node());
+
             // UE vars can only be upwards propagated if the are not already KILLED in the parent
             // or they (or an enclosing nodecl) are not yet in the result set
-            if(!Utils::nodecl_set_contains_enclosing_nodecl(n_it, killed_vars).is_null() ||
-                !Utils::nodecl_set_contains_enclosing_nodecl(n_it, ue_vars).is_null())
+            if(!is_task_creation_context
+                    && (!Utils::nodecl_set_contains_enclosing_nodecl(n_it, killed_vars).is_null()
+                            || !Utils::nodecl_set_contains_enclosing_nodecl(n_it, ue_vars).is_null()))
                 continue;
 
             ue_previously_killed_subobject = Utils::nodecl_set_contains_enclosed_nodecl(n_it, killed_vars);
             ue_previously_undef_subobject = Utils::nodecl_set_contains_enclosed_nodecl(n_it, undef_vars);
-            if(ue_previously_killed_subobject.is_null() && ue_previously_undef_subobject.is_null())
+            if (is_task_creation_context
+                || (ue_previously_killed_subobject.is_null()
+                    && ue_previously_undef_subobject.is_null()))
             {   // Neither killed nor undef var sets contain the current ue var
+                // Or the ancestor is a task creation node, in which case we have to be conservative and propagate its children usage
                 NBase tmp = Utils::nodecl_set_contains_enclosed_nodecl(n_it, ue_vars);
                 if(!tmp.is_null())
                     ue_vars.erase(tmp);   // Delete the enclosed var from the list
@@ -204,8 +220,11 @@ namespace {
 }
 
     UseDef::UseDef(ExtensibleGraph* graph, const ObjectList<ExtensibleGraph*>& pcfgs)
-        : _graph(graph), _ipa_modif_vars()
+            : _graph(graph), _ipa_modif_vars(), _c_lib_file(""), _c_lib_sc(Scope())
     {
+        // Load C lib functions
+        load_c_lib_functions();
+
         initialize_ipa_var_usage();
         
         _pointer_to_size_map = graph->get_pointer_n_elements_map();
@@ -218,6 +237,44 @@ namespace {
             {
                 _pcfgs[s] = *it;
             }
+        }
+    }
+
+    void UseDef::load_c_lib_functions()
+    {
+        std::string lib_file_name = IS_C_LANGUAGE ? "cLibraryFunctionList" : "cppLibraryFunctionList";
+        _c_lib_file = std::string(MCXX_ANALYSIS_DATA_PATH) + "/" + lib_file_name;
+        std::ifstream file(_c_lib_file.c_str());
+        if (file.is_open())
+        {
+            // Create the scope where the C lib functions will be registered
+            Symbol sym(Scope::get_global_scope().new_symbol("__CLIB_USAGE__"));
+            sym.get_internal_symbol()->kind = SK_NAMESPACE;
+            decl_context_t ctx = new_namespace_context(Scope::get_global_scope().get_decl_context(), sym.get_internal_symbol());
+            sym.get_internal_symbol()->related_decl_context = ctx;
+            _c_lib_sc = Scope(ctx);
+
+            // Parse the file
+            std::string line1, line2;
+            while (file.good())
+            {
+                getline(file, line1);
+                // Skip comented lines
+                if (line1.substr(0, 13) == "__attribute__")
+                {
+                    getline(file, line2);
+                    Source s; s << line1 << line2;
+                    std::string source = s.get_source();
+                    // Returned nodecl is null because declarations do not return any tree in C
+                    /*const Nodecl::NodeclBase& func = */s.parse_statement(_c_lib_sc);
+                }
+            }
+            file.close();
+        }
+        else
+        {
+            WARNING_MESSAGE("File containing C library calls Usage info cannot be opened. \n"\
+                            "Path tried: '%s'", _c_lib_file.c_str());
         }
     }
 
@@ -246,8 +303,8 @@ namespace {
         }
         
         // Initialize global variables usage to NONE (for recursive calls)
-        GlobalVarsSet global_vars = _graph->get_global_variables();
-        for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+        NodeclSet global_vars = _graph->get_global_variables();
+        for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
             _ipa_modif_vars[*it] = Utils::UsageKind::NONE;
         }
@@ -279,11 +336,13 @@ namespace {
                 // to the outer nodes where they are created,
                 // all children of the task_creation node must have the use-def computed
                 ObjectList<Node*> inner_tasks;
-                if(ExtensibleGraph::node_contains_tasks(current, current, inner_tasks))
+                if (ExtensibleGraph::node_contains_tasks(current, current, inner_tasks))
+                {
                     // This set is traversed from end to start because the tasks are ordered from top to bottom and
                     // we need later tasks to be analyzed before its ancestor tasks are analyzed
-                    for(ObjectList<Node*>::reverse_iterator it = inner_tasks.rbegin(); it != inner_tasks.rend(); ++it)
+                    for (ObjectList<Node*>::reverse_iterator it = inner_tasks.rbegin(); it != inner_tasks.rend(); ++it)
                         propagate_task_usage_to_task_creation_node(*it);
+                }
 
                 // Propagate usage info from inner to outer nodes
                 current->set_visited(false);
@@ -293,17 +352,17 @@ namespace {
             else
             {
                 // Treat statements in the current node
-                NodeclList stmts = current->get_statements();
-                UsageVisitor uv(current, _graph, &_ipa_modif_vars);
-                for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                const NodeclList& stmts = current->get_statements();
+                UsageVisitor uv(current, _graph, &_ipa_modif_vars, _c_lib_file, _c_lib_sc);
+                for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     uv.compute_statement_usage(*it);
                 }
             }
 
             // Compute usage form children
-            ObjectList<Node*> children = current->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            const ObjectList<Node*>& children = current->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 compute_usage_rec(*it);
         }
     }
@@ -318,20 +377,15 @@ namespace {
 
         ObjectList<Node*> children = task_creation->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-        {      
-            // FIXME Temporarily commented: We need all children information in order
-            //       to propagate correctly the UseDef information to the outer node
-            //       Nonetheless, propagating all children's info broke something in Lint phase
-//             if((*it)->is_omp_task_node())
-            {
-                child_ue_vars = (*it)->get_ue_vars();
-                child_killed_vars = (*it)->get_killed_vars();
-                child_undef_vars = (*it)->get_undefined_behaviour_vars();
-                
-                ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
-                killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
-                undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
-            }
+        {
+            Node* c = *it;
+            child_ue_vars = c->get_ue_vars();
+            child_killed_vars = c->get_killed_vars();
+            child_undef_vars = c->get_undefined_behaviour_vars();
+
+            ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
+            killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
+            undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
         }
 
         // Purge the sets:
@@ -390,9 +444,9 @@ namespace {
                 NodeclSet used_addresses = current->get_used_addresses();
 
                 // Concatenate info from children nodes
-                ObjectList<Node*> children = current->get_children();
+                const ObjectList<Node*>& children = current->get_children();
                 NodeclSet ue_children, killed_children, undef_children, used_addresses_children;
-                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 {
                     use_def_aux = get_use_def_over_nodes(*it);
                     if(!use_def_aux.empty())
@@ -408,8 +462,10 @@ namespace {
                 merge_children_usage(ue_children, killed_children, undef_children, current->get_id());
 
                 // Merge current node and its children usage information
-                propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, used_addresses,
-                                             ue_children, killed_children, undef_children, used_addresses_children);
+                propagate_usage_to_ancestor(
+                        current,
+                        ue_vars, killed_vars, undef_vars, used_addresses,
+                        ue_children, killed_children, undef_children, used_addresses_children);
 
                 // Set the new usage information to the current node
                 if(!ue_vars.empty() || !killed_vars.empty() || !undef_vars.empty() || !used_addresses.empty())
@@ -440,6 +496,28 @@ namespace {
         }
     }
 
+    void UseDef::purge_local_variables(Scope graph_sc, NodeclSet& vars_set)
+    {
+        for (NodeclSet::iterator it = vars_set.begin(); it != vars_set.end(); ++it)
+        {
+            const NBase& n = it->no_conv();
+            const NBase& n_base = Utils::get_nodecl_base(n);
+            if (!n_base.is_null())
+            {
+                if (n_base.get_symbol().get_type().is_pointer()
+                        || n_base.get_symbol().get_type().is_array())
+                    continue;
+                const ObjectList<Symbol>& func_params = _graph->get_function_parameters();
+                if (func_params.contains(n_base.get_symbol())
+                        && n_base.get_symbol().get_type().is_any_reference())
+                    continue;
+                Scope var_sc(n_base.get_symbol().get_scope());
+                if (var_sc.scope_is_enclosed_by(graph_sc))
+                    vars_set.erase(*it);
+            }
+        }
+    }
+
     void UseDef::set_graph_node_use_def(Node* current)
     {
         if(current->is_graph_node())
@@ -448,7 +526,7 @@ namespace {
             {
                 current->set_visited(true);
                 NodeclSet ue_vars, killed_vars, undef_vars, used_addresses;
-                ObjectList<NodeclSet> usage = get_use_def_over_nodes(current->get_graph_entry_node());
+                const ObjectList<NodeclSet>& usage = get_use_def_over_nodes(current->get_graph_entry_node());
                 if(!usage.empty())
                 {
                     ue_vars = usage[0];
@@ -512,6 +590,18 @@ namespace {
                             }
                         }
                     }
+                }
+                else
+                {   // Purge variables local to the current graph
+                    const Nodecl::NodeclBase ast = current->get_graph_related_ast();
+                    Scope graph_sc(ast.retrieve_context());
+                    purge_local_variables(graph_sc, ue_vars);
+                    purge_local_variables(graph_sc, killed_vars);
+                    purge_local_variables(graph_sc, undef_vars);
+                    purge_local_variables(graph_sc, used_addresses);
+                    purge_local_variables(graph_sc, private_ue_vars);
+                    purge_local_variables(graph_sc, private_killed_vars);
+                    purge_local_variables(graph_sc, private_undef_vars);
                 }
 
                 current->set_ue_var(ue_vars);
@@ -605,9 +695,14 @@ namespace {
         }
     };
     
-    UsageVisitor::UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars)
-        : _node(n), _define(false), _current_nodecl(NBase::null()),
-          _ipa_modif_vars(ipa_modifiable_vars), _avoid_func_calls(false), _pcfg(pcfg)
+    UsageVisitor::UsageVisitor(Node* n,
+            ExtensibleGraph* pcfg,
+            IpUsageMap* ipa_modifiable_vars,
+            std::string c_lib_file,
+            Scope c_lib_sc)
+            : _node(n), _define(false), _current_nodecl(NBase::null()),
+              _ipa_modif_vars(ipa_modifiable_vars), _c_lib_file(c_lib_file), _c_lib_sc(c_lib_sc),
+              _avoid_func_calls(false), _pcfg(pcfg)
     {}
     
     void UsageVisitor::set_var_usage_to_node(const NBase& var, Utils::UsageKind usage_kind)
@@ -619,22 +714,21 @@ namespace {
         if(usage_kind._usage_type & Utils::UsageKind::USED)
         {
             NodeclSet ue_tmp; ue_tmp.insert(var);
-            propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set,
+            propagate_usage_to_ancestor(_node, ue_vars, killed_vars, undef_vars, empty_set,
                                          ue_tmp, empty_set, empty_set, empty_set);
-            
             _node->set_ue_var(ue_vars);                   // Replace the set of upwards exposed variables associated to the node
         }
         else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
         {
             NodeclSet killed_tmp; killed_tmp.insert(var);
-            propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set, 
+            propagate_usage_to_ancestor(_node, ue_vars, killed_vars, undef_vars, empty_set,
                                          empty_set, killed_tmp, empty_set, empty_set);
             _node->set_killed_var(killed_vars);               // Replace the set of killed vars associated to the node
         }
         else
         {
             NodeclSet undef_tmp; undef_tmp.insert(var);
-            propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set, 
+            propagate_usage_to_ancestor(_node, ue_vars, killed_vars, undef_vars, empty_set,
                                          empty_set, empty_set, undef_tmp, empty_set);
             _node->set_undefined_behaviour_var(undef_vars);   // Replace the set of undefined behavior vars associated to the node
         }
@@ -725,7 +819,8 @@ namespace {
 
         // The function called must be analyzed only in case it has not been analyzed previously
         TL::Symbol func_sym = called_sym.get_symbol();
-        Nodecl::List simplified_arguments = simplify_pointers(real_arguments);
+        Nodecl::List simplified_arguments = simplify_arguments(real_arguments);
+        simplified_arguments = simplify_pointers(simplified_arguments);
         if(func_sym.is_valid())
         {   // The called function is not a pointer to function
             const ObjectList<TL::Symbol>& params = func_sym.get_function_parameters();

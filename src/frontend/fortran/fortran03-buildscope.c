@@ -2795,7 +2795,7 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
 
     if (nodecl_is_constant(*nodecl_output))
     {
-        scope_entry_t* symbol = nodecl_get_symbol(*nodecl_output);
+        scope_entry_t* symbol = fortran_data_ref_get_symbol(*nodecl_output);
         if (symbol != NULL)
         {
             // This is a kludgy way to detect that this type will have to be
@@ -3943,10 +3943,10 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (!nodecl_is_err_expr(nodecl_data_ref))
         {
-            scope_entry_t* entry = nodecl_get_symbol(nodecl_data_ref);
-
-            if (!entry->entity_specs.is_allocatable
-                    && !is_pointer_type(no_ref(entry->type_information)))
+            scope_entry_t* entry = fortran_data_ref_get_symbol(nodecl_data_ref);
+            if (entry == NULL
+                    || (!entry->entity_specs.is_allocatable
+                        && !is_pointer_type(no_ref(entry->type_information))))
             {
                 error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
                         ast_location(a),
@@ -4955,10 +4955,10 @@ static void build_scope_deallocate_stmt(AST a,
 
         if (!nodecl_is_err_expr(nodecl_data_ref))
         {
-            scope_entry_t* entry = nodecl_get_symbol(nodecl_data_ref);
-
-            if (!entry->entity_specs.is_allocatable
-                    && !is_pointer_type(no_ref(entry->type_information)))
+            scope_entry_t* entry = fortran_data_ref_get_symbol(nodecl_data_ref);
+            if (entry == NULL
+                    || (!entry->entity_specs.is_allocatable
+                        && !is_pointer_type(no_ref(entry->type_information))))
             {
                 error_printf("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
                         ast_location(a));
@@ -5537,7 +5537,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
         if (!nodecl_is_err_expr(nodecl_var))
         {
-            ind_var = nodecl_get_symbol(nodecl_var);
+            ind_var = fortran_data_ref_get_symbol(nodecl_var);
             if (ind_var != NULL
                     && !is_integer_type(no_ref(ind_var->type_information)))
             {
@@ -5702,8 +5702,9 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
     }
     else
     {
-        // Recover the symbol we piggybacked in (1) above
+        // Recover the symbol we piggybacked in (1) above and remove it
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
+        nodecl_set_symbol(_nodecl_wrap(a), NULL);
 
         if (entry == error_entry)
             return;
@@ -6806,7 +6807,7 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
         nodecl_t nodecl_pointer_obj = nodecl_null();
         fortran_check_expression(pointer_object, decl_context, &nodecl_pointer_obj);
 
-        scope_entry_t* sym = nodecl_get_symbol(nodecl_pointer_obj);
+        scope_entry_t* sym = fortran_data_ref_get_symbol(nodecl_pointer_obj);
 
         if (sym == NULL ||
                 !is_pointer_type(no_ref(sym->type_information)))
@@ -9211,19 +9212,16 @@ static char opt_common_const_character_expr(AST value, decl_context_t decl_conte
 static char opt_common_int_variable(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
     fortran_check_expression(value, decl_context, nodecl_value);
-    if (nodecl_get_symbol(*nodecl_value) == NULL)
-    { 
-        scope_entry_t* sym = nodecl_get_symbol(*nodecl_value);
-        if (sym == NULL
-                || (!is_integer_type(no_ref(sym->type_information))
-                    && !(is_pointer_type(no_ref(sym->type_information))
-                        && is_integer_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
-        {
-            error_printf("%s: error: specifier %s requires an integer variable\n",
-                    ast_location(value),
-                    opt_name);
-            return 0;
-        }
+    scope_entry_t* sym = fortran_data_ref_get_symbol(*nodecl_value);
+    if (sym == NULL
+            || (!is_integer_type(no_ref(sym->type_information))
+                && !(is_pointer_type(no_ref(sym->type_information))
+                    && is_integer_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
+    {
+        error_printf("%s: error: specifier %s requires an integer variable\n",
+                ast_location(value),
+                opt_name);
+        return 0;
     }
     return 1;
 }
@@ -9231,19 +9229,16 @@ static char opt_common_int_variable(AST value, decl_context_t decl_context, cons
 static char opt_common_logical_variable(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
     fortran_check_expression(value, decl_context, nodecl_value);
-    if (nodecl_get_symbol(*nodecl_value) == NULL)
-    { 
-        scope_entry_t* sym = nodecl_get_symbol(*nodecl_value);
-        if (sym == NULL
-                || (!is_bool_type(no_ref(sym->type_information))
-                    && !(is_pointer_type(no_ref(sym->type_information))
-                        && is_bool_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
-        {
-            error_printf("%s: error: specifier %s requires a logical variable\n",
-                    ast_location(value),
-                    opt_name);
-            return 0;
-        }
+    scope_entry_t* sym = fortran_data_ref_get_symbol(*nodecl_value);
+    if (sym == NULL
+            || (!is_bool_type(no_ref(sym->type_information))
+                && !(is_pointer_type(no_ref(sym->type_information))
+                    && is_bool_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
+    {
+        error_printf("%s: error: specifier %s requires a logical variable\n",
+                ast_location(value),
+                opt_name);
+        return 0;
     }
     return 1;
 }
@@ -9271,8 +9266,8 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, de
     AST value = ASTSon0(opt_value);
     nodecl_t nodecl_value = nodecl_null();
     fortran_check_expression(value, decl_context, &nodecl_value);
-    if (nodecl_get_symbol(nodecl_value) == NULL
-            || !is_bool_type(no_ref(nodecl_get_symbol(nodecl_value)->type_information)))
+    if (fortran_data_ref_get_symbol(nodecl_value) == NULL
+            || !is_bool_type(no_ref(fortran_data_ref_get_symbol(nodecl_value)->type_information)))
     {
         error_printf("%s: error: specifier 'ACQUIRED LOCK' requires a logical variable\n",
                 ast_location(value));
@@ -9430,7 +9425,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         }
         else 
         {
-            scope_entry_t* entry = nodecl_get_symbol(nodecl_value);
+            scope_entry_t* entry = fortran_data_ref_get_symbol(nodecl_value);
             if (fortran_is_character_type(no_ref(t)) 
                     || (fortran_is_array_type(no_ref(t)) && 
                         fortran_is_character_type(no_ref(get_unqualified_type(fortran_get_rank0_type(t))))))
@@ -9740,7 +9735,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 
         type_t* t = nodecl_get_type(nodecl_value);
         if (!(is_integer_type(no_ref(t))
-                    || (nodecl_get_symbol(nodecl_value) != NULL
+                    || (fortran_data_ref_get_symbol(nodecl_value) != NULL
                         && fortran_is_character_type_or_pointer_to(
                             fortran_get_rank0_type(no_ref(t))))))
         {
@@ -10092,7 +10087,7 @@ static void resolve_external_calls_rec(nodecl_t node,
     if (nodecl_get_kind(node) == NODECL_FUNCTION_CALL
             && nodecl_get_kind((called = nodecl_get_child(node, 0))) == NODECL_SYMBOL)
     {
-        scope_entry_t* entry = nodecl_get_symbol(called);
+        scope_entry_t* entry = fortran_data_ref_get_symbol(called);
 
         if (entry->kind == SK_FUNCTION
                 && (entry->decl_context.current_scope->related_entry == NULL

@@ -39,6 +39,7 @@
 #include "cxx-ast.h"
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
+#include "cxx-diagnostic.h"
 #include "mem.h"
 
 #define YYDEBUG 1

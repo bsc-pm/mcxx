@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CFLAGS="--no-copy-deps"
 </testinfo>
 */
 

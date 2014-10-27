@@ -128,6 +128,7 @@ void strbuilder_append(strbuilder_t* strb, const char* str)
 void strbuilder_free(strbuilder_t* strb)
 {
     xfree(strb->str);
+    xfree(strb);
 }
 
 const char* get_unique_name(void)

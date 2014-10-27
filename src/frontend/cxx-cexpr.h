@@ -118,9 +118,12 @@ LIBMCXX_EXTERN cvalue_int_t const_value_cast_to_cvalue_int(const_value_t* value)
 LIBMCXX_EXTERN cvalue_uint_t const_value_cast_to_cvalue_uint(const_value_t* value);
 
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl(const_value_t* v);
+LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_cached(const_value_t* v);
 
 // This function uses the basic type for elemental types (both for integer or floating)
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
+        type_t* basic_type);
+LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_with_basic_type_cached(const_value_t* v, 
         type_t* basic_type);
 
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type(const_value_t* val);

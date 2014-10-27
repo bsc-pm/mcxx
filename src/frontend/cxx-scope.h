@@ -179,9 +179,6 @@ LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         const locus_t* locus,
         int pack_index);
 
-LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
-LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
-
 // Template parameter names
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
         int template_parameter_nesting, int template_parameter_position);

@@ -52,8 +52,8 @@
      #else
          #define WARN_UNUSED
      #endif
-  #elif __GNUC__ == 4
-     #if (__GNUC_MINOR__ >= 4) 
+  #elif __GNUC__ >= 4
+     #if (__GNUC__ > 4 || __GNUC_MINOR__ >= 4)
         #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
      #else
         #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))

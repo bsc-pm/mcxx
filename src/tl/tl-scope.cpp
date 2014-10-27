@@ -35,6 +35,7 @@
 #include "cxx-entrylist.h"
 #include "uniquestr.h"
 #include "cxx-koenig.h"
+#include "cxx-exprtype.h"
 
 namespace TL
 {
@@ -86,9 +87,31 @@ namespace TL
         return result;
     }
 
+    ObjectList<Symbol> Scope::get_symbols_from_name_in_scope(const std::string& str) const
+    {
+        ObjectList<Symbol> result;
+        scope_entry_list_t* entry_list = query_in_scope_str(_decl_context, uniquestr(str.c_str()), NULL);
+
+        convert_to_vector(entry_list, result);
+
+        entry_list_free(entry_list);
+
+        return result;
+    }
+
     Symbol Scope::get_symbol_from_name(const std::string& str) const
     {
         ObjectList<Symbol> list = this->get_symbols_from_name(str);
+
+        Symbol result(NULL);
+        get_head(list, result);
+
+        return result;
+    }
+
+    Symbol Scope::get_symbol_from_name_in_scope(const std::string& str) const
+    {
+        ObjectList<Symbol> list = this->get_symbols_from_name_in_scope(str);
 
         Symbol result(NULL);
         get_head(list, result);
@@ -232,5 +255,10 @@ namespace TL
     template_parameter_list_t* Scope::get_template_parameters() const
     {
        return _decl_context.template_parameters;
+    }
+
+    Symbol Scope::get_symbol_this() const
+    {
+        return resolve_symbol_this(_decl_context);
     }
 }

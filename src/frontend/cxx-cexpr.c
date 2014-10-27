@@ -57,8 +57,6 @@
 #include "cxx-limits.h"
 #include "cxx-nodecl-output.h"
 
-#define CVAL_HASH_SIZE (37)
-
 /*
 IMPORTANT: incompatible changes to enum const_value_kind_tag requires
 increasing the value of CURRENT_MODULE_VERSION in fortran03-modules.c.
@@ -138,9 +136,11 @@ struct const_value_hash_bucket_tag
     struct const_value_hash_bucket_tag *next;
 } const_value_hash_bucket_t;
 
+enum { CVAL_HASH_SIZE = 37 };
+
 typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
-static const_value_hash_t _hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
+static const_value_hash_t _int_hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
 
 const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {
@@ -157,11 +157,11 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
         value &= ~mask;
     }
 
-    int bucket_index = value % CVAL_HASH_SIZE;
+    unsigned int bucket_index = value % CVAL_HASH_SIZE;
 
     int pool = 2 * num_bytes + !!sign;
 
-    const_value_hash_bucket_t* bucket = _hash_pool[pool][bucket_index];
+    const_value_hash_bucket_t* bucket = _int_hash_pool[pool][bucket_index];
 
     while (bucket != NULL)
     {
@@ -182,9 +182,9 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
         bucket->constant_value->num_bytes = num_bytes;
         bucket->constant_value->sign = sign;
 
-        bucket->next = _hash_pool[pool][bucket_index];
+        bucket->next = _int_hash_pool[pool][bucket_index];
 
-        _hash_pool[pool][bucket_index] = bucket;
+        _int_hash_pool[pool][bucket_index] = bucket;
     }
 
     return bucket->constant_value;
@@ -212,45 +212,175 @@ GET_INTEGER(short_int)
 GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 
+enum {
+    FLOAT_HASH = 0,
+    DOUBLE_HASH,
+    LONG_DOUBLE_HASH,
+#ifdef HAVE_QUADMATH_H
+    FLOAT128_HASH,
+#endif
+    NUM_FLOATING_HASHES
+};
+
+static const_value_hash_t _floating_hash_pool[NUM_FLOATING_HASHES] = { { (const_value_hash_bucket_t*)0 } };
+
 const_value_t* const_value_get_float(float f)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_FLOAT;
-    v->value.f = f;
-    v->sign = 1;
+    union { 
+        float f;
+        uint32_t x;
+    } r = { f };
 
-    return v;
+    unsigned int bucket_index = r.x % CVAL_HASH_SIZE;
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[FLOAT_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.f == f)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_FLOAT;
+        v->value.f = f;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[FLOAT_HASH][bucket_index];
+        _floating_hash_pool[FLOAT_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 
 const_value_t* const_value_get_double(double d)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_DOUBLE;
-    v->value.d = d;
-    v->sign = 1;
+    union {
+        double d;
+        uint64_t x;
+    } r = { d };
 
-    return v;
+    unsigned int bucket_index = r.x % CVAL_HASH_SIZE;
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[DOUBLE_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.d == d)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_DOUBLE;
+        v->value.d = d;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[DOUBLE_HASH][bucket_index];
+        _floating_hash_pool[DOUBLE_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 
 const_value_t* const_value_get_long_double(long double ld)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_LONG_DOUBLE;
-    v->value.ld = ld;
-    v->sign = 1;
+    union {
+        long double ld;
+        unsigned char x[sizeof(long double)];
+    } r = { ld };
 
-    return v;
+    unsigned int bucket_index = 0;
+    unsigned int i;
+    for (i = 0; i < sizeof(long double); i++)
+    {
+        bucket_index += (((unsigned int)r.x[i]) << i);
+    }
+    bucket_index %= CVAL_HASH_SIZE;
+
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.ld == ld)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_LONG_DOUBLE;
+        v->value.ld = ld;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index];
+        _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 
 #ifdef HAVE_QUADMATH_H
-const_value_t* const_value_get_float128(__float128 ld)
+const_value_t* const_value_get_float128(__float128 f128)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_FLOAT128;
-    v->value.f128 = ld;
-    v->sign = 1;
+    union {
+        __float128 f128;
+        unsigned char x[sizeof(__float128)];
+    } r = { f128 };
 
-    return v;
+    unsigned int bucket_index = 0;
+    unsigned int i;
+    for (i = 0; i < sizeof(__float128); i++)
+    {
+        bucket_index += (((unsigned int)r.x[i]) << i);
+    }
+    bucket_index %= CVAL_HASH_SIZE;
+
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[FLOAT128_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.f128 == f128)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_FLOAT128;
+        v->value.f128 = f128;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[FLOAT128_HASH][bucket_index];
+        _floating_hash_pool[FLOAT128_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 #endif
 
@@ -1132,16 +1262,91 @@ type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_valu
     return get_minimal_integer_for_value_at_least_signed_int(val->sign, val->value.i);
 }
 
-nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
-        type_t* basic_type)
+static dhash_ptr_t *_const_value_nodecl_cache = NULL;
+
+typedef
+struct const_value_hash_item_tag
 {
+    nodecl_t n;
+    type_t* basic_type;
+} const_value_hash_item_t;
+
+typedef
+struct const_value_hash_item_set_tag
+{
+    int num_items;
+    const_value_hash_item_t** items;
+} const_value_hash_item_set_t;
+
+static inline nodecl_t cache_const(const_value_t* v, type_t* basic_type, nodecl_t n, char cached)
+{
+    if (cached)
+    {
+        const_value_hash_item_set_t* cached_result =
+            (const_value_hash_item_set_t*)dhash_ptr_query(_const_value_nodecl_cache, (const char*)v);
+
+        if (cached_result == NULL)
+        {
+            cached_result = xcalloc(1, sizeof(*cached_result));
+            dhash_ptr_insert(_const_value_nodecl_cache, (const char*)v, cached_result);
+        }
+
+        const_value_hash_item_t* cached_item = xcalloc(1, sizeof(*cached_item));
+        cached_item->n = n;
+        cached_item->basic_type = basic_type;
+
+        cached_result->num_items++;
+        cached_result->items = xrealloc(
+                cached_result->items,
+                cached_result->num_items * sizeof(*cached_result->items));
+        cached_result->items[cached_result->num_items - 1] = cached_item;
+    }
+
+    return n;
+}
+
+nodecl_t const_value_to_nodecl_(const_value_t* v,
+        type_t* basic_type,
+        char cached)
+{
+    if (cached)
+    {
+        if (_const_value_nodecl_cache == NULL)
+        {
+            _const_value_nodecl_cache = dhash_ptr_new(5);
+        }
+        else
+        {
+            const_value_hash_item_set_t* cached_result =
+                (const_value_hash_item_set_t*)dhash_ptr_query(_const_value_nodecl_cache, (const char*)v);
+            if (cached_result != NULL)
+            {
+                int i;
+                for (i = 0; i < cached_result->num_items; i++)
+                {
+                    if (cached_result->items[i]->basic_type == basic_type
+                            || (cached_result->items[i]->basic_type != NULL
+                                && basic_type != NULL
+                                && equivalent_types(cached_result->items[i]->basic_type, basic_type)))
+                    {
+                        return cached_result->items[i]->n;
+                    }
+                }
+            }
+        }
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:
             {
                 // Zero is special
                 if (basic_type == NULL && v->value.i == 0)
-                    return nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0));
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0)),
+                            cached);
 
                 type_t* t = basic_type;
                 if (t == NULL)
@@ -1151,14 +1356,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
 
                 if (is_bool_type(t))
                 {
-                    return nodecl_make_boolean_literal(t, v, make_locus("", 0, 0));
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_make_boolean_literal(t, v, make_locus("", 0, 0)),
+                            cached);
                 }
                 else
                 {
                     if (const_value_is_zero(v)
                             || const_value_is_positive(v))
                     {
-                        return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
+                        return cache_const(
+                                v,
+                                basic_type,
+                                nodecl_make_integer_literal(t, v, make_locus("", 0, 0)),
+                                cached);
                     }
                     else
                     {
@@ -1169,7 +1382,11 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                                 t, make_locus("", 0, 0));
                         nodecl_set_constant(nodecl_result, v);
 
-                        return nodecl_result;
+                        return cache_const(
+                                v,
+                                basic_type,
+                                nodecl_result,
+                                cached);
                     }
                 }
                 break;
@@ -1184,7 +1401,11 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 if (const_value_is_zero(v)
                         || const_value_is_positive(v))
                 {
-                    return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_make_floating_literal(t, v, make_locus("", 0, 0)),
+                            cached);
                 }
                 else
                 {
@@ -1195,19 +1416,27 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                             t, make_locus("", 0, 0));
                     nodecl_set_constant(nodecl_result, v);
 
-                    return nodecl_result;
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_result,
+                            cached);
                 }
                 break;
             }
         case CVK_STRING:
             {
-                return nodecl_make_string_literal(
+                return cache_const(
+                        v,
+                        basic_type,
+                        nodecl_make_string_literal(
                         get_array_type_bounds(
                             get_char_type(),
                             nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), make_locus("", 0, 0)),
                             nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), make_locus("", 0, 0)),
                             CURRENT_COMPILED_FILE->global_decl_context),
-                        v, make_locus("", 0, 0));
+                        v, make_locus("", 0, 0)),
+                        cached);
                 break;
             }
         case CVK_ARRAY:
@@ -1216,7 +1445,7 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 int i;
                 for (i = 0; i < v->value.m->num_elements; i++)
                 {
-                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_type(v->value.m->elements[i], basic_type));
+                    list = nodecl_append_to_list(list, const_value_to_nodecl_(v->value.m->elements[i], basic_type, cached));
                 }
 
                 // Get the type from the first element
@@ -1240,7 +1469,7 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
-                return result;
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         case CVK_STRUCT:
@@ -1260,8 +1489,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                     scope_entry_t* member = entry_list_iterator_current(it_member);
 
                     list = nodecl_append_to_list(list,
-                            const_value_to_nodecl_with_basic_type(v->value.m->elements[i],
-                                member->type_information));
+                            const_value_to_nodecl_(v->value.m->elements[i],
+                                member->type_information,
+                                cached));
                 }
                 entry_list_iterator_free(it_member);
 
@@ -1274,7 +1504,7 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
-                return result;
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         case CVK_COMPLEX:
@@ -1299,7 +1529,7 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 t = get_complex_type(t);
                 nodecl_t result = nodecl_make_complex_literal(t, v, make_locus("", 0, 0));
 
-                return result;
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         case CVK_VECTOR:
@@ -1322,8 +1552,10 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 nodecl_t result = nodecl_null();
                 if (promote_from_scalar)
                 {
-                    nodecl_t scalar_node = const_value_to_nodecl_with_basic_type(
-                            v->value.m->elements[0], basic_type);
+                    nodecl_t scalar_node = const_value_to_nodecl_(
+                            v->value.m->elements[0],
+                            basic_type,
+                            cached);
                     type_t* vector_type = get_vector_type_by_elements(
                             nodecl_get_type(scalar_node),
                             v->value.m->num_elements);
@@ -1340,7 +1572,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                     for (i = 0; i < v->value.m->num_elements; i++)
                     {
                         list = nodecl_append_to_list(list,
-                                const_value_to_nodecl_with_basic_type(v->value.m->elements[i], basic_type));
+                                const_value_to_nodecl_(v->value.m->elements[i],
+                                    basic_type,
+                                    cached));
                     }
 
                     type_t* vector_type = get_vector_type_by_elements(
@@ -1355,7 +1589,7 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
 
                 nodecl_set_constant(result, v);
 
-                return result;
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         default:
@@ -1367,9 +1601,26 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
     }
 }
 
+nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
+        type_t* basic_type)
+{
+    return const_value_to_nodecl_(v, basic_type, /* cached */ 0);
+}
+
+nodecl_t const_value_to_nodecl_with_basic_type_cached(const_value_t* v, 
+        type_t* basic_type)
+{
+    return const_value_to_nodecl_(v, basic_type, /* cached */ 1);
+}
+
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
-    return const_value_to_nodecl_with_basic_type(v, /* basic_type */ NULL);
+    return const_value_to_nodecl_(v, /* basic_type */ NULL, /* cached */ 0);
+}
+
+nodecl_t const_value_to_nodecl_cached(const_value_t* v)
+{
+    return const_value_to_nodecl_(v, /* basic_type */ NULL, /* cached */ 1);
 }
 
 char const_value_is_integer(const_value_t* v)

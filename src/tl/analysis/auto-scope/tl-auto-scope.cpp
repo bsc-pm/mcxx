@@ -348,7 +348,7 @@ namespace {
             {
                 if(usage_in_task._usage_type & Utils::UsageKind::DEFINED)
                 {
-                    GlobalVarsSet global_vars = _graph->get_global_variables();
+                    NodeclSet global_vars = _graph->get_global_variables();
                     if((global_vars.find(n) != global_vars.end()) || 
                         Utils::nodecl_set_contains_nodecl(n, task->get_live_out_vars()))
                     {
