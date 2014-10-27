@@ -399,6 +399,8 @@ namespace TL
 
             //! States if this member is a bitfield
             bool is_bitfield() const;
+            //! States if this member is an unnamed bitfield
+            bool is_unnamed_bitfield() const;
 
             //! Returns the size of the bitfield
             Nodecl::NodeclBase get_bitfield_size() const;

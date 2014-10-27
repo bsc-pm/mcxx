@@ -471,6 +471,11 @@ namespace TL
         return (symbol_entity_specs_get_is_bitfield(_symbol));
     }
 
+    bool Symbol::is_unnamed_bitfield() const
+    {
+        return (symbol_entity_specs_get_is_unnamed_bitfield(_symbol));
+    }
+
     Nodecl::NodeclBase Symbol::get_bitfield_size() const
     {
         return symbol_entity_specs_get_bitfield_size(_symbol);
