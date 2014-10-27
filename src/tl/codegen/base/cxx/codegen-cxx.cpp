@@ -9804,7 +9804,7 @@ CxxBase::CxxBase()
     register_parameter("old_method_for_class_definitions",
             "Uses an old method to emit class definitions. If you need to enable this, please report a ticket",
             _use_old_method_for_class_definitions_str,
-            "1").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
+            "0").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
 }
 
 void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)
