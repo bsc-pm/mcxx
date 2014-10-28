@@ -42,12 +42,15 @@ namespace Analysis {
     typedef ObjectList<TDG_Edge*> TDG_Edge_list;
     typedef ObjectList<Node*> Node_list;
     typedef ObjectList<Edge*> Edge_list;
+    typedef std::multimap<Node*, NBase> Node_to_NBase_map;
 
     static int node_id = 0;
     static int control_id = 0;
     
-namespace{
-    
+namespace {
+
+    Node_to_NBase_map _reported_offset_vars;
+
     std::string get_list_as_string(const ObjectList<std::string>& list)
     {
         std::stringstream ids;
@@ -256,16 +259,48 @@ namespace{
         
         return condition;
     }
-    
-    static std::string transform_expression_to_json_expression(
-        ControlStructure* cs_node,
-        const NBase& expression,
-        VarToValueMap& var_to_value_map,
-        VarToIdMap& var_to_id_map,
-        ObjectList<NBase>& ordered_vars,
-        unsigned int& last_var_id);
-    
-    static void get_variable_values(
+
+    void report_default_offset(Node* n, Node* loop, const NBase& var)
+    {
+        // Check whether the variable has already been reported
+        if (_reported_offset_vars.find(n) != _reported_offset_vars.end())
+        {
+            std::pair<Node_to_NBase_map::iterator, Node_to_NBase_map::iterator> n_reported_vars = _reported_offset_vars.equal_range(n);
+            for (Node_to_NBase_map::iterator it = n_reported_vars.first; it != n_reported_vars.second; ++it)
+            {
+                if (Nodecl::Utils::structurally_equal_nodecls(it->second, var, /*skip_conversion_nodes*/true))
+                    return;
+            }
+        }
+
+        // Report the variable and store to avoid reporting it again
+        WARNING_MESSAGE("Retrieving values for variable %s in node %d which is the IV of loop %d."
+                        "This is not yet implemented. We set the offset '0' by default.\n",
+                        var.prettyprint().c_str(), n->get_id(), loop->get_id());
+        _reported_offset_vars.insert(std::pair<Node*, NBase>(n, var));
+    }
+
+    struct StructuralCompareBind1 : Predicate<NBase>
+    {
+        NBase n1;
+
+        StructuralCompareBind1(const NBase n1_) : n1(n1_) { }
+
+        virtual bool do_(const NBase& n2) const
+        {
+            return Nodecl::Utils::structurally_equal_nodecls(n1, n2);
+        }
+    };
+
+    std::string transform_expression_to_json_expression(
+            ControlStructure* cs_node,
+            const NBase& expression,
+            VarToValueMap& var_to_value_map,
+            VarToIdMap& var_to_id_map,
+            ObjectList<NBase>& ordered_vars,
+            unsigned int& last_var_id);
+
+    void get_variable_values(
             ControlStructure* cs_node,
             const NBase& var,
             VarToValueMap& var_to_value_map,
@@ -315,15 +350,13 @@ check_ivs:
                 }
                 else
                 {   // TODO We should compute the offset here
-                    WARNING_MESSAGE("Retrieving values for variable %s in node %d which is the IV of loop %d." 
-                                    "This is not yet implemented. We set the offset '0' by default.\n", 
-                                    var.prettyprint().c_str(), cs_node->get_pcfg_node()->get_id(), current_cs_node->get_pcfg_node()->get_id());
+                    report_default_offset(cs_node->get_pcfg_node(), current_cs_node->get_pcfg_node(), var);
                     range_str = "0";
                 }
                 goto end_get_vars;
             }
         }
-        
+
         // 2.- The variable is not an IV: 
         // 2.1.- it may be an IV from an outer loop => get the proper offset
         current_cs_node = current_cs_node->get_enclosing_cs();
@@ -342,30 +375,16 @@ check_ivs:
             range_str = transform_expression_to_json_expression(
                                 cs_node, range, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
         }
-        
+
 end_get_vars:
         ;
-        
+
         var_to_value_map[var] = range_str;
     }
     
-namespace {
-    struct StructuralCompareBind1 : Predicate<NBase>
-    {
-        NBase n1;
-        
-        StructuralCompareBind1(const NBase n1_) : n1(n1_) { }
-        
-        virtual bool do_(const NBase& n2) const
-        {
-            return Nodecl::Utils::structurally_equal_nodecls(n1, n2);
-        }
-    };   
-}
-    
-    static std::string transform_expression_to_json_expression(
-            ControlStructure* cs_node, 
-            const NBase& expression, 
+    std::string transform_expression_to_json_expression(
+            ControlStructure* cs_node,
+            const NBase& expression,
             VarToValueMap& var_to_value_map,
             VarToIdMap& var_to_id_map,
             ObjectList<NBase>& ordered_vars,
@@ -374,9 +393,9 @@ namespace {
         // This may happen when calling recursively (i.e. boundaries of an IV)
         if(expression.is_null())
             return "";
-        
+
         std::string json_expr = expression.prettyprint();
-        
+
         NodeclList new_vars;
         NodeclList vars_accesses = Nodecl::Utils::get_all_memory_accesses(expression);
         for (NodeclList::iterator it = vars_accesses.begin(); it != vars_accesses.end(); ++it)
@@ -396,9 +415,9 @@ namespace {
             {
                 current_var_id = var_to_id_map[*it];
             }
-            
+
             std::stringstream id_ss; id_ss << "$" << current_var_id;
-            
+
             // Replace all occurrences of that variable with the corresponding identifier
             size_t pos = 0;
             std::string var_name = it->prettyprint();   // We don't access the symbol here 
@@ -410,19 +429,19 @@ namespace {
                 pos += id_str.length();
             }
         }
-        
+
         // Get the values of the involved variables
         for (NodeclList::iterator it = new_vars.begin(); it != new_vars.end(); ++it)
         {
             get_variable_values(cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
         }
-        
+
         return json_expr;
     }
-    
+
     // FIXME This replacement does not take into account that input values of the variables
     // may be different on the left and right hand of the condition (for example, variables within a loop)
-    static std::string transform_node_condition_into_json_expr(
+    std::string transform_node_condition_into_json_expr(
             ControlStructure* cs_node, 
             const NBase& condition, 
             VarToValueMap& var_to_value_map,
@@ -435,7 +454,7 @@ namespace {
                     var_to_value_map, var_to_id_map, 
                     ordered_vars, last_var_id);
     }
-    
+
     /*! This class gathers information of the variables in a dependency condition
      * in order to translate it into its JSON form */
     struct ConditionVisitor : public Nodecl::NodeclVisitor<std::string> 
@@ -497,9 +516,7 @@ namespace {
                         Utils::InductionVarList ivs = cs->get_pcfg_node()->get_induction_variables();
                         if(Utils::induction_variable_list_contains_variable(ivs, v))
                         {   // The variable is an IV
-                            WARNING_MESSAGE("Retrieving values for variable %s in node %d which is the IV of loop %d."
-                                            "This is not yet implemented. We set the offset '0' by default.\n",
-                                            v.prettyprint().c_str(), pcfg_n->get_id(), cs->get_pcfg_node()->get_id());
+                            report_default_offset(pcfg_n, cs->get_pcfg_node(), v);
                             values = Nodecl::IntegerLiteral::make(Type::get_int_type(), const_value_get_zero(/* bytes */ 4, /* signed */ 1));
                             goto insert_values;
                         }
