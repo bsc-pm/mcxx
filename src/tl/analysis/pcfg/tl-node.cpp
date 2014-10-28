@@ -1020,7 +1020,7 @@ namespace Analysis {
                             get_type_as_string().c_str(), _id);
     }
 
-    static bool node_is_claused_graph_omp(Graph_type type)
+    static bool node_is_omp_graph_with_clause(Graph_type type)
     {
         return (type == __OmpAtomic || __OmpCritical
                  || type == __OmpLoop || type == __OmpParallel  || type == __OmpSections
@@ -1030,7 +1030,7 @@ namespace Analysis {
     PCFGPragmaInfo Node::get_pragma_node_info()
     {
         if (((get_data<Node_type>(_NODE_TYPE) == __Graph)
-               && node_is_claused_graph_omp(get_data<Graph_type>(_GRAPH_TYPE)))
+               && node_is_omp_graph_with_clause(get_data<Graph_type>(_GRAPH_TYPE)))
             || get_data<Node_type>(_NODE_TYPE) == __OmpFlush)
         {
             if (has_key(_OMP_INFO))
@@ -1051,7 +1051,7 @@ namespace Analysis {
     void Node::set_pragma_node_info(const PCFGPragmaInfo& pragma)
     {
         if (((get_data<Node_type>(_NODE_TYPE) == __Graph)
-               && node_is_claused_graph_omp(get_data<Graph_type>(_GRAPH_TYPE)))
+               && node_is_omp_graph_with_clause(get_data<Graph_type>(_GRAPH_TYPE)))
             || get_data<Node_type>(_NODE_TYPE) == __OmpFlush)
         {
             set_data<PCFGPragmaInfo>(_OMP_INFO, pragma);
