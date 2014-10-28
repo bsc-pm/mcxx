@@ -361,7 +361,7 @@ namespace {
                 get_dot_subgraph(current, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent + "\t");
                 dot_graph += indent + "}\n";
                 
-                // Print additional information attached to the node
+                // Print additional information attached to the node, if needed
                 dot_graph += print_pragma_node_clauses(current, indent, cluster_name);
                 print_node_analysis_info(current, dot_analysis_info, cluster_name);
             }
@@ -666,7 +666,11 @@ connect_node:
     std::string ExtensibleGraph::print_pragma_node_clauses(Node* current, std::string indent, std::string cluster_name)
     {
         std::string pragma_info_str = "";
-        if(current->is_graph_node() && current->is_omp_node())
+        // The analysis info parameters are passed when calling print_graph_to_dot,
+        // where lies the knowledge about which analyses have been computed
+        if ((CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis
+                    || CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+                && (current->is_graph_node() && current->is_omp_node()))
         {
             PCFGPragmaInfo pragma_info = current->get_pragma_node_info();
             ObjectList<NBase> clauses = pragma_info.get_clauses();
