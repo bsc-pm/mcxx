@@ -2655,6 +2655,689 @@ static type_t* template_type_get_identical_specialized_type(type_t* t,
     return specialization;
 }
 
+
+#if 0
+static int template_arg_value_expr_compare_aux(nodecl_t n1, nodecl_t n2);
+static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
+{
+    int cmp = template_arg_value_expr_compare_aux(n1, n2);
+
+    DEBUG_CODE()
+    {
+        if (cmp < 0)
+        {
+            fprintf(stderr, "EXPR |%s| < |%s|\n",
+                    codegen_to_str(n1, CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(n2, CURRENT_COMPILED_FILE->global_decl_context));
+        }
+        else if (cmp > 0)
+        {
+            fprintf(stderr, "EXPR |%s| > |%s|\n",
+                    codegen_to_str(n1, CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(n2, CURRENT_COMPILED_FILE->global_decl_context));
+        }
+        else 
+        {
+            fprintf(stderr, "EXPR |%s| == |%s|\n",
+                    codegen_to_str(n1, CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(n2, CURRENT_COMPILED_FILE->global_decl_context));
+        }
+    }
+
+    return cmp;
+}
+#endif
+
+static int template_arg_value_type_compare(type_t* t1, type_t* t2);
+
+#define RETURN_COMP(x, y) \
+    if ((x) < (y)) return -1; \
+    else if ((x) > (y)) return 1;
+
+static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
+{
+    if (nodecl_is_null(n1)
+            && nodecl_is_null(n2))
+        return 0;
+    else if (nodecl_is_null(n1)
+            && !nodecl_is_null(n2))
+        return -1;
+    else if (!nodecl_is_null(n1)
+            && nodecl_is_null(n2))
+        return 1;
+    else if (nodecl_get_constant(n1) == NULL
+            && nodecl_get_constant(n2) != NULL)
+    {
+        return -1;
+    }
+    else if (nodecl_get_constant(n1) != NULL
+            && nodecl_get_constant(n2) == NULL)
+    {
+        return 1;
+    }
+    else if (nodecl_get_constant(n1) != NULL
+            && nodecl_get_constant(n2) != NULL)
+    {
+        if (const_value_is_nonzero(
+                    const_value_lt(
+                        nodecl_get_constant(n1),
+                        nodecl_get_constant(n2))) )
+        {
+            return -1;
+        }
+        else if (const_value_is_nonzero(
+                    const_value_gt(
+                        nodecl_get_constant(n1),
+                        nodecl_get_constant(n2))) )
+        {
+            return 1;
+        }
+    }
+    else if (nodecl_get_symbol(n1) == NULL
+            && nodecl_get_symbol(n2) != NULL)
+        return -1;
+    else if (nodecl_get_symbol(n1) != NULL
+            && nodecl_get_symbol(n2) == NULL)
+        return 1;
+    else if (nodecl_get_symbol(n1) != NULL
+            && nodecl_get_symbol(n2) != NULL)
+    {
+        scope_entry_t* s1 = nodecl_get_symbol(n1);
+        scope_entry_t* s2 = nodecl_get_symbol(n2);
+
+        RETURN_COMP(s1->kind, s2->kind);
+        if (s1->kind == SK_VARIABLE)
+        {
+            RETURN_COMP(
+                    symbol_is_parameter_of_function(s1, get_function_declaration_proxy()),
+                    symbol_is_parameter_of_function(s2, get_function_declaration_proxy()));
+            if (symbol_is_parameter_of_function(s1, get_function_declaration_proxy()))
+            {
+                RETURN_COMP(symbol_get_parameter_nesting_in_function(s1, get_function_declaration_proxy()),
+                        symbol_get_parameter_nesting_in_function(s2, get_function_declaration_proxy()));
+                RETURN_COMP(symbol_get_parameter_position_in_function(s1, get_function_declaration_proxy()),
+                        symbol_get_parameter_position_in_function(s2, get_function_declaration_proxy()));
+                int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+                if (cmp != 0)
+                    return cmp;
+            }
+            else
+            {
+                RETURN_COMP(s1, s2);
+            }
+        }
+        else if (s1->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
+        {
+            RETURN_COMP(symbol_entity_specs_get_template_parameter_nesting(s1),
+                    symbol_entity_specs_get_template_parameter_nesting(s2));
+            RETURN_COMP(symbol_entity_specs_get_template_parameter_position(s1),
+                    symbol_entity_specs_get_template_parameter_position(s2));
+        }
+        else if (s1->kind == SK_DEPENDENT_ENTITY)
+        {
+            int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+            if (cmp != 0)
+                return cmp;
+        }
+        else
+        {
+            RETURN_COMP(s1, s2);
+        }
+    }
+    else if (nodecl_get_kind(n1) < nodecl_get_kind(n2))
+        return -1;
+    else if (nodecl_get_kind(n1) > nodecl_get_kind(n2))
+        return 1;
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            int cmp = template_arg_value_expr_compare(
+                    nodecl_get_child(n1, i),
+                    nodecl_get_child(n2, i));
+
+            if (cmp != 0)
+                return cmp;
+        }
+    }
+
+    return 0;
+}
+
+static int template_arg_value_type_compare_cv_qualif_0(
+        cv_qualifier_t cv_qualif1,
+        cv_qualifier_t cv_qualif2)
+{
+    if (cv_qualif1 < cv_qualif2)
+        return -1;
+    else if (cv_qualif1 > cv_qualif2)
+        return 1;
+    else
+        return 0;
+}
+
+#if 0
+static int template_arg_value_type_compare_cv_qualif(type_t* t1, type_t* t2)
+{
+    cv_qualifier_t cv_qualif1 = CV_NONE;
+    cv_qualifier_t cv_qualif2 = CV_NONE;
+    advance_over_typedefs_with_cv_qualif(t1, &cv_qualif1);
+    advance_over_typedefs_with_cv_qualif(t2, &cv_qualif2);
+
+    return template_arg_value_type_compare_cv_qualif_0(cv_qualif1, cv_qualif2);
+}
+#endif
+
+static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2);
+static int template_arg_value_type_compare(type_t* t1, type_t* t2)
+{
+    int cmp = template_arg_value_type_compare_aux(t1, t2);
+
+    DEBUG_CODE()
+    {
+        if (cmp < 0)
+        {
+            fprintf(stderr, "TYPE |%s| (%p) < |%s| (%p)\n",
+                    print_type_str(t1, CURRENT_COMPILED_FILE->global_decl_context), t1,
+                    print_type_str(t2, CURRENT_COMPILED_FILE->global_decl_context), t2);
+        }
+        else if (cmp > 0)
+        {
+            fprintf(stderr, "TYPE |%s| (%p) > |%s| (%p)\n",
+                    print_type_str(t1, CURRENT_COMPILED_FILE->global_decl_context), t1,
+                    print_type_str(t2, CURRENT_COMPILED_FILE->global_decl_context), t2);
+        }
+        else
+        {
+            fprintf(stderr, "TYPE |%s| (%p) == |%s| (%p)\n",
+                    print_type_str(t1, CURRENT_COMPILED_FILE->global_decl_context), t1,
+                    print_type_str(t2, CURRENT_COMPILED_FILE->global_decl_context), t2);
+        }
+    }
+
+    return cmp;
+}
+
+static char compare_template_argument_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2);
+
+// FIXME - Improve this function
+static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
+{
+    if (t1 == t2) // fast-path
+        return 0;
+
+    if (t1 == NULL
+            && t2 == NULL)
+        return 0;
+    else if (t1 == NULL
+            && t2 != NULL)
+        return -1;
+    else if (t1 != NULL
+            && t2 == NULL)
+        return 1;
+
+    cv_qualifier_t cv_qualifier_t1 = CV_NONE, cv_qualifier_t2 = CV_NONE;
+
+    // Advance over typedefs
+    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
+    t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
+
+    if (t1 == t2) // fast-path
+    {
+        return template_arg_value_type_compare_cv_qualif_0(cv_qualifier_t1, cv_qualifier_t2);
+    }
+
+    RETURN_COMP(t1->kind, t2->kind);
+    switch (t1->kind)
+    {
+        case TK_DIRECT :
+            {
+                RETURN_COMP(t1->type->kind, t2->type->kind);
+
+                switch (t1->type->kind)
+                {
+                    case STK_BUILTIN_TYPE :
+                        {
+                            RETURN_COMP(t1->type->builtin_type, t2->type->builtin_type);
+                            RETURN_COMP(t1->type->is_signed, t2->type->is_signed);
+                            RETURN_COMP(t1->type->is_unsigned, t2->type->is_unsigned);
+                            RETURN_COMP(t1->type->is_long, t2->type->is_long);
+                            RETURN_COMP(t1->type->is_short, t2->type->is_short);
+                            break;
+                        }
+                    case STK_CLASS :
+                        {
+                            RETURN_COMP(t1->info->is_template_specialized_type,
+                                    t2->info->is_template_specialized_type);
+
+                            if (t1->info->is_template_specialized_type)
+                            {
+                                scope_entry_t* s1 = template_type_get_related_symbol(t1->related_template_type);
+                                scope_entry_t* s2 = template_type_get_related_symbol(t2->related_template_type);
+
+                                RETURN_COMP(s1->kind, s2->kind);
+                                // specialization built using a template-template parameter (pack)
+                                if (s1->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                                        || s1->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+                                {
+                                    RETURN_COMP(symbol_entity_specs_get_template_parameter_nesting(s1),
+                                            symbol_entity_specs_get_template_parameter_nesting(s2));
+                                    RETURN_COMP(symbol_entity_specs_get_template_parameter_position(s1),
+                                            symbol_entity_specs_get_template_parameter_position(s2));
+
+                                    template_parameter_list_t* tpl1 = template_specialized_type_get_template_arguments(t1);
+                                    template_parameter_list_t* tpl2 = template_specialized_type_get_template_arguments(t2);
+
+                                    int cmp = compare_template_argument_list(tpl1, tpl2);
+
+                                    if (cmp != 0)
+                                        return cmp;
+                                }
+                                else // specialized class using a class template
+                                {
+                                    RETURN_COMP(t1->type, t2->type);
+                                }
+                            }
+                            else // non-specialization class
+                            {
+                                RETURN_COMP(t1->type, t2->type);
+                            }
+                            break;
+                        }
+                    case STK_ENUM :
+                    case STK_TEMPLATE_TYPE :
+                        {
+                            RETURN_COMP(t1->type, t2->type);
+                            break;
+                        }
+                    case STK_UNDERLYING:
+                        {
+                            int cmp = template_arg_value_type_compare(
+                                    t1->type->underlying_type,
+                                    t2->type->underlying_type);
+                            if (cmp != 0)
+                                return cmp;
+                            break;
+                        }
+                    case STK_VA_LIST :
+                        {
+                            break;
+                        }
+                    case STK_TYPE_DEP_EXPR:
+                        {
+                            break;
+                        }
+                    case STK_COMPLEX:
+                        {
+                            int cmp = template_arg_value_type_compare(t1->type->complex_element, t2->type->complex_element);
+                            if (cmp != 0)
+                                return cmp;
+                            break;
+                        }
+                    case STK_VECTOR:
+                        {
+                            int cmp = template_arg_value_type_compare(t1->type->vector_element, t2->type->vector_element);
+                            if (cmp != 0)
+                                return cmp;
+
+                            RETURN_COMP(t1->type->vector_size, t2->type->vector_size);
+                            break;
+                        }
+                    case STK_MASK:
+                        {
+                            RETURN_COMP(t1->type->vector_size, t2->type->vector_size);
+                            break;
+                        }
+                    case STK_INDIRECT:
+                        {
+                            scope_entry_t* s1 = t1->type->user_defined_type;
+                            scope_entry_t* s2 = t2->type->user_defined_type;
+
+                            RETURN_COMP(s1->kind, s2->kind);
+                            if (symbol_entity_specs_get_is_template_parameter(s1)
+                                    && symbol_entity_specs_get_is_template_parameter(s2))
+                            {
+                                RETURN_COMP(symbol_entity_specs_get_template_parameter_nesting(s1),
+                                        symbol_entity_specs_get_template_parameter_nesting(s2));
+                                RETURN_COMP(symbol_entity_specs_get_template_parameter_position(s1),
+                                        symbol_entity_specs_get_template_parameter_position(s2));
+                            }
+                            else
+                            {
+                                int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+                                if (cmp != 0)
+                                    return cmp;
+                            }
+                            break;
+                        }
+                    case STK_TEMPLATE_DEPENDENT_TYPE :
+                        {
+                            scope_entry_t* s1 = NULL;
+                            nodecl_t dependent_parts_1 = nodecl_null();
+
+                            dependent_typename_get_components(t1, 
+                                    &s1,
+                                    &dependent_parts_1);
+
+                            scope_entry_t* s2 = NULL;
+                            nodecl_t dependent_parts_2 = nodecl_null();
+
+                            dependent_typename_get_components(t2, 
+                                    &s2,
+                                    &dependent_parts_2);
+
+                            RETURN_COMP(s1->kind, s2->kind);
+                            if (symbol_entity_specs_get_is_template_parameter(s1)
+                                    && symbol_entity_specs_get_is_template_parameter(s2))
+                            {
+                                RETURN_COMP(symbol_entity_specs_get_template_parameter_nesting(s1),
+                                        symbol_entity_specs_get_template_parameter_nesting(s2));
+                                RETURN_COMP(symbol_entity_specs_get_template_parameter_position(s1),
+                                        symbol_entity_specs_get_template_parameter_position(s2));
+                            }
+                            else
+                            {
+                                int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+                                if (cmp != 0)
+                                    return cmp;
+                            }
+
+                            int num_items1 = 0;
+                            nodecl_t* list1 = nodecl_unpack_list(nodecl_get_child(dependent_parts_1, 0), &num_items1);
+
+                            int num_items2 = 0;
+                            nodecl_t* list2 = nodecl_unpack_list(nodecl_get_child(dependent_parts_2, 0), &num_items2);
+
+                            if (num_items1 < num_items2)
+                            {
+                                xfree(list1);
+                                xfree(list2);
+                                return -1;
+                            }
+                            else if (num_items1 > num_items2)
+                            {
+                                xfree(list1);
+                                xfree(list2);
+                                return 1;
+                            }
+
+                            int i;
+                            for (i = 0; i < num_items1; i++)
+                            {
+                                nodecl_t item1 = list1[i];
+                                nodecl_t item2 = list2[i];
+
+                                if (nodecl_get_kind(item1) < nodecl_get_kind(item2))
+                                {
+                                    xfree(list1);
+                                    xfree(list2);
+                                    return -1;
+                                }
+                                else if (nodecl_get_kind(item1) > nodecl_get_kind(item2))
+                                {
+                                    xfree(list1);
+                                    xfree(list2);
+                                    return 1;
+                                }
+
+                                nodecl_t nodecl_simple_name_1 = item1;
+                                nodecl_t nodecl_simple_name_2 = item2;
+
+                                template_parameter_list_t* template_parameter_list_1 = NULL;
+                                template_parameter_list_t* template_parameter_list_2 = NULL;
+
+                                if (nodecl_get_kind(item1) == NODECL_CXX_DEP_TEMPLATE_ID)
+                                {
+                                    nodecl_simple_name_1 = nodecl_get_child(item1, 0);
+                                    nodecl_simple_name_2 = nodecl_get_child(item2, 0);
+
+                                    template_parameter_list_1 = nodecl_get_template_parameters(item1);
+                                    template_parameter_list_2 = nodecl_get_template_parameters(item2);
+
+                                    ERROR_CONDITION(template_parameter_list_1 == NULL
+                                            || template_parameter_list_2 == NULL,
+                                            "This cannot happen", 0);
+                                }
+
+                                const char* name_1 = nodecl_get_text(nodecl_simple_name_1);
+                                const char* name_2 = nodecl_get_text(nodecl_simple_name_2);
+
+                                int cmp = strcmp(name_1, name_2);
+                                if (cmp != 0)
+                                {
+                                    xfree(list1);
+                                    xfree(list2);
+                                    return cmp < 0 ? -1 : 1;
+                                }
+
+                                if (template_parameter_list_1 != NULL)
+                                {
+                                    cmp = compare_template_argument_list(
+                                            template_parameter_list_1,
+                                            template_parameter_list_2);
+                                    if (cmp != 0)
+                                    {
+                                        xfree(list1);
+                                        xfree(list2);
+                                        return cmp;
+                                    }
+                                }
+                            }
+
+                            xfree(list1);
+                            xfree(list2);
+                            break;
+                        }
+                    case STK_TYPEOF:
+                        {
+                            int cmp = template_arg_value_expr_compare(
+                                    t1->type->typeof_expr,
+                                    t2->type->typeof_expr);
+                            if (cmp != 0)
+                                return cmp;
+                            break;
+                        }
+                    default :
+                        {
+                            internal_error("Unknown simple type kind (%d)", t1->type->kind);
+                        }
+                }
+                break;
+            }
+        case TK_POINTER :
+        case TK_LVALUE_REFERENCE :
+        case TK_RVALUE_REFERENCE :
+        case TK_REBINDABLE_REFERENCE :
+            {
+                int cmp = template_arg_value_type_compare(t1->pointer->pointee, t2->pointer->pointee);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        case TK_POINTER_TO_MEMBER :
+            {
+                int cmp = template_arg_value_type_compare(
+                        t1->pointer->pointee_class_type,
+                        t2->pointer->pointee_class_type);
+
+                if (cmp != 0)
+                    return cmp;
+
+                cmp = template_arg_value_type_compare(t1->pointer->pointee, t2->pointer->pointee);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        case TK_ARRAY :
+            {
+                int cmp = template_arg_value_type_compare(
+                        t1->array->element_type,
+                        t2->array->element_type);
+
+                if (cmp != 0)
+                    return cmp;
+
+                cmp = template_arg_value_expr_compare(
+                        t1->array->whole_size,
+                        t2->array->whole_size);
+
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        case TK_FUNCTION :
+            {
+                int cmp = template_arg_value_type_compare(
+                        t1->function->return_type,
+                        t2->function->return_type);
+
+                if (cmp != 0)
+                    return cmp;
+
+                RETURN_COMP (t1->function->num_parameters, t2->function->num_parameters);
+
+                int i;
+                for (i = 0; i < t1->function->num_parameters; i++)
+                {
+                    RETURN_COMP(t1->function->parameter_list[i]->is_ellipsis,
+                             t2->function->parameter_list[i]->is_ellipsis);
+
+                    cmp = template_arg_value_type_compare(
+                            t1->function->parameter_list[i]->type_info,
+                            t2->function->parameter_list[i]->type_info);
+
+                    if (cmp != 0)
+                        return cmp;
+                }
+
+                RETURN_COMP(t1->function->ref_qualifier, t2->function->ref_qualifier);
+                break;
+            }
+        case TK_PACK:
+            {
+                int cmp = template_arg_value_type_compare(t1->pack_type->packed, t2->pack_type->packed);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        case TK_SEQUENCE:
+            {
+                RETURN_COMP(t1->sequence_type->num_types, t2->sequence_type->num_types);
+
+                int i;
+                for (i = 0; i < t1->sequence_type->num_types; i++)
+                {
+                    int cmp = template_arg_value_type_compare(
+                            t1->sequence_type->types[i],
+                            t2->sequence_type->types[i]);
+
+                    if (cmp != 0)
+                        return cmp;
+                }
+                break;
+            }
+        default :
+            internal_error("Unexpected type kind (%d)\n", t1->kind);
+    }
+
+    return template_arg_value_type_compare_cv_qualif_0(cv_qualifier_t1, cv_qualifier_t2);
+}
+#undef RETURN_COMP
+
+static int template_arg_value_compare(
+        template_parameter_value_t* targ_1,
+        template_parameter_value_t* targ_2)
+{
+    ERROR_CONDITION(targ_1->kind != targ_2->kind, "Invalid template arguments", 0);
+
+    switch (targ_1->kind)
+    {
+        case TPK_TYPE:
+        case TPK_TEMPLATE:
+            {
+                return template_arg_value_type_compare(
+                        targ_1->type,
+                        targ_2->type);
+                break;
+            }
+        case TPK_NONTYPE:
+            {
+                int cmp = template_arg_value_type_compare(
+                        targ_1->type,
+                        targ_2->type);
+
+                if (cmp != 0)
+                    return cmp;
+
+                return template_arg_value_expr_compare(
+                        targ_1->value,
+                        targ_2->value);
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid template argument kind", 0);
+            }
+    }
+
+    return 0;
+}
+
+static int template_arg_compare(
+        template_parameter_value_t* targ_1,
+        template_parameter_value_t* targ_2)
+{
+    if (targ_1->kind < targ_2->kind)
+        return -1;
+    else if (targ_1->kind < targ_2->kind)
+        return 1;
+    else
+        return template_arg_value_compare(targ_1, targ_2);
+}
+
+static char compare_template_argument_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2)
+{
+    if (template_parameter_list_1->num_parameters <
+            template_parameter_list_2->num_parameters)
+        return -1;
+    else if (template_parameter_list_1->num_parameters >
+            template_parameter_list_2->num_parameters)
+        return 1;
+
+    int i;
+    for (i = 0; i < template_parameter_list_1->num_parameters; i++)
+    {
+        template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
+        template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
+
+        int cmp = template_arg_compare(targ_1, targ_2);
+        if (cmp != 0)
+            return cmp;
+    }
+
+    return 0;
+}
+
+static int compare_template_argument_list_of_named_template_specialized_types(
+        const void* v1,
+        const void* v2)
+{
+    type_t* t1 = *(type_t**)v1;
+    type_t* t2 = *(type_t**)v2;
+
+    t1 = named_type_get_symbol(t1)->type_information;
+    t2 = named_type_get_symbol(t2)->type_information;
+
+    return compare_template_argument_list(
+            template_specialized_type_get_template_arguments(t1),
+            template_specialized_type_get_template_arguments(t2));
+}
+
 static type_t* template_type_get_equivalent_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context UNUSED_PARAMETER,
@@ -2665,41 +3348,107 @@ static type_t* template_type_get_equivalent_specialized_type(type_t* t,
     // Search an existing specialization
     DEBUG_CODE()
     {
-        fprintf(stderr, "TYPEUTILS: Searching an existing specialization that matches the requested one\n");
+        fprintf(stderr, "TYPEUTILS: Searching an existing specialization that matches %s%s\n",
+                template_type_get_related_symbol(t) != NULL ? 
+                    template_type_get_related_symbol(t)->symbol_name
+                    : "<<unknown-template-symbol>>",
+                template_arguments_to_str(template_parameters,
+                    /* first_argument_to_be_printed */ 0,
+                    /* print_first_level_bracket */ 1,
+                    decl_context));
         fprintf(stderr, "TYPEUTILS: There are '%d' specializations of this template type\n", 
                 template_type_get_num_specializations(t));
     }
-    int i;
-    for (i = 0; i < template_type_get_num_specializations(t); i++)
-    {
-        type_t* specialization = template_type_get_specialization_num(t, i);
 
-        scope_entry_t* entry = named_type_get_symbol(specialization);
-        template_parameter_list_t* specialization_template_parameters = 
+    type_t* specialization = NULL;
+
+    int lower = 0;
+    int upper = t->type->num_specialized_types - 1;
+
+    while (lower <= upper)
+    {
+        int middle = (lower + upper) / 2;
+
+        type_t* current_specialization = t->type->specialized_types[middle];
+
+        scope_entry_t* entry = named_type_get_symbol(current_specialization);
+        template_parameter_list_t* specialization_template_parameters =
             template_specialized_type_get_template_arguments(entry->type_information);
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
-                    print_type_str(specialization, entry->decl_context),
+            fprintf(stderr, "TYPEUTILS: Checking with specialization %p: #%d in [%d<=%d, %d<=%d] '%s' (%p) at '%s'\n",
+                    t->type,
+                    middle,
+                    0,
+                    lower,
+                    upper,
+                    t->type->num_specialized_types - 1,
+                    print_type_str(current_specialization, entry->decl_context),
                     entry->type_information,
                     locus_to_str(entry->locus));
         }
 
-        if (same_template_argument_list(template_parameters, specialization_template_parameters))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
-                fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
-                        print_type_str(specialization, entry->decl_context),
-                        entry->type_information);
-            }
+        int cmp = compare_template_argument_list(
+                template_parameters,
+                specialization_template_parameters);
 
-            return specialization;
+        if (cmp == 0)
+        {
+            specialization = current_specialization;
+            break;
+        }
+        else if (cmp < 0)
+        {
+            upper = middle - 1;
+        }
+        else if (cmp > 0)
+        {
+            lower = middle + 1;
         }
     }
-    return NULL;
+
+    if (specialization == NULL)
+    {
+        // Try with the primary which is always unsorted respect the other specializations
+        type_t* current_specialization = template_type_get_primary_type(t);
+        scope_entry_t* entry = named_type_get_symbol(current_specialization);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Checking with primary specialization '%s' (%p) at '%s'\n",
+                    print_type_str(current_specialization, entry->decl_context),
+                    entry->type_information,
+                    locus_to_str(entry->locus));
+        }
+
+        template_parameter_list_t* specialization_template_parameters =
+            template_specialized_type_get_template_arguments(entry->type_information);
+
+        if (compare_template_argument_list(template_parameters, specialization_template_parameters) == 0)
+            specialization = current_specialization;
+    }
+
+    if (specialization != NULL)
+    {
+        DEBUG_CODE()
+        {
+            scope_entry_t* entry = named_type_get_symbol(specialization);
+            fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
+            fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
+                    print_type_str(specialization, entry->decl_context),
+                    entry->type_information);
+        }
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: No existing specialization matches\n");
+        }
+    }
+
+    return specialization;
 }
 
 static type_t* template_type_get_specialized_type_(
@@ -2953,16 +3702,283 @@ static type_t* template_type_get_specialized_type_(
 
     type_t* result = get_user_defined_type(specialized_symbol);
 
-    DEBUG_CODE()
+    if (equivalent_match == NULL)
     {
-        if (equivalent_match == NULL)
+        DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: %s: Creating new specialization: %p '%s'\n",
                     locus_to_str(locus),
                     result,
                     print_type_str(result, decl_context));
         }
-        else
+
+#if 0
+        // Integrity verification
+        {
+            int i;
+            for (i = 0; i < template_type->type->num_specialized_types; i++)
+            {
+                int j;
+                for (j = i + 1; j < template_type->type->num_specialized_types; j++)
+                {
+                    int cmp1;
+                    cmp1 = compare_template_argument_list_of_named_template_specialized_types(
+                            &template_type->type->specialized_types[i],
+                            &template_type->type->specialized_types[j]);
+
+                    int cmp2;
+                    cmp2 = compare_template_argument_list_of_named_template_specialized_types(
+                            &template_type->type->specialized_types[j],
+                            &template_type->type->specialized_types[i]);
+
+                    if (cmp1 != -1 || cmp2 != 1)
+                    {
+                        extern void _enable_debug();
+                        extern void _disable_debug();
+                        _enable_debug();
+                        fprintf(stderr, "i < j?\n");
+                        cmp1 = compare_template_argument_list_of_named_template_specialized_types(
+                                &template_type->type->specialized_types[i],
+                                &template_type->type->specialized_types[j]);
+                        fprintf(stderr, "i > j?\n");
+                        cmp2 = compare_template_argument_list_of_named_template_specialized_types(
+                                &template_type->type->specialized_types[j],
+                                &template_type->type->specialized_types[i]);
+                        fprintf(stderr, "====\n");
+
+                        template_type_get_equivalent_specialized_type(template_type,
+                                template_arguments,
+                                decl_context,
+                                locus);
+                        fprintf(stderr, "*****\n");
+                        _disable_debug();
+                    }
+
+                    ERROR_CONDITION(cmp1 != -1,
+                            "%p: Invalid ordering cmp == %d (should be -1)\n#%d: %s\n#%d: %s\n",
+                            template_type->type,
+                            cmp1,
+                            i, print_type_str(template_type->type->specialized_types[i], decl_context),
+                            j, print_type_str(template_type->type->specialized_types[j], decl_context));
+
+                    ERROR_CONDITION(cmp2 != 1,
+                            "%p: Invalid ordering cmp == %d (should be 1)\n#%d: %s\n#%d: %s\n",
+                            template_type->type,
+                            cmp2,
+                            i, print_type_str(template_type->type->specialized_types[i], decl_context),
+                            j, print_type_str(template_type->type->specialized_types[j], decl_context));
+                }
+            }
+
+            int last_failed = -1;
+
+            for (i = 0; i < template_type->type->num_specialized_types ; i++)
+            {
+                int cmp = compare_template_argument_list_of_named_template_specialized_types(
+                        &result,
+                        &template_type->type->specialized_types[i]);
+                if (cmp == 0)
+                    last_failed = i;
+            }
+
+            if (last_failed >= 0)
+            {
+                extern void _enable_debug();
+                extern void _disable_debug();
+                _enable_debug();
+                compare_template_argument_list_of_named_template_specialized_types(
+                        &result,
+                        &template_type->type->specialized_types[last_failed]);
+                fprintf(stderr, "====\n");
+                _disable_debug();
+            }
+
+            ERROR_CONDITION(last_failed >= 0, "%p: This cannot happen #%d\n%s\n%s",
+                    template_type->type,
+                    last_failed,
+                    print_declarator(template_type->type->specialized_types[last_failed]),
+                    print_declarator(result));
+        }
+#endif
+
+        // Register this new specialization in the specialization list
+        // This is to make room 
+        P_LIST_ADD(template_type->type->specialized_types,
+                template_type->type->num_specialized_types,
+                result);
+        // And now we make an "binary insertion"
+        {
+            int lower = 0;
+            int upper = template_type->type->num_specialized_types - 2;
+
+            while (lower <= upper)
+            {
+                int middle = (lower + upper) / 2;
+
+                int cmp = compare_template_argument_list_of_named_template_specialized_types(
+                        &result,
+                        &template_type->type->specialized_types[middle]);
+
+                if (cmp < 0)
+                {
+                    upper = middle - 1;
+                }
+                else if (cmp > 0)
+                {
+                    lower = middle + 1;
+                }
+                else
+                {
+                    internal_error("This cannot happen %p\nnew %s\n%03d: %s",
+                            template_type->type,
+                            print_declarator(result),
+                            middle, print_declarator(template_type->type->specialized_types[middle]));
+                }
+            }
+            // lower tells us where the new element goes
+
+            int j;
+            // Shift all items right
+            for (j = template_type->type->num_specialized_types - 1; j >= lower + 1; j--)
+            {
+                template_type->type->specialized_types[j] =
+                    template_type->type->specialized_types[j-1];
+            }
+            template_type->type->specialized_types[lower] = result;
+#if 0
+            int i;
+            for (i = 0; i < template_type->type->num_specialized_types - 1; i++)
+            {
+                int cmp = compare_template_argument_list_of_named_template_specialized_types(
+                        &result,
+                        &template_type->type->specialized_types[i]);
+
+                ERROR_CONDITION(cmp == 0, "This cannot happen %p\nnew %s\n%03d: %s",
+                        template_type->type,
+                        print_declarator(result),
+                        i, print_declarator(template_type->type->specialized_types[i]));
+                if (cmp > 0)
+                    continue;
+                else if (cmp < 0)
+                {
+                    int j;
+#if 0
+                    // Integrity verification
+                    for (j = i + 1; j < template_type->type->num_specialized_types - 1; j++)
+                    {
+                        cmp = compare_template_argument_list_of_named_template_specialized_types(
+                                &result,
+                                &template_type->type->specialized_types[j]);
+
+                        if (cmp != -1)
+                        {
+                            extern void _enable_debug();
+                            extern void _disable_debug();
+                            _enable_debug();
+                            fprintf(stderr, "result < j?\n");
+                            compare_template_argument_list_of_named_template_specialized_types(
+                                    &result,
+                                    &template_type->type->specialized_types[j]);
+                            fprintf(stderr, "result > j?\n");
+                            compare_template_argument_list_of_named_template_specialized_types(
+                                    &template_type->type->specialized_types[j],
+                                    &result);
+                            fprintf(stderr, "====\n");
+                            _disable_debug();
+                        }
+
+                        ERROR_CONDITION(cmp != -1, "Wrong ordering %p\nnew %s\n%03d: %s",
+                                template_type->type,
+                                print_declarator(result),
+                                j, print_declarator(template_type->type->specialized_types[j]));
+                    }
+#endif
+
+                    // Shift all items right
+                    for (j = template_type->type->num_specialized_types - 1; j >= i + 1; j--)
+                    {
+                        template_type->type->specialized_types[j] =
+                            template_type->type->specialized_types[j-1];
+                    }
+                    template_type->type->specialized_types[i] = result;
+                    break;
+                }
+            }
+#endif
+        }
+
+#if 0
+        // Integrity verification
+        {
+            int i;
+            for (i = 0; i < template_type->type->num_specialized_types; i++)
+            {
+                int j;
+                for (j = i + 1; j < template_type->type->num_specialized_types; j++)
+                {
+                    int cmp1;
+                    cmp1 = compare_template_argument_list_of_named_template_specialized_types(
+                            &template_type->type->specialized_types[i],
+                            &template_type->type->specialized_types[j]);
+
+                    int cmp2;
+                    cmp2 = compare_template_argument_list_of_named_template_specialized_types(
+                            &template_type->type->specialized_types[j],
+                            &template_type->type->specialized_types[i]);
+
+                    if (cmp1 != -1 || cmp2 != 1)
+                    {
+                        extern void _enable_debug();
+                        extern void _disable_debug();
+                        _enable_debug();
+                        fprintf(stderr, "i < j?\n");
+                        cmp1 = compare_template_argument_list_of_named_template_specialized_types(
+                                &template_type->type->specialized_types[i],
+                                &template_type->type->specialized_types[j]);
+                        fprintf(stderr, "i > j?\n");
+                        cmp2 = compare_template_argument_list_of_named_template_specialized_types(
+                                &template_type->type->specialized_types[j],
+                                &template_type->type->specialized_types[i]);
+                        fprintf(stderr, "====\n");
+                        _disable_debug();
+                    }
+
+                    ERROR_CONDITION(cmp1 != -1,
+                            "%p: Invalid ordering cmp == %d (should be -1)\n#%d: %s\n#%d: %s\n",
+                            template_type->type,
+                            cmp1,
+                            i, print_type_str(template_type->type->specialized_types[i], decl_context),
+                            j, print_type_str(template_type->type->specialized_types[j], decl_context));
+
+                    ERROR_CONDITION(cmp2 != 1,
+                            "%p: Invalid ordering cmp == %d (should be 1)\n#%d: %s\n#%d: %s\n",
+                            template_type->type,
+                            cmp2,
+                            i, print_type_str(template_type->type->specialized_types[i], decl_context),
+                            j, print_type_str(template_type->type->specialized_types[j], decl_context));
+                }
+            }
+
+            int last_failed = -1;
+
+            for (i = 0; i < template_type->type->num_specialized_types ; i++)
+            {
+                int cmp = compare_template_argument_list_of_named_template_specialized_types(
+                        &result,
+                        &template_type->type->specialized_types[i]);
+                if (cmp == 0)
+                    last_failed = i;
+            }
+
+            ERROR_CONDITION(last_failed < 0, "%p: This cannot happen\n%s",
+                    template_type->type,
+                    print_type_str(result, decl_context));
+        }
+#endif
+    }
+    else
+    {
+        DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: %s: Creating aliased specialization: %p '%s'. Alias to: %p '%s'\n",
                     locus_to_str(locus),
@@ -2973,11 +3989,6 @@ static type_t* template_type_get_specialized_type_(
                         named_type_get_symbol(equivalent_match)->decl_context));
         }
     }
-
-    // Register this new specialization in the specialization list
-    P_LIST_ADD(template_type->type->specialized_types,
-            template_type->type->num_specialized_types,
-            result);
 
     // Register this specialization in the specialization set
     rb_red_blk_tree* specialization_set = template_type_get_specialization_set_(template_type);
@@ -6044,17 +7055,17 @@ static char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             break;
         case STK_CLASS :
             {
-                if (p_t1->info->is_template_specialized_type
+                result = (t1 == t2);
+
+                // This is needed only for specializations built on top of template-template parameters
+                if (!result
+                        && p_t1->info->is_template_specialized_type
                         && p_t2->info->is_template_specialized_type
                         && same_template_type(p_t1->related_template_type, p_t2->related_template_type))
                 {
-                    template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
-                    template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
+                    template_parameter_list_t* tpl1 = template_specialized_type_get_template_arguments(p_t1);
+                    template_parameter_list_t* tpl2 = template_specialized_type_get_template_arguments(p_t2);
                     result = same_template_argument_list(tpl1, tpl2);
-                }
-                else
-                {
-                    result = (t1 == t2);
                 }
                 break;
             }
@@ -14295,15 +15306,7 @@ type_t* get_variant_type_interoperable(type_t* t)
 
     if (result == NULL)
     {
-        result = xcalloc(1, sizeof(*result));
-        *result = *t;
-
-        // The unqualified type must point to itself
-        result->unqualified_type = result;
-
-        result->info = xcalloc(1, sizeof(*result->info));
-        *result->info = *t->info;
-
+        result = copy_type_for_variant(t);
         result->info->is_interoperable = 1;
 
         dhash_ptr_insert(_interoperable_hash, (const char*)t, result);
