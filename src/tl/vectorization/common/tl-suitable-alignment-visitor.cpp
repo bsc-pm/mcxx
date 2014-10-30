@@ -67,6 +67,7 @@ namespace Vectorization
         int i;
         int alignment;
         alignment_module = -1;
+        _aligned_expressions = aligned_expressions;
 
         Nodecl::NodeclBase subscripted = n.get_subscripted( );
         TL::Type element_type = subscripted.get_type( );
@@ -83,20 +84,13 @@ namespace Vectorization
         ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                 "Subscripted is not a Nodecl::Symbol", 0);
 
-        std::map<TL::Symbol, int>::const_iterator alignment_info =
-            aligned_expressions.find(
-                    subscripted.as<Nodecl::Symbol>().get_symbol());
+        alignment = get_pointer_alignment(subscripted.as<Nodecl::Symbol>());
 
-        if(alignment_info == aligned_expressions.end())
+        if(alignment == -1)
         {
             // There is no alignment info about the subscripted symbol
             // Assume unaligned
             return false;
-        }
-        else
-        {
-            // Get the alignment info of subscripted symbol
-            alignment = alignment_info->second;
         }
 
         Nodecl::List subscripts = n.get_subscripts( ).as<Nodecl::List>( );
@@ -211,6 +205,46 @@ namespace Vectorization
         }
 
         return false;
+    }
+
+    int SuitableAlignmentVisitor::get_pointer_alignment(
+            const Nodecl::Symbol& n)
+    {
+        TL::Symbol tl_sym = n.get_symbol();
+        TL::Type sym_type = tl_sym.get_type();
+
+        ERROR_CONDITION(!(sym_type.is_pointer() || sym_type.is_array()),
+                "SuitableAlignmentVisitor: %s is neither a pointer nor array\n",
+                tl_sym.get_name().c_str());
+
+        std::map<TL::Symbol, int>::const_iterator alignment_info =
+            _aligned_expressions.find(tl_sym);
+
+        if(alignment_info != _aligned_expressions.end())
+        {
+            // Get the alignment info of subscripted symbol
+            return alignment_info->second;
+        }
+
+        _analysis->get_assume_aligned_attribute(n);
+
+/*
+        int alignment = tl_sym.get_type().get_alignment_of();
+
+        std::cerr << "----> ALIG " << tl_sym.get_name() << ": " << alignment << std::endl;
+
+        // __attribute__((aligned(X)))
+        ObjectList<TL::GCCAttribute> gcc_attrbs = tl_sym.get_gcc_attributes();
+        for(ObjectList<TL::GCCAttribute>::const_iterator it = gcc_attrbs.begin();
+                it != gcc_attrbs.end();
+                it++)
+        {
+            std::cerr << "----> " << it->get_attribute_name() << std::endl;
+        }
+*/
+        // There is no alignment info about the subscripted symbol
+        // Assume unaligned
+        return -1;
     }
 
     bool SuitableAlignmentVisitor::is_suitable_expression(

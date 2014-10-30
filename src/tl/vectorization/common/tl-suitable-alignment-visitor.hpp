@@ -49,11 +49,13 @@ namespace Vectorization{
         const int _unroll_factor;
         const int _type_size;
         const int _alignment;
+        map_tlsym_int_t _aligned_expressions;
         VectorizationAnalysisInterface* _analysis;
 
-        bool is_suitable_expression( Nodecl::NodeclBase n );
-        bool is_suitable_constant( int n );
-
+        bool is_suitable_expression(Nodecl::NodeclBase n);
+        bool is_suitable_constant(int n);
+        int get_pointer_alignment(const Nodecl::Symbol& n);
+ 
     public:
         // *** Constructor *** //
         SuitableAlignmentVisitor( const Nodecl::NodeclBase& scope,
