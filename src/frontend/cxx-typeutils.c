@@ -619,87 +619,6 @@ const standard_conversion_t no_scs_conversion = {
 };
 
 
-static unsigned int _function_type_counter = 0;
-static unsigned int _function_type_requested = 0;
-static unsigned int _function_type_reused = 0;
-static unsigned int _class_type_counter = 0;
-static unsigned int _array_type_counter = 0;
-static unsigned int _pointer_type_counter = 0;
-static unsigned int _pack_type_counter = 0;
-static unsigned int _sequence_type_counter = 0;
-static unsigned int _pointer_to_member_type_counter = 0;
-static unsigned int _reference_type_counter = 0;
-static unsigned int _template_type_counter = 0;
-static unsigned int _qualified_type_counter = 0;
-static unsigned int _vector_type_counter = 0;
-static unsigned int _enum_type_counter = 0;
-
-unsigned int get_function_type_counter(void)
-{
-    return _function_type_counter;
-}
-
-unsigned int get_function_type_reused(void)
-{
-    return _function_type_reused;
-}
-
-unsigned int get_function_type_requested(void)
-{
-    return _function_type_requested;
-}
-
-unsigned int get_class_type_counter(void)
-{
-    return _class_type_counter;
-}
-
-unsigned int get_array_type_counter(void)
-{
-    return _array_type_counter;
-}
-
-unsigned int get_pointer_type_counter(void)
-{
-    return _pointer_type_counter;
-}
-
-unsigned int get_pack_type_counter(void)
-{
-    return _pack_type_counter;
-}
-
-unsigned int get_pointer_to_member_type_counter(void)
-{
-    return _pointer_to_member_type_counter;
-}
-
-unsigned int get_reference_type_counter(void)
-{
-    return _reference_type_counter;
-}
-
-unsigned int get_template_type_counter(void)
-{
-    return _template_type_counter;
-}
-
-unsigned int get_qualified_type_counter(void)
-{
-    return _qualified_type_counter;
-}
-
-unsigned int get_vector_type_counter(void)
-{
-    return _vector_type_counter;
-
-}
-
-unsigned int get_enum_type_counter(void)
-{
-    return _enum_type_counter;
-}
-
 size_t get_type_t_size(void)
 {
     return sizeof(type_t);
@@ -1844,8 +1763,6 @@ void dependent_typename_get_components(type_t* t,
 
 type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
 {
-    _enum_type_counter++;
-
     type_t* type_info = get_simple_type();
 
     type_info->type->enum_info = (enum_info_t*) xcalloc(1, sizeof(*type_info->type->enum_info));
@@ -1862,8 +1779,6 @@ type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
 
 type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind)
 {
-    _class_type_counter++;
-
     type_t* type_info = get_simple_type();
 
     type_info->type->class_info = xcalloc(1, sizeof(*type_info->type->class_info));
@@ -2112,8 +2027,6 @@ static type_t* _get_duplicated_class_type(type_t* function_type);
 type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
-    _template_type_counter++;
-
     // Simplify nontype template-arguments
     template_parameter_list = duplicate_template_argument_list(template_parameter_list);
     template_parameter_list = simplify_template_arguments(template_parameter_list);
@@ -4307,7 +4220,6 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
 
     if (qualified_type == NULL)
     {
-        _qualified_type_counter++;
         qualified_type = new_empty_type();
         xfree(qualified_type->info);
         *qualified_type = *original;
@@ -4357,7 +4269,6 @@ type_t* get_pointer_type(type_t* t)
 
     if (pointed_type == NULL)
     {
-        _pointer_type_counter++;
         pointed_type = new_empty_type();
         pointed_type->kind = TK_POINTER;
         pointed_type->unqualified_type = pointed_type;
@@ -4446,7 +4357,6 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
 
     if (referenced_type == NULL)
     {
-        _reference_type_counter++;
         referenced_type = new_empty_type();
         referenced_type->kind = reference_kind;
         referenced_type->unqualified_type = referenced_type;
@@ -4501,7 +4411,6 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
 
     if (pointer_to_member == NULL)
     {
-        _pointer_to_member_type_counter++;
         pointer_to_member = new_empty_type();
         pointer_to_member->kind = TK_POINTER_TO_MEMBER;
         pointer_to_member->unqualified_type = pointer_to_member;
@@ -4791,7 +4700,6 @@ static type_t* _get_array_type(type_t* element_type,
         }
         if (undefined_array_type == NULL)
         {
-            _array_type_counter++;
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
@@ -4859,7 +4767,6 @@ static type_t* _get_array_type(type_t* element_type,
 
             if (array_type == NULL)
             {
-                _array_type_counter++;
                 result = new_empty_type();
                 result->kind = TK_ARRAY;
                 result->unqualified_type = result;
@@ -4896,7 +4803,6 @@ static type_t* _get_array_type(type_t* element_type,
         }
         else
         {
-            _array_type_counter++;
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
@@ -5238,8 +5144,6 @@ static type_t* _get_new_function_type(type_t* t,
         char is_trailing,
         ref_qualifier_t ref_qualifier)
 {
-    _function_type_counter++;
-
     type_t* result = new_empty_type();
 
     result->kind = TK_FUNCTION;
@@ -5312,7 +5216,6 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
         parameter_list[i] = *(function_type->function->parameter_list[i]);
     }
 
-    _function_type_requested++;
     type_t* result = _get_new_function_type(
             function_type->function->return_type,
             parameter_list,
@@ -5387,7 +5290,6 @@ type_t* get_new_function_type_common(type_t* t,
     type_t* function_type = (type_t*)lookup_type_trie(used_trie, 
             type_seq, num_parameters + 1);
 
-    _function_type_requested++;
     if (function_type == NULL)
     {
         type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, is_trailing, ref_qualifier);
@@ -5395,10 +5297,6 @@ type_t* get_new_function_type_common(type_t* t,
         function_type = new_funct_type;
 
         set_is_dependent_type(function_type, fun_type_is_dependent);
-    }
-    else
-    {
-        _function_type_reused++;
     }
 
     return function_type;
@@ -15482,7 +15380,6 @@ type_t* get_pack_type(type_t* t)
 
     if (pack_type == NULL)
     {
-        _pack_type_counter++;
         pack_type = new_empty_type();
         pack_type->kind = TK_PACK;
         pack_type->unqualified_type = pack_type;
@@ -15539,8 +15436,6 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
 
     if (seq_type == NULL)
     {
-        _sequence_type_counter++;
-
         seq_type = new_empty_type();
         seq_type->unqualified_type = seq_type;
         seq_type->kind = TK_SEQUENCE;

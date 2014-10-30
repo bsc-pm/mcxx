@@ -817,18 +817,6 @@ LIBMCXX_EXTERN void class_type_get_virtual_base_with_offset_num(type_t* t, int n
         scope_entry_t** symbol, 
         _size_t* offset);
 
-LIBMCXX_EXTERN unsigned int get_array_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_class_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_function_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_function_type_reused(void);
-LIBMCXX_EXTERN unsigned int get_function_type_requested(void);
-LIBMCXX_EXTERN unsigned int get_pointer_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_pointer_to_member_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_qualified_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_reference_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_vector_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_enum_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_template_type_counter(void);
 LIBMCXX_EXTERN size_t get_type_t_size(void);
 
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
