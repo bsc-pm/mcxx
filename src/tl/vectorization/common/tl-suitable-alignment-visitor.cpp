@@ -226,7 +226,9 @@ namespace Vectorization
             return alignment_info->second;
         }
 
-        _analysis->get_assume_aligned_attribute(n);
+        _analysis->get_assume_aligned_attribute(
+                Nodecl::Utils::get_enclosing_function(_scope).
+                get_function_code(), n);
 
 /*
         int alignment = tl_sym.get_type().get_alignment_of();

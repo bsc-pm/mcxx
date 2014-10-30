@@ -308,10 +308,11 @@ namespace Analysis {
     }
 
     int AnalysisInterface::get_assume_aligned_attribute(
+            const NBase& scope, 
             const Nodecl::Symbol& n) 
     {
         // Retrieve pcfg
-        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(n);
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
         // Retrieve node
         Node* n_node = pcfg->find_nodecl_pointer(n);
         ERROR_CONDITION(n_node==NULL, "No PCFG node found for n Nodecl '%s:%s'. \n",

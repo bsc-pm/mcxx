@@ -122,6 +122,7 @@ namespace Analysis {
                     const Nodecl::NodeclBase& scope);
  
             virtual int get_assume_aligned_attribute(
+                    const NBase& scope, 
                     const Nodecl::Symbol& n);
             
             // *** Queries about Auto-Scoping *** //

@@ -637,13 +637,16 @@ namespace Vectorization
     }
 
     int VectorizationAnalysisInterface::get_assume_aligned_attribute(
+        const Nodecl::NodeclBase& scope,
         const Nodecl::Symbol& n)
     {
         Nodecl::Symbol translated_n =
             translate_input(n).as<Nodecl::Symbol>();
+        Nodecl::Symbol translated_scope =
+            translate_input(scope).as<Nodecl::Symbol>();
 
         return Analysis::AnalysisInterface::get_assume_aligned_attribute(
-                translated_n);
+                translated_scope, translated_n);
     }
 
     bool VectorizationAnalysisInterface::is_suitable_expression(

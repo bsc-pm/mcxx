@@ -153,6 +153,7 @@ namespace Vectorization
                     int unroll_factor, int alignment,
                     int& alignment_module);
             virtual int get_assume_aligned_attribute(
+                    const Nodecl::NodeclBase& scope,
                     const Nodecl::Symbol& n);
 
             virtual bool is_suitable_expression(
