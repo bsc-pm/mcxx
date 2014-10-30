@@ -498,6 +498,7 @@ text : NODECL_TEXT() text
 
 parallel-statements : parallel-execution
                     | synchronization
+                    | data-coordination
 
 parallel-execution : task-construct
                    | taskyield-construct
@@ -624,6 +625,8 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
+
+data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
 
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
 
