@@ -1229,7 +1229,7 @@ task_synchronized:      break;
         //             find_last_synchronization_point_in_children( task, task_outer );
         //         }
         
-        ExtensibleGraph::clear_visits_backwards(task, _graph->get_graph());
+        ExtensibleGraph::clear_visits_backwards_in_level(task, _graph->get_graph());
     }
 
     void TaskConcurrency::find_last_synchronization_point_in_parents( Node* current )

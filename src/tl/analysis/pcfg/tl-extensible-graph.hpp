@@ -347,8 +347,11 @@ namespace Analysis {
         static void clear_visits_aux_in_level(Node* node, Node* outer_node);
 
         //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
-        static void clear_visits_backwards(Node* node, Node* graph);
+        // within the scope of @graph
+        static void clear_visits_backwards_in_level(Node* node, Node* graph);
 
+        //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
+        static void clear_visits_backwards(Node* node);
 
         // *** DOT Graph *** //
 
