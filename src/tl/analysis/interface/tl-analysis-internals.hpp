@@ -47,7 +47,10 @@ namespace Analysis {
     /*
      *  QUERIES
      */
-    
+    int get_assume_aligned_attribute_internal(
+            Node* const stmt_node,
+            const Nodecl::Symbol& n);
+
     bool is_uniform_internal(Node* const scope_node, Node* const stmt_node,
             const Nodecl::NodeclBase& n, ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());

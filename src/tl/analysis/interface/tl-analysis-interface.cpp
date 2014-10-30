@@ -155,6 +155,11 @@ namespace Analysis {
         if(!func_sym.is_valid() && n.is<Nodecl::FunctionCode>())
             func_sym = n.as<Nodecl::FunctionCode>().get_symbol();
 
+        if (!func_sym.is_valid())
+        {
+            func_sym = Nodecl::Utils::get_enclosing_function(n);
+        }
+ 
         ERROR_CONDITION(!func_sym.is_valid(), 
                 "Invalid Nodecl '%s' on expecting non top-level nodecls\n", n.prettyprint().c_str());
 
@@ -186,7 +191,7 @@ namespace Analysis {
         // Retrieve node
         Node* n_node = pcfg->find_nodecl_pointer(n);
         ERROR_CONDITION(n_node==NULL, "No PCFG node found for n Nodecl '%s:%s'. \n",
-                scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
 
         std::set<Nodecl::NodeclBase> visited_nodes;
 
@@ -299,6 +304,20 @@ namespace Analysis {
         Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
         
         return get_linear_variable_increment_internal(scope_node, n);
+    }
+
+    int AnalysisInterface::get_assume_aligned_attribute(
+            const Nodecl::Symbol& n) 
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(n);
+        // Retrieve node
+        Node* n_node = pcfg->find_nodecl_pointer(n);
+        ERROR_CONDITION(n_node==NULL, "No PCFG node found for n Nodecl '%s:%s'. \n",
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
+
+
+        return get_assume_aligned_attribute_internal(n_node, n);
     }
     
     static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )

@@ -120,6 +120,9 @@ namespace Analysis {
                     const Nodecl::NodeclBase& n);
             virtual Utils::InductionVarList get_induction_variables(
                     const Nodecl::NodeclBase& scope);
+ 
+            virtual int get_assume_aligned_attribute(
+                    const Nodecl::Symbol& n);
             
             // *** Queries about Auto-Scoping *** //
 
