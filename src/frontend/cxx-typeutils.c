@@ -306,10 +306,12 @@ struct simple_type_tag {
     scope_entry_t* related_template_symbol;
 
     // Specialized types
-    int num_specialized_types;
-    // These are a STK_INDIRECT
-    type_t** specialized_types;
-    rb_red_blk_tree* specialization_set;
+    //   Unique specialized types
+    int num_unique_specialized_types;
+    type_t** unique_specialized_types;
+    //   All specialized types
+    int num_all_specialized_types;
+    type_t** all_specialized_types;
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
@@ -1955,8 +1957,6 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     return result;
 }
 
-static int template_argument_list_identical_comp(const void*, const void*);
-
 extern inline type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* aliased_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
@@ -2005,10 +2005,8 @@ extern inline type_t* get_new_template_alias_type(template_parameter_list_t* tem
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
 
-    type_info->type->specialization_set =
-        rb_tree_create(template_argument_list_identical_comp, null_dtor, null_dtor);
-    rb_tree_insert(type_info->type->specialization_set,
-            primary_type->template_arguments,
+    P_LIST_ADD(type_info->type->all_specialized_types,
+            type_info->type->num_all_specialized_types,
             type_info->type->primary_specialization);
 
     DEBUG_CODE()
@@ -2079,10 +2077,8 @@ extern inline type_t* get_new_template_type(template_parameter_list_t* template_
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
 
-    type_info->type->specialization_set =
-        rb_tree_create(template_argument_list_identical_comp, null_dtor, null_dtor);
-    rb_tree_insert(type_info->type->specialization_set,
-            primary_type->template_arguments,
+    P_LIST_ADD(type_info->type->all_specialized_types,
+            type_info->type->num_all_specialized_types,
             type_info->type->primary_specialization);
 
     DEBUG_CODE()
@@ -2338,97 +2334,7 @@ extern inline char is_template_explicit_specialization(template_parameter_list_t
     return is_explicit_specialization;
 }
 
-#if 0
-static char types_are_identical_in_template_argument(type_t* t1,
-        type_t* t2);
-
-static char nodecl_trees_are_identical_in_template_argument(nodecl_t n1, nodecl_t n2)
-{
-    if (nodecl_is_null(n1) && nodecl_is_null(n2))
-        return 1;
-
-    if (nodecl_is_null(n1) != nodecl_is_null(n2))
-        return 0;
-
-    if (nodecl_get_kind(n1) != nodecl_get_kind(n2))
-        return 0;
-
-    if (nodecl_get_symbol(n1) != nodecl_get_symbol(n2))
-        return 0;
-
-    if (nodecl_get_constant(n1) != nodecl_get_constant(n2))
-        return 0;
-
-    if (!types_are_identical_in_template_argument(
-                nodecl_get_type(n1),
-                nodecl_get_type(n2)))
-        return 0;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if (!nodecl_trees_are_identical_in_template_argument(
-                    nodecl_get_child(n1, i),
-                    nodecl_get_child(n2, i)))
-            return 0;
-    }
-
-    return 1;
-}
-
-static char types_are_identical_in_template_argument(type_t* t1,
-        type_t* t2)
-{
-    return t1 == t2;
-}
-
-static char template_arguments_are_identical(
-        template_parameter_list_t* template_parameter_list_1,
-        template_parameter_list_t* template_parameter_list_2)
-{
-    if (template_parameter_list_1->num_parameters !=
-            template_parameter_list_2->num_parameters)
-        return 0;
-
-    int i;
-    for (i = 0; i < template_parameter_list_1->num_parameters; i++)
-    {
-        template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
-        template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
-
-        ERROR_CONDITION(targ_1 == NULL || targ_2 == NULL, "Invalid parameter value", 0);
-
-        if (targ_1->kind != targ_2->kind)
-            return 0;
-
-        switch (targ_1->kind)
-        {
-            case TPK_TYPE:
-            case TPK_TEMPLATE:
-                {
-                    if (!types_are_identical_in_template_argument(targ_1->type, targ_2->type))
-                        return 0;
-                    break;
-                }
-            case TPK_NONTYPE:
-                {
-                    if (!nodecl_trees_are_identical_in_template_argument(targ_1->value, targ_2->value)
-                            || (!types_are_identical_in_template_argument(targ_1->type, targ_2->type)))
-                        return 0;
-                    break;
-                }
-            default:
-                {
-                    internal_error("Invalid template argument kind", 0);
-                }
-        }
-    }
-
-    return 1;
-}
-#endif
-
-static char template_nontype_argument_nodecl_cmp(nodecl_t n1, nodecl_t n2)
+static char template_arg_value_type_identical_compare(nodecl_t n1, nodecl_t n2)
 {
     if (nodecl_is_null(n1) && nodecl_is_null(n2))
         return 0;
@@ -2472,7 +2378,7 @@ static char template_nontype_argument_nodecl_cmp(nodecl_t n1, nodecl_t n2)
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        cmp = template_nontype_argument_nodecl_cmp(
+        cmp = template_arg_value_type_identical_compare(
                     nodecl_get_child(n1, i),
                     nodecl_get_child(n2, i));
 
@@ -2483,7 +2389,7 @@ static char template_nontype_argument_nodecl_cmp(nodecl_t n1, nodecl_t n2)
     return 0;
 }
 
-static int template_argument_identical_comp(template_parameter_value_t* targ_1, template_parameter_value_t* targ_2)
+static int template_arg_identical_compare(template_parameter_value_t* targ_1, template_parameter_value_t* targ_2)
 {
     ERROR_CONDITION(targ_1 == NULL || targ_2 == NULL, "Invalid parameter value", 0);
 
@@ -2504,7 +2410,7 @@ static int template_argument_identical_comp(template_parameter_value_t* targ_1, 
             }
         case TPK_NONTYPE:
             {
-                int cmp = template_nontype_argument_nodecl_cmp(targ_1->value, targ_2->value);
+                int cmp = template_arg_value_type_identical_compare(targ_1->value, targ_2->value);
                 if (cmp != 0)
                     return cmp;
                 break;
@@ -2518,7 +2424,7 @@ static int template_argument_identical_comp(template_parameter_value_t* targ_1, 
     return 0;
 }
 
-static int template_argument_list_identical_comp(const void* v1, const void* v2)
+static int compare_identical_template_argument_list(const void* v1, const void* v2)
 {
     template_parameter_list_t* template_parameter_list_1 = (template_parameter_list_t*)v1;
     template_parameter_list_t* template_parameter_list_2 = (template_parameter_list_t*)v2;
@@ -2534,7 +2440,7 @@ static int template_argument_list_identical_comp(const void* v1, const void* v2)
         template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
         template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
 
-        int cmp = template_argument_identical_comp(targ_1, targ_2);
+        int cmp = template_arg_identical_compare(targ_1, targ_2);
         if (cmp != 0)
             return cmp;
     }
@@ -2548,8 +2454,20 @@ static int template_argument_list_identical_comp(const void* v1, const void* v2)
     return 0;
 }
 
+static int compare_identical_template_argument_list_of_named_types(
+        const void *v1,
+        const void *v2)
+{
+    type_t* t1 = *(type_t**)v1;
+    type_t* t2 = *(type_t**)v2;
 
-static rb_red_blk_tree* template_type_get_specialization_set_(type_t* t);
+    t1 = named_type_get_symbol(t1)->type_information;
+    t2 = named_type_get_symbol(t2)->type_information;
+
+    return compare_identical_template_argument_list(
+            template_specialized_type_get_template_arguments(t1),
+            template_specialized_type_get_template_arguments(t2));
+}
 
 static type_t* template_type_get_identical_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
@@ -2557,24 +2475,63 @@ static type_t* template_type_get_identical_specialized_type(type_t* t,
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
-    rb_red_blk_tree* specialization_identical_set = template_type_get_specialization_set_(t);
-
-    rb_red_blk_node * n = rb_tree_query(specialization_identical_set, template_parameters);
-
     type_t* specialization = NULL;
 
-    if (n != NULL)
-        specialization = rb_node_get_info(n);
+    int lower = 0;
+    int upper = t->type->num_all_specialized_types - 1;
+
+    while (lower <= upper)
+    {
+        int middle = (lower + upper) / 2;
+
+        type_t* current_specialization = t->type->all_specialized_types[middle];
+
+        scope_entry_t* entry = named_type_get_symbol(current_specialization);
+        template_parameter_list_t* specialization_template_parameters =
+            template_specialized_type_get_template_arguments(entry->type_information);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Checking with specialization %p: #%d in [%d<=%d, %d<=%d] '%s' (%p) at '%s'\n",
+                    t->type,
+                    middle,
+                    0,
+                    lower,
+                    upper,
+                    t->type->num_all_specialized_types - 1,
+                    print_type_str(current_specialization, entry->decl_context),
+                    entry->type_information,
+                    locus_to_str(entry->locus));
+        }
+
+        int cmp = compare_identical_template_argument_list(
+                template_parameters,
+                specialization_template_parameters);
+
+        if (cmp == 0)
+        {
+            specialization = current_specialization;
+            break;
+        }
+        else if (cmp < 0)
+        {
+            upper = middle - 1;
+        }
+        else if (cmp > 0)
+        {
+            lower = middle + 1;
+        }
+    }
 
     return specialization;
 }
 
 
 #if 0
-static int template_arg_value_expr_compare_aux(nodecl_t n1, nodecl_t n2);
-static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
+static int template_arg_value_expr_equivalent_compare_aux(nodecl_t n1, nodecl_t n2);
+static int template_arg_value_expr_equivalent_compare(nodecl_t n1, nodecl_t n2)
 {
-    int cmp = template_arg_value_expr_compare_aux(n1, n2);
+    int cmp = template_arg_value_expr_equivalent_compare_aux(n1, n2);
 
     DEBUG_CODE()
     {
@@ -2602,13 +2559,13 @@ static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
 }
 #endif
 
-static int template_arg_value_type_compare(type_t* t1, type_t* t2);
+static int template_arg_value_type_equivalent_compare(type_t* t1, type_t* t2);
 
 #define RETURN_COMP(x, y) \
     if ((x) < (y)) return -1; \
     else if ((x) > (y)) return 1;
 
-static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
+static int template_arg_value_expr_equivalent_compare(nodecl_t n1, nodecl_t n2)
 {
     if (nodecl_is_null(n1)
             && nodecl_is_null(n2))
@@ -2671,7 +2628,7 @@ static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
                         symbol_get_parameter_nesting_in_function(s2, get_function_declaration_proxy()));
                 RETURN_COMP(symbol_get_parameter_position_in_function(s1, get_function_declaration_proxy()),
                         symbol_get_parameter_position_in_function(s2, get_function_declaration_proxy()));
-                int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+                int cmp = template_arg_value_type_equivalent_compare(s1->type_information, s2->type_information);
                 if (cmp != 0)
                     return cmp;
             }
@@ -2689,7 +2646,7 @@ static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
         }
         else if (s1->kind == SK_DEPENDENT_ENTITY)
         {
-            int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+            int cmp = template_arg_value_type_equivalent_compare(s1->type_information, s2->type_information);
             if (cmp != 0)
                 return cmp;
         }
@@ -2707,7 +2664,7 @@ static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
         int i;
         for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
-            int cmp = template_arg_value_expr_compare(
+            int cmp = template_arg_value_expr_equivalent_compare(
                     nodecl_get_child(n1, i),
                     nodecl_get_child(n2, i));
 
@@ -2719,7 +2676,7 @@ static int template_arg_value_expr_compare(nodecl_t n1, nodecl_t n2)
     return 0;
 }
 
-static int template_arg_value_type_compare_cv_qualif_0(
+static int template_arg_value_type_equivalent_compare_cv_qualif_0(
         cv_qualifier_t cv_qualif1,
         cv_qualifier_t cv_qualif2)
 {
@@ -2732,21 +2689,21 @@ static int template_arg_value_type_compare_cv_qualif_0(
 }
 
 #if 0
-static int template_arg_value_type_compare_cv_qualif(type_t* t1, type_t* t2)
+static int template_arg_value_type_equivalent_compare_cv_qualif(type_t* t1, type_t* t2)
 {
     cv_qualifier_t cv_qualif1 = CV_NONE;
     cv_qualifier_t cv_qualif2 = CV_NONE;
     advance_over_typedefs_with_cv_qualif(t1, &cv_qualif1);
     advance_over_typedefs_with_cv_qualif(t2, &cv_qualif2);
 
-    return template_arg_value_type_compare_cv_qualif_0(cv_qualif1, cv_qualif2);
+    return template_arg_value_type_equivalent_compare_cv_qualif_0(cv_qualif1, cv_qualif2);
 }
 #endif
 
-static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2);
-static int template_arg_value_type_compare(type_t* t1, type_t* t2)
+static int template_arg_value_type_equivalent_compare_aux(type_t* t1, type_t* t2);
+static int template_arg_value_type_equivalent_compare(type_t* t1, type_t* t2)
 {
-    int cmp = template_arg_value_type_compare_aux(t1, t2);
+    int cmp = template_arg_value_type_equivalent_compare_aux(t1, t2);
 
     DEBUG_CODE()
     {
@@ -2773,12 +2730,12 @@ static int template_arg_value_type_compare(type_t* t1, type_t* t2)
     return cmp;
 }
 
-static char compare_template_argument_list(
+static char compare_equivalent_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
         template_parameter_list_t* template_parameter_list_2);
 
 // FIXME - Improve this function
-static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
+static int template_arg_value_type_equivalent_compare_aux(type_t* t1, type_t* t2)
 {
     if (t1 == t2) // fast-path
         return 0;
@@ -2801,7 +2758,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
 
     if (t1 == t2) // fast-path
     {
-        return template_arg_value_type_compare_cv_qualif_0(cv_qualifier_t1, cv_qualifier_t2);
+        return template_arg_value_type_equivalent_compare_cv_qualif_0(cv_qualifier_t1, cv_qualifier_t2);
     }
 
     RETURN_COMP(t1->kind, t2->kind);
@@ -2845,7 +2802,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                                     template_parameter_list_t* tpl1 = template_specialized_type_get_template_arguments(t1);
                                     template_parameter_list_t* tpl2 = template_specialized_type_get_template_arguments(t2);
 
-                                    int cmp = compare_template_argument_list(tpl1, tpl2);
+                                    int cmp = compare_equivalent_template_argument_list(tpl1, tpl2);
 
                                     if (cmp != 0)
                                         return cmp;
@@ -2869,7 +2826,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                         }
                     case STK_UNDERLYING:
                         {
-                            int cmp = template_arg_value_type_compare(
+                            int cmp = template_arg_value_type_equivalent_compare(
                                     t1->type->underlying_type,
                                     t2->type->underlying_type);
                             if (cmp != 0)
@@ -2886,14 +2843,14 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                         }
                     case STK_COMPLEX:
                         {
-                            int cmp = template_arg_value_type_compare(t1->type->complex_element, t2->type->complex_element);
+                            int cmp = template_arg_value_type_equivalent_compare(t1->type->complex_element, t2->type->complex_element);
                             if (cmp != 0)
                                 return cmp;
                             break;
                         }
                     case STK_VECTOR:
                         {
-                            int cmp = template_arg_value_type_compare(t1->type->vector_element, t2->type->vector_element);
+                            int cmp = template_arg_value_type_equivalent_compare(t1->type->vector_element, t2->type->vector_element);
                             if (cmp != 0)
                                 return cmp;
 
@@ -2921,7 +2878,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                             }
                             else
                             {
-                                int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+                                int cmp = template_arg_value_type_equivalent_compare(s1->type_information, s2->type_information);
                                 if (cmp != 0)
                                     return cmp;
                             }
@@ -2954,7 +2911,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                             }
                             else
                             {
-                                int cmp = template_arg_value_type_compare(s1->type_information, s2->type_information);
+                                int cmp = template_arg_value_type_equivalent_compare(s1->type_information, s2->type_information);
                                 if (cmp != 0)
                                     return cmp;
                             }
@@ -3029,7 +2986,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
 
                                 if (template_parameter_list_1 != NULL)
                                 {
-                                    cmp = compare_template_argument_list(
+                                    cmp = compare_equivalent_template_argument_list(
                                             template_parameter_list_1,
                                             template_parameter_list_2);
                                     if (cmp != 0)
@@ -3047,7 +3004,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                         }
                     case STK_TYPEOF:
                         {
-                            int cmp = template_arg_value_expr_compare(
+                            int cmp = template_arg_value_expr_equivalent_compare(
                                     t1->type->typeof_expr,
                                     t2->type->typeof_expr);
                             if (cmp != 0)
@@ -3066,35 +3023,35 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
         case TK_RVALUE_REFERENCE :
         case TK_REBINDABLE_REFERENCE :
             {
-                int cmp = template_arg_value_type_compare(t1->pointer->pointee, t2->pointer->pointee);
+                int cmp = template_arg_value_type_equivalent_compare(t1->pointer->pointee, t2->pointer->pointee);
                 if (cmp != 0)
                     return cmp;
                 break;
             }
         case TK_POINTER_TO_MEMBER :
             {
-                int cmp = template_arg_value_type_compare(
+                int cmp = template_arg_value_type_equivalent_compare(
                         t1->pointer->pointee_class_type,
                         t2->pointer->pointee_class_type);
 
                 if (cmp != 0)
                     return cmp;
 
-                cmp = template_arg_value_type_compare(t1->pointer->pointee, t2->pointer->pointee);
+                cmp = template_arg_value_type_equivalent_compare(t1->pointer->pointee, t2->pointer->pointee);
                 if (cmp != 0)
                     return cmp;
                 break;
             }
         case TK_ARRAY :
             {
-                int cmp = template_arg_value_type_compare(
+                int cmp = template_arg_value_type_equivalent_compare(
                         t1->array->element_type,
                         t2->array->element_type);
 
                 if (cmp != 0)
                     return cmp;
 
-                cmp = template_arg_value_expr_compare(
+                cmp = template_arg_value_expr_equivalent_compare(
                         t1->array->whole_size,
                         t2->array->whole_size);
 
@@ -3104,7 +3061,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
             }
         case TK_FUNCTION :
             {
-                int cmp = template_arg_value_type_compare(
+                int cmp = template_arg_value_type_equivalent_compare(
                         t1->function->return_type,
                         t2->function->return_type);
 
@@ -3119,7 +3076,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                     RETURN_COMP(t1->function->parameter_list[i]->is_ellipsis,
                              t2->function->parameter_list[i]->is_ellipsis);
 
-                    cmp = template_arg_value_type_compare(
+                    cmp = template_arg_value_type_equivalent_compare(
                             t1->function->parameter_list[i]->type_info,
                             t2->function->parameter_list[i]->type_info);
 
@@ -3132,7 +3089,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
             }
         case TK_PACK:
             {
-                int cmp = template_arg_value_type_compare(t1->pack_type->packed, t2->pack_type->packed);
+                int cmp = template_arg_value_type_equivalent_compare(t1->pack_type->packed, t2->pack_type->packed);
                 if (cmp != 0)
                     return cmp;
                 break;
@@ -3144,7 +3101,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
                 int i;
                 for (i = 0; i < t1->sequence_type->num_types; i++)
                 {
-                    int cmp = template_arg_value_type_compare(
+                    int cmp = template_arg_value_type_equivalent_compare(
                             t1->sequence_type->types[i],
                             t2->sequence_type->types[i]);
 
@@ -3157,7 +3114,7 @@ static int template_arg_value_type_compare_aux(type_t* t1, type_t* t2)
             internal_error("Unexpected type kind (%d)\n", t1->kind);
     }
 
-    return template_arg_value_type_compare_cv_qualif_0(cv_qualifier_t1, cv_qualifier_t2);
+    return template_arg_value_type_equivalent_compare_cv_qualif_0(cv_qualifier_t1, cv_qualifier_t2);
 }
 #undef RETURN_COMP
 
@@ -3172,21 +3129,21 @@ static int template_arg_value_compare(
         case TPK_TYPE:
         case TPK_TEMPLATE:
             {
-                return template_arg_value_type_compare(
+                return template_arg_value_type_equivalent_compare(
                         targ_1->type,
                         targ_2->type);
                 break;
             }
         case TPK_NONTYPE:
             {
-                int cmp = template_arg_value_type_compare(
+                int cmp = template_arg_value_type_equivalent_compare(
                         targ_1->type,
                         targ_2->type);
 
                 if (cmp != 0)
                     return cmp;
 
-                return template_arg_value_expr_compare(
+                return template_arg_value_expr_equivalent_compare(
                         targ_1->value,
                         targ_2->value);
                 break;
@@ -3200,7 +3157,7 @@ static int template_arg_value_compare(
     return 0;
 }
 
-static int template_arg_compare(
+static int template_arg_equivalent_compare(
         template_parameter_value_t* targ_1,
         template_parameter_value_t* targ_2)
 {
@@ -3212,7 +3169,7 @@ static int template_arg_compare(
         return template_arg_value_compare(targ_1, targ_2);
 }
 
-static char compare_template_argument_list(
+static char compare_equivalent_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
         template_parameter_list_t* template_parameter_list_2)
 {
@@ -3229,7 +3186,7 @@ static char compare_template_argument_list(
         template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
         template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
 
-        int cmp = template_arg_compare(targ_1, targ_2);
+        int cmp = template_arg_equivalent_compare(targ_1, targ_2);
         if (cmp != 0)
             return cmp;
     }
@@ -3237,7 +3194,7 @@ static char compare_template_argument_list(
     return 0;
 }
 
-static int compare_template_argument_list_of_named_template_specialized_types(
+static int compare_equivalent_template_argument_list_of_named_template_specialized_types(
         const void* v1,
         const void* v2)
 {
@@ -3247,7 +3204,7 @@ static int compare_template_argument_list_of_named_template_specialized_types(
     t1 = named_type_get_symbol(t1)->type_information;
     t2 = named_type_get_symbol(t2)->type_information;
 
-    return compare_template_argument_list(
+    return compare_equivalent_template_argument_list(
             template_specialized_type_get_template_arguments(t1),
             template_specialized_type_get_template_arguments(t2));
 }
@@ -3277,13 +3234,13 @@ static type_t* template_type_get_equivalent_specialized_type(type_t* t,
     type_t* specialization = NULL;
 
     int lower = 0;
-    int upper = t->type->num_specialized_types - 1;
+    int upper = t->type->num_unique_specialized_types - 1;
 
     while (lower <= upper)
     {
         int middle = (lower + upper) / 2;
 
-        type_t* current_specialization = t->type->specialized_types[middle];
+        type_t* current_specialization = t->type->unique_specialized_types[middle];
 
         scope_entry_t* entry = named_type_get_symbol(current_specialization);
         template_parameter_list_t* specialization_template_parameters =
@@ -3297,13 +3254,13 @@ static type_t* template_type_get_equivalent_specialized_type(type_t* t,
                     0,
                     lower,
                     upper,
-                    t->type->num_specialized_types - 1,
+                    t->type->num_unique_specialized_types - 1,
                     print_type_str(current_specialization, entry->decl_context),
                     entry->type_information,
                     locus_to_str(entry->locus));
         }
 
-        int cmp = compare_template_argument_list(
+        int cmp = compare_equivalent_template_argument_list(
                 template_parameters,
                 specialization_template_parameters);
 
@@ -3339,7 +3296,7 @@ static type_t* template_type_get_equivalent_specialized_type(type_t* t,
         template_parameter_list_t* specialization_template_parameters =
             template_specialized_type_get_template_arguments(entry->type_information);
 
-        if (compare_template_argument_list(template_parameters, specialization_template_parameters) == 0)
+        if (compare_equivalent_template_argument_list(template_parameters, specialization_template_parameters) == 0)
             specialization = current_specialization;
     }
 
@@ -3630,10 +3587,10 @@ static type_t* template_type_get_specialized_type_(
         // Integrity verification
         {
             int i;
-            for (i = 0; i < template_type->type->num_specialized_types; i++)
+            for (i = 0; i < template_type->type->num_unique_specialized_types; i++)
             {
                 int j;
-                for (j = i + 1; j < template_type->type->num_specialized_types; j++)
+                for (j = i + 1; j < template_type->type->num_unique_specialized_types; j++)
                 {
                     int cmp1;
                     cmp1 = compare_template_argument_list_of_named_template_specialized_types(
@@ -3686,7 +3643,7 @@ static type_t* template_type_get_specialized_type_(
 
             int last_failed = -1;
 
-            for (i = 0; i < template_type->type->num_specialized_types ; i++)
+            for (i = 0; i < template_type->type->num_unique_specialized_types ; i++)
             {
                 int cmp = compare_template_argument_list_of_named_template_specialized_types(
                         &result,
@@ -3715,23 +3672,23 @@ static type_t* template_type_get_specialized_type_(
         }
 #endif
 
-        // Register this new specialization in the specialization list
-        // This is to make room 
-        P_LIST_ADD(template_type->type->specialized_types,
-                template_type->type->num_specialized_types,
+        // Register this new specialization in the unique specialization list
+        // This is to make room
+        P_LIST_ADD(template_type->type->unique_specialized_types,
+                template_type->type->num_unique_specialized_types,
                 result);
         // And now we make an "binary insertion"
         {
             int lower = 0;
-            int upper = template_type->type->num_specialized_types - 2;
+            int upper = template_type->type->num_unique_specialized_types - 2;
 
             while (lower <= upper)
             {
                 int middle = (lower + upper) / 2;
 
-                int cmp = compare_template_argument_list_of_named_template_specialized_types(
+                int cmp = compare_equivalent_template_argument_list_of_named_template_specialized_types(
                         &result,
-                        &template_type->type->specialized_types[middle]);
+                        &template_type->type->unique_specialized_types[middle]);
 
                 if (cmp < 0)
                 {
@@ -3746,22 +3703,22 @@ static type_t* template_type_get_specialized_type_(
                     internal_error("This cannot happen %p\nnew %s\n%03d: %s",
                             template_type->type,
                             print_declarator(result),
-                            middle, print_declarator(template_type->type->specialized_types[middle]));
+                            middle, print_declarator(template_type->type->unique_specialized_types[middle]));
                 }
             }
             // lower tells us where the new element goes
 
             int j;
             // Shift all items right
-            for (j = template_type->type->num_specialized_types - 1; j >= lower + 1; j--)
+            for (j = template_type->type->num_unique_specialized_types - 1; j >= lower + 1; j--)
             {
-                template_type->type->specialized_types[j] =
-                    template_type->type->specialized_types[j-1];
+                template_type->type->unique_specialized_types[j] =
+                    template_type->type->unique_specialized_types[j-1];
             }
-            template_type->type->specialized_types[lower] = result;
+            template_type->type->unique_specialized_types[lower] = result;
 #if 0
             int i;
-            for (i = 0; i < template_type->type->num_specialized_types - 1; i++)
+            for (i = 0; i < template_type->type->num_unique_specialized_types - 1; i++)
             {
                 int cmp = compare_template_argument_list_of_named_template_specialized_types(
                         &result,
@@ -3778,7 +3735,7 @@ static type_t* template_type_get_specialized_type_(
                     int j;
 #if 0
                     // Integrity verification
-                    for (j = i + 1; j < template_type->type->num_specialized_types - 1; j++)
+                    for (j = i + 1; j < template_type->type->num_unique_specialized_types - 1; j++)
                     {
                         cmp = compare_template_argument_list_of_named_template_specialized_types(
                                 &result,
@@ -3809,7 +3766,7 @@ static type_t* template_type_get_specialized_type_(
 #endif
 
                     // Shift all items right
-                    for (j = template_type->type->num_specialized_types - 1; j >= i + 1; j--)
+                    for (j = template_type->type->num_unique_specialized_types - 1; j >= i + 1; j--)
                     {
                         template_type->type->specialized_types[j] =
                             template_type->type->specialized_types[j-1];
@@ -3825,10 +3782,10 @@ static type_t* template_type_get_specialized_type_(
         // Integrity verification
         {
             int i;
-            for (i = 0; i < template_type->type->num_specialized_types; i++)
+            for (i = 0; i < template_type->type->num_unique_specialized_types; i++)
             {
                 int j;
-                for (j = i + 1; j < template_type->type->num_specialized_types; j++)
+                for (j = i + 1; j < template_type->type->num_unique_specialized_types; j++)
                 {
                     int cmp1;
                     cmp1 = compare_template_argument_list_of_named_template_specialized_types(
@@ -3875,7 +3832,7 @@ static type_t* template_type_get_specialized_type_(
 
             int last_failed = -1;
 
-            for (i = 0; i < template_type->type->num_specialized_types ; i++)
+            for (i = 0; i < template_type->type->num_unique_specialized_types ; i++)
             {
                 int cmp = compare_template_argument_list_of_named_template_specialized_types(
                         &result,
@@ -3904,9 +3861,49 @@ static type_t* template_type_get_specialized_type_(
         }
     }
 
-    // Register this specialization in the specialization set
-    rb_red_blk_tree* specialization_set = template_type_get_specialization_set_(template_type);
-    rb_tree_insert(specialization_set, template_arguments, result);
+    // Register this specialization in the all specializations set
+    {
+        P_LIST_ADD(template_type->type->all_specialized_types,
+                template_type->type->num_all_specialized_types,
+                result);
+        int lower = 0;
+        int upper = template_type->type->num_all_specialized_types - 2;
+
+        // Binary insertion
+        while (lower <= upper)
+        {
+            int middle = (lower + upper) / 2;
+
+            int cmp = compare_identical_template_argument_list_of_named_types(
+                    &result,
+                    &template_type->type->all_specialized_types[middle]);
+
+            if (cmp < 0)
+            {
+                upper = middle - 1;
+            }
+            else if (cmp > 0)
+            {
+                lower = middle + 1;
+            }
+            else
+            {
+                internal_error("This cannot happen %p\nnew %s\n%03d: %s",
+                        template_type->type,
+                        print_declarator(result),
+                        middle, print_declarator(template_type->type->all_specialized_types[middle]));
+            }
+        }
+
+        int j;
+        // Shift all items right
+        for (j = template_type->type->num_all_specialized_types - 1; j >= lower + 1; j--)
+        {
+            template_type->type->all_specialized_types[j] =
+                template_type->type->all_specialized_types[j-1];
+        }
+        template_type->type->all_specialized_types[lower] = result;
+    }
 
     return result;
 }
@@ -3951,7 +3948,7 @@ extern inline int template_type_get_num_specializations(type_t* t)
             "This is not a template type", 0);
 
     // +1 because of primary
-    return t->type->num_specialized_types + 1;
+    return t->type->num_unique_specialized_types + 1;
 }
 
 extern inline type_t* template_type_get_specialization_num(type_t* t, int i)
@@ -3965,16 +3962,8 @@ extern inline type_t* template_type_get_specialization_num(type_t* t, int i)
     }
     else
     {
-        return t->type->specialized_types[i-1];
+        return t->type->unique_specialized_types[i-1];
     }
-}
-
-static rb_red_blk_tree* template_type_get_specialization_set_(type_t* t)
-{
-    ERROR_CONDITION(!is_template_type(t),
-            "This is not a template type", 0);
-
-    return t->type->specialization_set;
 }
 
 extern inline void template_type_update_template_parameters(type_t* t, template_parameter_list_t* new_template_parameters)
