@@ -402,6 +402,10 @@ namespace Analysis {
             //! This only makes sense for OpenMP nodes
             NodeclSet get_private_vars();
 
+            //! Returns a list of all symbols that have firstprivate data-sharing within the node
+            //! This only makes sense for OpenMP nodes
+            NodeclSet get_firstprivate_vars();
+
             //! Returns a list of all symbols that have private or firstprivate data-sharing within the node
             //! This only makes sense for OpenMP nodes
             NodeclSet get_all_private_vars();

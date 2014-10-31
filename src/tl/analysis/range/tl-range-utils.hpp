@@ -27,8 +27,37 @@ Cambridge, MA 02139, USA.
 #include "tl-ranges-common.hpp"
 
 namespace TL {
-namespace Analysis {    
+namespace Analysis {
     
+    // *********************************************** //
+    // ***************** Constraints ***************** //
+
+    #define CONSTRAINT_KIND_LIST \
+    CONSTRAINT_KIND(BackEdge) \
+    CONSTRAINT_KIND(BinaryOp) \
+    CONSTRAINT_KIND(Comparator) \
+    CONSTRAINT_KIND(ComparatorTrue) \
+    CONSTRAINT_KIND(ComparatorFalse) \
+    CONSTRAINT_KIND(Mod) \
+    CONSTRAINT_KIND(ModTrue) \
+    CONSTRAINT_KIND(ModFalse) \
+    CONSTRAINT_KIND(Parameter) \
+    CONSTRAINT_KIND(Propagated) \
+    CONSTRAINT_KIND(Replace) \
+    CONSTRAINT_KIND(UnaryOp)
+
+    enum ConstraintKind {
+        #undef CONSTRAINT_KIND
+        #define CONSTRAINT_KIND(X) __##X,
+        CONSTRAINT_KIND_LIST
+        #undef CONSTRAINT_KIND
+    };
+
+    // *************** END Constraints *************** //
+    // *********************************************** //
+
+
+
     // *********************************************** //
     // ****************** CG Nodes ******************* //
     class CGEdge;
@@ -169,7 +198,7 @@ namespace Analysis {
     // *********************************************** //
     // ***************** I/O methods ***************** //
     
-    void print_constraint(std::string stmt_name, const Symbol& s, const NBase& val, const Type& t);
+    void print_constraint(ConstraintKind c_kind, const Symbol& s, const NBase& val, const Type& t);
     
     void print_sccs(const std::vector<SCC*>& scc_list);
     

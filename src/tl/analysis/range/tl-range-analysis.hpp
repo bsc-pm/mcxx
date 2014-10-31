@@ -54,7 +54,7 @@ namespace Analysis {
         Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::Symbol& n);
     };
-    
+
     class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<void>
     {
     private:
@@ -71,7 +71,7 @@ namespace Analysis {
         NodeclList *_ordered_constraints;
         
         Symbol get_condition_node_constraints(const NBase& lhs, const Type& t, 
-                                              std::string s_str, std::string nodecl_str);
+                                              std::string s_str, ConstraintKind c_kind);
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
         Ret visit_increment(const NBase& rhs, bool positive);
         
@@ -89,9 +89,10 @@ namespace Analysis {
                 NodeclList *ordered_constraints);
         
         // *** Modifiers *** //
-        Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, std::string c_name);
+        Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, ConstraintKind c_kind);
         void compute_stmt_constraints(const NBase& n);
         void compute_parameters_constraints(const ObjectList<Symbol>& params);
+        void set_false_constraint_to_inf(const NBase& n);
         
         // *** Getters and setters *** //
         Utils::VarToConstraintMap get_output_constraints_map();
@@ -146,13 +147,13 @@ namespace Analysis {
         CGNode* insert_node(CGNode_type type);
         
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
+        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null(), bool is_back_edge = false);
         
         //! Method to solve constraints within a cycle
         void resolve_cycle(SCC* scc);
         
         //! Method to evaluate the ranges in a sinle Constraint Graph node
-        void evaluate_cgnode(CGNode* const node);
+        void evaluate_cgnode(CGNode* const node, bool& changes);
         
     public:
         // *** Constructor *** //

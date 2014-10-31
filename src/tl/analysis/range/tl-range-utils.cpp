@@ -30,7 +30,7 @@
 namespace TL {
 namespace Analysis {
 
-    #define RANGES_DEBUG
+//     #define RANGES_DEBUG
     
     // *********************************************** //
     // ****************** CG Nodes ******************* //
@@ -409,12 +409,26 @@ namespace {
     // *********************************************** //
     // ***************** I/O methods ***************** //
     
-    void print_constraint(std::string stmt_name, const Symbol& s, const NBase& val, const Type& t)
+    inline std::string print_constraint_kind(ConstraintKind c_kind)
     {
-        #ifdef RANGES_DEBUG
-        std::cerr << "    " << stmt_name << " Constraint " << s.get_name() << " = " << val.prettyprint() 
+        switch(c_kind)
+        {
+            #undef CONSTRAINT_KIND
+            #define CONSTRAINT_KIND(X) case __##X : return #X;
+            CONSTRAINT_KIND_LIST
+            #undef CONSTRAINT_KIND
+            default: WARNING_MESSAGE("Unexpected type of node '%d'", c_kind);
+        }
+        return "";
+    }
+
+    void print_constraint(ConstraintKind c_kind, const Symbol& s, const NBase& val, const Type& t)
+    {
+#ifdef RANGES_DEBUG
+        std::cerr << "    " << print_constraint_kind(c_kind) << " Constraint "
+                  << s.get_name() << " = " << val.prettyprint()
                   << " (" << t.print_declarator() << ")" << std::endl;
-        #endif
+#endif
     }
     
     void print_sccs(const std::vector<SCC*>& scc_list)
