@@ -42,27 +42,8 @@
 
 namespace TL { namespace Nanox {
 
-struct ParameterComparator
-{
-    bool operator()(TL::Symbol sym1, TL::Symbol sym2) const
-    {
-        if (!sym1.is_parameter()
-                && !sym2.is_parameter())
-            return sym1 < sym2;
-        // Non parameters go first than parameters
-        else if (!sym1.is_parameter()
-                && sym2.is_parameter())
-            return true;
-        else if (sym1.is_parameter()
-                && !sym2.is_parameter())
-            return false;
-        else // both are parameters
-            return sym1.get_parameter_position() < sym2.get_parameter_position();
-    }
-};
-
-typedef std::map<TL::Symbol, Nodecl::NodeclBase, ParameterComparator> sym_to_argument_expr_t;
-typedef std::map<TL::Symbol, TL::Symbol, ParameterComparator> param_sym_to_arg_sym_t;
+typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
+typedef std::map<TL::Symbol, TL::Symbol> param_sym_to_arg_sym_t;
 
 static void fill_map_parameters_to_arguments(
         TL::Symbol function,

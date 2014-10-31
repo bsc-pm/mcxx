@@ -1344,7 +1344,7 @@ namespace TL
                     running_error("%s: error: clause 'if' requires just one argument\n",
                             construct.get_locus_str().c_str());
                 }
-                task_info.set_if_clause_conditional_expression(expr_list[0]);
+                task_info.set_if_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
             }
 
             // Support final clause
@@ -1357,7 +1357,7 @@ namespace TL
                     running_error("%s: error: clause 'final' requires just one argument\n",
                             construct.get_locus_str().c_str());
                 }
-                task_info.set_final_clause_conditional_expression(expr_list[0]);
+                task_info.set_final_clause_conditional_expression(update_clauses(expr_list, function_sym)[0]);
             }
 
             // Support priority clause
@@ -1370,7 +1370,7 @@ namespace TL
                     running_error("%s: error: clause 'if' requires just one argument\n",
                             construct.get_locus_str().c_str());
                 }
-                task_info.set_priority_clause_expression(expr_list[0]);
+                task_info.set_priority_clause_expression(update_clauses(expr_list, function_sym)[0]);
             }
 
             PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
