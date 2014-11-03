@@ -38,20 +38,26 @@ namespace TL { namespace Intel {
 
         void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
         {
-            lower_for(construct, Nodecl::NodeclBase::null());
+            lower_for(construct, Nodecl::NodeclBase::null(),
+                    Nodecl::NodeclBase::null());
         }
 
         void LoweringVisitor::visit(const Nodecl::OpenMP::ForAppendix& construct)
         {
+            Nodecl::NodeclBase prependix = construct.get_prependix();
+            if (!prependix.is_null())
+                walk(prependix);
+
             Nodecl::NodeclBase appendix = construct.get_appendix();
             if (!appendix.is_null())
                 walk(appendix);
 
             // We cheat a bit in the first parameter
-            lower_for(construct.as<Nodecl::OpenMP::For>(), appendix);
+            lower_for(construct.as<Nodecl::OpenMP::For>(), prependix, appendix);
         }
 
         void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
+                const Nodecl::NodeclBase &prependix,
                 const Nodecl::NodeclBase &appendix)
         {
             TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
@@ -254,7 +260,7 @@ namespace TL { namespace Intel {
 
             TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-            Nodecl::NodeclBase loop_body, reduction_code, appendix_code, barrier_code;
+            Nodecl::NodeclBase loop_body, reduction_code, prependix_code, appendix_code, barrier_code;
 
             TL::Source lastprivate_code;
 
@@ -292,6 +298,7 @@ namespace TL { namespace Intel {
                 Source static_loop;
                 static_loop
                     << common_initialization
+                    << statement_placeholder(prependix_code)
                     << "__kmpc_for_static_init_" << type_kind << "(&" << as_symbol(ident_symbol)
                     <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
                     <<                ", kmp_sch_static"
@@ -348,6 +355,7 @@ namespace TL { namespace Intel {
                     << "enum sched_type " << sched_type << ";"
                     << sched_init
                     << common_initialization
+                    << statement_placeholder(prependix_code)
                     << "__kmpc_dispatch_init_" << type_kind << "(&" << as_symbol(ident_symbol)
                     <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
                     <<                "," << sched_type
@@ -457,6 +465,12 @@ namespace TL { namespace Intel {
                     Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
                     reduction_code.prepend_sibling(reduction_tree);
                 }
+            }
+
+            if (!prependix.is_null())
+            {
+                prependix_code.prepend_sibling(
+                        Nodecl::Utils::deep_copy(prependix, prependix_code, symbol_map));
             }
 
             if (!appendix.is_null())

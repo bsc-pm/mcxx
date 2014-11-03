@@ -347,8 +347,13 @@ namespace TL {
 
                 if (!loop_environment._overlap_symbols_map.empty())
                 {
+                    Nodecl::List prependix;
+                    
                     _vectorizer.opt_overlapped_accesses(
-                            loop_statement, loop_environment);
+                            loop_statement, loop_environment,
+                            prependix);
+
+                    loop_statement.prepend_sibling(prependix);
                 }
             }
 
@@ -437,8 +442,12 @@ namespace TL {
                 // Overlap
                 if (!loop_environment._overlap_symbols_map.empty())
                 {
+                    Nodecl::List prependix;
                     _vectorizer.opt_overlapped_accesses(
-                            net_epilog_node, loop_environment);
+                            net_epilog_node, loop_environment, prependix);
+
+                    ERROR_CONDITION(!prependix.empty(),
+                            "Prependix is not empty in the epilogue loop", 0);
                 }
 
                 // 2nd step of transformation on epilog loop
@@ -587,6 +596,9 @@ namespace TL {
                     &reductions,
                     &new_external_vector_symbol_map);
 
+            Nodecl::List prependix_list;
+            Nodecl::List appendix_list;
+
             // Add scopes, default masks, etc.
             for_environment.load_environment(for_statement);
 
@@ -624,7 +636,8 @@ namespace TL {
                 if (!for_environment._overlap_symbols_map.empty())
                 { 
                     _vectorizer.opt_overlapped_accesses(
-                            for_statement, for_environment);
+                            for_statement, for_environment,
+                            prependix_list);
                 }
             }
 
@@ -687,7 +700,6 @@ namespace TL {
 
             for_environment.unload_environment();
 
-            Nodecl::List appendix_list;
             Nodecl::NodeclBase net_epilog_node;
             Nodecl::ForStatement epilog_for_statement;
 
@@ -716,8 +728,11 @@ namespace TL {
                 // Overlap
                 if (!for_environment._overlap_symbols_map.empty())
                 {
+                    Nodecl::List prependix;
                     _vectorizer.opt_overlapped_accesses(
-                            net_epilog_node, for_environment);
+                            net_epilog_node, for_environment, prependix);
+                    ERROR_CONDITION(!prependix.empty(),
+                            "Prependix is not empty in the epilogue loop", 0);
                 }
 
                 // 2nd step of transformation on epilog loop
@@ -761,11 +776,12 @@ namespace TL {
             else
             {
                 // ForAppendix only if appendix is not empty
-                if (!appendix_list.empty())
+                if (!appendix_list.empty() || !prependix_list.empty())
                 {
                     for_epilog =
                         Nodecl::OpenMP::ForAppendix::make(omp_for_environment.shallow_copy(),
                                 loop_context.shallow_copy(),
+                                prependix_list,
                                 appendix_list,
                                 omp_for.get_locus());
                 }

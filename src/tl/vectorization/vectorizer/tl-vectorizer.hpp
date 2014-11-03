@@ -78,7 +78,8 @@ namespace TL
                 void vectorize_parallel(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment);
                 void opt_overlapped_accesses(Nodecl::NodeclBase& statements,
-                        VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment,
+                        Nodecl::List& init_stmts);
 
                 void process_epilog(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,

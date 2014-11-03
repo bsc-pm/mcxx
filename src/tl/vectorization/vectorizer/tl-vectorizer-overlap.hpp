@@ -121,9 +121,11 @@ namespace TL
             public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                static VectorizationAnalysisInterface* _analysis;
                 const VectorizerEnvironment& _environment;
+                Nodecl::List& _init_stmts;
                 
+                static VectorizationAnalysisInterface* _analysis;
+
                 void update_alignment_info(
                         const Nodecl::NodeclBase& main_loop,
                         const Nodecl::NodeclBase& epilog_loop);
@@ -158,7 +160,8 @@ namespace TL
 
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment,
-                        VectorizationAnalysisInterface* analysis);
+                        VectorizationAnalysisInterface* analysis,
+                        Nodecl::List& init_stmts);
                 
                 void visit(const Nodecl::ForStatement&);
 

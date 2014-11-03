@@ -534,8 +534,9 @@ namespace Vectorization
 
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment,
-            VectorizationAnalysisInterface *analysis)
-        : _environment(environment)
+            VectorizationAnalysisInterface *analysis,
+            Nodecl::List& init_stmts)
+        : _environment(environment), _init_stmts(init_stmts)
     {
         _analysis = analysis;
     }
@@ -667,8 +668,7 @@ namespace Vectorization
         {
             // Generate conditional blocking 
             if_epilog = get_overlap_blocked_unrolled_loop(
-                    main_loop,
-                    min_unroll_factor);
+                    main_loop, min_unroll_factor);
 
             // Main Loop
             TL::HLT::LoopUnroll loop_unroller;
@@ -1350,9 +1350,7 @@ namespace Vectorization
         // Init Statements
         if (ogroup._init_cache)
         {
-            Nodecl::List init_stmts = 
-                ogroup.get_init_statements(n);
-            n.prepend_sibling(init_stmts);
+            _init_stmts.prepend(ogroup.get_init_statements(n));
 
             // Update Post
             Nodecl::List post_stmts = 
