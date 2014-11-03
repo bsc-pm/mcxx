@@ -53,7 +53,9 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
             nodecl_deep_copy_map,
             symbol_deep_copy_map);
 
-    if (dest->kind == SK_FUNCTION)
+    if (dest->kind == SK_FUNCTION
+            // Generic specifiers are tagged as SK_FUNCTION
+            && !symbol_entity_specs_get_is_generic_spec(dest))
     {
         int i;
         for (i = 0; i < symbol_entity_specs_get_num_related_symbols(dest); i++)
