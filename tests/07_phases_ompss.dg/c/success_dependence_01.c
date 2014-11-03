@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_ENV="PERISH_TIMEOUT_MINUTES=5"
 </testinfo>
 */
 #include<unistd.h>
@@ -36,7 +37,6 @@ test_generator=config/mercurium-ompss
 
 #define N 10
 #define M 100
-
 
 struct A
 {
