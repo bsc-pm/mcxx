@@ -2277,6 +2277,7 @@ next_it:    ;
         _utils->_last_nodes = ObjectList<Node*>( 1, for_app_entry );
         walk( n.get_loop( ) );
 
+        walk( n.get_prependix( ) );
         walk( n.get_appendix( ) );
 
         for_app_exit->set_id( ++( _utils->_nid ) );
