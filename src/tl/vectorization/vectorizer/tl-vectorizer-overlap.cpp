@@ -100,7 +100,7 @@ namespace Vectorization
             Nodecl::ExpressionStatement exp_stmt =
                 Nodecl::ExpressionStatement::make(vassignment);
 
-            result_list.append(exp_stmt);
+            result_list.prepend(exp_stmt);
         }
 
         return result_list;
