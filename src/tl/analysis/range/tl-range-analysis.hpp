@@ -43,15 +43,25 @@ namespace Analysis {
     class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        Utils::VarToConstraintMap _constraints_map;
-        
+        Utils::VarToConstraintMap* _constraints_map;
+
+        Node* _n;
+        SSAVarToValue_map *_constraints;
+        NodeclList *_ordered_constraints;
+
     public:
         // *** Constructor *** //
-        ConstraintReplacement(Utils::VarToConstraintMap constraints_map);
+        ConstraintReplacement(
+                Utils::VarToConstraintMap* constraints_map,
+                Node* n,
+                SSAVarToValue_map *constraints,
+                NodeclList *ordered_constraints);
         
         // *** Visiting methods *** //
         Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
+        Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::Symbol& n);
     };
 
@@ -66,10 +76,12 @@ namespace Analysis {
         Utils::VarToConstraintMap _output_constraints_map;       // Constraints computed so far for the current node
         Utils::VarToConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
         Utils::VarToConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
-        
+
         SSAVarToValue_map *_constraints;
         NodeclList *_ordered_constraints;
-        
+
+        ConstraintReplacement _cr;
+
         Symbol get_condition_node_constraints(const NBase& lhs, const Type& t, 
                                               std::string s_str, ConstraintKind c_kind);
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
@@ -79,12 +91,13 @@ namespace Analysis {
         
         // *** Constructor *** //
         ConstraintBuilderVisitor(Node* n,
-                Utils::VarToConstraintMap input_constraints, 
-                Utils::VarToConstraintMap current_constraints, 
+                Utils::VarToConstraintMap input_constraints,
+                Utils::VarToConstraintMap current_constraints,
                 SSAVarToValue_map *constraints,
                 NodeclList *ordered_constraints);
         
         ConstraintBuilderVisitor(Node* n,
+                Utils::VarToConstraintMap input_constraints,
                 SSAVarToValue_map *constraints,
                 NodeclList *ordered_constraints);
         
@@ -147,7 +160,10 @@ namespace Analysis {
         CGNode* insert_node(CGNode_type type);
         
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null(), bool is_back_edge = false);
+        void connect_nodes(CGNode* source, CGNode* target,
+                CGEdgeType edge_type = __Flow,
+                NBase predicate = NBase::null(),
+                bool is_back_edge = false);
         
         //! Method to solve constraints within a cycle
         void resolve_cycle(SCC* scc);
@@ -164,6 +180,13 @@ namespace Analysis {
         CGNode* get_node_from_ssa_var(const NBase& n);
         
         // *** Modifiers *** //
+        void fill_cg_with_binary_op(
+                const NBase& s,
+                const NBase& val,
+                CGNode_type n_type,
+                CGEdgeType edge_type,
+                std::string op_str,
+                std::string op_sym_str);
         void fill_constraint_graph(
                 const SSAVarToValue_map& constraints,
                 const NodeclList& ordered_constraints);

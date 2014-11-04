@@ -88,6 +88,7 @@ namespace Utils {
     NBase range_union(const NBase& r1, const NBase& r2);
     Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_subtract(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_div(const Nodecl::Range& r, const NBase& v);
     
     // ********************************* END Ranges arithmetic *********************************** //
     // ******************************************************************************************* //

@@ -176,12 +176,16 @@ namespace {
         TL::Type t = r1_lb.get_type();
         
         NBase lb, ub;
-        if(r1_lb.is_constant() && r2_lb.is_constant())
+        if (r1_lb.is_constant() && r2_lb.is_constant())
             lb = NBase(const_value_to_nodecl(const_value_sub(r1_lb.get_constant(), r2_lb.get_constant())));
+        else if (r1_lb.is<Nodecl::Analysis::MinusInfinity>() && r2_lb.is<Nodecl::Analysis::MinusInfinity>())
+            lb = r1_lb;
         else
             lb = Nodecl::Minus::make(r1_lb, r2_lb, t);
-        if(r1_ub.is_constant() && r2_ub.is_constant())
+        if (r1_ub.is_constant() && r2_ub.is_constant())
             ub = NBase(const_value_to_nodecl(const_value_sub(r1_ub.get_constant(), r2_ub.get_constant())));
+        else if (r1_ub.is<Nodecl::Analysis::PlusInfinity>() && r2_ub.is<Nodecl::Analysis::PlusInfinity>())
+            ub = r1_ub;
         else
             ub = Nodecl::Minus::make(r1_ub, r2_ub, t);
         
@@ -217,11 +221,12 @@ namespace {
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
         TL::Type t = r1_lb.get_type();
         
-        if( ( r1_lb == r2_lb ) && ( r1_ub == r2_ub ) )
+        if (Nodecl::Utils::structurally_equal_nodecls(r1_lb, r2_lb)
+                && Nodecl::Utils::structurally_equal_nodecls(r1_ub, r2_ub))
         {   // The two ranges are exactly the same
             result = Nodecl::Analysis::EmptyRange::make();
         }
-        else if( r1_lb.is_constant() && r1_ub.is_constant() && r2_lb.is_constant() && r2_ub.is_constant() )
+        else if (r1_lb.is_constant() && r1_ub.is_constant() && r2_lb.is_constant() && r2_ub.is_constant())
         {   // Let's compare the constant values
             const_value_t* r1_lb_c = const_value_cast_to_signed_int_value(r1_lb.get_constant());
             const_value_t* r1_ub_c = const_value_cast_to_signed_int_value(r1_ub.get_constant());
@@ -589,6 +594,38 @@ namespace {
         return result;
     }
     
+    Nodecl::Range range_value_div(const Nodecl::Range& r, const NBase& v)
+    {
+        NBase lb = r.get_lower();
+        NBase ub = r.get_upper();
+        Type t(lb.get_type());
+
+        NBase new_lb, new_ub;
+        // compute the lower bound
+        if (lb.is<Nodecl::Analysis::MinusInfinity>() || lb.is<Nodecl::Analysis::PlusInfinity>())
+            new_lb = lb;
+        else if (lb.is_constant() && v.is_constant())
+            new_lb = const_value_to_nodecl(const_value_div(lb.get_constant(), v.get_constant()));
+        else
+            new_lb = Nodecl::Div::make(lb, v, t);
+        // compute the upper bound
+        if (ub.is<Nodecl::Analysis::MinusInfinity>() || ub.is<Nodecl::Analysis::PlusInfinity>())
+            new_ub = ub;
+        else if (ub.is_constant() && v.is_constant())
+            new_ub = const_value_to_nodecl(const_value_div(ub.get_constant(), v.get_constant()));
+        else
+            new_ub = Nodecl::Div::make(ub, v, t);
+        
+        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), t);
+
+#ifdef RANGES_DEBUG
+        std::cerr << "        Range Value Division " << r.prettyprint() << " / " << v.prettyprint()
+                  << " = " << result.prettyprint() << std::endl;
+#endif
+
+        return result;
+    }
+
     // ******************************************************************************************* //
     // ******************************* Range Analysis Constraints ******************************** //
 

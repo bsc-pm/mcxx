@@ -114,13 +114,16 @@ namespace {
         return children;
     }
     
-    CGEdge* CGNode::add_child(CGNode* child, bool is_back_edge, NBase predicate)
+    CGEdge* CGNode::add_child(CGNode* child,
+            CGEdgeType edge_type,
+            NBase predicate,
+            bool is_back_edge)
     {
         CGEdge* e;
         ObjectList<CGNode*> children = get_children();
         if(!children.contains(child))
         {
-            e = new CGEdge(this, child, is_back_edge, predicate);
+            e = new CGEdge(this, child, edge_type, predicate, is_back_edge);
             _exits.insert(e); 
         }
         else
@@ -145,30 +148,52 @@ namespace {
     // *********************************************** //
     // ****************** CG Edges ******************* //
     
-    CGEdge::CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate)
-        : _source(source), _target(target), _is_back_edge(is_back), _predicate(predicate)
+    CGEdge::CGEdge(CGNode* source, CGNode* target,
+            CGEdgeType edge_type,
+            const NBase& predicate,
+            bool back_edge)
+        : _source(source), _target(target),
+          _edge_type(edge_type), _predicate(predicate), _is_back_edge(back_edge)
     {}
-    
+
     CGNode* CGEdge::get_source() const
     {
         return _source;
     }
-    
+
     CGNode* CGEdge::get_target() const
     {
         return _target;
     }
-    
-    bool CGEdge::is_back_edge() const
+
+    CGEdgeType CGEdge::get_edge_type() const
     {
-        return _is_back_edge;
+        return _edge_type;
     }
-    
+
     NBase CGEdge::get_predicate() const
     {
         return _predicate;        
     }
-    
+
+    bool CGEdge::is_back_edge() const
+    {
+        return _is_back_edge;
+    }
+
+    std::string CGEdge::get_type_as_string() const
+    {
+        switch(_edge_type)
+        {
+            #undef CG_EDGE_TYPE
+            #define CG_EDGE_TYPE(X) case __##X : return #X;
+            CG_EDGE_TYPE_LIST
+            #undef CG_EDGE_TYPE
+            default: WARNING_MESSAGE("Unexpected type of CG edge '%d'", _edge_type);
+        }
+        return "";
+    }
+
     // **************** END CG Edges ***************** //
     // *********************************************** //
     

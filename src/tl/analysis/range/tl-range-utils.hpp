@@ -38,6 +38,8 @@ namespace Analysis {
     CONSTRAINT_KIND(Comparator) \
     CONSTRAINT_KIND(ComparatorTrue) \
     CONSTRAINT_KIND(ComparatorFalse) \
+    CONSTRAINT_KIND(Function) \
+    CONSTRAINT_KIND(GlobalVar) \
     CONSTRAINT_KIND(Mod) \
     CONSTRAINT_KIND(ModTrue) \
     CONSTRAINT_KIND(ModFalse) \
@@ -59,14 +61,67 @@ namespace Analysis {
 
 
     // *********************************************** //
+    // ****************** CG Edges ******************* //
+
+    class CGNode;
+
+    #define CG_EDGE_TYPE_LIST \
+    CG_EDGE_TYPE(Add) \
+    CG_EDGE_TYPE(Div) \
+    CG_EDGE_TYPE(Flow) \
+    CG_EDGE_TYPE(Intersection) \
+    CG_EDGE_TYPE(Sub)
+
+    enum CGEdgeType {
+        #undef CG_EDGE_TYPE
+        #define CG_EDGE_TYPE(X) __##X,
+        CG_EDGE_TYPE_LIST
+        #undef CG_EDGE_TYPE
+    };
+
+    class LIBTL_CLASS CGEdge
+    {
+    private:
+        // *** Members *** //
+        CGNode* _source;
+        CGNode* _target;
+        CGEdgeType _edge_type;
+        NBase _predicate;
+        bool _is_back_edge;
+
+    public:
+        // *** Constructor *** //
+        CGEdge(CGNode* source,
+               CGNode* target,
+               CGEdgeType edge_type,
+               const NBase& predicate,
+               bool back_edge);
+
+        // *** Getters and setters *** //
+        CGNode* get_source() const;
+        CGNode* get_target() const;
+        CGEdgeType get_edge_type() const;
+        NBase get_predicate() const;
+        bool is_back_edge() const;
+        
+        // *** Utils *** //
+        std::string get_type_as_string() const;
+    };
+
+    // **************** END CG Edges ***************** //
+    // *********************************************** //
+
+
+
+    // *********************************************** //
     // ****************** CG Nodes ******************* //
-    class CGEdge;
-    
+
     #define CGNODE_TYPE_LIST \
     CGNODE_TYPE(CG_Sym) \
     CGNODE_TYPE(CG_Phi) \
     CGNODE_TYPE(CG_Add) \
-    CGNODE_TYPE(CG_Sub)
+    CGNODE_TYPE(CG_Sub) \
+    CGNODE_TYPE(CG_Div)
     
     enum CGNode_type {
         #undef CGNODE_TYPE
@@ -105,42 +160,17 @@ namespace Analysis {
         
         ObjectList<CGEdge*> get_exits() const;
         ObjectList<CGNode*> get_children();
-        CGEdge* add_child(CGNode* child, bool is_back_edge, NBase predicate = NBase::null());
+        CGEdge* add_child(CGNode* child,
+                CGEdgeType edge_type = __Flow,
+                NBase predicate = NBase::null(),
+                bool is_back_edge = false);
     };
     
     // **************** END CG Nodes ***************** //
     // *********************************************** //
-    
-    
-    
-    // *********************************************** //
-    // ****************** CG Edges ******************* //
-    
-    class LIBTL_CLASS CGEdge
-    {
-    private:
-        // *** Members *** //
-        CGNode* _source;
-        CGNode* _target;
-        bool _is_back_edge;
-        NBase _predicate;
-        
-    public:
-        // *** Constructor *** //
-        CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate);
-        
-        // *** Getters and setters *** //
-        CGNode* get_source() const;
-        CGNode* get_target() const;
-        bool is_back_edge() const;
-        NBase get_predicate() const;
-    };
-    
-    // **************** END CG Edges ***************** //
-    // *********************************************** //
-    
-    
-    
+
+
+
     // *********************************************** //
     // ********************* SCC ********************* //
     
