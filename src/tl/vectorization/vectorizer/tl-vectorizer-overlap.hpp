@@ -123,7 +123,8 @@ namespace TL
             private:
                 const VectorizerEnvironment& _environment;
                 Nodecl::List& _init_stmts;
-                
+                VectorizationAnalysisInterface* _first_analysis;
+
                 static VectorizationAnalysisInterface* _analysis;
 
                 void update_alignment_info(

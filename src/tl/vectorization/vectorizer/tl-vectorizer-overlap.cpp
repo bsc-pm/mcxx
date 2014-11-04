@@ -536,7 +536,7 @@ namespace Vectorization
             VectorizerEnvironment& environment,
             VectorizationAnalysisInterface *analysis,
             Nodecl::List& init_stmts)
-        : _environment(environment), _init_stmts(init_stmts)
+        : _environment(environment), _init_stmts(init_stmts), _first_analysis(analysis)
     {
         _analysis = analysis;
     }
@@ -794,6 +794,13 @@ namespace Vectorization
         }
         */
  
+        // Delete new analysis and restore the previous one
+        if (min_unroll_factor > 0)
+        {
+            delete(_analysis);
+            _analysis = _first_analysis;
+        }
+
         walk(main_loop.get_statement());
         if (!if_epilog.is_null())
             walk(if_epilog.get_statement());
@@ -812,11 +819,6 @@ namespace Vectorization
                 if_epilog.prepend_sibling(
                         unroll_pragma.shallow_copy());
             }
-        }
-
-        if (min_unroll_factor > 0)
-        {
-            delete(_analysis);
         }
     }
 
