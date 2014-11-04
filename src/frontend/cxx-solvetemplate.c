@@ -54,7 +54,6 @@ type_t* solve_class_template(type_t* template_type,
         const locus_t* locus)
 {
     int i;
-    int num_specializations = template_type_get_num_specializations(template_type);
 
     type_t** matching_set = NULL;
     int num_matching_set = 0;
@@ -62,10 +61,19 @@ type_t* solve_class_template(type_t* template_type,
     template_parameter_list_t **deduction_results = NULL;
     int num_deductions = 0;
 
+    // It may happen that due to side effects we create new specializations
+    // when traversing the existing ones, so first keep the existing ones and
+    // then traverse them
+    int num_specializations = template_type_get_num_specializations(template_type);
+    type_t* specializations[num_specializations + 1];
     for (i = 0; i < num_specializations; i++)
     {
-        type_t* current_specialized_type = 
-            template_type_get_specialization_num(template_type, i);
+        specializations[i] = template_type_get_specialization_num(template_type, i);
+    }
+
+    for (i = 0; i < num_specializations; i++)
+    {
+        type_t* current_specialized_type = specializations[i];
 
         DEBUG_CODE()
         {

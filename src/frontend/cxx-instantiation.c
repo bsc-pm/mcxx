@@ -1741,6 +1741,12 @@ static void instantiate_bases(
         // If the entity (being an independent one) has not been completed, then instantiate it
         class_type_complete_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
 
+        ERROR_CONDITION(
+                class_type_is_incomplete_independent(
+                    get_actual_class_type(upd_base_class_sym->type_information)),
+                "Invalid class %s\n",
+                print_declarator(get_user_defined_type(upd_base_class_sym)));
+
         class_type_add_base_class(
                 get_actual_class_type(instantiated_class_type),
                 upd_base_class_sym, 
@@ -2175,8 +2181,9 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                     {
                         type_t* template_type =
                             template_specialized_type_get_related_template_type(current_member->type_information);
+                        int num_specializations = template_type_get_num_specializations(template_type);
                         int j;
-                        for (j = 0; j < template_type_get_num_specializations(template_type); j++)
+                        for (j = 0; j < num_specializations; j++)
                         {
                             scope_entry_t* specialization =
                                 named_type_get_symbol(

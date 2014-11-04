@@ -41,6 +41,8 @@
 #include <algorithm>
 #include <iterator>
 
+#include "cxx-graphviz.h"
+
 namespace TL { namespace OpenMP {
 
     namespace Report
@@ -2615,6 +2617,61 @@ namespace TL { namespace OpenMP {
         // Remove
         pragma_line.diagnostic_unused_clauses();
         Nodecl::Utils::remove_from_enclosing_list(directive);
+    }
+
+    void Base::register_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::register_handler_post(TL::PragmaCustomDirective directive)
+    {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomParameter parameter = pragma_line.get_parameter();
+
+        if (!parameter.is_defined())
+        {
+            error_printf("%s: error: missing parameter clause in '#pragma omp register'\n",
+                    directive.get_locus_str().c_str());
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+        if (expr_list.empty())
+        {
+            warn_printf("%s: warning: ignoring empty '#pragma omp register\n", 
+                    directive.get_locus_str().c_str());
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> valid_expr_list;
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
+                it != expr_list.end();
+                it++)
+        {
+            if (it->is<Nodecl::Symbol>() // x
+                    || (it->is<Nodecl::Shaping>() // [n1][n2] x
+                        && it->as<Nodecl::Shaping>().get_postfix().is<Nodecl::Symbol>()))
+            {
+                valid_expr_list.append(*it);
+            }
+            else
+            {
+                error_printf("%s: error: invalid object specification '%s' in '#pragma omp register'\n",
+                        directive.get_locus_str().c_str(),
+                        it->prettyprint().c_str());
+            }
+        }
+        
+        if (valid_expr_list.empty())
+            return;
+
+        Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
+
+        Nodecl::OpenMP::Register new_register_directive = 
+            Nodecl::OpenMP::Register::make(
+                    list_expr,
+                    directive.get_locus());
+
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(new_register_directive);
     }
 
     struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>

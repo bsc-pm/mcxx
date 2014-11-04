@@ -1991,7 +1991,6 @@ void LoweringVisitor::fill_copies(
 {
     num_copies = count_copies(outline_info);
 
-
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
         int num_copies_dimensions = count_copies_dimensions(outline_info);

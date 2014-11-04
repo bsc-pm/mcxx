@@ -26,18 +26,21 @@
 
 #include <unistd.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
 // This is a tiny library used for tests so they kill themselves after some minutes
 // lest they hang
 
-#define MINUTES 3
+enum { DEFAULT_MINUTES = 3 };
 
+static int minutes = 0;
 static void terminating_signal_handler(int sig)
 {
     // Kill ourselves
-    fprintf(stderr, "[%d] PROCESS HAS LASTED MORE THAN %d MINUTES. KILLING ITSELF\n", getpid(), MINUTES);
+    fprintf(stderr, "[%d] *** PROCESS HAS LASTED MORE THAN %d MINUTES. KILLING ITSELF ****\n", getpid(), minutes);
+    fprintf(stderr, "[%d] (if this is too short set the environment variable PERISH_TIMEOUT_MINUTES)\n", getpid());
     raise(SIGKILL);
 }
 
@@ -53,6 +56,13 @@ __attribute__((constructor(10000))) static void perish_init(void)
 
     sigaction(SIGALRM, &terminating_sigaction, /* old_sigaction */ NULL);
 
+    const char* perish_timeout = getenv("PERISH_TIMEOUT_MINUTES");
+    if (perish_timeout != NULL)
+        minutes = atoi(perish_timeout);
+
+    if (minutes <= 0)
+        minutes = DEFAULT_MINUTES;
+
     // Set timer
-    alarm(60 * (MINUTES));
+    alarm(60 * minutes);
 }

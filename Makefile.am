@@ -1853,6 +1853,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-task-call.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskwait.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskyield.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-register.cpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.hpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-single.cpp \
