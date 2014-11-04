@@ -298,7 +298,6 @@ namespace TL { namespace Intel {
                 Source static_loop;
                 static_loop
                     << common_initialization
-                    << statement_placeholder(prependix_code)
                     << "__kmpc_for_static_init_" << type_kind << "(&" << as_symbol(ident_symbol)
                     <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
                     <<                ", kmp_sch_static"
@@ -308,6 +307,7 @@ namespace TL { namespace Intel {
                     <<                ", &" << stride
                     <<                ", " << step
                     <<                ", " << chunk_size << ");"
+                    << statement_placeholder(prependix_code)
                     << "for (" << as_symbol(private_induction_var) << " = " << lower << "; "
                     <<            as_symbol(private_induction_var) << "<=" << upper << ";"
                     <<            as_symbol(private_induction_var) << "+=" << step << ")"
@@ -355,7 +355,6 @@ namespace TL { namespace Intel {
                     << "enum sched_type " << sched_type << ";"
                     << sched_init
                     << common_initialization
-                    << statement_placeholder(prependix_code)
                     << "__kmpc_dispatch_init_" << type_kind << "(&" << as_symbol(ident_symbol)
                     <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
                     <<                "," << sched_type
@@ -370,6 +369,7 @@ namespace TL { namespace Intel {
                     <<                ",&" << upper
                     <<                ",&" << step << "))"
                     << "{"
+                    << statement_placeholder(prependix_code)
                     <<     "for (" << as_symbol(private_induction_var) << " = " << lower << ";"
                     <<                as_symbol(private_induction_var) << "<=" << upper << ";"
                     <<                as_symbol(private_induction_var) << "+=" << step << ")"
