@@ -1902,9 +1902,11 @@ static void check_component_ref_(AST expr,
         }
 
         if (fortran_is_array_type(lhs_type)
-                && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output))))
+                && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output)))
+                &&  !(fortran_is_character_type(no_ref(component_type))
+                    || fortran_is_pointer_to_character_type(no_ref(component_type))))
         {
-            error_printf("%s: error: nonzero rank data-reference has a component of non-zero rank\n",
+            error_printf("%s: error: nonzero rank data-reference has a component of nonzero rank\n",
                     ast_location(expr));
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
@@ -2291,8 +2293,18 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    xfree(floating_text);
 }
 
+static char is_assumed_shape_or_pointer_array(scope_entry_t* entry)
+{
+    return (entry != NULL
+            && (fortran_is_pointer_to_array_type(no_ref(entry->type_information))
+                || (fortran_is_array_type(no_ref(entry->type_information))
+                    && array_type_with_descriptor(no_ref(entry->type_information))
+                    // allocatable arrays have descriptors but are not assumed shape
+                    && !symbol_entity_specs_get_is_allocatable(entry))));
+}
+
 static char check_argument_association(
-        scope_entry_t* function UNUSED_PARAMETER, 
+        scope_entry_t* function UNUSED_PARAMETER,
         type_t* formal_type,
         type_t* real_type,
         nodecl_t real_argument,
@@ -2352,65 +2364,41 @@ static char check_argument_association(
     // If the actual argument is a scalar, ...
     if (!fortran_is_array_type(real_type))
     {
+        char is_assumed_or_pointer = 0;
         // ... the dummy argument should be a scalar ...
         if (fortran_is_array_type(formal_type))
         {
             char ok = 0;
-            // ... unless the actual argument is an element of an array ...
-            if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT
-                    || (nodecl_get_kind(real_argument) == NODECL_CLASS_MEMBER_ACCESS
-                        && nodecl_get_kind(nodecl_get_child(real_argument, 1)) == NODECL_ARRAY_SUBSCRIPT))
+            // (Fortran 2003) unless the actual argument is a character...
+            if (fortran_is_character_type(real_type))
             {
-                ok = 1;
-                // ... that is _not_ an assumed shape or pointer array ...
-
-                nodecl_t array_subscript = real_argument;
-                if (nodecl_get_kind(real_argument) == NODECL_CLASS_MEMBER_ACCESS)
+                // ... of default kind
+                if (equivalent_types(get_unqualified_type(array_type_get_element_type(real_type)),
+                            fortran_get_default_character_type()))
                 {
-                    array_subscript = nodecl_get_child(real_argument, 1);
-                }
-
-                // FIXME
-                scope_entry_t* array = fortran_data_ref_get_symbol(nodecl_get_child(array_subscript, 0));
-
-                if (array != NULL)
-                {
-                    // ... or a substring of such element ...
-                    if (fortran_is_character_type(no_ref(array->type_information)))
+                    ok = 1;
+                    // ... and the character is not a subscring is not an assumed shape or pointer to array
+                    scope_entry_t* array = fortran_data_ref_get_symbol(real_argument);
+                    if (is_assumed_shape_or_pointer_array(array))
                     {
-                        // The argument was X(1)(1:2), we are now in X(1)  get 'X'
-                        if (nodecl_get_kind(nodecl_get_child(array_subscript, 0)) == NODECL_ARRAY_SUBSCRIPT)
-                        {
-                            // FIXME
-                            array = fortran_data_ref_get_symbol(
-                                    nodecl_get_child(
-                                        nodecl_get_child(array_subscript, 0),
-                                        0));
-                        }
-                        else
-                        {
-                            // This is just X(1:2) 
-                            ok = 0;
-                        }
-                    }
-
-                    if (ok
-                            && array != NULL
-                            && ((array_type_with_descriptor(no_ref(array->type_information))
-                                    // allocatable arrays have descriptors but are not assumed shape
-                                    && !symbol_entity_specs_get_is_allocatable(array))
-                                || fortran_is_pointer_to_array_type(no_ref(array->type_information))))
-                    {
+                        is_assumed_or_pointer = 1;
                         ok = 0;
                     }
                 }
+
             }
-            // Fortran 2003: or a default character
-            else if (fortran_is_character_type(real_type)
-                    && equivalent_types(get_unqualified_type(array_type_get_element_type(real_type)),
-                        fortran_get_default_character_type()))
+            // ... or the actual argument is an element of an array ...
+            else if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT)
             {
                 ok = 1;
+
+                // ... and the array is not an assumed shape or pointer to array
+                scope_entry_t* array = fortran_data_ref_get_symbol(real_argument);
+                if (is_assumed_shape_or_pointer_array(array))
+                {
+                    is_assumed_or_pointer = 1;
+                    ok = 0;
+                }
             }
 
             if (!ok)
@@ -2418,11 +2406,14 @@ static char check_argument_association(
                 if (diagnostic)
                 {
                     error_printf("%s: error: scalar type '%s' of actual argument %d cannot "
-                            "be associated to non-scalar type '%s' of dummy argument\n",
+                            "be associated to non-scalar type '%s' of dummy argument%s\n",
                             locus_to_str(locus),
                             fortran_print_type_str(real_type),
                             argument_num + 1,
-                            fortran_print_type_str(formal_type));
+                            fortran_print_type_str(formal_type),
+                            is_assumed_or_pointer ?
+                                " because it would associate a pointer or assumed array"
+                                : "");
                 }
                 return 0;
             }
