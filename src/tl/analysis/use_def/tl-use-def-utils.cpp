@@ -71,7 +71,7 @@ namespace Analysis {
                     subscripts.front().is_constant() && 
                     const_value_is_zero(subscripts.front().get_constant()))
                 {
-                    n.replace(Nodecl::Reference::make(rhs.as<Nodecl::ArraySubscript>().get_subscripted().shallow_copy(), n.get_type()));
+                    n.replace(rhs.as<Nodecl::ArraySubscript>().get_subscripted().shallow_copy());
                 }
             }
             else
