@@ -634,9 +634,10 @@ check_sync:
         {
             const TL::Analysis::NodeclSet& node_killed = (*it)->get_killed_vars();
             concurrent_defs.insert(node_killed.begin(), node_killed.end());
+            // FIXME We must distinguish here the certain incoherencies from those uncertain
             // To be conservative, the undef. variables count as definitions
-            const TL::Analysis::NodeclSet& node_undef = (*it)->get_undefined_behaviour_vars();
-            concurrent_defs.insert(node_undef.begin(), node_undef.end());
+//             const TL::Analysis::NodeclSet& node_undef = (*it)->get_undefined_behaviour_vars();
+//             concurrent_defs.insert(node_undef.begin(), node_undef.end());
         }
 
         // 2.- Check that, at least, one accesses within the task or
@@ -944,8 +945,8 @@ check_sync:
         // 1.4.- Get the set of variables defined within the task
         //     To be conservative, the undefined behavior variables count as definitions
         TL::Analysis::NodeclSet task_defs = task->get_killed_vars();
-        const TL::Analysis::NodeclSet& task_undef = task->get_undefined_behaviour_vars();
-        task_defs.insert(task_undef.begin(), task_undef.end());
+//         const TL::Analysis::NodeclSet& task_undef = task->get_undefined_behaviour_vars();
+//         task_defs.insert(task_undef.begin(), task_undef.end());
 
         // 2.- Check concurrent accesses for each shared variable in the task in the different contexts
         // ////////////////////////////////////////////////////////////////////////////////////////////
@@ -1249,44 +1250,44 @@ skip_current_var: ;
 
     bool var_is_used_between_nodes(TL::Analysis::Node* source, TL::Analysis::Node* target, const Nodecl::NodeclBase& n)
     {
-        if(source->is_visited() || (source == target) || source->is_exit_node())
+        if (source->is_visited() || (source == target) || source->is_exit_node())
             return false;
-
-        bool result = false;
 
         source->set_visited(true);
 
         // Treat the current node
         if (source->is_graph_node())
-            result = var_is_used_between_nodes(source->get_graph_entry_node(), target, n);
+        {
+            if (var_is_used_between_nodes(source->get_graph_entry_node(), target, n))
+                return true;
+        }
         else if(source->has_statements())
         {
             const TL::ObjectList<Nodecl::NodeclBase>& stmts = source->get_statements();
-            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end() && !result; ++it)
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin();
+                 it != stmts.end(); ++it)
             {
                 const TL::ObjectList<Nodecl::NodeclBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
                 if (Nodecl::Utils::list_contains_nodecl_by_structure(mem_accesses, n))
                 {
-                    result = true;
-                    break;
+                    return true;
                 }
             }
         }
 
         // Treat the children
-        if (!result)
+        const TL::ObjectList<TL::Analysis::Node*>& children = source->get_children();
+        for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
+             it != children.end(); ++it)
         {
-            const TL::ObjectList<TL::Analysis::Node*>& children = source->get_children();
-            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
-                (it != children.end()) && !result; ++it)
-            {
-                result = var_is_used_between_nodes(*it, target, n);
-            }
+            if (var_is_used_between_nodes(*it, target, n))
+                return true;
         }
 
-        return result;
+        return false;
     }
-    
+
+#if 0
     bool var_is_used_in_node_after_definition(TL::Analysis::Node* node, const Nodecl::NodeclBase& n)
     {
         bool result = false;
@@ -1319,72 +1320,97 @@ skip_current_var: ;
         
         return result;
     }
-    
-    TL::Analysis::Node* get_var_last_definition( Nodecl::NodeclBase n, TL::Analysis::Node* task_exit )
+#endif
+
+    void get_var_last_definitions(
+            Nodecl::NodeclBase n, TL::Analysis::Node* task,
+            TL::ObjectList<Nodecl::NodeclBase>& last_definitions_vars,
+            TL::ObjectList<TL::Analysis::Node*>& last_definitions_nodes)
     {
-        TL::Analysis::Node* result = NULL;
-        TL::ObjectList<TL::Analysis::Node*> parents = task_exit->get_parents( );
+        TL::ObjectList<TL::Analysis::Node*> result;
+        TL::Analysis::Node* task_entry = task->get_graph_entry_node();
+        TL::Analysis::Node* task_exit = task->get_graph_exit_node();
+        TL::ObjectList<TL::Analysis::Edge*> entries = task_exit->get_entry_edges();
         TL::Analysis::NodeclSet killed_vars;
-        while( !parents.empty( ) && ( result == NULL ) )
+        std::set<TL::Analysis::Node*> visited_nodes;
+        while (!entries.empty())
         {
-            TL::ObjectList<TL::Analysis::Node*> new_parents;
-            for( TL::ObjectList<TL::Analysis::Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+            TL::ObjectList<TL::Analysis::Edge*> new_entries;
+            // Look for definitions in the current list of entry edges
+            for (TL::ObjectList<TL::Analysis::Edge*>::iterator it = entries.begin();
+                 it != entries.end(); ++it)
             {
-                killed_vars = (*it)->get_killed_vars( );
+                TL::Analysis::Node* src = (*it)->get_source();
+                if (visited_nodes.find(src) != visited_nodes.end())
+                    continue;
+                visited_nodes.insert(src);
+                // If this is a graph node, continue with its exit node, so we do not miss the inner nodes
+                if (src->is_graph_node())
+                    src = src->get_graph_exit_node();
+
                 // When a variable has pointer or array type, only the variable itself is included in the data-sharing attributes list
                 // Nonetheless, we also need to check the usage of the pointed values
-                // Thus, we use the nodecl_set_contains_enclosed_nodecl instead of using ext_sym_set_contains_nodecl
-                if( !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( n, killed_vars ).is_null() ) {
-                    result = *it;
-                    break;
+                killed_vars = src->get_killed_vars();
+                const Nodecl::List& killed_subparts =
+                        TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(n, killed_vars);
+                if (!killed_subparts.is_null())
+                {
+                    for (Nodecl::List::iterator itk = killed_subparts.begin(); itk != killed_subparts.end(); ++itk)
+                        last_definitions_vars.append(*itk);
+                    last_definitions_nodes.append(src);
                 }
-                new_parents.insert( (*it)->get_parents( ) );
+                else
+                {
+                    if (src->is_entry_node() && src != task_entry)
+                        new_entries.append(src->get_outer_node()->get_entry_edges());
+                    else
+                        new_entries.append(src->get_entry_edges());
+                }
             }
-            if( result != NULL && result->is_graph_node( ) )
-            {
-                parents = result->get_graph_exit_node( )->get_parents( );
-                result = NULL;
-            }
-            else
-                parents = new_parents;
+
+            // Prepare the next iteration
+            entries = new_entries;
         }
-        
-        return result;
     }
-    
-    bool var_is_used_in_task_after_definition( const Nodecl::NodeclBase& n, TL::Analysis::Node* task )
+
+    bool var_is_used_in_task_after_definition(const Nodecl::NodeclBase& n, TL::Analysis::Node* task)
     {
-        bool result = false;
-        
         TL::Analysis::Node* task_exit = task->get_graph_exit_node();
-        TL::Analysis::Node* last_definition = get_var_last_definition(n, task_exit);
-        ERROR_CONDITION( last_definition == NULL, 
-                         "Variable '%s' is defined inside task %d, but the definition has not been found\n", 
-                         n.prettyprint().c_str(), task->get_id());
-        
+        TL::ObjectList<Nodecl::NodeclBase> last_definitions_vars;
+        TL::ObjectList<TL::Analysis::Node*> last_definitions_nodes;
+        get_var_last_definitions(n, task, last_definitions_vars, last_definitions_nodes);
+        ERROR_CONDITION(last_definitions_vars.empty(),
+                        "Variable '%s' is defined inside task %d, but the definition has not been found\n",
+                        n.prettyprint().c_str(), task->get_id());
+
+        // FIXME We do not concatenate any more sequential statements in the same node, so we do not need this
         // Check is the variable is used in the same node it is defined, after the definition
-        result = var_is_used_in_node_after_definition(last_definition, n);
-        
-        // Check is the variable is used between the node it is defined and the end of the task
-        if(!result)
+//         bool result = var_is_used_in_node_after_definition(last_definition, n);
+
+        TL::ObjectList<Nodecl::NodeclBase>::const_iterator itv = last_definitions_vars.begin();
+        TL::ObjectList<TL::Analysis::Node*>::const_iterator itn = last_definitions_nodes.begin();
+        for (; itv != last_definitions_vars.end(); ++itv, ++itn)
         {
-            last_definition->set_visited(true);
-            const ObjectList<TL::Analysis::Node*>& children = last_definition->get_children();
-            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
-                 it != children.end() && !result; ++it)
+            // We start with the children to avoid the use of the definition
+            const TL::ObjectList<TL::Analysis::Node*>& children = (*itn)->get_children();
+            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator itc = children.begin();
+                 itc != children.end(); ++itc)
             {
-                result = var_is_used_between_nodes(*it, task_exit, n);
+                TL::Analysis::Node* last_def = *itc;
+                bool result = var_is_used_between_nodes(last_def, task_exit, *itv);
+                TL::Analysis::ExtensibleGraph::clear_visits(last_def);
+                if (!result)
+                    return false;
             }
-            TL::Analysis::ExtensibleGraph::clear_visits(last_definition);
         }
         
-        return result;
+        return true;
     }
-    
-        
+
     std::string get_dead_vars(
-            const Nodecl::List& var_list, unsigned int& n_vars,
-            const TL::Analysis::NodeclSet& killed_vars, 
+            const Nodecl::List& var_list,
+            unsigned int& n_vars,
+            const TL::Analysis::NodeclSet& killed_vars,
             TL::Analysis::Node* task)
     {
         std::string dead_code_vars;
@@ -1402,11 +1428,25 @@ skip_current_var: ;
         }
         return dead_code_vars;
     }
-    
+
+    static bool is_used_address(const Nodecl::NodeclBase& n,
+            const TL::Analysis::NodeclSet& used_addrs)
+    {
+        for (TL::Analysis::NodeclSet::const_iterator it = used_addrs.begin();
+                it != used_addrs.end(); ++it)
+        {
+            const Nodecl::NodeclBase& base_it = TL::Analysis::Utils::get_nodecl_base(*it);
+            if (Nodecl::Utils::structurally_equal_nodecls(n, base_it, /*skip_conversions*/true))
+                return true;
+        }
+        return false;
+    }
+
     std::string get_unnecessarily_scoped_vars(
             const Nodecl::List& scope_vars, unsigned int& n_vars,
             const TL::Analysis::NodeclSet& all_vars,
             const TL::Analysis::NodeclSet& dependency_vars,
+            const TL::Analysis::NodeclSet& used_addrs,
             TL::Analysis::Node* task)
     {
         std::string unnecessarily_scoped_vars;
@@ -1416,7 +1456,8 @@ skip_current_var: ;
             if (TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(*it, all_vars).is_null()
                     && (TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(*it, dependency_vars).is_null()
                             || TL::Analysis::Utils::nodecl_set_contains_enclosing_nodecl(*it, dependency_vars).is_null())
-                    && TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(*it, used_addresses).is_null())
+                    && TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(*it, used_addresses).is_null()
+                    && !is_used_address(*it, used_addrs))
             {
                 std::string var_name = it->prettyprint();
                 if(it->get_symbol().is_saved_expression())
@@ -1456,6 +1497,7 @@ skip_current_var: ;
             const Nodecl::List& firstprivate_vars, unsigned int& n_vars,
             const TL::Analysis::NodeclSet& all_ue_vars,
             const TL::Analysis::NodeclSet& dependency_vars,
+            const TL::Analysis::NodeclSet& used_addrs,
             TL::Analysis::Node* task)
     {
         std::string incoherent_firstprivate_vars;
@@ -1467,7 +1509,8 @@ skip_current_var: ;
             if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(n, all_ue_vars)
                     && TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(n, used_addresses).is_null()
                     && !TL::Analysis::Utils::nodecl_set_contains_nodecl(n, dependency_vars)
-                    && !Nodecl::Utils::nodecl_is_in_nodecl_list(n, correctness_dead_vars))
+                    && !Nodecl::Utils::nodecl_is_in_nodecl_list(n, correctness_dead_vars)
+                    && !is_used_address(*it, used_addrs))
             {
                 if(it->get_symbol().is_saved_expression())
                     // Avoid variables generated by the compiler
@@ -1515,14 +1558,16 @@ skip_current_var: ;
         TL::Analysis::NodeclSet all_killed_vars = task->get_killed_vars();
         const TL::Analysis::NodeclSet& private_killed_vars = task->get_private_killed_vars( );
         all_killed_vars.insert(private_killed_vars.begin(), private_killed_vars.end());
-        
-        TL::Analysis::NodeclSet all_undef_vars = task->get_undefined_behaviour_vars( );
-        const TL::Analysis::NodeclSet& private_undef_vars = task->get_private_undefined_behaviour_vars( );
-        all_undef_vars.insert(private_undef_vars.begin(), private_undef_vars.end());
+
+        // FIXME We must distinguish here certain incoherencies from uncertain ones
+//         TL::Analysis::NodeclSet all_undef_vars = task->get_undefined_behaviour_vars( );
+//         const TL::Analysis::NodeclSet& private_undef_vars = task->get_private_undefined_behaviour_vars( );
+//         all_undef_vars.insert(private_undef_vars.begin(), private_undef_vars.end());
         
         TL::Analysis::NodeclSet all_vars = all_ue_vars;
         all_vars.insert(all_killed_vars.begin(), all_killed_vars.end());
-        all_vars.insert(all_undef_vars.begin(), all_undef_vars.end());
+//         all_vars.insert(all_undef_vars.begin(), all_undef_vars.end());
+        const TL::Analysis::NodeclSet& used_addrs = task->get_used_addresses();
         
         // 3.- Collect dependency clauses, for these may use variables that need to be scoped (shape expressions, array subscripts)
         Nodecl::List tmp_dependency_vars;
@@ -1554,7 +1599,7 @@ skip_current_var: ;
         unsigned int n_unnecessarily_scoped_vars = 0;
         std::string unnecessarily_scoped_vars = get_unnecessarily_scoped_vars(
                 task_scoped_vars, n_unnecessarily_scoped_vars,
-                all_vars, dependency_vars, task);
+                all_vars, dependency_vars, used_addrs, task);
         if (!unnecessarily_scoped_vars.empty())
         {
             unnecessarily_scoped_vars = unnecessarily_scoped_vars.substr(0, unnecessarily_scoped_vars.size()-2);
@@ -1602,7 +1647,7 @@ skip_current_var: ;
         //       Avoid reporting variables already reported in case 2
         unsigned int n_incoherent_firstprivate_vars = 0;
         std::string incoherent_firstprivate_vars = get_incoherent_firstprivate_vars(
-                firstprivate_vars, n_incoherent_firstprivate_vars, all_ue_vars, dependency_vars, task);
+                firstprivate_vars, n_incoherent_firstprivate_vars, all_ue_vars, dependency_vars, used_addrs, task);
         if (!incoherent_firstprivate_vars.empty())
         {
             incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);

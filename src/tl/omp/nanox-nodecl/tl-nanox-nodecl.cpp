@@ -26,6 +26,7 @@
 
 #include "tl-nanox-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-final-stmts-generator.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "codegen-phase.hpp"
@@ -97,7 +98,16 @@ namespace TL { namespace Nanox {
         this->load_headers(dto);
 
         Nodecl::NodeclBase n = dto["nodecl"];
-        LoweringVisitor lowering_visitor(this,RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]));
+
+        FinalStmtsGenerator final_generator(RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]));
+        // If the final clause transformation is disabled we shouldn't generate the final stmts
+        if (!_final_clause_transformation_disabled)
+            final_generator.walk(n);
+
+        LoweringVisitor lowering_visitor(
+                this,
+                RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]),
+                final_generator.get_final_stmts());
         lowering_visitor.walk(n);
 
         finalize_phase(n);
