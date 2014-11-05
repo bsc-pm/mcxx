@@ -1890,6 +1890,26 @@ static void check_component_ref_(AST expr,
         {
             check_array_ref_(rhs, decl_context, *nodecl_output, *nodecl_output, nodecl_output,
                     do_complete_array_ranks, require_lower_bound);
+
+            if (fortran_is_array_type(lhs_type)
+                    && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output))))
+            {
+                error_printf("%s: error: nonzero rank data-reference has a component of nonzero rank\n",
+                        ast_location(expr));
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                return;
+            }
+
+            synthesized_type = fortran_rebuild_array_type(
+                    no_ref(nodecl_get_type(*nodecl_output)),
+                    lhs_type);
+
+            if (is_lvalue_reference_type(class_type))
+            {
+                synthesized_type = get_lvalue_reference_type(synthesized_type);
+            }
+
+            nodecl_set_type(*nodecl_output, synthesized_type);
         }
         else if (fortran_is_character_type(no_ref(component_type))
                 || fortran_is_pointer_to_character_type(no_ref(component_type)))
@@ -1900,23 +1920,6 @@ static void check_component_ref_(AST expr,
         {
             internal_error("code unreachable", 0);
         }
-
-        if (fortran_is_array_type(lhs_type)
-                && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output)))
-                &&  !(fortran_is_character_type(no_ref(component_type))
-                    || fortran_is_pointer_to_character_type(no_ref(component_type))))
-        {
-            error_printf("%s: error: nonzero rank data-reference has a component of nonzero rank\n",
-                    ast_location(expr));
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
-            return;
-        }
-
-        synthesized_type = fortran_rebuild_array_type(
-                no_ref(nodecl_get_type(*nodecl_output)),
-                lhs_type);
-
-        nodecl_set_type(*nodecl_output, synthesized_type);
     }
 }
 
