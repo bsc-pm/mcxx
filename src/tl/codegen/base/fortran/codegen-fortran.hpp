@@ -277,6 +277,10 @@ namespace Codegen
             typedef std::set<std::string> name_set_t;
             std::vector<name_set_t> _name_set_stack;
 
+            // We have to remember explicit uses because of a bug in gfortran
+            typedef std::set<std::pair<std::string, std::pair<std::string, std::string> > > explicit_use_t;
+            std::vector<explicit_use_t> _explicit_use_stack;
+
             // Given a symbol, its rename, if any. When _name_set detects
             // that a name has already been used in this scoping unit
             // a rename for it is computed, and then kep here
@@ -430,6 +434,15 @@ namespace Codegen
             void remove_rename(TL::Symbol sym);
             void clear_renames();
 
+            bool explicit_use_has_already_been_emitted(
+                    const std::string& module_name,
+                    const std::string& name,
+                    const std::string& rename_name);
+            void set_explicit_use_has_already_been_emitted(
+                    const std::string& module_name,
+                    const std::string& name,
+                    const std::string& rename_name);
+
             void emit_ptr_loc_C();
 
             void push_declaration_status();
@@ -457,7 +470,7 @@ namespace Codegen
             void emit_floating_constant(const_value_t* value);
             void emit_integer_constant(const_value_t* value, TL::Type t);
 
-            void emit_only_list(Nodecl::List only_items);
+            void emit_only_list(const std::string& module_name, Nodecl::List only_items);
 
             std::string _emit_fun_loc_str;
             bool _emit_fun_loc;
