@@ -2224,6 +2224,7 @@ namespace TL
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
+        EMPTY_HANDLERS_DIRECTIVE(register)
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

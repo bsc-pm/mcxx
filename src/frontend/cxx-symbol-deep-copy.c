@@ -18,7 +18,9 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
 {
-    ERROR_CONDITION(source->kind == SK_CLASS, "Local class replication not implemented yet", 0);
+    ERROR_CONDITION(source->kind == SK_CLASS
+            && symbol_entity_specs_get_from_module(source) == NULL,
+            "Local class replication not implemented yet", 0);
     ERROR_CONDITION(source->kind == SK_NAMESPACE, "Namespaces should not be replicated!", 0);
 
     // Note that context is not copied, thus this symbol should already have a
@@ -53,7 +55,9 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
             nodecl_deep_copy_map,
             symbol_deep_copy_map);
 
-    if (dest->kind == SK_FUNCTION)
+    if (dest->kind == SK_FUNCTION
+            // Generic specifiers are tagged as SK_FUNCTION
+            && !symbol_entity_specs_get_is_generic_spec(dest))
     {
         int i;
         for (i = 0; i < symbol_entity_specs_get_num_related_symbols(dest); i++)

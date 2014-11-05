@@ -1844,6 +1844,8 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp \
@@ -1853,6 +1855,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-task-call.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskwait.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskyield.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-register.cpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.hpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-single.cpp \

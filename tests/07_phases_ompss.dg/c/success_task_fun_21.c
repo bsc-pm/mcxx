@@ -29,48 +29,26 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_ENV="PERISH_TIMEOUT_MINUTES=5"
+test_CFLAGS="--no-copy-deps"
 </testinfo>
 */
-#include<unistd.h>
-#include<assert.h>
 
-#define N 10
-#define M 100
+#pragma omp task final(x1 > 4)
+void f(int x1);
 
-struct A
+void f(int x)
 {
-    int x[M];
-};
+    if (x > 1)
+        f(x-1);
+}
 
-int main()
+void g(int y)
 {
-    struct A a[N];
-    int i, j;
-    for (i = 0; i < N; ++i)
-    {
-        for (j = 0; j < M; ++j)
-        {
-            a[i].x[j] = -1;
-        }
-    }
+    f(y + 2);
+}
 
-    int z = 3, ub = 10, lb = 0;
-    int *p = &(a[z].x[lb]);
-    #pragma omp task out(a[z].x[lb:ub])
-    {
-        sleep(1);
-        int k;
-        for (k = lb; k <= ub; k++)
-            a[z].x[k] = 2;
-    }
-
-    #pragma omp task in(*p)
-    {
-        int i;
-        for (i = 0; i <= (ub - lb); i++)
-            assert(p[i] == 2);
-    }
-    #pragma omp taskwait
+int main(int argc, char *argv[])
+{
+    g(10);
     return 0;
 }

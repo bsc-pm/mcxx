@@ -993,60 +993,13 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
-    bool expression_stmt_is_compound_assignment(Nodecl::NodeclBase expr_stmt)
-    {
-        ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(),
-                        "Unexpected node %s\n", ast_print_node_type(expr_stmt.get_kind()));
-
-        Nodecl::NodeclBase expr = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
-        return (expr.is<Nodecl::AddAssignment>()
-                || expr.is<Nodecl::ArithmeticShrAssignment>()
-                || expr.is<Nodecl::BitwiseAndAssignment>()
-                || expr.is<Nodecl::BitwiseOrAssignment>()
-                || expr.is<Nodecl::BitwiseShlAssignment>()
-                || expr.is<Nodecl::BitwiseShrAssignment>()
-                || expr.is<Nodecl::BitwiseXorAssignment>()
-                || expr.is<Nodecl::DivAssignment>()
-                || expr.is<Nodecl::MinusAssignment>()
-                || expr.is<Nodecl::ModAssignment>()
-                || expr.is<Nodecl::MulAssignment>());
-    }
-
-    bool is_a_subexpression_of(Nodecl::NodeclBase subexpr, Nodecl::NodeclBase expr)
-    {
-        if (expr.is_null())
-            return false;
-
-        if (expr.get_kind() == subexpr.get_kind()
-                && Nodecl::Utils::structurally_equal_nodecls(expr, subexpr))
-            return true;
-
-        bool found = false;
-        if (expr.is<Nodecl::List>())
-        {
-            Nodecl::List l = expr.as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin(); it != l.end() && !found; it++)
-            {
-                found = is_a_subexpression_of(subexpr, *it);
-            }
-        }
-        else
-        {
-            TL::ObjectList<Nodecl::NodeclBase> children = expr.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                    it != children.end() && !found;
-                    it++)
-            {
-                found = is_a_subexpression_of(subexpr, *it);
-            }
-        }
-        return found;
-    }
-
-    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+    static bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
+
+        // We use the analysis phase here to know if an expression is a reduction.
+        // Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
 #ifdef ANALYSIS_ENABLED
         TL::Analysis::AnalysisInterface a;
         bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
@@ -1054,22 +1007,6 @@ namespace TL { namespace OpenMP {
 #else
         return 0;
 #endif
-
-        // // FIXME: How to know if a expression is a reduction will be implemented by
-        // // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
-        // Nodecl::NodeclBase lhs_expr, rhs_expr;
-        // decompose_expression_statement(expr, lhs_expr, rhs_expr);
-
-        // // If the expression does not have a left-hand-side expression, this is not a reduction
-        // if (lhs_expr.is_null())
-        //     return false;
-
-        // // If the expression is a compound assignment, this is a reduction
-        // if (expression_stmt_is_compound_assignment(expr))
-        //     return true;
-
-        // // Detect this kind of reductions: x = foo(i) + x;
-        // return is_a_subexpression_of(lhs_expr, rhs_expr);
     }
 
     Nodecl::OpenMP::Task FunctionCallVisitor::generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)

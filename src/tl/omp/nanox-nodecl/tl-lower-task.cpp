@@ -817,9 +817,6 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
-    // This copied_statements will be used when we are generating the code for the 'final' clause
-    Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, construct);
-
     walk(statements);
 
     TaskEnvironmentVisitor task_environment;
@@ -898,16 +895,16 @@ void LoweringVisitor::visit_task(
         // first (and the unique) list node
         Nodecl::NodeclBase final_stmt_list = copied_statements_placeholder.get_parent();
 
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
         // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
-        copied_statements_placeholder.replace(copied_statements);
+        copied_statements_placeholder.replace(it->second);
 
         ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
 
-        // Remove the OmpSs/OpenMP task stuff from the tree
-        RemoveOpenMPTaskStuff visitor;
-        visitor.walk(final_stmt_list);
-
-        // Walk over the tree transforming OpenMP/OmpSs pragmas
+        // Walk over the tree transforming OpenMP/OmpSs non-task pragmas
         walk(final_stmt_list);
     }
     else
@@ -1990,7 +1987,6 @@ void LoweringVisitor::fill_copies(
         )
 {
     num_copies = count_copies(outline_info);
-
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {

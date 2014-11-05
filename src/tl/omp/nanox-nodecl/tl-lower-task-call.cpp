@@ -35,6 +35,7 @@
 #include "tl-devices.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "fortran03-typeutils.h"
 #include "fortran03-scope.h"
@@ -1100,10 +1101,13 @@ void LoweringVisitor::visit_task_call_c(
             && arguments_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase expr_direct_call_to_function =
-            Nodecl::ExpressionStatement::make(
-                    function_call.shallow_copy(),
-                    function_call.get_locus());
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+         Nodecl::NodeclBase expr_direct_call_to_function =
+             Nodecl::ExpressionStatement::make(
+                     it->second,
+                     it->second.get_locus());
 
         TL::Source code;
         code
@@ -1392,6 +1396,7 @@ static TL::Symbol new_function_symbol_adapter(
 }
 
 Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
+        const Nodecl::OpenMP::TaskCall& construct,
         TL::Symbol adapter_function,
         TL::Symbol called_function,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -1506,6 +1511,18 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             && dummy_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+        // We must update the arguments of the final expression because
+        // it's not expressed in terms of the adapter function
+        it->second.as<Nodecl::FunctionCall>().set_arguments(argument_seq.shallow_copy());
+
+         Nodecl::NodeclBase expr_direct_call_to_function =
+             Nodecl::ExpressionStatement::make(
+                     it->second,
+                     it->second.get_locus());
+
         TL::Source code;
         code
             << "{"
@@ -1514,7 +1531,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(call_to_original.shallow_copy())
+            <<          as_statement(expr_direct_call_to_function)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -1649,7 +1666,9 @@ void LoweringVisitor::visit_task_call_fortran(
 
     // Get parameters outline info
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
-    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
+    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(
+            construct,
+            adapter_function,
             called_task_function,
             symbol_map,
             function_call,
