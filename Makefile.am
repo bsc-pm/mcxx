@@ -1842,6 +1842,8 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp \

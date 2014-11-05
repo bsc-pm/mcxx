@@ -38,7 +38,11 @@ namespace TL { namespace Nanox {
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
-        LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
+        LoweringVisitor(
+                Lowering* lowering,
+                RefPtr<OpenMP::FunctionTaskSet> function_task_set,
+                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map);
+
         ~LoweringVisitor();
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
@@ -71,6 +75,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         // 'nanos_const_wd_definition_t'
         std::map<int, Symbol> _declared_const_wd_type_map;
 
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
         std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol> _declared_ocl_allocate_functions;
 
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
@@ -404,6 +409,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         Nodecl::NodeclBase fill_adapter_function(
+                const Nodecl::OpenMP::TaskCall& construct,
                 TL::Symbol adapter_function,
                 TL::Symbol called_function,
                 Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -415,6 +421,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
+
+
+        void generate_final_stmts(Nodecl::NodeclBase stmts);
+
 };
 
 } }
