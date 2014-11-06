@@ -60,11 +60,12 @@ namespace{
             }
             else
             {
-                if(it->is<Nodecl::OpenMP::Target>() || it->is<Nodecl::OpenMP::If>() || 
-                    it->is<Nodecl::OpenMP::Final>() || it->is<Nodecl::OpenMP::Untied>() ||
-                    it->is<Nodecl::OpenMP::Firstprivate>() || it->is<Nodecl::OpenMP::Private>() || 
-                    it->is<Nodecl::OpenMP::Shared>() || 
-                    it->is<Nodecl::OpenMP::FlushAtEntry>() || it->is<Nodecl::OpenMP::FlushAtExit>())
+                if (it->is<Nodecl::OpenMP::Target>() || it->is<Nodecl::OpenMP::If>()
+                        || it->is<Nodecl::OpenMP::Final>() || it->is<Nodecl::OpenMP::Untied>()
+                        || it->is<Nodecl::OpenMP::Firstprivate>() || it->is<Nodecl::OpenMP::Private>()
+                        || it->is<Nodecl::OpenMP::Shared>()
+                        || it->is<Nodecl::OpenMP::FlushAtEntry>() || it->is<Nodecl::OpenMP::FlushAtExit>()
+                        || it->is<Nodecl::OpenMP::TaskLabel>())
                 {}  // Ignore them, we expect them here
                 else
                 {
