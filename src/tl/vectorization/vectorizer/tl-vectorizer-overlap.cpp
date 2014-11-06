@@ -42,7 +42,8 @@ namespace Vectorization
 {
     Nodecl::List OverlapGroup::get_init_statements(
             const Nodecl::ForStatement& for_stmt,
-            const bool is_simd_for) const 
+            const bool is_simd_loop, 
+            const bool is_omp_simd_for) const 
     {
         const objlist_nodecl_t& ivs_list = OverlappedAccessesOptimizer::
             _analysis->get_linear_nodecls(for_stmt);
@@ -65,7 +66,7 @@ namespace Vectorization
                 Nodecl::NodeclBase iv_lb;
 
                 // SIMD FOR keeps IV to replece it in the Intel RTL phase
-                if (is_simd_for)
+                if (is_simd_loop && is_omp_simd_for)
                 {
                     iv_lb = *iv;
                 }
@@ -543,11 +544,11 @@ namespace Vectorization
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment,
             VectorizationAnalysisInterface *analysis,
-            const bool is_simd_for,
+            const bool is_omp_simd_for,
             const bool is_epilog,
-            Nodecl::List& init_stmts)
-        : _environment(environment), _is_simd_for(is_simd_for),
-        _is_epilog(is_epilog), _init_stmts(init_stmts),
+            Nodecl::List& prependix_stmts)
+        : _environment(environment), _is_omp_simd_for(is_omp_simd_for),
+        _is_epilog(is_epilog), _prependix_stmts(prependix_stmts),
         _first_analysis(analysis)
     {
         _analysis = analysis;
@@ -750,7 +751,7 @@ namespace Vectorization
                     compute_group_properties(*ogroup, scope,
                             max_group_registers, num_group);
                     insert_group_update_stmts(*ogroup, main_loop,
-                            _is_simd_for || !_is_epilog /*init_cache*/,
+                            _is_omp_simd_for || !_is_epilog /*init_cache*/,
                             !_is_epilog /*update post*/);
                     replace_overlapped_loads(*ogroup);
 
@@ -1368,8 +1369,20 @@ namespace Vectorization
         // Init Statements
         if (init_cache)
         {
-            _init_stmts.prepend(ogroup.get_init_statements(
-                        n, _is_simd_for));
+            bool is_simd_loop = _environment._analysis_simd_scope == n;
+
+            Nodecl::NodeclBase init_stmts =
+                ogroup.get_init_statements(n, is_simd_loop,
+                        _is_omp_simd_for);
+
+            if(is_simd_loop)
+            {
+                _prependix_stmts.prepend(init_stmts);
+            }
+            else
+            {
+                n.prepend_sibling(init_stmts);
+            }
         }
 
         if (update_post)

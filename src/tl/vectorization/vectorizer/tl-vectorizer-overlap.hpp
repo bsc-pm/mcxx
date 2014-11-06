@@ -101,7 +101,8 @@ namespace TL
 
             Nodecl::List get_init_statements(
                     const Nodecl::ForStatement& for_stmt,
-                    const bool is_simd_for) const;
+                    const bool is_simd_loop,
+                    const bool is_omp_simd_for) const;
             Nodecl::List get_iteration_update_pre() const;
             Nodecl::List get_iteration_update_post() const;
 
@@ -122,9 +123,9 @@ namespace TL
         {
             private:
                 const VectorizerEnvironment& _environment;
-                bool _is_simd_for;
+                bool _is_omp_simd_for;
                 bool _is_epilog;
-                Nodecl::List& _init_stmts;
+                Nodecl::List& _prependix_stmts;
                 
                 VectorizationAnalysisInterface* _first_analysis;
 
@@ -167,9 +168,9 @@ namespace TL
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment,
                         VectorizationAnalysisInterface* analysis,
-                        const bool is_simd_for,
+                        const bool is_omp_simd_for,
                         const bool is_epilog,
-                        Nodecl::List& init_stmts);
+                        Nodecl::List& prependix_stmts);
                 
                 void visit(const Nodecl::ForStatement&);
 
