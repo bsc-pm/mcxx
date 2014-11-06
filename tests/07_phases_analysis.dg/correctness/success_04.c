@@ -160,3 +160,42 @@ void mandelbrot3(int height,
     }
 }
 #endif
+
+#if 1
+void mandelbrot4(int height,
+                 int width,
+                 double real_min,
+                 double imag_min,
+                 double scale_real,
+                 double scale_imag,
+                 int maxiter,
+                 int ** output)
+
+{
+    complex z, c;
+    #pragma omp parallel private(row2)
+    for (row2 = 0; row2 < height; ++row2) {
+        #pragma analysis_check assert correctness_race(row2, col2, z, c)
+        #pragma omp task
+        for (col2 = 0; col2 < width; ++col2) {
+
+            z.real = z.imag = 0;
+
+            /* Scale display coordinates to actual region  */
+            c.real = real_min + ((double) col2 * scale_real);
+            c.imag = imag_min + ((double) (height-1-row2) * scale_imag);
+            int k = 0;
+            double lengthsq, temp;
+            do  {
+                temp = z.real*z.real - z.imag*z.imag + c.real;
+                z.imag = 2*z.real*z.imag + c.imag;
+                z.real = temp;
+                lengthsq = z.real*z.real + z.imag*z.imag;
+                ++k;
+            } while (lengthsq < (N*N) && k < maxiter);
+
+            output[row2][col2]=k;
+        }
+    }
+}
+#endif

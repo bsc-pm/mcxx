@@ -770,7 +770,7 @@ check_sync:
             if (outer->is_omp_parallel_node() || outer->is_omp_task_node())
             {
                 const TL::Analysis::NodeclSet& outer_private_vars = outer->get_all_private_vars();
-                if (outer_private_vars.find(var) == outer_private_vars.end())
+                if (outer_private_vars.find(var) != outer_private_vars.end())
                 {
                     private_sc = outer;
                 }
