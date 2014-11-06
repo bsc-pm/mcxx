@@ -471,15 +471,33 @@ ptd_nodecl_found:   ;
     
     bool nodecl_map_equivalence(const NodeclMap& m1, const NodeclMap& m2)
     {
-        if(m1.size() != m2.size())
+        if (m1.size() != m2.size())
             return false;
         
         NodeclMap::const_iterator it1 = m1.begin();
         NodeclMap::const_iterator it2 = m2.begin();
-        for( ; it1 != m1.end(); ++it1, ++it2)
-            if((it1->first != it2->first) || (it1->second != it2->second))
+        std::pair <NodeclMap::const_iterator, NodeclMap::const_iterator> range1, range2;
+        for ( ; it1 != m1.end(); )
+        {
+            // 1.- If the number of entries for a given key is different in the two sets, the maps are different
+            if (m1.count(it1->first) != m2.count(it2->first))
                 return false;
-        
+
+            // 2.- Compare all entries regardless of the order
+            range1 = m1.equal_range(it1->first);
+            range2 = m2.equal_range(it2->first);
+            for (NodeclMap::const_iterator itr1 = range1.first; itr1 != range1.second; )
+            {
+                for (NodeclMap::const_iterator itr2 = range2.first; itr2 != range2.second; ++itr2)
+                {
+                    if (Nodecl::Utils::structurally_equal_nodecls(itr1->first, itr2->first, /*skip_conversions*/true)
+                            && Nodecl::Utils::structurally_equal_nodecls(itr1->second.first, itr2->second.first, /*skip_conversions*/true))
+                        goto next_it;
+                }
+                return false;
+next_it:        ++itr1, ++it1, ++it2;
+            }
+        }
         return true;
     }
     
