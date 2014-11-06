@@ -24,7 +24,8 @@
 #include "tl-analysis-internals.hpp"
 
 #include "tl-tribool.hpp"
- 
+#include "cxx-cexpr.h"
+
 namespace TL  {
 namespace Analysis {
 
@@ -132,6 +133,101 @@ namespace Analysis {
     /*
      *  QUERIES
      */
+    int get_assume_aligned_rec(
+            Node* current,
+            const Nodecl::Symbol& n)
+    {
+        if (current->is_visited())
+            return -1;
+
+        current->set_visited(true);
+        // Treat current node
+        if (current->is_graph_node())
+        {
+            get_assume_aligned_rec(current->get_graph_exit_node(), n);
+        }
+        else
+        {
+            const NodeclSet& killed = current->get_killed_vars();
+            if (Utils::nodecl_set_contains_nodecl(n, killed))
+            {
+                return -1;
+            }
+            else
+            {
+                if (current->is_function_call_node())
+                {
+                    const ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
+                    ERROR_CONDITION(stmts.size() != 1, "Unexpected number of statements in a FunctionCall node\n", 0);
+
+                    const Nodecl::FunctionCall& func_nodecl = stmts.front().as<Nodecl::FunctionCall>();
+
+                    TL::Symbol func_sym = func_nodecl.get_called().get_symbol();
+                    if (func_sym.get_name() == "__assume_aligned")
+                    {
+                        const ObjectList<Nodecl::NodeclBase> args_list = 
+                            func_nodecl.get_arguments().as<Nodecl::List>().to_object_list();
+
+                        ERROR_CONDITION(args_list.size() != 2,
+                                "Two arguments expected for '__assume_aligned'", 0);
+
+                        Nodecl::NodeclBase aligned_expr = args_list.begin()->no_conv();
+                        Nodecl::NodeclBase alignment_node = (++args_list.begin())->no_conv();
+
+                        ERROR_CONDITION(!aligned_expr.is<Nodecl::Symbol>(),
+                                "Only Symbols are currently supported in '__assume_aligned'", 0);
+                        ERROR_CONDITION(!alignment_node.is<Nodecl::IntegerLiteral>(),
+                                "Integer inmediate expected in '__assume_aligned'", 0);
+
+                        TL::Symbol aligned_sym = aligned_expr.
+                            as<Nodecl::Symbol>().get_symbol();
+                       
+                        if (n.get_symbol() == aligned_sym)
+                        {
+                            return const_value_cast_to_4(alignment_node.get_constant());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recursively call with parents
+        const ObjectList<Node*>& parents = current->is_entry_node() ? 
+                current->get_outer_node()->get_parents()
+                : current->get_parents();
+
+        int num_attributes = 0;
+        int value = -1;
+        for (ObjectList<Node*>::const_iterator it = parents.begin();
+                it != parents.end(); ++it)
+        {
+            int parent_result = get_assume_aligned_rec(*it, n);
+            if (parent_result != -1)
+            {
+                if (!(num_attributes != 0 && 
+                        value == parent_result))
+                { 
+                    num_attributes++;
+                    value = parent_result;
+                }
+            }
+        }
+
+        if (num_attributes == 1)
+            return value;
+
+        return -1;
+    }
+
+    int get_assume_aligned_attribute_internal(
+            Node* const stmt_node,
+            const Nodecl::Symbol& n)
+    {
+        int result = get_assume_aligned_rec(stmt_node, n);
+        ExtensibleGraph::clear_visits_backwards(stmt_node);
+        return result;
+    }
+
     bool is_uniform_internal(
             Node* const scope_node,
             Node* const stmt_node,
@@ -183,7 +279,7 @@ namespace Analysis {
             if(!new_scope->is_omp_simd_node())
                 goto iv_as_linear;
 
-            // First try to get the information form the user clauses
+            // First try to get the information from the user clauses
             {
                 ObjectList<Utils::LinearVars> linear_syms = new_scope->get_linear_symbols();
                 for (ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
@@ -195,10 +291,15 @@ namespace Analysis {
                             return true;
                     }
                 }
+
+                // Reduction vars are not considered linear
+                ObjectList<TL::Symbol> reductions = new_scope->get_reductions();
+                if(reductions.contains(n.get_symbol()))
+                    return false;
             }
         }
         
-        // Second get the information form the analysis: IV
+        // Second get the information from the analysis: IV
 iv_as_linear:
         if(scope_node->is_loop_node())
             return is_iv_internal(scope_node, n);

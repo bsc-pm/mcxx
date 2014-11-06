@@ -146,6 +146,13 @@ namespace TL
 
                     return result;
                 }
+            
+            Nodecl::NodeclBase get_vector_load_scalar_access(
+                    const Nodecl::VectorLoad& vector_load);
+            Nodecl::NodeclBase get_vector_load_subscripted(
+                    const Nodecl::VectorLoad& vectori_load);
+            Nodecl::NodeclBase get_vector_load_subscript(
+                    const Nodecl::VectorLoad& vector_load);
         }
     }
 }

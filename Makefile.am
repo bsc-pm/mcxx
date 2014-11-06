@@ -161,9 +161,16 @@ lib_libmcxx_utils_la_SOURCES = \
                           $(END)
 
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
+lib_libmcxx_utils_la_LIBADD= -lm
 
-noinst_LIBRARIES += lib/libperish.a
-lib_libperish_a_SOURCES= lib/perish.c
+BUILT_SOURCES += lib/perish.o
+CLEANFILES += lib/perish.o
+
+EXTRA_DIST += lib/perish.c
+lib/perish.o : lib/perish.c
+	$(CCBUILD_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(top_srcdir)/lib/perish.c $(DEFAULT_INCLUDES) \
+	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
+
 
 ##########################################################################
 # src
@@ -304,7 +311,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.h \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-gccbuiltins.h \
-  src/frontend/cxx-gccbuiltins-sse.h \
+  src/frontend/cxx-gccbuiltins-ia32.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -608,6 +615,11 @@ CLEANFILES    += src/frontend/cxx-entity-specs.h
 BUILT_SOURCES += src/frontend/cxx-entity-specs.h
 src/frontend/cxx-entity-specs.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def > $@
+
+CLEANFILES    += src/frontend/cxx-entity-specs-ops.h
+BUILT_SOURCES += src/frontend/cxx-entity-specs-ops.h
+src/frontend/cxx-entity-specs-ops.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def getters_and_setters > $@
 
 CLEANFILES    += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 BUILT_SOURCES += src/frontend/cxx-symbol-deep-copy-entity-specs.c
@@ -1595,6 +1607,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-report.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-report.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp \
@@ -1830,6 +1844,8 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp \
@@ -1839,6 +1855,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-task-call.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskwait.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskyield.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-register.cpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.hpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-single.cpp \
@@ -1985,7 +2002,6 @@ src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags
 src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.cpp \
-       src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi-aux.hpp \
        $(END)
 
 endif
@@ -2203,7 +2219,9 @@ vector_lowering_cflags = -I $(top_srcdir)/src/tl/vectorization/common \
                          -I $(top_srcdir)/src/tl/analysis/interface\
                          -I $(top_srcdir)/src/tl/analysis/common \
                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(top_srcdir)/src/tl/analysis/tdg \
                          -I $(top_srcdir)/src/tl/omp/core \
+                         -I $(top_srcdir)/src/tl/optimizations \
                          $(END)
 
 if BUILD_VECTORIZATION
@@ -2259,12 +2277,6 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
-                              -I $(top_srcdir)/src/tl/optimizations \
-                              -I $(top_srcdir)/src/tl/vectorization/common \
-                              -I $(top_srcdir)/src/tl/analysis/interface \
-                              -I $(top_srcdir)/src/tl/analysis/common \
-                              -I $(top_srcdir)/src/tl/analysis/pcfg \
-                              -I $(top_srcdir)/src/tl/analysis/tdg \
                               $(END)
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
@@ -2956,6 +2968,7 @@ config_DATA = \
 EXTRA_DIST += \
 			scripts/bison-2.3-rofi-patch \
 			scripts/mcxx-rpm.spec \
+			scripts/builtins_ia32.cpp \
 			$(DEBIAN_EXTRA)
 			$(END)
 
@@ -2966,16 +2979,23 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-4.8
-GXX_FLAGS=-fabi-version=6 -mavx -maes -mpclmul -mxop
+LATEST_GXX=g++-4.9
+LATEST_GXX_FLAGS=-fabi-version=6 \
+				 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx \
+				 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha \
+				 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 \
+				 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt \
+				 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mrdseed \
+				 $(END)
 
-generate_sse.bin : builtins_ia32_sse.cpp
-	$(LATEST_GXX) $(GXX_FLAGS) -o scripts/generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
+	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
 
-generate_sse: generate_sse.bin
-	./scripts/generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
-
-CLEANFILES += generate_sse.bin
+# These files are only regenerated manually
+.PHONY: generate_builtins_ia32
+CLEANFILES += scripts/generate_builtins_ia32.bin
+generate_builtins_ia32: scripts/generate_builtins_ia32.bin
+	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"

@@ -55,17 +55,24 @@ namespace {
                 lhs_rhs = _rhs.get_lhs();
                 rhs_rhs = _rhs.get_rhs();
 
-                if(((Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_rhs, /*skip_conversion_node*/ true) &&
-                        ExtensibleGraph::is_constant_in_context(loop, lhs_rhs)) ||
-                      (Nodecl::Utils::structurally_equal_nodecls(lhs, lhs_rhs, /*skip_conversion_node*/ true) &&
-                        ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))) &&
-                    (!lhs.is<Nodecl::ArraySubscript>() ||
+                if((!lhs.is<Nodecl::ArraySubscript>() ||
                       (lhs.is<Nodecl::ArraySubscript>() &&
                         ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
                 {
-                    iv = lhs;
-                    incr = lhs_rhs;
-                    is_iv = true;
+                    if(Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_rhs, /*skip_conversion_node*/ true) &&
+                        ExtensibleGraph::is_constant_in_context(loop, lhs_rhs))
+                    {
+                        iv = lhs;
+                        incr = lhs_rhs;
+                        is_iv = true;
+                    }
+                    else if(Nodecl::Utils::structurally_equal_nodecls(lhs, lhs_rhs, /*skip_conversion_node*/ true) &&
+                        ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))
+                    {
+                        iv = lhs;
+                        incr = rhs_rhs;
+                        is_iv = true;
+                    }
                 }
             }
         }

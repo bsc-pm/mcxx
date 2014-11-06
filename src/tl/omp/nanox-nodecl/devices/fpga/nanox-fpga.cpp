@@ -239,10 +239,10 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     // The unpacked function must not be static and must have external linkage because
     // this function is called from the original source 
-    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+    symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
     if (IS_C_LANGUAGE)
     {
-        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
+        symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;

@@ -138,6 +138,7 @@ literal : NODECL_INTEGER_LITERAL() type const-value
 string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
 vector-flags: NODECL_ALIGNED_FLAG()
+    | NODECL_ALIGNMENT_INFO() const-value
     | NODECL_EVICT_FLAG()
     | NODECL_RELAXED_FLAG()
     | NODECL_NONTEMPORAL_FLAG()
@@ -310,7 +311,6 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
@@ -318,8 +318,8 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | cxx-pack
 
 # Used for C++11 lambdas
-explicit-capture: NODECL_CAPTURE_COPY() symbol
-                | NODECL_CAPTURE_REFERENCE() symbol
+explicit-capture: NODECL_CXX_CAPTURE_COPY() symbol
+                | NODECL_CXX_CAPTURE_REFERENCE() symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 
@@ -342,8 +342,8 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_DEF([context] context-opt) symbol
          | NODECL_CXX_EXPLICIT_INSTANTIATION_DEF([declarator_name] cxx-dependent-name-opt, [context] context) symbol
          | NODECL_CXX_EXPLICIT_INSTANTIATION_DECL([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_USING_NAMESPACE([context] context) symbol
-         | NODECL_CXX_USING_DECL([context] context) symbol
+         | NODECL_CXX_USING_NAMESPACE([context] context, [used_name]cxx-dependent-name) symbol
+         | NODECL_CXX_USING_DECL([context] context, [used_name]cxx-dependent-name) symbol
          # Used only in weird cases where parsing must be delayed in the frontend itself
          # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()
@@ -395,6 +395,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
 # noexcept(expr)
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
+# [dependent] C+11 lambdas
+    | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -497,6 +499,7 @@ text : NODECL_TEXT() text
 
 parallel-statements : parallel-execution
                     | synchronization
+                    | data-coordination
 
 parallel-execution : task-construct
                    | taskyield-construct
@@ -573,7 +576,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [overlap_factor] expression-opt)
+                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [min_group_loads] expression, [max_group_registers] expression, [max_groups] expression)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
@@ -598,7 +601,7 @@ parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-
 
 # for
 omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
-              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [appendix]statement-seq)
+              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
 
 # workshare (Fortran only)
 workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)
@@ -623,6 +626,8 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
+
+data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
 
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
 

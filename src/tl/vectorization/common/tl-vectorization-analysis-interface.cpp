@@ -36,47 +36,6 @@ namespace TL
 {
 namespace Vectorization
 {
-    VectorizationAnalysisInterface* VectorizationAnalysisInterface::_vectorizer_analysis = 0;
-
-    void VectorizationAnalysisInterface::initialize_analysis(
-            const Nodecl::NodeclBase& enclosing_function,
-            const Analysis::WhichAnalysis which_analysis)
-    {
-        if(_vectorizer_analysis != 0)
-        {
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "VECTORIZER: Freeing previous analysis\n");
-            }
-
-            delete _vectorizer_analysis;
-            _vectorizer_analysis = 0;
-        }
-
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr, "VECTORIZER: Computing new analysis\n");
-        }
-
-        _vectorizer_analysis = new VectorizationAnalysisInterface(
-                enclosing_function,
-                which_analysis);
-    }
-
-    void VectorizationAnalysisInterface::finalize_analysis()
-    {
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr, "VECTORIZER: Finalizing analysis\n");
-        }
-
-        if(_vectorizer_analysis != 0)
-        {
-            delete _vectorizer_analysis;
-            _vectorizer_analysis = 0;
-        }
-    }
-
     VectorizationAnalysisInterface::VectorizationAnalysisInterface(
             const Nodecl::NodeclBase& n, 
             const Analysis::WhichAnalysis analysis_mask)
@@ -87,6 +46,11 @@ namespace Vectorization
                 /*ompss_enabled*/false),
         _original_node(n)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: Computing new analysis\n");
+        }
+
         //Fill inverse maps
         for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
                 _orig_to_copy_nodes.begin();
@@ -132,9 +96,14 @@ namespace Vectorization
         }
     }
 
-    // Base destructor is called automatically
     VectorizationAnalysisInterface::~VectorizationAnalysisInterface()
-    {}
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: Finalizing analysis\n");
+        }
+        //AnalysisInterface::~AnalysisInterface();
+    }
 
     Nodecl::FunctionCode VectorizationAnalysisInterface::copy_function_code(
             const Nodecl::NodeclBase& n)
@@ -167,14 +136,16 @@ namespace Vectorization
         Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
             _orig_to_copy_nodes.find(n);
 
-        /*
-        for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it3 = _orig_to_copy_nodes.begin();
-                it3 != _orig_to_copy_nodes.end();
-                it3++)
-        {
-            std::cerr << "Origin node " << &(it3->first.get_internal_nodecl()) << ": " << it3->first.prettyprint() << std::endl;
-        }
-        */
+        
+        // for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it3 = _orig_to_copy_nodes.begin();
+        //         it3 != _orig_to_copy_nodes.end();
+        //         it3++)
+        // {
+        //     std::cerr << "Origin node " << nodecl_get_ast(it3->first.get_internal_nodecl()) /* << ": " << it3->first.prettyprint() */ << std::endl;
+        // }
+
+        //std::cerr << "Request to orig_to_copy=" << &_orig_to_copy_nodes << std::endl;
+        //std::cerr << "Requested node " << nodecl_get_ast(n.get_internal_nodecl()) /* << ": " << it3->first.prettyprint() */ << std::endl;
 
         if (it == _orig_to_copy_nodes.end())
         {
@@ -202,6 +173,16 @@ namespace Vectorization
                 std::cerr << "Origin node " << &(it3->first.get_internal_nodecl()) << ": " << it3->first.prettyprint() << std::endl;
             }
             */
+
+            Nodecl::NodeclBase n_pointer = n;
+            while (it == _orig_to_copy_nodes.end())
+            {
+                n_pointer  = n_pointer.get_parent();
+                std::cerr << "Parent: " << n_pointer.prettyprint() << std::endl;
+                it = _orig_to_copy_nodes.find(n_pointer);
+            }
+
+            std::cerr << "FOUND!" << std::endl;
 
             internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy, %p %s",
                     &(n.get_internal_nodecl()), n.prettyprint().c_str());
@@ -242,12 +223,12 @@ namespace Vectorization
         return it->second;
     }
 
-    objlist_tlsymbol_t VectorizationAnalysisInterface::translate_input(
-            const objlist_tlsymbol_t& list) const
+    objlist_tlsym_t VectorizationAnalysisInterface::translate_input(
+            const objlist_tlsym_t& list) const
     {
-        objlist_tlsymbol_t result_list;
+        objlist_tlsym_t result_list;
 
-        for(objlist_tlsymbol_t::const_iterator it = list.begin();
+        for(objlist_tlsym_t::const_iterator it = list.begin();
                 it != list.end();
                 it++)
         {
@@ -289,8 +270,29 @@ namespace Vectorization
         {
             //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
 
+            Nodecl::Utils::NodeclDeepCopyMap::const_iterator it2 =
+                _orig_to_copy_nodes.find(n);
+            if (it2 != _orig_to_copy_nodes.end())
+            {
+                //return n;
+                internal_error("VectorizerAnalysis: Error translating Nodecl "
+                "from copy to copy. NODE ALREADY TRANSLATED", 0);
+            }
+
+            Nodecl::NodeclBase n_pointer = n;
+            while (it == _copy_to_orig_nodes.end())
+            {
+                n_pointer  = n_pointer.get_parent();
+                std::cerr << "Parent: " << n_pointer.prettyprint() << std::endl;
+                it = _copy_to_orig_nodes.find(n_pointer);
+            }
+
+            std::cerr << "FOUND!" << std::endl;
+
             internal_error("VectorizerAnalysis: Error translating "\
-                    "Nodecl from copy to origin", 0);
+                    "Nodecl from copy to origin %p %s",
+                    &(n.get_internal_nodecl()), n.prettyprint().c_str());
+
             return n;
         }
 
@@ -461,29 +463,49 @@ namespace Vectorization
                 translate_input(n));
     }
 
-    /*
+    
     bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
-        bool result;
         Nodecl::NodeclBase translated_n = translate_input(n);
-        map_node_bool_t::iterator it = iv_nodes.find(translated_n);
- 
-        if (it == iv_nodes.end())
-        {
-            result = Analysis::AnalysisInterface::is_induction_variable(
-                translate_input(scope), translated_n);
+        Nodecl::NodeclBase translated_scope =
+            translate_input(scope);
 
-            iv_nodes.insert(pair_node_bool_t(translated_n, result));
+        map_scope_analysis_info_t::iterator scope_it =
+            _scope_analysis_info.find(
+                    translated_scope);
+
+        // Already computed
+        if (scope_it != _scope_analysis_info.end())
+        {
+            const map_node_bool_t& ivs_nodes =
+                scope_it->second.ivs_nodes;
+
+            map_node_bool_t::const_iterator node_it =
+                ivs_nodes.find(translated_n);
+
+            if (node_it != ivs_nodes.end())
+            {
+                return node_it->second;
+            }
         }
         else
         {
-            result = it->second;
+            scope_it = _scope_analysis_info.insert(
+                    pair_scope_analysis_info_t(scope,
+                        VectorizationAnalysisInfo())).first;
         }
 
+        // New 
+        bool result = Analysis::AnalysisInterface::is_induction_variable(
+                translate_input(scope), translated_n);
+
+        scope_it->second.ivs_nodes.insert(
+                pair_node_bool_t(n, result));
+ 
         return result;
     }
-    */
+    
     /*
     bool VectorizationAnalysisInterface::
         is_non_reduction_basic_induction_variable(
@@ -518,10 +540,14 @@ namespace Vectorization
         std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
                 = Analysis::AnalysisInterface::get_induction_variable_lower_bound_list(
                         translate_input(scope), translate_input(n));
-        ERROR_CONDITION(lower_bounds.size() != 1,
-                        "Induction variable '%s' has %d lower bounds. "
-                        "Only 1 lower bound supported.\n",
-                        n.prettyprint().c_str(), lower_bounds.size());
+
+        if (lower_bounds.size() != 1)
+            return Nodecl::NodeclBase::null();
+#warning
+        //ERROR_CONDITION(lower_bounds.size() != 1,
+        //                "Induction variable '%s' has %d lower bounds. "
+        //                "Only 1 lower bound supported.\n",
+        //                n.prettyprint().c_str(), lower_bounds.size());
 
         Nodecl::NodeclBase return_nodecl = *lower_bounds.begin();
 
@@ -566,9 +592,10 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_simd_aligned_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const map_tl_sym_int_t& aligned_expressions,
+            const map_tlsym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment)
+            int unroll_factor, int alignment,
+            int& alignment_output)
     {
         //DO NOT TRANSLATE
         map_scope_analysis_info_t::iterator scope_it =
@@ -577,15 +604,16 @@ namespace Vectorization
         // Already computed
         if (scope_it != _scope_analysis_info.end())
         {
-            const map_node_bool_t& simd_aligned_nodes =
+            const map_node_boolint_t& simd_aligned_nodes =
                 scope_it->second.simd_aligned_nodes;
 
-            map_node_bool_t::const_iterator node_it =
+            map_node_boolint_t::const_iterator node_it =
                 simd_aligned_nodes.find(n);
 
             if (node_it != simd_aligned_nodes.end())
             {
-                return node_it->second;
+                alignment_output = node_it->second.second;
+                return node_it->second.first;
             }
         }
         else
@@ -599,12 +627,26 @@ namespace Vectorization
         bool result = is_simd_aligned_access_internal(
                     scope, n, aligned_expressions,
                     suitable_expressions, unroll_factor,
-                    alignment);
+                    alignment, alignment_output, this);
 
         scope_it->second.simd_aligned_nodes.insert(
-                pair_node_bool_t(n, result));
+                pair_node_boolint_t(n, pair_bool_int_t(
+                        result, alignment_output)));
         
         return result;
+    }
+
+    int VectorizationAnalysisInterface::get_assume_aligned_attribute(
+        const Nodecl::NodeclBase& scope,
+        const Nodecl::Symbol& n)
+    {
+        Nodecl::Symbol translated_n =
+            translate_input(n).as<Nodecl::Symbol>();
+        Nodecl::Symbol translated_scope =
+            translate_input(scope).as<Nodecl::Symbol>();
+
+        return Analysis::AnalysisInterface::get_assume_aligned_attribute(
+                translated_scope, translated_n);
     }
 
     bool VectorizationAnalysisInterface::is_suitable_expression(
@@ -614,10 +656,9 @@ namespace Vectorization
     {
         // Do not translate n!
         return is_suitable_expression_internal(scope,
-                n,
-                suitable_expressions,
-                unroll_factor,
-                alignment, vector_size_module);
+                n, suitable_expressions,
+                unroll_factor, alignment,
+                vector_size_module, this);
     }
 
     bool VectorizationAnalysisInterface::is_adjacent_access(
@@ -680,7 +721,7 @@ namespace Vectorization
         return result;
     }
 
-    void VectorizationAnalysisInterface::register_copy(
+    void VectorizationAnalysisInterface::register_copy_base(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& n_copy)
     {
@@ -707,17 +748,17 @@ namespace Vectorization
             // There is NO equal node in origin
             else
             {
-                internal_error("VectorizerAnalysis: Original node doesn't exist in the copy", 0);
+                //internal_error("VectorizerAnalysis: Original node doesn't exist in the copy", 0);
             }
         }
     }
 
-    void VectorizationAnalysisInterface::shallow_copy_rec(
+    void VectorizationAnalysisInterface::register_identical_copy(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& n_copy)
     {
         // Register shallow_copy in the maps
-        register_copy(n, n_copy);
+        register_copy_base(n, n_copy);
 
         // Register also children
         objlist_nodecl_t children_list = n.children();
@@ -730,8 +771,7 @@ namespace Vectorization
         {
             if(!children_it->is_null())
             {
-
-                shallow_copy_rec(*children_it, *children_copy_it);
+                register_identical_copy(*children_it, *children_copy_it);
             }
         }
 
@@ -743,7 +783,8 @@ namespace Vectorization
 
             // Register initialization
             if(!init.is_null())
-                shallow_copy_rec(init, n_copy.get_symbol().get_value());
+                register_identical_copy(
+                        init, n_copy.get_symbol().get_value());
         }
     }
 
@@ -752,7 +793,7 @@ namespace Vectorization
     {
         Nodecl::NodeclBase n_copy = n.shallow_copy();
         
-        shallow_copy_rec(n, n_copy);
+        register_identical_copy(n, n_copy);
 
         return n_copy;
     }
@@ -769,7 +810,7 @@ namespace Vectorization
                 empty_sym_map, new_origin_to_copy_nodes, new_orig_to_copy_symbols);
         
         // Register new Nodecl::Symbols
-        shallow_copy_rec(n, n_copy);
+        register_identical_copy(n, n_copy);
 
         // Register new TL::Symbols
         for(Nodecl::Utils::SymbolDeepCopyMap::iterator it = 

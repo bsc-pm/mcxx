@@ -70,10 +70,10 @@ namespace TL
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
 
-            objlist_tlsymbol_t parameters = vect_func_sym.get_function_parameters();
+            objlist_tlsym_t parameters = vect_func_sym.get_function_parameters();
             TL::ObjectList<TL::Type> parameters_vector_type;
 
-            for(objlist_tlsymbol_t::iterator it = parameters.begin();
+            for(objlist_tlsym_t::iterator it = parameters.begin();
                     it != parameters.end();
                     it ++)
             {
@@ -88,7 +88,7 @@ namespace TL
                 // Create mask parameter
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(mask_sym.get_internal_symbol(), 1);
                 mask_sym.set_type(TL::Type::get_mask_type(_environment._vectorization_factor));
 
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
@@ -103,18 +103,18 @@ namespace TL
                 // Take care of default_argument_info_t*
                 //TODO: Move this into a function
                 {
-                    int num_parameters =
-                        vect_func_sym.get_internal_symbol()->entity_specs.num_parameters;
-                    default_argument_info_t** default_argument_info =
-                        vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
+                    symbol_entity_specs_add_default_argument_info(vect_func_sym.get_internal_symbol(), NULL);
+                    // int num_parameters = symbol_entity_specs_get_num_parameters(vect_func_sym.get_internal_symbol());
+                    // default_argument_info_t** default_argument_info =
+                    //     vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
 
-                    num_parameters++;
-                    default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
-                            num_parameters * sizeof(*default_argument_info));
-                    default_argument_info[num_parameters-1] = NULL;
+                    // num_parameters++;
+                    // default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
+                    //         num_parameters * sizeof(*default_argument_info));
+                    // default_argument_info[num_parameters-1] = NULL;
 
-                    vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
-                    vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
+                    // vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
+                    // vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
                 }
 
                 Nodecl::Symbol mask_nodecl_sym =

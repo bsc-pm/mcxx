@@ -54,19 +54,25 @@ namespace Vectorization
 
     typedef std::map<Nodecl::NodeclBase, bool> map_node_bool_t;
     typedef std::pair<Nodecl::NodeclBase, bool> pair_node_bool_t;
+    typedef std::map<Nodecl::NodeclBase, std::pair<bool, int> > map_node_boolint_t;
+    typedef std::pair<bool, int> pair_bool_int_t;
+    typedef std::pair<Nodecl::NodeclBase, pair_bool_int_t> pair_node_boolint_t;
+
     struct VectorizationAnalysisInfo
     {
         map_node_bool_t uniform_nodes;
         map_node_bool_t linear_nodes;
+        map_node_bool_t ivs_nodes;
         map_node_bool_t non_red_iv_nodes;
         map_node_bool_t adjacent_nodes;
-        map_node_bool_t simd_aligned_nodes;
+        map_node_boolint_t simd_aligned_nodes;
     };
 
     typedef std::map<Nodecl::NodeclBase,
             VectorizationAnalysisInfo> map_scope_analysis_info_t;
     typedef std::pair<Nodecl::NodeclBase,
             VectorizationAnalysisInfo> pair_scope_analysis_info_t;
+
     class VectorizationAnalysisInterface : public VectorizationAnalysisCopyMaps,
                                            public Analysis::AnalysisInterface
     {
@@ -83,32 +89,22 @@ namespace Vectorization
                     const objlist_nodecl_t& list);
             TL::Symbol translate_input(
                     const TL::Symbol& n) const;
-            objlist_tlsymbol_t translate_input(
-                    const objlist_tlsymbol_t& n) const;
+            objlist_tlsym_t translate_input(
+                    const objlist_tlsym_t& n) const;
             std::map<TL::Symbol, int> translate_input(
                     const std::map<TL::Symbol, int>& map);
+
+            void register_copy_base(
+                    const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& n_copy);
 
             Nodecl::NodeclBase translate_output(const Nodecl::NodeclBase& n);
             objlist_nodecl_t translate_output(const objlist_nodecl_t& list);
             TL::Symbol translate_output(const TL::Symbol& n) const;
 
-            void shallow_copy_rec(const Nodecl::NodeclBase& n,
-                    const Nodecl::NodeclBase& n_copy);
-            
-
         public:
-            static VectorizationAnalysisInterface *_vectorizer_analysis;
-
-            static void initialize_analysis(
-                    const Nodecl::NodeclBase& enclosing_function,
-                    const Analysis::WhichAnalysis which_analysis =
-                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
-
-            static void finalize_analysis();
-
             VectorizationAnalysisInterface(const Nodecl::NodeclBase& n,
                     const Analysis::WhichAnalysis analysis_mask);
-
             virtual ~VectorizationAnalysisInterface();
 
             virtual bool is_uniform(
@@ -130,8 +126,8 @@ namespace Vectorization
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
  
             // IVS 
-//            virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
-//                    const Nodecl::NodeclBase& n );
+            virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& n );
 //            DEPRECATED bool is_non_reduction_basic_induction_variable(
 //                    const Nodecl::NodeclBase& scope,
 //                    const Nodecl::NodeclBase& n );
@@ -152,18 +148,23 @@ namespace Vectorization
             virtual bool is_simd_aligned_access(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n,
-                    const map_tl_sym_int_t& aligned_expressions,
+                    const map_tlsym_int_t& aligned_expressions,
                     const objlist_nodecl_t& suitable_expressions,
-                    int unroll_factor, int alignment);
+                    int unroll_factor, int alignment,
+                    int& alignment_module);
+            virtual int get_assume_aligned_attribute(
+                    const Nodecl::NodeclBase& scope,
+                    const Nodecl::Symbol& n);
+
             virtual bool is_suitable_expression(
                     const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module);
 
-            virtual void register_copy(
+            virtual void register_identical_copy(
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& n_copy);
- 
+
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
 

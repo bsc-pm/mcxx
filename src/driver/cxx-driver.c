@@ -543,6 +543,7 @@ static void enable_debug_flag(const char* flag);
 static void help_message(void);
 
 static void print_memory_report(void);
+static void stats_string_table(void);
 
 static int parse_special_parameters(int *should_advance, int argc, 
         const char* argv[], char dry_run);
@@ -636,6 +637,11 @@ int main(int argc, char* argv[])
     if (CURRENT_CONFIGURATION->debug_options.print_memory_report)
     {
         print_memory_report();
+    }
+
+    if (CURRENT_CONFIGURATION->debug_options.stats_string_table)
+    {
+        stats_string_table();
     }
 
     return compilation_process.execution_result;
@@ -4850,6 +4856,11 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
         breakdown_real[num_real]++;
 }
 #endif
+
+static void stats_string_table(void)
+{
+    uniquestr_stats();
+}
 
 static void print_memory_report(void)
 {

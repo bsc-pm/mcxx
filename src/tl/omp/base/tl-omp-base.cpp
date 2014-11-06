@@ -41,6 +41,8 @@
 #include <algorithm>
 #include <iterator>
 
+#include "cxx-graphviz.h"
+
 namespace TL { namespace OpenMP {
 
     namespace Report
@@ -1697,7 +1699,6 @@ namespace TL { namespace OpenMP {
         }
     }
 
-
     // clause(list[:int])
     template <typename openmp_node>
     void Base::process_symbol_list_colon_int_clause(
@@ -1800,10 +1801,6 @@ namespace TL { namespace OpenMP {
         // Suitable
         process_symbol_list_clause<Nodecl::OpenMP::Suitable>
             (pragma_line, "suitable", ref_scope, environment);
-
-        // Overlap
-        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Overlap>
-            (pragma_line, "overlap", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
@@ -1917,7 +1914,121 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        // Overlap
+        PragmaCustomClause overlap_clause = pragma_line.get_clause("overlap");
 
+        if (overlap_clause.is_defined())
+        {
+            TL::ObjectList<std::string> arg_clauses_list = overlap_clause.get_raw_arguments();
+
+            TL::ExpressionTokenizerTrim colon_tokenizer(':');
+            TL::ExpressionTokenizerTrim comma_tokenizer(',');
+
+            for(TL::ObjectList<std::string>::iterator it = arg_clauses_list.begin();
+                    it != arg_clauses_list.end();
+                    it++)
+            {
+                TL::ObjectList<std::string> colon_splited_list = colon_tokenizer.tokenize(*it);
+
+                int colon_splited_list_size = colon_splited_list.size();
+
+                ERROR_CONDITION((colon_splited_list_size <= 0) ||
+                        (colon_splited_list_size > 2),
+                        "'overlap' clause has a wrong format", 0);
+
+                //Nodecl::IntegerLiteral alignment = const_value_to_nodecl(const_value_get_zero(4, 1));
+
+                TL::ObjectList<std::string> comma_splited_list;
+                TL::ObjectList<Nodecl::NodeclBase> overlap_flags_obj_list;
+
+                Nodecl::NodeclBase min_group_loads;
+                Nodecl::NodeclBase max_group_registers;
+                Nodecl::NodeclBase max_groups;
+
+                if (colon_splited_list_size == 2)
+                {
+                    comma_splited_list = comma_tokenizer.tokenize(colon_splited_list.back());
+
+                    ERROR_CONDITION(comma_splited_list.size() > 3,
+                        "'overlap' clause has a wrong format", 0);
+
+                    TL::ObjectList<std::string>::iterator comma_splited_it =
+                       comma_splited_list.begin();
+
+                    // Min group loads
+                    if (comma_splited_it != comma_splited_list.end())
+                    {
+                        TL::Source it_src;
+                        it_src << *comma_splited_it;
+
+                        min_group_loads = it_src.parse_expression(
+                                ref_scope.retrieve_context());
+
+                        ERROR_CONDITION(!min_group_loads.is<Nodecl::IntegerLiteral>(),
+                                "'min_group_loads' in 'overlap' clause has a wrong type", 0);
+
+                        comma_splited_it++;
+                    }
+                    else
+                    {
+                        running_error("Missing 'min_group_loads' parameter in 'overlap' clause");
+                    } 
+
+                    // Max group registers
+                    if (comma_splited_it != comma_splited_list.end())
+                    {
+                        TL::Source it_src;
+                        it_src << *comma_splited_it;
+
+                        max_group_registers = it_src.parse_expression(
+                                ref_scope.retrieve_context());
+
+                        ERROR_CONDITION(!min_group_loads.is<Nodecl::IntegerLiteral>(),
+                                "'max_group_registers' in 'overlap' clause has a wrong type", 0);
+
+                        comma_splited_it++;
+                    }
+                    else
+                    {
+                        running_error("Missing 'max_group_registers' parameter in 'overlap' clause");
+                    } 
+
+                    // Max groups
+                    if (comma_splited_it != comma_splited_list.end())
+                    {
+                        TL::Source it_src;
+                        it_src << *comma_splited_it;
+
+                        max_groups = it_src.parse_expression(
+                                ref_scope.retrieve_context());
+
+                        ERROR_CONDITION(!min_group_loads.is<Nodecl::IntegerLiteral>(),
+                                "'max_groups' in 'overlap' clause has a wrong type", 0);
+
+                        comma_splited_it++;
+                    }
+                    else
+                    {
+                        running_error("Missing 'max_groups' parameter in 'overlap' clause");
+                    } 
+                }
+
+                comma_splited_list = comma_tokenizer.tokenize(
+                        colon_splited_list.front());
+
+                Nodecl::List overlap_variables =
+                    Nodecl::List::make(Nodecl::Utils::get_strings_as_expressions(
+                                comma_splited_list, pragma_line));
+
+                environment.append(
+                        Nodecl::OpenMP::Overlap::make(
+                            overlap_variables,
+                            min_group_loads,
+                            max_group_registers,
+                            max_groups,
+                            pragma_line.get_locus()));
+            }
+        }
     }
 
     // SIMD Statement
@@ -2491,8 +2602,7 @@ namespace TL { namespace OpenMP {
 
                 // Mark as __thread
                 scope_entry_t* entry = sym.get_internal_symbol();
-
-                entry->entity_specs.is_thread = 1;
+                symbol_entity_specs_set_is_thread(entry, 1);
             }
         }
 
@@ -2507,6 +2617,61 @@ namespace TL { namespace OpenMP {
         // Remove
         pragma_line.diagnostic_unused_clauses();
         Nodecl::Utils::remove_from_enclosing_list(directive);
+    }
+
+    void Base::register_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::register_handler_post(TL::PragmaCustomDirective directive)
+    {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomParameter parameter = pragma_line.get_parameter();
+
+        if (!parameter.is_defined())
+        {
+            error_printf("%s: error: missing parameter clause in '#pragma omp register'\n",
+                    directive.get_locus_str().c_str());
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+        if (expr_list.empty())
+        {
+            warn_printf("%s: warning: ignoring empty '#pragma omp register\n", 
+                    directive.get_locus_str().c_str());
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> valid_expr_list;
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
+                it != expr_list.end();
+                it++)
+        {
+            if (it->is<Nodecl::Symbol>() // x
+                    || (it->is<Nodecl::Shaping>() // [n1][n2] x
+                        && it->as<Nodecl::Shaping>().get_postfix().is<Nodecl::Symbol>()))
+            {
+                valid_expr_list.append(*it);
+            }
+            else
+            {
+                error_printf("%s: error: invalid object specification '%s' in '#pragma omp register'\n",
+                        directive.get_locus_str().c_str(),
+                        it->prettyprint().c_str());
+            }
+        }
+        
+        if (valid_expr_list.empty())
+            return;
+
+        Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
+
+        Nodecl::OpenMP::Register new_register_directive = 
+            Nodecl::OpenMP::Register::make(
+                    list_expr,
+                    directive.get_locus());
+
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(new_register_directive);
     }
 
     struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>

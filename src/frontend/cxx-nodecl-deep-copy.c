@@ -464,7 +464,7 @@ nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
             nodecl_deep_copy_map,
             symbol_deep_copy_map);
 
-    symbol->entity_specs.function_code = result;
+    symbol_entity_specs_set_function_code(symbol, result);
     symbol->related_decl_context = nodecl_get_decl_context(nodecl_get_child(result, 0));
     return result;
 }

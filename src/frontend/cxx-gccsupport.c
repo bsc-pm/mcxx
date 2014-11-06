@@ -652,23 +652,23 @@ void keep_gcc_attributes_in_symbol(
     {
         char found = 0;
         int j;
-        for (j = 0; j < entry->entity_specs.num_gcc_attributes && !found; j++)
+        for (j = 0; j < symbol_entity_specs_get_num_gcc_attributes(entry) && !found; j++)
         {
-            found = (strcmp(entry->entity_specs.gcc_attributes[j].attribute_name,
+            found = (strcmp(symbol_entity_specs_get_gcc_attributes_num(entry, j).attribute_name,
                         gather_info->gcc_attributes[i].attribute_name) == 0);
         }
 
         if (found)
         {
             // Update with the freshest value 
-            entry->entity_specs.gcc_attributes[j-1].expression_list = gather_info->gcc_attributes[i].expression_list;
+            gcc_attribute_t gcc_attr = symbol_entity_specs_get_gcc_attributes_num(entry, j - 1);
+            gcc_attr.expression_list = gather_info->gcc_attributes[i].expression_list;
+            symbol_entity_specs_set_gcc_attributes_num(entry, j - 1, gcc_attr);
         }
         else
         {
-            entry->entity_specs.num_gcc_attributes++;
-            entry->entity_specs.gcc_attributes = xrealloc(entry->entity_specs.gcc_attributes,
-                    sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
-            entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
+            symbol_entity_specs_add_gcc_attributes(entry,
+                    gather_info->gcc_attributes[i]);
         }
     }
 }
@@ -807,8 +807,8 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (entry->entity_specs.any_exception
-                    || entry->entity_specs.num_exceptions != 0)
+            if (symbol_entity_specs_get_any_exception(entry)
+                    || symbol_entity_specs_get_num_exceptions(entry) != 0)
             {
                 result = 0;
             }
@@ -848,8 +848,8 @@ static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t*
             return 0;
         }
 
-        if (default_constructor->entity_specs.any_exception
-                || default_constructor->entity_specs.num_exceptions != 0)
+        if (symbol_entity_specs_get_any_exception(default_constructor)
+                || symbol_entity_specs_get_num_exceptions(default_constructor) != 0)
             return 0;
 
         return 1;
@@ -886,8 +886,8 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            if (entry->entity_specs.any_exception
-                    || entry->entity_specs.num_exceptions != 0)
+            if (symbol_entity_specs_get_any_exception(entry)
+                    || symbol_entity_specs_get_num_exceptions(entry) != 0)
                 result = 0;
         }
 
@@ -933,7 +933,7 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (!entry->entity_specs.is_trivial)
+            if (!symbol_entity_specs_get_is_trivial(entry))
                 result = 0;
         }
 
@@ -969,7 +969,7 @@ static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t*
         if (default_constructor == NULL)
             return 0;
 
-        return default_constructor->entity_specs.is_trivial;
+        return symbol_entity_specs_get_is_trivial(default_constructor);
     }
 
     return 0;
@@ -1004,7 +1004,7 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (!entry->entity_specs.is_trivial)
+            if (!symbol_entity_specs_get_is_trivial(entry))
                 result = 0;
         }
 
@@ -1038,7 +1038,7 @@ static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* 
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
 
-        return destructor->entity_specs.is_trivial;
+        return symbol_entity_specs_get_is_trivial(destructor);
     }
 
     return 0;
@@ -1059,7 +1059,7 @@ static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* 
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
 
-        return destructor->entity_specs.is_virtual;
+        return symbol_entity_specs_get_is_virtual(destructor);
     }
 
     return 0;
@@ -1263,7 +1263,7 @@ static char eval_type_trait__is_final(type_t* first_type,
         decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_named_class_type(first_type)
-        && named_type_get_symbol(first_type)->entity_specs.is_final;
+        && symbol_entity_specs_get_is_final(named_type_get_symbol(first_type));
 }
 
 typedef

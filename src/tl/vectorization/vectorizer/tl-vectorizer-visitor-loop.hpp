@@ -133,8 +133,10 @@ namespace Vectorization
                     Nodecl::NodeclBase& net_epilog_node);
 
             void visit_scalar_epilog(const Nodecl::NodeclBase& loop_statement,
-                    const Nodecl::NodeclBase& loop_cond,
                     Nodecl::NodeclBase& net_epilog_node);
+            
+            void clean_up_epilog(Nodecl::NodeclBase& net_epilog_node);
+
             void visit_vector_epilog(const Nodecl::NodeclBase& loop_statement,
                     const Nodecl::NodeclBase& loop_cond,
                     Nodecl::NodeclBase& net_epilog_node);

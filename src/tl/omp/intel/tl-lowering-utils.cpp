@@ -78,8 +78,9 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
 
     new_ident_sym->kind = SK_VARIABLE;
     new_ident_sym->type_information = ident_t_type.get_internal_type();
-    new_ident_sym->defined = new_ident_sym->entity_specs.is_user_declared = 1;
-    new_ident_sym->entity_specs.is_static = 1;
+    symbol_entity_specs_set_is_user_declared(new_ident_sym, 1);
+    new_ident_sym->defined = 1;
+    symbol_entity_specs_set_is_static(new_ident_sym, 1);
     new_ident_sym->locus = make_locus(filename.c_str(), start_line, /* col */ 0);
 
     Source string_literal;
@@ -131,7 +132,8 @@ TL::Symbol Intel::new_private_symbol(TL::Symbol original_symbol, TL::Scope priva
 
     new_private_sym->kind = original_symbol.get_internal_symbol()->kind;
     new_private_sym->type_information = original_symbol.get_internal_symbol()->type_information;
-    new_private_sym->defined = new_private_sym->entity_specs.is_user_declared = 1;
+    symbol_entity_specs_set_is_user_declared(new_private_sym, 1);
+    new_private_sym->defined = 1;
 
     return new_private_sym;
 }
@@ -165,13 +167,13 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
 
         new_ident_sym->kind = SK_VARIABLE;
         new_ident_sym->type_information = kmp_critical_name_type.get_internal_type();
-        new_ident_sym->defined = new_ident_sym->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_ident_sym, 1);
+        new_ident_sym->defined = 1;
         new_ident_sym->locus = location.get_locus();
 
         gcc_attribute_t common_gcc_attr = { "common", nodecl_null() };
 
-        P_LIST_ADD(new_ident_sym->entity_specs.gcc_attributes,
-                new_ident_sym->entity_specs.num_gcc_attributes,
+        symbol_entity_specs_add_gcc_attributes(new_ident_sym,
                 common_gcc_attr);
 
         lock_map.insert(std::make_pair(name, new_ident_sym));

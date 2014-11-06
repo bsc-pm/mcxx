@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.4],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.5],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -64,7 +64,7 @@ dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
 dnl Check python 2.4
-AM_PATH_PYTHON([2.4],, [:])
+AM_PATH_PYTHON2([2.4],, [:])
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.

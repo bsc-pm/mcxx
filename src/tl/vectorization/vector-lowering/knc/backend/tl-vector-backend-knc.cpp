@@ -222,14 +222,15 @@ namespace Vectorization
         if (contains_vector_nodes)
         {
             // Initialize analisys
-            TL::Optimizations::canonicalize_and_fold(n,
-                    /*_fast_math_enabled*/ false);
-            VectorizationAnalysisInterface::initialize_analysis(n,
-                    Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
+            TL::Optimizations::canonicalize_and_fold(
+                    n, /*_fast_math_enabled*/ false);
+
+            _analysis = new VectorizationAnalysisInterface(
+                    n, Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
 
             walk(n.get_statements());
 
-            VectorizationAnalysisInterface::finalize_analysis();
+            delete (_analysis);
         }
     }
 
@@ -1388,8 +1389,8 @@ namespace Vectorization
             << ")"
             ;
 
-        bool lhs_has_been_defined = VectorizationAnalysisInterface::
-            _vectorizer_analysis->has_been_defined(lhs);
+        bool lhs_has_been_defined = 
+            _analysis->has_been_defined(lhs);
 
         walk(lhs);
 
@@ -1564,9 +1565,11 @@ namespace Vectorization
         TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
-            mask_prefix, mask_args, args_lo, args_hi, extra_args;
+            mask_prefix, mask_args, args_lo, args_hi, extra_args, epi32_casting;
 
-        intrin_src << intrin_name_hi
+        intrin_src << epi32_casting
+            << "("
+            << intrin_name_hi
             << "("
             << intrin_name_lo
             << "("
@@ -1574,10 +1577,16 @@ namespace Vectorization
             << ")"
             << ", "
             << args_hi
-            << ")"
+            << "))"
             ;
+        //
+        // It seems it's better to use always epi32 loads for scheduling reasons!
+        //
+        intrin_type_suffix << "epi32";
+        extra_args << "_MM_UPCONV_EPI32_NONE";
 
-        intrin_name_hi << KNC_INTRIN_PREFIX
+        intrin_name_hi
+            << KNC_INTRIN_PREFIX
             << mask_prefix
             << "_"
             << "extloadunpackhi"
@@ -1598,18 +1607,22 @@ namespace Vectorization
 
         if (type.is_float())
         {
-            intrin_type_suffix << "ps";
-            extra_args << "_MM_UPCONV_PS_NONE";
+//            intrin_type_suffix << "ps";
+//            extra_args << "_MM_UPCONV_PS_NONE";
+              epi32_casting << get_casting_intrinsic(
+                      TL::Type::get_int_type(), type);
         }
         else if (type.is_double())
         {
-            intrin_type_suffix << "pd";
-            extra_args << "_MM_UPCONV_PD_NONE";
+//            intrin_type_suffix << "pd";
+//            extra_args << "_MM_UPCONV_PD_NONE";
+              epi32_casting << get_casting_intrinsic(
+                      TL::Type::get_int_type(), type);
         }
         else if (type.is_integral_type())
         {
-            intrin_type_suffix << "epi32";
-            extra_args << "_MM_UPCONV_EPI32_NONE";
+//            intrin_type_suffix << "epi32";
+//            extra_args << "_MM_UPCONV_EPI32_NONE";
         }
         else
         {
@@ -1618,8 +1631,8 @@ namespace Vectorization
                     locus_to_str(n.get_locus()));
         }
 
-        args_lo << mask_args
-            << as_expression(rhs)
+        args_lo << "(__m512i)" << mask_args
+            << "(void *)" << as_expression(rhs)
             << ", "
             << extra_args
             << ", "

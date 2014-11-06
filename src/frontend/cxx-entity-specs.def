@@ -14,7 +14,6 @@
 #      -> type
 #      -> typeof("literal-c-typename")
 #      -> array(TYPE)
-#      -> static_array(TYPE, size)
 #      -> string
 #
 # LANG -> all

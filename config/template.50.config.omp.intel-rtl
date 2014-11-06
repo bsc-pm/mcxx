@@ -1,6 +1,6 @@
 [intel-mcc : intel-omp-base]
 language = C
-options = --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types -std=gnu99
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
@@ -16,11 +16,10 @@ linker_name = @ICC@
 [intel-mcxx : intel-omp-base]
 language = C++
 {openmp} preprocessor_options = -include new 
-options = --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 {simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic

@@ -498,22 +498,31 @@ namespace {
 
     void UseDef::purge_local_variables(Scope graph_sc, NodeclSet& vars_set)
     {
-        for (NodeclSet::iterator it = vars_set.begin(); it != vars_set.end(); ++it)
+        NodeclSet::iterator it = vars_set.begin(); 
+        while (it != vars_set.end())
         {
             const NBase& n = it->no_conv();
             const NBase& n_base = Utils::get_nodecl_base(n);
             if (!n_base.is_null())
             {
-                if (n_base.get_symbol().get_type().is_pointer()
-                        || n_base.get_symbol().get_type().is_array())
-                    continue;
                 const ObjectList<Symbol>& func_params = _graph->get_function_parameters();
-                if (func_params.contains(n_base.get_symbol())
-                        && n_base.get_symbol().get_type().is_any_reference())
-                    continue;
                 Scope var_sc(n_base.get_symbol().get_scope());
-                if (var_sc.scope_is_enclosed_by(graph_sc))
-                    vars_set.erase(*it);
+                if (!n_base.get_symbol().get_type().is_pointer()
+                        && !n_base.get_symbol().get_type().is_array()
+                        && !(func_params.contains(n_base.get_symbol())
+                                || n_base.get_symbol().get_type().is_any_reference())
+                        && var_sc.scope_is_enclosed_by(graph_sc))
+                {
+                    vars_set.erase(it++);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+            else
+            {
+                ++it;
             }
         }
     }

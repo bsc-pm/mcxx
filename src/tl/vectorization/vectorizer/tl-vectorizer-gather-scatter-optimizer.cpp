@@ -512,6 +512,12 @@ namespace Vectorization
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::VectorGather& n)
+    {
+        return stride_splitter_ret_t(Nodecl::NodeclBase::null(), n);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
             const Nodecl::Symbol& n)
     {
         ERROR_CONDITION(!n.get_symbol().get_type().is_vector(), 

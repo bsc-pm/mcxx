@@ -749,13 +749,13 @@ namespace Analysis {
         }
     }
 
-    static void clear_visits_backwards_rec(Node* n, Node* sc)
+    static void clear_visits_backwards_in_level_rec(Node* n, Node* sc)
     {
         if (n->is_visited())
         {
             n->set_visited(false);
             if (n->is_graph_node())
-                clear_visits_backwards_rec(n->get_graph_exit_node(), sc);
+                clear_visits_backwards_in_level_rec(n->get_graph_exit_node(), sc);
 
             if (n->is_entry_node())
             {
@@ -776,23 +776,39 @@ namespace Analysis {
             }
             const ObjectList<Node*>& parents = n->get_parents();
             for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_rec(*it, sc);
+                clear_visits_backwards_in_level_rec(*it, sc);
         }
     }
 
-    void ExtensibleGraph::clear_visits_backwards(Node* n, Node* sc)
+    void ExtensibleGraph::clear_visits_backwards_in_level(Node* n, Node* sc)
     {
         if(n->is_graph_node())
         {
             n->set_visited(false);
             const ObjectList<Node*>& parents = n->get_parents();
             for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_rec(*it, n);
+                clear_visits_backwards_in_level_rec(*it, n);
         }
         else
         {
-            clear_visits_backwards_rec(n, sc);
+            clear_visits_backwards_in_level_rec(n, sc);
         }
+    }
+
+    void ExtensibleGraph::clear_visits_backwards(Node* n)
+    {
+        if (n->is_visited())
+        {
+            n->set_visited(false);
+            
+            if (n->is_graph_node())
+                clear_visits_backwards(n->get_graph_exit_node());
+
+            const ObjectList<Node*>& parents = n->get_parents();
+            for (ObjectList<Node*>::const_iterator it = parents.begin();
+                    it != parents.end(); ++it)
+                clear_visits_backwards(*it);
+        }       
     }
 
     std::string ExtensibleGraph::get_name() const
@@ -884,11 +900,10 @@ namespace Analysis {
             ObjectList<Symbol> params;
 
             scope_entry_t* function_header = _function_sym.get_internal_symbol();
-            int num_params = function_header->entity_specs.num_related_symbols;
-            scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+            int num_params = symbol_entity_specs_get_num_related_symbols(function_header);
             for(int i=0; i<num_params; ++i)
             {
-                Symbol s(related_symbols[i]);
+                Symbol s(symbol_entity_specs_get_related_symbols_num(function_header, i));
                 params.append(s);
             }
 

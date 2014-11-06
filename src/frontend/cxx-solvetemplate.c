@@ -54,7 +54,6 @@ type_t* solve_class_template(type_t* template_type,
         const locus_t* locus)
 {
     int i;
-    int num_specializations = template_type_get_num_specializations(template_type);
 
     type_t** matching_set = NULL;
     int num_matching_set = 0;
@@ -62,10 +61,19 @@ type_t* solve_class_template(type_t* template_type,
     template_parameter_list_t **deduction_results = NULL;
     int num_deductions = 0;
 
+    // It may happen that due to side effects we create new specializations
+    // when traversing the existing ones, so first keep the existing ones and
+    // then traverse them
+    int num_specializations = template_type_get_num_specializations(template_type);
+    type_t* specializations[num_specializations + 1];
     for (i = 0; i < num_specializations; i++)
     {
-        type_t* current_specialized_type = 
-            template_type_get_specialization_num(template_type, i);
+        specializations[i] = template_type_get_specialization_num(template_type, i);
+    }
+
+    for (i = 0; i < num_specializations; i++)
+    {
+        type_t* current_specialized_type = specializations[i];
 
         DEBUG_CODE()
         {
@@ -76,7 +84,7 @@ type_t* solve_class_template(type_t* template_type,
         }
 
         // We do not want these for instantiation purposes
-        if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_instantiable)
+        if (!symbol_entity_specs_get_is_instantiable(named_type_get_symbol(current_specialized_type)))
         {
             DEBUG_CODE()
             {
@@ -89,7 +97,7 @@ type_t* solve_class_template(type_t* template_type,
         }
 
         // We do not want aliases for instantiation purposes either
-        if (named_type_get_symbol(current_specialized_type)->entity_specs.alias_to != NULL)
+        if (symbol_entity_specs_get_alias_to(named_type_get_symbol(current_specialized_type)) != NULL)
         {
             DEBUG_CODE()
             {
@@ -344,7 +352,7 @@ type_t* determine_most_specialized_template_function(
         }
 
         char is_conversion = 
-            named_type_get_symbol(feasible_templates[i])->entity_specs.is_conversion;
+            symbol_entity_specs_get_is_conversion(named_type_get_symbol(feasible_templates[i]));
         scope_entry_t* f_sym = named_type_get_symbol(feasible_templates[i]);
         // type_t* f = f_sym->type_information;
         scope_entry_t* g_sym = named_type_get_symbol(most_specialized);
@@ -398,8 +406,8 @@ type_t* determine_most_specialized_template_function(
                     locus_to_str(named_type_get_symbol(feasible_templates[i])->locus));
         }
 
-        char is_conversion = 
-            named_type_get_symbol(most_specialized)->entity_specs.is_conversion;
+        char is_conversion =
+            symbol_entity_specs_get_is_conversion(named_type_get_symbol(most_specialized));
         scope_entry_t* f_sym = named_type_get_symbol(feasible_templates[i]);
         // type_t* f = f_sym->type_information;
         scope_entry_t* g_sym = named_type_get_symbol(most_specialized);

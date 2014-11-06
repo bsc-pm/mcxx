@@ -205,7 +205,7 @@ static int raw_string_buffer_capacity = 0;
 static int raw_string_buffer_position = 0;
 static char* raw_string_buffer = NULL;
 static const char* raw_string_delimiter = NULL;
-static int raw_string_delimiter_length = NULL;
+static int raw_string_delimiter_length = 0;
 static int raw_string_delimiter_index = 0;
 
 #define RAW_STRING_APPEND_CHAR(_x) \

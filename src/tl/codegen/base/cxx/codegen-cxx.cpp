@@ -124,8 +124,8 @@ TL::Scope CxxBase::get_current_scope() const
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
     PREFIX_UNARY_EXPRESSION(Dereference, "*") \
-    PREFIX_UNARY_EXPRESSION(Preincrement, "++") \
-    PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
+    PREFIX_UNARY_EXPRESSION(Preincrement, " ++") \
+    PREFIX_UNARY_EXPRESSION(Predecrement, " --") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(DeleteArray, "delete[] ") \
     PREFIX_UNARY_EXPRESSION(RealPart, "__real__ ") \
@@ -2927,7 +2927,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     walk(next);
 }
 
-void CxxBase::visit(const Nodecl::Lambda& node)
+void CxxBase::visit(const Nodecl::CxxLambda& node)
 {
     (*file) << "[";
 
@@ -2946,7 +2946,7 @@ void CxxBase::visit(const Nodecl::Lambda& node)
             continue;
         }
 
-        if (it->is<Nodecl::CaptureReference>())
+        if (it->is<Nodecl::CxxCaptureReference>())
         {
                 (*file) << "&";
         }
@@ -3238,13 +3238,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
         *(file) << entry.get_name();
     }
 
-    TL::Type type = entry.get_type();
-    if (entry.is_class())
-    {
-        type = entry.get_user_defined_type();
-    }
-
-    if (nodecl_calls_to_constructor(init_expr, type))
+    if (nodecl_calls_to_constructor(init_expr))
     {
         // Ignore top level constructor
         *(file) << "(";
@@ -3328,7 +3322,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     {
         *(file) << "(";
         // A a; we cannot emmit it as A a(); since this would declare a function () returning A
-        if (nodecl_calls_to_constructor(initializer, init_real_type))
+        if (nodecl_calls_to_constructor(initializer))
         {
             Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(initializer);
 
@@ -6851,7 +6845,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     *(file) << " = ";
                     walk(init);
                 }
-                else if (nodecl_is_zero_args_call_to_constructor(init, symbol.get_type()))
+                else if (nodecl_is_zero_args_call_to_constructor(init))
                 {
                     // A a; we cannot emmit it as A a(); since this would declare a function () returning A
                     (*file) << " = ";
@@ -6860,7 +6854,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                 else
                 {
                     *(file) << "(";
-                    if (nodecl_calls_to_constructor(init, symbol.get_type()))
+                    if (nodecl_calls_to_constructor(init))
                     {
                         Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
 
@@ -6872,7 +6866,8 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // [extra blanks added for clarity in the example above]
                         walk_initializer_list(constructor_args, ", ");
                     }
-                    else if (nodecl_is_parenthesized_explicit_type_conversion(init))
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init)
+                            || nodecl_calls_to_constructor_indirectly(init))
                     {
                         // Same reason above
                         *file << "(";
@@ -6894,6 +6889,10 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
 std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& symbol)
 {
+    // Unnamed bitfields do not have a visible name
+    if (symbol.is_unnamed_bitfield())
+        return "";
+
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
@@ -8500,7 +8499,7 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
         }
 
         std::string gcc_attributes = "";
-        if (namespace_nesting_to[i]->entity_specs.num_gcc_attributes > 0)
+        if (symbol_entity_specs_get_num_gcc_attributes(namespace_nesting_to[i]) > 0)
         {
             gcc_attributes =
                 " " + gcc_attributes_to_str(namespace_nesting_to[i]);
@@ -8755,8 +8754,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
         case NODECL_COMPOUND_EXPRESSION:
-        case NODECL_LAMBDA:
 
+        case NODECL_CXX_LAMBDA:
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_NAME_CONVERSION:
         case NODECL_CXX_DEP_NAME_NESTED:
@@ -9085,6 +9084,16 @@ bool CxxBase::nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBas
         && node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is<Nodecl::CxxParenthesizedInitializer>();
 }
 
+bool CxxBase::nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase node)
+{
+    return nodecl_calls_to_constructor(node)
+        || (node.is<Nodecl::FunctionCall>()
+                && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormImplicit>()
+                && !node.as<Nodecl::FunctionCall>().get_arguments().is_null()
+                && nodecl_calls_to_constructor_indirectly(
+                    node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0]));
+}
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
@@ -9094,7 +9103,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
     return node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
 }
 
-bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
@@ -9109,11 +9118,11 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
     return 0;
 }
 
-bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
-    return (nodecl_calls_to_constructor(node, t)
+    return (nodecl_calls_to_constructor(node)
             && nodecl_calls_to_constructor_get_arguments(node).empty());
 }
 
@@ -9496,7 +9505,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             && ((sym->kind == SK_CLASS
                     && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM)
-            && !sym->entity_specs.is_member)
+            && !symbol_entity_specs_get_is_member(sym))
     {
         result = sym->symbol_name;
 
@@ -9799,7 +9808,7 @@ CxxBase::CxxBase()
     register_parameter("old_method_for_class_definitions",
             "Uses an old method to emit class definitions. If you need to enable this, please report a ticket",
             _use_old_method_for_class_definitions_str,
-            "1").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
+            "0").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
 }
 
 void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)

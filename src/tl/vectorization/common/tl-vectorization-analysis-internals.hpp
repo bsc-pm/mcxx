@@ -27,6 +27,7 @@
 #ifndef TL_VECTORIZATION_ANALYSIS_INTERNALS_HPP
 #define TL_VECTORIZATION_ANALYSIS_INTERNALS_HPP
 
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-vectorization-common.hpp"
 #include "tl-node.hpp"
 #include "tl-extensible-graph.hpp"
@@ -48,14 +49,17 @@ namespace Vectorization
     bool is_simd_aligned_access_internal(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const map_tl_sym_int_t& aligned_expressions,
+            const map_tlsym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment);
+            int unroll_factor, int alignment,
+            int& alignment_output,
+            VectorizationAnalysisInterface* analysis);
 
      bool is_suitable_expression_internal(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const objlist_nodecl_t& suitable_expressions, 
-            int unroll_factor, int alignment, int& vector_size_module);
+            int unroll_factor, int alignment, int& vector_size_module,
+            VectorizationAnalysisInterface* analysis);
 }
 }
 

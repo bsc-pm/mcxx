@@ -59,7 +59,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
         TL::Symbol new_class_symbol = sc.new_symbol(ss.str());
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
-        new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
         decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
@@ -78,11 +78,11 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             TL::Symbol field = class_scope.new_symbol("base");
             field.get_internal_symbol()->kind = SK_VARIABLE;
-            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
+            symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
@@ -97,13 +97,13 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             TL::Symbol field = class_scope.new_symbol("devices");
             field.get_internal_symbol()->kind = SK_VARIABLE;
-            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
-            field.get_internal_symbol()->entity_specs.is_member = 1;
-            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+            symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
 
 
-            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
             field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
@@ -221,21 +221,20 @@ Source LoweringVisitor::fill_const_wd_info(
             ;
     }
 
-    if (Nanos::Version::interface_is_at_least("master", 5022))
+    if (Nanos::Version::interface_is_at_least("master", 5022)
+        && (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        && (_lowering->nanos_debug_enabled()
+            || _lowering->instrumentation_enabled()))
     {
-        if (_lowering->instrumentation_enabled()
-                && (IS_C_LANGUAGE || IS_CXX_LANGUAGE))
-        {
-            result
-                << /* ".description = " */ "\"" << wd_description << "\",\n"
-                ;
-        }
-        else
-        {
-            result
-                << /* ".description = " */ "0,\n"
-                ;
-        }
+        result
+            << /* ".description = " */ "\"" << wd_description << "\",\n"
+            ;
+    }
+    else
+    {
+        result
+            << /* ".description = " */ "0,\n"
+            ;
     }
 
     result
@@ -332,8 +331,10 @@ Source LoweringVisitor::fill_const_wd_info(
         }
     }
 
-    if (IS_FORTRAN_LANGUAGE &&
-            Nanos::Version::interface_is_at_least("master", 5022))
+    if (Nanos::Version::interface_is_at_least("master", 5022)
+            && IS_FORTRAN_LANGUAGE
+            && (_lowering->nanos_debug_enabled()
+                || _lowering->instrumentation_enabled()))
     {
         result
             << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\";\n"
@@ -816,9 +817,6 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
-    // This copied_statements will be used when we are generating the code for the 'final' clause
-    Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, construct);
-
     walk(statements);
 
     TaskEnvironmentVisitor task_environment;
@@ -827,7 +825,7 @@ void LoweringVisitor::visit_task(
     Scope  enclosing_scope = construct.retrieve_context();
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
-    OutlineInfo outline_info(environment,function_symbol);
+    OutlineInfo outline_info(*_lowering, environment, function_symbol);
 
     // Handle the special object 'this'
     if (IS_CXX_LANGUAGE
@@ -897,16 +895,16 @@ void LoweringVisitor::visit_task(
         // first (and the unique) list node
         Nodecl::NodeclBase final_stmt_list = copied_statements_placeholder.get_parent();
 
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
         // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
-        copied_statements_placeholder.replace(copied_statements);
+        copied_statements_placeholder.replace(it->second);
 
         ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
 
-        // Remove the OmpSs/OpenMP task stuff from the tree
-        RemoveOpenMPTaskStuff visitor;
-        visitor.walk(final_stmt_list);
-
-        // Walk over the tree transforming OpenMP/OmpSs pragmas
+        // Walk over the tree transforming OpenMP/OmpSs non-task pragmas
         walk(final_stmt_list);
     }
     else
@@ -1746,7 +1744,7 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
 
-            copy_offset << as_expression(data_ref.get_offsetof(data_ref, ctr.retrieve_context()));
+            copy_offset << as_expression(data_ref.get_offsetof_copy(data_ref, ctr.retrieve_context()));
 
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
@@ -1989,7 +1987,6 @@ void LoweringVisitor::fill_copies(
         )
 {
     num_copies = count_copies(outline_info);
-
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
@@ -2424,28 +2421,26 @@ void LoweringVisitor::handle_dependency_item(
         << "}"
         ;
 
-    Type dependency_type = dep_expr.get_data_type();
-
-    int num_dimensions = dependency_type.get_num_dimensions();
-
-    bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
-    bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
-    bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool input         = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+    bool input_value   = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+    bool input_alloca  = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
     bool input_private = ((dir & OutlineDataItem::DEP_IN_PRIVATE) == OutlineDataItem::DEP_IN_PRIVATE);
-    bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-    bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
+    bool output        = ((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT);
+    bool concurrent    = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+    bool commutative   = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-    dependency_flags_in << ( input || input_value || input_alloca || input_private || concurrent || commutative);
-
-    dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
-            || concurrent || commutative);
+    dependency_flags_in  << (input || input_value || input_alloca || input_private || concurrent || commutative);
+    dependency_flags_out << (output || concurrent || commutative);
     dependency_flags_concurrent << concurrent;
     dependency_flags_commutative << commutative;
-    //
+
+    Type dependency_type = dep_expr.get_data_type();
+    int num_dimensions = dependency_type.get_num_dimensions();
+
     // Compute the base type of the dependency and the array containing the size of each dimension
     Type dependency_base_type = dependency_type;
 
-    Nodecl::NodeclBase dimension_sizes[num_dimensions];
+    Nodecl::NodeclBase dimension_sizes[num_dimensions + 1];
     for (int dim = 0; dim < num_dimensions; dim++)
     {
         dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
@@ -2469,7 +2464,7 @@ void LoweringVisitor::handle_dependency_item(
     dependency_regions << ";"
         ;
 
-    Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
+    Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof_dependence();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
     dependency_offset << as_expression(dep_expr_offset);

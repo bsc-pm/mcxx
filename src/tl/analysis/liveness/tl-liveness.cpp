@@ -55,11 +55,11 @@ namespace Analysis {
         if (post_sync != NULL)
             initialize_live_sets(post_sync);
         // Note: 'n', which is the most outer node of the graph, must be cleaned up separatedly
-        //       because clear_visits_backwards skips entering the first node it is called with
+        //       because clear_visits_backwards_in_level skips entering the first node it is called with
         //       in case it is a graph node
-        ExtensibleGraph::clear_visits_backwards(exit, graph);
+        ExtensibleGraph::clear_visits_backwards_in_level(exit, graph);
         if (post_sync != NULL)
-            ExtensibleGraph::clear_visits_backwards(post_sync, graph);
+            ExtensibleGraph::clear_visits_backwards_in_level(post_sync, graph);
         graph->set_visited(false);
 
         // Common Liveness analysis
@@ -70,9 +70,9 @@ namespace Analysis {
             solve_live_equations_rec(graph, changed);
             if (post_sync != NULL)
                 solve_live_equations_rec(post_sync, changed);
-            ExtensibleGraph::clear_visits_backwards(exit, graph);
+            ExtensibleGraph::clear_visits_backwards_in_level(exit, graph);
             if (post_sync != NULL)
-                ExtensibleGraph::clear_visits_backwards(post_sync, graph);
+                ExtensibleGraph::clear_visits_backwards_in_level(post_sync, graph);
             graph->set_visited(false);
         }
     }

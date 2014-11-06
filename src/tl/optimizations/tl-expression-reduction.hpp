@@ -151,8 +151,10 @@ namespace Optimizations {
     {
         private:
             TL::ObjectList<Nodecl::NodeclBase> _unitary_rhss;
-            
+
+            void print_unitary_rhss();
             bool is_leaf_node(const Nodecl::NodeclBase& n);
+            void nullify_nodecl(const Nodecl::NodeclBase& n);
 
         public:
             UnitaryReductor();
@@ -162,11 +164,13 @@ namespace Optimizations {
             Ret unhandled_node(const Nodecl::NodeclBase& n);
             Ret visit(const Nodecl::Conversion& n);
             Ret visit(const Nodecl::Add& n);
-            Ret visit(const Nodecl::Minus& n);
+            Ret visit(const Nodecl::Neg& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::IntegerLiteral& n);
             Ret visit(const Nodecl::Mul& n);
+            Ret visit(const Nodecl::BitwiseShl& n);
             Ret visit(const Nodecl::Div& n);
+            Ret visit(const Nodecl::BitwiseShr& n);
             Ret visit(const Nodecl::Mod& n);
     };
 
@@ -179,14 +183,23 @@ namespace Optimizations {
             Ret visit(const Nodecl::Conversion& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::Add& n);
-            Ret visit(const Nodecl::Minus& n);
+            Ret visit(const Nodecl::Neg& n);
             Ret visit(const Nodecl::Mul& n);
+            Ret visit(const Nodecl::BitwiseShl& n);
             Ret visit(const Nodecl::Div& n);
+            Ret visit(const Nodecl::BitwiseShr& n);
             Ret visit(const Nodecl::Mod& n);
             Ret visit(const Nodecl::IntegerLiteral& n);
     };
 
+    class MinusRemover : public Nodecl::ExhaustiveVisitor<void>
+    {
+        public:
+            MinusRemover();
 
+            Ret visit(const Nodecl::Minus& n);
+            Ret visit(const Nodecl::Neg& n);
+    };
 }
 }
 

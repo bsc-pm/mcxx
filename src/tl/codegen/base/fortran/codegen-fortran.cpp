@@ -477,7 +477,8 @@ namespace Codegen
         }
 
         // Module procedures are only printed if we are in the current module
-        if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
+        if (get_current_declaring_module() !=
+                TL::Symbol(symbol_entity_specs_get_in_module(entry.get_internal_symbol())))
         {
 
            // The function can be contained in an other function, and this other function
@@ -2506,35 +2507,55 @@ OPERATOR_TABLE
         *(file) << node.get_text();
     }
 
-    void FortranBase::emit_only_list(Nodecl::List only_items)
+    void FortranBase::emit_only_list(
+            const std::string &module_name,
+            Nodecl::List only_items)
     {
         int i = 0;
         for (Nodecl::List::iterator it = only_items.begin();
                 it != only_items.end();
                 it++)
         {
-            if (i > 0)
-            {
-                *(file) << ", ";
-            }
 
             TL::Symbol sym = it->get_symbol();
 
             set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
 
-            if (!sym.get_internal_symbol()->entity_specs.is_renamed)
+            if (!symbol_entity_specs_get_is_renamed(sym.get_internal_symbol()))
             {
-                *(file) << get_generic_specifier_str(sym.get_name());
+                if (!explicit_use_has_already_been_emitted(
+                        module_name, sym.get_name(), ""))
+                {
+                    if (i > 0)
+                    {
+                        *(file) << ", ";
+                    }
+
+                    *(file) << get_generic_specifier_str(sym.get_name());
+
+                    set_explicit_use_has_already_been_emitted(module_name, sym.get_name(), "");
+                    i++;
+                }
             }
             else
             {
-                *(file) << sym.get_name()
-                    << " => "
-                    << get_generic_specifier_str(sym.get_from_module_name());
-                ;
-            }
+                std::string gen_spec = get_generic_specifier_str(sym.get_from_module_name());
+                if (!explicit_use_has_already_been_emitted(
+                        module_name, sym.get_name(), gen_spec))
+                {
+                    if (i > 0)
+                    {
+                        *(file) << ", ";
+                    }
 
-            i++;
+                    *(file) << sym.get_name()
+                        << " => "
+                        << gen_spec
+                        ;
+                    set_explicit_use_has_already_been_emitted(module_name, sym.get_name(), gen_spec);
+                    i++;
+                }
+            }
         }
     }
 
@@ -2560,7 +2581,7 @@ OPERATOR_TABLE
                 *(file) << "ONLY: ";
         }
 
-        emit_only_list(items);
+        emit_only_list(module.get_name(), items);
         *(file) << "\n";
     }
 
@@ -2885,6 +2906,36 @@ OPERATOR_TABLE
         }
     }
 
+    // This is a workaround for gfortran where we avoid repeated USEs
+    bool FortranBase::explicit_use_has_already_been_emitted(
+            const std::string& module_name,
+            const std::string& name,
+            const std::string& rename_name)
+    {
+        // rename may be the empty string
+        if (_explicit_use_stack.empty())
+            return false;
+
+        explicit_use_t &last = _explicit_use_stack.back();
+
+        return (last.find(std::make_pair(module_name, std::make_pair(name, rename_name))) != last.end());
+    }
+
+    // This is a workaround for gfortran where we avoid repeated USEs
+    void FortranBase::set_explicit_use_has_already_been_emitted(
+            const std::string& module_name,
+        const std::string& name,
+        const std::string& rename_name)
+    {
+        // rename may be the empty string
+        if (_explicit_use_stack.empty())
+            return;
+
+        explicit_use_t &last = _explicit_use_stack.back();
+
+        last.insert(std::make_pair(module_name, std::make_pair(name, rename_name)));
+    }
+
     bool FortranBase::name_has_already_been_used(const std::string &str)
     {
         if (_name_set_stack.empty())
@@ -3088,7 +3139,7 @@ OPERATOR_TABLE
                     && entry.get_value().is_null())
             {
                 // Make this an ALLOCATABLE
-                entry.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                symbol_entity_specs_set_is_allocatable(entry.get_internal_symbol(), 1);
             }
             else
             {
@@ -4070,7 +4121,7 @@ OPERATOR_TABLE
                 if (!function_type.returns().is_void()
                         // If nobody said anything about this function, we cannot assume
                         // it is a function
-                        && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
+                        && !symbol_entity_specs_get_is_implicit_basic_type(entry.get_internal_symbol()))
                 {
                     std::string type_spec;
                     std::string array_specifier;
@@ -5367,7 +5418,7 @@ OPERATOR_TABLE
                 if (it2 != item_list.begin())
                     *(file) << ", ";
 
-                if (!entry.get_internal_symbol()->entity_specs.is_renamed)
+                if (!symbol_entity_specs_get_is_renamed(entry.get_internal_symbol()))
                 {
                     *(file) << get_generic_specifier_str(entry.get_name())
                         ;
@@ -5454,7 +5505,7 @@ OPERATOR_TABLE
             module = entry.in_module();
 
             // Make sure it has been loaded
-            if (!module.get_internal_symbol()->entity_specs.is_builtin)
+            if (!symbol_entity_specs_get_is_builtin(module.get_internal_symbol()))
                 fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
         else
@@ -6267,6 +6318,8 @@ OPERATOR_TABLE
             _rename_map_stack.push_back(rename_map_t());
         else
             _rename_map_stack.push_back(_rename_map_stack.back());
+
+        _explicit_use_stack.push_back(explicit_use_t());
     }
 
     void FortranBase::pop_declaration_status()
@@ -6280,6 +6333,8 @@ OPERATOR_TABLE
 
         _name_set_stack.pop_back();
         _rename_map_stack.pop_back();
+
+        _explicit_use_stack.pop_back();
     }
 
     void FortranBase::push_declaring_entity(TL::Symbol sym)

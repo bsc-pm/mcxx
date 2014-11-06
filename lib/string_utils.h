@@ -165,6 +165,25 @@ do { \
     }\
 } while (0)
 
+#define P_LIST_REMOVE_FUN(list, size, elem, fun) \
+do { \
+    int _i; \
+    char _found = 0; \
+    for (_i = 0; (_i < (size)) && !_found; _i++) \
+    { \
+        _found = (fun)((list)[_i], (elem)); \
+    } \
+    if (_found) \
+    {\
+        for (; (_i < (size)); _i++) \
+        { \
+            ((list)[_i -1]) = ((list)[_i]); \
+        } \
+        (size)--; \
+        (list) = (__typeof__(list))xrealloc((list), sizeof(*(list))*(size)); \
+    }\
+} while (0)
+
 #ifdef __cplusplus
 }
 #endif
