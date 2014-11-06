@@ -543,7 +543,7 @@ namespace Vectorization
 
         if (lower_bounds.size() != 1)
             return Nodecl::NodeclBase::null();
-#warning
+#warning Ticket 2195 
         //ERROR_CONDITION(lower_bounds.size() != 1,
         //                "Induction variable '%s' has %d lower bounds. "
         //                "Only 1 lower bound supported.\n",

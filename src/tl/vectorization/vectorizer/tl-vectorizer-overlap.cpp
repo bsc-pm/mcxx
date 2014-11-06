@@ -41,7 +41,9 @@ namespace TL
 namespace Vectorization
 {
     Nodecl::List OverlapGroup::get_init_statements(
-            const Nodecl::ForStatement& for_stmt) const 
+            const Nodecl::ForStatement& for_stmt,
+            const bool is_simd_loop, 
+            const bool is_omp_simd_for) const 
     {
         const objlist_nodecl_t& ivs_list = OverlappedAccessesOptimizer::
             _analysis->get_linear_nodecls(for_stmt);
@@ -61,17 +63,24 @@ namespace Vectorization
                     iv != ivs_list.end();
                     iv++)
             {
-                Nodecl::NodeclBase iv_lb = 
-                    OverlappedAccessesOptimizer::_analysis->
-                    get_induction_variable_lower_bound(
-                            for_stmt,*iv);
+                Nodecl::NodeclBase iv_lb;
+
+                // SIMD FOR keeps IV to replece it in the Intel RTL phase
+                if (is_simd_loop && is_omp_simd_for)
+                {
+                    iv_lb = *iv;
+                }
+                else
+                {
+                    iv_lb = OverlappedAccessesOptimizer::_analysis->
+                        get_induction_variable_lower_bound(
+                                for_stmt,*iv);
+                }
 
                 if (!iv_lb.is_null())
                 {
                     Nodecl::Utils::nodecl_replace_nodecl_by_structure(
-                            vload_index,
-                            *iv,
-                            iv_lb);
+                            vload_index, *iv, iv_lb);
                 }
             }
             
@@ -100,7 +109,7 @@ namespace Vectorization
             Nodecl::ExpressionStatement exp_stmt =
                 Nodecl::ExpressionStatement::make(vassignment);
 
-            result_list.append(exp_stmt);
+            result_list.prepend(exp_stmt);
         }
 
         return result_list;
@@ -535,8 +544,12 @@ namespace Vectorization
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment,
             VectorizationAnalysisInterface *analysis,
-            Nodecl::List& init_stmts)
-        : _environment(environment), _init_stmts(init_stmts)
+            const bool is_omp_simd_for,
+            const bool is_epilog,
+            Nodecl::List& prependix_stmts)
+        : _environment(environment), _is_omp_simd_for(is_omp_simd_for),
+        _is_epilog(is_epilog), _prependix_stmts(prependix_stmts),
+        _first_analysis(analysis)
     {
         _analysis = analysis;
     }
@@ -737,7 +750,9 @@ namespace Vectorization
                     // MAIN LOOP
                     compute_group_properties(*ogroup, scope,
                             max_group_registers, num_group);
-                    insert_group_update_stmts(*ogroup, main_loop);
+                    insert_group_update_stmts(*ogroup, main_loop,
+                            _is_omp_simd_for || !_is_epilog /*init_cache*/,
+                            !_is_epilog /*update post*/);
                     replace_overlapped_loads(*ogroup);
 
                     num_group++;
@@ -768,7 +783,9 @@ namespace Vectorization
                     {
                         compute_group_properties(*ogroup, scope,
                                 max_group_registers, num_group);
-                        insert_group_update_stmts(*ogroup, if_epilog);
+                        insert_group_update_stmts(*ogroup, if_epilog,
+                            false /*init_cache*/, false /*update post*/);
+
                         replace_overlapped_loads(*ogroup);
 
                         num_group++;
@@ -794,6 +811,13 @@ namespace Vectorization
         }
         */
  
+        // Delete new analysis and restore the previous one
+        if (min_unroll_factor > 0)
+        {
+            delete(_analysis);
+            _analysis = _first_analysis;
+        }
+
         walk(main_loop.get_statement());
         if (!if_epilog.is_null())
             walk(if_epilog.get_statement());
@@ -812,11 +836,6 @@ namespace Vectorization
                 if_epilog.prepend_sibling(
                         unroll_pragma.shallow_copy());
             }
-        }
-
-        if (min_unroll_factor > 0)
-        {
-            delete(_analysis);
         }
     }
 
@@ -1294,10 +1313,8 @@ namespace Vectorization
                 << num_group << "_"
                 << i;
 
-            ogroup._init_cache = !scope.get_symbol_from_name(
-                    new_sym_name.str()).is_valid();
-
-            if (ogroup._init_cache) 
+            if (!scope.get_symbol_from_name(
+                    new_sym_name.str()).is_valid())
             {
                 // Create new symbols
                 std::cerr << "Creating new cache symbol: "
@@ -1345,13 +1362,31 @@ namespace Vectorization
 
     void OverlappedAccessesOptimizer::insert_group_update_stmts(
             OverlapGroup& ogroup,
-            const Nodecl::ForStatement& n)
+            const Nodecl::ForStatement& n,
+            const bool init_cache,
+            const bool update_post)
     {
         // Init Statements
-        if (ogroup._init_cache)
+        if (init_cache)
         {
-            _init_stmts.prepend(ogroup.get_init_statements(n));
+            bool is_simd_loop = _environment._analysis_simd_scope == n;
 
+            Nodecl::NodeclBase init_stmts =
+                ogroup.get_init_statements(n, is_simd_loop,
+                        _is_omp_simd_for);
+
+            if(is_simd_loop)
+            {
+                _prependix_stmts.prepend(init_stmts);
+            }
+            else
+            {
+                n.prepend_sibling(init_stmts);
+            }
+        }
+
+        if (update_post)
+        {
             // Update Post
             Nodecl::List post_stmts = 
                 ogroup.get_iteration_update_post();
