@@ -28,6 +28,8 @@
 #include "cxx-exprtype.h"
 #include "cxx-instantiation.h"
 
+#include "fortran03-buildscope.h"
+
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
@@ -206,18 +208,27 @@ namespace TL { namespace OpenMP {
 
         if (sym.is_from_module())
         {
-            // This symbol comes from a module
-            TL::Symbol module = sym.from_module();
+            // This symbol comes from a module, but use
+            // the ultimate one otherwise we may be loading
+            // the wrong information
             sym = sym.aliased_from_module();
+            TL::Symbol module = sym.in_module();
 
-            // Check if we already saw this module
-            module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
-            if (it == _module_function_tasks.end())
+            ERROR_CONDITION(!module.is_valid(), "Invalid module symbol", 0);
+            if (!module.is_intrinsic())
             {
-                // Not seen before, load
-                _function_task_set->load_from_module(module);
+                // Make sure the module has been loaded
+                ::fortran_load_module(module.get_name().c_str(), /* intrinsic */ 0, call.get_locus());
 
-                _module_function_tasks.insert(module);
+                // Check if we already saw this module
+                module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
+                if (it == _module_function_tasks.end())
+                {
+                    // Not seen before, load
+                    _function_task_set->load_from_module(module);
+
+                    _module_function_tasks.insert(module);
+                }
             }
         }
 
