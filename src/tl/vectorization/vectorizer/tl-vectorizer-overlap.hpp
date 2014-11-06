@@ -165,7 +165,7 @@ namespace TL
                 
                 void visit(const Nodecl::ForStatement&);
 
-            friend OverlapGroup;
+            friend class OverlapGroup;
 
        };
     }
