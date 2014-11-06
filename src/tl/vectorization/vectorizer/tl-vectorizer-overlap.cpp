@@ -41,7 +41,8 @@ namespace TL
 namespace Vectorization
 {
     Nodecl::List OverlapGroup::get_init_statements(
-            const Nodecl::ForStatement& for_stmt) const 
+            const Nodecl::ForStatement& for_stmt,
+            const bool is_simd_for) const 
     {
         const objlist_nodecl_t& ivs_list = OverlappedAccessesOptimizer::
             _analysis->get_linear_nodecls(for_stmt);
@@ -61,17 +62,24 @@ namespace Vectorization
                     iv != ivs_list.end();
                     iv++)
             {
-                Nodecl::NodeclBase iv_lb = 
-                    OverlappedAccessesOptimizer::_analysis->
-                    get_induction_variable_lower_bound(
-                            for_stmt,*iv);
+                Nodecl::NodeclBase iv_lb;
+
+                // SIMD FOR keeps IV to replece it in the Intel RTL phase
+                if (is_simd_for)
+                {
+                    iv_lb = *iv;
+                }
+                else
+                {
+                    iv_lb = OverlappedAccessesOptimizer::_analysis->
+                        get_induction_variable_lower_bound(
+                                for_stmt,*iv);
+                }
 
                 if (!iv_lb.is_null())
                 {
                     Nodecl::Utils::nodecl_replace_nodecl_by_structure(
-                            vload_index,
-                            *iv,
-                            iv_lb);
+                            vload_index, *iv, iv_lb);
                 }
             }
             
@@ -535,8 +543,12 @@ namespace Vectorization
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment,
             VectorizationAnalysisInterface *analysis,
+            const bool is_simd_for,
+            const bool is_epilog,
             Nodecl::List& init_stmts)
-        : _environment(environment), _init_stmts(init_stmts), _first_analysis(analysis)
+        : _environment(environment), _is_simd_for(is_simd_for),
+        _is_epilog(is_epilog), _init_stmts(init_stmts),
+        _first_analysis(analysis)
     {
         _analysis = analysis;
     }
@@ -737,7 +749,9 @@ namespace Vectorization
                     // MAIN LOOP
                     compute_group_properties(*ogroup, scope,
                             max_group_registers, num_group);
-                    insert_group_update_stmts(*ogroup, main_loop);
+                    insert_group_update_stmts(*ogroup, main_loop,
+                            _is_simd_for || !_is_epilog /*init_cache*/,
+                            !_is_epilog /*update post*/);
                     replace_overlapped_loads(*ogroup);
 
                     num_group++;
@@ -768,7 +782,9 @@ namespace Vectorization
                     {
                         compute_group_properties(*ogroup, scope,
                                 max_group_registers, num_group);
-                        insert_group_update_stmts(*ogroup, if_epilog);
+                        insert_group_update_stmts(*ogroup, if_epilog,
+                            false /*init_cache*/, false /*update post*/);
+
                         replace_overlapped_loads(*ogroup);
 
                         num_group++;
@@ -1296,10 +1312,8 @@ namespace Vectorization
                 << num_group << "_"
                 << i;
 
-            ogroup._init_cache = !scope.get_symbol_from_name(
-                    new_sym_name.str()).is_valid();
-
-            if (ogroup._init_cache) 
+            if (!scope.get_symbol_from_name(
+                    new_sym_name.str()).is_valid())
             {
                 // Create new symbols
                 std::cerr << "Creating new cache symbol: "
@@ -1347,13 +1361,19 @@ namespace Vectorization
 
     void OverlappedAccessesOptimizer::insert_group_update_stmts(
             OverlapGroup& ogroup,
-            const Nodecl::ForStatement& n)
+            const Nodecl::ForStatement& n,
+            const bool init_cache,
+            const bool update_post)
     {
         // Init Statements
-        if (ogroup._init_cache)
+        if (init_cache)
         {
-            _init_stmts.prepend(ogroup.get_init_statements(n));
+            _init_stmts.prepend(ogroup.get_init_statements(
+                        n, _is_simd_for));
+        }
 
+        if (update_post)
+        {
             // Update Post
             Nodecl::List post_stmts = 
                 ogroup.get_iteration_update_post();

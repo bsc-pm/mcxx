@@ -469,6 +469,15 @@ namespace TL { namespace Intel {
 
             if (!prependix.is_null())
             {
+                Nodecl::NodeclBase lower_node =
+                    lower.parse_expression(stmt_placeholder);
+
+                // Replace IV by IV LB
+                Nodecl::Utils::nodecl_replace_nodecl_by_structure(
+                        prependix, /* haystack */
+                        induction_var.make_nodecl(true), /* needle */
+                        lower_node /* replacement */);
+
                 prependix_code.prepend_sibling(
                         Nodecl::Utils::deep_copy(prependix, prependix_code, symbol_map));
             }

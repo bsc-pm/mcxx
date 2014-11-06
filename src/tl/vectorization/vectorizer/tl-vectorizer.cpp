@@ -202,6 +202,8 @@ namespace Vectorization
 
     void Vectorizer::opt_overlapped_accesses(Nodecl::NodeclBase& statements,
             VectorizerEnvironment& environment,
+            const bool is_simd_for,
+            const bool is_epilog,
             Nodecl::List& init_stmts)
     {
         VECTORIZATION_DEBUG()
@@ -210,7 +212,8 @@ namespace Vectorization
         }
 
         OverlappedAccessesOptimizer overlap_visitor(environment,
-                Vectorizer::_vectorizer_analysis, init_stmts);
+                Vectorizer::_vectorizer_analysis, is_simd_for,
+                is_epilog, init_stmts);
         overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()
