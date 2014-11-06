@@ -28,6 +28,7 @@
 
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-optimizations.hpp"
 
 #include "cxx-cexpr.h"
 
@@ -119,6 +120,28 @@ namespace Vectorization
                     const_value_to_nodecl(one),
                     closed_ub.get_type());
 
+            // Canonicalize and register symbols
+            ObjectList<Nodecl::NodeclBase> original_ub_syms = 
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::Symbol>(ub);
+ 
+            TL::Optimizations::canonicalize_and_fold(ub, false /*fast math*/);
+
+            ObjectList<Nodecl::NodeclBase> canon_ub_syms = 
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::Symbol>(ub);
+
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = canon_ub_syms.begin();
+                    it != canon_ub_syms.end();
+                    it++)
+            {
+                Nodecl::NodeclBase original_sym =
+                    *Nodecl::Utils::list_get_nodecl_by_structure(
+                            original_ub_syms, *it);
+
+                Vectorizer::_vectorizer_analysis->register_identical_copy(
+                        original_sym, *it);
+            }
+ 
+            
             if (closed_ub.is_constant())
                 ub.set_constant(const_value_add(closed_ub.get_constant(), one));
 
