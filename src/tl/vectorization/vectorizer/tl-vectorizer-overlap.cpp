@@ -686,7 +686,7 @@ namespace Vectorization
             // Main Loop
             TL::HLT::LoopUnroll loop_unroller;
             loop_unroller.set_loop(main_loop)
-                .set_unroll_factor(16)
+                .set_unroll_factor(16)          //TODO: 16!
                 .unroll();
 
             Nodecl::NodeclBase whole_main_transformation =
@@ -830,12 +830,12 @@ namespace Vectorization
 
             main_loop.prepend_sibling(unroll_pragma.shallow_copy());
             last_epilog.prepend_sibling(unroll_pragma.shallow_copy());
+        }
 
-            if (!if_epilog.is_null())
-            {
-                if_epilog.prepend_sibling(
-                        unroll_pragma.shallow_copy());
-            }
+        // Remove if_epilog if it's not necessary
+        if (min_unroll_factor == 16) //TODO: 16!
+        {
+            Nodecl::Utils::remove_from_enclosing_list(if_epilog);
         }
     }
 
