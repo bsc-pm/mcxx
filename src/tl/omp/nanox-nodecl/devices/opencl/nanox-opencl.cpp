@@ -1031,11 +1031,13 @@ void DeviceOpenCL::generate_outline_events_after(
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {    
     if (_opencl_tasks_processed){
+        Nodecl::NodeclBase root = data_flow["nodecl"];
         Source nanox_device_enable_section;
         nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_opencl = 1;";
         if (IS_FORTRAN_LANGUAGE)
            Source::source_language = SourceLanguage::C;
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
         Source::source_language = SourceLanguage::Current;
         if (IS_FORTRAN_LANGUAGE){
            _extra_c_code.prepend(functions_section_tree); 
