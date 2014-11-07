@@ -1196,21 +1196,23 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         functions_section << "void (*ompss_mpi_func_pointers_dev[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
                 << _sectionCodeDevice
                 << "}; ";
-        
-        if (_mpi_task_processed)
-        functions_section << "__attribute__((weak)) char ompss_uses_offload = 1;";
-        
+
         if (IS_FORTRAN_LANGUAGE)
            Source::source_language = SourceLanguage::C;
+
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
+
         Source::source_language = SourceLanguage::Current;
-        if (IS_FORTRAN_LANGUAGE){
-           _extra_c_code.prepend(functions_section_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+           _extra_c_code.prepend(functions_section_tree);
+        } else
+        {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
     }
-    
+
     if (!_extra_c_code.is_null()){
 
         original_filename = TL::CompilationProcess::get_current_file().get_filename();
