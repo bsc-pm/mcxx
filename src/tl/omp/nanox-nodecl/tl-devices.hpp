@@ -25,8 +25,8 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef NANOX_DEVICES_H
-#define NANOX_DEVICES_H
+#ifndef NANOX_DEVICES_HPP
+#define NANOX_DEVICES_HPP
 
 
 #include "tl-compilerphase.hpp"
@@ -288,4 +288,4 @@ namespace TL { namespace Nanox {
             );
 } }
 
-#endif // NANOX_DEVICES_H
+#endif // NANOX_DEVICES_HPP

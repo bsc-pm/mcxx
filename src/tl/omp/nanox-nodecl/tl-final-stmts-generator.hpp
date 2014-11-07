@@ -24,14 +24,15 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_FINAL_STMTS_GENERATOR_HPP
+#define TL_FINAL_STMTS_GENERATOR_HPP
+
 #include <map>
 
 #include "tl-omp-core.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 
-#ifndef TL_FINAL_STMTS_GENERATOR_HPP
-#define TL_FINAL_STMTS_GENERATOR_HPP
 namespace TL { namespace Nanox {
 
     class FinalStmtsGenerator : public Nodecl::ExhaustiveVisitor<void>
