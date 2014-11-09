@@ -146,6 +146,15 @@ namespace TL
 
                     return result;
                 }
+
+
+            class RemovePrefetchIntrinsics : public Nodecl::ExhaustiveVisitor<void>
+            {
+                public:
+                    RemovePrefetchIntrinsics(void) {};
+                    void visit(const Nodecl::FunctionCall& node);
+            };
+
             
             Nodecl::NodeclBase get_vector_load_scalar_access(
                     const Nodecl::VectorLoad& vector_load);

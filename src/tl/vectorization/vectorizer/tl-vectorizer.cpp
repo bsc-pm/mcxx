@@ -40,6 +40,7 @@
 #include "tl-spml-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
+#include "tl-vectorization-utils.hpp"
 
 #include "tl-vectorizer-report.hpp"
 
@@ -240,6 +241,10 @@ namespace Vectorization
         VectorizerVisitorLoopEpilog visitor_epilog(environment,
                 epilog_iterations, only_epilog, is_parallel_loop);
         visitor_epilog.visit(loop_statement, net_epilog_node);
+
+        // Remove prefetch instrucitons from epilog
+        Vectorization::Utils::RemovePrefetchIntrinsics remove_prefetch;
+        remove_prefetch.walk(loop_statement);
 
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(loop_statement, _fast_math_enabled);

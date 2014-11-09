@@ -437,6 +437,29 @@ namespace Utils
         return result;
     }
 
+    void RemovePrefetchIntrinsics::visit(const Nodecl::FunctionCall& n)
+    {
+        Nodecl::NodeclBase called = n.get_called();
+        if (!called.is<Nodecl::Symbol>())
+            return;
+
+        Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
+        TL::Type call_type = n.get_type();
+        std::string func_name = called_sym.get_symbol().get_name();
+
+        if (func_name == "_mm_prefetch" || func_name == "_mm_prefetche")
+        {
+            ERROR_CONDITION(!n.get_parent().is<Nodecl::ExpressionStatement>(),
+                    "Prefetch intrinsic is not nested in an ExpressionStatement", 0);
+
+            Nodecl::NodeclBase expression_stmt = 
+                n.get_parent().as<Nodecl::ExpressionStatement>();
+
+
+            Nodecl::Utils::remove_from_enclosing_list(expression_stmt);
+        }
+    }
+
     Nodecl::NodeclBase get_vector_load_scalar_access(
             const Nodecl::VectorLoad& vector_load)
     {
