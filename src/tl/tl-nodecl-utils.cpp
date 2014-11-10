@@ -619,25 +619,25 @@ namespace Nodecl
         return result;
     }
 
-    bool Utils::nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l )
+    bool Utils::nodecl_is_in_nodecl_list(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::List& l,
+            const bool skip_conversion_nodecls)
     {
-        bool res = false;
-        if( n.is<Nodecl::List>( ) )
+        if (n.is<Nodecl::List>())
         {
-            ERROR_CONDITION( !n.is<List>( ), "Can't found a list found in a list", 0 );
+            ERROR_CONDITION(!n.is<List>(), "Can't found a list found in a list", 0);
         }
-        else
+
+        for (Nodecl::List::const_iterator it = l.begin(); it != l.end(); ++it)
         {
-            for( Nodecl::List::iterator it = l.begin( ); it != l.end( ); ++it )
+            if (structurally_equal_nodecls(n, *it, skip_conversion_nodecls))
             {
-                if( structurally_equal_nodecls( n, *it ) )
-                {
-                    res = true;
-                    break;
-                }
+                return true;
             }
         }
-        return res;
+
+        return false;
     }
 
     bool Utils::structurally_equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,

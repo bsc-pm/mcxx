@@ -62,10 +62,15 @@ namespace Utils {
     bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
     bool dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
-    bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
-    bool structurally_equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
-                                    const bool skip_conversion_nodecls = false);
-    
+    bool nodecl_is_in_nodecl_list(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::List& l,
+            const bool skip_conversion_nodecls = false);
+    bool structurally_equal_nodecls(
+            const Nodecl::NodeclBase& n1,
+            const Nodecl::NodeclBase& n2,
+            const bool skip_conversion_nodecls = false);
+
     int structurally_cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                                  bool skip_conversion_nodecls = false);
     struct Nodecl_hash {
