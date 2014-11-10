@@ -509,7 +509,6 @@ namespace {
     {
         NBase result;
 
-        std::cerr << "     -----> range_union_rec  ::  " << n.prettyprint() << " U " << m.prettyprint() << std::endl;
         NBase n_lb = n.get_lower();
         NBase n_ub = n.get_upper();
         NBase m_lb = m.get_lower();
@@ -814,14 +813,14 @@ namespace {
         if (lb.is<Nodecl::Analysis::MinusInfinity>() || lb.is<Nodecl::Analysis::PlusInfinity>())
             new_lb = lb;
         else if (lb.is_constant() && v.is_constant())
-            new_lb = const_value_to_nodecl(const_value_div(lb.get_constant(), v.get_constant()));
+            new_lb = const_value_to_nodecl(const_value_mul(lb.get_constant(), v.get_constant()));
         else
             new_lb = Nodecl::Div::make(lb, v, t);
         // compute the upper bound
         if (ub.is<Nodecl::Analysis::MinusInfinity>() || ub.is<Nodecl::Analysis::PlusInfinity>())
             new_ub = ub;
         else if (ub.is_constant() && v.is_constant())
-            new_ub = const_value_to_nodecl(const_value_div(ub.get_constant(), v.get_constant()));
+            new_ub = const_value_to_nodecl(const_value_mul(ub.get_constant(), v.get_constant()));
         else
             new_ub = Nodecl::Div::make(ub, v, t);
 

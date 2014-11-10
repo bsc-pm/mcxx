@@ -1010,9 +1010,9 @@ namespace {
     CGNode* ConstraintGraph::get_node_from_ssa_var(const NBase& n)
     {
         CGValueToCGNode_map::iterator it = _nodes.find(n);
-        ERROR_CONDITION (it == _nodes.end(), 
-                         "No SSA variable '%s' found in Constraint Graph '%s'", 
-                         n.prettyprint().c_str(), _name.c_str());
+        ERROR_CONDITION(it == _nodes.end(),
+                        "No SSA variable '%s' found in Constraint Graph '%s'",
+                        n.prettyprint().c_str(), _name.c_str());
         return it->second;
     }
     
@@ -1511,24 +1511,24 @@ root_done:  ;
         NBase valuation;
         CGOpType type = node->get_type();
         NBase constraint = node->get_constraint();
-        if (!constraint.is_null() && constraint.is<Nodecl::Range>())
-        {
+        if (constraint.is<Nodecl::Range>())
+        {   // The node is a constant value
             valuation = constraint;
         }
         else
-        {
+        {   // The node is an SSA symbol
             NodeclList entry_valuations;
-            ObjectList<CGEdge*> entries = node->get_entries();
+            const ObjectList<CGEdge*>& entries = node->get_entries();
             ERROR_CONDITION(entries.empty(), 
                             "CG node %d representing symbol or operation has no entries. Expected at least one entry.\n", 
                             node->get_id());
-            for (ObjectList<CGEdge*>::iterator it = entries.begin(); it != entries.end(); ++it)
+            for (ObjectList<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
             {
                 if ((*it)->is_back_edge())
                     continue;
                 Nodecl::Range last_valuation = (*it)->get_source()->get_valuation().as<Nodecl::Range>();
                 CGOpType edge_type = (*it)->get_edge_type();
-                NBase predicate = (*it)->get_predicate();
+                const NBase& predicate = (*it)->get_predicate();
                 if (edge_type == __Flow)
                     valuation = last_valuation;
                 else if (edge_type == __Add)
@@ -1549,10 +1549,10 @@ root_done:  ;
                 }
                 else
                 {
-                    internal_error("Unexpected CG edge %s with predicate %s.\n",
+                    internal_error("Unexpected CG edge %s with predicate %s of type %s.\n",
                                    (*it)->get_type_as_string().c_str(),
-                                   ast_print_node_type(predicate.get_kind()),
-                                   predicate.prettyprint().c_str());
+                                   predicate.prettyprint().c_str(),
+                                   ast_print_node_type(predicate.get_kind()));
                 }
 
                 if (!valuation.is_null())
