@@ -55,6 +55,36 @@ namespace Analysis {
         #undef CONSTRAINT_KIND
     };
 
+    #define CG_OP_TYPE_LIST \
+    CG_OP_TYPE(Add) \
+    CG_OP_TYPE(Div) \
+    CG_OP_TYPE(Flow) \
+    CG_OP_TYPE(Intersection) \
+    CG_OP_TYPE(Mul) \
+    CG_OP_TYPE(Phi) \
+    CG_OP_TYPE(Sub) \
+    CG_OP_TYPE(Sym)
+
+    enum CGOpType {
+        #undef CG_OP_TYPE
+        #define CG_OP_TYPE(X) __##X,
+        CG_OP_TYPE_LIST
+        #undef CG_OP_TYPE
+    };
+
+    inline std::string get_op_type_as_string(CGOpType op_type)
+    {
+        switch(op_type)
+        {
+            #undef CG_OP_TYPE
+            #define CG_OP_TYPE(X) case __##X : return #X;
+            CG_OP_TYPE_LIST
+            #undef CG_OP_TYPE
+            default: WARNING_MESSAGE("Unexpected type of op '%d' in constraint.\n", op_type);
+        }
+        return "";
+    }
+
     // *************** END Constraints *************** //
     // *********************************************** //
 
@@ -65,27 +95,13 @@ namespace Analysis {
 
     class CGNode;
 
-    #define CG_EDGE_TYPE_LIST \
-    CG_EDGE_TYPE(Add) \
-    CG_EDGE_TYPE(Div) \
-    CG_EDGE_TYPE(Flow) \
-    CG_EDGE_TYPE(Intersection) \
-    CG_EDGE_TYPE(Sub)
-
-    enum CGEdgeType {
-        #undef CG_EDGE_TYPE
-        #define CG_EDGE_TYPE(X) __##X,
-        CG_EDGE_TYPE_LIST
-        #undef CG_EDGE_TYPE
-    };
-
     class LIBTL_CLASS CGEdge
     {
     private:
         // *** Members *** //
         CGNode* _source;
         CGNode* _target;
-        CGEdgeType _edge_type;
+        CGOpType _edge_type;
         NBase _predicate;
         bool _is_back_edge;
 
@@ -93,19 +109,17 @@ namespace Analysis {
         // *** Constructor *** //
         CGEdge(CGNode* source,
                CGNode* target,
-               CGEdgeType edge_type,
+               CGOpType edge_type,
                const NBase& predicate,
                bool back_edge);
 
         // *** Getters and setters *** //
         CGNode* get_source() const;
         CGNode* get_target() const;
-        CGEdgeType get_edge_type() const;
+        CGOpType get_edge_type() const;
+        std::string get_type_as_string() const;
         NBase get_predicate() const;
         bool is_back_edge() const;
-        
-        // *** Utils *** //
-        std::string get_type_as_string() const;
     };
 
     // **************** END CG Edges ***************** //
@@ -116,26 +130,12 @@ namespace Analysis {
     // *********************************************** //
     // ****************** CG Nodes ******************* //
 
-    #define CGNODE_TYPE_LIST \
-    CGNODE_TYPE(CG_Sym) \
-    CGNODE_TYPE(CG_Phi) \
-    CGNODE_TYPE(CG_Add) \
-    CGNODE_TYPE(CG_Sub) \
-    CGNODE_TYPE(CG_Div)
-    
-    enum CGNode_type {
-        #undef CGNODE_TYPE
-        #define CGNODE_TYPE(X) __##X,
-        CGNODE_TYPE_LIST
-        #undef CGNODE_TYPE
-    };
-    
     class LIBTL_CLASS CGNode
     {
     private:
         // *** Members *** //
         unsigned int _id;
-        CGNode_type _type;
+        CGOpType _type;
         NBase _constraint;
         NBase _valuation;
         ObjectList<CGEdge*> _entries;
@@ -143,12 +143,12 @@ namespace Analysis {
         
     public:    
         // *** Constructor *** //
-        CGNode(CGNode_type type, const NBase& constraint=NBase::null());
+        CGNode(CGOpType type, const NBase& constraint=NBase::null());
         
         // *** Getters and setters *** //
         unsigned int get_id() const;
-        CGNode_type get_type() const;
-        std::string get_type_as_str() const;
+        CGOpType get_type() const;
+        std::string get_type_as_string() const;
         
         NBase get_constraint() const;
         NBase get_valuation() const;
@@ -161,7 +161,7 @@ namespace Analysis {
         ObjectList<CGEdge*> get_exits() const;
         ObjectList<CGNode*> get_children();
         CGEdge* add_child(CGNode* child,
-                CGEdgeType edge_type = __Flow,
+                CGOpType edge_type = __Flow,
                 NBase predicate = NBase::null(),
                 bool is_back_edge = false);
     };

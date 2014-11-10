@@ -119,6 +119,7 @@ namespace Analysis {
         Ret join_list(TL::ObjectList<Utils::Constraint>& list);
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::Different& n);
         Ret visit(const Nodecl::Equal& n);
         Ret visit(const Nodecl::GreaterThan& n);
         Ret visit(const Nodecl::GreaterOrEqualThan& n);
@@ -148,29 +149,33 @@ namespace Analysis {
         std::string _name;
         CGValueToCGNode_map _nodes;
         std::map<CGNode*, SCC*> _node_to_scc_map;
-        
+
         //! Method building the SCCs from the Constraint Graph. It follows the Tarjan's method to do so
         void strong_connect(CGNode* n, unsigned int& scc_current_index, 
                             std::stack<CGNode*>& s, std::vector<SCC*>& scc_list, 
                             std::map<CGNode*, int>& scc_lowlink_index,
                             std::map<CGNode*, int>& scc_index);
-        
+
         //! Insert, if it is not yet there, a new node in the CG with the value #value
         CGNode* insert_node(const NBase& value);
-        CGNode* insert_node(CGNode_type type);
-        
+        CGNode* insert_node(CGOpType type);
+
         //! Connects nodes #source and #target with a directed edge extended with #predicate
         void connect_nodes(CGNode* source, CGNode* target,
-                CGEdgeType edge_type = __Flow,
+                CGOpType edge_type = __Flow,
                 NBase predicate = NBase::null(),
                 bool is_back_edge = false);
         
         //! Method to solve constraints within a cycle
         void resolve_cycle(SCC* scc);
-        
+
         //! Method to evaluate the ranges in a sinle Constraint Graph node
         void evaluate_cgnode(CGNode* const node, bool& changes);
-        
+
+        CGNode* fill_cg_with_binary_op_rec(
+                const NBase& val,
+                CGOpType n_type);
+
     public:
         // *** Constructor *** //
         ConstraintGraph(std::string name);
@@ -178,19 +183,17 @@ namespace Analysis {
         // *** Getters and setters *** //
         //! Retrieves the Constraint Graph node given a SSA variable
         CGNode* get_node_from_ssa_var(const NBase& n);
-        
+
         // *** Modifiers *** //
         void fill_cg_with_binary_op(
                 const NBase& s,
                 const NBase& val,
-                CGNode_type n_type,
-                CGEdgeType edge_type,
-                std::string op_str,
-                std::string op_sym_str);
+                CGOpType op_type);
+
         void fill_constraint_graph(
                 const SSAVarToValue_map& constraints,
                 const NodeclList& ordered_constraints);
-        
+
         //! Decompose the Constraint Graph in a set of Strongly Connected Components
         std::vector<SCC*> topologically_compose_strongly_connected_components();
         

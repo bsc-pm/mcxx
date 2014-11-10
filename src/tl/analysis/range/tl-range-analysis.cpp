@@ -26,6 +26,7 @@ Cambridge, MA 02139, USA.
 
 #include "cxx-cexpr.h"
 #include "cxx-process.h"
+#include "tl-expression-reduction.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-range-analysis.hpp"
 
@@ -313,6 +314,8 @@ namespace {
                     old_s, val_false, t, __Replace);
             _output_false_constraints_map[lhs] = new_c_false;
         }
+        else if (n.is<Nodecl::LogicalAnd>() || n.is<Nodecl::Different>())
+        {}  // Nothing to be done because the infinite range is set to the edge recursively
         else
         {
             internal_error("Unexpected node of type %s while setting false branch to [-inf, +inf]\n",
@@ -450,12 +453,88 @@ namespace {
         n.replace(new_rhs);
         visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
     }
-    
+
     void ConstraintBuilderVisitor::visit(const Nodecl::Assignment& n)
     {
         visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
     }
-    
+
+    // x != c;   ---TRUE-->    X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
+    //           --FALSE-->    X1 = X0 ∩ [c, c]
+    void ConstraintBuilderVisitor::visit(const Nodecl::Different& n)
+    {
+        NBase lhs = n.get_lhs().no_conv();
+        NBase rhs = n.get_rhs().no_conv();
+
+        // Check the input is something we expect: LHS has a constraint or is a parameter
+        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
+                        ast_print_node_type(n.get_kind()));
+
+        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
+        Type t = orig_s.get_type();
+        std::string orig_s_str = orig_s.get_name();
+
+        // 1.- Compute the conditions associated with the current node
+        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
+
+        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
+        NBase val = rhs.shallow_copy();
+        if(!rhs.is_constant())
+        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
+            _cr.walk(val);
+        }
+        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
+        // x < x;       --TRUE-->       X1 = X0 ∩ [c, c]
+        // 2.1.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(lhs);
+        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
+        s_true.set_type(t);
+        ssa_to_original_var[s_true] = lhs;
+        // 2.1.2.- Build the TRUE constraint value
+        NBase lb, ub;
+        if(rhs.is_constant())
+        {
+            lb = const_value_to_nodecl(const_value_add(rhs.get_constant(), one));
+            ub = const_value_to_nodecl(const_value_sub(rhs.get_constant(), one));
+        }
+        else
+        {
+            lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
+            ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
+        }
+        NBase val_true =
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Analysis::RangeUnion::make(Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub,
+                                                                       const_value_to_nodecl(one), t),
+                                                   Nodecl::Range::make(lb, Nodecl::Analysis::PlusInfinity::make(t),
+                                                                       const_value_to_nodecl(one), t),
+                                                   t),
+                t);
+        // 2.1.3.- Build the TRUE constraint and store it
+        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
+        _output_true_constraints_map[lhs] = c_true;
+        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
+        // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
+        // 2.2.1.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(lhs);
+        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
+        s_false.set_type(t);
+        ssa_to_original_var[s_false] = lhs;
+        // 2.2.2.- Build the FALSE constraint value
+        NBase val_false =
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(val.shallow_copy(),
+                                    val.shallow_copy(),
+                                    const_value_to_nodecl(one), t),
+                t);
+        // 2.2.3.- Build the FALSE constraint and store it
+        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
+        _output_false_constraints_map[lhs] = c_false;
+    }
+
     // x == c;   ---TRUE-->    X1 = X0 ∩ [c, c]
     //           --FALSE-->    X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
     void ConstraintBuilderVisitor::visit(const Nodecl::Equal& n)
@@ -465,7 +544,7 @@ namespace {
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
         
         Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
@@ -531,7 +610,7 @@ namespace {
         Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
         _output_false_constraints_map[lhs] = c_false;
     }
-    
+
     // x > c;   ---TRUE-->    X1 = X0 ∩ [ c+1, +∞ ]
     //          --FALSE-->    X1 = X0 ∩ [-∞, c]
     void ConstraintBuilderVisitor::visit(const Nodecl::GreaterThan& n)
@@ -541,7 +620,7 @@ namespace {
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
         
         Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
@@ -606,7 +685,7 @@ namespace {
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
         
         Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
@@ -684,7 +763,7 @@ namespace {
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
         
         Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
@@ -750,7 +829,7 @@ namespace {
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
         
         Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
@@ -816,7 +895,7 @@ namespace {
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
         
         Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
@@ -943,13 +1022,13 @@ namespace {
                                                              : _nodes[value]);
         if(node==NULL)
         {
-            node = new CGNode(__CG_Sym, value);
+            node = new CGNode(__Sym, value);
             _nodes[value] = node;
         }
         return node;
     }
     
-    CGNode* ConstraintGraph::insert_node(CGNode_type type)
+    CGNode* ConstraintGraph::insert_node(CGOpType type)
     {
         CGNode* node = new CGNode(type, NBase::null());
         NBase value = Nodecl::IntegerLiteral::make(Type::get_int_type(), 
@@ -959,7 +1038,7 @@ namespace {
     }
     
     void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target,
-            CGEdgeType edge_type, NBase predicate, bool is_back_edge)
+            CGOpType edge_type, NBase predicate, bool is_back_edge)
     {
         ObjectList<CGNode*> children = source->get_children();
         if(!children.contains(target))
@@ -969,64 +1048,145 @@ namespace {
         }
     }
 
-    void ConstraintGraph::fill_cg_with_binary_op(
-            const NBase& s,
-            const NBase& val,
-            CGNode_type n_type,
-            CGEdgeType edge_type,
-            std::string op_str,
-            std::string op_sym_str)
+    static CGOpType get_op_type_from_value(const NBase& val)
     {
-        std::string error_msg = "Unexpected " + op_str + " constraint value %s. "
-                "Expected 's" + op_sym_str + "s', 'c" + op_sym_str + "s' or 's" + op_sym_str + "c'.\n";
+        switch(val.get_kind())
+        {
+            case NODECL_ADD:                            return __Add;
+            case NODECL_DIV:                            return __Div;
+            case NODECL_ANALYSIS_RANGE_INTERSECTION:    return __Intersection;
+            case NODECL_MUL:                            return __Mul;
+            case NODECL_ANALYSIS_PHI:                   return __Phi;
+            case NODECL_MINUS:                          return __Sub;
+            case NODECL_SYMBOL:                         return __Sym;
+            default:
+                internal_error("Unexpected Constraint value %s.\n", val.prettyprint().c_str());
+        }
+    }
+
+    CGNode* ConstraintGraph::fill_cg_with_binary_op_rec(
+            const NBase& val,
+            CGOpType n_type)
+    {
+        ERROR_CONDITION(!Nodecl::Utils::nodecl_is_arithmetic_op(val),
+                        "Expected arithmetic operation in constraint, but found '%s'.\n",
+                        val.prettyprint().c_str());
 
         // We take the liberty of casting to Nodecl::Add always because
         // all binary operation structurally have the same tree
         const NBase& lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
         const NBase& rhs = val.as<Nodecl::Add>().get_rhs().no_conv();
+        CGOpType val_type = get_op_type_from_value(val);
+
+        CGNode* target_op;
         if(lhs.is<Nodecl::Symbol>())
         {
             if(rhs.is<Nodecl::Symbol>())
-            {   // G.b.
-                CGNode* source_1 = insert_node(lhs);
-                CGNode* source_2 = insert_node(rhs);
+            {   // var1 OP var2
+                CGNode* source1 = insert_node(lhs);                 // var1
+                CGNode* source2 = insert_node(rhs);                 // var2
+                target_op = insert_node(val_type);                  // OP
 
-                CGNode* target_op = insert_node(n_type);
-                CGNode* target = insert_node(s);  // A.
-
-                connect_nodes(source_1, target_op);
-                connect_nodes(source_2, target_op);
-                connect_nodes(target_op, target);
+                connect_nodes(source1, target_op);                  // var1 -> OP
+                connect_nodes(source2, target_op);                  // var2 -> OP
             }
             else if(rhs.is_constant())
-            {   // G.a.
-                CGNode* source = insert_node(lhs);
-                CGNode* target = insert_node(s);  // A.
-                NBase predicate = rhs.shallow_copy();
-                connect_nodes(source, target, edge_type, predicate);
+            {   // var OP const
+                CGNode* source = insert_node(lhs);                          // var
+                target_op = insert_node(n_type);                            // outerOP
+                NBase predicate = rhs.shallow_copy();                       // const
+                Optimizations::ReduceExpressionVisitor rev;
+                rev.walk(predicate);
+                connect_nodes(source, target_op, val_type, predicate);      // var --val_type--> outerOP
+            }
+            else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
+            {   // var OP (...)
+                CGNode* source1 = insert_node(lhs);                         // var
+                CGNode* source2 = fill_cg_with_binary_op_rec(rhs, val_type);// (...)
+                target_op = insert_node(val_type);                          // OP
+
+                connect_nodes(source1, target_op);                         // var -> OP
+                connect_nodes(source2, target_op);                         // (...) -> OP
             }
             else
             {
-                internal_error(error_msg.c_str(), val.prettyprint().c_str());
+                internal_error("Unexpected value '%s' for a Constraint.\n", val.prettyprint().c_str());
             }
         }
-        else if(lhs.is_constant())
+        else if (lhs.is_constant())
         {
-            if(rhs.is<Nodecl::Symbol>())
-            {   // G.a.
-                CGNode* source = insert_node(rhs);
-                CGNode* target = insert_node(s);  // A.
-                connect_nodes(source, target);
+            if (rhs.is<Nodecl::Symbol>())
+            {   // const OP var
+                CGNode* source = insert_node(rhs);                  // var
+                target_op = insert_node(n_type);                    // outerOP
+                connect_nodes(source, target_op);                   // var -> outerOP
+            }
+            else if (rhs.is_constant())
+            {
+                // TODO
+            }
+            else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
+            {   // const OP (...)
+                CGNode* source = fill_cg_with_binary_op_rec(rhs, val_type); // (...)
+                target_op = insert_node(n_type);                            // OP
+
+                NBase predicate = lhs.shallow_copy();                       // const
+                Optimizations::ReduceExpressionVisitor rev;
+                rev.walk(predicate);
+                connect_nodes(source, target_op, val_type, predicate);      // (...) --const--> OP
             }
             else
             {
-                internal_error(error_msg.c_str(), val.prettyprint().c_str());
+                internal_error("Unexpected value '%s' for a Constraint.\n", val.prettyprint().c_str());
+            }
+        }
+        else if (Nodecl::Utils::nodecl_is_arithmetic_op(lhs))
+        {
+            CGNode* source1 = fill_cg_with_binary_op_rec(lhs, val_type);
+            if (rhs.is<Nodecl::Symbol>())
+            {   // (...) OP var
+                CGNode* source2 = insert_node(rhs);                 // var
+                target_op = insert_node(val_type);                  // OP
+                connect_nodes(source1, target_op);                  // var -> OP
+                connect_nodes(source2, target_op);                  // var -> OP
+            }
+            else if (rhs.is_constant())
+            {   // var OP const
+                target_op = insert_node(n_type);                                // outerOP
+                NBase predicate = rhs.shallow_copy();                           // const
+                Optimizations::ReduceExpressionVisitor rev;
+                rev.walk(predicate);
+                connect_nodes(source1, target_op, val_type, predicate);         // var --val_type--> outerOP
+            }
+            else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
+            {   // (.x.) OP (.y.)
+                CGNode* source2 = fill_cg_with_binary_op_rec(rhs, val_type);    // (.y.)
+                target_op = insert_node(val_type);                              // OP
+                connect_nodes(source1, target_op);                              // (.x.) -> OP
+                connect_nodes(source2, target_op);                              // (.y.) -> OP
+            }
+            else
+            {
+                internal_error("Unexpected value '%s' for a Constraint.\n", val.prettyprint().c_str());
             }
         }
         else
         {
-            internal_error(error_msg.c_str(), val.prettyprint().c_str());
+            internal_error("Unexpected value '%s' for a Constraint.\n", val.prettyprint().c_str());
         }
+
+        return target_op;
+    }
+
+    void ConstraintGraph::fill_cg_with_binary_op(
+            const NBase& s,
+            const NBase& val,
+            CGOpType op_type)
+    {
+        // res = (...) OP (...)
+        CGNode* target_op = fill_cg_with_binary_op_rec(val, op_type);   // OP
+        CGNode* target = insert_node(s);                                // res
+        connect_nodes(target_op, target);                               // OP -> res
     }
 
     /*! Generate a constraint graph from the PCFG and the precomputed Constraints for each node
@@ -1049,7 +1209,7 @@ namespace {
         const NodeclList& ordered_constraints)
     {
         std::map<NBase, CGNode*> back_edges;
-        for(NodeclList::const_iterator oit = ordered_constraints.begin(); oit != ordered_constraints.end(); ++oit)
+        for (NodeclList::const_iterator oit = ordered_constraints.begin(); oit != ordered_constraints.end(); ++oit)
         {
             std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::const_iterator it = constraints.find(*oit);
             ERROR_CONDITION(it == constraints.end(), 
@@ -1059,20 +1219,20 @@ namespace {
             NBase val = it->second;
 
             // Insert in the CG the edges corresponding to the current Constraint
-            if(val.is<Nodecl::Symbol>())
+            if (val.is<Nodecl::Symbol>())
             {   // H. 
                 CGNode* source = insert_node(val);
                 CGNode* target = insert_node(s);  // A.
                 connect_nodes(source, target);
             }
-            else if(val.is<Nodecl::Analysis::Phi>())
+            else if (val.is<Nodecl::Analysis::Phi>())
             {   // D.
                 // Create the target
-                CGNode* target_phi = insert_node(__CG_Phi);
+                CGNode* target_phi = insert_node(__Phi);
                 // Create the sources
                 std::queue<CGNode*> sources;
                 Nodecl::List expressions = val.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
-                for(Nodecl::List::iterator ite = expressions.begin(); ite != expressions.end(); ++ite)
+                for (Nodecl::List::iterator ite = expressions.begin(); ite != expressions.end(); ++ite)
                 {
                     NBase e = *ite;
                     if (_nodes.find(e) == _nodes.end())
@@ -1088,7 +1248,7 @@ namespace {
                 }
                 CGNode* target = insert_node(s);  // A.
                 // Connect them
-                while(!sources.empty())
+                while (!sources.empty())
                 {
                     CGNode* source = sources.front();
                     sources.pop();
@@ -1096,16 +1256,19 @@ namespace {
                 }
                 connect_nodes(target_phi, target);
             }
-            else if(val.is<Nodecl::Analysis::RangeIntersection>())
+            else if (val.is<Nodecl::Analysis::RangeIntersection>())
             {   // E.
                 const NBase& lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
                 const NBase& rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs().no_conv();
                 
                 CGNode* source = insert_node(lhs);
                 CGNode* target = insert_node(s);  // A.
-                connect_nodes(source, target, __Intersection, rhs.shallow_copy());
+                NBase predicate = rhs.shallow_copy();
+                Optimizations::ReduceExpressionVisitor rev;
+                rev.walk(predicate);
+                connect_nodes(source, target, __Intersection, predicate);
             }
-            else if(val.is<Nodecl::Range>())
+            else if (val.is<Nodecl::Range>())
             {
                 // B. Create a new node if the Constraint Value is a Range
                 CGNode* source = insert_node(val);
@@ -1113,17 +1276,10 @@ namespace {
                 // F. Create edge between the Range node and the Constraint node
                 connect_nodes(source, target);
             }
-            else if(val.is<Nodecl::Add>())
-            {   // G.
-                fill_cg_with_binary_op(s, val, __CG_Add, __Add, "Add", "+");
-            }
-            else if(val.is<Nodecl::Minus>())
-            {   // G.
-                fill_cg_with_binary_op(s, val, __CG_Sub, __Sub, "Sub", "-");
-            }
-            else if(val.is<Nodecl::Div>())
-            {   // H.
-                fill_cg_with_binary_op(s, val, __CG_Div, __Div, "Div", "/");
+            else if (Nodecl::Utils::nodecl_is_arithmetic_op(val))
+            {
+                CGOpType type = get_op_type_from_value(val);
+                fill_cg_with_binary_op(s, val, type);
             }
             else
             {
@@ -1175,9 +1331,9 @@ namespace {
             unsigned int source = n->get_id();
             
             // 1.- Print the Constraint Node
-            CGNode_type node_t = n->get_type();
+            CGOpType node_t = n->get_type();
             // 1.1.- The node has a constraint associated
-            if(node_t == __CG_Sym)
+            if(node_t == __Sym)
             {
                 NBase constraint = n->get_constraint();
                 dot_cg << "\t" << source << " [label=\"[" << source << "] " << constraint.prettyprint() << "\"];\n";
@@ -1195,7 +1351,7 @@ namespace {
             }
             else
             {
-                dot_cg << "\t" << source << " [label=\"[" << source << "] " << n->get_type_as_str() << "\"];\n";
+                dot_cg << "\t" << source << " [label=\"[" << source << "] " << n->get_type_as_string() << "\"];\n";
             }
             
             // Print the node relations
@@ -1288,7 +1444,7 @@ namespace {
         std::stack<CGNode*> s;
         unsigned int scc_current_index = 0;
         
-        // Collect each set of nodes that form a SCC
+        // 1.- Collect each set of nodes that form a SCC
         std::map<CGNode*, int> scc_lowlink_index;
         std::map<CGNode*, int> scc_index;
         for(CGValueToCGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
@@ -1297,8 +1453,9 @@ namespace {
             if((scc_index.find(n) == scc_index.end()) || (scc_index[n] == -1))
                 strong_connect(n, scc_current_index, s, scc_list, scc_lowlink_index, scc_index);
         }
-        
-        // Create a map between the Constraint Graph nodes and their SCC
+
+        // 2.- Compute the directionality of each scc_current_index
+        // 3.- Create a map between the Constraint Graph nodes and their SCC
         for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
         {
             std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
@@ -1352,7 +1509,7 @@ root_done:  ;
     {
         const NBase& old_valuation = node->get_valuation();
         NBase valuation;
-        CGNode_type type = node->get_type();
+        CGOpType type = node->get_type();
         NBase constraint = node->get_constraint();
         if (!constraint.is_null() && constraint.is<Nodecl::Range>())
         {
@@ -1370,20 +1527,23 @@ root_done:  ;
                 if ((*it)->is_back_edge())
                     continue;
                 Nodecl::Range last_valuation = (*it)->get_source()->get_valuation().as<Nodecl::Range>();
-                CGEdgeType edge_type = (*it)->get_edge_type();
+                CGOpType edge_type = (*it)->get_edge_type();
                 NBase predicate = (*it)->get_predicate();
                 if (edge_type == __Flow)
                     valuation = last_valuation;
                 else if (edge_type == __Add)
                     valuation = Utils::range_value_add(last_valuation, predicate);
                 else if (edge_type == __Sub)
-                    valuation = Utils::range_value_subtract(last_valuation, predicate);
+                    valuation = Utils::range_value_sub(last_valuation, predicate);
+                else if (edge_type == __Mul)
+                    valuation = Utils::range_value_mul(last_valuation, predicate);
                 else if (edge_type == __Div)
                     valuation = Utils::range_value_div(last_valuation, predicate);
                 else if(edge_type == __Intersection)
                 {
                     // Check whether the cycle is positive or negative
                     SCC* scc = _node_to_scc_map[node];
+                    // FIXME First approach: cyle directionality could be unique and compute only once for each SCC
                     Utils::CycleDirection cycle_direction = scc->get_cycle_direction(*it);
                     valuation = Utils::range_intersection(last_valuation, predicate, cycle_direction);
                 }
@@ -1398,23 +1558,26 @@ root_done:  ;
                 if (!valuation.is_null())
                     entry_valuations.append(valuation);
             }
-            
-            NodeclList::iterator it = entry_valuations.begin();
-            if(type == __CG_Sym)
+
+            if(type == __Sym)
             {
                 ERROR_CONDITION(entry_valuations.size()>1, 
                                 "Only one entry valuation expected for a Sym CGNode but %d found.\n", 
                                 entry_valuations.size());
-                valuation = *it;
+                valuation = *entry_valuations.begin();
             }
             else
             {
-                if (type == __CG_Phi)
-                    valuation = join_valuations(Utils::range_union, entry_valuations);         // RANGE_UNION
-                else if (type == __CG_Add)
-                    valuation = join_valuations(Utils::range_addition, entry_valuations);      // RANGE_ADD
-                else if (type == __CG_Sub)
-                    valuation = join_valuations(Utils::range_subtraction, entry_valuations);   // RANGE_SUB
+                if (type == __Phi)
+                    valuation = join_valuations(Utils::range_union, entry_valuations);          // RANGE_UNION
+                else if (type == __Add)
+                    valuation = join_valuations(Utils::range_addition, entry_valuations);       // RANGE_ADD
+                else if (type == __Sub)
+                    valuation = join_valuations(Utils::range_subtraction, entry_valuations);    // RANGE_SUB
+                else if (type == __Mul)
+                    valuation = join_valuations(Utils::range_division, entry_valuations);       // RANGE_MUL
+                else if (type == __Div)
+                    valuation = join_valuations(Utils::range_multiplication, entry_valuations); // RANGE_DIV
             }
         }
 #ifdef RANGES_DEBUG
@@ -1757,7 +1920,7 @@ namespace {
             Node* n = worklist.front();
             worklist.pop();
 
-            if (treated.find(n)!=treated.end())
+            if (treated.find(n) != treated.end())
                 continue;
 
             // 1.- Check whether all n parents (coming from non-back-edges) are already computed

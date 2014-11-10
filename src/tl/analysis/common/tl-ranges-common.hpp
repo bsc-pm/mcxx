@@ -84,10 +84,13 @@ namespace Utils {
     DEPRECATED NBase range_sub(const NBase& r1, const NBase& r2);
     NBase range_addition(const NBase& r1, const NBase& r2);
     NBase range_subtraction(const NBase& r1, const NBase& r2);
+    NBase range_multiplication(const NBase& r1, const NBase& r2);
+    NBase range_division(const NBase& r1, const NBase& r2);
     NBase range_intersection(const NBase& r, const NBase& r2, CycleDirection dir);
     NBase range_union(const NBase& r1, const NBase& r2);
     Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v);
-    Nodecl::Range range_value_subtract(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_sub(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_mul(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_div(const Nodecl::Range& r, const NBase& v);
     
     // ********************************* END Ranges arithmetic *********************************** //

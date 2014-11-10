@@ -38,8 +38,8 @@ namespace Analysis {
 namespace {
     unsigned int cgnode_id = 0;
 }
-    
-    CGNode::CGNode(CGNode_type type, const NBase& constraint)
+
+    CGNode::CGNode(CGOpType type, const NBase& constraint)
         : _id(++cgnode_id), _type(type), 
           _constraint(constraint), _valuation(), 
           _entries(), _exits()
@@ -50,22 +50,14 @@ namespace {
         return _id;
     }
     
-    CGNode_type CGNode::get_type() const
+    CGOpType CGNode::get_type() const
     {
         return _type;
     }
     
-    std::string CGNode::get_type_as_str() const
+    std::string CGNode::get_type_as_string() const
     {
-        switch(_type)
-        {
-            #undef CGNODE_TYPE
-            #define CGNODE_TYPE(X) case __##X : return #X;
-            CGNODE_TYPE_LIST
-            #undef CGNODE_TYPE
-            default: WARNING_MESSAGE("Unexpected type of node '%d'", _type);
-        }
-        return "";
+        return get_op_type_as_string(_type);
     }
     
     NBase CGNode::get_constraint() const
@@ -115,7 +107,7 @@ namespace {
     }
     
     CGEdge* CGNode::add_child(CGNode* child,
-            CGEdgeType edge_type,
+            CGOpType edge_type,
             NBase predicate,
             bool is_back_edge)
     {
@@ -149,7 +141,7 @@ namespace {
     // ****************** CG Edges ******************* //
     
     CGEdge::CGEdge(CGNode* source, CGNode* target,
-            CGEdgeType edge_type,
+            CGOpType edge_type,
             const NBase& predicate,
             bool back_edge)
         : _source(source), _target(target),
@@ -166,7 +158,7 @@ namespace {
         return _target;
     }
 
-    CGEdgeType CGEdge::get_edge_type() const
+    CGOpType CGEdge::get_edge_type() const
     {
         return _edge_type;
     }
@@ -183,22 +175,14 @@ namespace {
 
     std::string CGEdge::get_type_as_string() const
     {
-        switch(_edge_type)
-        {
-            #undef CG_EDGE_TYPE
-            #define CG_EDGE_TYPE(X) case __##X : return #X;
-            CG_EDGE_TYPE_LIST
-            #undef CG_EDGE_TYPE
-            default: WARNING_MESSAGE("Unexpected type of CG edge '%d'", _edge_type);
-        }
-        return "";
+        return get_op_type_as_string(_edge_type);
     }
 
     // **************** END CG Edges ***************** //
     // *********************************************** //
-    
-    
-    
+
+
+
     // *********************************************** //
     // ********************* SCC ********************* //
  
@@ -261,7 +245,7 @@ namespace {
         }
         return res;
     }
-    
+
     void SCC::find_path_and_direction(
             const CGNode* const source, 
             const CGNode* target, 
@@ -269,12 +253,12 @@ namespace {
             NBase& value, 
             std::set<const CGNode*>& visited)
     {
-        if((target==source) || (visited.find(target)!=visited.end()))
+        if ((target==source) || (visited.find(target)!=visited.end()))
             return;
         
         const ObjectList<CGEdge*> exits = target->get_exits();
         ObjectList<NBase> new_values;
-        for(ObjectList<CGEdge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
+        for (ObjectList<CGEdge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
         {
             CGNode* new_target = (*it)->get_target();
             if((*_node_to_scc_map)[new_target] != this)
@@ -283,7 +267,8 @@ namespace {
             Utils::CycleDirection new_dir = dir;
             NBase new_value = value;
             const NBase predicate = (*it)->get_predicate();
-            if(predicate.is<Nodecl::Neg>())
+            CGOpType edge_type = (*it)->get_edge_type();
+            if (edge_type == __Sub || edge_type == __Div)
             {
                 switch(dir._cycle_direction)
                 {
@@ -323,7 +308,7 @@ namespace {
                         }
                 }
             }
-            else if(predicate.is<Nodecl::Plus>())
+            if (edge_type == __Add || edge_type == __Mul)
             {
                 switch(dir._cycle_direction)
                 {
@@ -387,7 +372,7 @@ namespace {
             dir = dir | new_dir;
         }
     }
-    
+
     Utils::CycleDirection SCC::get_cycle_direction(const CGEdge* const edge)
     {
         Utils::CycleDirection dir = Utils::CycleDirection::NONE;
@@ -395,7 +380,6 @@ namespace {
         CGNode* target = edge->get_target();
         NBase n;
         std::set<const CGNode*> visited;
-        
         find_path_and_direction(source, target, dir, n, visited);
         
         return dir;
