@@ -166,14 +166,19 @@ namespace TL { namespace Nanox {
                     {
                         const std::map<TL::Symbol, TL::Symbol>* map =
                             _function_translation_map.get_simple_symbol_map();
-                        if (_function_codes_to_be_duplicated.contains(function_code))
-                        {
-                            ERROR_CONDITION(map->find(called_sym) != map->end(), "This should not happen\n", 0);
 
+                        bool has_been_duplicated = map->find(called_sym) != map->end();
+
+                        if (// If the current function code has to be duplicated
+                            _function_codes_to_be_duplicated.contains(function_code)
+                                // And it has not been duplicated before
+                                && !has_been_duplicated)
+                        {
                             TL::Symbol new_function_sym = SymbolUtils::new_function_symbol_for_deep_copy(
                                     called_sym,
                                     called_sym.get_name() + "_mcc_serial");
 
+                            has_been_duplicated = true;
                             _function_translation_map.add_map(called_sym, new_function_sym);
 
                             Nodecl::NodeclBase new_function_code = Nodecl::Utils::deep_copy(
@@ -195,7 +200,7 @@ namespace TL { namespace Nanox {
                             walk(new_function_code);
                         }
 
-                        if (map->find(called_sym) != map->end())
+                        if (has_been_duplicated)
                         {
                             Nodecl::NodeclBase new_function_call = Nodecl::Utils::deep_copy(
                                     function_call,
