@@ -286,6 +286,22 @@ namespace Vectorization
                 loop_condition.replace(new_condition);
 
             }
+            else if (loop_condition.is<Nodecl::GreaterThan>())
+            {
+                Nodecl::GreaterOrEqualThan new_condition =
+                    Nodecl::GreaterOrEqualThan::make(
+                            loop_condition.as<Nodecl::GreaterOrEqualThan>()
+                            .get_lhs().shallow_copy(),
+                            ub.shallow_copy(),
+                            loop_condition.get_type(),
+                            loop_condition.get_locus());
+
+                loop_condition.replace(new_condition);
+            }
+            else if (loop_condition.is<Nodecl::GreaterOrEqualThan>())
+            {
+                // Nothing to do. Already normalized
+            }
             else if (loop_condition.is<Nodecl::LowerOrEqualThan>())
             {
                 // Nothing to do. Already normalized
