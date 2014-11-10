@@ -791,6 +791,11 @@ namespace Vectorization
         running_error("Vectorizer: Target loop contains a 'continue' statement. Unsupported.");
     }
 
+    void VectorizerVisitorStatement::visit(const Nodecl::UnknownPragma& n)
+    {
+    }
+
+
     /*
        Nodecl::NodeclBase VectorizerVisitorStatement::process_return_inside(Nodecl::NodeclBase current_mask_nodecl)
        {
