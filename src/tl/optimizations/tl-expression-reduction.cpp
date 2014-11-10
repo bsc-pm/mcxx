@@ -29,7 +29,11 @@ namespace Optimizations {
             }
             else if(rhs.is_constant())
             {
-                if(lhs.is<Nodecl::Add>())
+                if (lhs.is_constant())
+                {   // Ideally this will never happen, but sometimes, the constant value is not propagated to the Minus node
+                    n.replace(const_value_to_nodecl(const_value_add(lhs.get_constant(), rhs.get_constant())));
+                }
+                else if(lhs.is<Nodecl::Add>())
                 {   // R6a
                     Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
                     Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
@@ -308,7 +312,11 @@ namespace Optimizations {
             Nodecl::NodeclBase rhs = n.get_rhs();
             if(lhs.is_constant())
             {
-                if(rhs.is<Nodecl::Add>())
+                if (rhs.is_constant())
+                {   // Ideally this will never happen, but sometimes, the constant value is not propagated to the Minus node
+                    n.replace(const_value_to_nodecl(const_value_sub(lhs.get_constant(), rhs.get_constant())));
+                }
+                else if(rhs.is<Nodecl::Add>())
                 {
                     Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
                     Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs();
@@ -519,7 +527,11 @@ namespace Optimizations {
                 }
                 else
                 {
-                    if(lhs.is<Nodecl::Mul>())
+                    if (lhs.is_constant())
+                    {   // Ideally this will never happen, but sometimes, the constant value is not propagated to the Minus node
+                        n.replace(const_value_to_nodecl(const_value_mul(lhs.get_constant(), rhs.get_constant())));
+                    }
+                    else if(lhs.is<Nodecl::Mul>())
                     {   // R9
                         Nodecl::Mul lhs_mul = lhs.as<Nodecl::Mul>();
                         Nodecl::NodeclBase lhs_lhs = lhs_mul.get_lhs();
