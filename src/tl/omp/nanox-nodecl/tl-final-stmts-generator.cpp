@@ -115,18 +115,16 @@ namespace TL { namespace Nanox {
         {
             private:
                 Nodecl::Utils::SimpleSymbolMap& _function_translation_map;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+
                 const TL::ObjectList<Nodecl::NodeclBase>& _function_codes_to_be_duplicated;
 
             public:
 
                 FinalStatementsGenerator(
                         Nodecl::Utils::SimpleSymbolMap& function_tranlation_map,
-                        RefPtr<OpenMP::FunctionTaskSet>& function_task_set,
                         const TL::ObjectList<Nodecl::NodeclBase>& function_codes_to_be_duplicated)
                     :
                         _function_translation_map(function_tranlation_map),
-                        _function_task_set(function_task_set),
                         _function_codes_to_be_duplicated(function_codes_to_be_duplicated) { }
 
                 void visit(const Nodecl::OpenMP::TaskwaitShallow& taskwait)
@@ -220,7 +218,6 @@ namespace TL { namespace Nanox {
 
         FinalStatementsGenerator generator(
                 _function_translation_map,
-                _function_task_set,
                 pre_visitor.get_function_codes_to_be_duplicated());
 
         generator.walk(new_stmts);
@@ -229,9 +226,8 @@ namespace TL { namespace Nanox {
     }
 
 
-    FinalStmtsGenerator::FinalStmtsGenerator(RefPtr<OpenMP::FunctionTaskSet> function_task_set)
-        : _function_task_set(function_task_set),
-          _final_stmts_map(),
+    FinalStmtsGenerator::FinalStmtsGenerator()
+        : _final_stmts_map(),
           _function_translation_map() { }
 
     void FinalStmtsGenerator::visit(const Nodecl::OpenMP::Task& task)

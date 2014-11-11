@@ -39,14 +39,12 @@ namespace TL { namespace Nanox {
     {
         private:
 
-            RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
-
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
 
             Nodecl::Utils::SimpleSymbolMap _function_translation_map;
 
         public:
-            FinalStmtsGenerator(RefPtr<OpenMP::FunctionTaskSet> function_task_set);
+            FinalStmtsGenerator();
 
             void visit(const Nodecl::OpenMP::Task& task);
             void visit(const Nodecl::OpenMP::TaskCall& task_call);
