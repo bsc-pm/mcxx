@@ -110,7 +110,7 @@ namespace Analysis {
         ExtensibleGraph::clear_visits(graph_entry);
     }
     
-    void propagate_argument_rec(Node* current, RenameVisitor* v)
+    void propagate_argument_rec(Node* current, NodeclReplacer* nr)
     {
         if(!current->is_visited())
         {
@@ -121,7 +121,7 @@ namespace Analysis {
             
             if(current->is_graph_node())
             {
-                propagate_argument_rec(current->get_graph_entry_node(), v);
+                propagate_argument_rec(current->get_graph_entry_node(), nr);
             }
             else
             {
@@ -130,7 +130,7 @@ namespace Analysis {
                 for(ObjectList<NBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     NBase it_copy = Nodecl::Utils::deep_copy(*it, *it);
-                    v->walk(*it);
+                    nr->walk(*it);
                     new_stmts.insert(it_copy);
                 }
                 current->set_statements(new_stmts);
@@ -139,7 +139,7 @@ namespace Analysis {
             ObjectList<Node*> children = current->get_children();
             for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
             {
-                propagate_argument_rec(*it, v);
+                propagate_argument_rec(*it, nr);
             }
         }
     }
@@ -156,14 +156,14 @@ namespace Analysis {
         ObjectList<Symbol> params = func_sym.get_function_parameters();
         int n_common_params = std::max(args.size(), params.size());
         
-        sym_to_nodecl_map rename_map;
+        SymToNodeclMap rename_map;
         for(int i = 0; i < n_common_params; ++i)
         {
             rename_map[params[i]] = args[i];
         }
-        RenameVisitor rv(rename_map);
+        NodeclReplacer nr(rename_map);
         Node* graph_entry = _graph->get_graph_entry_node();
-        propagate_argument_rec(graph_entry, &rv);
+        propagate_argument_rec(graph_entry, &nr);
         ExtensibleGraph::clear_visits(graph_entry);
     }
     
