@@ -114,16 +114,18 @@ namespace TL { namespace Nanox {
         class FinalStatementsGenerator : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
+                Nodecl::NodeclBase _enclosing_function_code;
                 Nodecl::Utils::SimpleSymbolMap& _function_translation_map;
-
                 const TL::ObjectList<Nodecl::NodeclBase>& _function_codes_to_be_duplicated;
 
             public:
 
                 FinalStatementsGenerator(
+                        Nodecl::NodeclBase enclosing_function_code,
                         Nodecl::Utils::SimpleSymbolMap& function_tranlation_map,
                         const TL::ObjectList<Nodecl::NodeclBase>& function_codes_to_be_duplicated)
                     :
+                        _enclosing_function_code(enclosing_function_code),
                         _function_translation_map(function_tranlation_map),
                         _function_codes_to_be_duplicated(function_codes_to_be_duplicated) { }
 
@@ -194,8 +196,24 @@ namespace TL { namespace Nanox {
                                         /* is_definition */ 1);
                             }
 
+                            // Prepend a declaration of the new function symbol to the enclosing function code
+                            CXX_LANGUAGE()
+                            {
+                                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                                        /* optative context */ nodecl_null(),
+                                        new_function_sym,
+                                        function_call.get_locus());
+
+                                Nodecl::Utils::prepend_items_before(_enclosing_function_code, nodecl_decl);
+                            }
+
+                            // Prepend the new function code to the tree
                             Nodecl::Utils::prepend_items_before(function_code, new_function_code);
+
+                            Nodecl::NodeclBase old_enclosing_funct_code = _enclosing_function_code;
+                            _enclosing_function_code = new_function_code;
                             walk(new_function_code);
+                            _enclosing_function_code = old_enclosing_funct_code;
                         }
 
                         if (has_been_duplicated)
@@ -216,7 +234,11 @@ namespace TL { namespace Nanox {
         FinalStatementsPreVisitor pre_visitor(_function_translation_map);
         pre_visitor.walk(new_stmts);
 
+        TL::Symbol enclosing_funct_sym = Nodecl::Utils::get_enclosing_function(stmts);
+        Nodecl::NodeclBase enclosing_funct_code = enclosing_funct_sym.get_function_code();
+
         FinalStatementsGenerator generator(
+                enclosing_funct_code,
                 _function_translation_map,
                 pre_visitor.get_function_codes_to_be_duplicated());
 
