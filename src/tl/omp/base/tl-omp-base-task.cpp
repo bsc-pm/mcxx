@@ -394,7 +394,8 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    Nodecl::NodeclBase FunctionCallVisitor::make_exec_environment(const Nodecl::FunctionCall &call,
+    Nodecl::NodeclBase FunctionCallVisitor::make_exec_environment(
+            const Nodecl::FunctionCall &call,
             TL::Symbol function_sym,
             FunctionTaskInfo& function_task_info)
     {
@@ -533,8 +534,15 @@ namespace TL { namespace OpenMP {
         }
 
         // Build the tree which contains the target information
+        TL::Symbol called_symbol = function_sym;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            called_symbol = call.as<Nodecl::FunctionCall>()
+                                .get_called().as<Nodecl::Symbol>().get_symbol();
+        }
         _base->make_execution_environment_target_information(
                 function_task_info.get_target_info(),
+                called_symbol,
                 locus,
                 result_list);
 

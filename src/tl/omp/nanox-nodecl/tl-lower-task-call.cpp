@@ -1287,7 +1287,8 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->locus = construct.get_locus();
 
         // Do not forget the ALLOCATABLE attributes
-        symbol_entity_specs_set_is_allocatable(new_parameter_symbol, symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
+        symbol_entity_specs_set_is_allocatable(new_parameter_symbol,
+                symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
 
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
@@ -1660,13 +1661,6 @@ void LoweringVisitor::visit_task_call_fortran(
             free_vars,
             *symbol_map,
             save_expressions);
-
-    if (called_task_function.is_from_module())
-    {
-        // If the symbol comes from a module, the environment
-        // will use the original symbol of the module
-        symbol_map->add_map(called_task_function.get_alias_to(), adapter_function);
-    }
 
     // Get parameters outline info
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;

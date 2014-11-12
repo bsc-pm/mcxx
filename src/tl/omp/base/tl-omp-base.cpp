@@ -2876,6 +2876,7 @@ namespace TL { namespace OpenMP {
 
     void Base::make_execution_environment_target_information(
             TargetInfo &target_info,
+            TL::Symbol called_symbol,
             const locus_t* locus,
             // out
             TL::ObjectList<Nodecl::NodeclBase> &result_list)
@@ -2929,7 +2930,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2939,7 +2940,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::ShMem::make(
                         Nodecl::List::make(shmem_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2949,7 +2950,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
                         Nodecl::List::make(onto_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2959,7 +2960,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::File::make(
                         Nodecl::Text::make(file),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2969,7 +2970,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Name::make(
                         Nodecl::Text::make(name),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2999,8 +3000,9 @@ namespace TL { namespace OpenMP {
                     locus));
     }
 
-
-    Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
+    Nodecl::List Base::make_execution_environment_for_combined_worksharings(
+            OpenMP::DataSharingEnvironment &data_sharing_env,
+            PragmaCustomLine pragma_line)
     {
         const locus_t* locus = pragma_line.get_locus();
 
@@ -3045,7 +3047,12 @@ namespace TL { namespace OpenMP {
                         locus));
         }
 
-        make_execution_environment_target_information(data_sharing_env.get_target_info(), locus, result_list);
+        TargetInfo& target_info = data_sharing_env.get_target_info();
+        make_execution_environment_target_information(
+                target_info,
+                target_info.get_target_symbol(),
+                locus,
+                result_list);
 
 
         // FIXME - Dependences for combined worksharings???
@@ -3195,7 +3202,12 @@ namespace TL { namespace OpenMP {
         if (!ignore_target_info)
         {
             // Build the tree which contains the target information
-            make_execution_environment_target_information(data_sharing_env.get_target_info(), locus, result_list);
+            TargetInfo& target_info = data_sharing_env.get_target_info();
+            make_execution_environment_target_information(
+                    target_info,
+                    target_info.get_target_symbol(),
+                    locus,
+                    result_list);
         }
 
         return Nodecl::List::make(result_list);
