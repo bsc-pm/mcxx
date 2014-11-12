@@ -1773,7 +1773,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     AST message = ASTSon1(a);
 
     nodecl_t nodecl_expr = nodecl_null();
-    if (!check_expression(constant_expr, decl_context, &nodecl_expr))
+    if (!check_expression_must_be_constant(constant_expr, decl_context, &nodecl_expr))
     {
         error_printf("%s: error: static_assert expression is invalid\n",
                 ast_location(a));
@@ -5381,7 +5381,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             if (enumeration_expr != NULL)
             {
                 nodecl_t nodecl_expr = nodecl_null();
-                if (!check_expression(enumeration_expr, enumerators_context, &nodecl_expr))
+                if (!check_expression_must_be_constant(enumeration_expr, enumerators_context, &nodecl_expr))
                 {
                     error_printf("%s: error: invalid enumerator expression '%s'\n",
                             ast_location(enumeration_expr),
@@ -17635,7 +17635,7 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
     else
     {
         nodecl_t nodecl_expr = nodecl_null();
-        check_expression(const_expr, decl_context, &nodecl_expr);
+        check_expression_must_be_constant(const_expr, decl_context, &nodecl_expr);
         check_nodecl_noexcept_spec(nodecl_expr, decl_context, nodecl_output);
     }
 }
@@ -19216,12 +19216,29 @@ static void build_scope_case_statement(AST a,
     AST constant_expression = ASTSon0(a);
     AST statement = ASTSon1(a);
 
-    nodecl_t nodecl_expr_list = nodecl_null();
-    check_expression(constant_expression, decl_context, &nodecl_expr_list);
-    if (!nodecl_is_err_expr(nodecl_expr_list))
+    nodecl_t nodecl_expr = nodecl_null();
+    check_expression_must_be_constant(constant_expression, decl_context, &nodecl_expr);
+
+    if (nodecl_is_err_expr(nodecl_expr))
     {
-        nodecl_expr_list = nodecl_make_list_1(nodecl_expr_list);
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
     }
+
+    if (!nodecl_expr_is_value_dependent(nodecl_expr)
+            && !nodecl_is_constant(nodecl_expr))
+    {
+        error_printf("%s: error: case expression '%s' is not constant\n",
+                ast_location(a),
+                codegen_to_str(nodecl_expr, decl_context));
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
+    }
+
+    nodecl_t nodecl_expr_list = nodecl_expr_list = nodecl_make_list_1(nodecl_expr);
 
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);

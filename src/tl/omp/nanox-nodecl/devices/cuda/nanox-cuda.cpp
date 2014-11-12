@@ -375,9 +375,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
-    TL::Symbol current_function =
-        original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -907,26 +905,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (_cuda_tasks_processed)
     {
-        Nodecl::NodeclBase root = data_flow["nodecl"];
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::C;
-
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::Current;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            _extra_c_code.prepend(functions_section_tree);
-        }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
-        }
+        create_weak_device_symbol("ompss_uses_cuda", data_flow["nodecl"]);
         _cuda_tasks_processed = false;
     }
 

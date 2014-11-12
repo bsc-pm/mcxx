@@ -53,8 +53,9 @@ LIBMCXX_EXTERN AST advance_expression_nest_flags(AST expr, char advance_parenthe
 LIBMCXX_EXTERN char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments);
 
 LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
-
+LIBMCXX_EXTERN char check_expression_must_be_constant(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 LIBMCXX_EXTERN char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN char check_expression_non_executable_must_be_constant(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_list_of_expressions(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 

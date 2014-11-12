@@ -346,9 +346,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
-    TL::Symbol current_function =
-            original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function()) {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
@@ -1198,21 +1196,23 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         functions_section << "void (*ompss_mpi_func_pointers_dev[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
                 << _sectionCodeDevice
                 << "}; ";
-        
-        if (_mpi_task_processed)
-        functions_section << "__attribute__((weak)) char ompss_uses_offload = 1;";
-        
+
         if (IS_FORTRAN_LANGUAGE)
            Source::source_language = SourceLanguage::C;
+
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
+
         Source::source_language = SourceLanguage::Current;
-        if (IS_FORTRAN_LANGUAGE){
-           _extra_c_code.prepend(functions_section_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+           _extra_c_code.prepend(functions_section_tree);
+        } else
+        {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
     }
-    
+
     if (!_extra_c_code.is_null()){
 
         original_filename = TL::CompilationProcess::get_current_file().get_filename();

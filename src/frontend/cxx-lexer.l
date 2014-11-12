@@ -1443,6 +1443,7 @@ type {
 @reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 
 @array-subscript-check@ { parse_token_text(); return MCC_ARRAY_SUBSCRIPT_CHECK; }
+@const-value-check@ { parse_token_text(); return MCC_CONST_VALUE_CHECK; }
 
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }

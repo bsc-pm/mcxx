@@ -520,6 +520,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     {
         // Move on as if nothing happened
         // This should look like as if this had never happened
+        yy_set_bol(1);
         last_eos = 1;
         BEGIN(INITIAL);
     }

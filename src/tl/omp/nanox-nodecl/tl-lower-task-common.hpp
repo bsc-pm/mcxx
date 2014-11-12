@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_LOWER_TASK_COMMON_CPP
-#define TL_LOWER_TASK_COMMON_CPP
+#ifndef TL_LOWER_TASK_COMMON_HPP
+#define TL_LOWER_TASK_COMMON_HPP
 
 namespace TL { namespace Nanox {
 
@@ -82,4 +82,4 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 };
 
 } }
-#endif
+#endif // TL_LOWER_TASK_COMMON_HPP

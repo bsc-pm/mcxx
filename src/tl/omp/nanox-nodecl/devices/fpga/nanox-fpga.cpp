@@ -84,9 +84,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
-    TL::Symbol current_function =
-        original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)

@@ -111,8 +111,8 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
         symbol_name = "<<unnamed symbol>>";
     }
 
-    fprintf(f, "sym_%zd[fontcolor=\"/dark28/2\",color=\"/dark28/2\", shape=rectangle,label=\"%s\\n%s:%u\"]\n", 
-            (size_t)entry, symbol_name, locus_get_filename(entry->locus), locus_get_line(entry->locus));
+    fprintf(f, "sym_%zd[fontcolor=\"/dark28/2\",color=\"/dark28/2\", shape=rectangle,label=\"%p\n%s\\n%s:%u\"]\n", 
+            (size_t)entry, entry, symbol_name, locus_get_filename(entry->locus), locus_get_line(entry->locus));
 
 
     if (!nodecl_is_null(entry->value))

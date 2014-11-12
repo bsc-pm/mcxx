@@ -81,6 +81,7 @@ typedef enum const_value_kind_tag
     CVK_STRING,
     CVK_RANGE,
     CVK_MASK,
+    CVK_UNKNOWN, // something constant but without logical value
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -4386,10 +4387,26 @@ const char* const_value_to_str(const_value_t* cval)
                         (unsigned long long)cval->value.i);
                 break;
             }
+        case CVK_UNKNOWN:
+            {
+                return "{unknown}";
+            }
         default:
             internal_error("Unexpected constant kind %d", cval->kind);
             break;
     }
 
     return result;
+}
+
+static const_value_t unknown_value = { .kind = CVK_UNKNOWN };
+
+const_value_t* const_value_get_unknown(void)
+{
+    return &unknown_value;
+}
+
+char const_value_is_unknown(const_value_t* cval)
+{
+    return cval != NULL && cval->kind == CVK_UNKNOWN;
 }

@@ -24,11 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-
-#ifndef TL_DATA_ENV_HPP
-#define TL_DATA_ENV_HPP
+#ifndef TL_OUTLINE_INFO_HPP
+#define TL_OUTLINE_INFO_HPP
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
@@ -589,4 +586,4 @@ namespace TL
     }
 }
 
-#endif // TL_DATA_ENV_HPP
+#endif // TL_OUTLINE_INFO_HPP

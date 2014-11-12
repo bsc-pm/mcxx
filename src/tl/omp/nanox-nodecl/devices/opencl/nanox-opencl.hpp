@@ -41,7 +41,6 @@ namespace TL
             private:
 
                 bool _opencl_tasks_processed;
-                Nodecl::NodeclBase _root;
 
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
