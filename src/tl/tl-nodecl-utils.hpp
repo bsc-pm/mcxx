@@ -109,10 +109,10 @@ namespace Utils {
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 
-    void append_items_in_outermost_compound_statement(
+    void append_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items);
-    void prepend_items_in_outermost_compound_statement(
+    void prepend_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items);
 

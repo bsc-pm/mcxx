@@ -927,7 +927,7 @@ namespace Nodecl
         }
     }
 
-    void Nodecl::Utils::prepend_items_in_outermost_compound_statement(
+    void Nodecl::Utils::prepend_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -943,7 +943,7 @@ namespace Nodecl
         stmts_list.prepend(items);
     }
 
-    void Nodecl::Utils::append_items_in_outermost_compound_statement(
+    void Nodecl::Utils::append_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
