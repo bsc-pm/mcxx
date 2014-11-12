@@ -42,7 +42,7 @@ namespace Analysis {
     // The UE variables are treated in a different way
     void UsageVisitor::propagate_called_func_pointed_values_usage_to_func_call(
             const NodeclSet& called_func_usage, 
-            const sym_to_nodecl_map& ptr_param_to_arg_map, 
+            const SymToNodeclMap& ptr_param_to_arg_map,
             Utils::UsageKind usage_kind)
     {
         for (NodeclSet::const_iterator it = called_func_usage.begin();
@@ -67,16 +67,16 @@ namespace Analysis {
                 continue;
 
             // Build the rename map with the original symbols (parameters) and the arguments
-            sym_to_nodecl_map rename_map;
+            SymToNodeclMap rename_map;
             for (std::set<Symbol>::iterator itt = params.begin(); itt != params.end(); ++itt)
             {
                 NBase replacement = ptr_param_to_arg_map.find(*itt)->second.shallow_copy();
                 rename_map[*itt] = replacement;
             }
             // Replace the parameters with the arguments
-            RenameVisitor rv(rename_map);
+            NodeclReplacer nr(rename_map);
             NBase new_n = n.shallow_copy();
-            rv.walk(new_n);
+            nr.walk(new_n);
             // Set the new values as UseDef information to the current node
             if (new_n.no_conv().is<Nodecl::Reference>())
                 _node->add_used_address(new_n);
@@ -93,7 +93,7 @@ namespace Analysis {
     // The UE variables are treated in a different way
     void UsageVisitor::propagate_called_func_params_usage_to_func_call(
             const NodeclSet& called_func_usage,
-            const sym_to_nodecl_map& param_to_arg_map,
+            const SymToNodeclMap& param_to_arg_map,
             Utils::UsageKind usage_kind)
     {
         for (NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
@@ -108,10 +108,10 @@ namespace Analysis {
                     && (param_to_arg_map.find(s) != param_to_arg_map.end()))
             {   // The usage is of the variable, and not any possible value pointed by the variable
                 NBase replacement = param_to_arg_map.find(s)->second.shallow_copy();
-                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
-                RenameVisitor rv(rename_map);
+                SymToNodeclMap rename_map; rename_map[s] = replacement;
+                NodeclReplacer nr(rename_map);
                 NBase new_n = n.shallow_copy();
-                rv.walk(new_n);
+                nr.walk(new_n);
                 if(usage_kind._usage_type & Utils::UsageKind::USED)
                     _node->add_ue_var(new_n);
                 else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
@@ -129,7 +129,7 @@ namespace Analysis {
     void UsageVisitor::propagate_global_variables_usage(
             const NodeclSet& called_func_usage, 
             const NodeclSet& ipa_global_vars,
-            const sym_to_nodecl_map& param_to_arg_map,
+            const SymToNodeclMap& param_to_arg_map,
             Utils::UsageKind usage_kind)
     {
         for(NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
@@ -142,9 +142,9 @@ namespace Analysis {
             if(ipa_global_vars.find(n_base) != ipa_global_vars.end())
             {
                 // Rename any possible occurrence of a parameter in the current usage by its corresponding argument
-                RenameVisitor rv(param_to_arg_map);
+                NodeclReplacer nr(param_to_arg_map);
                 NBase new_n = n.shallow_copy();
-                rv.walk(new_n);
+                nr.walk(new_n);
                 
                 // Add the usage to the current node
                 if(usage_kind._usage_type & Utils::UsageKind::USED)
@@ -188,7 +188,7 @@ namespace Analysis {
         // 2.- Pointer and reference parameters can also be KILLED | UNDEFINED
         // 2.1.- Map parameters to arguments in the current function call
         const ObjectList<Symbol>& called_params = called_pcfg->get_function_symbol().get_function_parameters();
-        const sym_to_nodecl_map& param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
+        const SymToNodeclMap& param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
 
         // 2.2.- Get the usage computed for the called function
         NodeclSet called_ue_vars = pcfg_node->get_ue_vars();
@@ -260,7 +260,7 @@ namespace Analysis {
 
         // 2.- Check for the usage in the graph of the function to propagate Usage 
         //     until the point we are currently (only for reference parameters and global variables)
-        sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(params, args);
+        SymToNodeclMap param_to_arg_map = get_parameters_to_arguments_map(params, args);
         NodeclSet global_vars = _pcfg->get_global_variables();
         for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
         {
@@ -280,10 +280,10 @@ namespace Analysis {
             {
                 // 2.2.- Rename the variable in the scope of the called function with the variable in the current scope
                 NBase replacement = param_to_arg_map.find(s)->second.shallow_copy();
-                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
-                RenameVisitor rv(rename_map);
+                SymToNodeclMap rename_map; rename_map[s] = replacement;
+                NodeclReplacer nr(rename_map);
                 current_sc_var = var.shallow_copy();
-                rv.walk(current_sc_var);
+                nr.walk(current_sc_var);
                 current_sc_var = simplify_pointer(current_sc_var);     // We may have created a '*&var'
                 
                 var_is_param = true;
@@ -397,7 +397,7 @@ namespace Analysis {
                 return false;
             Scope param_sc = params[0].get_scope();
             // Map arguments with parameters
-            sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(params, args);
+            SymToNodeclMap param_to_arg_map = get_parameters_to_arguments_map(params, args);
             // Parse the attributes looking for usage information
             const ObjectList<GCCAttribute>& gcc_attrs = s.get_gcc_attributes();
             for (ObjectList<GCCAttribute>::const_iterator it = gcc_attrs.begin();
@@ -416,7 +416,7 @@ namespace Analysis {
                         Source ss; ss << ite->prettyprint();
                         NBase e = ss.parse_expression(param_sc);
                         // Replace the occurrences of each parameter in the expression with the corresponding argument
-                        for (sym_to_nodecl_map::iterator itm = param_to_arg_map.begin();
+                        for (SymToNodeclMap::iterator itm = param_to_arg_map.begin();
                              itm != param_to_arg_map.end(); ++itm)
                         {
                             NBase n = itm->first.make_nodecl(/*set_ref_type*/false);

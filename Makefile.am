@@ -1127,8 +1127,8 @@ src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.l
 				src/tl/optimizations/libtloptimizations.la
 
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
-				src/tl/analysis/common/tl-rename-visitor.hpp \
-				src/tl/analysis/common/tl-rename-visitor.cpp \
+				src/tl/analysis/common/tl-nodecl-replacer.hpp \
+				src/tl/analysis/common/tl-nodecl-replacer.cpp \
 				src/tl/analysis/common/tl-analysis-utils.hpp \
 				src/tl/analysis/common/tl-analysis-utils.cpp \
 				src/tl/analysis/common/tl-induction-variables-data.hpp \

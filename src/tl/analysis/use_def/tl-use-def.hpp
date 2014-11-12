@@ -31,7 +31,7 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-visitor.hpp"
-#include "tl-rename-visitor.hpp"
+#include "tl-nodecl-replacer.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -187,18 +187,18 @@ namespace Analysis {
         // *** Known called function code use-def analysis *** //
         void propagate_called_func_pointed_values_usage_to_func_call(
                 const NodeclSet& called_func_usage, 
-                const sym_to_nodecl_map& ptr_param_to_arg_map, 
+                const SymToNodeclMap& ptr_param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void propagate_called_func_params_usage_to_func_call(
                 const NodeclSet& called_func_usage,
-                const sym_to_nodecl_map& ref_param_to_arg_map,
+                const SymToNodeclMap& ref_param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void propagate_global_variables_usage(
                 const NodeclSet& called_func_usage,
                 const NodeclSet& called_global_vars,
-                const sym_to_nodecl_map& param_to_arg_map,
+                const SymToNodeclMap& param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void ipa_propagate_known_function_usage(
@@ -291,7 +291,7 @@ namespace Analysis {
     bool any_parameter_is_pointer(const ObjectList<Symbol>& params);
     bool any_parameter_is_reference(const ObjectList<Symbol>& params);
     
-    sym_to_nodecl_map get_parameters_to_arguments_map(
+    SymToNodeclMap get_parameters_to_arguments_map(
         const ObjectList<Symbol>& params, 
         const Nodecl::List& args);
     

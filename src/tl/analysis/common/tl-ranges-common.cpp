@@ -34,7 +34,9 @@
 namespace TL {
 namespace Analysis {
 namespace Utils {
-    
+
+// #define RANGES_COMMON_DEBUG
+
 namespace {
     const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
     
@@ -139,8 +141,10 @@ namespace {
         
         NBase one_nodecl = NBase(const_value_to_nodecl(one));
         result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Addition " << r1.prettyprint() << " - " << r2.prettyprint() 
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
     
@@ -171,8 +175,10 @@ namespace {
         
         NBase one_nodecl = NBase(const_value_to_nodecl(one));
         result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Subtraction " << r1.prettyprint() << " - " << r2.prettyprint() 
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
     
@@ -269,9 +275,10 @@ namespace {
         {   // We are not able to synthesize the result
             result = Nodecl::Analysis::RangeSub::make(r1, r2, t);
         }
-        
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Sub " << r1.prettyprint() << " - " << r2.prettyprint() 
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
     
@@ -336,10 +343,12 @@ namespace {
         {
             result = Nodecl::Range::make(lb, ub, one_nodecl, t);
         }
-        
+
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Intersection " << base.prettyprint() << " ∩ " << predicate.prettyprint() 
                   << " (" << dir.get_direction_as_str() << ")"
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
     
@@ -445,9 +454,11 @@ namespace {
                 result = Nodecl::Analysis::RangeUnion::make( r1.shallow_copy(), r2.shallow_copy(), t );
             }
         }
-        
+
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Union " << r1.prettyprint() << " ∪ " << r2.prettyprint() 
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
 
@@ -474,8 +485,10 @@ namespace {
             new_ub = Nodecl::Add::make(ub, v, t);
         
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), t);
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Value Add " << r.prettyprint() << " + " << v.prettyprint() 
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
     
@@ -502,8 +515,10 @@ namespace {
             new_ub = Nodecl::Minus::make(ub, v, t);
         
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), t);
+#ifdef RANGES_COMMON_DEBUG
         std::cerr << "        Range Value Subtract " << r.prettyprint() << " - " << v.prettyprint() 
                   << " = " << result.prettyprint() << std::endl;
+#endif
         return result;
     }
     
