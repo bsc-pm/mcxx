@@ -1388,32 +1388,33 @@ namespace Nodecl
 
         TL::ObjectList<Nodecl::NodeclBase> sizes;
 
-        if (num_dimensions > 1)
+        // If already linearized, return
+        if (num_dimensions == 1)
+            return n.shallow_copy().as<Nodecl::ArraySubscript>();
+
+        TL::Type subscripted_type = n.get_subscripted().get_type();
+
+        for(i=0; i<num_dimensions; i++)
         {
-            TL::Type subscripted_type = n.get_subscripted().get_type();
-
-            for(i=0; i<num_dimensions; i++)
+            if(subscripted_type.is_pointer() && (i == 0))
             {
-                if(subscripted_type.is_pointer() && (i == 0))
+                // Put a NULL
+                sizes.append(Nodecl::NodeclBase::null());
+                subscripted_type = subscripted_type.points_to();
+            }
+            else if (subscripted_type.is_array())
+            {
+                if (!subscripted_type.array_has_size())
                 {
-                    // Put a NULL
-                    sizes.append(Nodecl::NodeclBase::null());
-                    subscripted_type = subscripted_type.points_to();
+                    internal_error("Linearize_array_subscript: it does not have size", 0);
                 }
-                else if (subscripted_type.is_array())
-                {
-                    if (!subscripted_type.array_has_size())
-                    {
-                        internal_error("Linearize_array_subscript: it does not have size", 0);
-                    }
 
-                    sizes.append(subscripted_type.array_get_size());
-                    subscripted_type = subscripted_type.array_element();
-                }
-                else
-                {
-                    internal_error("Linearize_array_subscript: it is not array type or pointer", 0);
-                }
+                sizes.append(subscripted_type.array_get_size());
+                subscripted_type = subscripted_type.array_element();
+            }
+            else
+            {
+                internal_error("Linearize_array_subscript: it is not array type or pointer", 0);
             }
         }
 
@@ -1464,24 +1465,21 @@ namespace Nodecl
         Nodecl::NodeclBase new_subscripted = n.get_subscripted().shallow_copy();
 
         // Dereferencing subscripted for num_dimensions > 1
-        TL::Type deref_type = new_subscripted.get_type().basic_type();
+        TL::Type deref_type = new_subscripted.get_type().basic_type().
+            get_pointer_to();
 
-        if (num_dimensions > 1)
-        {
-            TL::Type deref_type = new_subscripted.get_type().basic_type().
-                get_pointer_to();
-
-            new_subscripted = Nodecl::Cast::make(
-                    new_subscripted.shallow_copy(),
-                    deref_type,
-                    "C");
-        }
+        new_subscripted = Nodecl::Cast::make(
+                new_subscripted.shallow_copy(),
+                deref_type,
+                "C");
 
         Nodecl::ArraySubscript result_array =
             ArraySubscript::make(new_subscripted.shallow_copy(),
                     Nodecl::List::make(new_linearized_subscript.shallow_copy()),
                     n.get_type(),
                     n.get_locus());
+
+        result_array.set_constant(n.get_constant());
 
         return result_array;
     }
