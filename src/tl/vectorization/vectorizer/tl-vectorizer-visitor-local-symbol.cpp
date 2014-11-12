@@ -147,20 +147,23 @@ namespace Vectorization
             {
                 if (!tl_sym.get_type().is_vector())
                 {
-                    fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
-                            nodecl_sym.prettyprint().c_str());
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
+                                nodecl_sym.prettyprint().c_str());
 
-                    if (Vectorizer::_vectorizer_analysis->
-                            is_uniform(_environment._analysis_simd_scope,
-                                nodecl_sym, nodecl_sym))
+                        if (Vectorizer::_vectorizer_analysis->
+                                is_uniform(_environment._analysis_simd_scope,
+                                    nodecl_sym, nodecl_sym))
                             fprintf(stderr," (uniform)");
 
-                    if (Vectorizer::_vectorizer_analysis->
-                        is_linear(_environment._analysis_simd_scope,
-                            nodecl_sym))
+                        if (Vectorizer::_vectorizer_analysis->
+                                is_linear(_environment._analysis_simd_scope,
+                                    nodecl_sym))
                             fprintf(stderr," (linear)");
-                           
-                    fprintf(stderr,"\n");
+
+                        fprintf(stderr,"\n");
+                    }
                 }
             }
         }
