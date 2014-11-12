@@ -350,11 +350,6 @@ namespace Nodecl
                         {
                             nodecl_t n1_child = nodecl_get_child(n1, i);
                             nodecl_t n2_child = nodecl_get_child(n2, i);
-
-                            if(nodecl_is_null(n1_child) &&
-                                    nodecl_is_null(n2_child)) // Optimization: Skip recursive call.
-                                continue;                     
-
                             equal = cmp_trees_rec(n1_child, n2_child, skip_conversion_nodes);
                         }
 
