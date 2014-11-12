@@ -309,70 +309,85 @@ namespace Nodecl
 
     static int cmp_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
-        if(nodecl_get_ast(n1)==nodecl_get_ast(n2))
+        const bool n1_is_null = nodecl_is_null(n1);
+        const bool n2_is_null = nodecl_is_null(n2);
+
+        if((n1_is_null && n2_is_null) || 
+                (nodecl_get_ast(n1) == nodecl_get_ast(n2)))
             return 0;
-        if (nodecl_is_null(n1) == nodecl_is_null(n2))
+
+        if (n1_is_null == n2_is_null)
         {
-            if (!nodecl_is_null(n1))
+            if(skip_conversion_nodes)
             {
-                if(skip_conversion_nodes)
+                if(nodecl_get_kind(n1) == NODECL_CONVERSION)
+                    n1 = nodecl_get_child(n1, 0);
+                if(nodecl_get_kind(n2) == NODECL_CONVERSION)
+                    n2 = nodecl_get_child(n2, 0);
+
+                // Optimization: We assume that inside a NODECL_CONVERSION
+                // there needs to be non-null nodecl
+            }
+
+            const node_t n1_kind = nodecl_get_kind(n1);
+            const node_t n2_kind = nodecl_get_kind(n2);
+                
+            if (n1_kind == n2_kind) // kind
+            {
+                const scope_entry_t * const n1_symbol = nodecl_get_symbol(n1);
+                const scope_entry_t * const n2_symbol = nodecl_get_symbol(n2);
+
+                if  (n1_symbol == n2_symbol) // symbol
                 {
-                    if(nodecl_get_kind(n1) == NODECL_CONVERSION)
-                        return cmp_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
-                    if(nodecl_get_kind(n2) == NODECL_CONVERSION)
-                        return cmp_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
-                }
-                if (nodecl_get_kind(n1) == nodecl_get_kind(n2)) // kind
-                {
-                    if  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2)) // symbol
+                    const const_value_t * const n1_constant = nodecl_get_constant(n1);
+                    const const_value_t * const n2_constant = nodecl_get_constant(n2);
+
+                    if (n1_constant == n2_constant) // constant
                     {
-                        if (nodecl_get_constant(n1) == nodecl_get_constant(n2)) // constant
+                        // Everything looks equal in this single node, let's check our children
+                        int equal = 0;
+                        for (int i=0; (equal == 0) && (i < MCXX_MAX_AST_CHILDREN); i++)
                         {
-                            // Everything looks equal in this single node, let's check our children
-                            int equal = 0;
-                            int i = 0;
-                            while ((equal == 0)
-                                && (i < MCXX_MAX_AST_CHILDREN))
-                            {
-                                equal = cmp_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i),
-                                                      skip_conversion_nodes);
-                                i++;
-                            }
-                            return equal;
+                            nodecl_t n1_child = nodecl_get_child(n1, i);
+                            nodecl_t n2_child = nodecl_get_child(n2, i);
+
+                            if(nodecl_is_null(n1_child) &&
+                                    nodecl_is_null(n2_child)) // Optimization: Skip recursive call.
+                                continue;                     
+
+                            equal = cmp_trees_rec(n1_child, n2_child, skip_conversion_nodes);
                         }
-                        else if (nodecl_get_constant(n1) < nodecl_get_constant(n2)) // constant
-                        {
-                            return -1;
-                        }
-                        else // constant
-                        {
-                            return 1;
-                        }
+
+                        return equal;
                     }
-                    else if (nodecl_get_symbol(n1) < nodecl_get_symbol(n2)) // symbol
+                    else if (n1_constant < n2_constant) // constant
                     {
                         return -1;
                     }
-                    else // symbol
+                    else // constant
                     {
                         return 1;
                     }
                 }
-                else if (nodecl_get_kind(n1) < nodecl_get_kind(n2)) // kind
+                else if (n1_symbol < n2_symbol) // symbol
                 {
                     return -1;
                 }
-                else // kind
+                else // symbol
                 {
                     return 1;
                 }
             }
-            else
+            else if (n1_kind < n2_kind) // kind
             {
-                return 0;
+                return -1;
+            }
+            else // kind
+            {
+                return 1;
             }
         }
-        else if (!nodecl_is_null(n1) && nodecl_is_null(n2))
+        else if (!n1_is_null)
         {
             return -1;
         }
