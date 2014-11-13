@@ -73,6 +73,9 @@ namespace Utils {
 
     int structurally_cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                                  bool skip_conversion_nodecls = false);
+    bool structurally_less_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
+                                 bool skip_conversion_nodecls = false);
+ 
     struct Nodecl_hash {
         size_t operator() (const Nodecl::NodeclBase& n) const;
     };
