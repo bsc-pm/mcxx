@@ -140,6 +140,18 @@ namespace Analysis {
         EDGE_TYPE_LIST
         #undef EDGE_TYPE
     };
+
+    #define SYNC_KIND_LIST \
+    SYNC_KIND(Static) \
+    SYNC_KIND(Maybe) \
+    SYNC_KIND(Post)
+
+    enum SyncKind {
+        #undef SYNC_KIND
+        #define SYNC_KIND(X) __##X,
+        SYNC_KIND_LIST
+        #undef SYNC_KIND
+    };
     
     enum ASM_node_info {
         ASM_DEF_TEXT,
@@ -263,7 +275,13 @@ namespace Analysis {
      * Available and mandatory in all edges but those with 'Always' type.
      */
     #define _EDGE_LABEL                             "edge_label"
-    
+
+    /*! \def _SYNC_KIND
+     * SyncKind containing the type of synchronization the edge represents
+     * Available and mandatory in all synchronization edges.
+     */
+    #define _SYNC_KIND                              "sync_kind"
+
     /*! \def _CONDITION
      * Nodecl containing the condition that must fulfill to have a real dependency 
      * between the two tasks connected with the edge
