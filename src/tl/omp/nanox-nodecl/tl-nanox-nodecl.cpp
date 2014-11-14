@@ -99,7 +99,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase n = dto["nodecl"];
 
-        FinalStmtsGenerator final_generator(RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]));
+        FinalStmtsGenerator final_generator;
         // If the final clause transformation is disabled we shouldn't generate the final stmts
         if (!_final_clause_transformation_disabled)
             final_generator.walk(n);

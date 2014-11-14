@@ -124,8 +124,6 @@ namespace Vectorization
 
     void KNCVectorLegalization::visit(const Nodecl::VectorLoad& n)
     {
-
-
         const Nodecl::NodeclBase rhs = n.get_rhs();
         const Nodecl::NodeclBase mask = n.get_mask();
 

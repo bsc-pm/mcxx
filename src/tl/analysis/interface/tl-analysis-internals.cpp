@@ -45,6 +45,9 @@ namespace Analysis {
         if(Nodecl::Utils::nodecl_is_literal(n))
             return true;
 
+        if (n.is_constant())
+            return true;
+
         if (n.is<Nodecl::Symbol>())
         {
             TL::Symbol sym = n.get_symbol();

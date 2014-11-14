@@ -1314,23 +1314,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     Nodecl::NodeclBase field = node.get_field();
     Nodecl::NodeclBase next = node.get_next();
 
-    if (IS_CXX_LANGUAGE)
+    if (!(field.get_symbol().get_type().is_named_class()
+                && field.get_symbol().get_type().get_symbol().is_anonymous_union()))
     {
-        *(file) << start_inline_comment();
-    }
+        if (IS_CXX_LANGUAGE)
+        {
+            *(file) << start_inline_comment();
+        }
 
-    *(file) << ".";
-    walk(field);
+        *(file) << ".";
+        walk(field);
 
-    if (!next.is<Nodecl::FieldDesignator>()
-            && !next.is<Nodecl::IndexDesignator>())
-    {
-        *(file) << " = ";
-    }
+        if (!next.is<Nodecl::FieldDesignator>()
+                && !next.is<Nodecl::IndexDesignator>())
+        {
+            *(file) << " = ";
+        }
 
-    if (IS_CXX_LANGUAGE)
-    {
-        *(file) << end_inline_comment();
+        if (IS_CXX_LANGUAGE)
+        {
+            *(file) << end_inline_comment();
+        }
     }
 
     walk(next);

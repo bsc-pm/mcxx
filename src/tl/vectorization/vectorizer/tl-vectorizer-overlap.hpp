@@ -98,10 +98,11 @@ namespace TL
             TL::Type _vector_type;
             int _num_registers;
             bool _aligned_strategy;
-            bool _init_cache;
 
             Nodecl::List get_init_statements(
-                    const Nodecl::ForStatement& for_stmt) const;
+                    const Nodecl::ForStatement& for_stmt,
+                    const bool is_simd_loop,
+                    const bool is_omp_simd_for) const;
             Nodecl::List get_iteration_update_pre() const;
             Nodecl::List get_iteration_update_post() const;
 
@@ -122,8 +123,12 @@ namespace TL
         {
             private:
                 const VectorizerEnvironment& _environment;
-                Nodecl::List& _init_stmts;
+                bool _is_omp_simd_for;
+                bool _is_epilog;
+                Nodecl::List& _prependix_stmts;
                 
+                VectorizationAnalysisInterface* _first_analysis;
+
                 static VectorizationAnalysisInterface* _analysis;
 
                 void update_alignment_info(
@@ -148,7 +153,9 @@ namespace TL
                         const int num_group);
                 void insert_group_update_stmts(
                         OverlapGroup& ogroup,
-                        const Nodecl::ForStatement& n);
+                        const Nodecl::ForStatement& n,
+                        const bool init_cache,
+                        const bool update_post);
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
@@ -161,7 +168,9 @@ namespace TL
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment,
                         VectorizationAnalysisInterface* analysis,
-                        Nodecl::List& init_stmts);
+                        const bool is_omp_simd_for,
+                        const bool is_epilog,
+                        Nodecl::List& prependix_stmts);
                 
                 void visit(const Nodecl::ForStatement&);
 

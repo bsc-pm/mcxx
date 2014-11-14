@@ -173,6 +173,7 @@ namespace TL
 
                 void make_execution_environment_target_information(
                         TargetInfo &target_info,
+                        TL::Symbol sym,
                         const locus_t* locus,
                         // out
                         TL::ObjectList<Nodecl::NodeclBase> &result_list);

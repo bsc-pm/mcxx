@@ -70,15 +70,27 @@ struct builtin_operators_set_tag
     int num_builtins;
 } builtin_operators_set_t;
 
+enum must_be_constant_t
+{
+    MUST_NOT_BE_CONSTANT = 0,
+    MUST_BE_CONSTANT,
+    MUST_BE_NONTYPE_TEMPLATE_PARAMETER,
+};
+
 // This structure contains information about the context of the current expression
 typedef
 struct check_expr_flags_tag
 {
     /*
-     * This is a rough approach to limit evaluation
+     * Diagnoses if the expression is not constant
+     * according to rules in §5.19
+     */
+    enum must_be_constant_t must_be_constant:2;
+    /*
+     * We do not evaluate constexpr calls
      * for nonstrict operators like ?, && and ||
      */
-    char do_not_evaluate:1;
+    char do_not_call_constexpr:1;
     /* It will be true if the expression is non_executable.
      * Examples of non-executable expressions contains:
      * sizeof, alignof, typeof, decltype
@@ -86,16 +98,13 @@ struct check_expr_flags_tag
      * Otherwise it will be false.
      */
     char is_non_executable:1;
-    // Names are always folded into dependent typenames (i.e member may become
-    // A<T>::member) but sometimes this is not desired
-    char do_not_fold_into_dependent_typename:1;
 } check_expr_flags_t;
 
 static check_expr_flags_t check_expr_flags =
 {
-    .do_not_evaluate = 0,
+    .must_be_constant = 0,
+    .do_not_call_constexpr = 0,
     .is_non_executable = 0,
-    .do_not_fold_into_dependent_typename = 0
 };
 
 char builtin_needs_contextual_conversion(scope_entry_t* candidate,
@@ -533,6 +542,9 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context, no
 static void check_mcc_debug_array_subscript(AST a,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
+static void check_mcc_debug_constant_value_check(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 
 // Returns if the function is ok
 //
@@ -559,10 +571,31 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
     }
 }
 
+char check_expression_must_be_constant(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    // Save the value of 'must_be_constant' of the last expression expression
+    enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+
+    // The current expression is non executable
+    check_expr_flags.must_be_constant = MUST_BE_CONSTANT;
+
+    // Check_expression the current expression
+    char output = check_expression(a, decl_context, nodecl_output);
+
+    // Restore the right value
+    check_expr_flags.must_be_constant = must_be_constant;
+
+    return output;
+}
+
 char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Save the value of 'is_non_executable' of the last expression expression
     char was_non_executable = check_expr_flags.is_non_executable;
+
+    enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+    // The current expression can be nonconstant
+    check_expr_flags.must_be_constant = MUST_NOT_BE_CONSTANT;
 
     // The current expression is non executable
     check_expr_flags.is_non_executable = 1;
@@ -571,6 +604,28 @@ char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_
     char output = check_expression(a, decl_context, nodecl_output);
 
     // Restore the right value
+    check_expr_flags.must_be_constant = must_be_constant;
+    check_expr_flags.is_non_executable = was_non_executable;
+
+    return output;
+}
+
+char check_expression_non_executable_must_be_constant(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    // Save the value of 'is_non_executable' of the last expression expression
+    char was_non_executable = check_expr_flags.is_non_executable;
+    // Save the value of 'must_be_constant' of the last expression expression
+    enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+
+    // The current expression is non executable
+    check_expr_flags.is_non_executable = 1;
+    check_expr_flags.must_be_constant = MUST_BE_CONSTANT;
+
+    // Check_expression the current expression
+    char output = check_expression(a, decl_context, nodecl_output);
+
+    // Restore the right values
+    check_expr_flags.must_be_constant = must_be_constant;
     check_expr_flags.is_non_executable = was_non_executable;
 
     return output;
@@ -1098,6 +1153,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
             // This node is for debugging purposes of the compiler itself
+        case AST_MCC_CONSTANT_VALUE_CHECK:
+            {
+                check_mcc_debug_constant_value_check(expression, decl_context, nodecl_output);
+                break;
+            }
         case AST_MCC_ARRAY_SUBSCRIPT_CHECK:
             {
                 check_mcc_debug_array_subscript(expression, decl_context, nodecl_output);
@@ -2378,6 +2438,15 @@ static void resolve_symbol_this_nodecl(decl_context_t decl_context,
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         }
+        else if (check_expr_flags.must_be_constant)
+        {
+            if (decl_context.current_scope->kind == BLOCK_SCOPE
+                    && !symbol_entity_specs_get_is_constexpr(decl_context.current_scope->related_entry))
+            {
+                error_printf("%s: error: 'this' referenced inside a non-constexpr member function or constructor\n",
+                        locus_to_str(locus));
+            }
+        }
     }
 }
 
@@ -3529,7 +3598,6 @@ void compute_bin_operator_generic(
                 computed_type, locus);
 
         if (const_value_bin_fun != NULL
-                && !check_expr_flags.do_not_evaluate
                 && types_allow_constant_evaluation(lhs_type, rhs_type, locus)
                 && nodecl_is_constant(*lhs)
                 && nodecl_is_constant(*rhs))
@@ -3574,7 +3642,6 @@ void compute_bin_operator_generic(
         if (symbol_entity_specs_get_is_builtin(selected_operator))
         {
             if (const_value_bin_fun != NULL
-                    && !check_expr_flags.do_not_evaluate
                     && types_allow_constant_evaluation(lhs_type, rhs_type, locus)
                     && nodecl_is_constant(*lhs)
                     && nodecl_is_constant(*rhs))
@@ -5251,7 +5318,7 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
     if (nodecl_expr_is_type_dependent(*lhs)
             || nodecl_expr_is_type_dependent(*rhs))
     {
-        *nodecl_output = nodecl_make_assignment(*lhs, *rhs, 
+        *nodecl_output = nodecl_make_assignment(*lhs, *rhs,
                 get_unknown_dependent_type(),
                 locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -5686,7 +5753,6 @@ static void compute_unary_operator_generic(
         const_value_t* val = NULL;
 
         if (const_value_unary_fun != NULL
-                && !check_expr_flags.do_not_evaluate
                 && types_allow_constant_evaluation(op_type, locus)
                 && nodecl_is_constant(*op))
         {
@@ -5749,7 +5815,6 @@ static void compute_unary_operator_generic(
             const_value_t* val = NULL;
 
             if (const_value_unary_fun != NULL
-                    && !check_expr_flags.do_not_evaluate
                     && types_allow_constant_evaluation(op_type, locus)
                     && nodecl_is_constant(*op))
             {
@@ -6301,11 +6366,7 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
     {
         nodecl_t nodecl_check = nodecl_null();
         diagnostic_context_push_buffered();
-        // We do not want unresolved overloads to become dependent typenames
-        // even if they are members of dependent classes
-        check_expr_flags.do_not_fold_into_dependent_typename = 1;
         check_expression_impl_(a, decl_context, &nodecl_check);
-        check_expr_flags.do_not_fold_into_dependent_typename = 0;
         diagnostic_context_pop_and_discard();
 
         if (nodecl_is_err_expr(nodecl_check))
@@ -6551,12 +6612,12 @@ static void check_expression_eval_rhs_if_lhs_is_zero(
         // e1 || e2 but we do not evaluate e2
         // because either e1 is not constant
         // or it is a nonzero constant
-        char do_not_evaluate = check_expr_flags.do_not_evaluate;
-        check_expr_flags.do_not_evaluate = 1;
+        char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
+        check_expr_flags.do_not_call_constexpr = 1;
 
         check_expression_impl_(rhs, decl_context, output);
 
-        check_expr_flags.do_not_evaluate = do_not_evaluate;
+        check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
 
         if (nodecl_is_constant(lhs) // !const_value_is_zero(lhs)
                 && !nodecl_is_constant(*output)
@@ -6588,12 +6649,12 @@ static void check_expression_eval_rhs_if_lhs_is_nonzero(
     {
         // e1 && e2 but we do not evaluate e2 because
         // either e1 is not constant or it as a zero constant
-        char do_not_evaluate = check_expr_flags.do_not_evaluate;
-        check_expr_flags.do_not_evaluate = 1;
+        char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
+        check_expr_flags.do_not_call_constexpr = 1;
 
         check_expression_impl_(rhs, decl_context, output);
 
-        check_expr_flags.do_not_evaluate = do_not_evaluate;
+        check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
 
         if (nodecl_is_constant(lhs)
                 && !nodecl_is_constant(*output)
@@ -6974,6 +7035,12 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
 static void check_throw_expression_nodecl(nodecl_t nodecl_thrown, const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    if (!nodecl_expr_is_value_dependent(nodecl_thrown)
+            && check_expr_flags.must_be_constant)
+    {
+        error_printf("%s: error: throw-expression in constant-expression\n",
+                locus_to_str(locus));
+    }
     *nodecl_output = nodecl_make_throw(nodecl_thrown, get_throw_expr_type(), locus);
 }
 
@@ -7304,15 +7371,6 @@ static void cxx_compute_name_from_entry_list(
             }
         }
 
-        if ((entry->decl_context.current_scope->related_entry == NULL ||
-                !symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry))
-                && (is_const_qualified_type(no_ref(entry->type_information)) || symbol_entity_specs_get_is_constexpr(entry))
-                && !nodecl_is_null(entry->value)
-                && nodecl_is_constant(entry->value))
-        {
-            nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-        }
-
         if (!nodecl_is_null(entry->value)
                 && (nodecl_expr_is_value_dependent(entry->value)
                     || nodecl_expr_is_type_dependent(entry->value)))
@@ -7324,6 +7382,97 @@ static void cxx_compute_name_from_entry_list(
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
+
+        if (!nodecl_expr_is_value_dependent(*nodecl_output))
+        {
+            if ((entry->decl_context.current_scope->related_entry == NULL ||
+                        !symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry)))
+            {
+                if (!is_volatile_qualified_type(no_ref(entry->type_information))
+                        && (is_const_qualified_type(no_ref(entry->type_information))
+                            || symbol_entity_specs_get_is_constexpr(entry)))
+                {
+                    if (!nodecl_is_null(entry->value)
+                            && nodecl_is_constant(entry->value))
+                    {
+                        nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+                        if (symbol_entity_specs_get_is_constexpr(entry))
+                        {
+                            // ok
+                        }
+                        else if (is_const_qualified_type(no_ref(entry->type_information)))
+                        {
+                            if (is_integral_type(no_ref(entry->type_information))
+                                    || is_enum_type(no_ref(entry->type_information)))
+                            {
+                                // ok
+                            }
+                            else if (check_expr_flags.must_be_constant == MUST_BE_CONSTANT
+                                    /* || (check_expr_flags.must_be_constant == MUST_BE_NONTYPE_TEMPLATE_PARAMETER
+                                        && !is_array_type(entry->type_information)) */)
+                            {
+                                error_printf("%s: error: const variable '%s' is not integral or "
+                                        "enumeration type in constant expression\n",
+                                        nodecl_locus_to_str(nodecl_name),
+                                        get_qualified_symbol_name(entry, entry->decl_context));
+                                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                    }
+                    else if (check_expr_flags.must_be_constant)
+                    {
+                        error_printf("%s: error: variable '%s' has not been initialized with a constant expression\n",
+                                nodecl_locus_to_str(nodecl_name),
+                                get_qualified_symbol_name(entry, entry->decl_context));
+                        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                        return;
+                    }
+                }
+                else if (check_expr_flags.must_be_constant == MUST_BE_CONSTANT)
+                {
+                    if (is_volatile_qualified_type(no_ref(entry->type_information)))
+                    {
+                        error_printf("%s: error: volatile variable '%s' in constant-expression\n",
+                                nodecl_locus_to_str(nodecl_name),
+                                get_qualified_symbol_name(entry, entry->decl_context));
+                        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                        return;
+                    }
+                    else
+                    {
+                        if (IS_CXX11_LANGUAGE)
+                        {
+                            error_printf("%s: error: variable '%s' is not const nor constexpr in constant-expression\n",
+                                    nodecl_locus_to_str(nodecl_name),
+                                    get_qualified_symbol_name(entry, entry->decl_context));
+                            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                            return;
+                        }
+                        else
+                        {
+                            error_printf("%s: error: variable '%s' is not const in constant-expression\n",
+                                    nodecl_locus_to_str(nodecl_name),
+                                    get_qualified_symbol_name(entry, entry->decl_context));
+                            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                            return;
+                        }
+                    }
+                }
+            }
+            else if (check_expr_flags.must_be_constant)
+            {
+                error_printf("%s: error: variable '%s' is not allowed in constant-expression\n",
+                        nodecl_locus_to_str(nodecl_name),
+                        get_qualified_symbol_name(entry, entry->decl_context));
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                return;
+            }
         }
     }
     else if (entry->kind == SK_ENUMERATOR)
@@ -7572,6 +7721,87 @@ static void check_mcc_debug_array_subscript(AST a,
     }
 }
 
+static void check_mcc_debug_constant_value_check(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    check_expression_impl_(ASTSon0(a), decl_context, nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+        return;
+
+    if (!nodecl_is_constant(*nodecl_output))
+    {
+        error_printf("%s: error: const-value-check failure, expression '%s' is not constant expression\n",
+                ast_location(a),
+                codegen_to_str(*nodecl_output, decl_context));
+    }
+}
+
+static const_value_t* compute_subconstant_of_array_subscript(
+        type_t* subscripted_type,
+        nodecl_t subscripted,
+        nodecl_t subscript_list)
+{
+    if (!nodecl_is_constant(subscripted))
+        return NULL;
+
+    subscripted_type = no_ref(subscripted_type);
+    if (!is_array_type(subscripted_type))
+        return NULL;
+
+    int num_subscripts = 0;
+    nodecl_t* list = nodecl_unpack_list(subscript_list, &num_subscripts);
+
+    int i;
+    for (i = 0; i < num_subscripts; i++)
+    {
+        if (!nodecl_is_constant(list[i]))
+        {
+            xfree(list);
+            return NULL;
+        }
+    }
+
+    const_value_t* cval = nodecl_get_constant(subscripted);
+    ERROR_CONDITION(!const_value_is_array(cval),
+            "Invalid constant value '%s'", const_value_to_str(cval));
+
+    for (i = 0; i < num_subscripts; i++)
+    {
+        if (!nodecl_is_constant(
+                    array_type_get_array_size_expr(subscripted_type)))
+        {
+            xfree(list);
+            return NULL;
+        }
+
+        int length =
+            const_value_cast_to_signed_int(
+                    nodecl_get_constant(
+                        array_type_get_array_size_expr(subscripted_type)));
+
+        int idx = const_value_cast_to_signed_int(
+                nodecl_get_constant(list[i]));
+
+        if (idx < 0 || idx >= length)
+        {
+            xfree(list);
+            return NULL;
+        }
+
+        ERROR_CONDITION(const_value_get_num_elements(cval) <= idx,
+                "Constant '%s' has too few elements (index = %d requested)", const_value_to_str(cval), idx);
+
+        cval = const_value_get_element_num(cval, idx);
+    }
+
+    xfree(list);
+
+    return cval;
+}
+
+
 static void check_nodecl_array_subscript_expression_c(
         nodecl_t nodecl_subscripted,
         nodecl_t nodecl_subscript,
@@ -7586,6 +7816,14 @@ static void check_nodecl_array_subscript_expression_c(
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_subscripted);
         nodecl_free(nodecl_subscript);
+        return;
+    }
+
+    if (check_expr_flags.must_be_constant)
+    {
+        error_printf("%s: error: array subscript in a constant expression\n",
+                nodecl_locus_to_str(nodecl_subscripted));
+        *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
 
@@ -7641,40 +7879,62 @@ static void check_nodecl_array_subscript_expression_c(
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
 
         // We combine the array subscript list
-        nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
-        nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+        nodecl_t nodecl_indexed = nodecl_shallow_copy(nodecl_get_child(nodecl_subscripted, 0));
+        nodecl_t nodecl_subscript_list = nodecl_shallow_copy(nodecl_get_child(nodecl_subscripted, 1));
 
-        nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
-                nodecl_subscript);
+        nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list,
+                nodecl_shallow_copy(nodecl_subscript));
 
         *nodecl_output = nodecl_make_array_subscript(
                 nodecl_indexed,
                 nodecl_subscript_list,
                 lvalue_ref(t), locus);
+
+        const_value_t* const_value = compute_subconstant_of_array_subscript(
+                subscripted_type,
+                nodecl_indexed,
+                nodecl_subscript_list);
+        nodecl_set_constant(*nodecl_output, const_value);
     }
     else if (is_array_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
         // The subscripted type may be T[n] or T(&)[n] and we want it to become T*
+        nodecl_t nodecl_indexed = nodecl_shallow_copy(nodecl_subscripted);
+        nodecl_t nodecl_subscript_list = nodecl_make_list_1(
+                nodecl_shallow_copy(nodecl_subscript)
+                );
+
         unary_record_conversion_to_result(
                 get_pointer_type(array_type_get_element_type(no_ref(subscripted_type))),
-                &nodecl_subscripted);
+                &nodecl_indexed);
 
         *nodecl_output = nodecl_make_array_subscript(
-                nodecl_subscripted,
-                nodecl_make_list_1(nodecl_subscript),
+                nodecl_indexed,
+                nodecl_subscript_list,
                 lvalue_ref(t), locus);
+
+        const_value_t* const_value = compute_subconstant_of_array_subscript(
+                subscripted_type,
+                nodecl_indexed,
+                nodecl_subscript_list);
+        nodecl_set_constant(*nodecl_output, const_value);
     }
     else if (is_pointer_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(pointer_type_get_pointee_type(no_ref(subscripted_type)));
 
+        nodecl_t nodecl_indexed = nodecl_shallow_copy(nodecl_subscripted);
+        nodecl_t nodecl_subscript_list = nodecl_make_list_1(
+                nodecl_shallow_copy(nodecl_subscript)
+                );
+
         // The subscripted type may be T*& and we want it to be T*
-        unary_record_conversion_to_result(no_ref(subscripted_type), &nodecl_subscripted);
+        unary_record_conversion_to_result(no_ref(subscripted_type), &nodecl_indexed);
 
         *nodecl_output = nodecl_make_array_subscript(
-                nodecl_subscripted,
-                nodecl_make_list_1(nodecl_subscript),
+                nodecl_indexed,
+                nodecl_subscript_list,
                 lvalue_ref(t), locus);
     }
     else
@@ -7688,9 +7948,10 @@ static void check_nodecl_array_subscript_expression_c(
                 print_type_str(no_ref(subscripted_type), decl_context));
 
         *nodecl_output = nodecl_make_err_expr(locus);
-        nodecl_free(nodecl_subscripted);
-        nodecl_free(nodecl_subscript);
     }
+
+    nodecl_free(nodecl_subscripted);
+    nodecl_free(nodecl_subscript);
 }
 
 static char pointer_type_and_integral_or_unscoped_enum_type(type_t* t1, type_t* t2)
@@ -7912,46 +8173,83 @@ static void check_nodecl_array_subscript_expression_cxx(
         subscripted_type = nodecl_get_type(nodecl_subscripted);
         subscript_type = nodecl_get_type(nodecl_subscript);
 
+        if (check_expr_flags.must_be_constant
+                && nodecl_get_kind(nodecl_subscripted) == NODECL_SYMBOL
+                && is_array_type(no_ref(nodecl_get_symbol(nodecl_subscripted)->type_information))
+                && !symbol_entity_specs_get_is_constexpr(nodecl_get_symbol(nodecl_subscripted)))
+        {
+            if (IS_CXX11_LANGUAGE)
+            {
+                error_printf("%s: error: array subscript of non-constexpr array '%s' in a constant expression\n",
+                        nodecl_locus_to_str(nodecl_subscripted),
+                        codegen_to_str(nodecl_subscripted, decl_context));
+            }
+            else
+            {
+                error_printf("%s: error: array subscript in a constant expression\n",
+                        nodecl_locus_to_str(nodecl_subscripted));
+            }
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
         // Now make sure multidimensional arrays are properly materialized
         if (is_array_type(no_ref(subscripted_type))
                 && (nodecl_get_kind(nodecl_subscripted) == NODECL_ARRAY_SUBSCRIPT)
                 && !(array_type_has_region(no_ref(subscripted_type))
                     && is_pointer_type(array_type_get_element_type(no_ref(subscripted_type)))))
         {
-            nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
-            nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+            nodecl_t nodecl_indexed = nodecl_shallow_copy(
+                    nodecl_get_child(nodecl_subscripted, 0));
+            nodecl_t nodecl_subscript_list = nodecl_shallow_copy(
+                    nodecl_get_child(nodecl_subscripted, 1));
 
             nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list,
                     rhs);
 
             *nodecl_output = nodecl_make_array_subscript(
-                    nodecl_shallow_copy(nodecl_indexed),
+                    nodecl_indexed,
                     nodecl_subscript_list,
                     result, locus);
 
             nodecl_free(lhs);
 
-            return;
+            const_value_t* const_value = compute_subconstant_of_array_subscript(
+                    subscripted_type,
+                    nodecl_indexed,
+                    nodecl_subscript_list);
+            nodecl_set_constant(*nodecl_output, const_value);
+
         }
         else
         {
+            nodecl_t nodecl_indexed = nodecl_shallow_copy(
+                    nodecl_subscripted);
+            nodecl_t nodecl_subscript_list = nodecl_make_list_1(rhs);
+
             *nodecl_output = nodecl_make_array_subscript(
                     lhs,
-                    nodecl_make_list_1(rhs),
+                    nodecl_subscript_list,
                     result, locus);
 
-            nodecl_free(nodecl_subscripted);
-            nodecl_free(nodecl_subscript);
-            return;
+            const_value_t* const_value = compute_subconstant_of_array_subscript(
+                    subscripted_type,
+                    nodecl_indexed,
+                    nodecl_subscript_list);
+            nodecl_set_constant(*nodecl_output, const_value);
         }
     }
+    else
+    {
 
-    error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
-            nodecl_locus_to_str(nodecl_subscripted),
-            codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-            codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-            print_type_str(subscripted_type, decl_context));
-    *nodecl_output = nodecl_make_err_expr(locus);
+        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
+                nodecl_locus_to_str(nodecl_subscripted),
+                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+                print_type_str(subscripted_type, decl_context));
+        *nodecl_output = nodecl_make_err_expr(locus);
+    }
+
     nodecl_free(nodecl_subscripted);
     nodecl_free(nodecl_subscript);
 }
@@ -8940,10 +9238,10 @@ static void check_conditional_expression_impl(AST expression UNUSED_PARAMETER,
     nodecl_t nodecl_first_op = nodecl_null();
     check_expression_impl_(first_op, decl_context, &nodecl_first_op);
 
-    char do_not_evaluate = check_expr_flags.do_not_evaluate;
+    char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
     // We do not attempt to evaluat the second expression if it is not constant
     // or (if it is constant) if it is zero
-    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_first_op)
+    check_expr_flags.do_not_call_constexpr = !nodecl_is_constant(nodecl_first_op)
         || const_value_is_zero(nodecl_get_constant(nodecl_first_op));
 
     nodecl_t nodecl_second_op = nodecl_null();
@@ -8951,13 +9249,13 @@ static void check_conditional_expression_impl(AST expression UNUSED_PARAMETER,
 
     // We do not attempt to evaluate the third expression if it is not constant
     // or (if it is constant) if it is nonzero
-    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_first_op)
+    check_expr_flags.do_not_call_constexpr = !nodecl_is_constant(nodecl_first_op)
         || const_value_is_nonzero(nodecl_get_constant(nodecl_first_op));
 
     nodecl_t nodecl_third_op = nodecl_null();
     check_expression_impl_(third_op, decl_context, &nodecl_third_op);
 
-    check_expr_flags.do_not_evaluate = do_not_evaluate;
+    check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
 
     check_conditional_expression_impl_nodecl(nodecl_first_op, nodecl_second_op, nodecl_third_op,
             decl_context, nodecl_output);
@@ -9024,6 +9322,12 @@ static void check_new_expression_impl(
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    if (check_expr_flags.must_be_constant)
+    {
+        error_printf("%s: error: new-expression in constant-expression\n",
+                locus_to_str(locus));
+    }
+
     char is_new_array = is_array_type(new_type);
 
     type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
@@ -9393,6 +9697,12 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
         char is_array_delete,
         nodecl_t* nodecl_output)
 {
+    if (check_expr_flags.must_be_constant)
+    {
+        error_printf("%s: error: delete-expression in constant-expression\n",
+                locus_to_str(locus));
+    }
+
     // FIXME - We are not calling the deallocation function
     type_t* deleted_type = no_ref(nodecl_get_type(nodecl_deleted_expr));
 
@@ -10397,6 +10707,11 @@ static void check_nodecl_cast_expr(
     }
     else if ((is_dynamic_cast = (strcmp(cast_kind, "dynamic_cast") == 0)))
     {
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: dynamic_cast in constant expression\n",
+                    locus_to_str(locus));
+        }
         if (!conversion_is_valid_dynamic_cast(
                     &nodecl_casted_expr,
                     declarator_type,
@@ -10412,6 +10727,11 @@ static void check_nodecl_cast_expr(
     }
     else if (strcmp(cast_kind, "reinterpret_cast") == 0)
     {
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: reinterpret_cast in constant expression\n",
+                    locus_to_str(locus));
+        }
         if (!conversion_is_valid_reinterpret_cast(
                     &nodecl_casted_expr,
                     declarator_type,
@@ -13189,6 +13509,12 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                 ast_location(expression));
     }
 
+    if (check_expr_flags.must_be_constant)
+    {
+        error_printf("%s: error: lambda expression in constant-expression",
+                ast_location(expression));
+    }
+
     AST lambda_capture = ASTSon0(expression);
     AST lambda_declarator = ASTSon1(expression);
     AST compound_statement = ASTSon2(expression);
@@ -14060,6 +14386,9 @@ static const_value_t* compute_subconstant_of_class_member_access(
 
     result = const_value;
 
+    if (const_value_is_unknown(result))
+        return NULL;
+
     int i;
     for (i = 0; i < length_path && result != NULL; i++)
     {
@@ -14075,8 +14404,9 @@ static const_value_t* compute_subconstant_of_class_member_access(
 
     xfree(path_info);
 
-    if (result == NULL)
-        return result;
+    if (result == NULL
+            || const_value_is_unknown(result))
+        return NULL;
 
     // Now lookup the data member/direct base
     scope_entry_list_t* subobjects_list = NULL;
@@ -14110,6 +14440,9 @@ static const_value_t* compute_subconstant_of_class_member_access(
         return NULL;
 
     result = const_value_get_element_num(result, member_index);
+
+    if (const_value_is_unknown(result))
+        result = NULL;
 
     return result;
 }
@@ -14344,6 +14677,11 @@ static void check_nodecl_member_access(
             && (is_scalar_type(no_ref(accessed_type)) || is_class_type(no_ref(accessed_type)))
             && is_pseudo_destructor_id(decl_context, no_ref(accessed_type), nodecl_member))
     {
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: pseudo-destructor call in constant-expression\n",
+                    locus_to_str(locus));
+        }
         *nodecl_output = nodecl_make_pseudo_destructor_name(
                 nodecl_accessed_out,
                 get_pseudo_destructor_call_type(),
@@ -14399,108 +14737,145 @@ static void check_nodecl_member_access(
     C_LANGUAGE()
     {
         nodecl_t nodecl_field = nodecl_accessed_out;
+        const_value_t* current_const_value = nodecl_get_constant(nodecl_field);
+        type_t* current_const_value_type = accessed_type;
+
         if (symbol_entity_specs_get_is_member_of_anonymous(entry))
         {
             nodecl_t accessor = symbol_entity_specs_get_anonymous_accessor(entry);
             nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
         }
 
-        cv_qualifier_t cv_field = CV_NONE;
-        advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
-        cv_field = cv_accessed | cv_field;
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: class member access in a constant expression\n",
+                    nodecl_locus_to_str(nodecl_field));
+        }
+        else
+        {
+            cv_qualifier_t cv_field = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
+            cv_field = cv_accessed | cv_field;
 
-        ok = 1;
+            ok = 1;
 
-        *nodecl_output = nodecl_make_class_member_access(
-                nodecl_field,
-                nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
-                /* member form */ nodecl_null(),
-                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_field)),
-                nodecl_get_locus(nodecl_accessed));
+            *nodecl_output = nodecl_make_class_member_access(
+                    nodecl_field,
+                    nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                    /* member form */ nodecl_null(),
+                    lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_field)),
+                    nodecl_get_locus(nodecl_accessed));
+
+            const_value_t* subconstant_value = compute_subconstant_of_class_member_access(
+                    current_const_value,
+                    current_const_value_type,
+                    /* subobject */ NULL,
+                    orig_entry);
+            nodecl_set_constant(*nodecl_output, subconstant_value);
+        }
     }
 
     CXX_LANGUAGE()
     {
         if (entry->kind == SK_VARIABLE)
         {
-            ok = 1;
-
-            type_t* type_of_class_member_access = entry->type_information;
-            if (is_lvalue_reference_type(entry->type_information))
+            if (check_expr_flags.must_be_constant
+                    && nodecl_get_kind(nodecl_accessed_out) == NODECL_SYMBOL
+                    && !symbol_entity_specs_get_is_constexpr(nodecl_get_symbol(nodecl_accessed_out)))
             {
-                // Already OK
-            }
-            else if (is_rvalue_reference_type(entry->type_information))
-            {
-                // T&& -> T&
-                type_of_class_member_access = get_lvalue_reference_type(no_ref(entry->type_information));
+                if (IS_CXX11_LANGUAGE)
+                {
+                    error_printf("%s: error: class member access of non-constexpr variable '%s' in a constant expression\n",
+                            nodecl_locus_to_str(nodecl_accessed_out),
+                            codegen_to_str(nodecl_accessed_out, decl_context));
+                }
+                else
+                {
+                    error_printf("%s: error: class member access in a constant expression\n",
+                            nodecl_locus_to_str(nodecl_accessed_out));
+                }
             }
             else
             {
-                // Not a reference, two cases for nonstatic/static
-                if (!symbol_entity_specs_get_is_static(entry))
+                ok = 1;
+
+                type_t* type_of_class_member_access = entry->type_information;
+                if (is_lvalue_reference_type(entry->type_information))
                 {
-                    // Combine both qualifiers
-                    cv_qualifier_t cv_field = CV_NONE;
-                    advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
-                    cv_field = cv_accessed | cv_field;
-
-                    if (symbol_entity_specs_get_is_mutable(entry))
+                    // Already OK
+                }
+                else if (is_rvalue_reference_type(entry->type_information))
+                {
+                    // T&& -> T&
+                    type_of_class_member_access = get_lvalue_reference_type(no_ref(entry->type_information));
+                }
+                else
+                {
+                    // Not a reference, two cases for nonstatic/static
+                    if (!symbol_entity_specs_get_is_static(entry))
                     {
-                        cv_field &= ~CV_CONST;
+                        // Combine both qualifiers
+                        cv_qualifier_t cv_field = CV_NONE;
+                        advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
+                        cv_field = cv_accessed | cv_field;
+
+                        if (symbol_entity_specs_get_is_mutable(entry))
+                        {
+                            cv_field &= ~CV_CONST;
+                        }
+
+                        type_of_class_member_access = get_cv_qualified_type(type_of_class_member_access, cv_field);
+
+                        if (is_lvalue_reference_type(orig_accessed_type))
+                        {
+                            type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
+                        }
                     }
-
-                    type_of_class_member_access = get_cv_qualified_type(type_of_class_member_access, cv_field);
-
-                    if (is_lvalue_reference_type(orig_accessed_type))
+                    else
                     {
                         type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
                     }
                 }
-                else
+
+                // Now integrate every item in the field_path skipping the first
+                // (which is the class type itself) and the last (the accessed subobject
+                nodecl_t nodecl_base_access = nodecl_accessed_out;
+
+                const_value_t* current_const_value = nodecl_get_constant(nodecl_base_access);
+                type_t* current_const_value_type = accessed_type;
+
+                ERROR_CONDITION(field_path.length > 1, "Unexpected length for field path", 0);
+                if (field_path.length == 1)
                 {
-                    type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
+                    nodecl_base_access = nodecl_make_class_member_access(
+                            nodecl_base_access,
+                            nodecl_make_symbol(field_path.path[0], nodecl_get_locus(nodecl_accessed)),
+                            nodecl_null(),
+                            get_user_defined_type(field_path.path[0]),
+                            nodecl_get_locus(nodecl_accessed));
                 }
-            }
 
-            // Now integrate every item in the field_path skipping the first
-            // (which is the class type itself) and the last (the accessed subobject
-            nodecl_t nodecl_base_access = nodecl_accessed_out;
+                // Integrate also the anonymous accesses
+                if (symbol_entity_specs_get_is_member_of_anonymous(entry))
+                {
+                    nodecl_t accessor = symbol_entity_specs_get_anonymous_accessor(entry);
+                    nodecl_base_access = cxx_integrate_field_accesses(nodecl_base_access, accessor);
+                }
 
-            const_value_t* current_const_value = nodecl_get_constant(nodecl_base_access);
-            type_t* current_const_value_type = accessed_type;
-
-            ERROR_CONDITION(field_path.length > 1, "Unexpected length for field path", 0);
-            if (field_path.length == 1)
-            {
-                nodecl_base_access = nodecl_make_class_member_access(
+                *nodecl_output = nodecl_make_class_member_access(
                         nodecl_base_access,
-                        nodecl_make_symbol(field_path.path[0], nodecl_get_locus(nodecl_accessed)),
-                        nodecl_null(),
-                        get_user_defined_type(field_path.path[0]),
+                        nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
+                        /* member literal */ nodecl_shallow_copy(nodecl_member),
+                        type_of_class_member_access,
                         nodecl_get_locus(nodecl_accessed));
+
+                const_value_t* subconstant_value = compute_subconstant_of_class_member_access(
+                        current_const_value,
+                        current_const_value_type,
+                        field_path.length == 1 ? field_path.path[0] : NULL,
+                        orig_entry);
+                nodecl_set_constant(*nodecl_output, subconstant_value);
             }
-
-            // Integrate also the anonymous accesses
-            if (symbol_entity_specs_get_is_member_of_anonymous(entry))
-            {
-                nodecl_t accessor = symbol_entity_specs_get_anonymous_accessor(entry);
-                nodecl_base_access = cxx_integrate_field_accesses(nodecl_base_access, accessor);
-            }
-
-            *nodecl_output = nodecl_make_class_member_access(
-                    nodecl_base_access,
-                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
-                    /* member literal */ nodecl_shallow_copy(nodecl_member),
-                    type_of_class_member_access,
-                    nodecl_get_locus(nodecl_accessed));
-
-            const_value_t* subconstant_value = compute_subconstant_of_class_member_access(
-                    current_const_value,
-                    current_const_value_type,
-                    field_path.length == 1 ? field_path.path[0] : NULL,
-                    orig_entry);
-            nodecl_set_constant(*nodecl_output, subconstant_value);
         }
         else if (entry->kind == SK_ENUMERATOR)
         {
@@ -15505,20 +15880,26 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context, nodecl_t* n
 struct type_init_stack_t
 {
     type_t* type;
-    int item; // index or ith-member
+    int item; // index of array or ith-member
     int num_items; // size of the array or number of members in this struct
     int max_item; // arrays only: maximum index seen so far
     // For classes only
     scope_entry_t** fields;
+    // To compute the constant value
+    int num_values; // will be num_items unless initializing an unbound array
+                    // if num_values < 0 it means that the whole braced initializer
+                    // cannot be constant
+    const_value_t** values;
 };
 
 #define MAX_ITEM(a, b) ((a) > (b) ? (a) : (b))
 static char update_stack_to_designator(type_t* declared_type,
         struct type_init_stack_t *type_stack,
         int* type_stack_idx,
-        nodecl_t designator_list)
+        nodecl_t designator_list,
+        decl_context_t decl_context)
 {
-    int i, designator_list_length = 0;
+    int designator_list_length = 0;
     nodecl_t* designators = nodecl_unpack_list(designator_list, &designator_list_length);
 
     type_t* next_type = declared_type;
@@ -15526,7 +15907,8 @@ static char update_stack_to_designator(type_t* declared_type,
     int orig_type_stack_idx = *type_stack_idx;
     *type_stack_idx = -1;
 
-    for (i = 0; i < designator_list_length; i++)
+    int i = 0;
+    while (i < designator_list_length)
     {
         if (is_array_type(next_type))
         {
@@ -15610,20 +15992,111 @@ static char update_stack_to_designator(type_t* declared_type,
             nodecl_t name = nodecl_get_child(current_designator, 0);
             const char* field_name = nodecl_get_text(name);
 
+            char found = 0;
             int j;
-            for (j = 0; j < type_stack[*type_stack_idx].num_items; j++)
+            for (j = 0; j < type_stack[*type_stack_idx].num_items && !found; j++)
             {
                 if (strcmp(type_stack[*type_stack_idx].fields[j]->symbol_name, field_name) == 0)
                 {
+                    found = 1;
                     // Move to that field
                     type_stack[*type_stack_idx].item = j;
                     next_type = type_stack[*type_stack_idx].fields[j]->type_information;
-                    if (is_union_type(type_to_be_initialized))
-                        type_stack[*type_stack_idx].num_items = j+1;
-                    break;
                 }
             }
-            if (j == type_stack[*type_stack_idx].num_items)
+
+            if (!found)
+            {
+                // OK, maybe it is an anonymous union member, we need to perform a lookup
+                nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(field_name,
+                                    nodecl_get_locus(current_designator));
+
+                scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
+                        decl_context,
+                        type_to_be_initialized,
+                        nodecl_name,
+                        /* field_path */ NULL);
+
+                nodecl_free(nodecl_name);
+
+                if (entry_list != NULL)
+                {
+                    scope_entry_t* entry = entry_list_head(entry_list);
+                    entry_list_free(entry_list);
+
+                    if (symbol_entity_specs_get_is_member_of_anonymous(entry))
+                    {
+                        // If this name is a member of an anonymous union then
+                        // update the accessor list
+                        nodecl_t n = symbol_entity_specs_get_anonymous_accessor(entry);
+
+                        nodecl_t* reversed_list = NULL;
+                        int num_items_reversed_list = 0;
+
+                        char done = 0;
+                        while (!done)
+                        {
+                            nodecl_t current_name = nodecl_null();
+                            if (nodecl_get_kind(n) == NODECL_SYMBOL)
+                            {
+                                current_name = n;
+                                done = 1;
+                            }
+                            else if (nodecl_get_kind(n) == NODECL_CLASS_MEMBER_ACCESS)
+                            {
+                                current_name = nodecl_get_child(n, 1);
+                                n = nodecl_get_child(n, 0);
+                            }
+                            else
+                            {
+                                internal_error("Unexpected node", 0);
+                            }
+
+                            ERROR_CONDITION(nodecl_get_kind(current_name) != NODECL_SYMBOL,
+                                    "Invalid node", 0);
+
+                            P_LIST_ADD(reversed_list,
+                                    num_items_reversed_list,
+                                    nodecl_make_c99_field_designator(
+                                        nodecl_make_cxx_dep_name_simple(
+                                            nodecl_get_symbol(current_name)->symbol_name,
+                                            nodecl_get_locus(current_designator)),
+                                        nodecl_get_locus(current_designator)));
+                        }
+
+                        // Reverse the list
+                        for (j = 0; j < num_items_reversed_list / 2; j++)
+                        {
+                            nodecl_t tmp = reversed_list[j];
+                            reversed_list[j] = reversed_list[num_items_reversed_list - j];
+                            reversed_list[num_items_reversed_list - j] = tmp;
+                        }
+                        // (not reversed anymore despite the name)
+
+                        // Add the current field being looked up
+                        P_LIST_ADD(reversed_list,
+                                num_items_reversed_list,
+                                nodecl_make_c99_field_designator(
+                                    nodecl_make_cxx_dep_name_simple(
+                                        field_name,
+                                        nodecl_get_locus(current_designator)),
+                                    nodecl_get_locus(current_designator)));
+
+                        xfree(designators);
+
+                        designators = reversed_list;
+                        designator_list_length = num_items_reversed_list;
+
+                        // Restart this type again
+                        (*type_stack_idx)--;
+
+                        // Note that we have not consumed any designator here
+                        continue;
+                    }
+                }
+            }
+
+            if (!found)
             {
                 error_printf("%s: error: designator '.%s' does not name a field of type '%s'\n",
                         nodecl_locus_to_str(current_designator),
@@ -15639,6 +16112,8 @@ static char update_stack_to_designator(type_t* declared_type,
                     print_type_str(type_stack[*type_stack_idx].type, nodecl_retrieve_context(current_designator)));
             return 0;
         }
+
+        i++;
     }
 
     xfree(designators);
@@ -15999,6 +16474,186 @@ char check_narrowing_conversion(nodecl_t orig_expr,
     return 0;
 }
 
+static const_value_t* get_zero_value_of_type(type_t* t)
+{
+    if (is_integral_type(t)
+            || is_enum_type(t))
+    {
+        if (is_enum_type(t))
+        {
+            t = enum_type_get_underlying_type(t);
+        }
+
+        return const_value_get_zero(type_get_size(t), is_signed_integral_type(t));
+    }
+    else if (is_float_type(t))
+    {
+        return const_value_get_float(0.0f);
+    }
+    else if (is_double_type(t))
+    {
+        return const_value_get_double(0.0);
+    }
+    else if (is_long_double_type(t))
+    {
+        return const_value_get_long_double(0.0L);
+    }
+    else if (is_pointer_type(t)
+            || is_pointer_to_member_type(t))
+    {
+        return const_value_get_zero(type_get_size(t), /* sign */ 0);
+    }
+#ifdef HAVE_QUADMATH_H
+    else if (is_float128_type(t))
+    {
+        return const_value_get_float128(0.0Q);
+    }
+#endif
+    else if (is_array_type(t))
+    {
+        if (array_type_is_unknown_size(t))
+            return const_value_make_array(0, NULL);
+
+        nodecl_t n = array_type_get_array_size_expr(t);
+        if (!nodecl_is_constant(n))
+            return NULL;
+
+        return const_value_make_array_from_scalar(
+                const_value_cast_to_signed_int(
+                    nodecl_get_constant(n)),
+                get_zero_value_of_type(
+                    array_type_get_element_type(t)));
+    }
+    else if (is_class_type(t))
+    {
+        scope_entry_list_t* fields = class_type_get_nonstatic_data_members(t);
+
+        int num_fields = entry_list_size(fields);
+
+        const_value_t** cval = xcalloc(num_fields, sizeof(*cval));
+        scope_entry_list_iterator_t* it = NULL;
+        int i;
+        for (i = 0, it = entry_list_iterator_begin(fields);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it), i++)
+        {
+            scope_entry_t* field = entry_list_iterator_current(it);
+
+            cval[i] = get_zero_value_of_type(
+                    field->type_information);
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(fields);
+
+        const_value_t* result = const_value_make_struct(num_fields, cval, t);
+
+        xfree(cval);
+        return result;
+    }
+    else
+    {
+        internal_error("Cannot get zero value of type '%s'\n",
+                print_declarator(t));
+    }
+}
+
+static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type_stack, int type_stack_idx)
+{
+    const_value_t* braced_constant_value = NULL;
+    type_t* initializer_type = type_stack[type_stack_idx].type;
+
+    // Generate the final constant
+    if (type_stack[type_stack_idx].num_values >= 0)
+    {
+        int j;
+        for (j = 0; j < type_stack[type_stack_idx].num_values; j++)
+        {
+            if (type_stack[type_stack_idx].values[j] == NULL)
+            {
+                type_t* sub_type = NULL;
+                if (is_array_type(initializer_type))
+                    sub_type = array_type_get_element_type(initializer_type);
+                else if (is_vector_type(initializer_type))
+                    sub_type = vector_type_get_element_type(initializer_type);
+                else if (is_complex_type(initializer_type))
+                    sub_type = complex_type_get_base_type(initializer_type);
+                else if (is_class_type(initializer_type))
+                    sub_type = type_stack[type_stack_idx].fields[j]->type_information;
+                else
+                    internal_error("Code unreachable", 0);
+
+                if (!is_union_type(initializer_type))
+                {
+                    type_stack[type_stack_idx].values[j] = get_zero_value_of_type(sub_type);
+                }
+                else
+                {
+                    // Inactive members of a union have an unknown constant value
+                    type_stack[type_stack_idx].values[j] = const_value_get_unknown();
+                }
+            }
+        }
+
+        if (is_array_type(initializer_type))
+        {
+            int num_items = 
+                const_value_cast_to_signed_int(
+                        nodecl_get_constant(
+                            array_type_get_array_size_expr(initializer_type)));
+            ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
+                    "Inconsistency %d != %d",
+                    type_stack[type_stack_idx].num_values,
+                    num_items);
+
+            braced_constant_value = const_value_make_array(
+                    num_items,
+                    type_stack[type_stack_idx].values);
+        }
+        else if (is_vector_type(initializer_type))
+        {
+            int num_items = vector_type_get_vector_size(initializer_type) 
+                / type_get_size(vector_type_get_element_type(initializer_type));
+            ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
+                    "Inconsistency %d != %d",
+                    type_stack[type_stack_idx].num_values,
+                    num_items);
+
+            braced_constant_value = const_value_make_vector(num_items, type_stack[type_stack_idx].values);
+        }
+        else if (is_complex_type(initializer_type))
+        {
+            ERROR_CONDITION(type_stack[type_stack_idx].num_values != 2,
+                    "Inconsistency %d != %d",
+                    type_stack[type_stack_idx].num_values,
+                    2);
+
+            braced_constant_value = const_value_make_complex(
+                    type_stack[type_stack_idx].values[0],
+                    type_stack[type_stack_idx].values[1]);
+        }
+        else if (is_class_type(initializer_type))
+        {
+            scope_entry_list_t* fields = class_type_get_nonstatic_data_members(initializer_type);
+            int num_items = entry_list_size(fields);
+            entry_list_free(fields);
+
+            ERROR_CONDITION(type_stack[type_stack_idx].num_values != num_items,
+                    "Inconsistency %d != %d",
+                    type_stack[type_stack_idx].num_values,
+                    num_items);
+            braced_constant_value = const_value_make_struct(num_items,
+                    type_stack[type_stack_idx].values,
+                    initializer_type);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+
+    return braced_constant_value;
+}
+
 void check_nodecl_braced_initializer(
         nodecl_t braced_initializer,
         decl_context_t decl_context,
@@ -16088,6 +16743,7 @@ void check_nodecl_braced_initializer(
         nodecl_t init_list_output = nodecl_null();
 
         type_t* initializer_type = declared_type;
+        const_value_t* braced_constant_value = NULL;
         if (nodecl_is_null(initializer_clause_list)
                 && is_array_type(declared_type)
                 && array_type_is_unknown_size(declared_type))
@@ -16101,6 +16757,8 @@ void check_nodecl_braced_initializer(
             initializer_type = get_array_type(
                     array_type_get_element_type(declared_type),
                     length, decl_context);
+
+            braced_constant_value = const_value_make_array(0, NULL);
         }
         else
         {
@@ -16152,6 +16810,7 @@ void check_nodecl_braced_initializer(
 
             struct type_init_stack_t type_stack[MCXX_MAX_UNBRACED_AGGREGATES];
             int type_stack_idx = 0;
+            memset(&type_stack[type_stack_idx], 0, sizeof(type_stack[type_stack_idx]));
 
             type_stack[type_stack_idx].type = declared_type;
             if (is_array_type(declared_type)
@@ -16164,7 +16823,9 @@ void check_nodecl_braced_initializer(
                 {
                     type_stack[type_stack_idx].max_item = 0;
                     if (array_type_is_unknown_size(declared_type))
+                    {
                         type_stack[type_stack_idx].num_items = -1;
+                    }
                     else
                     {
                         if (nodecl_is_null(array_type_get_array_size_expr(declared_type)))
@@ -16188,13 +16849,17 @@ void check_nodecl_braced_initializer(
                 else if (is_vector_type(declared_type))
                 {
                     if (is_generic_vector_type(declared_type))
+                    {
                         type_stack[type_stack_idx].num_items = -1;
+                        type_stack[type_stack_idx].num_values = -1;
+                    }
                     else
-                        type_stack[type_stack_idx].num_items = vector_type_get_vector_size(declared_type) / type_get_size(vector_type_get_element_type(declared_type));
+                        type_stack[type_stack_idx].num_items = 
+                            vector_type_get_vector_size(declared_type) / type_get_size(vector_type_get_element_type(declared_type));
                 }
                 else if (is_complex_type(declared_type))
                 {
-                        type_stack[type_stack_idx].num_items = 2;
+                    type_stack[type_stack_idx].num_items = 2;
                 }
                 else
                 {
@@ -16208,14 +16873,19 @@ void check_nodecl_braced_initializer(
                 type_stack[type_stack_idx].item = 0;
                 entry_list_to_symbol_array(fields, &type_stack[type_stack_idx].fields, &type_stack[type_stack_idx].num_items);
 
-                if (is_union_type(declared_type))
-                    type_stack[type_stack_idx].num_items = 1;
-
                 entry_list_free(fields);
             }
             else
             {
                 internal_error("Code unreachable", type_stack_idx);
+            }
+
+            if (type_stack[type_stack_idx].num_items > 0)
+            {
+                type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].num_items;
+                type_stack[type_stack_idx].values = xcalloc(
+                        type_stack[type_stack_idx].num_items,
+                        sizeof(*type_stack[type_stack_idx].values));
             }
 
             DEBUG_CODE()
@@ -16235,39 +16905,22 @@ void check_nodecl_braced_initializer(
                     designator_is_ok = update_stack_to_designator(declared_type,
                             type_stack,
                             &type_stack_idx,
-                            nodecl_get_child(nodecl_initializer_clause, 0));
+                            nodecl_get_child(nodecl_initializer_clause, 0),
+                            decl_context);
                     // Once the designation has been handled, proceed to use the initializer
                     nodecl_initializer_clause = nodecl_get_child(nodecl_initializer_clause, 1);
                 }
                 else
                 {
                     char too_many_initializers = 0;
-                    while ((type_stack[type_stack_idx].num_items != -1)
+                    if ((type_stack[type_stack_idx].num_items != -1)
                             && type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_items)
                     {
-                        if (type_stack_idx > 0)
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "EXPRTYPE: Type %s if fully initialized now\n",
-                                        print_declarator(type_stack[type_stack_idx].type));
-                            }
-                            xfree(type_stack[type_stack_idx].fields);
-                            type_stack_idx--;
-
-                            // We have filled an item of the enclosing aggregate
-                            ERROR_CONDITION(type_stack_idx < 0, "Stack overflow", 0);
-                            type_stack[type_stack_idx].item++;
-                        }
-                        else
-                        {
-                            warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
-                                    nodecl_locus_to_str(nodecl_initializer_clause),
-                                    print_type_str(type_stack[type_stack_idx].type, decl_context));
-                            // We are at the top level object of this braced initializer, give up
-                            too_many_initializers = 1;
-                            break;
-                        }
+                        warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
+                                nodecl_locus_to_str(nodecl_initializer_clause),
+                                print_type_str(type_stack[type_stack_idx].type, decl_context));
+                        // We are at the top level object of this braced initializer, give up
+                        too_many_initializers = 1;
                     }
 
                     if (too_many_initializers)
@@ -16358,17 +17011,57 @@ void check_nodecl_braced_initializer(
                     check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, type_to_be_initialized,
                             /* disallow_narrowing */ IS_CXX11_LANGUAGE && !is_vector_type(current_type),
                             &nodecl_init_output);
+
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
                         // Free the stack
                         while (type_stack_idx >= 0)
                         {
+                            xfree(type_stack[type_stack_idx].values);
+                            type_stack[type_stack_idx].values = NULL;
+
                             xfree(type_stack[type_stack_idx].fields);
+                            type_stack[type_stack_idx].fields = NULL;
                             type_stack_idx--;
                         }
 
                         *nodecl_output = nodecl_make_err_expr(locus);
                         return;
+                    }
+
+                    if (designator_is_ok
+                            // The intialization is still constant
+                            && type_stack[type_stack_idx].num_values >= 0)
+                    {
+                        if (!nodecl_get_constant(nodecl_init_output))
+                        {
+                            // Not constant, everything won't we constant either
+                            type_stack[type_stack_idx].num_values = -1;
+                            xfree(type_stack[type_stack_idx].values);
+                            type_stack[type_stack_idx].values = NULL;
+                        }
+                        else
+                        {
+                            if (type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_values)
+                            {
+                                // Make room
+                                type_stack[type_stack_idx].values =
+                                    xrealloc(type_stack[type_stack_idx].values,
+                                            (type_stack[type_stack_idx].item + 1) *
+                                            sizeof(*type_stack[type_stack_idx].values));
+
+                                int j;
+                                for (j = type_stack[type_stack_idx].num_values;
+                                        j < type_stack[type_stack_idx].item; j++)
+                                {
+                                    type_stack[type_stack_idx].values[j] = NULL;
+                                }
+
+                                type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].item + 1;
+                            }
+                            type_stack[type_stack_idx].values[type_stack[type_stack_idx].item]
+                                = nodecl_get_constant(nodecl_init_output);
+                        }
                     }
 
                     if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER)
@@ -16393,6 +17086,68 @@ void check_nodecl_braced_initializer(
                     // This item has been consumed
                     i++;
                     type_stack[type_stack_idx].item++;
+
+                    if (is_union_type(current_type))
+                    {
+                        type_stack[type_stack_idx].item = type_stack[type_stack_idx].num_items;
+                    }
+
+                    // Now pop stacks as needed
+                    while (type_stack_idx > 0
+                            && type_stack[type_stack_idx].num_items != -1
+                            && type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_items)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "EXPRTYPE: Type %s if fully initialized now\n",
+                                    print_declarator(type_stack[type_stack_idx].type));
+                        }
+                        const_value_t* current_aggregate =
+                            generate_aggregate_constant(type_stack, type_stack_idx);
+
+                        xfree(type_stack[type_stack_idx].values);
+                        type_stack[type_stack_idx].values = NULL;
+
+                        xfree(type_stack[type_stack_idx].fields);
+                        type_stack[type_stack_idx].fields = NULL;
+
+                        type_stack_idx--;
+
+                        if (type_stack[type_stack_idx].num_values >= 0)
+                        {
+                            if (current_aggregate == NULL)
+                            {
+                                type_stack[type_stack_idx].num_values = -1;
+                                xfree(type_stack[type_stack_idx].values);
+                                type_stack[type_stack_idx].values = NULL;
+                            }
+                            else
+                            {
+                                if (type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_values)
+                                {
+                                    // Make room
+                                    type_stack[type_stack_idx].values =
+                                        xrealloc(type_stack[type_stack_idx].values,
+                                                (type_stack[type_stack_idx].item + 1) *
+                                                sizeof(*type_stack[type_stack_idx].values));
+
+                                    int j;
+                                    for (j = type_stack[type_stack_idx].num_values;
+                                            j < type_stack[type_stack_idx].item; j++)
+                                    {
+                                        type_stack[type_stack_idx].values[j] = NULL;
+                                    }
+
+                                    type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].item + 1;
+                                }
+                                type_stack[type_stack_idx].values[type_stack[type_stack_idx].item]
+                                    = current_aggregate;
+                            }
+                        }
+
+                        // We have filled an item of the enclosing aggregate
+                        type_stack[type_stack_idx].item++;
+                    }
                 }
                 else
                 {
@@ -16417,6 +17172,40 @@ void check_nodecl_braced_initializer(
                             diagnostic_context_pop_and_commit();
                             // It seems fine
                             init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                            // Keep the constant
+                            if (type_stack[type_stack_idx].num_values >= 0)
+                            {
+                                if (!nodecl_get_constant(nodecl_init_output))
+                                {
+                                    // Not constant, everything won't we constant either
+                                    type_stack[type_stack_idx].num_values = -1;
+
+                                    xfree(type_stack[type_stack_idx].values);
+                                    type_stack[type_stack_idx].values = NULL;
+                                }
+                                else
+                                {
+                                    if (type_stack[type_stack_idx].item >= type_stack[type_stack_idx].num_values)
+                                    {
+                                        // Make room
+                                        type_stack[type_stack_idx].values =
+                                            xrealloc(type_stack[type_stack_idx].values,
+                                                    (type_stack[type_stack_idx].item + 1)*
+                                                    sizeof(*type_stack[type_stack_idx].values));
+
+                                        int j;
+                                        for (j = type_stack[type_stack_idx].num_values;
+                                                j < type_stack[type_stack_idx].item; j++)
+                                        {
+                                            type_stack[type_stack_idx].values[j] = NULL;
+                                        }
+
+                                        type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].item + 1;
+                                    }
+                                    type_stack[type_stack_idx].values[type_stack[type_stack_idx].item]
+                                        = nodecl_get_constant(nodecl_init_output);
+                                }
+                            }
                             // This item has been consumed
                             i++;
                             type_stack[type_stack_idx].item++;
@@ -16433,13 +17222,12 @@ void check_nodecl_braced_initializer(
                     type_stack_idx++;
                     ERROR_CONDITION(type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
 
+                    memset(&type_stack[type_stack_idx], 0, sizeof(type_stack[type_stack_idx]));
+
                     type_stack[type_stack_idx].type = type_to_be_initialized;
                     if (is_array_type(type_to_be_initialized)
                             || is_vector_type(type_to_be_initialized))
                     {
-                        type_stack[type_stack_idx].item = 0;
-                        type_stack[type_stack_idx].max_item = 0;
-                        type_stack[type_stack_idx].fields = NULL;
                         if (is_array_type(type_to_be_initialized))
                         {
                             if (array_type_is_unknown_size(type_to_be_initialized))
@@ -16452,9 +17240,11 @@ void check_nodecl_braced_initializer(
                                 type_stack[type_stack_idx].num_items = -1;
                             }
                             else
+                            {
                                 type_stack[type_stack_idx].num_items =
                                     const_value_cast_to_signed_int(nodecl_get_constant(array_type_get_array_size_expr(
                                                     type_to_be_initialized)));
+                            }
                         }
                     }
                     else if (is_class_type(type_to_be_initialized))
@@ -16464,14 +17254,19 @@ void check_nodecl_braced_initializer(
                         type_stack[type_stack_idx].item = 0;
                         entry_list_to_symbol_array(fields, &type_stack[type_stack_idx].fields, &type_stack[type_stack_idx].num_items);
 
-                        if (is_union_type(type_to_be_initialized))
-                            type_stack[type_stack_idx].num_items = 1;
-
                         entry_list_free(fields);
                     }
                     else
                     {
                         internal_error("Code unreachable", type_stack_idx);
+                    }
+
+                    type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].num_items;
+                    if (type_stack[type_stack_idx].num_values > 0)
+                    {
+                        type_stack[type_stack_idx].values = xcalloc(
+                                type_stack[type_stack_idx].num_values,
+                                sizeof(*type_stack[type_stack_idx].values));
                     }
 
                     // Note that we are not consuming any item here
@@ -16482,7 +17277,6 @@ void check_nodecl_braced_initializer(
             // Deallocate nodecl list
             xfree(list);
 
-            initializer_type = declared_type;
             if (is_array_type(declared_type)
                     && type_stack[0].num_items == -1)
             {
@@ -16490,10 +17284,19 @@ void check_nodecl_braced_initializer(
                         const_value_get_unsigned_int(type_stack[0].max_item + 1),
                         locus);
 
-                initializer_type = get_array_type(
+                type_stack[0].type = get_array_type(
                         array_type_get_element_type(declared_type),
                         length, decl_context);
             }
+            braced_constant_value = generate_aggregate_constant(type_stack, /* type_stack_idx */ 0);
+
+            initializer_type = type_stack[0].type;
+
+            xfree(type_stack[0].fields);
+            type_stack[0].fields = 0;
+
+            xfree(type_stack[0].values);
+            type_stack[0].values = 0;
         }
 
         *nodecl_output = nodecl_make_structured_value(init_list_output,
@@ -16501,6 +17304,23 @@ void check_nodecl_braced_initializer(
                 ? nodecl_make_structured_value_braced_typecast(locus)
                 : nodecl_make_structured_value_braced_implicit(locus),
                 initializer_type, locus);
+        nodecl_set_constant(*nodecl_output, braced_constant_value);
+
+        DEBUG_CODE()
+        {
+            if (braced_constant_value != NULL)
+            {
+                fprintf(stderr, "EXPRTYPE: Aggregate initializer at %s has const value |%s|\n", 
+                        nodecl_locus_to_str(braced_initializer),
+                        const_value_to_str(braced_constant_value));
+            }
+            else
+            {
+                fprintf(stderr, "EXPRTYPE: Aggregate initializer at %s does not have const value\n", 
+                        nodecl_locus_to_str(braced_initializer));
+            }
+        }
+
         return;
     }
     else if (is_named_class_type(declared_type)
@@ -20905,6 +21725,7 @@ static map_of_parameters_with_their_arguments_t*
 constexpr_function_get_constants_of_arguments(
         nodecl_t converted_arg_list,
         scope_entry_t* entry,
+        decl_context_t decl_context,
         int *num_map_items)
 {
     int num_arguments = 0;
@@ -20924,7 +21745,28 @@ constexpr_function_get_constants_of_arguments(
             sizeof(*result));
     *num_map_items = 0;
 
-#define CHECK_CONSTANT(value) \
+#define ERROR_MESSAGE_THIS \
+        if (check_expr_flags.must_be_constant) \
+        { \
+            error_printf("%s: error: during call to constexpr member function '%s', implicit argument is not constant\n", \
+                    nodecl_locus_to_str(list_of_arguments[current_argument]), \
+                    print_decl_type_str(entry->type_information, entry->decl_context, \
+                        get_qualified_symbol_name(entry, entry->decl_context))); \
+        }
+
+#define ERROR_MESSAGE_REGULAR_ARGUMENT \
+        if (check_expr_flags.must_be_constant) \
+        { \
+            error_printf("%s: error: during call to constexpr %s '%s', argument '%s' in position %d is not constant\n", \
+                    nodecl_locus_to_str(list_of_arguments[current_argument]), \
+                    symbol_entity_specs_get_is_constructor(entry) ? "constructor" : "function", \
+                    print_decl_type_str(entry->type_information, entry->decl_context, \
+                        get_qualified_symbol_name(entry, entry->decl_context)), \
+                    codegen_to_str(list_of_arguments[current_argument], decl_context), \
+                    current_argument + 1); \
+        }
+
+#define CHECK_CONSTANT(value, error_message) \
     if (value == NULL) \
     { \
         DEBUG_CODE() \
@@ -20936,6 +21778,7 @@ constexpr_function_get_constants_of_arguments(
                     codegen_to_str(list_of_arguments[current_argument], CURRENT_COMPILED_FILE->global_decl_context), \
                     nodecl_locus_to_str(list_of_arguments[current_argument])); \
         } \
+        error_message; \
         *num_map_items = -1; \
         xfree(list_of_arguments); \
         xfree(result); \
@@ -20967,7 +21810,7 @@ constexpr_function_get_constants_of_arguments(
             parameter = this_in_body;
 
             const_value_t* value = nodecl_get_constant(list_of_arguments[current_argument]);
-            CHECK_CONSTANT(value);
+            CHECK_CONSTANT(value, ERROR_MESSAGE_THIS);
 
             result[current_parameter].parameter = parameter;
             result[current_parameter].value = value;
@@ -20994,7 +21837,7 @@ constexpr_function_get_constants_of_arguments(
         {
             // Regular parameter/argument
             const_value_t* value = nodecl_get_constant(list_of_arguments[current_argument]);
-            CHECK_CONSTANT(value);
+            CHECK_CONSTANT(value, ERROR_MESSAGE_REGULAR_ARGUMENT);
 
             result[current_parameter].parameter = parameter;
             result[current_parameter].value = value;
@@ -21024,6 +21867,10 @@ constexpr_function_get_constants_of_arguments(
     }
 
     return result;
+
+#undef CHECK_CONSTANT
+#undef ERROR_MESSAGE_REGULAR_ARGUMENT
+#undef ERROR_MESSAGE_THIS
 }
 
 static void free_map_of_parameters_and_values(map_of_parameters_with_their_arguments_t* map,
@@ -21129,11 +21976,16 @@ static nodecl_t constexpr_replace_parameters_with_values(nodecl_t n,
 static const_value_t* evaluate_constexpr_constructor(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
+        decl_context_t decl_context,
         const locus_t* locus)
 {
     if (function_may_be_instantiated(entry))
     {
+        enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+        check_expr_flags.must_be_constant = MUST_NOT_BE_CONSTANT;
         instantiate_template_function(entry, locus);
+        check_expr_flags.must_be_constant = must_be_constant;
+
         push_instantiated_entity(entry);
 
         nodecl_t nodecl_initializer_list = nodecl_null();
@@ -21153,6 +22005,13 @@ static const_value_t* evaluate_constexpr_constructor(
                 fprintf(stderr, "EXPRTYPE: After instantiation of '%s' it has become non constexpr\n",
                         get_qualified_symbol_name(entry, entry->decl_context));
             }
+            if (check_expr_flags.must_be_constant)
+            {
+                error_printf("%s: error: constructor '%s' has become non-constexpr after instantiation\n",
+                        locus_to_str(locus),
+                        print_decl_type_str(entry->type_information, entry->decl_context,
+                            get_qualified_symbol_name(entry, entry->decl_context)));
+            }
             return NULL;
         }
     }
@@ -21163,12 +22022,19 @@ static const_value_t* evaluate_constexpr_constructor(
         {
             fprintf(stderr, "EXPRTYPE: Evaluation of constexpr constructor fails because the function has not been defined\n");
         }
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: call to undefined constexpr constructor '%s' in constant-expression\n",
+                    locus_to_str(locus),
+                    print_decl_type_str(entry->type_information, entry->decl_context,
+                        get_qualified_symbol_name(entry, entry->decl_context)));
+        }
         return NULL;
     }
 
     int num_map_items = -1;
     map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
-        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
+        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, decl_context, &num_map_items);
 
     if (num_map_items < 0)
     {
@@ -21181,7 +22047,7 @@ static const_value_t* evaluate_constexpr_constructor(
     }
 
     nodecl_t nodecl_function_code = symbol_entity_specs_get_function_code(entry);
-    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "Function lacks function code", 0);
+    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "Invalid node", 0);
 
     nodecl_t nodecl_initializers = nodecl_null();
     if (!nodecl_is_null(nodecl_function_code))
@@ -21277,6 +22143,15 @@ static const_value_t* evaluate_constexpr_constructor(
                 fprintf(stderr, "EXPRTYPE: Data-member '%s' has an initializer but it does not have a constant value\n",
                         get_qualified_symbol_name(current_member, current_member->decl_context));
             }
+            if (check_expr_flags.must_be_constant)
+            {
+                error_printf("%s: error: during call to constexpr constructor '%s' in constant-expression, data-member '%s' "
+                        "is not constant\n",
+                        locus_to_str(locus),
+                        print_decl_type_str(entry->type_information, entry->decl_context,
+                            get_qualified_symbol_name(entry, entry->decl_context)),
+                        get_qualified_symbol_name(current_member, current_member->decl_context));
+            }
 
             xfree(all_members);
             xfree(values);
@@ -21307,6 +22182,7 @@ static const_value_t* evaluate_constexpr_constructor(
                     values[i] = evaluate_constexpr_constructor(
                             default_constructor,
                             /* no args */ nodecl_null(),
+                            decl_context,
                             locus);
                 }
             }
@@ -21328,6 +22204,7 @@ static const_value_t* evaluate_constexpr_constructor(
                         values[i] = evaluate_constexpr_constructor(
                                 default_constructor,
                                 /* no args */ nodecl_null(),
+                                decl_context,
                                 locus);
                     }
                 }
@@ -21343,6 +22220,16 @@ static const_value_t* evaluate_constexpr_constructor(
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "EXPRTYPE: Data-member '%s' cannot be default initialized as a constant value\n",
+                            get_qualified_symbol_name(current_member, current_member->decl_context));
+                }
+
+                if (check_expr_flags.must_be_constant)
+                {
+                    error_printf("%s: error: during call to constexpr constructor '%s' in constant-expression, data-member '%s' "
+                            "cannot be default initialized as a constant value\n",
+                            locus_to_str(locus),
+                            print_decl_type_str(entry->type_information, entry->decl_context,
+                                get_qualified_symbol_name(entry, entry->decl_context)),
                             get_qualified_symbol_name(current_member, current_member->decl_context));
                 }
 
@@ -21367,11 +22254,16 @@ static const_value_t* evaluate_constexpr_constructor(
 static const_value_t* evaluate_constexpr_regular_function_call(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
+        decl_context_t decl_context,
         const locus_t* locus)
 {
     if (function_may_be_instantiated(entry))
     {
+        enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+        check_expr_flags.must_be_constant = MUST_NOT_BE_CONSTANT;
         instantiate_template_function(entry, locus);
+        check_expr_flags.must_be_constant = must_be_constant;
+
         push_instantiated_entity(entry);
 
         symbol_entity_specs_set_is_constexpr(entry,
@@ -21385,6 +22277,13 @@ static const_value_t* evaluate_constexpr_regular_function_call(
                 fprintf(stderr, "EXPRTYPE: After instantiation of '%s' it has become non constexpr\n",
                         get_qualified_symbol_name(entry, entry->decl_context));
             }
+            if (check_expr_flags.must_be_constant)
+            {
+                error_printf("%s: error: function '%s' has become non-constexpr after instantiation in constant-expression\n",
+                        locus_to_str(locus),
+                        print_decl_type_str(entry->type_information, entry->decl_context,
+                            get_qualified_symbol_name(entry, entry->decl_context)));
+            }
             return NULL;
         }
     }
@@ -21395,12 +22294,19 @@ static const_value_t* evaluate_constexpr_regular_function_call(
         {
             fprintf(stderr, "EXPRTYPE: Evaluation of constexpr fails because the function has not been defined\n");
         }
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: call to undefined constexpr function '%s' in constant-expression\n",
+                    locus_to_str(locus),
+                    print_decl_type_str(entry->type_information, entry->decl_context,
+                        get_qualified_symbol_name(entry, entry->decl_context)));
+        }
         return NULL;
     }
 
     int num_map_items = -1;
     map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
-        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
+        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, decl_context, &num_map_items);
 
     if (num_map_items < 0)
     {
@@ -21442,6 +22348,13 @@ static const_value_t* evaluate_constexpr_regular_function_call(
         {
             fprintf(stderr, "EXPRTYPE: Evaluation of regular constexpr call did not give a constant value\n");
         }
+        if (check_expr_flags.must_be_constant)
+        {
+            error_printf("%s: error: call to constexpr function '%s' in constant-expression did not yield a constant value",
+                    locus_to_str(locus),
+                    print_decl_type_str(entry->type_information, entry->decl_context,
+                        get_qualified_symbol_name(entry, entry->decl_context)));
+        }
     }
 
     return nodecl_get_constant(nodecl_evaluated_expr);
@@ -21450,6 +22363,7 @@ static const_value_t* evaluate_constexpr_regular_function_call(
 static const_value_t* evaluate_constexpr_function_call(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
+        decl_context_t decl_context,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -21464,6 +22378,7 @@ static const_value_t* evaluate_constexpr_function_call(
         value = evaluate_constexpr_constructor(
                 entry,
                 converted_arg_list,
+                decl_context,
                 locus);
     }
     else
@@ -21471,6 +22386,7 @@ static const_value_t* evaluate_constexpr_function_call(
         value = evaluate_constexpr_regular_function_call(
                 entry,
                 converted_arg_list,
+                decl_context,
                 locus);
     }
 
@@ -21909,6 +22825,11 @@ static void define_inherited_constructor(
         scope_entry_t* inherited_constructor,
         const locus_t* locus)
 {
+    // Do not early return here
+#define return 1 = 1;
+    enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+    check_expr_flags.must_be_constant = MUST_NOT_BE_CONSTANT;
+
     int num_parameters = function_type_get_num_parameters(new_inherited_constructor->type_information);
     if (function_type_get_has_ellipsis(new_inherited_constructor->type_information))
         num_parameters--;
@@ -22011,6 +22932,9 @@ static void define_inherited_constructor(
             symbol_entity_specs_set_emission_template(new_inherited_constructor, NULL);
         }
     }
+
+    check_expr_flags.must_be_constant = must_be_constant;
+#undef return
 }
 
 struct instantiate_default_argument_header_message_fun_data_tag
@@ -22446,13 +23370,14 @@ nodecl_t cxx_nodecl_make_function_call(
                         function_form, t,
                         locus);
 
-                if (!check_expr_flags.do_not_evaluate)
+                if (!check_expr_flags.do_not_call_constexpr)
                 {
                     if (symbol_entity_specs_get_is_constexpr(called_symbol))
                     {
                         const_value_t* const_value = evaluate_constexpr_function_call(
                                 called_symbol,
                                 converted_arg_list,
+                                decl_context,
                                 locus);
 
                         nodecl_set_constant(result, const_value);
@@ -22494,6 +23419,13 @@ nodecl_t cxx_nodecl_make_function_call(
                         {
                             nodecl_set_constant(result, nodecl_get_constant(simplified_value));
                         }
+                    }
+                    else if (check_expr_flags.must_be_constant)
+                    {
+                        error_printf("%s: error: cannot call non-constexpr '%s' in constant expression\n",
+                                locus_to_str(locus),
+                                print_decl_type_str(called_symbol->type_information, called_symbol->decl_context,
+                                    get_qualified_symbol_name(called_symbol, called_symbol->decl_context)));
                     }
                 }
 
@@ -22636,7 +23568,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
             }
             else if ((related_symbol->kind == SK_VARIABLE 
                         && (is_array_type(related_symbol->type_information) 
-                            || is_pointer_to_function_type(related_symbol->type_information)))
+                            /* || is_pointer_to_function_type(related_symbol->type_information) */))
                     || (related_symbol->kind == SK_FUNCTION)
                     || (related_symbol->kind == SK_TEMPLATE 
                         && is_function_type(template_type_get_primary_type(related_symbol->type_information))))
@@ -22701,7 +23633,12 @@ char check_nontype_template_argument_expression(AST expression,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
+
+    enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
+
+    check_expr_flags.must_be_constant = MUST_BE_NONTYPE_TEMPLATE_PARAMETER;
     check_expression_impl_(expression, decl_context, &nodecl_expr);
+    check_expr_flags.must_be_constant = must_be_constant;
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
@@ -22777,24 +23714,24 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     visitor->nodecl_result = nodecl_null();
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s, %s). Constant evaluation is %s\n",
+        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s, %s). constexpr calls evaluation is %s\n",
                 codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
                 !nodecl_is_null(node) ? nodecl_locus_to_str(node) : "<<no-locus>>",
-                check_expr_flags.do_not_evaluate ? "OFF" : "ON");
+                check_expr_flags.do_not_call_constexpr ? "OFF" : "ON");
 
     }
     NODECL_WALK(visitor, node);
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s, %s) instantiated to expression '%s' "
-                "with type '%s'. Constant evaluation is %s",
+                "with type '%s'. constexpr calls evaluation is %s",
                 codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
                 !nodecl_is_null(node) ? nodecl_locus_to_str(node) : "<<no-locus>>",
                 codegen_expression_to_str(visitor->nodecl_result, visitor->decl_context),
                 print_declarator(nodecl_get_type(visitor->nodecl_result)),
-                check_expr_flags.do_not_evaluate ? "OFF" : "ON");
+                check_expr_flags.do_not_call_constexpr ? "OFF" : "ON");
         if (nodecl_is_constant(visitor->nodecl_result))
         {
             fprintf(stderr, " with a constant value of '%s'",
@@ -22845,14 +23782,18 @@ nodecl_t instantiate_expression(
     v.pack_index = pack_index;
     v.instantiation_symbol_map = instantiation_symbol_map;
 
-    char do_not_evaluate = check_expr_flags.do_not_evaluate;
-    check_expr_flags.do_not_evaluate = 0;
+    char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
+    check_expr_flags.do_not_call_constexpr = 0;
+
+    char must_be_constant = check_expr_flags.must_be_constant;
+    check_expr_flags.must_be_constant = MUST_NOT_BE_CONSTANT;
 
     instantiate_expr_init_visitor(&v, decl_context);
 
     nodecl_t n = instantiate_expr_walk(&v, nodecl_expr);
 
-    check_expr_flags.do_not_evaluate = do_not_evaluate;
+    check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
+    check_expr_flags.must_be_constant = must_be_constant;
 
     return n;
 }
@@ -23662,13 +24603,13 @@ static void instantiate_logical_and(nodecl_instantiate_expr_visitor_t* v, nodecl
 {
     nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
-    char do_not_evaluate = check_expr_flags.do_not_evaluate;
-    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_lhs)
+    char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
+    check_expr_flags.do_not_call_constexpr = !nodecl_is_constant(nodecl_lhs)
             || const_value_is_zero(nodecl_get_constant(nodecl_lhs));
 
     nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
 
-    check_expr_flags.do_not_evaluate = do_not_evaluate;
+    check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
 
     if (nodecl_is_constant(nodecl_lhs)
             && const_value_is_zero(nodecl_get_constant(nodecl_lhs))
@@ -23705,13 +24646,13 @@ static void instantiate_logical_or(nodecl_instantiate_expr_visitor_t* v, nodecl_
 {
     nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
-    char do_not_evaluate = check_expr_flags.do_not_evaluate;
-    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_lhs)
+    char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
+    check_expr_flags.do_not_call_constexpr = !nodecl_is_constant(nodecl_lhs)
             || const_value_is_nonzero(nodecl_get_constant(nodecl_lhs));
 
     nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
 
-    check_expr_flags.do_not_evaluate = do_not_evaluate;
+    check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
 
     if (nodecl_is_constant(nodecl_lhs) &&
             const_value_is_nonzero(nodecl_get_constant(nodecl_lhs))
@@ -24497,8 +25438,8 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
         return;
     }
 
-    char do_not_evaluate = check_expr_flags.do_not_evaluate;
-    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_cond)
+    char do_not_call_constexpr = check_expr_flags.do_not_call_constexpr;
+    check_expr_flags.do_not_call_constexpr = !nodecl_is_constant(nodecl_cond)
         || const_value_is_zero(nodecl_get_constant(nodecl_cond));
 
     nodecl_t nodecl_true = instantiate_expr_walk(v, nodecl_get_child(node, 1));
@@ -24508,7 +25449,7 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
         return;
     }
 
-    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_cond)
+    check_expr_flags.do_not_call_constexpr = !nodecl_is_constant(nodecl_cond)
         || const_value_is_nonzero(nodecl_get_constant(nodecl_cond));
 
     nodecl_t nodecl_false = instantiate_expr_walk(v, nodecl_get_child(node, 2));
@@ -24518,7 +25459,7 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
         return;
     }
 
-    check_expr_flags.do_not_evaluate = do_not_evaluate;
+    check_expr_flags.do_not_call_constexpr = do_not_call_constexpr;
 
     check_conditional_expression_impl_nodecl(nodecl_cond, nodecl_true, nodecl_false, v->decl_context, &v->nodecl_result);
 }

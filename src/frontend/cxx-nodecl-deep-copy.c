@@ -67,6 +67,28 @@ static symbol_map_t* get_empty_map(void)
     return result;
 }
 
+static scope_entry_t* nested_symbol_map_fun_immediate(symbol_map_t* symbol_map, scope_entry_t* entry)
+{
+    if (entry == NULL)
+        return NULL;
+
+    nested_symbol_map_t *p = (nested_symbol_map_t*)symbol_map;
+
+    scope_entry_t* result = entry;
+
+    int i;
+    for (i = 0; i < p->num_mappings; i++)
+    {
+        if (p->source_list[i] == entry)
+        {
+             result = p->target_list[i];
+             break;
+        }
+    }
+
+    return result;
+}
+
 static scope_entry_t* nested_symbol_map_fun(symbol_map_t* symbol_map, scope_entry_t* entry)
 {
     if (entry == NULL)
@@ -233,10 +255,9 @@ static void symbol_deep_copy_map_add(symbol_deep_copy_map_t* symbol_deep_copy_ma
         scope_entry_t *orig,
         scope_entry_t *copied);
 
-static void register_symbols_generic(const char* name,
+static void create_symbols(const char* name UNUSED_PARAMETER,
         scope_entry_list_t* entry_list,
-        closure_hash_t* data,
-        char (*filter)(scope_entry_t* entry))
+        closure_hash_t* data)
 {
     scope_entry_list_iterator_t *it;
     for (it = entry_list_iterator_begin(entry_list);
@@ -245,55 +266,48 @@ static void register_symbols_generic(const char* name,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!filter(entry))
-            continue;
+        scope_entry_t* mapped_symbol = nested_symbol_map_fun_immediate((symbol_map_t*)data->nested_symbol_map, entry);
 
-        char is_proper_symbol = data->original_scope == entry->decl_context.current_scope;
-
-        scope_entry_t* mapped_symbol = nested_symbol_map_fun((symbol_map_t*)data->nested_symbol_map, entry);
-
-        if (mapped_symbol == entry // If the symbol is not mapped...
-                || (is_proper_symbol // or is a proper symbol that has been
-                                     // mapped but not to a symbol of the scope being created...
-                    && mapped_symbol->decl_context.current_scope != data->new_decl_context.current_scope))
+        if (mapped_symbol == entry)
         {
             // then create a new symbol in the scope being created...
-            scope_entry_t* new_entry = new_symbol(data->new_decl_context, data->new_decl_context.current_scope, name);
-
-            symbol_deep_copy_map_add(data->symbol_deep_copy_map, entry, new_entry);
+            scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+            new_entry->decl_context = data->new_decl_context;
+            new_entry->symbol_name = entry->symbol_name;
 
             // and map the symbol to the mapped one
             nested_map_add(data->nested_symbol_map, entry, new_entry);
 
-            mapped_symbol = new_entry;
-        }
-        else
-        {
-            insert_alias(data->new_decl_context.current_scope, mapped_symbol, name);
-            // We do not want these symbols be filled again
-            P_LIST_ADD(data->filled_symbols, data->num_filled, entry);
+            // remember the mapping
+            symbol_deep_copy_map_add(data->symbol_deep_copy_map, entry, new_entry);
+
         }
     }
     entry_list_iterator_free(it);
 }
 
-static char any_symbols(scope_entry_t* entry UNUSED_PARAMETER)
+static void register_symbols(const char* name,
+        scope_entry_list_t* entry_list,
+        closure_hash_t* data)
 {
-    return 1;
-}
+    scope_entry_list_iterator_t *it;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
-static void register_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
-{
-    register_symbols_generic(name, entry_list, data, any_symbols);
+        scope_entry_t* mapped_symbol = nested_symbol_map_fun_immediate((symbol_map_t*)data->nested_symbol_map, entry);
+
+        if (mapped_symbol != entry)
+        {
+            insert_alias(data->new_decl_context.current_scope, mapped_symbol, name);
+        }
+    }
+    entry_list_iterator_free(it);
 }
 
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
-
-void xfree_closure_info(nested_symbol_map_t* nested_symbol_map UNUSED_PARAMETER)
-{
-    // xfree(nested_symbol_map->source_list);
-    // xfree(nested_symbol_map->target_list);
-}
 
 static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
         nested_symbol_map_t* nested_symbol_map,
@@ -310,13 +324,13 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     closure_info.nodecl_deep_copy_map = nodecl_deep_copy_map;
     closure_info.symbol_deep_copy_map = symbol_deep_copy_map;
 
-
     // First walk, sign in all the names but leave them empty
+    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)create_symbols, &closure_info);
     dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)register_symbols, &closure_info);
     // Fill the created symbols
     dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)fill_symbols, &closure_info);
 
-    // xfree(closure_info.filled_symbols);
+    xfree(closure_info.filled_symbols);
 }
 
 static decl_context_t copy_function_scope(decl_context_t new_decl_context,
@@ -380,13 +394,13 @@ static decl_context_t copy_block_scope(decl_context_t new_decl_context,
     return new_decl_context;
 }
 
-static void fill_symbols_generic(const char* name,
+static void fill_symbols(const char* name UNUSED_PARAMETER,
         scope_entry_list_t* entry_list,
-        closure_hash_t* data,
-        char (*filter)(scope_entry_t*),
-        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
-        symbol_deep_copy_map_t* symbol_deep_copy_map)
+        closure_hash_t* data)
 {
+    nodecl_deep_copy_map_t* nodecl_deep_copy_map = data->nodecl_deep_copy_map;
+    symbol_deep_copy_map_t* symbol_deep_copy_map = data->symbol_deep_copy_map;
+
     scope_entry_list_iterator_t *it;
     for (it = entry_list_iterator_begin(entry_list);
             !entry_list_iterator_end(it);
@@ -394,35 +408,27 @@ static void fill_symbols_generic(const char* name,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (!filter(entry))
-            continue;
+        scope_entry_t* mapped_symbol = nested_symbol_map_fun_immediate((symbol_map_t*)data->nested_symbol_map, entry);
 
-        scope_entry_t* mapped_symbol = nested_symbol_map_fun((symbol_map_t*)data->nested_symbol_map, entry);
-
-        ERROR_CONDITION( (mapped_symbol == entry), "Invalid mapping for symbol '%s'\n", name);
-
-        int i;
-        for (i = 0; i < data->num_filled; i++)
+        if (mapped_symbol != entry)
         {
-            if (data->filled_symbols[i] == entry)
-                return;
+            int i;
+            for (i = 0; i < data->num_filled; i++)
+            {
+                if (data->filled_symbols[i] == entry)
+                    return;
+            }
+
+            P_LIST_ADD(data->filled_symbols, data->num_filled, entry);
+
+            symbol_deep_copy_compute_maps(mapped_symbol,
+                    entry, data->new_decl_context,
+                    (symbol_map_t*)data->nested_symbol_map,
+                    nodecl_deep_copy_map,
+                    symbol_deep_copy_map);
         }
-
-        P_LIST_ADD(data->filled_symbols, data->num_filled, entry);
-
-        symbol_deep_copy_compute_maps(mapped_symbol,
-                entry, data->new_decl_context,
-                (symbol_map_t*)data->nested_symbol_map,
-                nodecl_deep_copy_map,
-                symbol_deep_copy_map);
     }
     entry_list_iterator_free(it);
-}
-
-static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data)
-{
-    fill_symbols_generic(name, entry_list, data, any_symbols,
-            data->nodecl_deep_copy_map, data->symbol_deep_copy_map);
 }
 
 nodecl_t nodecl_deep_copy_function_code(nodecl_t n,

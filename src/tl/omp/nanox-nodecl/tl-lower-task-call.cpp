@@ -1254,6 +1254,7 @@ static void handle_save_expressions(decl_context_t function_context,
 }
 
 static TL::Symbol new_function_symbol_adapter(
+        Nodecl::NodeclBase construct,
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
@@ -1283,14 +1284,17 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
+        new_parameter_symbol->locus = construct.get_locus();
+
         // Do not forget the ALLOCATABLE attributes
-        symbol_entity_specs_set_is_allocatable(new_parameter_symbol, symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
+        symbol_entity_specs_set_is_allocatable(new_parameter_symbol,
+                symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
 
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
     }
 
-    // Free symbols
+    // Free variables
     for (TL::ObjectList<TL::Symbol>::const_iterator it = free_vars.begin();
             it != free_vars.end();
             it++)
@@ -1377,7 +1381,7 @@ static TL::Symbol new_function_symbol_adapter(
     Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
     insert_used_symbols.walk(current_function.get_function_code());
 
-    // If the current function is a module, make this new function a sibling of it
+    // If the current function is in a module, make this new function a sibling of it
     if (current_function.is_in_module()
             && current_function.is_module_procedure())
     {
@@ -1650,19 +1654,13 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
+            construct,
             current_function,
             called_task_function,
             ss.str(),
             free_vars,
             *symbol_map,
             save_expressions);
-
-    if (called_task_function.is_from_module())
-    {
-        // If the symbol comes from a module, the environment
-        // will use the original symbol of the module
-        symbol_map->add_map(called_task_function.get_alias_to(), adapter_function);
-    }
 
     // Get parameters outline info
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;

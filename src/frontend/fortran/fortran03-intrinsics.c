@@ -6878,18 +6878,12 @@ scope_entry_t* compute_intrinsic_ompss_opencl_allocate(scope_entry_t* symbol,
         return NULL;
 
     nodecl_t arg = argument_expressions[0];
-    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
-        arg = nodecl_get_child(arg, 0);
-
     ERROR_CONDITION(nodecl_get_kind(arg) != NODECL_ARRAY_SUBSCRIPT,
             "The argument of 'ompss_opencl_allocate' intrinsic must be "
             "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
 
-    nodecl_t nodecl_sym = nodecl_get_child(arg, 0);
-    ERROR_CONDITION(nodecl_get_kind(nodecl_sym) != NODECL_SYMBOL, "Unreachable code\n", 0);
-
-    scope_entry_t* sym = nodecl_get_symbol(nodecl_sym);
-    ERROR_CONDITION(sym == NULL, "Unreachable code\n", 0);
+    scope_entry_t* sym = fortran_data_ref_get_symbol(arg);
+    ERROR_CONDITION(sym == NULL, "Invalid symbol\n", 0);
 
     ERROR_CONDITION(
             !(symbol_entity_specs_get_is_allocatable(sym)
@@ -6900,8 +6894,8 @@ scope_entry_t* compute_intrinsic_ompss_opencl_allocate(scope_entry_t* symbol,
             "The argument of 'ompss_opencl_allocate' intrinsic must be "
             "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
 
-    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
-    return GET_INTRINSIC_IMPURE(symbol, "ompss_opencl_allocate", get_void_type(), lvalue_ref(t0));
+    type_t* t0 = argument_types[0];
+    return GET_INTRINSIC_IMPURE(symbol, "ompss_opencl_allocate", get_void_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_ompss_opencl_deallocate(scope_entry_t* symbol,
@@ -6914,12 +6908,8 @@ scope_entry_t* compute_intrinsic_ompss_opencl_deallocate(scope_entry_t* symbol,
         return NULL;
 
     nodecl_t arg = argument_expressions[0];
-    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
-        arg = nodecl_get_child(arg, 0);
 
-    ERROR_CONDITION(nodecl_get_kind(arg) != NODECL_SYMBOL, "Unreachable code\n", 0);
-
-    scope_entry_t* sym = nodecl_get_symbol(arg);
+    scope_entry_t* sym = fortran_data_ref_get_symbol(arg);
     ERROR_CONDITION(sym == NULL, "Unreachable code\n", 0);
 
     ERROR_CONDITION(
@@ -6931,8 +6921,8 @@ scope_entry_t* compute_intrinsic_ompss_opencl_deallocate(scope_entry_t* symbol,
             "The argument of 'ompss_opencl_deallocate' intrinsic must be "
             "an allocatable array or a pointer to an array\n", 0);
 
-    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
-    return GET_INTRINSIC_IMPURE(symbol, "ompss_opencl_deallocate", get_void_type(), lvalue_ref(t0));
+    type_t* t0 = argument_types[0];
+    return GET_INTRINSIC_IMPURE(symbol, "ompss_opencl_deallocate", get_void_type(), t0);
 }
 
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
