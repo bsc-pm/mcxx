@@ -3554,20 +3554,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     Nodecl::NodeclBase ub_expr = node.get_upper();
     Nodecl::NodeclBase step_expr = node.get_stride();
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     Nodecl::NodeclBase parent = node.get_parent();
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    bool enclose_in_square_brackets = (!parent.is<Nodecl::List>()
+            || !parent.get_parent().is<Nodecl::ArraySubscript>());
+
+    // Print the bracket when the range is not within an ArraySubscript (this is used by Analysis)
+    if(enclose_in_square_brackets)
     {
         *(file) << "[";
     }
-    
+
     walk(lb_expr);
     *(file) << ":";
     walk(ub_expr);
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    if(enclose_in_square_brackets)
     {
+        // When we enclose_in_square_brackets we also want to emit the stride,
+        // regardless of it being one
+        *(file) << ":";
+        walk(step_expr);
         *(file) << "]";
     }
     else
