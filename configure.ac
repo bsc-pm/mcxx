@@ -44,6 +44,9 @@ AM_PROG_CC_C_O
 dnl Check libtool
 LT_INIT([disable-static,win32-dll])
 
+dnl Which library we need to use to dlopen
+LT_LIB_DLLOAD
+
 dnl Check cpp
 AC_PROG_CPP
 
