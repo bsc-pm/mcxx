@@ -39,12 +39,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
-#include <malloc.h>
 #include <errno.h>
 #include <unistd.h>
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 #include <signal.h>
+#endif
+
+#ifdef HAVE_MALLINFO
+#include <malloc.h>
 #endif
 
 #include <sys/types.h>
@@ -4832,6 +4835,7 @@ static void print_human(char *dest, unsigned long long num_bytes_)
         }
     }
 }
+#endif
 
 static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 1], int breakdown_real[MCXX_MAX_AST_CHILDREN + 1], int *num_nodes)
 {
@@ -4859,7 +4863,6 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
     if (num_real <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown_real[num_real]++;
 }
-#endif
 
 static void stats_string_table(void)
 {
@@ -4868,14 +4871,14 @@ static void stats_string_table(void)
 
 static void print_memory_report(void)
 {
-    char c[256];
-
     fprintf(stderr, "\n");
     fprintf(stderr, "Memory report\n");
     fprintf(stderr, "-------------\n");
     fprintf(stderr, "\n");
 
 #ifdef HAVE_MALLINFO
+    char c[256];
+
     struct mallinfo mallinfo_report = mallinfo();
     print_human(c, mallinfo_report.arena);
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
