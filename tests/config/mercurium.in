@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 # Basic mercurium generator
 source @abs_top_builddir@/tests/config/mercurium-libraries

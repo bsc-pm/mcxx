@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/usr/bin/env bash
 
 valgrind --tool=massif \
          --detailed-freq=1 \
