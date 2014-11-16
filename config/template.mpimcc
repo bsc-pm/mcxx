@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 USER_FLAGS=" $* "
 ORIGINAL_MCC_COMPILER=mpimcc
 ORIGINAL_MPI_COMPILER=@MPICC@

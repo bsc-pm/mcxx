@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 PROGRAMMING_MODEL=${1:=openmp}
 CPLUSPLUS_2011=0

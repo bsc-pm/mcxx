@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 source @abs_builddir@/mercurium-libraries
 

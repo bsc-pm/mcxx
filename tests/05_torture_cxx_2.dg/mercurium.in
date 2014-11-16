@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 
 # Restrict these tests to x86 32 bit

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ -z "@NANOX_INCLUDES@" -o "@cuda_valid@" = no ];
 then
