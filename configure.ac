@@ -1988,7 +1988,7 @@ echo ""
 echo " * Tools configured:"
 echo ""
 
-function print_tool()
+print_tool()
 {
     tool_name="$1"
     tool_path="$2"
