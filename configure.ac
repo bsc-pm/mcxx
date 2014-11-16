@@ -1902,6 +1902,8 @@ LIBS="$keep_LIBS"
 AC_SEARCH_LIBS([backtrace], [execinfo], AC_DEFINE([HAVE_BACKTRACE], 1, [Define to 1 if backtrace is available] ) )
 dnl AC_CHECK_FUNC([backtrace_symbols_fd], [ AC_DEFINE([HAVE_BACKTRACE_SYMBOLS_FD], 1, [Define to 1 if backtrace_symbols_fd is available]) ], [])
 
+AM_ICONV
+
 dnl Versioning things
 dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
