@@ -1446,19 +1446,19 @@ SIMPLIFY_BUILTIN_FUN1(exp2f, float, float);
 SIMPLIFY_BUILTIN_FUN1(exp2, double, double);
 SIMPLIFY_BUILTIN_FUN1(exp2l, long_double, long_double);
 
-#ifdef HAVE_EXP10F
+#ifdef HAVE__BUILTIN_EXP10F
 SIMPLIFY_BUILTIN_FUN1(exp10f, float, float);
 #else
 #define simplify_exp10f NO_EXPAND_FUN
 #endif
 
-#ifdef HAVE_EXP10
+#ifdef HAVE___BUILTIN_EXP10
 SIMPLIFY_BUILTIN_FUN1(exp10, double, double);
 #else
 #define simplify_exp10 NO_EXPAND_FUN
 #endif
 
-#ifdef HAVE_EXP10L
+#ifdef HAVE__BUILTIN_EXP10L
 SIMPLIFY_BUILTIN_FUN1(exp10l, long_double, long_double);
 #else
 #define simplify_exp10l NO_EXPAND_FUN
@@ -1565,10 +1565,10 @@ SIMPLIFY_BUILTIN_FUN1(truncf, float, float);
 SIMPLIFY_BUILTIN_FUN1(trunc, double, double);
 SIMPLIFY_BUILTIN_FUN1(truncl, long_double, long_double);
 
+#ifdef HAVE__BUILTIN_FPCLASSIFY
 static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     // GCC 4.3 does not implement '__builtin_fpclassify'
-#if ((__GNUC__ > 4) || (( __GNUC__ == 4) && __GNUC_MINOR__ > 3))
     if (num_arguments == 6
             && nodecl_is_constant(arguments[0])
             && nodecl_is_constant(arguments[1])
@@ -1605,9 +1605,14 @@ static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int n
                             const_value_cast_to_long_double(v))));
         }
     }
-#endif
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
 
 static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
@@ -1783,14 +1788,30 @@ static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, i
 SIMPLIFY_GENERIC_FLOAT_TEST1(isfinite)
 
 SIMPLIFY_GENERIC_FLOAT_TEST1(isnan)
+#ifdef HAVE__BUILTIN_ISNANF
 SIMPLIFY_BUILTIN_FUN1(isnanf, signed_int, float);
+#else
+#define simplify_isnanf NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_ISNANL
 SIMPLIFY_BUILTIN_FUN1(isnanl, signed_int, long_double);
+#else
+#define simplify_isnanl NO_EXPAND_FUN
+#endif
 
 SIMPLIFY_GENERIC_FLOAT_TEST1(isnormal)
 
 SIMPLIFY_GENERIC_FLOAT_TEST1(isinf)
+#ifdef HAVE__BUILTIN_ISINFF
 SIMPLIFY_BUILTIN_FUN1(isinff, signed_int, float);
+#else
+#define simplify_isinff NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_ISINFF
 SIMPLIFY_BUILTIN_FUN1(isinfl, signed_int, long_double);
+#else
+#define simplify_isinfl NO_EXPAND_FUN
+#endif
 
 #define SIMPLIFY_GENERIC_FLOAT_TEST2(builtin_name) \
 static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \

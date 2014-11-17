@@ -1860,17 +1860,22 @@ dnl -- Check if our GCC supports __float128 and quadmath.h
 have_float_128="no"
 quadmath_LIBS=""
 AC_CHECK_TYPE([__float128], [have_float_128="yes"])
-AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
 
 if test x$disable_float128 = xyes;
 then
     have_float_128=no
 fi
 
-if test x$have_float_128 = xyes -a x$have_quadmath_h = xyes;
+have_quadmath_h="no"
+if test x$have_float_128 = xyes;
 then
- AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
- quadmath_LIBS="-lquadmath"
+  AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
+
+  if test x$have_quadmath_h = xyes;
+  then
+    AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
+    quadmath_LIBS="-lquadmath"
+  fi
 fi
 
 AC_SUBST([quadmath_LIBS])
@@ -1892,10 +1897,35 @@ dnl Several of these functions may be missing in some systems
 AC_CHECK_FUNC([mkdtemp], [ AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available]) ], [ AC_LIBOBJ([tempname]) AC_LIBOBJ([mkdtemp]) ])
 AC_CHECK_FUNC([strsignal], [ AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available]) ], [ AC_LIBOBJ([strsignal]) ])
 
+AC_MSG_CHECKING([for __builtin_exp10])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_exp10(1.0);])],   [AC_DEFINE([HAVE__BUILTIN_EXP10],  1, [Define to 1 if __builtin_exp10 is available])]  [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_exp10f])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_exp10f(1.0f);])], [AC_DEFINE([HAVE__BUILTIN_EXP10F], 1, [Define to 1 if __builtin_exp10f is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_exp10l])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_exp10l(1.0L);])], [AC_DEFINE([HAVE__BUILTIN_EXP10L], 1, [Define to 1 if __builtin_exp10l is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isnanf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_isnanf(1.0f);])], [AC_DEFINE([HAVE__BUILTIN_ISNANF], 1, [Define to 1 if __builtin_isnanf is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isnanl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_isnanl(1.0L);])], [AC_DEFINE([HAVE__BUILTIN_ISNANL], 1, [Define to 1 if __builtin_isnanl is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isinff])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_isinff(1.0f);])], [AC_DEFINE([HAVE__BUILTIN_ISINFF], 1, [Define to 1 if __builtin_isinff is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isinfl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_isinfl(1.0L);])], [AC_DEFINE([HAVE__BUILTIN_ISINFL], 1, [Define to 1 if __builtin_isinfl is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_fpclassify])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_fpclassify (1, 2, 3, 4, 5, 1.0f);])], [AC_DEFINE([HAVE__BUILTIN_FPCLASSIFY], 1, [Define to 1 if __builtin_fpclassify is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
 dnl math and complex math functions that may be missing in some systems
 keep_LIBS="$LIBS"
 LIBS="-lm"
-AC_CHECK_FUNCS([exp10 exp10f exp10l cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
+AC_CHECK_FUNCS([cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
                [], [])
 LIBS="$keep_LIBS"
 
