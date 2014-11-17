@@ -2603,6 +2603,12 @@ namespace TL { namespace OpenMP {
                 // Mark as __thread
                 scope_entry_t* entry = sym.get_internal_symbol();
                 symbol_entity_specs_set_is_thread(entry, 1);
+
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    error_printf("%s: error: !$OMP THREADPRIVATE is not supported in Fortran\n",
+                            directive.get_locus_str().c_str());
+                }
             }
         }
 
