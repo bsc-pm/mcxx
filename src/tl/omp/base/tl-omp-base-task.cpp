@@ -738,13 +738,12 @@ namespace TL { namespace OpenMP {
     struct ReportExecEnvironmentDependences : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            const locus_t* _locus;
             std::ofstream* _omp_report_file;
 
         public:
 
-        ReportExecEnvironmentDependences(const locus_t* locus, std::ofstream* omp_report_file)
-            : _locus(locus), _omp_report_file(omp_report_file)
+        ReportExecEnvironmentDependences(const locus_t*, std::ofstream* omp_report_file)
+            : _omp_report_file(omp_report_file)
         {
         }
 
