@@ -150,7 +150,7 @@ static int count_hollerith_constant = 0;
 
 %}
 
-%option noyyalloc noyyrealloc noyyfree
+%option noyyalloc noyyrealloc noyyfree noinput
 
  /* Compatibility with different file formats unix/mac/dos */
 newline ([\n]|[\r]|([\r][\n]))
@@ -3413,15 +3413,6 @@ static void parse_line_marker(const char* str, const char** filename, unsigned i
         internal_error("Junk at the end of a line marker '%s'. Junk -> '%s'", str, p);
     }
 }
-
-// Shut up the compiler
-#ifndef YY_NO_INPUT
-#ifdef __cplusplus
-    UNUSED_PARAMETER static int yyinput (void);
-#else
-    UNUSED_PARAMETER static int input  (void);
-#endif
-#endif
 
 void * mf03alloc (size_t bytes)
 {

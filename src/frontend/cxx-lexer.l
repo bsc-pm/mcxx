@@ -228,7 +228,7 @@ static void unput_string(const char* c);
 
 %}
 
-%option noyyalloc noyyrealloc noyyfree
+%option noyyalloc noyyrealloc noyyfree noinput
 
  /* Lexical conventions A.2 */
  /* A.2.1 */
@@ -2289,15 +2289,6 @@ static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* k
             scanning_now.line_number,
             keyword);
 }
-
-// Shut up the compiler
-#ifndef YY_NO_INPUT
-#ifdef __cplusplus
-    UNUSED_PARAMETER static int yyinput (void);
-#else
-    UNUSED_PARAMETER static int input  (void);
-#endif
-#endif
 
 static void unput_string(const char* c)
 {
