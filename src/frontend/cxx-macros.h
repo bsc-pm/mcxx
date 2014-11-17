@@ -36,7 +36,7 @@
 #endif
 
 // Some gcc-isms
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
   #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 3
      // Supported in >=4.3
      #define NORETURN __attribute__((noreturn))
@@ -60,6 +60,15 @@
   #else
      #error "Unsupported version of GCC. It must be 4.3 or better"
   #endif
+#elif defined(__clang__)
+  #define NORETURN __attribute__((noreturn))
+  #define WARN_UNUSED __attribute__((warn_unused_result))
+  #define DEPRECATED __attribute__((deprecated))
+  #define UNUSED_PARAMETER __attribute__((unused))
+  #define WARN_FUNCTION(x)
+  #define MALLOC_RETURN __attribute__((xmalloc))
+  #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
+  #define DEPRECATED_REASON(r) __attribute__((deprecated))
 #else
   #define NORETURN
   #define WARN_UNUSED
