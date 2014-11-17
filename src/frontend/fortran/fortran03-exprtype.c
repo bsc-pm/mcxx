@@ -4923,18 +4923,31 @@ static void cast_initialization(
     }
     else
     {
-        // FIXME: if the type of 'val' and 'initialized_type' are the same but they
-        // have different kinds, we need a cast!
-
         if (is_floating_type(initialized_type)
                 && const_value_is_floating(val))
         {
             *casted_const = const_value_cast_to_floating_type_value(val, initialized_type);
+
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = nodecl_make_floating_literal(
+                        initialized_type,
+                        *casted_const,
+                        nodecl_get_locus(*nodecl_output));
+            }
         }
         else if (is_integer_type(initialized_type)
                 && const_value_is_integer(val))
         {
             *casted_const = const_value_cast_to_bytes(val, type_get_size(initialized_type), /* sign */ 1);
+
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = nodecl_make_integer_literal(
+                        initialized_type,
+                        *casted_const,
+                        nodecl_get_locus(*nodecl_output));
+            }
         }
         else
         {
