@@ -32,6 +32,7 @@ namespace Analysis {
 
 namespace {
     
+#if 0
     bool sync_in_all_branches(Node* current, Node* original)
     {
         bool res = false;
@@ -115,6 +116,7 @@ namespace {
             }
         }
     }
+#endif
     
     Utils::UsageKind compute_usage_in_region_rec(Node* current, NBase n, Node* region)
     {

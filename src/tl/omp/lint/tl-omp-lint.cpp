@@ -354,6 +354,7 @@ namespace {
         return result;
     }
         
+#if 0
     // If this function returns false it may mean both unknown/no
     tribool data_ref_is_local_rec(TL::DataReference data_ref, Nodecl::List& local_data_refs )
     {
@@ -413,6 +414,7 @@ namespace {
             
         return result;
     }
+#endif
     
 #if 0
     // If this function returns false it may mean both unknown/no
