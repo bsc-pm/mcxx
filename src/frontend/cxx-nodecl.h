@@ -29,7 +29,7 @@
 
 #include "cxx-macros.h"
 #include "cxx-cexpr-fwd.h"
-#include "cxx-scope-fwd.h"
+#include "cxx-scope-decls.h"
 #include "cxx-nodecl-decls.h"
 #include "cxx-type-decls.h"
 #include "cxx-locus.h"

@@ -46,7 +46,7 @@
 #include "cxx-entrylist-decls.h"
 #include "cxx-type-decls.h"
 #include "cxx-limits.h"
-#include "cxx-nodecl-output.h"
+#include "cxx-nodecl-decls.h"
 
 #include "fortran/fortran03-scope-decls.h"
 
