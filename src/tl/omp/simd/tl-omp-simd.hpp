@@ -127,6 +127,7 @@ namespace TL
                 SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled);
 
+                using SimdVisitor::visit;
                 virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);
         };
 
