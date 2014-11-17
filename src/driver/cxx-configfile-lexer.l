@@ -267,8 +267,6 @@ void close_configuration_file_for_scan(void)
     }
 }
 
-UNUSED_PARAMETER static void yyunput (int c, register char * yy_bp );
-
 void * configfilealloc (size_t bytes)
 {
     return xmalloc(bytes);
