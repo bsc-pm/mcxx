@@ -60,8 +60,6 @@
 
 #include "fortran/fortran03-exprtype.h"
 
-static const char builtin_prefix[] = "__builtin_";
-
 typedef
 struct builtin_operators_set_tag
 {
