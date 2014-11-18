@@ -19118,13 +19118,14 @@ void check_nodecl_initialization(
 
         template_parameter_list_t* deduced_template_arguments = NULL;
 
-        if (deduce_arguments_of_auto_initialization(
-                initialized_entry->type_information,
-                nodecl_get_type(nodecl_expression_used_for_deduction),
-                decl_context,
-                &deduced_template_arguments,
-                is_braced_initializer,
-                nodecl_get_locus(nodecl_expression_used_for_deduction)))
+        if (nodecl_get_type(nodecl_expression_used_for_deduction) != NULL
+                && deduce_arguments_of_auto_initialization(
+                    initialized_entry->type_information,
+                    nodecl_get_type(nodecl_expression_used_for_deduction),
+                    decl_context,
+                    &deduced_template_arguments,
+                    is_braced_initializer,
+                    nodecl_get_locus(nodecl_expression_used_for_deduction)))
         {
             if (!is_braced_initializer)
             {
