@@ -41,8 +41,7 @@ namespace Vectorization
 {
     KNCVectorLegalization::KNCVectorLegalization(bool prefer_gather_scatter,
             bool prefer_mask_gather_scatter)
-        : _vector_length(KNC_VECTOR_LENGTH),
-        _prefer_gather_scatter(prefer_gather_scatter),
+        : _prefer_gather_scatter(prefer_gather_scatter),
         _prefer_mask_gather_scatter(prefer_mask_gather_scatter)
     {
         std::cerr << "--- KNC legalization phase ---" << std::endl;

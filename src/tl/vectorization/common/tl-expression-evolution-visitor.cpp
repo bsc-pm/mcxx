@@ -88,7 +88,7 @@ namespace Vectorization
                                     n.get_symbol().get_name().c_str(), lower_bounds.size());
                     Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-                    if (lower_bound.is_constant() && nodecl_is_one(lower_bound));
+                    if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
                     {
                         is_iv_stride_one = true;
                     }
@@ -235,7 +235,7 @@ namespace Vectorization
                             n.prettyprint().c_str(), lower_bounds.size());
             Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-            if (lower_bound.is_constant() && nodecl_is_one(lower_bound));
+            if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
             {
                 is_iv_stride_one = true;
             }
@@ -447,7 +447,7 @@ namespace Vectorization
                             n.prettyprint().c_str(), lower_bounds.size());
             Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-            if (lower_bound.is_constant() && nodecl_is_one(lower_bound));
+            if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
             {
                 is_iv_stride_one = true;
             }

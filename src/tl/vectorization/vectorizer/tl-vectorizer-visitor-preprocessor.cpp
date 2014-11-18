@@ -33,9 +33,9 @@ namespace TL
 {
 namespace Vectorization
 {
-    VectorizerVisitorPreprocessor::VectorizerVisitorPreprocessor(
-            const VectorizerEnvironment& environment)
-        : _environment(environment)
+    VectorizerVisitorPreprocessor::VectorizerVisitorPreprocessor()
+          // const VectorizerEnvironment& environment)
+        //: _environment(environment)
     {
     }
 
