@@ -116,18 +116,18 @@ namespace {
     
     CGEdge* CGNode::add_child(CGNode* child, bool is_back_edge, NBase predicate)
     {
-        CGEdge* e;
+        CGEdge* e = NULL;
         ObjectList<CGNode*> children = get_children();
-        if(!children.contains(child))
+        if (!children.contains(child))
         {
             e = new CGEdge(this, child, is_back_edge, predicate);
             _exits.insert(e); 
         }
         else
         {
-            for(ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
+            for (ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
             {
-                if((*it)->get_target() == child)
+                if ((*it)->get_target() == child)
                 {
                     e = *it;
                     break;
