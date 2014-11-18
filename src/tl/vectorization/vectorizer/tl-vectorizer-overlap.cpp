@@ -73,7 +73,7 @@ namespace Vectorization
             }
 
             if (minus.is_constant() && 
-                    abs(const_value_cast_to_4(minus.get_constant())) < VF)
+                    abs(const_value_cast_to_signed_int(minus.get_constant())) < VF)
             {
                 return true;
             }
@@ -313,7 +313,7 @@ namespace Vectorization
 
             if (shifted_elements.is_constant())
             {
-                int offset = const_value_cast_to_4(
+                int offset = const_value_cast_to_signed_int(
                         shifted_elements.get_constant());
 
                 if (offset < min_offset)
@@ -345,7 +345,7 @@ namespace Vectorization
                     running_error("Overlap error: There is no alignment info for %s",
                             min_vload.prettyprint().c_str());
 
-                int alignment = const_value_cast_to_4(alignment_node.get_constant());
+                int alignment = const_value_cast_to_signed_int(alignment_node.get_constant());
 
                 int min_vload_type_size = min_vload.get_type().basic_type().get_size();
                 int negative_num_elements = alignment/min_vload_type_size;
@@ -424,7 +424,7 @@ namespace Vectorization
                     running_error("Overlap error: There is no alignment info for %s",
                             max_vload.prettyprint().c_str());
 
-                int alignment = const_value_cast_to_4(alignment_node.get_constant());
+                int alignment = const_value_cast_to_signed_int(alignment_node.get_constant());
 
                 int max_vload_type_size = max_vload.get_type().basic_type().get_size();
                 int positive_num_elements = environment._vectorization_factor -
@@ -509,7 +509,7 @@ namespace Vectorization
             if (!const_value_is_zero(mod))
             {
                 int positive_num_elements = environment._vectorization_factor -
-                    const_value_cast_to_4(mod);
+                    const_value_cast_to_signed_int(mod);
                 
                 // Max vload flags == Min vload flags
                 Nodecl::List new_flags =
@@ -604,14 +604,14 @@ namespace Vectorization
             << " MINUS Leftmost: " << leftmost_index.prettyprint()
             << " = "
             << minus.prettyprint()
-            << ". Mod = " << const_value_cast_to_4(mod)
-            << ". Div = " << const_value_cast_to_4(div)
+            << ". Mod = " << const_value_cast_to_signed_int(mod)
+            << ". Div = " << const_value_cast_to_signed_int(div)
             << std::endl;
 
         ERROR_CONDITION(!const_value_is_zero(mod),
                 "Leftmost and Rightmost are not multiple of VL", 0);
 
-        _num_registers = const_value_cast_to_4(div) + 1;
+        _num_registers = const_value_cast_to_signed_int(div) + 1;
     }
  
 
@@ -1455,8 +1455,8 @@ namespace Vectorization
                             const_value_get_signed_int(
                                 _environment._vectorization_factor));
 
-                int first_register = const_value_cast_to_4(div);
-                int final_offset = const_value_cast_to_4(mod);
+                int first_register = const_value_cast_to_signed_int(div);
+                int final_offset = const_value_cast_to_signed_int(mod);
 
                 if (const_value_is_zero(mod))
                 {

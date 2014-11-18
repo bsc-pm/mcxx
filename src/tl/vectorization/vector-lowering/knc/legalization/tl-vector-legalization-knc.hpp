@@ -41,7 +41,6 @@ namespace TL
         class KNCVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                const unsigned int _vector_length;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
 

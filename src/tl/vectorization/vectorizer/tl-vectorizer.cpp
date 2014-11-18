@@ -96,7 +96,7 @@ namespace Vectorization
                     target_type_heuristic.get_target_type(n));
         }
 
-        VectorizerVisitorPreprocessor vectorizer_preproc(environment);
+        VectorizerVisitorPreprocessor vectorizer_preproc;//environment);
         vectorizer_preproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
