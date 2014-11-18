@@ -4476,6 +4476,9 @@ static void check_symbol_of_variable(AST expr, decl_context_t decl_context, node
     if (entry->kind != SK_VARIABLE
              && entry->kind != SK_UNDEFINED)
     {
+        error_printf("%s: error: name '%s' is not valid in expression\n",
+                ast_location(expr),
+                entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
