@@ -479,6 +479,11 @@ namespace TL
         return ::is_auto_type(_type_info);
     }
 
+    bool Type::is_decltype_auto() const
+    {
+        return ::is_decltype_auto_type(_type_info);
+    }
+
     int Type::vector_num_elements() const
     {
         return vector_type_get_num_elements(_type_info);

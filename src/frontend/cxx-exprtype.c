@@ -9579,7 +9579,8 @@ static void check_new_expression_impl(
             /*  initialized_entry */ NULL,
             new_type,
             &nodecl_init_out,
-            /* is_auto */ 0);
+            /* is_auto */ 0,
+            /* is_decltype_auto */ 0);
 
     type_t* synthesized_type = new_type;
 
@@ -13202,7 +13203,8 @@ void implement_lambda_expression(
                     field,
                     field->type_information,
                     &nodecl_init,
-                    /* is_auto_type */ 0);
+                    /* is_auto_type */ 0,
+                    /* is_decltype_auto */ 0);
 
             if (nodecl_is_err_expr(nodecl_init))
             {
@@ -19062,7 +19064,8 @@ void check_nodecl_initialization(
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto)
+        char is_auto,
+        char is_decltype_auto)
 {
     if (is_auto
             && initialized_entry != NULL
@@ -19086,15 +19089,42 @@ void check_nodecl_initialization(
             ||(nodecl_get_kind(nodecl_initializer) == NODECL_CXX_EQUAL_INITIALIZER
                     && nodecl_get_kind(nodecl_get_child(nodecl_initializer, 0)) == NODECL_CXX_BRACED_INITIALIZER);
 
+        if (is_decltype_auto
+                && is_braced_initializer)
+        {
+            error_printf("%s: error: a 'decltype(auto)' cannot be deduced using a braced initializer\n",
+                    nodecl_locus_to_str(nodecl_initializer));
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            nodecl_free(nodecl_initializer);
+            return;
+        }
+
+        nodecl_t nodecl_expression_used_for_deduction = nodecl_initializer;
+        if (nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+        {
+            nodecl_t nodecl_list = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
+            if (nodecl_list_length(nodecl_list) != 1)
+            {
+                error_printf("%s: error: '%s' deduction with a parenthesized "
+                        "initializer is only possible with one element inside the parentheses\n",
+                        nodecl_locus_to_str(nodecl_expression_used_for_deduction),
+                        is_decltype_auto ? "decltype(auto)" : "auto");
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+                nodecl_free(nodecl_initializer);
+                return;
+            }
+            nodecl_expression_used_for_deduction = nodecl_list_head(nodecl_list);
+        }
+
         template_parameter_list_t* deduced_template_arguments = NULL;
 
         if (deduce_arguments_of_auto_initialization(
                 initialized_entry->type_information,
-                nodecl_get_type(nodecl_initializer),
+                nodecl_get_type(nodecl_expression_used_for_deduction),
                 decl_context,
                 &deduced_template_arguments,
                 is_braced_initializer,
-                nodecl_get_locus(nodecl_initializer)))
+                nodecl_get_locus(nodecl_expression_used_for_deduction)))
         {
             if (!is_braced_initializer)
             {
@@ -19108,11 +19138,11 @@ void check_nodecl_initialization(
                 // const auto& -> const std::initializer_list<T>
                 type_t* specialized_type = template_type_get_specialized_type(
                         get_std_initializer_list_template(decl_context,
-                            nodecl_get_locus(nodecl_initializer),
+                            nodecl_get_locus(nodecl_expression_used_for_deduction),
                             /* mandatory */ 1)->type_information,
                         deduced_template_arguments,
                         decl_context,
-                        nodecl_get_locus(nodecl_initializer));
+                        nodecl_get_locus(nodecl_expression_used_for_deduction));
                 free_template_parameter_list(deduced_template_arguments);
 
                 initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
@@ -19225,7 +19255,8 @@ char check_initialization(AST initializer,
         scope_entry_t* initialized_entry,
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto)
+        char is_auto,
+        char is_decltype_auto)
 {
     DEBUG_CODE()
     {
@@ -19241,7 +19272,8 @@ char check_initialization(AST initializer,
             initialized_entry,
             declared_type,
             nodecl_output,
-            is_auto);
+            is_auto,
+            is_decltype_auto);
 
     DEBUG_CODE()
     {
@@ -22925,7 +22957,8 @@ static void define_inherited_constructor(
                 named_type_get_symbol(symbol_entity_specs_get_class_type(inherited_constructor)),
                 get_unqualified_type(symbol_entity_specs_get_class_type(inherited_constructor)),
                 &nodecl_init,
-                /* is_auto_type */ 0);
+                /* is_auto_type */ 0,
+                /* is_decltype_auto */ 0);
 
         if (!nodecl_is_err_expr(nodecl_init))
         {

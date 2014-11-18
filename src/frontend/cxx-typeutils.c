@@ -82,6 +82,7 @@ enum type_kind
     TK_PACK,
     TK_SEQUENCE,
     TK_AUTO,
+    TK_DECLTYPE_AUTO,
     TK_ERROR
 };
 
@@ -6842,6 +6843,7 @@ extern inline char equivalent_types(type_t* t1, type_t* t2)
             result = equivalent_sequence_types(t1, t2);
             break;
         case TK_AUTO:
+        case TK_DECLTYPE_AUTO:
         case TK_ERROR:
             // This is always true
             result = 1;
@@ -10421,6 +10423,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         result = UNIQUESTR_LITERAL("auto");
     }
+    else if (is_decltype_auto_type(type_info))
+    {
+        result = UNIQUESTR_LITERAL("decltype(auto)");
+    }
     else if (is_braced_list_type(type_info))
     {
         result = "<braced-initializer-list-type>";
@@ -11128,6 +11134,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         case TK_ERROR:
         case TK_SEQUENCE:
         case TK_AUTO:
+        case TK_DECLTYPE_AUTO:
         case TK_BRACED_LIST:
             {
                 break;
@@ -11891,6 +11898,12 @@ extern inline const char* print_declarator(type_t* printed_declarator)
             case TK_AUTO:
                 {
                     tmp_result = strappend(tmp_result, "auto");
+                    printed_declarator = NULL;
+                    break;
+                }
+            case TK_DECLTYPE_AUTO:
+                {
+                    tmp_result = strappend(tmp_result, "decltype(auto)");
                     printed_declarator = NULL;
                     break;
                 }
@@ -14899,6 +14912,10 @@ static type_t* get_foundation_type(type_t* t)
     {
         return t;
     }
+    else if (is_decltype_auto_type(t))
+    {
+        return t;
+    }
     else if (is_gxx_underlying_type(t))
     {
         return t;
@@ -15599,12 +15616,34 @@ type_t* get_nondependent_auto_type(void)
     return _nondep_auto;
 }
 
+static type_t* _decltype_auto = NULL;
+extern inline type_t* get_decltype_auto_type(void)
+{
+    if (_decltype_auto == NULL)
+    {
+        _decltype_auto = new_empty_type();
+        _decltype_auto->kind = TK_DECLTYPE_AUTO;
+        _decltype_auto->unqualified_type = _decltype_auto;
+        _decltype_auto->info->is_dependent = 1;
+    }
+
+    return _decltype_auto;
+}
+
 extern inline char is_auto_type(type_t* t)
 {
     t = advance_over_typedefs(t);
 
     return t != NULL
         && t->kind == TK_AUTO;
+}
+
+extern inline char is_decltype_auto_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return t != NULL
+        && t->kind == TK_DECLTYPE_AUTO;
 }
 
 extern inline parameter_info_t get_parameter_info_for_type(type_t* t)

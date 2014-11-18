@@ -2795,7 +2795,8 @@ int get_length_of_pack_expansion_from_type(type_t* pack_type,
 
 type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
 {
-    if (is_auto_type(t))
+    if (is_auto_type(t)
+            || is_decltype_auto_type(t))
     {
         return get_cv_qualified_type(template_parameter, get_cv_qualifier(t));
     }

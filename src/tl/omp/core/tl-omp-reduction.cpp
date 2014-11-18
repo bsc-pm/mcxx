@@ -351,7 +351,8 @@ namespace TL { namespace OpenMP {
                     entry,
                     get_unqualified_type(declarator_type),
                     nodecl_output,
-                    /* is_auto */ 0);
+                    /* is_auto */ 0,
+                    /* is_decltype_auto*/ 0);
             if (!init_check)
             {
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));

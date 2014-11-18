@@ -2373,7 +2373,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             entry,
                             get_unqualified_type(declarator_type),
                             &nodecl_initializer,
-                            current_gather_info.is_auto_type);
+                            current_gather_info.is_auto_type,
+                            current_gather_info.is_decltype_auto);
 
                     // Update unbounded arrays, bounded by their initialization
                     if (init_check)
@@ -2740,6 +2741,7 @@ void build_scope_decl_specifier_seq(AST a,
         gather_info->is_unsigned = local_gather_info.is_unsigned;
         gather_info->is_signed = local_gather_info.is_signed;
         gather_info->is_auto_type = local_gather_info.is_auto_type;
+        gather_info->is_decltype_auto = local_gather_info.is_decltype_auto;
 
         if (gather_info->is_short)
         {
@@ -3126,15 +3128,27 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_VOID_TYPE :
             *simple_type_info = get_void_type();
             break;
+            // C++11
         case AST_AUTO_TYPE:
             *simple_type_info = get_auto_type();
             gather_info->is_auto_type = 1;
+            break;
+            // C++14
+        case AST_DECLTYPE_AUTO:
+            if (!IS_CXX14_LANGUAGE)
+            {
+                warn_printf("%s: warning: 'decltype(auto)' is a C++14 feature\n",
+                        ast_location(a));
+            }
+            *simple_type_info = get_decltype_auto_type();
+            gather_info->is_auto_type = 1;
+            gather_info->is_decltype_auto = 1;
             break;
         case AST_GCC_COMPLEX_TYPE :
             *simple_type_info = get_signed_int_type();
             gather_info->is_complex = 1;
             break;
-            // C++0x
+            // C++11
         case AST_DECLTYPE :
             {
                 // Advance just before parentheses
@@ -6119,7 +6133,8 @@ void check_nodecl_member_initializer_list(
                     entry,
                     get_unqualified_type(get_user_defined_type(entry)),
                     &nodecl_init,
-                    /* is_auto_type */ 0);
+                    /* is_auto_type */ 0,
+                    /* is_decltype_auto */ 0);
 
             if (nodecl_is_err_expr(nodecl_init))
             {
@@ -6178,7 +6193,8 @@ void check_nodecl_member_initializer_list(
                     entry,
                     get_unqualified_type(entry->type_information),
                     &nodecl_init,
-                    /* is_auto_type */ 0);
+                    /* is_auto_type */ 0,
+                    /* is_decltype_auto */ 0);
         }
         // Base class
         else if (entry->kind == SK_CLASS)
@@ -6197,7 +6213,8 @@ void check_nodecl_member_initializer_list(
                     entry,
                     get_unqualified_type(get_user_defined_type(entry)),
                     &nodecl_init,
-                    /* is_auto_type */ 0);
+                    /* is_auto_type */ 0,
+                    /* is_decltype_auto */ 0);
 
         }
         else
@@ -6391,7 +6408,8 @@ static void build_scope_ctor_initializer_dependent(
                     NULL, /* We do not really know what is being initialized */
                     get_unknown_dependent_type(),
                     &nodecl_init,
-                    /* is_auto_type */ 0);
+                    /* is_auto_type */ 0,
+                    /* is_decltype_auto */ 0);
 
             nodecl_t nodecl_cxx_init = nodecl_make_cxx_member_init(
                     nodecl_name, nodecl_init,
@@ -8980,7 +8998,8 @@ static void build_scope_delayed_member_declarator_initializers(void)
                 get_unqualified_type(entry->type_information),
                 &nodecl_init,
                 // There should not be an auto type-specifier in a nonstatic member declarator
-                /* is_auto_type */ 0);
+                /* is_auto_type */ 0,
+                /* is_decltype_auto */ 0);
 
         entry->value = nodecl_init;
     }
@@ -11185,6 +11204,14 @@ static void build_scope_declarator_rec(
             }
         case AST_POINTER_DECLARATOR :
             {
+                if (gather_info->is_decltype_auto)
+                {
+                    *declarator_type = get_error_type();
+                    error_printf("%s: error: invalid %s declarator for 'decltype(auto)'\n",
+                            ast_location(a),
+                            ASTType(ASTSon0(a)) == AST_POINTER_SPEC ? "pointer" : "reference");
+                    return;
+                }
                 AST attributes = ASTSon2(a);
                 apply_attributes_to_type(declarator_type, attributes, declarator_context);
 
@@ -11199,6 +11226,13 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_ARRAY :
             {
+                if (gather_info->is_decltype_auto)
+                {
+                    *declarator_type = get_error_type();
+                    error_printf("%s: error: invalid array declarator for 'decltype(auto)'\n",
+                            ast_location(a));
+                    return;
+                }
                 set_array_type(declarator_type, 
                         /* expr */ASTSon1(a), 
                         /* (C99)static_qualif */ ASTSon3(a),
@@ -11216,6 +11250,13 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_FUNC :
             {
+                if (gather_info->is_decltype_auto)
+                {
+                    *declarator_type = get_error_type();
+                    error_printf("%s: error: invalid function declarator for 'decltype(auto)'\n",
+                            ast_location(a));
+                    return;
+                }
                 set_function_type(declarator_type, gather_info, ASTSon1(a),
                         entity_context, prototype_context, /* out_prototype */ NULL, nodecl_output);
                 if (is_error_type(*declarator_type))
@@ -11229,6 +11270,13 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_FUNC_TRAIL:
             {
+                if (gather_info->is_decltype_auto)
+                {
+                    *declarator_type = get_error_type();
+                    error_printf("%s: error: invalid function declarator for 'decltype(auto)'\n",
+                            ast_location(a));
+                    return;
+                }
                 CXX03_LANGUAGE()
                 {
                     // Try to be helpful
@@ -11247,7 +11295,8 @@ static void build_scope_declarator_rec(
                 }
                 CXX11_LANGUAGE()
                 {
-                    if (!gather_info->is_auto_type)
+                    if (!gather_info->is_auto_type
+                            || gather_info->is_decltype_auto)
                     {
                         error_printf("%s: error: a trailing return requires an 'auto' type-specifier\n",
                                 ast_location(a));
@@ -14080,7 +14129,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                         entry,
                         get_unqualified_type(declarator_type),
                         &nodecl_expr,
-                        /* is_auto_type */ 0);
+                        /* is_auto_type */ 0,
+                        /* is_decltype_auto */ 0);
                 entry->value = nodecl_expr;
 
                 entry->defined = 1;
@@ -17520,10 +17570,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
                         class_type_add_member(get_actual_class_type(class_type), entry, entry->defined);
 
-                        if (!current_gather_info.is_static && current_gather_info.is_auto_type)
+                        if (!current_gather_info.is_static
+                                && current_gather_info.is_auto_type)
                         {
-                            error_printf("%s: error: nonstatic member declared as auto\n",
-                                    ast_location(declarator_name));
+                            error_printf("%s: error: nonstatic member declared as %s\n",
+                                    ast_location(declarator_name),
+                                    current_gather_info.is_decltype_auto ? "decltype(auto)" : "auto");
                         }
 
                         if (initializer != NULL)
@@ -17545,7 +17597,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             entry,
                                             get_unqualified_type(entry->type_information),
                                             &nodecl_expr,
-                                            current_gather_info.is_auto_type);
+                                            current_gather_info.is_auto_type,
+                                            current_gather_info.is_decltype_auto);
                                     entry->value = nodecl_expr;
                                 }
                                 else
@@ -18256,7 +18309,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                     entry,
                     get_unqualified_type(entry->type_information),
                     &nodecl_expr,
-                    gather_info.is_auto_type))
+                    gather_info.is_auto_type,
+                    gather_info.is_decltype_auto))
         {
             *nodecl_output = nodecl_expr;
             return;
@@ -18764,7 +18818,8 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
-    if (is_auto_type(type_info))
+    if (is_auto_type(type_info)
+            || is_decltype_auto_type(type_info))
     {
         // In general auto is a dependent type, because if it remains in a declaration
         // it means that we could not deduce anything because the initialization was dependent
@@ -18831,7 +18886,8 @@ static void build_scope_for_statement_range(AST a,
             range_symbol,
             range_symbol->type_information,
             &nodecl_range_initializer,
-            /* is_auto_type */ 1);
+            /* is_auto_type */ 1,
+            /* is_decltype_auto */ 0);
 
     if (nodecl_is_err_expr(nodecl_range_initializer))
     {
@@ -19075,7 +19131,8 @@ static void build_scope_for_statement_range(AST a,
             begin_symbol,
             begin_symbol->type_information,
             &nodecl_initializer_tmp,
-            /* is_auto_type */ 1);
+            /* is_auto_type */ 1,
+            /* is_decltype_auto */ 0);
 
     if (nodecl_is_err_expr(nodecl_initializer_tmp))
     {
@@ -19097,7 +19154,8 @@ static void build_scope_for_statement_range(AST a,
             end_symbol,
             end_symbol->type_information,
             &nodecl_initializer_tmp,
-            /* is_auto_type */ 1);
+            /* is_auto_type */ 1,
+            /* is_decltype_auto */ 0);
 
     if (nodecl_is_err_expr(nodecl_initializer_tmp))
     {
@@ -19120,7 +19178,8 @@ static void build_scope_for_statement_range(AST a,
             iterator_symbol,
             iterator_symbol->type_information,
             &nodecl_initializer_tmp,
-            gather_info.is_auto_type);
+            gather_info.is_auto_type,
+            gather_info.is_decltype_auto);
 
     if (nodecl_is_err_expr(nodecl_initializer_tmp))
     {
@@ -21204,11 +21263,13 @@ static scope_entry_t* instantiate_declaration_common(
                                     new_entry,
                                     get_unqualified_type(new_entry->type_information),
                                     &nodecl_init,
-                                    is_auto_type(new_entry->type_information));
+                                    is_auto_type(new_entry->type_information)
+                                        || is_decltype_auto_type(new_entry->type_information),
+                                    is_decltype_auto_type(new_entry->type_information));
                         }
                         else
                         {
-                            check_nodecl_expr_initializer(value, 
+                            check_nodecl_expr_initializer(value,
                                     v->new_decl_context,
                                     get_unqualified_type(new_entry->type_information),
                                     /* disallow_narrowing */ 0,

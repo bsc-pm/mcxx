@@ -639,6 +639,9 @@ namespace TL
             // ! States whether the current type is auto
             bool is_auto() const;
 
+            // ! States whether the current type is decltype(auto)
+            bool is_decltype_auto() const;
+
             //! Returns the number of elements of a vector-type
             int vector_num_elements() const;
 
