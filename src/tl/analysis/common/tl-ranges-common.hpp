@@ -74,9 +74,9 @@ namespace Utils {
             return result;
         }
     };
-    
-    DEPRECATED NBase range_add(const NBase& r1, const NBase& r2);
-    DEPRECATED NBase range_sub(const NBase& r1, const NBase& r2);
+
+    NBase range_sub(const NBase& r1, const NBase& r2);
+
     NBase range_addition(const NBase& r1, const NBase& r2);
     NBase range_subtraction(const NBase& r1, const NBase& r2);
     NBase range_intersection(const NBase& r, const NBase& r2, CycleDirection dir);
