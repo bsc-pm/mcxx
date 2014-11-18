@@ -2271,7 +2271,10 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
         char done = 0;
         while (!done)
         {
-            char* inbuff = (char*)codepoints;
+            // POSIX dictates that the 2nd parameter of iconv be const char** but
+			// GNU/Linux and other systems defined it as char**. AM_ICONV in configure.ac
+            // defines the ICONV_CONST macro accordingly
+            ICONV_CONST char* inbuff = (ICONV_CONST char*)codepoints;
             size_t inbyteslefts = num_codepoints * sizeof(*codepoints);
 
             size_t outbytesleft = capacity_out * sizeof(*output_buffer), outbytesbeginning = outbytesleft;

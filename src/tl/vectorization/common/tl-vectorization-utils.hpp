@@ -48,7 +48,7 @@ namespace TL
                     const unsigned int _if_statement_cost;
                     const unsigned int _else_statement_cost;
                     const unsigned int _static_for_statement_cost;
-                    const unsigned int _masked_for_statement_cost;
+                    //const unsigned int _masked_for_statement_cost;
                     const unsigned int _function_call_cost;
 
                     const unsigned int _nesting_threshold;
@@ -146,6 +146,15 @@ namespace TL
 
                     return result;
                 }
+
+
+            class RemovePrefetchIntrinsics : public Nodecl::ExhaustiveVisitor<void>
+            {
+                public:
+                    RemovePrefetchIntrinsics(void) {};
+                    void visit(const Nodecl::FunctionCall& node);
+            };
+
             
             Nodecl::NodeclBase get_vector_load_scalar_access(
                     const Nodecl::VectorLoad& vector_load);

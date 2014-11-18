@@ -46,7 +46,7 @@ namespace Utils
             _if_statement_cost(4),
             _else_statement_cost(1),
             _static_for_statement_cost(10),
-            _masked_for_statement_cost(3),
+            //_masked_for_statement_cost(3),
             _function_call_cost(1000),
             _nesting_threshold(0),
             _nesting_level(0)
@@ -435,6 +435,29 @@ namespace Utils
         }
 
         return result;
+    }
+
+    void RemovePrefetchIntrinsics::visit(const Nodecl::FunctionCall& n)
+    {
+        Nodecl::NodeclBase called = n.get_called();
+        if (!called.is<Nodecl::Symbol>())
+            return;
+
+        Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
+        TL::Type call_type = n.get_type();
+        std::string func_name = called_sym.get_symbol().get_name();
+
+        if (func_name == "_mm_prefetch" || func_name == "_mm_prefetche")
+        {
+            ERROR_CONDITION(!n.get_parent().is<Nodecl::ExpressionStatement>(),
+                    "Prefetch intrinsic is not nested in an ExpressionStatement", 0);
+
+            Nodecl::NodeclBase expression_stmt = 
+                n.get_parent().as<Nodecl::ExpressionStatement>();
+
+
+            Nodecl::Utils::remove_from_enclosing_list(expression_stmt);
+        }
     }
 
     Nodecl::NodeclBase get_vector_load_scalar_access(

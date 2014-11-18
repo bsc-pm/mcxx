@@ -43,8 +43,8 @@ namespace TL
 	{
 		ObjectList<std::string>::iterator it_type = _type.begin();
 		ObjectList<std::string>::iterator it_val = _value.begin();
-		for(ObjectList<std::string>::iterator it_var = _variable.begin();
-				it_var != _variable.end(), it_val != _value.end();
+		for (ObjectList<std::string>::iterator it_var = _variable.begin();
+				it_var != _variable.end() && it_val != _value.end();
 				it_var++, it_type++, it_val++)
 		{
 			if (*it_type=="bool")

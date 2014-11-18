@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 # Unmaintained tests
 cat <<EOF

@@ -158,12 +158,12 @@ namespace Analysis {
             internal_error("Wrong list size while connecting a list of nodes as children of "
                             "other node (children '%d', edge types '%d', edge labels '%d')\n",
                            children.size(), actual_etypes.size(), actual_elabels.size());
-    }
+        }
 
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         ObjectList<Node*>::const_iterator it = children.begin();
-        for(; it != children.end(), itt != actual_etypes.end(), itl != actual_elabels.end();
+        for(; it != children.end() && itt != actual_etypes.end(), itl != actual_elabels.end();
              ++it, ++itt, ++itl)
         {
             connect_nodes(parent, *it, *itt, *itl);
@@ -193,7 +193,7 @@ namespace Analysis {
         ObjectList<Node*>::const_iterator it = parents.begin();
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
-        for(; it != parents.end(), itt != actual_etypes.end(), itl != actual_elabels.end();
+        for(; it != parents.end(), itt != actual_etypes.end() && itl != actual_elabels.end();
              ++it, ++itt, ++itl)
         {
             connect_nodes(*it, child, *itt, *itl, is_task_edge, is_back_edge);

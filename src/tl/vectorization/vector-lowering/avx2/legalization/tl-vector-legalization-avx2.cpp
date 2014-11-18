@@ -38,7 +38,6 @@ namespace TL
     namespace Vectorization
     {
         AVX2VectorLegalization::AVX2VectorLegalization() 
-            : _vector_length(AVX2_VECTOR_LENGTH) 
         {
             std::cerr << "--- AVX2 legalization phase ---" << std::endl;
         }

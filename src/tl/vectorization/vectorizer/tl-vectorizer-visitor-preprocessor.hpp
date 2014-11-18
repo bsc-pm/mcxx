@@ -37,15 +37,15 @@ namespace Vectorization
     class VectorizerVisitorPreprocessor : public Nodecl::ExhaustiveVisitor<void> 
     {
         private:
-            const VectorizerEnvironment& _environment;
+//            const VectorizerEnvironment& _environment;
 
             void visit_pre_post_increment(const Nodecl::Preincrement& n);
             void visit_pre_post_decrement(const Nodecl::Predecrement& n);
 
 
         public:
-            VectorizerVisitorPreprocessor(
-                    const VectorizerEnvironment& environment);
+            VectorizerVisitorPreprocessor();
+ //                   const VectorizerEnvironment& environment);
 
             void visit(const Nodecl::ObjectInit& n);
             void visit(const Nodecl::ArraySubscript& n);
