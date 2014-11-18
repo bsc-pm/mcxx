@@ -44,6 +44,9 @@ AM_PROG_CC_C_O
 dnl Check libtool
 LT_INIT([disable-static,win32-dll])
 
+dnl Which library we need to use to dlopen
+LT_LIB_DLLOAD
+
 dnl Check cpp
 AC_PROG_CPP
 
@@ -1694,7 +1697,7 @@ dnl We try to figure a sensible default environment based on the configure envir
            ;;
        powerpc64-bgq-linux*)
            # BlueGeneQ requires extra flags at link time
-           default_type_environ="linux-ppc64"
+           default_type_environ="linux-bgq-ppc64"
            NANOX_GNU_LDFLAGS="-dynamic"
            NANOX_IBM_LDFLAGS="-qnostaticlink"
            ;;
@@ -1853,17 +1856,18 @@ then
  AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
 fi
 
-dnl -- Check if our GCC supports quadmath.h (and __float128)
+dnl -- Check if our GCC supports __float128 and quadmath.h
 have_float_128="no"
 quadmath_LIBS=""
-AC_CHECK_HEADER([quadmath.h], [have_float_128="yes"])
+AC_CHECK_TYPE([__float128], [have_float_128="yes"])
+AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
 
 if test x$disable_float128 = xyes;
 then
     have_float_128=no
 fi
 
-if test x$have_float_128 = xyes;
+if test x$have_float_128 = xyes -a x$have_quadmath_h = xyes;
 then
  AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
  quadmath_LIBS="-lquadmath"
@@ -1881,26 +1885,24 @@ AC_CHECK_FUNC([open_memstream],
 
 AC_SEARCH_LIBS([mallinfo], [malloc], AC_DEFINE([HAVE_MALLINFO], 1, [Define to 1 if mallinfo is available]))
 
+# set AC_LIBOBJ replacements directory
 AC_CONFIG_LIBOBJ_DIR([gnulib])
 
-AC_CHECK_FUNC([mkdtemp],
-        [
-        AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available])
-        ],
-        [
-        AC_LIBOBJ([tempname])
-        AC_LIBOBJ([mkdtemp])
-        ]
-        )
+dnl Several of these functions may be missing in some systems
+AC_CHECK_FUNC([mkdtemp], [ AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available]) ], [ AC_LIBOBJ([tempname]) AC_LIBOBJ([mkdtemp]) ])
+AC_CHECK_FUNC([strsignal], [ AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available]) ], [ AC_LIBOBJ([strsignal]) ])
 
-AC_CHECK_FUNC([strsignal],
-        [
-        AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available])
-        ],
-        [
-        AC_LIBOBJ([strsignal])
-        ]
-        )
+dnl math and complex math functions that may be missing in some systems
+keep_LIBS="$LIBS"
+LIBS="-lm"
+AC_CHECK_FUNCS([exp10 exp10f exp10l cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
+               [], [])
+LIBS="$keep_LIBS"
+
+AC_SEARCH_LIBS([backtrace], [execinfo], AC_DEFINE([HAVE_BACKTRACE], 1, [Define to 1 if backtrace is available] ) )
+dnl AC_CHECK_FUNC([backtrace_symbols_fd], [ AC_DEFINE([HAVE_BACKTRACE_SYMBOLS_FD], 1, [Define to 1 if backtrace_symbols_fd is available]) ], [])
+
+AM_ICONV
 
 dnl Versioning things
 dnl Make sure build_version is double-quoted!
@@ -1985,7 +1987,7 @@ echo ""
 echo " * Tools configured:"
 echo ""
 
-function print_tool()
+print_tool()
 {
     tool_name="$1"
     tool_path="$2"

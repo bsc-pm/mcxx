@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 if [ "@ANALYSIS_DISABLED@" = "yes" -o -z "@NANOX_INCLUDES@" ];
 then

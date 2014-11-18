@@ -1446,9 +1446,24 @@ SIMPLIFY_BUILTIN_FUN1(exp2f, float, float);
 SIMPLIFY_BUILTIN_FUN1(exp2, double, double);
 SIMPLIFY_BUILTIN_FUN1(exp2l, long_double, long_double);
 
+#ifdef HAVE_EXP10F
 SIMPLIFY_BUILTIN_FUN1(exp10f, float, float);
+#else
+#define simplify_exp10f NO_EXPAND_FUN
+#endif
+
+#ifdef HAVE_EXP10
 SIMPLIFY_BUILTIN_FUN1(exp10, double, double);
+#else
+#define simplify_exp10 NO_EXPAND_FUN
+#endif
+
+#ifdef HAVE_EXP10L
 SIMPLIFY_BUILTIN_FUN1(exp10l, long_double, long_double);
+#else
+#define simplify_exp10l NO_EXPAND_FUN
+#endif
+
 
 SIMPLIFY_BUILTIN_FUN1(expm1f, float, float);
 SIMPLIFY_BUILTIN_FUN1(expm1, double, double);

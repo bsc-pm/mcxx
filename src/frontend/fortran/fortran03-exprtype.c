@@ -2201,7 +2201,7 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-#define check_range_of_floating(expr, text, value, kind) \
+#define check_range_of_floating(expr, text, value, kind, isfun) \
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
@@ -2209,7 +2209,7 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
                     ast_location(expr), text, kind); \
             value = 0.0; \
         } \
-        else if (isinf(value)) \
+        else if (isfun(value)) \
         { \
             error_printf("%s: error: value '%s' overflows REAL(KIND=%d)\n", \
                     ast_location(expr), text, kind); \
@@ -2248,7 +2248,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    {
        errno = 0;
        float f = strtof(floating_text, NULL);
-       check_range_of_floating(expr, floating_text, f, kind);
+       check_range_of_floating(expr, floating_text, f, kind, isinf);
 
        value = const_value_get_float(f);
    }
@@ -2256,7 +2256,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    {
        errno = 0;
        double d = strtod(floating_text, NULL);
-       check_range_of_floating(expr, floating_text, d, kind);
+       check_range_of_floating(expr, floating_text, d, kind, isinf);
 
        value = const_value_get_double(d);
    }
@@ -2264,7 +2264,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    {
        errno = 0;
        long double ld = strtold(floating_text, NULL);
-       check_range_of_floating(expr, floating_text, ld, kind);
+       check_range_of_floating(expr, floating_text, ld, kind, isinf);
 
        value = const_value_get_long_double(ld);
    }
@@ -2276,7 +2276,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
        {
            errno = 0;
            __float128 f128 = strtoflt128(floating_text, NULL);
-           check_range_of_floating(expr, floating_text, f128, kind);
+           check_range_of_floating(expr, floating_text, f128, kind, isinfq);
 
            value = const_value_get_float128(f128);
        }
@@ -4923,18 +4923,31 @@ static void cast_initialization(
     }
     else
     {
-        // FIXME: if the type of 'val' and 'initialized_type' are the same but they
-        // have different kinds, we need a cast!
-
         if (is_floating_type(initialized_type)
                 && const_value_is_floating(val))
         {
             *casted_const = const_value_cast_to_floating_type_value(val, initialized_type);
+
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = nodecl_make_floating_literal(
+                        initialized_type,
+                        *casted_const,
+                        nodecl_get_locus(*nodecl_output));
+            }
         }
         else if (is_integer_type(initialized_type)
                 && const_value_is_integer(val))
         {
             *casted_const = const_value_cast_to_bytes(val, type_get_size(initialized_type), /* sign */ 1);
+
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = nodecl_make_integer_literal(
+                        initialized_type,
+                        *casted_const,
+                        nodecl_get_locus(*nodecl_output));
+            }
         }
         else
         {

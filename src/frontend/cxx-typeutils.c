@@ -1247,13 +1247,20 @@ extern inline type_t* get_gcc_builtin_va_list_type(void)
 
     if (result == NULL)
     {
-        result = get_simple_type();
+        if (CURRENT_CONFIGURATION->type_environment->builtin_va_list_type == NULL)
+        {
+            result = get_simple_type();
 
-        result->type->kind = STK_VA_LIST;
+            result->type->kind = STK_VA_LIST;
 
-        result->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_builtin_va_list;
-        result->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_builtin_va_list;
-        result->info->valid_size = 1;
+            result->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_builtin_va_list;
+            result->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_builtin_va_list;
+            result->info->valid_size = 1;
+        }
+        else
+        {
+            result = (CURRENT_CONFIGURATION->type_environment->builtin_va_list_type)();
+        }
     }
 
     return result;

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 CACHE_LIBRARIES_LT="@abs_builddir@/libraries-libtool.cache"
 
