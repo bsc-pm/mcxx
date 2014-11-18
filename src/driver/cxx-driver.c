@@ -2288,15 +2288,21 @@ static void enable_debug_flag(const char* flags)
     xfree(flag_list);
 }
 
-void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
+void add_to_linker_command_configuration(
+        const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
 {
     parameter_linker_command_t * ptr_param =
         (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
-    
-     ptr_param->argument = str; 
-    
+
+     ptr_param->argument = str;
+
     ptr_param->translation_unit = tr_unit;
-    P_LIST_ADD(CURRENT_CONFIGURATION->linker_command, CURRENT_CONFIGURATION->num_args_linker_command, ptr_param);
+    P_LIST_ADD(configuration->linker_command, configuration->num_args_linker_command, ptr_param);
+}
+
+void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
+{
+    add_to_linker_command_configuration(str, tr_unit, CURRENT_CONFIGURATION);
 }
 
 static void add_to_parameter_list_str(const char*** existing_options, const char* str)
@@ -2475,14 +2481,11 @@ static void parse_subcommand_arguments(const char* arguments)
                 parameters, num_parameters);
     if (linker_flag)
     {
-        /*add_to_parameter_list(
-                &configuration->linker_options,
-                parameters, num_parameters);*/
         int i;
         for(i = 0; i < num_parameters; ++i)
         {
-            add_to_linker_command(uniquestr(parameters[i]),NULL);
-         }
+            add_to_linker_command_configuration(uniquestr(parameters[i]), NULL, configuration);
+        }
     }
     if (prescanner_flag)
         add_to_parameter_list(
