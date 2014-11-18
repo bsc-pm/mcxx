@@ -1697,7 +1697,7 @@ dnl We try to figure a sensible default environment based on the configure envir
            ;;
        powerpc64-bgq-linux*)
            # BlueGeneQ requires extra flags at link time
-           default_type_environ="linux-ppc64"
+           default_type_environ="linux-bgq-ppc64"
            NANOX_GNU_LDFLAGS="-dynamic"
            NANOX_IBM_LDFLAGS="-qnostaticlink"
            ;;

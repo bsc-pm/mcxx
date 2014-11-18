@@ -1769,11 +1769,16 @@ static type_environment_t linux_amd64;
 static type_environment_t linux_ia64;
 static type_environment_t linux_ppc32;
 static type_environment_t linux_ppc64;
+static type_environment_t linux_bgq_ppc64;
 static type_environment_t linux_spu;
 static type_environment_t linux_arm_eabi;
 static type_environment_t linux_arm64;
 static type_environment_t solaris_sparcv9;
 
+static type_t* bgq_get_pointer_to_char(void)
+{
+    return get_pointer_type(get_char_type());
+}
 void init_type_environments(void)
 {
     static char inited = 0;
@@ -2142,6 +2147,14 @@ void init_type_environments(void)
     linux_ppc64.alignof_builtin_va_list = 8;
 
     // ***************************+***************
+    //     Linux PPC64-BGQ
+    // ***************************+***************
+    linux_bgq_ppc64 = linux_ppc64;
+    linux_bgq_ppc64.environ_id = "linux-bgq-ppc64";
+    linux_bgq_ppc64.environ_name = "BlueGene/Q PowerPC 64";
+    linux_bgq_ppc64.builtin_va_list_type = bgq_get_pointer_to_char;
+
+    // ***************************+***************
     //     Linux SPU
     // ***************************+***************
     linux_spu.environ_id = "linux-spu";
@@ -2453,6 +2466,7 @@ type_environment_t* type_environment_list[] = {
     &linux_ia64,
     &linux_ppc32,
     &linux_ppc64,
+    &linux_bgq_ppc64,
     &linux_amd64,
     &linux_spu,
     &linux_arm_eabi,
