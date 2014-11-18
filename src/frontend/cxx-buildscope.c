@@ -15182,7 +15182,10 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
 
 static void check_constexpr_function_statement_list(nodecl_t statement_list,
         int *num_seen_returns,
-        int *num_seen_other_statements)
+        int *num_seen_other_statements,
+        int *num_asm_definitions,
+        int *num_try_blocks,
+        int *num_invalid_initializations)
 {
     int num_items = 0;
     nodecl_t* l = nodecl_unpack_list(statement_list, &num_items);
@@ -15190,20 +15193,97 @@ static void check_constexpr_function_statement_list(nodecl_t statement_list,
     int i;
     for (i = 0; i < num_items; i++)
     {
-        if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
-                || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
-                || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
-                || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
+        nodecl_t nodecl = l[i];
+        node_t kind = nodecl_get_kind(nodecl);
+        if (kind == NODECL_CXX_DECL
+                || kind == NODECL_CXX_DEF
+                || kind == NODECL_CXX_USING_DECL
+                || kind == NODECL_CXX_USING_NAMESPACE)
         {
-            // These are declarations, ignore them
+            if (kind == NODECL_CXX_DECL
+                    || kind == NODECL_CXX_DEF
+                    || kind == NODECL_OBJECT_INIT)
+            {
+                scope_entry_t* sym = nodecl_get_symbol(nodecl);
+                if (sym->kind == SK_VARIABLE)
+                {
+                    (*num_seen_other_statements)++;
+                    if (symbol_entity_specs_get_is_static(sym)
+                            || symbol_entity_specs_get_is_thread_local(sym)
+                            || !is_literal_type(sym->type_information)
+                            || nodecl_is_null(sym->value))
+                    {
+                        (*num_invalid_initializations)++;
+                    }
+                }
+            }
         }
-        else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
+        else if (kind == NODECL_RETURN_STATEMENT)
         {
             (*num_seen_returns)++;
         }
-        else
+        else if (kind == NODECL_COMPOUND_STATEMENT
+                || kind == NODECL_CONTEXT
+                || kind == NODECL_DEFAULT_STATEMENT
+                || kind == NODECL_DO_STATEMENT)
         {
             (*num_seen_other_statements)++;
+            check_constexpr_function_statement_list(
+                    nodecl_get_child(nodecl, 0),
+                    num_seen_returns,
+                    num_seen_other_statements,
+                    num_asm_definitions,
+                    num_try_blocks,
+                    num_invalid_initializations);
+        }
+        else if (kind == NODECL_WHILE_STATEMENT
+                || kind == NODECL_CASE_STATEMENT
+                || kind == NODECL_SWITCH_STATEMENT)
+        {
+            (*num_seen_other_statements)++;
+            check_constexpr_function_statement_list(
+                    nodecl_get_child(nodecl, 1),
+                    num_seen_returns,
+                    num_seen_other_statements,
+                    num_asm_definitions,
+                    num_try_blocks,
+                    num_invalid_initializations);
+        }
+        else if (kind == NODECL_IF_ELSE_STATEMENT)
+        {
+            (*num_seen_other_statements)++;
+            check_constexpr_function_statement_list(
+                    nodecl_get_child(nodecl, 1),
+                    num_seen_returns,
+                    num_seen_other_statements,
+                    num_asm_definitions,
+                    num_try_blocks,
+                    num_invalid_initializations);
+            check_constexpr_function_statement_list(
+                    nodecl_get_child(nodecl, 2),
+                    num_seen_returns,
+                    num_seen_other_statements,
+                    num_asm_definitions,
+                    num_try_blocks,
+                    num_invalid_initializations);
+        }
+        else if (kind == NODECL_ASM_DEFINITION)
+        {
+            (*num_seen_other_statements)++;
+            (*num_asm_definitions)++;
+        }
+        else if (kind == NODECL_TRY_BLOCK)
+        {
+            (*num_seen_other_statements)++;
+            (*num_try_blocks)++;
+        }
+        else if (kind == NODECL_EXPRESSION_STATEMENT)
+        {
+            (*num_seen_other_statements)++;
+        }
+        else
+        {
+            internal_error("Code unreachable: %s\n", ast_print_node_type(kind));
         }
     }
 }
@@ -15287,25 +15367,74 @@ char check_constexpr_constructor(scope_entry_t* entry,
 
         nodecl_t statement_list = nodecl_get_child(nodecl_body, 0);
 
-        int num_seen_returns = 0;
-        int num_seen_other_statements = 0;
+        int num_seen_other_statements = 0,
+            num_seen_returns = 0,
+            num_asm_definitions = 0,
+            num_try_blocks = 0,
+            num_invalid_initializations = 0;
 
         check_constexpr_function_statement_list(statement_list,
                 &num_seen_returns,
-                &num_seen_other_statements);
+                &num_seen_other_statements,
+                &num_asm_definitions,
+                &num_try_blocks,
+                &num_invalid_initializations);
     
-        if (num_seen_returns != 0
-                || num_seen_other_statements != 0)
+        if (IS_CXX14_LANGUAGE)
         {
-            if (diagnose)
+            if (num_asm_definitions > 0)
             {
-                warn_or_error_printf(
-                        emit_error,
-                        "%s: %s: the body of a constexpr construct must be empty\n",
-                        emit_error ? "error" : "warning",
-                        locus_to_str(locus));
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr function cannot contain asm-blocks\n",
+                            emit_error ? "error" : "warning",
+                            nodecl_locus_to_str(nodecl_body));
+                }
+                return 0;
             }
-            return 0;
+            if (num_try_blocks > 0)
+            {
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr function cannot contain try-blocks\n",
+                            emit_error ? "error" : "warning",
+                            nodecl_locus_to_str(nodecl_body));
+                }
+                return 0;
+            }
+            if (num_invalid_initializations > 0)
+            {
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr function cannot contain a "
+                            "non-initialized variable, thread_local, static or of non-literal type\n",
+                            emit_error ? "error" : "warning",
+                            nodecl_locus_to_str(nodecl_body));
+                }
+                return 0;
+            }
+        }
+        else if (IS_CXX11_LANGUAGE)
+        {
+            if (num_seen_returns != 0
+                    || num_seen_other_statements != 0)
+            {
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr construct must be empty\n",
+                            emit_error ? "error" : "warning",
+                            locus_to_str(locus));
+                }
+                return 0;
+            }
         }
     }
 
@@ -15462,42 +15591,111 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
 
     nodecl_t statement_list = nodecl_get_child(nodecl_body, 0);
 
-    int num_seen_other_statements = 0, num_seen_returns = 0;
+    int num_seen_other_statements = 0,
+        num_seen_returns = 0,
+        num_asm_definitions = 0,
+        num_try_blocks = 0,
+        num_invalid_initializations = 0;
     check_constexpr_function_statement_list(statement_list,
             &num_seen_returns,
-            &num_seen_other_statements);
+            &num_seen_other_statements,
+            &num_asm_definitions,
+            &num_try_blocks,
+            &num_invalid_initializations);
 
-    if (!symbol_entity_specs_get_is_constructor(entry))
+    if (IS_CXX14_LANGUAGE)
     {
-        if (num_seen_other_statements != 0
-                || num_seen_returns != 1)
+        if (!symbol_entity_specs_get_is_constructor(entry))
+        {
+            if (num_seen_returns == 0)
+            {
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr function should contain at least one return-statement\n",
+                            emit_error ? "error" : "warning",
+                            nodecl_locus_to_str(nodecl_body));
+                }
+                return 0;
+            }
+        }
+        if (num_asm_definitions > 0)
         {
             if (diagnose)
             {
                 warn_or_error_printf(
                         emit_error,
-                        "%s: %s: the body of a constexpr function must contain a single return-statement\n",
+                        "%s: %s: the body of a constexpr function cannot contain asm-blocks\n",
+                        emit_error ? "error" : "warning",
+                        nodecl_locus_to_str(nodecl_body));
+            }
+            return 0;
+        }
+        if (num_try_blocks > 0)
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr function cannot contain try-blocks\n",
+                        emit_error ? "error" : "warning",
+                        nodecl_locus_to_str(nodecl_body));
+            }
+            return 0;
+        }
+        if (num_invalid_initializations > 0)
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr function cannot contain a "
+                        "non-initialized variable, thread_local, static or of non-literal type\n",
                         emit_error ? "error" : "warning",
                         nodecl_locus_to_str(nodecl_body));
             }
             return 0;
         }
     }
+    else if (IS_CXX11_LANGUAGE)
+    {
+        if (!symbol_entity_specs_get_is_constructor(entry))
+        {
+            if (num_seen_other_statements != 0
+                    || num_seen_returns != 1)
+            {
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr function must contain a single return-statement\n",
+                            emit_error ? "error" : "warning",
+                            nodecl_locus_to_str(nodecl_body));
+                }
+                return 0;
+            }
+        }
+        else
+        {
+            if (num_seen_other_statements != 0
+                    || num_seen_returns != 0)
+            {
+                if (diagnose)
+                {
+                    warn_or_error_printf(
+                            emit_error,
+                            "%s: %s: the body of a constexpr construction must be empty\n",
+                            emit_error ? "error" : "warning",
+                            nodecl_locus_to_str(nodecl_body));
+                }
+                return 0;
+            }
+        }
+    }
     else
     {
-        if (num_seen_other_statements != 0
-                || num_seen_returns != 0)
-        {
-            if (diagnose)
-            {
-                warn_or_error_printf(
-                        emit_error,
-                        "%s: %s: the body of a constexpr construction must be empty\n",
-                        emit_error ? "error" : "warning",
-                        nodecl_locus_to_str(nodecl_body));
-            }
-            return 0;
-        }
+        internal_error("Code unreachable", 0);
     }
 
     return 1;
