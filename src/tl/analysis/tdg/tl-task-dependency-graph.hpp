@@ -100,24 +100,17 @@ namespace Analysis {
     friend class TDG_Edge;
     friend class TaskDependencyGraph;
     };
-    
-    enum TDGEdgeType {
-        Strict,
-        Static,
-        Maybe,
-        Post
-    };
-    
+
     struct TDG_Edge {
         TDG_Node* _source;
         TDG_Node* _target;
-        TDGEdgeType _type;
+        SyncKind _kind;
         ObjectList<NBase> _source_clauses;
         ObjectList<NBase> _target_clauses;
         NBase _condition;
         
         // *** Constructor *** //
-        TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const NBase& condition);
+        TDG_Edge(TDG_Node* source, TDG_Node* target, SyncKind kind, const NBase& condition);
         
         // *** Getters and setters *** //
         TDG_Node* get_source() const;
@@ -142,6 +135,7 @@ namespace Analysis {
     {
     private:
         // *** Class members *** //
+
         ExtensibleGraph* _pcfg;                         /*!< PCFG corresponding to the graph */
         std::map<unsigned int, TDG_Node*> _tdg_nodes;   /*!< Map of nodes in the TDG */
                                                         // We have a map where the key is the locus of the original statement
@@ -149,15 +143,16 @@ namespace Analysis {
         
         std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> _syms; /*!< Map of symbols appearing in the TDG associated to their identifier */
         PCFG_to_CS _pcfg_to_cs_map;                 /*!< Map of PCFG control structure nodes to their TDG control structure object */
-        
+
         // *** Not allowed construction methods *** //
         TaskDependencyGraph(const TaskDependencyGraph& n);
         TaskDependencyGraph& operator=(const TaskDependencyGraph&);
-        
+
         // *** Private methods *** //
-        void connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
-                               NBase type, const NBase& condition);
-        
+        void connect_tdg_nodes(
+                TDG_Node* parent, TDG_Node* child,
+                SyncKind sync_type, const NBase& condition);
+
         TDG_Node* find_task_from_tdg_nodes_list(Node* task);
         void create_tdg_nodes_from_pcfg(Node* current);
         void set_tdg_nodes_control_structures();

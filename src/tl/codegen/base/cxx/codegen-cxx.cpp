@@ -1314,23 +1314,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     Nodecl::NodeclBase field = node.get_field();
     Nodecl::NodeclBase next = node.get_next();
 
-    if (IS_CXX_LANGUAGE)
+    if (!(field.get_symbol().get_type().is_named_class()
+                && field.get_symbol().get_type().get_symbol().is_anonymous_union()))
     {
-        *(file) << start_inline_comment();
-    }
+        if (IS_CXX_LANGUAGE)
+        {
+            *(file) << start_inline_comment();
+        }
 
-    *(file) << ".";
-    walk(field);
+        *(file) << ".";
+        walk(field);
 
-    if (!next.is<Nodecl::FieldDesignator>()
-            && !next.is<Nodecl::IndexDesignator>())
-    {
-        *(file) << " = ";
-    }
+        if (!next.is<Nodecl::FieldDesignator>()
+                && !next.is<Nodecl::IndexDesignator>())
+        {
+            *(file) << " = ";
+        }
 
-    if (IS_CXX_LANGUAGE)
-    {
-        *(file) << end_inline_comment();
+        if (IS_CXX_LANGUAGE)
+        {
+            *(file) << end_inline_comment();
+        }
     }
 
     walk(next);
@@ -3554,20 +3558,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     Nodecl::NodeclBase ub_expr = node.get_upper();
     Nodecl::NodeclBase step_expr = node.get_stride();
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     Nodecl::NodeclBase parent = node.get_parent();
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    bool enclose_in_square_brackets = (!parent.is<Nodecl::List>()
+            || !parent.get_parent().is<Nodecl::ArraySubscript>());
+
+    // Print the bracket when the range is not within an ArraySubscript (this is used by Analysis)
+    if(enclose_in_square_brackets)
     {
         *(file) << "[";
     }
-    
+
     walk(lb_expr);
     *(file) << ":";
     walk(ub_expr);
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    if(enclose_in_square_brackets)
     {
+        // When we enclose_in_square_brackets we also want to emit the stride,
+        // regardless of it being one
+        *(file) << ":";
+        walk(step_expr);
         *(file) << "]";
     }
     else

@@ -77,11 +77,11 @@ namespace Utils {
             return result;
         }
     };
-    
+
     bool nodecl_is_Z_range(const NBase& n);
 
-    DEPRECATED NBase range_add(const NBase& r1, const NBase& r2);
-    DEPRECATED NBase range_sub(const NBase& r1, const NBase& r2);
+    NBase range_sub(const NBase& r1, const NBase& r2);
+
     NBase range_addition(const NBase& r1, const NBase& r2);
     NBase range_subtraction(const NBase& r1, const NBase& r2);
     NBase range_multiplication(const NBase& r1, const NBase& r2);

@@ -94,14 +94,20 @@ namespace TL
             objlist_nodecl_t _loads;
             Nodecl::VectorLoad _leftmost_vload;
             Nodecl::VectorLoad _rightmost_vload;
+            Nodecl::NodeclBase _loop_ind_var;
+            Nodecl::NodeclBase _loop_ind_var_step;
             TL::Type _basic_type;
             TL::Type _vector_type;
             int _num_registers;
             bool _aligned_strategy;
-            bool _init_cache;
+            bool _inter_it_overlap;
 
+            bool overlaps(const Nodecl::VectorLoad& vector_load);
             Nodecl::List get_init_statements(
-                    const Nodecl::ForStatement& for_stmt) const;
+                    const Nodecl::ForStatement& for_stmt,
+                    const bool is_simd_loop,
+                    const bool is_omp_simd_for,
+                    const bool inter_iteration_overlap) const;
             Nodecl::List get_iteration_update_pre() const;
             Nodecl::List get_iteration_update_post() const;
 
@@ -114,6 +120,8 @@ namespace TL
  
             void compute_num_registers(
                     const Vectorization::VectorizerEnvironment& environment);
+
+            void compute_inter_iteration_overlap();
         };
 
         typedef TL::ObjectList<OverlapGroup> objlist_ogroup_t;
@@ -122,8 +130,12 @@ namespace TL
         {
             private:
                 const VectorizerEnvironment& _environment;
-                Nodecl::List& _init_stmts;
+                bool _is_omp_simd_for;
+                bool _is_epilog;
+                Nodecl::List& _prependix_stmts;
                 
+                VectorizationAnalysisInterface* _first_analysis;
+
                 static VectorizationAnalysisInterface* _analysis;
 
                 void update_alignment_info(
@@ -133,13 +145,13 @@ namespace TL
                 objlist_nodecl_t get_adjacent_vector_loads_not_nested_in_for(
                         const Nodecl::NodeclBase& n,
                         const TL::Symbol& sym);
-                bool overlap(const Nodecl::VectorLoad& vector_load,
-                        objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses,
                         const int min_group_loads,
                         const int max_group_registers,
-                        const int max_groups);
+                        const int max_groups,
+                        const Nodecl::NodeclBase& loop_ind_var,
+                        const Nodecl::NodeclBase& loop_ind_var_step);
 
                 void compute_group_properties(
                         OverlapGroup& ogroup,
@@ -148,7 +160,9 @@ namespace TL
                         const int num_group);
                 void insert_group_update_stmts(
                         OverlapGroup& ogroup,
-                        const Nodecl::ForStatement& n);
+                        const Nodecl::ForStatement& n,
+                        const bool init_cache,
+                        const bool update_post);
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
@@ -161,7 +175,9 @@ namespace TL
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment,
                         VectorizationAnalysisInterface* analysis,
-                        Nodecl::List& init_stmts);
+                        const bool is_omp_simd_for,
+                        const bool is_epilog,
+                        Nodecl::List& prependix_stmts);
                 
                 void visit(const Nodecl::ForStatement&);
 

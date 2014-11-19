@@ -111,18 +111,18 @@ namespace {
             NBase predicate,
             bool is_back_edge)
     {
-        CGEdge* e;
+        CGEdge* e = NULL;
         ObjectList<CGNode*> children = get_children();
-        if(!children.contains(child))
+        if (!children.contains(child))
         {
             e = new CGEdge(this, child, edge_type, predicate, is_back_edge);
             _exits.insert(e); 
         }
         else
         {
-            for(ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
+            for (ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
             {
-                if((*it)->get_target() == child)
+                if ((*it)->get_target() == child)
                 {
                     e = *it;
                     break;

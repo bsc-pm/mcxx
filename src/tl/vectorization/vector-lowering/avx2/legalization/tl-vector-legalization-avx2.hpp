@@ -38,7 +38,6 @@ namespace TL
         class AVX2VectorLegalization : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                const unsigned int _vector_length;
                 std::list<Nodecl::NodeclBase> _old_m512;
 
             public:

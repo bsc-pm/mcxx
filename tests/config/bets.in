@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #constants
-readonly bets_version=0.9.1
+readonly bets_version=0.9.3
 
 #color constants
 
@@ -88,7 +88,7 @@ message ()
 escape_xml ()
 {
     # Got from http://www.daemonforums.org/showthread.php?t=4054
-    cat $1 | sed -e 's~&~\&amp;~g' -e 's~<~\&lt;~g'  -e  's~>~\&gt;~g' 1> $2
+    cat $1 | @SED@ -e 's~&~\&amp;~g' -e 's~<~\&lt;~g'  -e  's~>~\&gt;~g' 1> $2
 }
 
 # action functions
@@ -199,16 +199,20 @@ compile_c ()
    cc=${tmp:-$cc}
    eval tmp=\"\${test_CFLAGS_$version}\"
    cflags="$tmp $cflags"
-   if [ "$test_nolink" ]; then
+   out_param=""
+   eval current_test_nolink=\${test_nolink:-\${test_nolink_$version}}
+   if [ "$current_test_nolink" ]; then
       cflags="-c $cflags"
       ldflags=""
    else
      eval tmp=\"\${test_LDFLAGS_$version}\"
+     out_param="-o $exec"
      ldflags="$tmp $ldflags"
    fi
+   unset current_test_nolink
 
    pushd $tmpdir
-   logcmd $cc $cflags -o $exec $srcdir/$source $ldflags 
+   logcmd $cc $cflags $out_param $srcdir/$source $ldflags 
    local ret=$?
    popd
 
@@ -240,16 +244,20 @@ compile_cpp ()
    cxx=${tmp:-$cxx}
    eval tmp=\"\${test_CXXFLAGS_$version}\"
    cxxflags="$tmp $cxxflags"
-   if [ "$test_nolink" ]; then
+   out_param=""
+   eval current_test_nolink=\${test_nolink:-\${test_nolink_$version}}
+   if [ "$current_test_nolink" ]; then
       cxxflags="-c $cxxflags"
       ldflags=""
    else
      eval tmp=\"\${test_LDFLAGS_$version}\"
+     out_param="-o $exec"
      ldflags="$tmp $ldflags"
    fi
+   unset current_test_nolink
 
    pushd $tmpdir
-   logcmd $cxx $cxxflags -o $exec $srcdir/$source $ldflags 
+   logcmd $cxx $cxxflags $out_param $srcdir/$source $ldflags 
    local ret=$?
    popd
 
@@ -282,16 +290,20 @@ compile_fortran ()
    fc_=${tmp:-$fc_}
    eval tmp=\"\${test_FFLAGS_$version}\"
    fflags="$tmp $fflags"
-   if [ "$test_nolink" ]; then
+   out_param=""
+   eval current_test_nolink=\${test_nolink:-\${test_nolink_$version}}
+   if [ "$current_test_nolink" ]; then
       fflags="-c $fflags"
       ldflags=""
    else
      eval tmp=\"\${test_LDFLAGS_$version}\"
+     out_param="-o $exec"
      ldflags="$tmp $ldflags"
    fi
+   unset current_test_nolink
 
    pushd $tmpdir
-   logcmd $fc_ $fflags $ldflags -o $exec $srcdir/$source 
+   logcmd $fc_ $fflags $ldflags $out_param $srcdir/$source 
    local ret=$?
    popd
 
@@ -390,6 +402,11 @@ execute ()
 
 #variable management functions
 
+merge_common_compile_vars ()
+{
+   eval test_nolink_$1="\${test_nolink_$2:=\$test_nolink_$3}"
+}
+
 merge_c_compile_vars ()
 {
    eval test_CC_$1="\${test_CC_$2:=\$test_CC_$3}"
@@ -413,6 +430,7 @@ merge_cpp_compile_vars ()
 
 merge_exec_vars ()
 {
+   eval test_noexec_$1=\"\${test_noexec_$2} \${test_noexec_$3}\"
    eval test_ENV_$1=\"\${test_ENV_$2} \${test_ENV_$3}\"
    eval test_ARGS_$1=\"\${test_ENV_$2} \${test_ENV_$3}\"
 }
@@ -436,6 +454,11 @@ clean_cpp_compile_vars ()
    unset test_CXX
    unset test_CXXFLAGS
    unset test_LDFLAGS
+}
+
+clean_common_compile_version_vars ()
+{
+    unset test_nolink_$1
 }
 
 clean_c_compile_version_vars ()
@@ -481,10 +504,13 @@ clean_exec_version_vars()
    unset test_exec_faulty_$e
    unset test_exec_fail_${v}_${e}
    unset test_exec_faulty_${v}_${e}
+   unset test_noexec_$e
+   unset test_noexec_${v}_${e}
 }
 
 clean_test_vars ()
 {
+   unset test_generator_ENV
    unset test_generator
    unset test_compile_fail
    unset test_compile_faulty
@@ -551,7 +577,7 @@ run_gen_test ()
        p
    }'
 
-   sed -e "${SED_SCRIPT}" -n $srcdir/$source > $tmpfile
+   @SED@ -e "${SED_SCRIPT}" -n $srcdir/$source > $tmpfile
    source $tmpfile >> $logfile
 
    test_generator=${test_generator:-$TEST_GENERATOR}
@@ -561,6 +587,12 @@ run_gen_test ()
    all_exec_versions=$exec_versions
    compile_versions=
    exec_versions=
+
+   local test_generator_env=:
+   if [ -n "$test_generator_ENV" ];
+   then
+          test_generator_env="declare -x \"\${test_generator_ENV[@]}\"";
+   fi
    
    if [ "$test_max_cpus" ]; then
       export NX_TEST_MAX_CPUS="$test_max_cpus"
@@ -579,7 +611,7 @@ run_gen_test ()
       debug "Using version generator $test_generator"
       export TEST_LANGUAGE=$type
       export TEST_SOURCE=$source
-      $basedir/$test_generator $generator_args > $tmpfile
+      ( eval "$test_generator_env" ; $basedir/$test_generator $generator_args > $tmpfile )
       unset TEST_LANGUAGE
       unset TEST_SOURCE
       source $tmpfile >> $logfile
@@ -591,11 +623,13 @@ run_gen_test ()
                 v="$v1"_"$v2"
                 tmp="$tmp $v" 
 
+                merge_common_compile_vars $v $v1 $v2
                 merge_${type}_compile_vars $v $v1 $v2
                 merge_exec_vars $v $v1 $v2
              done
           done
           for v in $all_compile_versions $compile_versions; do
+             clean_common_compile_version_vars $v
              clean_${type}_compile_version_vars $v
           done
           all_compile_versions=$tmp
@@ -632,8 +666,7 @@ run_gen_test ()
    if [ ! "$all_exec_versions" ]; then
        all_exec_versions="default"
    fi
-   
-   test_noexec=${test_noexec:-$test_nolink}
+
    if [ "$test_ignore" ]; then
       junit_log "<testcase name=\"${name}\"><skipped>Ignored test</skipped></testcase>"
       local test_ignore_message="${YELLOW}ignored${NORMAL}"
@@ -642,7 +675,7 @@ run_gen_test ()
           test_ignore_message="$test_ignore_message (${test_ignore_reason})"
       fi
       filtered_message "Test $name $test_ignore_message"
-   else    
+   else
      for v in $all_compile_versions; do
         filtered_message -n "Compile test $name-$v "
         log "***Start compile test $name-$v"
@@ -653,20 +686,30 @@ run_gen_test ()
         passfail "$name-$v" compile_$type $v $source $name $srcdir
         local ok=$?
 
-        if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
-          log "***End compile test $name-$v"
+        log "***End compile test $name-$v"
+        if [ "$ok" -eq "0" ]; then
           for e in $all_exec_versions; do
-             filtered_message -n "Execute test $name-$v-$e "
-             log "***Start execute test $name-$v-$e"
-             eval test_fail=\${test_exec_fail_${v}_${e}}
-             eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
-             test_fail=${test_fail:-$test_exec_fail}
-             eval test_faulty=\${test_exec_faulty_${v}_${e}}
-             eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
-             test_faulty=${test_faulty:-$test_exec_faulty}
-             eval test_ignore_fail=\${test_ignore_fail}
-             passfail "$name-$v-$e" execute $e $name $v
-             log "***End execute test $name-$v-$e"
+
+             current_test_noexec=${test_noexec:-${test_nolink}}
+             eval current_test_noexec=\${current_test_noexec:-\${test_noexec_$e}}
+             eval current_test_noexec=\${current_test_noexec:-\${test_noexec_${v}_${e}}}
+             eval current_test_noexec=\${current_test_noexec:-\${test_nolink_$v}}
+
+             if [ -z "$current_test_noexec" ]; then
+                 filtered_message -n "Execute test $name-$v-$e "
+                 log "***Start execute test $name-$v-$e"
+                 eval test_fail=\${test_exec_fail_${v}_${e}}
+                 eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
+                 test_fail=${test_fail:-$test_exec_fail}
+                 eval test_faulty=\${test_exec_faulty_${v}_${e}}
+                 eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
+                 test_faulty=${test_faulty:-$test_exec_faulty}
+                 eval test_ignore_fail=\${test_ignore_fail}
+                 passfail "$name-$v-$e" execute $e $name $v
+                 log "***End execute test $name-$v-$e"
+             fi
+
+             unset current_test_noexec
           done
         fi
 

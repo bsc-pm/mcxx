@@ -98,10 +98,12 @@ namespace Analysis {
         std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
         //! Map that relates each task with the previous points in the code 
         //! from where to look for sequential code concurrent with the task
-        std::map<Node*, ObjectList<Node*> > _last_sync;
+        std::map<Node*, ObjectList<Node*> > _last_sync_tasks;
+        std::map<Node*, ObjectList<Node*> > _last_sync_sequential;
         //! Map that relates each task with the posterior points in the code
         //! from where to look for sequential code concurrent with the task
-        std::map<Node*, ObjectList<Node*> > _next_sync;
+        std::map<Node*, ObjectList<Node*> > _next_sync_tasks;
+        std::map<Node*, ObjectList<Node*> > _next_sync_sequential;
         
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
@@ -403,13 +405,20 @@ namespace Analysis {
         // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
         ObjectList<Node*> get_task_concurrent_tasks(Node* task) const;
         void add_concurrent_task_group(Node* task, ObjectList<Node*> concurrent_tasks);
-        ObjectList<Node*> get_task_last_synchronization(Node* task) const;
-        void add_last_synchronization(Node* task, ObjectList<Node*> last_sync);
-        ObjectList<Node*> get_task_next_synchronization(Node* task) const;
-        void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
-        void remove_next_synchronization(Node* task, Node* next_sync);
+
+        ObjectList<Node*> get_task_last_sync_for_tasks(Node* task) const;
+        ObjectList<Node*> get_task_last_sync_for_sequential_code(Node* task) const;
+        void add_last_sync_for_tasks(Node* task, Node* last_sync);
+        void set_last_sync_for_tasks(Node* task, Node* last_sync);
+        void add_last_sync_for_sequential_code(Node* task, Node* last_sync);
+
+        ObjectList<Node*> get_task_next_sync_for_tasks(Node* task) const;
+        ObjectList<Node*> get_task_next_sync_for_sequential_code(Node* task) const;
+        void add_next_sync_for_tasks(Node* task, Node* next_sync);
+        void add_next_sync_for_sequential_code(Node* task, Node* next_sync);
+        void remove_next_sync_for_tasks(Node* task, Node* next_sync);
         void remove_concurrent_task(Node* task, Node* old_concurrent_task);
-        
+
         // *** Consultants *** //
         static Node* is_for_loop_increment(Node* node);
         static bool node_is_in_loop(Node* current);

@@ -1913,7 +1913,11 @@ static nodecl_t simplify_acos(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             cacosf,
             cacos,
+#ifdef HAVE_CACOSL
             cacosl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             cacosq
 #else
@@ -1945,7 +1949,11 @@ static nodecl_t simplify_acosh(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 #endif
             cacoshf,
             cacosh,
+#ifdef HAVE_CACOSHL
             cacoshl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             cacoshq
 #else
@@ -2085,7 +2093,11 @@ static nodecl_t simplify_asin(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             casinf,
             casin,
+#ifdef HAVE_CASINL
             casinl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             casinq
 #else
@@ -2117,7 +2129,11 @@ static nodecl_t simplify_asinh(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 #endif
             casinhf,
             casinh,
+#ifdef HAVE_CASINHL
             casinhl,
+#else
+            NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             casinhq
 #else
@@ -2148,7 +2164,11 @@ static nodecl_t simplify_atan(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             catanf,
             catan,
+#ifdef HAVE_CATANL
             catanl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             catanq
 #else
@@ -2179,7 +2199,11 @@ static nodecl_t simplify_atanh(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 #endif
             catanhf,
             catanh,
+#ifdef HAVE_CATANHL
             catanhl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             catanhq
 #else
@@ -2210,7 +2234,11 @@ static nodecl_t simplify_cos(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 #endif
             ccosf,
             ccos,
+#ifdef HAVE_CCOSL
             ccosl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ccosq
 #else
@@ -2241,7 +2269,11 @@ static nodecl_t simplify_cosh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             ccoshf,
             ccosh,
+#ifdef HAVE_CCOSHL
             ccoshl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ccoshq
 #else
@@ -2272,7 +2304,11 @@ static nodecl_t simplify_sin(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 #endif
             csinf,
             csin,
+#ifdef HAVE_CSINL
             csinl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             csinq
 #else
@@ -2303,7 +2339,11 @@ static nodecl_t simplify_sinh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             csinhf,
             csinh,
+#ifdef HAVE_CSINHL
             csinhl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             csinhq
 #else
@@ -2334,7 +2374,11 @@ static nodecl_t simplify_tan(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 #endif
             ctanf,
             ctan,
+#ifdef HAVE_CTANL
             ctanl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ctanq
 #else
@@ -2365,7 +2409,11 @@ static nodecl_t simplify_tanh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             ctanhf,
             ctanh,
+#ifdef HAVE_CTAHNL
             ctanhl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ctanhq
 #else

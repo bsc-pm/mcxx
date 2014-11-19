@@ -428,11 +428,11 @@ namespace Analysis {
         return false;
     }
     
-    sym_to_nodecl_map get_parameters_to_arguments_map(
+    SymToNodeclMap get_parameters_to_arguments_map(
             const ObjectList<Symbol>& params, 
             const Nodecl::List& args)
     {
-        sym_to_nodecl_map param_to_arg_map;
+        SymToNodeclMap param_to_arg_map;
         int n_iters = std::min(params.size(), args.size());
         if(n_iters > 0)
         {

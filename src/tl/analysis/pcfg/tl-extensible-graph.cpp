@@ -37,7 +37,7 @@ namespace Analysis {
           _nodecl(nodecl), _sc(nodecl.retrieve_context()),
           _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
-          _concurrent_tasks(), _last_sync(), _next_sync(),
+          _concurrent_tasks(), _last_sync_tasks(), _last_sync_sequential(), _next_sync_tasks(), _next_sync_sequential(),
           _cluster_to_entry_map()
     {
 
@@ -158,12 +158,12 @@ namespace Analysis {
             internal_error("Wrong list size while connecting a list of nodes as children of "
                             "other node (children '%d', edge types '%d', edge labels '%d')\n",
                            children.size(), actual_etypes.size(), actual_elabels.size());
-    }
+        }
 
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         ObjectList<Node*>::const_iterator it = children.begin();
-        for(; it != children.end(), itt != actual_etypes.end(), itl != actual_elabels.end();
+        for(; it != children.end() && itt != actual_etypes.end(), itl != actual_elabels.end();
              ++it, ++itt, ++itl)
         {
             connect_nodes(parent, *it, *itt, *itl);
@@ -193,7 +193,7 @@ namespace Analysis {
         ObjectList<Node*>::const_iterator it = parents.begin();
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
-        for(; it != parents.end(), itt != actual_etypes.end(), itl != actual_elabels.end();
+        for(; it != parents.end(), itt != actual_etypes.end() && itl != actual_elabels.end();
              ++it, ++itt, ++itl)
         {
             connect_nodes(*it, child, *itt, *itl, is_task_edge, is_back_edge);
@@ -751,38 +751,38 @@ namespace Analysis {
 
     static void clear_visits_backwards_in_level_rec(Node* n, Node* sc)
     {
-        if (n->is_visited())
-        {
-            n->set_visited(false);
-            if (n->is_graph_node())
-                clear_visits_backwards_in_level_rec(n->get_graph_exit_node(), sc);
+        if (!n->is_visited())
+            return;
 
-            if (n->is_entry_node())
+        n->set_visited(false);
+        if (n->is_graph_node())
+            clear_visits_backwards_in_level_rec(n->get_graph_exit_node(), sc);
+
+        if (n->is_entry_node())
+        {
+            // If the parents of the outer node have still one child that must be clean up
+            // within the scope of the cleaning, then do not keep cleaning this path
+            // because we will still visit the outer from that child
+            bool all_cleaned = true;
+            const ObjectList<Node*>& children = n->get_outer_node()->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             {
-                // If the parents of the outer node have still one child that must be clean up
-                // within the scope of the cleaning, then do not keep cleaning this path
-                // because we will still visit the outer from that child
-                bool all_cleaned = true;
-                const ObjectList<Node*>& children = n->get_outer_node()->get_children();
-                for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-                {
-                    if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
-                        all_cleaned = false;
-                }
-                if (all_cleaned)
-                    n = n->get_outer_node();
-                n->set_visited(false);  // Be sure we do not miss any node
-                                        // in case we clean up from the middle of the graph
+                if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
+                    all_cleaned = false;
             }
-            const ObjectList<Node*>& parents = n->get_parents();
-            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_in_level_rec(*it, sc);
+            if (all_cleaned)
+                n = n->get_outer_node();
+            n->set_visited(false);  // Be sure we do not miss any node
+                                    // in case we clean up from the middle of the graph
         }
+        const ObjectList<Node*>& parents = n->get_parents();
+        for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+            clear_visits_backwards_in_level_rec(*it, sc);
     }
 
     void ExtensibleGraph::clear_visits_backwards_in_level(Node* n, Node* sc)
     {
-        if(n->is_graph_node())
+        if (n->is_graph_node())
         {
             n->set_visited(false);
             const ObjectList<Node*>& parents = n->get_parents();
@@ -797,18 +797,22 @@ namespace Analysis {
 
     void ExtensibleGraph::clear_visits_backwards(Node* n)
     {
-        if (n->is_visited())
-        {
-            n->set_visited(false);
-            
-            if (n->is_graph_node())
-                clear_visits_backwards(n->get_graph_exit_node());
+        if (!n->is_visited())
+            return;
 
-            const ObjectList<Node*>& parents = n->get_parents();
-            for (ObjectList<Node*>::const_iterator it = parents.begin();
-                    it != parents.end(); ++it)
-                clear_visits_backwards(*it);
-        }       
+        n->set_visited(false);
+        if (n->is_graph_node())
+            clear_visits_backwards(n->get_graph_exit_node());
+
+        if (n->is_entry_node())
+        {
+            Node* outer = n->get_outer_node();
+            outer->set_visited(false);
+            n = outer;
+        }
+        const ObjectList<Node*>& parents = n->get_parents();
+        for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+            clear_visits_backwards(*it);
     }
 
     std::string ExtensibleGraph::get_name() const
@@ -951,102 +955,120 @@ namespace Analysis {
     {
         if(_concurrent_tasks.find(task) != _concurrent_tasks.end())
         {
-            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "\
-                             " synchronous tasks of a PCFG. This should never happen so we skip it", 0);
+            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "
+                            "synchronous tasks of a PCFG. This should never happen so we skip it", 0);
             return;
         }
 
         _concurrent_tasks[task] = concurrent_tasks;
     }
     
-    ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization(Node* task) const
+    ObjectList<Node*> ExtensibleGraph::get_task_last_sync_for_tasks(Node* task) const
     {
-        ObjectList<Node*> result;
-        if(!task->is_omp_task_node())
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync_tasks.find(task);
+        if (it != _last_sync_tasks.end())
         {
-            WARNING_MESSAGE("Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0);
+            return it->second;
         }
-        else
-        {
-            std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync.find(task);
-            if(it == _last_sync.end())
-            {
-                WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
-            }
-            else
-            {
-                result = it->second;
-            }
-        }
-        return result;
+
+        WARNING_MESSAGE("Last synchronization points for tasks of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
     }
 
-    void ExtensibleGraph::add_last_synchronization(Node* task, ObjectList<Node*> last_sync)
+    ObjectList<Node*> ExtensibleGraph::get_task_last_sync_for_sequential_code(Node* task) const
     {
-        if(_last_sync.find(task) != _last_sync.end())
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync_sequential.find(task);
+        if (it != _last_sync_sequential.end())
         {
-            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "\
-                             "last synchronization points of a task. This should never happen so we skip it", 0);
-            return;
+            return it->second;
         }
 
-        _last_sync[task] = last_sync;
+        WARNING_MESSAGE("Last synchronization points for sequential code of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
     }
 
-    ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization(Node* task) const
+    void ExtensibleGraph::add_last_sync_for_tasks(Node* task, Node* last_sync)
     {
-        ObjectList<Node*> result;
-        if(!task->is_omp_task_node())
-        {
-            WARNING_MESSAGE("Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0);
-        }
-        else
-        {
-            std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync.find(task);
-            if(it == _next_sync.end())
-            {
-                WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
-            }
-            else
-            {
-                result = it->second;
-            }
-        }
-        return result;
+        _last_sync_tasks[task].append(last_sync);
     }
 
-    void ExtensibleGraph::add_next_synchronization(Node* task, ObjectList<Node*> next_sync)
+    void ExtensibleGraph::set_last_sync_for_tasks(Node* task, Node* last_sync)
     {
-        if(_next_sync.find(task) != _next_sync.end())
-        {
-            WARNING_MESSAGE ("You are trying to insert a task that already exists in the map of "\
-                             "next synchronization points of a task. This should never happen so we skip it", 0);
-            return;
-        }
-        _next_sync[task] = next_sync;
+        _last_sync_tasks[task] = ObjectList<Node*>(1, last_sync);
     }
 
-    void ExtensibleGraph::remove_next_synchronization(Node* task, Node* next_sync)
+    void ExtensibleGraph::add_last_sync_for_sequential_code(Node* task, Node* last_sync)
     {
-        if(_next_sync.find(task) == _next_sync.end())
+        _last_sync_sequential[task].append(last_sync);
+    }
+
+    ObjectList<Node*> ExtensibleGraph::get_task_next_sync_for_tasks(Node* task) const
+    {
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync_tasks.find(task);
+        if (it != _next_sync_tasks.end())
         {
-            WARNING_MESSAGE ("Task %d is not in the map of next synchronizations. "
-                             "We are unable to remove %d from its list of next synchronization points.\n", 
-                             task->get_id(), next_sync->get_id());
+            return it->second;
+        }
+
+        WARNING_MESSAGE("Next synchronization points for tasks of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> ExtensibleGraph::get_task_next_sync_for_sequential_code(Node* task) const
+    {
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync_sequential.find(task);
+        if (it != _next_sync_sequential.end())
+        {
+            return it->second;
+        }
+
+        WARNING_MESSAGE("Next synchronization points for tasks of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
+    }
+
+    void ExtensibleGraph::add_next_sync_for_tasks(Node* task, Node* last_sync)
+    {
+        _next_sync_tasks[task].append(last_sync);
+    }
+
+    void ExtensibleGraph::add_next_sync_for_sequential_code(Node* task, Node* last_sync)
+    {
+        _next_sync_sequential[task].append(last_sync);
+    }
+
+    void ExtensibleGraph::remove_next_sync_for_tasks(Node* task, Node* next_sync)
+    {
+        if (_next_sync_tasks.find(task) == _next_sync_tasks.end())
+        {
+            WARNING_MESSAGE("Task %d is not in the map of next synchronizations. "
+                            "We are unable to remove %d from its list of next synchronization points.\n",
+                            task->get_id(), next_sync->get_id());
             return;
         }
         
-        ObjectList<Node*>& next_syncs = _next_sync[task];
+        ObjectList<Node*>& next_syncs = _next_sync_tasks[task];
         next_syncs = next_syncs.not_find(next_sync);
     }
     
     void ExtensibleGraph::remove_concurrent_task(Node* task, Node* old_concurrent_task)
     {
-        if(_concurrent_tasks.find(task) == _concurrent_tasks.end())
+        if (_concurrent_tasks.find(task) == _concurrent_tasks.end())
         {
-            WARNING_MESSAGE ("Task %d is not in the map of tasks concurrency. "
-                             "We are unable to remove %d from its list of concurrent tasks.\n", 
-                             task->get_id(), old_concurrent_task->get_id());
+            WARNING_MESSAGE("Task %d is not in the map of tasks concurrency. "
+                            "We are unable to remove %d from its list of concurrent tasks.\n",
+                            task->get_id(), old_concurrent_task->get_id());
             return;
         }
 
@@ -1329,25 +1351,24 @@ namespace Analysis {
         ExtensibleGraph::clear_visits_extgraph(current);
         return res;
     }
-    
-    Node* get_enclosing_control_structure_rec(Node* outer_node)
-    {
-        Node* result = NULL;
-        while(outer_node != NULL && result == NULL)
-        {
-            if(outer_node->is_loop_node() || outer_node->is_ifelse_statement() ||
-                outer_node->is_switch_case_node())
-                result = outer_node;
-            outer_node = outer_node->get_outer_node();
-        }
-        return result;
-    }
 
     Node* ExtensibleGraph::get_enclosing_control_structure(Node* node)
     {
-        if(node->is_omp_task_node())
+        if (node->is_omp_task_node())
             node = node->get_parents()[0];
-        return get_enclosing_control_structure_rec(node->get_outer_node());
+
+        Node* outer_node = node->get_outer_node();
+        while (outer_node != NULL)
+        {
+            if (outer_node->is_loop_node()
+                    || outer_node->is_ifelse_statement()
+                    || outer_node->is_switch_case_node())
+            {
+                return outer_node;
+            }
+            outer_node = outer_node->get_outer_node();
+        }
+        return NULL;
     }
     
     Node* ExtensibleGraph::get_task_creation_from_task(Node* task)

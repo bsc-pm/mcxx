@@ -971,13 +971,7 @@ namespace Vectorization
 
         TL::Type basic_type = n.get_type().no_ref();
 
-        const_value_t* const_value = NULL;
-        if (n.is_constant())
-        {
-            std::cerr << "TODO: CONSTANT ARRAYSUBSCRIPT: "
-                << n.prettyprint() << "\n";
-        }
-
+        const_value_t* const_value = n.get_constant();
 
         // Computing new vector type
         TL::Type vector_type = Utils::get_qualified_vector_to(basic_type,

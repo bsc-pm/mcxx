@@ -81,6 +81,7 @@ typedef enum const_value_kind_tag
     CVK_STRING,
     CVK_RANGE,
     CVK_MASK,
+    CVK_UNKNOWN, // something constant but without logical value
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -3716,6 +3717,108 @@ static const_value_kind_t get_common_complex_kind(const_value_t *v1, const_value
         return kind2;
 }
 
+#ifndef HAVE_CPOWF
+#define cpowf fallback_cpowf
+static float complex fallback_cpowf (float complex X, float complex Y)
+{
+	float complex Res;
+	float i;
+	float r = hypot (__real__ X, __imag__ X);
+	if (r == 0.0f)
+	{
+		__real__ Res = __imag__ Res = 0.0;
+	}
+	else
+	{
+		float rho;
+		float theta;
+		i = cargf (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0f)
+			/* This gives slightly more accurate results in these cases. */
+			rho = powf (r, __real__ Y);
+		else
+		{
+			r = logf (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = expf (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cosf (theta);
+		__imag__ Res = rho * sinf (theta);
+	}
+	return Res;
+} 
+#endif
+
+#ifndef HAVE_CPOW
+#define cpow fallback_cpow
+static double complex fallback_cpow (double complex X, double complex Y)
+{
+	double complex Res;
+	double i;
+	double r = hypot (__real__ X, __imag__ X);
+	if (r == 0.0)
+	{
+		__real__ Res = __imag__ Res = 0.0;
+	}
+	else
+	{
+		double rho;
+		double theta;
+		i = carg (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0)
+			/* This gives slightly more accurate results in these cases. */
+			rho = pow (r, __real__ Y);
+		else
+		{
+			r = log (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = exp (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cos (theta);
+		__imag__ Res = rho * sin (theta);
+	}
+	return Res;
+} 
+#endif
+
+#ifndef HAVE_CPOWL
+#define cpowl fallback_cpowl
+static long double complex fallback_cpowl (long double complex X, long double complex Y)
+{
+	long double complex Res;
+	long double i;
+	long double r = hypotl (__real__ X, __imag__ X);
+	if (r == 0.0L)
+	{
+		__real__ Res = __imag__ Res = 0.0L;
+	}
+	else
+	{
+		long double rho;
+		long double theta;
+		i = cargl (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0L)
+			/* This gives slightly more accurate results in these cases. */
+			rho = powl (r, __real__ Y);
+		else
+		{
+			r = logl (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = expl (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cosl (theta);
+		__imag__ Res = rho * sinl (theta);
+	}
+	return Res;
+} 
+#endif
+
 static const_value_t* arith_powz(const_value_t* v1, const_value_t* v2)
 {
     switch (get_common_complex_kind(v1, v2))
@@ -4386,10 +4489,26 @@ const char* const_value_to_str(const_value_t* cval)
                         (unsigned long long)cval->value.i);
                 break;
             }
+        case CVK_UNKNOWN:
+            {
+                return "{unknown}";
+            }
         default:
             internal_error("Unexpected constant kind %d", cval->kind);
             break;
     }
 
     return result;
+}
+
+static const_value_t unknown_value = { .kind = CVK_UNKNOWN };
+
+const_value_t* const_value_get_unknown(void)
+{
+    return &unknown_value;
+}
+
+char const_value_is_unknown(const_value_t* cval)
+{
+    return cval != NULL && cval->kind == CVK_UNKNOWN;
 }

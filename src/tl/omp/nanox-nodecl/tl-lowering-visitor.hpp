@@ -24,6 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_LOWERING_VISITOR_HPP
+#define TL_LOWERING_VISITOR_HPP
+
 #include "tl-nanox-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
@@ -428,3 +431,4 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 };
 
 } }
+#endif // TL_LOWERING_VISITOR_HPP

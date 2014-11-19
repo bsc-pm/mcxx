@@ -268,6 +268,9 @@ namespace OpenMP
             typedef std::map<std::string, ObjectList<Symbol> > implementation_table_t;
 
         private:
+
+            // Note that if you add a new member to this class you may be
+            // interested also in modifying the functions module_{read|write}
             Symbol _target_symbol;
             ObjectList<CopyItem> _copy_in;
             ObjectList<CopyItem> _copy_out;

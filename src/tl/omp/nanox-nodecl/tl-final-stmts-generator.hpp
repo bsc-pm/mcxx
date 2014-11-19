@@ -24,28 +24,27 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_FINAL_STMTS_GENERATOR_HPP
+#define TL_FINAL_STMTS_GENERATOR_HPP
+
 #include <map>
 
 #include "tl-omp-core.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
 
-#ifndef TL_FINAL_STMTS_GENERATOR_HPP
-#define TL_FINAL_STMTS_GENERATOR_HPP
 namespace TL { namespace Nanox {
 
     class FinalStmtsGenerator : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
 
-            RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
-
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
 
             Nodecl::Utils::SimpleSymbolMap _function_translation_map;
 
         public:
-            FinalStmtsGenerator(RefPtr<OpenMP::FunctionTaskSet> function_task_set);
+            FinalStmtsGenerator();
 
             void visit(const Nodecl::OpenMP::Task& task);
             void visit(const Nodecl::OpenMP::TaskCall& task_call);

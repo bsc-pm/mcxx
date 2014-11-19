@@ -27,6 +27,7 @@
 #include "cxx-cexpr.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-typeenviron.h"
+#include "fortran03-exprtype.h"
 
 #include "tl-lowering-visitor.hpp"
 #include "tl-nanox-ptr.hpp"
@@ -124,15 +125,10 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree\n", 0);
 
         Nodecl::NodeclBase arg = actual_argument.as<Nodecl::FortranActualArgument>().get_argument();
-        if (arg.is<Nodecl::Dereference>())
-            arg = arg.as<Nodecl::Dereference>().get_rhs();
-
         ERROR_CONDITION(!arg.is<Nodecl::ArraySubscript>(), "Unreachable code\n", 0);
 
         Nodecl::NodeclBase subscripted = arg.as<Nodecl::ArraySubscript>().get_subscripted();
-        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(), "Unreachable code\n", 0);
-
-        TL::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>().get_symbol();
+        TL::Symbol subscripted_symbol = ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
 
         ERROR_CONDITION(
                 !(subscripted_symbol.get_type().is_fortran_array()
@@ -189,15 +185,7 @@ namespace TL { namespace Nanox {
 
         // Replace the current intrinsic call by a call to the new function
         TL::Source actual_arg_array;
-        if (is_allocatable)
-        {
-            actual_arg_array << as_expression(subscripted);
-        }
-        else
-        {
-            actual_arg_array << as_expression(Nodecl::Dereference::make(
-                        subscripted, subscripted.get_type().no_ref().points_to()));
-        }
+        actual_arg_array << as_expression(subscripted);
 
         TL::Source actual_arg_bounds;
         Nodecl::List subscripts = arg.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
@@ -247,13 +235,7 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree", 0);
 
         Nodecl::NodeclBase arg = actual_argument.as<Nodecl::FortranActualArgument>().get_argument();
-        if (arg.is<Nodecl::Dereference>())
-            arg = arg.as<Nodecl::Dereference>().get_rhs();
-
-        ERROR_CONDITION(!arg.is<Nodecl::Symbol>(),
-                "The argument of 'ompss_opencl_deallocate' intrinsic should be a symbol", 0);
-
-        TL::Symbol array_sym = arg.as<Nodecl::Symbol>().get_symbol();
+        TL::Symbol array_sym = ::fortran_data_ref_get_symbol(arg.get_internal_nodecl());
 
         ERROR_CONDITION(
                 !(array_sym.get_type().is_fortran_array()
@@ -270,7 +252,7 @@ namespace TL { namespace Nanox {
         TL::Source new_function_call;
         new_function_call
             << "CALL NANOS_OPENCL_DEALLOCATE_FORTRAN("
-            <<      ptr_of_arr_sym.get_name() << "(" << array_sym.get_name() << "))\n"
+            <<      ptr_of_arr_sym.get_name() << "("<< as_expression(arg) << "))\n"
             ;
 
         expr_stmt.replace(new_function_call.parse_statement(expr_stmt));

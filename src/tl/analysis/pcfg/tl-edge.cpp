@@ -178,6 +178,30 @@ namespace Analysis {
         set_data(_EDGE_LABEL, label);
     }
 
+    const char* Edge::get_sync_kind_as_string()
+    {
+        SyncKind kind = get_sync_kind();
+        switch(kind)
+        {
+            #undef SYNC_KIND
+            #define SYNC_KIND(X) case __##X : return #X;
+            SYNC_KIND_LIST
+            #undef SYNC_KIND
+            default: WARNING_MESSAGE("Unexpected kind of synchronization edge '%d'", kind);
+        }
+        return "";
+    }
+
+    SyncKind Edge::get_sync_kind()
+    {
+        return get_data<SyncKind>(_SYNC_KIND);
+    }
+
+    void Edge::set_sync_kind(SyncKind kind)
+    {
+        set_data(_SYNC_KIND, kind);
+    }
+
     Nodecl::NodeclBase Edge::get_condition()
     {
         ERROR_CONDITION(!_source->is_omp_task_node()

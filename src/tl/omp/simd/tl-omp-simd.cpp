@@ -351,6 +351,8 @@ namespace TL {
                     
                     _vectorizer.opt_overlapped_accesses(
                             loop_statement, loop_environment,
+                            false, /* simd for */
+                            false, /* epilog */
                             prependix);
 
                     loop_statement.prepend_sibling(prependix);
@@ -443,8 +445,10 @@ namespace TL {
                 if (!loop_environment._overlap_symbols_map.empty())
                 {
                     Nodecl::List prependix;
-                    _vectorizer.opt_overlapped_accesses(
-                            net_epilog_node, loop_environment, prependix);
+                    _vectorizer.opt_overlapped_accesses(net_epilog_node,
+                            loop_environment, false /* simd for */,
+                            true /* epilog */,
+                            prependix);
 
                     ERROR_CONDITION(!prependix.empty(),
                             "Prependix is not empty in the epilogue loop", 0);
@@ -637,6 +641,7 @@ namespace TL {
                 { 
                     _vectorizer.opt_overlapped_accesses(
                             for_statement, for_environment,
+                            true /* simd for */, false /*epilog*/,
                             prependix_list);
                 }
             }
@@ -725,14 +730,15 @@ namespace TL {
                 for_environment.unload_environment();
                 for_environment.load_environment(net_epilog_node);
 
+                Nodecl::List single_stmts_list;
+
                 // Overlap
                 if (!for_environment._overlap_symbols_map.empty())
                 {
-                    Nodecl::List prependix;
-                    _vectorizer.opt_overlapped_accesses(
-                            net_epilog_node, for_environment, prependix);
-                    ERROR_CONDITION(!prependix.empty(),
-                            "Prependix is not empty in the epilogue loop", 0);
+                    _vectorizer.opt_overlapped_accesses(net_epilog_node,
+                            for_environment, true /* simd for */,
+                            true /* epilog */,
+                            single_stmts_list);
                 }
 
                 // 2nd step of transformation on epilog loop
@@ -742,6 +748,8 @@ namespace TL {
                         only_epilog,
                         true /*parallel loop*/);
 
+                single_stmts_list.append(net_epilog_node.shallow_copy());
+
                 for_environment.unload_environment();
 
                 // SINGLE
@@ -749,8 +757,7 @@ namespace TL {
                 // Create single node
                 Nodecl::OpenMP::Single single_epilog =
                     Nodecl::OpenMP::Single::make(single_environment,
-                            Nodecl::List::make(
-                                net_epilog_node.shallow_copy()),
+                            single_stmts_list,
                             net_epilog_node.get_locus());
 
                 net_epilog_node.replace(single_epilog);

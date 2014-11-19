@@ -73,6 +73,9 @@ namespace Utils {
 
     int structurally_cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                                  bool skip_conversion_nodecls = false);
+    bool structurally_less_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
+                                 bool skip_conversion_nodecls = false);
+ 
     struct Nodecl_hash {
         size_t operator() (const Nodecl::NodeclBase& n) const;
     };
@@ -108,10 +111,10 @@ namespace Utils {
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 
-    void append_items_in_outermost_compound_statement(
+    void append_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items);
-    void prepend_items_in_outermost_compound_statement(
+    void prepend_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items);
 

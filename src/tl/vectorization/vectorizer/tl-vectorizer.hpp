@@ -79,6 +79,8 @@ namespace TL
                         VectorizerEnvironment& environment);
                 void opt_overlapped_accesses(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment,
+                        const bool is_simd_for,
+                        const bool is_epilog,
                         Nodecl::List& init_stmts);
 
                 void process_epilog(Nodecl::NodeclBase& loop_statement,

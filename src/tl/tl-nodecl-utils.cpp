@@ -309,70 +309,85 @@ namespace Nodecl
 
     static int cmp_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
-        if(nodecl_get_ast(n1)==nodecl_get_ast(n2))
+        const bool n1_is_null = nodecl_is_null(n1);
+        const bool n2_is_null = nodecl_is_null(n2);
+
+        if((n1_is_null && n2_is_null) || 
+                (nodecl_get_ast(n1) == nodecl_get_ast(n2)))
             return 0;
-        if (nodecl_is_null(n1) == nodecl_is_null(n2))
+
+        if (n1_is_null == n2_is_null)
         {
-            if (!nodecl_is_null(n1))
+            if(skip_conversion_nodes)
             {
-                if(skip_conversion_nodes)
+                if(nodecl_get_kind(n1) == NODECL_CONVERSION)
+                    n1 = nodecl_get_child(n1, 0);
+                if(nodecl_get_kind(n2) == NODECL_CONVERSION)
+                    n2 = nodecl_get_child(n2, 0);
+
+                // Optimization: We assume that inside a NODECL_CONVERSION
+                // there needs to be non-null nodecl
+            }
+
+            const node_t n1_kind = nodecl_get_kind(n1);
+            const node_t n2_kind = nodecl_get_kind(n2);
+                
+            if (n1_kind == n2_kind) // kind
+            {
+                const scope_entry_t * const n1_symbol = nodecl_get_symbol(n1);
+                const scope_entry_t * const n2_symbol = nodecl_get_symbol(n2);
+
+                if  (n1_symbol == n2_symbol) // symbol
                 {
-                    if(nodecl_get_kind(n1) == NODECL_CONVERSION)
-                        return cmp_trees_rec(nodecl_get_child(n1, 0), n2, skip_conversion_nodes);
-                    if(nodecl_get_kind(n2) == NODECL_CONVERSION)
-                        return cmp_trees_rec(n1, nodecl_get_child(n2, 0), skip_conversion_nodes);
-                }
-                if (nodecl_get_kind(n1) == nodecl_get_kind(n2)) // kind
-                {
-                    if  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2)) // symbol
+                    const const_value_t * const n1_constant = nodecl_get_constant(n1);
+                    const const_value_t * const n2_constant = nodecl_get_constant(n2);
+
+                    if (n1_constant == n2_constant) // constant
                     {
-                        if (nodecl_get_constant(n1) == nodecl_get_constant(n2)) // constant
+                        // Everything looks equal in this single node, let's check our children
+                        int equal = 0;
+                        for (int i=0; (equal == 0) && (i < MCXX_MAX_AST_CHILDREN); i++)
                         {
-                            // Everything looks equal in this single node, let's check our children
-                            int equal = 0;
-                            int i = 0;
-                            while ((equal == 0)
-                                && (i < MCXX_MAX_AST_CHILDREN))
-                            {
-                                equal = cmp_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i),
-                                                      skip_conversion_nodes);
-                                i++;
-                            }
-                            return equal;
+                            const nodecl_t n1_child = nodecl_get_child(n1, i);
+                            const nodecl_t n2_child = nodecl_get_child(n2, i);
+
+                            if(nodecl_is_null(n1_child) &&
+                                    nodecl_is_null(n2_child)) // Optimization: Skip recursive call.
+                                continue;
+
+                            equal = cmp_trees_rec(n1_child, n2_child, skip_conversion_nodes);
                         }
-                        else if (nodecl_get_constant(n1) < nodecl_get_constant(n2)) // constant
-                        {
-                            return -1;
-                        }
-                        else // constant
-                        {
-                            return 1;
-                        }
+
+                        return equal;
                     }
-                    else if (nodecl_get_symbol(n1) < nodecl_get_symbol(n2)) // symbol
+                    else if (n1_constant < n2_constant) // constant
                     {
                         return -1;
                     }
-                    else // symbol
+                    else // constant
                     {
                         return 1;
                     }
                 }
-                else if (nodecl_get_kind(n1) < nodecl_get_kind(n2)) // kind
+                else if (n1_symbol < n2_symbol) // symbol
                 {
                     return -1;
                 }
-                else // kind
+                else // symbol
                 {
                     return 1;
                 }
             }
-            else
+            else if (n1_kind < n2_kind) // kind
             {
-                return 0;
+                return -1;
+            }
+            else // kind
+            {
+                return 1;
             }
         }
-        else if (!nodecl_is_null(n1) && nodecl_is_null(n2))
+        else if (!n1_is_null)
         {
             return -1;
         }
@@ -384,7 +399,68 @@ namespace Nodecl
 
     static bool equal_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
-        return (cmp_trees_rec(n1, n2, skip_conversion_nodes) == 0);
+        const bool n1_is_null = nodecl_is_null(n1);
+        const bool n2_is_null = nodecl_is_null(n2);
+
+        if((n1_is_null && n2_is_null) || 
+                (nodecl_get_ast(n1) == nodecl_get_ast(n2)))
+            return true;
+
+        if (n1_is_null == n2_is_null)
+        {
+            if(skip_conversion_nodes)
+            {
+                if(nodecl_get_kind(n1) == NODECL_CONVERSION)
+                    n1 = nodecl_get_child(n1, 0);
+                if(nodecl_get_kind(n2) == NODECL_CONVERSION)
+                    n2 = nodecl_get_child(n2, 0);
+
+                // Optimization: We assume that inside a NODECL_CONVERSION
+                // there needs to be non-null nodecl
+            }
+
+            const node_t n1_kind = nodecl_get_kind(n1);
+            const node_t n2_kind = nodecl_get_kind(n2);
+                
+            if (n1_kind == n2_kind) // kind
+            {
+                const scope_entry_t * const n1_symbol = nodecl_get_symbol(n1);
+                const scope_entry_t * const n2_symbol = nodecl_get_symbol(n2);
+
+                if  (n1_symbol == n2_symbol) // symbol
+                {
+                    const const_value_t * const n1_constant = nodecl_get_constant(n1);
+                    const const_value_t * const n2_constant = nodecl_get_constant(n2);
+
+                    if (n1_constant == n2_constant) // constant
+                    {
+                        bool equal = true;
+                        // Everything looks equal in this single node, let's check our children
+                        for (int i=0; equal && i < MCXX_MAX_AST_CHILDREN; i++)
+                        {
+                            const nodecl_t n1_child = nodecl_get_child(n1, i);
+                            const nodecl_t n2_child = nodecl_get_child(n2, i);
+
+                            const bool n1_child_is_null = nodecl_is_null(n1_child);
+                            const bool n2_child_is_null = nodecl_is_null(n2_child);
+
+                            if(n1_child_is_null && n2_child_is_null) // Optimization: Skip recursive call.
+                                continue;
+
+                            // Different children structure
+                            if(n1_child_is_null != n2_child_is_null)
+                                return false;
+
+                            equal = equal_trees_rec(n1_child, n2_child, skip_conversion_nodes);
+                        }
+
+                        return equal;
+                    }
+                }
+            }
+        }
+        
+        return false;
     }
 
     bool Utils::nodecl_is_arithmetic_op( Nodecl::NodeclBase n )
@@ -667,6 +743,14 @@ namespace Nodecl
         return cmp_trees_rec(n1_, n2_, skip_conversion_nodes);
     }
 
+    bool Utils::structurally_less_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)
+    {
+        nodecl_t n1_ = n1.get_internal_nodecl();
+        nodecl_t n2_ = n2.get_internal_nodecl();
+
+        return cmp_trees_rec(n1_, n2_, skip_conversion_nodes) < 0;
+    }
+
     size_t Utils::Nodecl_hash::operator() (const Nodecl::NodeclBase& n) const
     {
         return nodecl_hash_table(n.get_internal_nodecl());
@@ -679,7 +763,7 @@ namespace Nodecl
 
     bool Utils::Nodecl_structural_less::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
-        return (structurally_cmp_nodecls(n1, n2, /*skip_conversion_nodes*/true) < 0);
+        return structurally_less_nodecls(n1, n2, /*skip_conversion_nodes*/true);
     }
 
     Nodecl::List Utils::get_all_list_from_list_node(Nodecl::List n)
@@ -927,7 +1011,7 @@ namespace Nodecl
         }
     }
 
-    void Nodecl::Utils::prepend_items_in_outermost_compound_statement(
+    void Nodecl::Utils::prepend_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -943,7 +1027,7 @@ namespace Nodecl
         stmts_list.prepend(items);
     }
 
-    void Nodecl::Utils::append_items_in_outermost_compound_statement(
+    void Nodecl::Utils::append_items_in_nesting_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -1373,32 +1457,33 @@ namespace Nodecl
 
         TL::ObjectList<Nodecl::NodeclBase> sizes;
 
-        if (num_dimensions > 1)
+        // If already linearized, return
+        if (num_dimensions == 1)
+            return n.shallow_copy().as<Nodecl::ArraySubscript>();
+
+        TL::Type subscripted_type = n.get_subscripted().get_type();
+
+        for(i=0; i<num_dimensions; i++)
         {
-            TL::Type subscripted_type = n.get_subscripted().get_type();
-
-            for(i=0; i<num_dimensions; i++)
+            if(subscripted_type.is_pointer() && (i == 0))
             {
-                if(subscripted_type.is_pointer() && (i == 0))
+                // Put a NULL
+                sizes.append(Nodecl::NodeclBase::null());
+                subscripted_type = subscripted_type.points_to();
+            }
+            else if (subscripted_type.is_array())
+            {
+                if (!subscripted_type.array_has_size())
                 {
-                    // Put a NULL
-                    sizes.append(Nodecl::NodeclBase::null());
-                    subscripted_type = subscripted_type.points_to();
+                    internal_error("Linearize_array_subscript: it does not have size", 0);
                 }
-                else if (subscripted_type.is_array())
-                {
-                    if (!subscripted_type.array_has_size())
-                    {
-                        internal_error("Linearize_array_subscript: it does not have size", 0);
-                    }
 
-                    sizes.append(subscripted_type.array_get_size());
-                    subscripted_type = subscripted_type.array_element();
-                }
-                else
-                {
-                    internal_error("Linearize_array_subscript: it is not array type or pointer", 0);
-                }
+                sizes.append(subscripted_type.array_get_size());
+                subscripted_type = subscripted_type.array_element();
+            }
+            else
+            {
+                internal_error("Linearize_array_subscript: it is not array type or pointer", 0);
             }
         }
 
@@ -1449,24 +1534,21 @@ namespace Nodecl
         Nodecl::NodeclBase new_subscripted = n.get_subscripted().shallow_copy();
 
         // Dereferencing subscripted for num_dimensions > 1
-        TL::Type deref_type = new_subscripted.get_type().basic_type();
+        TL::Type deref_type = new_subscripted.get_type().basic_type().
+            get_pointer_to();
 
-        if (num_dimensions > 1)
-        {
-            TL::Type deref_type = new_subscripted.get_type().basic_type().
-                get_pointer_to();
-
-            new_subscripted = Nodecl::Cast::make(
-                    new_subscripted.shallow_copy(),
-                    deref_type,
-                    "C");
-        }
+        new_subscripted = Nodecl::Cast::make(
+                new_subscripted.shallow_copy(),
+                deref_type,
+                "C");
 
         Nodecl::ArraySubscript result_array =
             ArraySubscript::make(new_subscripted.shallow_copy(),
                     Nodecl::List::make(new_linearized_subscript.shallow_copy()),
                     n.get_type(),
                     n.get_locus());
+
+        result_array.set_constant(n.get_constant());
 
         return result_array;
     }

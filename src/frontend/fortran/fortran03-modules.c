@@ -416,7 +416,7 @@ static void load_storage(sqlite3** handle, const char* filename)
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
-enum { CURRENT_MODULE_VERSION = 12 };
+enum { CURRENT_MODULE_VERSION = 13 };
 
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
@@ -1609,12 +1609,20 @@ static int get_extra_gcc_attrs(void *datum,
     return 0;
 }
 
-static int get_extra_function_parameter_info(void *datum, 
+typedef
+struct extra_function_parameter_info_tag
+{
+    sqlite3* handle;
+    function_parameter_info_t *pf;
+} extra_function_parameter_info_t;
+
+static int get_extra_function_parameter_info_only(
+        void *datum, 
         int ncols UNUSED_PARAMETER,
         char **values, 
         char **names UNUSED_PARAMETER)
 {
-    extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
+    extra_function_parameter_info_t* p = (extra_function_parameter_info_t*)datum;
 
     char *attr_value = xstrdup(values[0]);
 
@@ -1633,16 +1641,29 @@ static int get_extra_function_parameter_info(void *datum,
 
     scope_entry_t* function_symbol = load_symbol(p->handle, function_id);
 
-    function_parameter_info_t parameter_info;
-    parameter_info.function = function_symbol;
-    parameter_info.nesting = 0;
-    parameter_info.position = position;
-
-    symbol_entity_specs_add_function_parameter_info(p->symbol,
-            parameter_info);
+    p->pf->function = function_symbol;
+    p->pf->nesting = 0;
+    p->pf->position = position;
 
     xfree(attr_value);
 
+    return 0;
+}
+
+static int get_extra_function_parameter_info(void *datum, 
+        int ncols,
+        char **values, 
+        char **names)
+{
+    function_parameter_info_t parameter_info;
+    memset(&parameter_info, 0, sizeof(parameter_info));
+
+    extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
+    extra_function_parameter_info_t ef = { p->handle, &parameter_info };
+
+    get_extra_function_parameter_info_only(&ef, ncols, values, names);
+
+    symbol_entity_specs_add_function_parameter_info(p->symbol, parameter_info);
     return 0;
 }
 
@@ -2022,12 +2043,12 @@ static int get_symbol(void *datum,
             (*result) = module_symbol;
             insert_map_ptr(handle, oid, (*result));
 
-            // If this is not the module being loaded, use the cached symbol
-            // otherwise, load it now
             if (oid != module_oid_being_loaded)
             {
+                // If this is not the module being loaded, use the cached symbol
                 return 0;
             }
+            // otherwise continue loading it
         }
         else
         {
@@ -2081,6 +2102,33 @@ static int get_symbol(void *datum,
             // fprintf(stderr, "SYMBOL %lld '%s.%s' IS NOT ALREADY LOADED IN ITS MODULE\n", 
             //         oid,
             //         in_module->symbol_name, name);
+        }
+    }
+
+    {
+        function_parameter_info_t function_parameter_info;
+        memset(&function_parameter_info, 0, sizeof(function_parameter_info));
+
+        extra_function_parameter_info_t ef = { handle, &function_parameter_info };
+        get_extended_attribute(handle, oid, "function_parameter_info",
+                &ef, get_extra_function_parameter_info_only);
+        if (function_parameter_info.function != NULL
+                && symbol_entity_specs_get_in_module(function_parameter_info.function))
+        {
+            // If this is a dummy argument, reuse the existing symbol if any
+            if (function_parameter_info.position < symbol_entity_specs_get_num_related_symbols(
+                        function_parameter_info.function))
+            {
+                scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(
+                        function_parameter_info.function,
+                        function_parameter_info.position);
+
+                ERROR_CONDITION(param == NULL, "This cannot be NULL", 0);
+
+                (*result) = param;
+                insert_map_ptr(handle, oid, *result);
+                return 0;
+            }
         }
     }
 
@@ -2174,8 +2222,7 @@ static int get_symbol(void *datum,
             //         in_module->symbol_name,
             //         (*result)->symbol_name);
 
-            symbol_entity_specs_add_related_symbols(in_module,
-                    *result);
+            symbol_entity_specs_add_related_symbols(in_module, *result);
         }
     }
 

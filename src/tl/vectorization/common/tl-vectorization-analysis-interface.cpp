@@ -543,7 +543,12 @@ namespace Vectorization
 
         if (lower_bounds.size() != 1)
             return Nodecl::NodeclBase::null();
-#warning
+
+        VECTORIZATION_DEBUG()
+        {
+            std::cerr << "Warning: Ticket 2195" << std::endl;
+        }
+
         //ERROR_CONDITION(lower_bounds.size() != 1,
         //                "Induction variable '%s' has %d lower bounds. "
         //                "Only 1 lower bound supported.\n",

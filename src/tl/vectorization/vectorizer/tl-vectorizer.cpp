@@ -40,6 +40,7 @@
 #include "tl-spml-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
+#include "tl-vectorization-utils.hpp"
 
 #include "tl-vectorizer-report.hpp"
 
@@ -95,7 +96,7 @@ namespace Vectorization
                     target_type_heuristic.get_target_type(n));
         }
 
-        VectorizerVisitorPreprocessor vectorizer_preproc(environment);
+        VectorizerVisitorPreprocessor vectorizer_preproc;//environment);
         vectorizer_preproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
@@ -202,6 +203,8 @@ namespace Vectorization
 
     void Vectorizer::opt_overlapped_accesses(Nodecl::NodeclBase& statements,
             VectorizerEnvironment& environment,
+            const bool is_simd_for,
+            const bool is_epilog,
             Nodecl::List& init_stmts)
     {
         VECTORIZATION_DEBUG()
@@ -210,7 +213,8 @@ namespace Vectorization
         }
 
         OverlappedAccessesOptimizer overlap_visitor(environment,
-                Vectorizer::_vectorizer_analysis, init_stmts);
+                Vectorizer::_vectorizer_analysis, is_simd_for,
+                is_epilog, init_stmts);
         overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()
@@ -237,6 +241,10 @@ namespace Vectorization
         VectorizerVisitorLoopEpilog visitor_epilog(environment,
                 epilog_iterations, only_epilog, is_parallel_loop);
         visitor_epilog.visit(loop_statement, net_epilog_node);
+
+        // Remove prefetch instrucitons from epilog
+        Vectorization::Utils::RemovePrefetchIntrinsics remove_prefetch;
+        remove_prefetch.walk(loop_statement);
 
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(loop_statement, _fast_math_enabled);

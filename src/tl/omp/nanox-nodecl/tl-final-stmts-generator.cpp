@@ -114,19 +114,19 @@ namespace TL { namespace Nanox {
         class FinalStatementsGenerator : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
+                Nodecl::NodeclBase _enclosing_function_code;
                 Nodecl::Utils::SimpleSymbolMap& _function_translation_map;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
                 const TL::ObjectList<Nodecl::NodeclBase>& _function_codes_to_be_duplicated;
 
             public:
 
                 FinalStatementsGenerator(
+                        Nodecl::NodeclBase enclosing_function_code,
                         Nodecl::Utils::SimpleSymbolMap& function_tranlation_map,
-                        RefPtr<OpenMP::FunctionTaskSet>& function_task_set,
                         const TL::ObjectList<Nodecl::NodeclBase>& function_codes_to_be_duplicated)
                     :
+                        _enclosing_function_code(enclosing_function_code),
                         _function_translation_map(function_tranlation_map),
-                        _function_task_set(function_task_set),
                         _function_codes_to_be_duplicated(function_codes_to_be_duplicated) { }
 
                 void visit(const Nodecl::OpenMP::TaskwaitShallow& taskwait)
@@ -166,14 +166,19 @@ namespace TL { namespace Nanox {
                     {
                         const std::map<TL::Symbol, TL::Symbol>* map =
                             _function_translation_map.get_simple_symbol_map();
-                        if (_function_codes_to_be_duplicated.contains(function_code))
-                        {
-                            ERROR_CONDITION(map->find(called_sym) != map->end(), "This should not happen\n", 0);
 
+                        bool has_been_duplicated = map->find(called_sym) != map->end();
+
+                        if (// If the current function code has to be duplicated
+                            _function_codes_to_be_duplicated.contains(function_code)
+                                // And it has not been duplicated before
+                                && !has_been_duplicated)
+                        {
                             TL::Symbol new_function_sym = SymbolUtils::new_function_symbol_for_deep_copy(
                                     called_sym,
                                     called_sym.get_name() + "_mcc_serial");
 
+                            has_been_duplicated = true;
                             _function_translation_map.add_map(called_sym, new_function_sym);
 
                             Nodecl::NodeclBase new_function_code = Nodecl::Utils::deep_copy(
@@ -191,11 +196,27 @@ namespace TL { namespace Nanox {
                                         /* is_definition */ 1);
                             }
 
+                            // Prepend a declaration of the new function symbol to the enclosing function code
+                            CXX_LANGUAGE()
+                            {
+                                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                                        /* optative context */ nodecl_null(),
+                                        new_function_sym,
+                                        function_call.get_locus());
+
+                                Nodecl::Utils::prepend_items_before(_enclosing_function_code, nodecl_decl);
+                            }
+
+                            // Prepend the new function code to the tree
                             Nodecl::Utils::prepend_items_before(function_code, new_function_code);
+
+                            Nodecl::NodeclBase old_enclosing_funct_code = _enclosing_function_code;
+                            _enclosing_function_code = new_function_code;
                             walk(new_function_code);
+                            _enclosing_function_code = old_enclosing_funct_code;
                         }
 
-                        if (map->find(called_sym) != map->end())
+                        if (has_been_duplicated)
                         {
                             Nodecl::NodeclBase new_function_call = Nodecl::Utils::deep_copy(
                                     function_call,
@@ -213,9 +234,12 @@ namespace TL { namespace Nanox {
         FinalStatementsPreVisitor pre_visitor(_function_translation_map);
         pre_visitor.walk(new_stmts);
 
+        TL::Symbol enclosing_funct_sym = Nodecl::Utils::get_enclosing_function(stmts);
+        Nodecl::NodeclBase enclosing_funct_code = enclosing_funct_sym.get_function_code();
+
         FinalStatementsGenerator generator(
+                enclosing_funct_code,
                 _function_translation_map,
-                _function_task_set,
                 pre_visitor.get_function_codes_to_be_duplicated());
 
         generator.walk(new_stmts);
@@ -224,9 +248,8 @@ namespace TL { namespace Nanox {
     }
 
 
-    FinalStmtsGenerator::FinalStmtsGenerator(RefPtr<OpenMP::FunctionTaskSet> function_task_set)
-        : _function_task_set(function_task_set),
-          _final_stmts_map(),
+    FinalStmtsGenerator::FinalStmtsGenerator()
+        : _final_stmts_map(),
           _function_translation_map() { }
 
     void FinalStmtsGenerator::visit(const Nodecl::OpenMP::Task& task)
