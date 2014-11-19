@@ -16038,11 +16038,13 @@ scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_contex
     return mercurium_pretty_function;
 }
 
-static void emit_mercurium_pretty_function(nodecl_t* body_nodecl, scope_entry_t* mercurium_pretty_function)
+static void emit_mercurium_pretty_function(nodecl_t body_nodecl, scope_entry_t* mercurium_pretty_function)
 {
+    ERROR_CONDITION(nodecl_get_kind(body_nodecl) != NODECL_COMPOUND_STATEMENT, "Invalid node", 0);
+
     // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
     if (mercurium_pretty_function != NULL
-            && mercurium_pretty_function_has_been_used(mercurium_pretty_function, *body_nodecl))
+            && mercurium_pretty_function_has_been_used(mercurium_pretty_function, body_nodecl))
     {
         nodecl_t emit_mercurium_pretty_function_tree = nodecl_null();
         CXX_LANGUAGE()
@@ -16059,8 +16061,56 @@ static void emit_mercurium_pretty_function(nodecl_t* body_nodecl, scope_entry_t*
                 nodecl_make_object_init(mercurium_pretty_function,
                     mercurium_pretty_function->locus));
 
-        *body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function_tree, *body_nodecl);
+        nodecl_t statements_list = nodecl_get_child(body_nodecl, 0);
+        statements_list = nodecl_concat_lists(emit_mercurium_pretty_function_tree, statements_list);
+        nodecl_set_child(body_nodecl, 0, statements_list);
     }
+}
+
+static nodecl_t generate_compound_statement_for_try_block(
+        nodecl_t body_nodecl,
+        scope_entry_t* entry)
+{
+    if (symbol_entity_specs_get_is_constructor(entry)
+            || symbol_entity_specs_get_is_destructor(entry))
+    {
+        // Emit a rethrow inside every handler
+        nodecl_t try_block = nodecl_list_head(body_nodecl);
+        nodecl_t catch_handler_list = nodecl_get_child(try_block, 1);
+
+        int n;
+        nodecl_t* list = nodecl_unpack_list(catch_handler_list, &n);
+
+        int i;
+        for (i = 0; i < n; i++)
+        {
+            nodecl_t context_of_catch_handler = list[i];
+            nodecl_t catch_handler = nodecl_list_head(nodecl_get_child(context_of_catch_handler, 0));
+            nodecl_t context_of_compound = nodecl_list_head(nodecl_get_child(catch_handler, 1));
+            nodecl_t compound_statement = nodecl_list_head(nodecl_get_child(context_of_compound, 0));
+
+            nodecl_t statement_list = nodecl_get_child(compound_statement, 0);
+
+            nodecl_t rethrow_stmt =
+                nodecl_make_expression_statement(
+                        nodecl_make_throw(nodecl_null(),
+                            get_throw_expr_type(),
+                            nodecl_get_locus(body_nodecl)),
+                        nodecl_get_locus(body_nodecl));
+
+            statement_list = nodecl_append_to_list(statement_list, rethrow_stmt);
+            nodecl_set_child(compound_statement, 0, statement_list);
+        }
+
+        xfree(list);
+    }
+
+    nodecl_t result =
+        nodecl_make_compound_statement(body_nodecl,
+                nodecl_null(),
+                nodecl_get_locus(body_nodecl));
+
+    return result;
 }
 
 static void build_scope_function_definition_body(
@@ -16242,10 +16292,11 @@ static void build_scope_function_definition_body(
     }
     else if (ASTType(statement) == AST_TRY_BLOCK)
     {
-        // FIXME - Wrap this inside a big compound statement
-        // This only can be a try-except, but a normal context is created
-        // for this one
         build_scope_statement(statement, block_context, &body_nodecl);
+
+        body_nodecl = generate_compound_statement_for_try_block(
+                body_nodecl,
+                entry);
     }
     else
     {
@@ -16304,7 +16355,7 @@ static void build_scope_function_definition_body(
         }
     }
 
-    emit_mercurium_pretty_function(&body_nodecl, mercurium_pretty_function);
+    emit_mercurium_pretty_function(body_nodecl, mercurium_pretty_function);
 
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
 
@@ -21186,9 +21237,7 @@ static void instantiate_template_function_code(
     {
         // Emit __MERCURIUM_PRETTY_FUNCTION__
         nodecl_t new_compound_stmt = nodecl_list_head(new_nodecl_stmt_list);
-        nodecl_t new_list_of_stmts = nodecl_get_child(new_compound_stmt, 0);
-        emit_mercurium_pretty_function(&new_list_of_stmts, mercurium_pretty_function);
-        nodecl_set_child(new_compound_stmt, 0, new_list_of_stmts);
+        emit_mercurium_pretty_function(new_compound_stmt, mercurium_pretty_function);
     }
 
     nodecl_t instantiated_nodecl_initializers = instantiate_stmt_walk(v, nodecl_initializers);
