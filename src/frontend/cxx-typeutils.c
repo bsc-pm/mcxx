@@ -263,8 +263,6 @@ struct simple_type_tag {
 
     // States that this STK_TYPEOF is a decltype and not a __typeof__
     _Bool is_decltype:1;
-    // States that this STK_TYPEOF cannot yield a reference
-    _Bool is_removed_reference:1;
 
     // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
     floating_type_info_t* floating_info;
@@ -1181,8 +1179,7 @@ extern inline type_t* get_void_type(void)
 }
 
 extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context,
-        char is_decltype,
-        char is_removed_reference)
+        char is_decltype)
 {
     type_t* type = get_simple_type();
 
@@ -1191,7 +1188,6 @@ extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_
     type->type->typeof_decl_context = decl_context;
 
     type->type->is_decltype = is_decltype;
-    type->type->is_removed_reference = is_removed_reference;
 
     // We always return a dependent type
     type->info->is_dependent = 1;
@@ -1222,15 +1218,6 @@ extern inline decl_context_t typeof_expr_type_get_expression_context(type_t* t)
     t = advance_over_typedefs(t);
 
     return t->type->typeof_decl_context;
-}
-
-extern inline char typeof_expr_type_is_removed_reference(type_t* t)
-{
-    ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
-
-    t = advance_over_typedefs(t);
-
-    return t->type->is_removed_reference;
 }
 
 extern inline char typeof_expr_type_is_decltype(type_t* t)
@@ -15596,7 +15583,7 @@ extern inline type_t* get_auto_type(void)
         _auto = new_empty_type();
         _auto->kind = TK_AUTO;
         _auto->unqualified_type = _auto;
-        _auto->info->is_dependent = 1;
+        _auto->info->is_dependent = 0;
     }
 
     return _auto;
@@ -15624,7 +15611,7 @@ extern inline type_t* get_decltype_auto_type(void)
         _decltype_auto = new_empty_type();
         _decltype_auto->kind = TK_DECLTYPE_AUTO;
         _decltype_auto->unqualified_type = _decltype_auto;
-        _decltype_auto->info->is_dependent = 1;
+        _decltype_auto->info->is_dependent = 0;
     }
 
     return _decltype_auto;
@@ -15636,6 +15623,40 @@ extern inline char is_auto_type(type_t* t)
 
     return t != NULL
         && t->kind == TK_AUTO;
+}
+
+extern inline char type_contains_auto(type_t* t)
+{
+    if (is_auto_type(t))
+    {
+        return 1;
+    }
+    else if (is_pointer_type(t))
+    {
+        return type_contains_auto(pointer_type_get_pointee_type(t));
+    }
+    else if (is_lvalue_reference_type(t)
+            || is_rvalue_reference_type(t))
+    {
+        return type_contains_auto(reference_type_get_referenced_type(t));
+    }
+    else if (is_array_type(t))
+    {
+        return type_contains_auto(array_type_get_element_type(t));
+    }
+    else if (is_function_type(t))
+    {
+        return type_contains_auto(function_type_get_return_type(t));
+
+    }
+    else if (is_vector_type(t))
+    {
+        return type_contains_auto(vector_type_get_element_type(t));
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 extern inline char is_decltype_auto_type(type_t* t)

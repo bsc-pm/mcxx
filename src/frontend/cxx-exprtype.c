@@ -629,6 +629,84 @@ char check_expression_non_executable_must_be_constant(AST a, decl_context_t decl
     return output;
 }
 
+nodecl_t cxx_nodecl_wrap_in_parentheses(nodecl_t n)
+{
+    nodecl_t result = nodecl_make_parenthesized_expression(
+            n,
+            nodecl_get_type(n),
+            nodecl_get_locus(n));
+
+    nodecl_set_constant(result, nodecl_get_constant(n));
+    nodecl_expr_set_is_type_dependent(result, nodecl_expr_is_type_dependent(n));
+    nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(n));
+
+    return result;
+}
+
+static char check_list_of_expressions_aux(AST expression_list,
+        decl_context_t decl_context,
+        char preserve_top_level_parentheses,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_null();
+    if (expression_list == NULL)
+    {
+        // An empty list is OK
+        return 1;
+    }
+
+    if (ASTType(expression_list) == AST_AMBIGUITY)
+    {
+        return solve_ambiguous_list_of_expressions(expression_list, decl_context, nodecl_output);
+    }
+    else
+    {
+        // Check the beginning of the list
+        nodecl_t nodecl_prev_list = nodecl_null();
+        check_list_of_expressions(ASTSon0(expression_list), decl_context, &nodecl_prev_list);
+
+        if (!nodecl_is_null(nodecl_prev_list)
+                && nodecl_is_err_expr(nodecl_prev_list))
+        {
+            *nodecl_output = nodecl_prev_list;
+            return 0;
+        }
+
+        nodecl_t nodecl_current = nodecl_null();
+        check_expression_impl_(ASTSon1(expression_list), decl_context, &nodecl_current);
+
+        if (nodecl_is_err_expr(nodecl_current))
+        {
+            *nodecl_output = nodecl_current;
+            return 0;
+        }
+
+        if (preserve_top_level_parentheses
+                && ast_get_type(ASTSon1(expression_list)) == AST_PARENTHESIZED_EXPRESSION)
+        {
+            nodecl_current = cxx_nodecl_wrap_in_parentheses(nodecl_current);
+        }
+
+        *nodecl_output = nodecl_append_to_list(nodecl_prev_list, nodecl_current);
+
+        return 1;
+    }
+
+    internal_error("Code unreachable", 0);
+}
+
+// Note that a list of expressions is NOT an expression
+char check_list_of_expressions(AST expression_list,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    return check_list_of_expressions_aux(expression_list,
+            decl_context,
+            /* preserve_top_level_parentheses */ 0,
+            nodecl_output);
+}
+
+
 void ensure_function_is_emitted(scope_entry_t* entry,
         decl_context_t decl_context,
         const locus_t* locus)
@@ -690,16 +768,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 if (CURRENT_CONFIGURATION->preserve_parentheses
                         && !nodecl_is_err_expr(*nodecl_output))
                 {
-                    nodecl_t nodecl_inner = *nodecl_output;
-                    *nodecl_output = nodecl_make_parenthesized_expression(
-                            nodecl_inner,
-                            nodecl_get_type(nodecl_inner),
-                            ast_get_locus(expression));
-
-                    // Make sure we propagate everything
-                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_inner));
-                    nodecl_expr_set_is_type_dependent(*nodecl_output, nodecl_expr_is_type_dependent(nodecl_inner));
-                    nodecl_expr_set_is_value_dependent(*nodecl_output, nodecl_expr_is_value_dependent(nodecl_inner));
+                    *nodecl_output = cxx_nodecl_wrap_in_parentheses(*nodecl_output);
                 }
                 break;
             }
@@ -9656,7 +9725,9 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
     {
-        compute_nodecl_initialization(new_initializer, decl_context, &nodecl_initializer);
+        compute_nodecl_initialization(new_initializer, decl_context,
+                /* preserve_top_level_parentheses */ gather_info.is_decltype_auto,
+                &nodecl_initializer);
     }
     else
     {
@@ -10961,7 +11032,9 @@ static void check_explicit_type_conversion_common(type_t* type_info,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_explicit_initializer = nodecl_null();
-    compute_nodecl_initialization(explicit_initializer, decl_context, &nodecl_explicit_initializer);
+    compute_nodecl_initialization(explicit_initializer, decl_context,
+            /* preserve_top_level_parentheses */ 0,
+            &nodecl_explicit_initializer);
 
     check_nodecl_explicit_type_conversion(type_info, nodecl_explicit_initializer, decl_context,
             nodecl_output, ast_get_locus(expr));
@@ -18062,7 +18135,10 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
     }
 }
 
-static void compute_nodecl_initializer_clause(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_initializer_clause(AST initializer,
+        decl_context_t decl_context,
+        char preserve_top_level_parentheses,
+        nodecl_t* nodecl_output)
 {
     switch (ASTType(initializer))
     {
@@ -18073,6 +18149,13 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
 
                 if (nodecl_is_err_expr(*nodecl_output))
                     return;
+
+                // We use this for decltype(auto)
+                if (preserve_top_level_parentheses
+                        && ASTType(initializer) == AST_PARENTHESIZED_EXPRESSION)
+                {
+                    *nodecl_output = cxx_nodecl_wrap_in_parentheses(*nodecl_output);
+                }
 
                 char is_type_dependent = nodecl_expr_is_type_dependent(*nodecl_output);
                 char is_value_dependent = nodecl_expr_is_value_dependent(*nodecl_output);
@@ -18107,10 +18190,17 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
     }
 }
 
-void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
+void check_initializer_clause(AST initializer,
+        decl_context_t decl_context,
+        type_t* declared_type,
+        char is_decltype_auto,
+        nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_init = nodecl_null();
-    compute_nodecl_initializer_clause(initializer, decl_context, &nodecl_init);
+    compute_nodecl_initializer_clause(initializer,
+            decl_context,
+            is_decltype_auto,
+            &nodecl_init);
     check_nodecl_initializer_clause(nodecl_init, decl_context, declared_type,
             /* disallow_narrowing */ 0,
             nodecl_output);
@@ -18436,11 +18526,17 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context,
 }
 
 
-static void compute_nodecl_equal_initializer(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_equal_initializer(AST initializer,
+        decl_context_t decl_context,
+        char preserve_top_level_parentheses,
+        nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(initializer);
 
-    compute_nodecl_initializer_clause(expr, decl_context, nodecl_output);
+    compute_nodecl_initializer_clause(expr,
+            decl_context,
+            preserve_top_level_parentheses,
+            nodecl_output);
 
     if (!nodecl_is_err_expr(*nodecl_output))
     {
@@ -18452,7 +18548,6 @@ static void compute_nodecl_equal_initializer(AST initializer, decl_context_t dec
                 t, ast_get_locus(initializer));
         nodecl_expr_set_is_type_dependent(*nodecl_output, is_type_dependent);
         nodecl_expr_set_is_value_dependent(*nodecl_output, is_value_dependent);
-
     }
 }
 
@@ -18482,7 +18577,9 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
             AST initializer_clause = ASTSon1(it);
 
             nodecl_t nodecl_initializer_clause = nodecl_null();
-            compute_nodecl_initializer_clause(initializer_clause, decl_context, &nodecl_initializer_clause);
+            compute_nodecl_initializer_clause(initializer_clause, decl_context,
+                    /* preserve_top_level_parentheses */ 0,
+                    &nodecl_initializer_clause);
 
             if (nodecl_is_err_expr(nodecl_initializer_clause))
             {
@@ -18570,7 +18667,9 @@ static void compute_nodecl_designated_initializer(AST initializer, decl_context_
     nodecl_t nodecl_designation = nodecl_null();
     compute_nodecl_designation(designation, decl_context, &nodecl_designation);
     nodecl_t nodecl_initializer_clause = nodecl_null();
-    compute_nodecl_initializer_clause(initializer_clause, decl_context, &nodecl_initializer_clause);
+    compute_nodecl_initializer_clause(initializer_clause, decl_context,
+            /* preserve_top_level_parentheses */ 0,
+            &nodecl_initializer_clause);
 
     if (nodecl_is_err_expr(nodecl_designation)
             || nodecl_is_err_expr(nodecl_initializer_clause))
@@ -18600,7 +18699,9 @@ static void compute_nodecl_gcc_initializer(AST initializer,
                         ast_get_locus(symbol)),
                     ast_get_locus(symbol)));
     nodecl_t nodecl_initializer_clause = nodecl_null();
-    compute_nodecl_initializer_clause(initializer_clause, decl_context, &nodecl_initializer_clause);
+    compute_nodecl_initializer_clause(initializer_clause, decl_context,
+            /* preserve_top_level_parentheses */ 0,
+            &nodecl_initializer_clause);
 
     if (nodecl_is_err_expr(nodecl_designation)
             || nodecl_is_err_expr(nodecl_initializer_clause))
@@ -18615,7 +18716,10 @@ static void compute_nodecl_gcc_initializer(AST initializer,
             ast_get_locus(initializer));
 }
 
-static void compute_nodecl_direct_initializer(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_direct_initializer(AST initializer,
+        decl_context_t decl_context,
+        char preserve_top_level_parentheses,
+        nodecl_t* nodecl_output)
 {
     char any_is_type_dependent = 0;
     char any_is_value_dependent = 0;
@@ -18624,7 +18728,9 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
     AST initializer_list = ASTSon0(initializer);
     if (initializer_list != NULL)
     {
-        if (!check_list_of_expressions(initializer_list, decl_context, &nodecl_initializer_list))
+        if (!check_list_of_expressions_aux(initializer_list, decl_context,
+                    preserve_top_level_parentheses,
+                    &nodecl_initializer_list))
         {
             *nodecl_output = nodecl_make_err_expr(
                     ast_get_locus(initializer));
@@ -18662,23 +18768,34 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
     nodecl_expr_set_is_value_dependent(*nodecl_output, any_is_value_dependent);
 }
 
-void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+void compute_nodecl_initialization(AST initializer,
+        decl_context_t decl_context,
+        char preserve_top_level_parentheses,
+        nodecl_t* nodecl_output)
 {
     switch (ASTType(initializer))
     {
         case AST_EQUAL_INITIALIZER:
             {
-                compute_nodecl_equal_initializer(initializer, decl_context, nodecl_output);
+                compute_nodecl_equal_initializer(initializer,
+                        decl_context,
+                        preserve_top_level_parentheses,
+                        nodecl_output);
                 break;
             }
         case AST_INITIALIZER_BRACES:
             {
-                compute_nodecl_braced_initializer(initializer, decl_context, nodecl_output);
+                compute_nodecl_braced_initializer(initializer,
+                        decl_context,
+                        nodecl_output);
                 break;
             }
         case AST_PARENTHESIZED_INITIALIZER :
             {
-                compute_nodecl_direct_initializer(initializer, decl_context, nodecl_output);
+                compute_nodecl_direct_initializer(initializer,
+                        decl_context,
+                        preserve_top_level_parentheses,
+                        nodecl_output);
                 break;
             }
         default:
@@ -19040,22 +19157,208 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
     }
 }
 
-static char check_self_reference(nodecl_t initializer, scope_entry_t* entry)
+type_t* deduce_auto_initializer(
+        nodecl_t nodecl_initializer,
+        type_t* type_to_deduce,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(nodecl_is_null(nodecl_initializer), "Initializer cannot be NULL", 0);
+    nodecl_t nodecl_expression_used_for_deduction = nodecl_initializer;
+
+    char is_braced_initializer = nodecl_get_kind(nodecl_initializer) == NODECL_CXX_BRACED_INITIALIZER
+        ||(nodecl_get_kind(nodecl_initializer) == NODECL_CXX_EQUAL_INITIALIZER
+                && nodecl_get_kind(nodecl_get_child(nodecl_initializer, 0)) == NODECL_CXX_BRACED_INITIALIZER);
+
+    if (nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+    {
+        nodecl_t nodecl_list = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
+        if (nodecl_list_length(nodecl_list) != 1)
+        {
+            error_printf("%s: error: 'auto' deduction with a parenthesized "
+                    "initializer is only possible with one element inside the parentheses\n",
+                    nodecl_locus_to_str(nodecl_expression_used_for_deduction));
+            return get_error_type();
+        }
+        nodecl_expression_used_for_deduction = nodecl_list_head(nodecl_list);
+    }
+
+    template_parameter_list_t* deduced_template_arguments = NULL;
+
+    if (nodecl_get_type(nodecl_expression_used_for_deduction) != NULL
+            && deduce_arguments_of_auto_initialization(
+                type_to_deduce,
+                nodecl_get_type(nodecl_expression_used_for_deduction),
+                decl_context,
+                &deduced_template_arguments,
+                is_braced_initializer,
+                nodecl_get_locus(nodecl_expression_used_for_deduction)))
+    {
+        type_t* deduced_type = NULL;
+        if (!is_braced_initializer)
+        {
+            // const auto& -> const int&
+            deduced_type = update_type_for_auto(
+                    type_to_deduce,
+                    deduced_template_arguments->arguments[0]->type);
+        }
+        else
+        {
+            // const auto& -> const std::initializer_list<T>
+            deduced_type = template_type_get_specialized_type(
+                    get_std_initializer_list_template(decl_context,
+                        nodecl_get_locus(nodecl_expression_used_for_deduction),
+                        /* mandatory */ 1)->type_information,
+                    deduced_template_arguments,
+                    decl_context,
+                    nodecl_get_locus(nodecl_expression_used_for_deduction));
+            free_template_parameter_list(deduced_template_arguments);
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Deduced type for auto initializer is '%s'\n",
+                    print_declarator(deduced_type));
+        }
+        return deduced_type;
+    }
+    else
+    {
+        error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
+                nodecl_locus_to_str(nodecl_initializer),
+                print_type_str(type_to_deduce, decl_context),
+                codegen_to_str(nodecl_initializer, decl_context));
+        return get_error_type();
+    }
+}
+
+type_t* deduce_decltype_auto_initializer(
+        nodecl_t nodecl_initializer,
+        type_t* type_to_deduce, // this should just be decltype(auto)
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(nodecl_is_null(nodecl_initializer), "Initializer cannot be NULL", 0);
+    ERROR_CONDITION(!is_decltype_auto_type(type_to_deduce), "Invalid type", 0)
+
+    nodecl_t nodecl_expression_used_for_deduction = nodecl_initializer;
+
+    if (nodecl_get_kind(nodecl_initializer) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+    {
+        nodecl_t nodecl_list = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
+        if (nodecl_list_length(nodecl_list) != 1)
+        {
+            error_printf("%s: error: 'decltype(auto)' deduction with a parenthesized "
+                    "initializer is only possible with one element inside the parentheses\n",
+                    nodecl_locus_to_str(nodecl_expression_used_for_deduction));
+            return get_error_type();
+            // *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            // nodecl_free(nodecl_initializer);
+            // return;
+        }
+        nodecl_expression_used_for_deduction = nodecl_list_head(nodecl_list);
+    }
+    else if (nodecl_get_kind(nodecl_initializer) == NODECL_CXX_BRACED_INITIALIZER)
+    {
+        error_printf("%s: error: cannot deduce 'decltype(auto)' using a braced initializer\n",
+                nodecl_locus_to_str(nodecl_expression_used_for_deduction));
+        return get_error_type();
+    }
+    else if (nodecl_get_kind(nodecl_initializer) == NODECL_CXX_EQUAL_INITIALIZER)
+    {
+        nodecl_expression_used_for_deduction = nodecl_get_child(nodecl_initializer, 0);
+        ERROR_CONDITION(nodecl_get_kind(nodecl_expression_used_for_deduction) != NODECL_CXX_INITIALIZER,
+                "Invalid node '%s'",
+                ast_print_node_type(nodecl_get_kind(nodecl_expression_used_for_deduction)));
+        nodecl_expression_used_for_deduction = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
+    }
+
+    ERROR_CONDITION(nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_INITIALIZER
+            || nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_BRACED_INITIALIZER
+            || nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_PARENTHESIZED_INITIALIZER
+            || nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_EQUAL_INITIALIZER,
+            "Invalid node at this point '%s'",
+            ast_print_node_type(nodecl_get_kind(nodecl_expression_used_for_deduction)));
+
+    return compute_type_of_decltype_nodecl(nodecl_expression_used_for_deduction, decl_context);
+}
+
+type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, decl_context_t decl_context)
+{
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        error_printf("%s: error: failure when computing type of decltype(%s)\n",
+                nodecl_locus_to_str(nodecl_expr),
+                codegen_to_str(nodecl_expr, decl_context));
+        return get_error_type();
+    }
+
+    type_t* computed_type = nodecl_get_type(nodecl_expr);
+    ERROR_CONDITION(computed_type == NULL, "Invalid type", 0);
+
+    if (is_unresolved_overloaded_type(computed_type))
+    {
+        scope_entry_t* solved_function = unresolved_overloaded_type_simplify(
+                computed_type,
+                decl_context,
+                nodecl_get_locus(nodecl_expr));
+
+        if (solved_function != NULL)
+        {
+            if (!symbol_entity_specs_get_is_member(solved_function)
+                    || symbol_entity_specs_get_is_static(solved_function))
+            {
+                computed_type = solved_function->type_information;
+            }
+            else
+            {
+                computed_type = get_pointer_to_member_type(
+                        solved_function->type_information,
+                        symbol_entity_specs_get_class_type(solved_function));
+            }
+        }
+    }
+
+    if (is_unresolved_overloaded_type(computed_type))
+    {
+        error_printf("%s: error: decltype(%s) yields an unresolved overload type\n",
+                nodecl_locus_to_str(nodecl_expr),
+                codegen_to_str(nodecl_expr, decl_context));
+        return get_error_type();
+    }
+
+    if (is_dependent_type(computed_type))
+    {
+        return get_typeof_expr_dependent_type(nodecl_expr,
+                decl_context,
+                /* is_decltype */ 1);
+    }
+
+    if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL
+            || nodecl_get_kind(nodecl_expr) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        return no_ref(computed_type);
+    }
+    else
+    {
+        return computed_type;
+    }
+}
+
+static char initializer_self_references(nodecl_t initializer, scope_entry_t* entry)
 {
     if (nodecl_is_null(initializer))
-        return 1;
+        return 0;
 
     if (nodecl_get_symbol(initializer) == entry)
-        return 0;
+        return 1;
 
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        if (!check_self_reference(nodecl_get_child(initializer, i), entry))
-            return 0;
+        if (initializer_self_references(nodecl_get_child(initializer, i), entry))
+            return 1;
     }
 
-    return 1;
+    return 0;
 }
 
 void check_nodecl_initialization(
@@ -19067,119 +19370,67 @@ void check_nodecl_initialization(
         char is_auto,
         char is_decltype_auto)
 {
-    if (is_auto
-            && initialized_entry != NULL
-            && !nodecl_expr_is_type_dependent(nodecl_initializer)
-            && !nodecl_is_err_expr(nodecl_initializer))
+    if (!nodecl_is_null(nodecl_initializer)
+            && nodecl_is_err_expr(nodecl_initializer))
     {
-        if (!nodecl_is_null(nodecl_initializer))
-        {
-            if (!check_self_reference(nodecl_initializer, initialized_entry))
-            {
-                error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
-                        nodecl_locus_to_str(nodecl_initializer));
-                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
-                nodecl_free(nodecl_initializer);
-                return;
-            }
-        }
-
-        // Now try to deduce the type
-        char is_braced_initializer = nodecl_get_kind(nodecl_initializer) == NODECL_CXX_BRACED_INITIALIZER
-            ||(nodecl_get_kind(nodecl_initializer) == NODECL_CXX_EQUAL_INITIALIZER
-                    && nodecl_get_kind(nodecl_get_child(nodecl_initializer, 0)) == NODECL_CXX_BRACED_INITIALIZER);
-
-        if (is_decltype_auto
-                && is_braced_initializer)
-        {
-            error_printf("%s: error: a 'decltype(auto)' cannot be deduced using a braced initializer\n",
-                    nodecl_locus_to_str(nodecl_initializer));
-            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
-            nodecl_free(nodecl_initializer);
-            return;
-        }
-
-        nodecl_t nodecl_expression_used_for_deduction = nodecl_initializer;
-        if (nodecl_get_kind(nodecl_expression_used_for_deduction) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
-        {
-            nodecl_t nodecl_list = nodecl_get_child(nodecl_expression_used_for_deduction, 0);
-            if (nodecl_list_length(nodecl_list) != 1)
-            {
-                error_printf("%s: error: '%s' deduction with a parenthesized "
-                        "initializer is only possible with one element inside the parentheses\n",
-                        nodecl_locus_to_str(nodecl_expression_used_for_deduction),
-                        is_decltype_auto ? "decltype(auto)" : "auto");
-                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
-                nodecl_free(nodecl_initializer);
-                return;
-            }
-            nodecl_expression_used_for_deduction = nodecl_list_head(nodecl_list);
-        }
-
-        template_parameter_list_t* deduced_template_arguments = NULL;
-
-        if (nodecl_get_type(nodecl_expression_used_for_deduction) != NULL
-                && deduce_arguments_of_auto_initialization(
-                    initialized_entry->type_information,
-                    nodecl_get_type(nodecl_expression_used_for_deduction),
-                    decl_context,
-                    &deduced_template_arguments,
-                    is_braced_initializer,
-                    nodecl_get_locus(nodecl_expression_used_for_deduction)))
-        {
-            if (!is_braced_initializer)
-            {
-                // const auto& -> const int&
-                initialized_entry->type_information = update_type_for_auto(
-                        initialized_entry->type_information,
-                        deduced_template_arguments->arguments[0]->type);
-            }
-            else
-            {
-                // const auto& -> const std::initializer_list<T>
-                type_t* specialized_type = template_type_get_specialized_type(
-                        get_std_initializer_list_template(decl_context,
-                            nodecl_get_locus(nodecl_expression_used_for_deduction),
-                            /* mandatory */ 1)->type_information,
-                        deduced_template_arguments,
-                        decl_context,
-                        nodecl_get_locus(nodecl_expression_used_for_deduction));
-                free_template_parameter_list(deduced_template_arguments);
-
-                initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
-            }
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: Deduced type for auto initializer is '%s'\n",
-                        print_declarator(initialized_entry->type_information));
-            }
-            declared_type = get_unqualified_type(initialized_entry->type_information);
-        }
-        else
-        {
-            error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
-                    nodecl_locus_to_str(nodecl_initializer),
-                    print_type_str(declared_type, decl_context),
-                    print_type_str(nodecl_get_type(nodecl_initializer), decl_context));
-            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
-            nodecl_free(nodecl_initializer);
-            return;
-        }
+        *nodecl_output = nodecl_initializer;
+        return;
     }
 
-    if (nodecl_is_err_expr(nodecl_initializer))
+    if (!nodecl_is_null(nodecl_initializer)
+            && nodecl_expr_is_type_dependent(nodecl_initializer))
     {
+        // The expression used to initialize this entity is dependent
         *nodecl_output = nodecl_initializer;
         return;
     }
 
     if (is_dependent_type(declared_type))
     {
-        // We do not bother to check anything else if the declared entity is
-        // dependent
+        // The declared entity is dependent
         *nodecl_output = nodecl_initializer;
         return;
+    }
+
+    if (is_auto)
+    {
+        if (initializer_self_references(nodecl_initializer, initialized_entry))
+        {
+            error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
+                    nodecl_locus_to_str(nodecl_initializer));
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            nodecl_free(nodecl_initializer);
+            return;
+        }
+
+        type_t* deduced_type = NULL;
+        if (is_decltype_auto)
+        {
+            deduced_type = deduce_decltype_auto_initializer(
+                    nodecl_initializer,
+                    declared_type,
+                    decl_context);
+        }
+        else
+        {
+            deduced_type = deduce_auto_initializer(
+                    nodecl_initializer,
+                    declared_type,
+                    decl_context);
+        }
+
+        if (is_error_type(deduced_type))
+        {
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            nodecl_free(nodecl_initializer);
+            return;
+        }
+
+        if (initialized_entry != NULL)
+        {
+            initialized_entry->type_information = deduced_type;
+        }
+        declared_type = deduced_type;
     }
 
     switch (nodecl_get_kind(nodecl_initializer))
@@ -19267,7 +19518,9 @@ char check_initialization(AST initializer,
 
     nodecl_t nodecl_init = nodecl_null();
 
-    compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
+    compute_nodecl_initialization(initializer, decl_context, 
+            /* preserve_top_level_parentheses */ is_decltype_auto,
+            &nodecl_init);
     check_nodecl_initialization(nodecl_init,
             decl_context,
             initialized_entry,
@@ -20992,52 +21245,6 @@ static void check_shaping_expression(AST expression,
             nodecl_output);
 }
 
-// Note that a list of expressions is NOT an expression
-char check_list_of_expressions(AST expression_list,
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output)
-{
-    *nodecl_output = nodecl_null();
-    if (expression_list == NULL)
-    {
-        // An empty list is OK
-        return 1;
-    }
-
-    if (ASTType(expression_list) == AST_AMBIGUITY)
-    {
-        return solve_ambiguous_list_of_expressions(expression_list, decl_context, nodecl_output);
-    }
-    else
-    {
-        // Check the beginning of the list
-        nodecl_t nodecl_prev_list = nodecl_null();
-        check_list_of_expressions(ASTSon0(expression_list), decl_context, &nodecl_prev_list);
-
-        if (!nodecl_is_null(nodecl_prev_list)
-                && nodecl_is_err_expr(nodecl_prev_list))
-        {
-            *nodecl_output = nodecl_prev_list;
-            return 0;
-        }
-
-        nodecl_t nodecl_current = nodecl_null();
-        check_expression_impl_(ASTSon1(expression_list), decl_context, &nodecl_current);
-
-        if (nodecl_is_err_expr(nodecl_current))
-        {
-            *nodecl_output = nodecl_current;
-            return 0;
-        }
-
-        *nodecl_output = nodecl_append_to_list(nodecl_prev_list, nodecl_current);
-
-        return 1;
-    }
-
-    internal_error("Code unreachable", 0);
-}
-
 char check_list_of_initializer_clauses(
         AST initializer_clause_list,
         decl_context_t decl_context,
@@ -21069,7 +21276,9 @@ char check_list_of_initializer_clauses(
 
         nodecl_t nodecl_current = nodecl_null();
         AST initializer = ASTSon1(initializer_clause_list);
-        compute_nodecl_initializer_clause(initializer, decl_context, &nodecl_current);
+        compute_nodecl_initializer_clause(initializer, decl_context,
+                /* preserve_top_level_parentheses */ 0, // not important here
+                &nodecl_current);
 
         if (nodecl_is_err_expr(nodecl_current))
         {
@@ -25456,13 +25665,7 @@ static void instantiate_parenthesized_expression(nodecl_instantiate_expr_visitor
 {
     nodecl_t nodecl_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
-    v->nodecl_result = nodecl_make_parenthesized_expression(nodecl_expr,
-            nodecl_get_type(nodecl_expr),
-            nodecl_get_locus(nodecl_expr));
-
-    nodecl_set_constant(v->nodecl_result, nodecl_get_constant(nodecl_expr));
-    nodecl_expr_set_is_type_dependent(v->nodecl_result, nodecl_expr_is_type_dependent(nodecl_expr));
-    nodecl_expr_set_is_value_dependent(v->nodecl_result, nodecl_expr_is_value_dependent(nodecl_expr));
+    v->nodecl_result = cxx_nodecl_wrap_in_parentheses(nodecl_expr);
 }
 
 static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

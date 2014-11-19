@@ -4177,16 +4177,16 @@ static type_t* update_type_aux_(type_t* orig_type,
         {
             return get_typeof_expr_dependent_type(nodecl_new_expr,
                     decl_context,
-                    typeof_expr_type_is_decltype(orig_type),
-                    typeof_expr_type_is_removed_reference(orig_type));
+                    typeof_expr_type_is_decltype(orig_type));
+        }
+        else if (typeof_expr_type_is_decltype(orig_type))
+        {
+            type_t* result = compute_type_of_decltype_nodecl(nodecl_new_expr, decl_context);
+            return result;
         }
         else
         {
             type_t* result = nodecl_get_type(nodecl_new_expr);
-            if (typeof_expr_type_is_removed_reference(orig_type))
-            {
-                result = no_ref(result);
-            }
             return result;
         }
     }
@@ -8556,29 +8556,10 @@ char is_dependent_function(scope_entry_t* entry)
 {
     ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
 
-    int num_parameters = function_type_get_num_parameters(entry->type_information);
-    if (function_type_get_has_ellipsis(entry->type_information))
-        num_parameters--;
-
-    // If a parameter is dependent, the function is dependent
-    int i;
-    for (i = 0; i < num_parameters; i++)
-    {
-        if (is_dependent_type(function_type_get_parameter_type_num(entry->type_information, i)))
-            return 1;
-    }
-
-    // If the result is dependent (but not auto or decltype(auto), the function is dependent
-    type_t* return_type = function_type_get_return_type(entry->type_information);
-    if (return_type != NULL
-            && !is_auto_type(return_type)
-            && !is_decltype_auto_type(return_type)
-            && is_dependent_type(return_type))
-        return 1;
-
-    // Otherwise if the function is a dependent friend or a member of a dependent class,
-    // it is dependent
-    return (entry->kind == SK_DEPENDENT_FRIEND_FUNCTION)
+    // If the function has dependent type, or is a dependent friend or a member
+    // of a dependent class, then it is dependent
+    return is_dependent_type(entry->type_information)
+        || entry->kind == SK_DEPENDENT_FRIEND_FUNCTION
         || (symbol_entity_specs_get_is_member(entry)
                 && is_dependent_type(symbol_entity_specs_get_class_type(entry)));
 }

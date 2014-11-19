@@ -107,13 +107,11 @@ LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr,
         decl_context_t decl_context,
-        char is_decltype,
-        char is_removed_reference);
+        char is_decltype);
 
 LIBMCXX_EXTERN nodecl_t typeof_expr_type_get_expression(type_t* t);
 LIBMCXX_EXTERN decl_context_t typeof_expr_type_get_expression_context(type_t* t);
 
-LIBMCXX_EXTERN char typeof_expr_type_is_removed_reference(type_t* t);
 LIBMCXX_EXTERN char typeof_expr_type_is_decltype(type_t* t);
 
 LIBMCXX_EXTERN char is_typeof_expr(type_t* t);
@@ -164,6 +162,18 @@ LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
         template_parameter_list_t* explicit_template_arguments,
         decl_context_t decl_context,
         const locus_t* locus);
+
+LIBMCXX_EXTERN type_t* deduce_auto_initializer(
+        nodecl_t nodecl_initializer,
+        type_t* type_to_deduce,
+        decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* deduce_decltype_auto_initializer(
+        nodecl_t nodecl_initializer,
+        type_t* type_to_deduce,
+        decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* compute_type_of_decltype_nodecl(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -856,6 +866,8 @@ LIBMCXX_EXTERN type_t* get_auto_type(void);
 LIBMCXX_EXTERN type_t* get_nondependent_auto_type(void);
 LIBMCXX_EXTERN type_t* get_decltype_auto_type(void);
 LIBMCXX_EXTERN char is_auto_type(type_t* t);
+LIBMCXX_EXTERN char type_contains_auto(type_t* t);
+
 LIBMCXX_EXTERN char is_decltype_auto_type(type_t* t);
 
 // C genericity stuff. 

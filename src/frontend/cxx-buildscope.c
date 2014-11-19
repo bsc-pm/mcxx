@@ -3054,6 +3054,27 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 }
 
 
+static type_t* compute_type_of_decltype(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_DECLTYPE, "Invalid node", 0);
+    // Advance just before parentheses
+    // (a normal call to 'advance_expression_nest' would advance after them)
+    AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
+
+    // Compute the expression type and use it for the whole type
+    nodecl_t nodecl_expr = nodecl_null();
+
+    check_expression_non_executable(expression, decl_context, &nodecl_expr);
+    if (!nodecl_is_err_expr(nodecl_expr)
+            && ASTType(a) == AST_PARENTHESIZED_EXPRESSION)
+    {
+        nodecl_expr = cxx_nodecl_wrap_in_parentheses(nodecl_expr);
+    }
+
+    return compute_type_of_decltype_nodecl(nodecl_expr, decl_context);
+}
+
+
 /*
  * This function fills simple_type_info with type information.
  */
@@ -3151,103 +3172,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             // C++11
         case AST_DECLTYPE :
             {
-                // Advance just before parentheses
-                // (a normal call to 'advance_expression_nest' would advance after them)
-                AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
-
-                // Compute the expression type and use it for the whole type
-                nodecl_t nodecl_expr = nodecl_null();
-                if (check_expression_non_executable(expression, decl_context, &nodecl_expr)
-                        && (nodecl_get_type(nodecl_expr) != NULL))
-                {
-                    // Do not remove the reference here, we will do this later
-                    // if mandated
-                    type_t* computed_type = nodecl_get_type(nodecl_expr);
-
-                    if (is_unresolved_overloaded_type(computed_type))
-                    {
-                        scope_entry_list_t* entry_list =
-                            unresolved_overloaded_type_get_overload_set(computed_type);
-
-                        if (entry_list_size(entry_list) > 1)
-                        {
-                            error_printf("%s: error: '%s' yields an unresolved overload type\n",
-                                    ast_location(a), 
-                                    prettyprint_in_buffer(a));
-                            *simple_type_info = get_error_type();
-                            return;
-                        }
-
-                        scope_entry_t* entry = entry_list_head(entry_list);
-                        entry_list_free(entry_list);
-
-                        if (!symbol_entity_specs_get_is_member(entry)
-                                || symbol_entity_specs_get_is_static(entry))
-                        {
-                            computed_type = entry->type_information;
-                        }
-                        else
-                        {
-                            computed_type = get_pointer_to_member_type(
-                                    entry->type_information,
-                                    symbol_entity_specs_get_class_type(entry));
-                        }
-                    }
-
-                    char is_removed_reference = 0;
-                    switch (ASTType(expression))
-                    {
-                        // id-expressions
-                        case AST_SYMBOL :
-                        case AST_TEMPLATE_ID :
-                        case AST_DESTRUCTOR_ID :
-                        case AST_DESTRUCTOR_TEMPLATE_ID :
-                        case AST_CONVERSION_FUNCTION_ID :
-                        case AST_OPERATOR_FUNCTION_ID :
-                        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
-                        case AST_QUALIFIED_ID :
-                            // class member accesses
-                        case AST_CLASS_MEMBER_ACCESS :
-                        case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
-                        case AST_POINTER_CLASS_MEMBER_ACCESS :
-                        case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
-                            {
-                                // If the 'e' expression is an id-expression or class member
-                                // access, 'decltype(e)' is defined as the type of the entity
-                                // named by 'e'. We remove the reference type.
-                                is_removed_reference = 1;
-                                break;
-                            }
-                        default:
-                            {
-                                // Function calls or other expressions will
-                                // return 'lvalues' with form of 'reference to
-                                // type'. So, we do not need to update the type
-                                break;
-                            }
-                    }
-
-                    if (is_dependent_type(computed_type))
-                    {
-                        // The expression type is dependent, wrap it in a typeof
-                        computed_type = get_typeof_expr_dependent_type(nodecl_expr, decl_context,
-                                /* is_decltype */ 1,
-                                is_removed_reference);
-                    }
-                    else if (is_removed_reference)
-                    {
-                        computed_type = no_ref(computed_type);
-                    }
-
-                    *simple_type_info = computed_type;
-                }
-                else
-                {
-                    error_printf("%s: error: could not solve type '%s'\n",
-                            ast_location(a),
-                            prettyprint_in_buffer(a));
-                    *simple_type_info = get_error_type();
-                }
+                *simple_type_info = compute_type_of_decltype(a, decl_context);
                 break;
             }
             // GCC Extensions
@@ -3303,8 +3228,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         {
                             // The expression type is dependent, so we will wrap in an typeof expression
                             computed_type = get_typeof_expr_dependent_type(nodecl_expr, decl_context,
-                                    /* is_decltype */ 0,
-                                    /* is_removed_reference */ 0);
+                                    /* is_decltype */ 0);
                         }
                     }
 
@@ -16326,14 +16250,14 @@ static void build_scope_function_definition_body(
         // The emission template is itself
         symbol_entity_specs_set_emission_template(entry, entry);
     }
-    else if (is_auto_type(function_type_get_return_type(entry->type_information))
+    else if (type_contains_auto(function_type_get_return_type(entry->type_information))
             || is_decltype_auto_type(function_type_get_return_type(entry->type_information)))
     {
         scope_entry_t* result_var = symbol_entity_specs_get_result_var(entry);
         ERROR_CONDITION(result_var == NULL, "Missing symbol", 0);
 
         type_t* deduced_return_type = result_var->type_information;
-        if (is_auto_type(deduced_return_type)
+        if (type_contains_auto(deduced_return_type)
                 || is_decltype_auto_type(deduced_return_type))
         {
             deduced_return_type = get_void_type();
@@ -16341,14 +16265,14 @@ static void build_scope_function_definition_body(
 
         if (function_type_get_has_trailing_return(entry->type_information))
         {
-            entry->type_information = 
+            entry->type_information =
                 function_type_replace_return_type_with_trailing_return(
                         entry->type_information,
                         deduced_return_type);
         }
         else
         {
-            entry->type_information = 
+            entry->type_information =
                 function_type_replace_return_type(
                         entry->type_information,
                         deduced_return_type);
@@ -18927,7 +18851,9 @@ static void build_scope_for_statement_range(AST a,
             ast_get_locus(expr_or_init_braced), NULL);
 
     nodecl_t nodecl_range_initializer = nodecl_null();
-    compute_nodecl_initialization(expr_or_init_braced, decl_context, &nodecl_range_initializer);
+    compute_nodecl_initialization(expr_or_init_braced, decl_context,
+            /* preserve_top_level_parentheses */ gather_info.is_decltype_auto,
+            &nodecl_range_initializer);
 
     // The iterator type is dependent
     if (is_dependent_type(iterator_symbol->type_information))
@@ -19594,28 +19520,18 @@ static void build_scope_nodecl_return_statement(
                 && function->kind != SK_LAMBDA),
             "Invalid related entry!", 0);
 
-    scope_entry_t* return_var = symbol_entity_specs_get_result_var(function);
+    scope_entry_t* result_var = symbol_entity_specs_get_result_var(function);
 
-    char need_to_perform_deduction =
-        return_var != NULL
-        && !is_error_type(return_var->type_information)
-        && !is_dependent_function(function)
-        && (is_auto_type(return_type)
-                || is_decltype_auto_type(return_type));
-    char need_to_check_deduction =
-        need_to_perform_deduction
-        && (!is_auto_type(return_var->type_information)
-                && !is_decltype_auto_type(return_var->type_information));
-
-    type_t* previous_deduced_type = NULL;
-    if (need_to_check_deduction)
+    if (is_dependent_function(function)
+            || (!nodecl_is_null(nodecl_return_expression)
+                && nodecl_expr_is_type_dependent(nodecl_return_expression)))
     {
-        previous_deduced_type = return_var->type_information;
-        return_var->type_information = return_type;
+        // Do nothing if the function is dependent
+        // or the expression is type dependent
     }
-
-    if (!nodecl_is_null(nodecl_return_expression))
+    else if (!nodecl_is_null(nodecl_return_expression))
     {
+        // Case for 'return e;' or 'return { expr-list };'
         char valid_expr = !nodecl_is_err_expr(nodecl_return_expression);
 
         if (is_void_type(return_type))
@@ -19636,61 +19552,107 @@ static void build_scope_nodecl_return_statement(
             return;
         }
 
-        if (!nodecl_expr_is_type_dependent(nodecl_return_expression)
-                && (!is_dependent_type(return_type)
-                    || is_auto_type(return_type)
-                    || is_decltype_auto_type(return_type)))
+        if (is_decltype_auto_type(return_type)
+                || type_contains_auto(return_type))
         {
-            nodecl_t nodecl_return_as_initializer = nodecl_return_expression;
-
-            if (!nodecl_get_kind(nodecl_return_expression) != NODECL_CXX_BRACED_INITIALIZER)
+            char verify_deduction = 1;
+            type_t* deduced_type = NULL;
+            if (is_decltype_auto_type(return_type))
             {
-                // Create an equal initializer here
-                nodecl_return_as_initializer =
-                    nodecl_make_cxx_equal_initializer(
-                            nodecl_make_cxx_initializer(
-                                nodecl_shallow_copy(nodecl_return_as_initializer),
-                                nodecl_get_type(nodecl_return_as_initializer),
-                                nodecl_get_locus(nodecl_return_as_initializer)),
-                            nodecl_get_type(nodecl_return_as_initializer),
-                            nodecl_get_locus(nodecl_return_as_initializer));
+                deduced_type = deduce_decltype_auto_initializer(
+                        nodecl_return_expression,
+                        return_type,
+                        decl_context);
+                if (is_error_type(deduced_type))
+                {
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(
+                                locus));
+                    return;
+                }
+
+                if (is_decltype_auto_type(result_var->type_information))
+                {
+                    result_var->type_information = deduced_type;
+                    verify_deduction = 0;
+                }
+            }
+            else
+            {
+                deduced_type = deduce_auto_initializer(
+                        nodecl_return_expression,
+                        return_type,
+                        decl_context);
+                if (is_error_type(deduced_type))
+                {
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(
+                                locus));
+                    return;
+                }
+
+                if (type_contains_auto(result_var->type_information))
+                {
+                    result_var->type_information = deduced_type;
+                    verify_deduction = 0;
+                }
             }
 
-            nodecl_t nodecl_init = nodecl_null();
-            check_nodecl_initialization(
-                    nodecl_return_as_initializer,
+            if (verify_deduction)
+            {
+                if (!equivalent_types(result_var->type_information,
+                            deduced_type))
+                {
+                    error_printf("%s: error: deduced return type '%s' that is "
+                            "different from a previous deduced type '%s'\n",
+                            nodecl_locus_to_str(nodecl_return_expression),
+                            print_type_str(deduced_type, decl_context),
+                            print_type_str(result_var->type_information, decl_context));
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(
+                                locus));
+                    return;
+                }
+            }
+
+            return_type = deduced_type;
+        }
+
+        if (nodecl_get_kind(nodecl_return_expression) == NODECL_CXX_BRACED_INITIALIZER)
+        {
+            check_nodecl_braced_initializer(
+                    nodecl_return_expression,
                     decl_context,
-                    need_to_perform_deduction ? return_var : NULL,
                     return_type,
-                    &nodecl_init,
-                    need_to_perform_deduction
-                    && (is_auto_type(return_type)
-                        || is_decltype_auto_type(return_type)),
-                    need_to_perform_deduction
-                    && is_decltype_auto_type(return_type));
+                    /* disallow_narrowing */ 0,
+                    IK_COPY_INITIALIZATION,
+                    &nodecl_return_expression);
+        }
+        else
+        {
+            check_nodecl_expr_initializer(
+                    nodecl_return_expression,
+                    decl_context,
+                    return_type,
+                    /* disallow_narrowing */ 0,
+                    IK_COPY_INITIALIZATION,
+                    &nodecl_return_expression);
+        }
 
-            if (nodecl_is_err_expr(nodecl_init))
-            {
-                error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n",
-                        nodecl_locus_to_str(nodecl_return_expression),
-                        print_type_str(nodecl_get_type(nodecl_return_expression), decl_context),
-                        print_type_str(return_type, decl_context));
-
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(
-                            locus));
-                return;
-            }
-
-            nodecl_return_expression = nodecl_init;
+        if (nodecl_is_err_expr(nodecl_return_expression))
+        {
+            *nodecl_output = nodecl_make_list_1(
+                    nodecl_make_err_statement(
+                        locus));
+            return;
         }
     }
     else
     {
-        if (is_auto_type(return_type)
+        // Case for 'return;'
+        if (type_contains_auto(return_type)
                 || is_decltype_auto_type(return_type))
         {
-            return_var->type_information = get_void_type();
         }
         else if (return_type != NULL
                 && !is_dependent_type(return_type)
@@ -19699,19 +19661,6 @@ static void build_scope_nodecl_return_statement(
         {
             error_printf("%s: error: return with no expression in a non-void function\n",
                     locus_to_str(locus));
-        }
-    }
-
-    if (need_to_check_deduction)
-    {
-        if (!equivalent_types(return_var->type_information,
-                    previous_deduced_type))
-        {
-            error_printf("%s: error: deduced type in return statement '%s' does not match previously deduced '%s'\n",
-                    nodecl_locus_to_str(nodecl_return_expression),
-                    print_type_str(return_var->type_information, decl_context),
-                    print_type_str(previous_deduced_type, decl_context));
-            return_var->type_information = get_error_type();
         }
     }
 
@@ -19744,16 +19693,24 @@ static void build_scope_return_statement(AST a,
     {
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
-            check_initializer_clause(expression,
+            compute_nodecl_initialization(expression,
                     decl_context,
-                    return_type,
+                    /* preserve_top_level_parentheses */ 0,
                     &nodecl_return_expression);
         }
-        else
+        else 
         {
             check_expression(expression,
                     decl_context,
                     &nodecl_return_expression);
+
+            // FIXME - overlapped logic with preserve_top_level_parentheses
+            if (!nodecl_is_err_expr(nodecl_return_expression)
+                    && is_decltype_auto_type(return_type)
+                    && ASTType(expression) == AST_PARENTHESIZED_EXPRESSION)
+            {
+                nodecl_return_expression = cxx_nodecl_wrap_in_parentheses(nodecl_return_expression);
+            }
         }
     }
 
@@ -21384,7 +21341,7 @@ static scope_entry_t* instantiate_declaration_common(
                                     new_entry,
                                     get_unqualified_type(new_entry->type_information),
                                     &nodecl_init,
-                                    is_auto_type(new_entry->type_information)
+                                    type_contains_auto(new_entry->type_information)
                                         || is_decltype_auto_type(new_entry->type_information),
                                     is_decltype_auto_type(new_entry->type_information));
                         }
