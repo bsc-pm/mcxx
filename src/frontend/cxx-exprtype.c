@@ -19377,14 +19377,6 @@ void check_nodecl_initialization(
         return;
     }
 
-    if (!nodecl_is_null(nodecl_initializer)
-            && nodecl_expr_is_type_dependent(nodecl_initializer))
-    {
-        // The expression used to initialize this entity is dependent
-        *nodecl_output = nodecl_initializer;
-        return;
-    }
-
     if (is_dependent_type(declared_type))
     {
         // The declared entity is dependent
@@ -19392,8 +19384,26 @@ void check_nodecl_initialization(
         return;
     }
 
+    // Note that we do not early return in cases like
+    //
+    // template <typename T>
+    // void f(T t)
+    // {
+    //    int a[] = { t };
+    // }
+    //
+    // otherwise the size of 'a' would be wrongly computed as an array of
+    // unknown size
+
     if (is_auto)
     {
+        if (!nodecl_is_null(nodecl_initializer)
+                && nodecl_expr_is_type_dependent(nodecl_initializer))
+        {
+            *nodecl_output = nodecl_initializer;
+            return;
+        }
+
         if (initializer_self_references(nodecl_initializer, initialized_entry))
         {
             error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",

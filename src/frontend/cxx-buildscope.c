@@ -18814,20 +18814,6 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
-    if (is_auto_type(type_info)
-            || is_decltype_auto_type(type_info))
-    {
-        // In general auto is a dependent type, because if it remains in a declaration
-        // it means that we could not deduce anything because the initialization was dependent
-        //
-        // In this case, though, we want an auto that does not change the dependency status
-        // of the type. So, make sure the auto type of the type-specifier is a nondependent
-        // auto.
-        type_info = get_cv_qualified_type(
-                get_nondependent_auto_type(),
-                get_cv_qualifier(type_info));
-    }
-
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
             block_context, nodecl_output);
@@ -18856,7 +18842,8 @@ static void build_scope_for_statement_range(AST a,
             &nodecl_range_initializer);
 
     // The iterator type is dependent
-    if (is_dependent_type(iterator_symbol->type_information))
+    if (is_dependent_type(iterator_symbol->type_information)
+            || nodecl_expr_is_type_dependent(nodecl_range_initializer))
     {
         nodecl_t nodecl_statement = nodecl_null();
         build_scope_normalized_statement(statement, block_context, &nodecl_statement);
@@ -19027,7 +19014,6 @@ static void build_scope_for_statement_range(AST a,
                         block_context,
                         end_name,
                         ast_get_locus(a));
-
 
                 nodecl_free(begin_name);
                 nodecl_free(end_name);
