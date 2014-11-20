@@ -1825,8 +1825,22 @@ static type_t* rewrite_redundant_typedefs(type_t* orig);
 
 static type_t* simplify_types_template_arguments(type_t* t)
 {
+    // Canonicalize zero types
+    if (is_zero_type(t))
+    {
+        t = variant_type_get_nonvariant(t);
+    }
+
+    // Canonicalize throw types
+    if (is_throw_expr_type(t))
+    {
+        t = get_void_type();
+    }
+
     // We remove nonlocal typedefs from everywhere in the type
-    return rewrite_redundant_typedefs(t);
+    t = rewrite_redundant_typedefs(t);
+
+    return t;
 }
 
 static template_parameter_list_t* simplify_template_arguments(template_parameter_list_t* template_arguments)
@@ -16154,156 +16168,153 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
             return orig;
         }
     }
-    else
+    else if (is_pointer_type(orig))
     {
-        if (is_pointer_type(orig))
+        type_t* pointee = pointer_type_get_pointee_type(orig);
+        pointee = rewrite_redundant_typedefs(pointee);
+        result = get_pointer_type(pointee);
+    }
+    else if (is_pointer_to_member_type(orig))
+    {
+        type_t* pointee = pointer_type_get_pointee_type(orig);
+        pointee = rewrite_redundant_typedefs(pointee);
+
+        type_t* class_type = pointer_to_member_type_get_class_type(orig);
+        class_type = rewrite_redundant_typedefs(class_type);
+
+        result = get_pointer_to_member_type(pointee, class_type);
+    }
+    else if (is_rebindable_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = rewrite_redundant_typedefs(ref_type);
+
+        result = get_rebindable_reference_type(ref_type);
+    }
+    else if (is_lvalue_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = rewrite_redundant_typedefs(ref_type);
+
+        result = get_lvalue_reference_type(ref_type);
+    }
+    else if (is_rvalue_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = rewrite_redundant_typedefs(ref_type);
+
+        result = get_rvalue_reference_type(ref_type);
+    }
+    else if (is_array_type(orig))
+    {
+        type_t* element_type = array_type_get_element_type(orig);
+        element_type = rewrite_redundant_typedefs(element_type);
+
+        if (array_type_is_string_literal(orig))
         {
-            type_t* pointee = pointer_type_get_pointee_type(orig);
-            pointee = rewrite_redundant_typedefs(pointee);
-            result = get_pointer_type(pointee);
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
+            get_array_type_for_literal_string(element_type, array_size,
+                    array_type_get_array_size_expr_context(orig));
         }
-        else if (is_pointer_to_member_type(orig))
+        else if ((IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+                && !array_type_has_region(orig))
         {
-            type_t* pointee = pointer_type_get_pointee_type(orig);
-            pointee = rewrite_redundant_typedefs(pointee);
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
 
-            type_t* class_type = pointer_to_member_type_get_class_type(orig);
-            class_type = rewrite_redundant_typedefs(class_type);
-
-            result = get_pointer_to_member_type(pointee, class_type);
+            result = get_array_type(
+                    element_type,
+                    array_size,
+                    array_type_get_array_size_expr_context(orig));
         }
-        else if (is_rebindable_reference_type(orig))
+        else if (IS_FORTRAN_LANGUAGE
+                && !array_type_has_region(orig))
         {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_redundant_typedefs(ref_type);
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
 
-            result = get_rebindable_reference_type(ref_type);
-        }
-        else if (is_lvalue_reference_type(orig))
-        {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_redundant_typedefs(ref_type);
+            bool has_descriptor = array_type_with_descriptor(orig);
 
-            result = get_lvalue_reference_type(ref_type);
-        }
-        else if (is_rvalue_reference_type(orig))
-        {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_redundant_typedefs(ref_type);
-
-            result = get_rvalue_reference_type(ref_type);
-        }
-        else if (is_array_type(orig))
-        {
-            type_t* element_type = array_type_get_element_type(orig);
-            element_type = rewrite_redundant_typedefs(element_type);
-
-            if (array_type_is_string_literal(orig))
+            if (!has_descriptor)
             {
-                nodecl_t array_size = array_type_get_array_size_expr(orig);
-                get_array_type_for_literal_string(element_type, array_size,
-                        array_type_get_array_size_expr_context(orig));
-            }
-            else if ((IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                    && !array_type_has_region(orig))
-            {
-                nodecl_t array_size = array_type_get_array_size_expr(orig);
-
-                result = get_array_type(
+                result = get_array_type_bounds(
                         element_type,
-                        array_size,
-                        array_type_get_array_size_expr_context(orig));
-            }
-            else if (IS_FORTRAN_LANGUAGE
-                    && !array_type_has_region(orig))
-            {
-                nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
-                nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
-
-                bool has_descriptor = array_type_with_descriptor(orig);
-
-                if (!has_descriptor)
-                {
-                    result = get_array_type_bounds(
-                            element_type,
-                            lower_bound,
-                            upper_bound,
-                            array_type_get_array_size_expr_context(orig));
-                }
-                else
-                {
-                    result = get_array_type_bounds_with_descriptor(
-                            element_type,
-                            lower_bound,
-                            upper_bound,
-                            array_type_get_array_size_expr_context(orig));
-                }
-            }
-            else if (array_type_has_region(orig))
-            {
-                nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
-                nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
-
-                nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
-                nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
-                nodecl_t region_stride = array_type_get_region_stride(orig);
-
-                result = get_array_type_bounds_with_regions(element_type,
                         lower_bound,
                         upper_bound,
-                        array_type_get_array_size_expr_context(orig),
-                        nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
-                            get_signed_int_type(), make_locus("", 0, 0)),
                         array_type_get_array_size_expr_context(orig));
             }
             else
             {
-                internal_error("Code unreachable", 0);
+                result = get_array_type_bounds_with_descriptor(
+                        element_type,
+                        lower_bound,
+                        upper_bound,
+                        array_type_get_array_size_expr_context(orig));
             }
         }
-        else if (is_function_type(orig))
+        else if (array_type_has_region(orig))
         {
-            type_t* return_type = function_type_get_return_type(orig);
-            return_type = rewrite_redundant_typedefs(return_type);
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
 
-            if (function_type_get_lacking_prototype(orig))
-            {
-                result = get_nonproto_function_type(return_type, 
-                        function_type_get_num_parameters(orig));
-            }
-            else
-            {
-                int i, N = function_type_get_num_parameters(orig), P = N;
+            nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
+            nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
+            nodecl_t region_stride = array_type_get_region_stride(orig);
 
-                parameter_info_t param_info[N+1];
-                memset(param_info, 0, sizeof(param_info));
-
-                if (function_type_get_has_ellipsis(orig))
-                {
-                    param_info[N-1].is_ellipsis = 1;
-                    param_info[N-1].type_info = get_ellipsis_type();
-                    param_info[N-1].nonadjusted_type_info = NULL;
-                    P = N - 1;
-                }
-
-                for (i = 0; i < P; i++)
-                {
-                    param_info[i].type_info = rewrite_redundant_typedefs(function_type_get_parameter_type_num(orig, i));
-                }
-
-                result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
-            }
+            result = get_array_type_bounds_with_regions(element_type,
+                    lower_bound,
+                    upper_bound,
+                    array_type_get_array_size_expr_context(orig),
+                    nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
+                        get_signed_int_type(), make_locus("", 0, 0)),
+                    array_type_get_array_size_expr_context(orig));
         }
-        else if (is_vector_type(orig))
+        else
         {
-            type_t * element_type = vector_type_get_element_type(orig);
-            element_type = rewrite_redundant_typedefs(element_type);
-
-            result = get_vector_type(
-                    element_type,
-                    vector_type_get_vector_size(orig));
+            internal_error("Code unreachable", 0);
         }
+    }
+    else if (is_function_type(orig))
+    {
+        type_t* return_type = function_type_get_return_type(orig);
+        return_type = rewrite_redundant_typedefs(return_type);
+
+        if (function_type_get_lacking_prototype(orig))
+        {
+            result = get_nonproto_function_type(return_type, 
+                    function_type_get_num_parameters(orig));
+        }
+        else
+        {
+            int i, N = function_type_get_num_parameters(orig), P = N;
+
+            parameter_info_t param_info[N+1];
+            memset(param_info, 0, sizeof(param_info));
+
+            if (function_type_get_has_ellipsis(orig))
+            {
+                param_info[N-1].is_ellipsis = 1;
+                param_info[N-1].type_info = get_ellipsis_type();
+                param_info[N-1].nonadjusted_type_info = NULL;
+                P = N - 1;
+            }
+
+            for (i = 0; i < P; i++)
+            {
+                param_info[i].type_info = rewrite_redundant_typedefs(function_type_get_parameter_type_num(orig, i));
+            }
+
+            result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
+        }
+    }
+    else if (is_vector_type(orig))
+    {
+        type_t * element_type = vector_type_get_element_type(orig);
+        element_type = rewrite_redundant_typedefs(element_type);
+
+        result = get_vector_type(
+                element_type,
+                vector_type_get_vector_size(orig));
     }
 
     cv_qualifier_t cv_qualif_orig = CV_NONE;
