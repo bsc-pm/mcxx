@@ -54,6 +54,7 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-run
 	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
+	chmod +x */mercurium-cxx11
 
 wipe-modules:
 	rm -f *.mod

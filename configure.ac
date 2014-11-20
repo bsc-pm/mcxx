@@ -1998,6 +1998,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
+           tests/05_torture_cxx_1.dg/mercurium-cxx11
            tests/05_torture_cxx_2.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
