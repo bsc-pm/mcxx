@@ -1704,6 +1704,9 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"
            ;;
+	   powerpc64le-*-linux*)
+           default_type_environ="linux-ppc64-le"
+           ;;
        x86_64-*-linux*)
            default_type_environ="linux-x86_64"
            NANOS4_32_BIT_COMPAT="-m32"
