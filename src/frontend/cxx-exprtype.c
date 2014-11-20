@@ -7064,7 +7064,12 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
 {
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(result));
 
-    if (entry->kind == SK_ENUMERATOR)
+    if (entry->type_information != NULL
+            && is_error_type(entry->type_information))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+    }
+    else if (entry->kind == SK_ENUMERATOR)
     {
         *nodecl_output = nodecl_make_symbol(entry, locus);
 
@@ -7081,7 +7086,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
 
     }
     else if (entry->kind == SK_VARIABLE
-            || entry->kind == SK_FUNCTION)
+                || entry->kind == SK_FUNCTION)
     {
         *nodecl_output = nodecl_make_symbol(entry, locus);
         if (symbol_entity_specs_get_is_member_of_anonymous(entry))
@@ -7117,26 +7122,32 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
 
 static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    CXX_LANGUAGE()
+    if (IS_C_LANGUAGE)
+    {
+
+        scope_entry_list_t* result = NULL;
+        result = query_nested_name(decl_context, NULL, NULL, expr, NULL); 
+
+        if (result == NULL)
+        {
+            error_printf("%s: error: symbol '%s' not found in current scope\n",
+                    ast_location(expr), ASTText(expr));
+
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+
+        compute_symbol_type_from_entry_list(result, nodecl_output, ast_get_locus(expr));
+    }
+    else if (IS_CXX_LANGUAGE)
     {
         // C++ names are handled in another routine
         cxx_common_name_check(expr, decl_context, nodecl_output);
-        return;
     }
-
-    scope_entry_list_t* result = NULL;
-    result = query_nested_name(decl_context, NULL, NULL, expr, NULL); 
-
-    if (result == NULL)
+    else
     {
-        error_printf("%s: error: symbol '%s' not found in current scope\n",
-                ast_location(expr), ASTText(expr));
-
-        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
-        return;
+        internal_error("Code unreachable", 0);
     }
-
-    compute_symbol_type_from_entry_list(result, nodecl_output, ast_get_locus(expr));
 }
 
 static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -7239,16 +7250,23 @@ static void cxx_compute_name_from_entry_list(
     }
 
     if (entry->kind != SK_VARIABLE
-            && entry->kind != SK_VARIABLE_PACK
-            && entry->kind != SK_ENUMERATOR
-            && entry->kind != SK_FUNCTION
-            && entry->kind != SK_TEMPLATE // template functions
-            && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
-            && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+                && entry->kind != SK_VARIABLE_PACK
+                && entry->kind != SK_ENUMERATOR
+                && entry->kind != SK_FUNCTION
+                && entry->kind != SK_TEMPLATE // template functions
+                && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
     {
         error_printf("%s: error: name '%s' is not valid in this context\n",
                 nodecl_locus_to_str(nodecl_name),
                 codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
+        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+        return;
+    }
+
+    if (entry->type_information != NULL
+            && is_error_type(entry->type_information))
+    {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
@@ -18733,6 +18751,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER,
             "Do not call this function using a NODECL_CXX_BRACED_INITIALIZER", 0);
+
+    if (is_error_type(declared_type))
+    {
+        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+        return;
+    }
 
     DEBUG_CODE()
     {
