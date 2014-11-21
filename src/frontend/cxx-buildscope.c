@@ -2380,14 +2380,24 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     if (init_check)
                     {
                         type_t* initializer_type = nodecl_get_type(nodecl_initializer);
+                        ERROR_CONDITION(initializer_type == NULL, "Missing type", 0);
 
                         if (is_array_type(declarator_type)
-                                && nodecl_is_null(array_type_get_array_size_expr(declarator_type))
-                                && is_array_type(no_ref(initializer_type))
-                                && !nodecl_is_null(array_type_get_array_size_expr(no_ref(initializer_type))))
+                                && !is_dependent_type(declarator_type)
+                                && nodecl_is_null(array_type_get_array_size_expr(declarator_type)))
                         {
-                            cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
-                            entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                            if (!is_dependent_type(initializer_type))
+                            {
+                                ERROR_CONDITION(is_braced_list_type(initializer_type),
+                                        "Invalid type", 0);
+                                cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
+                                entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                            }
+                            else
+                            {
+                                entry->type_information = get_array_type_unknown_size_dependent(
+                                        array_type_get_element_type(entry->type_information));
+                            }
                         }
                     }
 
@@ -21331,6 +21341,18 @@ static scope_entry_t* instantiate_declaration_common(
                                     type_contains_auto(new_entry->type_information)
                                         || is_decltype_auto_type(new_entry->type_information),
                                     is_decltype_auto_type(new_entry->type_information));
+
+                            type_t* initializer_type = nodecl_get_type(nodecl_init);
+                            ERROR_CONDITION(initializer_type == NULL, "Missing type", 0);
+
+                            if (is_array_type(new_entry->type_information)
+                                    && nodecl_is_null(array_type_get_array_size_expr(new_entry->type_information)))
+                            {
+                                ERROR_CONDITION (is_dependent_type(initializer_type), "Invalid type", 0);
+
+                                cv_qualifier_t cv_qualif = get_cv_qualifier(new_entry->type_information);
+                                new_entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
+                            }
                         }
                         else
                         {

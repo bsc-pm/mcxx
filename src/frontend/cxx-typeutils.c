@@ -419,7 +419,7 @@ typedef
 struct braced_list_info_tag
 {
     int num_types;
-    type_t** type_list;
+    type_t** types;
 } braced_list_info_t;
 
 typedef
@@ -513,7 +513,6 @@ struct type_tag
     // Braced list type
     // (kind == TK_BRACED_LIST)
     braced_list_info_t* braced_type;
-
 
     // For template specialized parameters and template types
     // (kind == TK_DIRECT && (type->kind == STK_CLASS || type->kind == STK_TEMPLATE_TYPE))
@@ -639,6 +638,7 @@ static char equivalent_builtin_type(type_t* t1, type_t *t2);
 
 static char equivalent_pack_types(type_t* t1, type_t *t2);
 static char equivalent_sequence_types(type_t* t1, type_t *t2);
+static char equivalent_braced_types(type_t* t1, type_t *t2);
 
 
 /* Type constructors : Builtins */
@@ -4118,7 +4118,8 @@ static type_t* _get_array_type(type_t* element_type,
         decl_context_t decl_context,
         array_region_t* array_region,
         char with_descriptor,
-        char is_string_literal);
+        char is_string_literal,
+        char force_dependent_type);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
@@ -4145,7 +4146,8 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
                 decl_context,
                 array_region,
                 with_descriptor,
-                is_string_literal);
+                is_string_literal,
+                /* force_dependent_type */ 0);
 
         return result;
 }
@@ -4600,14 +4602,16 @@ static void _get_array_type_components(type_t* array_type,
 
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
-static type_t* _get_array_type(type_t* element_type, 
+static type_t* _get_array_type(
+        type_t* element_type, 
         nodecl_t whole_size,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
         decl_context_t decl_context,
         array_region_t* array_region,
         char with_descriptor,
-        char is_string_literal)
+        char is_string_literal,
+        char force_dependent_type)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -4682,11 +4686,17 @@ static type_t* _get_array_type(type_t* element_type,
         // Use the same strategy we use for pointers when all components (size,
         // lower, upper) of the array are null otherwise create a new array
         // every time (it is safer)
-        static dhash_ptr_t *_undefined_array_types[2][2] = { { NULL, NULL}, {NULL, NULL} };
+        static dhash_ptr_t *_undefined_array_types[2][2][2] = {
+            { { NULL, NULL }, { NULL, NULL }  },
+            { { NULL, NULL }, { NULL, NULL }  }
+        };
 
-        if (_undefined_array_types[!!with_descriptor][!!is_string_literal] == NULL)
+        char is_dependent_array = force_dependent_type
+            || is_dependent_type(element_type);
+
+        if (_undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array] == NULL)
         {
-            _undefined_array_types[!!with_descriptor][!!is_string_literal] = dhash_ptr_new(5);
+            _undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array] = dhash_ptr_new(5);
         }
 
         type_t* undefined_array_type = NULL;
@@ -4694,7 +4704,8 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound)
                 && array_region == NULL)
         {
-            undefined_array_type = dhash_ptr_query(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+            undefined_array_type = dhash_ptr_query(
+                    _undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array],
                     (const char*)element_type);
         }
         if (undefined_array_type == NULL)
@@ -4733,13 +4744,14 @@ static type_t* _get_array_type(type_t* element_type,
             // is a complete type actually
             result->info->is_incomplete = !with_descriptor;
 
-            result->info->is_dependent = is_dependent_type(element_type);
+            result->info->is_dependent = is_dependent_array;
 
             if (nodecl_is_null(lower_bound)
                     && nodecl_is_null(upper_bound)
                     && array_region == NULL)
             {
-                dhash_ptr_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+                dhash_ptr_insert(
+                        _undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array],
                         (const char*)element_type, result);
             }
         }
@@ -4891,7 +4903,10 @@ extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, 
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 0);
+            /* array_region */ NULL,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 0);
 }
 
 static type_t* get_array_type_for_literal_string(type_t* element_type,
@@ -4930,8 +4945,11 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
         }
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 1);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context,
+            /* array_region */ NULL,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 1,
+            /* force_dependent_type */ 0);
 }
 
 static nodecl_t compute_whole_size_given_bounds(
@@ -4986,8 +5004,11 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
 {
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, with_descriptor, /* is_string_literal */ 0);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context,
+            /* array_region */ NULL,
+            with_descriptor,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 0);
 }
 
 extern inline type_t* get_array_type_bounds(type_t* element_type,
@@ -5032,7 +5053,24 @@ extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->region_decl_context = region_decl_context;
     
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            array_region, /* with_descriptor */ 0, /* is_string_literal */ 0);
+            array_region,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 0);
+}
+
+extern inline type_t* get_array_type_unknown_size_dependent(type_t* element_type)
+{
+    return _get_array_type(
+            element_type,
+            /* whole_size */ nodecl_null(),
+            /* lower_bound */ nodecl_null(),
+            /* upper_bound */ nodecl_null(),
+            CURRENT_COMPILED_FILE->global_decl_context,
+            /* array_region */ NULL,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 1);
 }
 
 static dhash_ptr_t* get_vector_sized_hash(unsigned int vector_size)
@@ -6829,6 +6867,9 @@ extern inline char equivalent_types(type_t* t1, type_t* t2)
         case TK_SEQUENCE:
             result = equivalent_sequence_types(t1, t2);
             break;
+        case TK_BRACED_LIST:
+            result = equivalent_braced_types(t1, t2);
+            break;
         case TK_AUTO:
         case TK_DECLTYPE_AUTO:
         case TK_ERROR:
@@ -7218,13 +7259,13 @@ extern inline char equivalent_function_types_may_differ_ref_qualifier(type_t* ft
 }
 
 
-extern inline char equivalent_pack_types(type_t* t1, type_t *t2)
+static inline char equivalent_pack_types(type_t* t1, type_t *t2)
 {
     return equivalent_types(t1->pack_type->packed,
             t2->pack_type->packed);
 }
 
-extern inline char equivalent_sequence_types(type_t* t1, type_t *t2)
+static inline char equivalent_sequence_types(type_t* t1, type_t *t2)
 {
     if (t1->sequence_type->num_types != t2->sequence_type->num_types)
         return 0;
@@ -7234,6 +7275,23 @@ extern inline char equivalent_sequence_types(type_t* t1, type_t *t2)
     {
         if (!equivalent_types(t1->sequence_type->types[i],
                     t2->sequence_type->types[i]))
+            return 0;
+    }
+
+    return 1;
+}
+
+static inline char equivalent_braced_types(type_t* t1, type_t *t2)
+{
+    if (t1->braced_type->num_types != t2->braced_type->num_types)
+        return 0;
+
+    int i;
+    for (i = 0; i < t1->braced_type->num_types; i++)
+    {
+        if (!equivalent_types(
+                    t1->braced_type->types[i],
+                    t2->braced_type->types[i]))
             return 0;
     }
 
@@ -13348,18 +13406,56 @@ extern inline char is_ellipsis_type(type_t* t)
 
 extern inline type_t* get_braced_list_type(int num_types, type_t** type_list)
 {
-    type_t* result = new_empty_type();
+    ERROR_CONDITION(num_types < 0, "Invalid number of types (%d)", num_types);
 
-    result->kind = TK_BRACED_LIST;
+    // Special case for empty braced lists
+    if (num_types == 0)
+    {
+        static type_t* _empty_braces_type = NULL;
 
-    result->unqualified_type = result;
+        if (_empty_braces_type == NULL)
+        {
+            _empty_braces_type = new_empty_type();
+            _empty_braces_type->kind = TK_BRACED_LIST;
+            _empty_braces_type->unqualified_type = _empty_braces_type;
+            _empty_braces_type->braced_type = xcalloc(1, sizeof(*_empty_braces_type->braced_type));
+        }
 
-    result->braced_type = xcalloc(1, sizeof(*result->braced_type));
+        return _empty_braces_type;
+    }
 
-    result->braced_type->num_types = num_types;
-    result->braced_type->type_list = xcalloc(num_types, sizeof(*result->braced_type->type_list));
-    memcpy(result->braced_type->type_list, type_list,
-            num_types* sizeof(*result->braced_type->type_list));
+    static type_trie_t* _braced_types_trie = NULL;
+    if (_braced_types_trie == NULL)
+    {
+        _braced_types_trie = allocate_type_trie();
+    }
+
+    int i;
+
+    char any_is_dependent = 0;
+    for (i = 0; i < num_types && !any_is_dependent; i++)
+    {
+        any_is_dependent = is_dependent_type(type_list[i]);
+    }
+
+    type_t* result = (type_t*)lookup_type_trie(_braced_types_trie, (const type_t**)type_list, num_types);
+
+    if (result == NULL)
+    {
+        result = new_empty_type();
+        result->kind = TK_BRACED_LIST;
+
+        result->unqualified_type = result;
+
+        result->braced_type = xcalloc(1, sizeof(*result->braced_type));
+
+        result->braced_type->num_types = num_types;
+        result->braced_type->types = xcalloc(num_types, sizeof(*result->braced_type->types));
+        memcpy(result->braced_type->types, type_list,
+                num_types* sizeof(*result->braced_type->types));
+
+        result->info->is_dependent = any_is_dependent;
+    }
 
     return result;
 }
@@ -13373,13 +13469,13 @@ extern inline int braced_list_type_get_num_types(type_t* t)
 extern inline type_t** braced_list_type_get_types(type_t* t)
 {
     ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
-    return t->braced_type->type_list;
+    return t->braced_type->types;
 }
 
 extern inline type_t* braced_list_type_get_type_num(type_t* t, int num)
 {
     ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
-    return t->braced_type->type_list[num];
+    return t->braced_type->types[num];
 }
 
 extern inline char is_braced_list_type(type_t* t)
@@ -15426,14 +15522,28 @@ extern inline type_t* pack_type_get_packed_type(type_t* t)
 extern inline type_t* get_sequence_of_types(int num_types, type_t** types)
 {
     ERROR_CONDITION(num_types < 0, "Invalid number of types (%d)", num_types);
+
+    // Special case for empty sequences
+    if (num_types == 0)
+    {
+        static type_t* _empty_sequence = NULL;
+
+        if (_empty_sequence == NULL)
+        {
+            _empty_sequence = new_empty_type();
+            _empty_sequence->kind = TK_SEQUENCE;
+            _empty_sequence->unqualified_type = _empty_sequence;
+            _empty_sequence->sequence_type = xcalloc(1, sizeof(*_empty_sequence->sequence_type));
+        }
+
+        return _empty_sequence;
+    }
+
     static type_trie_t *_sequence_types_trie = NULL;
     if (_sequence_types_trie == NULL)
     {
         _sequence_types_trie = allocate_type_trie();
     }
-
-    const type_t* type_seq[num_types + 1];
-    type_seq[0] = get_void_type();
 
     char any_is_dependent = 0;
     int i;
@@ -15441,30 +15551,28 @@ extern inline type_t* get_sequence_of_types(int num_types, type_t** types)
     {
         ERROR_CONDITION(is_sequence_of_types(types[i]), "Cannot have a sequence inside another sequence type", 0);
         // ERROR_CONDITION(types[i] == NULL, "Invalid NULL type", 0);
-
-        type_seq[i + 1] = types[i];
         any_is_dependent = any_is_dependent || is_dependent_type(types[i]);
     }
 
-    type_t* seq_type = (type_t*)lookup_type_trie(_sequence_types_trie, type_seq, num_types + 1);
+    type_t* result = (type_t*)lookup_type_trie(_sequence_types_trie, (const type_t**)types, num_types);
 
-    if (seq_type == NULL)
+    if (result == NULL)
     {
-        seq_type = new_empty_type();
-        seq_type->unqualified_type = seq_type;
-        seq_type->kind = TK_SEQUENCE;
-        seq_type->sequence_type = xcalloc(1, sizeof(*seq_type->sequence_type));
-        seq_type->sequence_type->num_types = num_types;
-        seq_type->sequence_type->types = xcalloc(num_types, sizeof(*seq_type->sequence_type->types));
-        memcpy(seq_type->sequence_type->types, types,
-                sizeof(*seq_type->sequence_type->types) * num_types);
+        result = new_empty_type();
+        result->unqualified_type = result;
+        result->kind = TK_SEQUENCE;
+        result->sequence_type = xcalloc(1, sizeof(*result->sequence_type));
+        result->sequence_type->num_types = num_types;
+        result->sequence_type->types = xcalloc(num_types, sizeof(*result->sequence_type->types));
+        memcpy(result->sequence_type->types, types,
+                sizeof(*result->sequence_type->types) * num_types);
 
-        seq_type->info->is_dependent = any_is_dependent;
+        result->info->is_dependent = any_is_dependent;
 
-        insert_type_trie(_sequence_types_trie, type_seq, num_types + 1, seq_type);
+        insert_type_trie(_sequence_types_trie, (const type_t**)types, num_types, result);
     }
 
-    return seq_type;
+    return result;
 }
 
 static void flatten_type(type_t* t, type_t*** flattened_type_seq, int* flattened_num_types)
