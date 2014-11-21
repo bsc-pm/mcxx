@@ -1176,13 +1176,14 @@ namespace Optimizations {
     void UnitaryReductor::visit(const Nodecl::Conversion& n)
     {
         //TODO
-        bool is_symbol_pre = n.get_nest().is<Nodecl::Symbol>();
+        //bool is_symbol_pre = n.get_nest().is<Nodecl::Symbol>();
 
         walk(n.get_nest());
 
         bool is_integer_post = n.get_nest().is<Nodecl::IntegerLiteral>();
 
-        if (is_symbol_pre && is_integer_post)
+        //if (is_symbol_pre && is_integer_post)
+        if (is_integer_post)
             n.replace(n.get_nest());
     }
 
