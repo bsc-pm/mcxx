@@ -223,9 +223,11 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-asttype-str-internal.h \
   src/frontend/cxx-ast.c \
   src/frontend/cxx-ast.h \
+  src/frontend/cxx-ast-inline.h \
   src/frontend/cxx-ast-fwd.h \
   src/frontend/cxx-ast-decls.h \
   src/frontend/cxx-nodecl.h \
+  src/frontend/cxx-nodecl-inline.h \
   src/frontend/cxx-nodecl.c \
   src/frontend/cxx-nodecl-fwd.h \
   src/frontend/cxx-nodecl-decls.h \
