@@ -3670,6 +3670,50 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
     return array_type;
 }
 
+static char array_type_is_deferred_shape(type_t* t)
+{
+    ERROR_CONDITION(!fortran_is_array_type(t), "Invalid type", 0);
+
+    if (!array_type_with_descriptor(t))
+        return 0;
+
+    while (fortran_is_array_type(t))
+    {
+        if (!nodecl_is_null(array_type_get_array_lower_bound(t))
+                || !nodecl_is_null(array_type_get_array_upper_bound(t)))
+            return 0;
+
+        t = array_type_get_element_type(t);
+    }
+
+    return 1;
+}
+
+static void check_array_type_is_valid_for_allocatable(type_t* t,
+        scope_entry_t* entry,
+        const locus_t* locus)
+{
+    if (!array_type_is_deferred_shape(t))
+    {
+        error_printf("%s: error: ALLOCATABLE entity '%s' does not have a deferred shape DIMENSION attribute\n",
+                locus_to_str(locus),
+                entry->symbol_name);
+    }
+}
+
+static void check_array_type_is_valid_for_pointer(type_t* t,
+        scope_entry_t* entry,
+        const locus_t* locus)
+{
+    if (!array_type_is_deferred_shape(
+                pointer_type_get_pointee_type(t)))
+    {
+        error_printf("%s: error: POINTER entity '%s' does not have a deferred shape DIMENSION attribute\n",
+                locus_to_str(locus),
+                entry->symbol_name);
+    }
+}
+
 static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     attr_spec_t attr_spec;
@@ -3758,74 +3802,8 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
     }
 }
 
-static void build_dimension_decl(AST a, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_saved_dim)
-{
-    // For simplicity, we allow this function be called with plain symbols
-    // which we merrily ignore
-    if (ASTType(a) == AST_SYMBOL)
-        return;
-
-    ERROR_CONDITION(ASTType(a) != AST_DIMENSION_DECL,
-            "Invalid tree", 0);
-
-    AST name = ASTSon0(a);
-    AST array_spec = ASTSon1(a);
-    AST coarray_spec = ASTSon2(a);
-
-    if (coarray_spec != NULL)
-    {
-       running_error("%s: sorry: coarrays not supported", ast_location(a));
-    }
-
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-
-    char was_ref = is_lvalue_reference_type(entry->type_information);
-    
-    if(entry->kind == SK_UNDEFINED)
-    {
-        entry->kind = SK_VARIABLE;
-        remove_unknown_kind_symbol(decl_context, entry);
-    }
-
-    if (entry->kind != SK_VARIABLE)
-    {
-        error_printf("%s: error: invalid entity '%s' in dimension declaration\n", 
-                ast_location(a),
-                ASTText(name));
-        return;
-    }
-    
-    if (fortran_is_array_type(no_ref(entry->type_information))
-            || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
-    {
-        error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
-                ast_location(a),
-                entry->symbol_name);
-        return;
-    }
-
-    // We do not allow variable arrays in non function scopes
-    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION)
-        nodecl_saved_dim = NULL;
-
-    if (!is_error_type(entry->type_information))
-    {
-        type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
-                array_spec,
-                decl_context,
-                nodecl_saved_dim);
-        entry->type_information = array_type;
-
-        if (was_ref)
-        {
-            entry->type_information = get_lvalue_reference_type(entry->type_information);
-        }
-    }
-}
-
-static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST allocatable_decl_list = ASTSon0(a);
     AST it;
@@ -3833,22 +3811,26 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
     for_each_element(allocatable_decl_list, it)
     {
         AST allocatable_decl = ASTSon1(it);
-        nodecl_t nodecl_saved_dim = nodecl_null();
-        build_dimension_decl(allocatable_decl, decl_context, &nodecl_saved_dim);
-
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
 
         AST name = NULL;
+        AST array_spec = NULL;
         if (ASTType(allocatable_decl) == AST_SYMBOL)
         {
             name = allocatable_decl;
         }
-        else if (ASTType(allocatable_decl))
+        else if (ASTType(allocatable_decl) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(allocatable_decl);
+            array_spec = ASTSon1(allocatable_decl);
         }
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+
+        if (entry->kind == SK_UNDEFINED)
+        {
+            entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
 
         if (entry->kind != SK_VARIABLE)
         {
@@ -3858,12 +3840,10 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
             continue;
         }
 
-        if (!fortran_is_array_type(no_ref(entry->type_information))
-                && !fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+        if (is_pointer_type(entry->type_information))
         {
-            error_printf("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
-                    ast_location(name),
-                    ASTText(name));
+            error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
+                    ast_location(name));
             continue;
         }
 
@@ -3875,8 +3855,42 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
             continue;
         }
         symbol_entity_specs_set_is_allocatable(entry, 1);
-    }
 
+        if (array_spec != NULL)
+        {
+            if (fortran_is_array_type(no_ref(entry->type_information))
+                    || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+            {
+                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
+                        ast_location(a),
+                        entry->symbol_name);
+                continue;
+            }
+
+            char was_ref = is_lvalue_reference_type(entry->type_information);
+
+            if (!is_error_type(entry->type_information))
+            {
+                type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
+                        array_spec,
+                        decl_context,
+                        /* nodecl_output */ NULL);
+                entry->type_information = array_type;
+
+                if (was_ref)
+                {
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                }
+            }
+        }
+
+        if (fortran_is_array_type(no_ref(entry->type_information)))
+        {
+            check_array_type_is_valid_for_allocatable(no_ref(entry->type_information),
+                    entry,
+                    ast_get_locus(allocatable_decl_list));
+        }
+    }
 }
 
 static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5313,9 +5327,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 if (current_attr_spec.is_allocatable)
                 {
-                    if (!current_attr_spec.is_dimension)
+                    if (is_pointer_type(entry->type_information))
                     {
-                        error_printf("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                        error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
                                 ast_location(declaration));
                     }
                     else
@@ -5323,6 +5337,14 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                         symbol_entity_specs_set_is_allocatable(entry, 1);
                         entry->kind = SK_VARIABLE;
                     }
+                }
+
+                if (symbol_entity_specs_get_is_allocatable(entry)
+                        && fortran_is_array_type(entry->type_information))
+                {
+                    check_array_type_is_valid_for_allocatable(entry->type_information,
+                            entry,
+                            ast_get_locus(declaration));
                 }
 
                 symbol_entity_specs_set_is_target(entry, current_attr_spec.is_target);
@@ -5335,7 +5357,22 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 if (current_attr_spec.is_pointer
                         && !is_error_type(entry->type_information))
                 {
-                    entry->type_information = get_pointer_type(entry->type_information);
+                    if (symbol_entity_specs_get_is_allocatable(entry))
+                    {
+                        error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
+                                ast_location(declaration));
+                    }
+                    else
+                    {
+                        entry->type_information = get_pointer_type(entry->type_information);
+                    }
+                }
+
+                if (fortran_is_pointer_to_array_type(entry->type_information))
+                {
+                    check_array_type_is_valid_for_pointer(entry->type_information,
+                            entry,
+                            ast_get_locus(declaration));
                 }
 
                 symbol_entity_specs_set_is_member(entry, 1);
@@ -5459,6 +5496,22 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
             if (is_pointer)
             {
                 entry->type_information = get_pointer_type(no_ref(entry->type_information));
+            }
+
+            if (fortran_is_pointer_to_array_type(entry->type_information))
+            {
+                check_array_type_is_valid_for_pointer(
+                        entry->type_information,
+                        entry,
+                        ast_get_locus(dimension_decl));
+            }
+
+            if (symbol_entity_specs_get_is_allocatable(entry)
+                    && fortran_is_array_type(entry->type_information))
+            {
+                check_array_type_is_valid_for_allocatable(entry->type_information,
+                        entry,
+                        ast_get_locus(dimension_decl));
             }
 
             if (was_ref)
@@ -6980,7 +7033,8 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         }
         if (array_spec != NULL)
         {
-            if (fortran_is_array_type(no_ref(pointee_entry->type_information)))
+            if (fortran_is_array_type(no_ref(pointee_entry->type_information))
+                    || fortran_is_pointer_to_array_type(no_ref(pointee_entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(pointee_name),
@@ -6989,7 +7043,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             }
 
             nodecl_t nodecl_saved_dim = nodecl_null();
-            
+
             type_t* array_type = compute_type_from_array_spec(no_ref(pointee_entry->type_information), 
                     array_spec,
                     decl_context,
@@ -7029,19 +7083,25 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         char was_ref = is_lvalue_reference_type(entry->type_information);
-
         if (is_pointer_type(no_ref(entry->type_information)))
         {
             error_printf("%s: error: entity '%s' has already the POINTER attribute\n",
-                    ast_location(a),
+                    ast_location(pointer_decl),
                     entry->symbol_name);
+            continue;
+        }
+
+        if (symbol_entity_specs_get_is_allocatable(entry))
+        {
+            error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
+                    ast_location(name));
             continue;
         }
 
         if (is_const_qualified_type(no_ref(entry->type_information)))
         {
             error_printf("%s: error: POINTER attribute is not compatible with PARAMETER attribute\n", 
-                    ast_location(a));
+                    ast_location(pointer_decl));
             continue;
         }
 
@@ -7051,7 +7111,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
                     || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
-                        ast_location(a),
+                        ast_location(pointer_decl),
                         entry->symbol_name);
                 continue;
             }
@@ -7082,6 +7142,14 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
         if (!is_error_type(entry->type_information))
         {
             entry->type_information = get_pointer_type(no_ref(entry->type_information));
+
+            if (fortran_is_pointer_to_array_type(entry->type_information))
+            {
+                check_array_type_is_valid_for_pointer(
+                        entry->type_information,
+                        entry,
+                        ast_get_locus(pointer_decl));
+            }
 
             if (was_ref)
             {
@@ -7913,7 +7981,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 entry->kind = SK_VARIABLE;
                 remove_unknown_kind_symbol(decl_context, entry);
             }
-           
+
             if (!is_error_type(entry->type_information))
             {
                 entry->type_information = array_type;
@@ -7974,15 +8042,24 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (current_attr_spec.is_allocatable)
         {
-            if (!current_attr_spec.is_dimension)
+            if (is_pointer_type(entry->type_information))
             {
-                error_printf("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
-                        ast_location(declaration));
+                error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
+                        ast_location(name));
                 continue;
             }
             symbol_entity_specs_set_is_allocatable(entry, 1);
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
+        }
+
+        if (symbol_entity_specs_get_is_allocatable(entry)
+                && fortran_is_array_type(no_ref(entry->type_information)))
+        {
+            check_array_type_is_valid_for_allocatable(
+                    no_ref(entry->type_information),
+                    entry,
+                    ast_get_locus(declaration));
         }
 
         if (current_attr_spec.is_intrinsic)
@@ -8030,8 +8107,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
         }
 
-        if ((current_attr_spec.is_pointer 
-                    || is_pointer_type(no_ref(entry->type_information)))
+        if (current_attr_spec.is_pointer
                 && !is_error_type(entry->type_information))
         {
             if (current_attr_spec.is_pointer
@@ -8040,6 +8116,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 error_printf("%s: error: entity '%s' already has the POINTER attribute\n",
                         ast_location(name),
                         entry->symbol_name);
+            }
+            else if (symbol_entity_specs_get_is_allocatable(entry))
+            {
+                error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
+                        ast_location(name));
             }
             else
             {
@@ -8055,6 +8136,14 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     entry->type_information = get_lvalue_reference_type(entry->type_information);
                 }
             }
+        }
+
+        if (fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+        {
+            check_array_type_is_valid_for_pointer(
+                    no_ref(entry->type_information),
+                    entry,
+                    ast_get_locus(declaration));
         }
 
         if (current_attr_spec.is_save)
@@ -8083,14 +8172,14 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             nodecl_t nodecl_init = nodecl_null();
 
             if (ASTType(initialization) == AST_POINTER_INITIALIZATION
-                    && current_attr_spec.is_pointer)
+                    && is_pointer_type(no_ref(entry->type_information)))
             {
                 initialization = ASTSon0(initialization);
                 fortran_check_initialization(entry, initialization, decl_context, 
                         /* is_pointer_init */ 1,
                         &nodecl_init);
             }
-            else if (current_attr_spec.is_pointer)
+            else if (is_pointer_type(no_ref(entry->type_information)))
             {
                 error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                         ast_location(initialization));
@@ -8104,7 +8193,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
             else
             {
-                fortran_check_initialization(entry, initialization, decl_context, 
+                fortran_check_initialization(entry, initialization, decl_context,
                         /* is_pointer_init */ 0,
                         &nodecl_init);
 
@@ -8118,13 +8207,13 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     // Update CHARACTER(LEN=*) to its real length
                     int num_elements = const_value_get_num_elements(nodecl_get_constant(nodecl_init));
 
-                    entry->type_information = 
+                    entry->type_information =
                         get_array_type_bounds(
                                 array_type_get_element_type(entry->type_information),
-                                nodecl_make_integer_literal(get_signed_int_type(), 
+                                nodecl_make_integer_literal(get_signed_int_type(),
                                     const_value_get_one(fortran_get_default_integer_type_kind(), 1),
                                     ast_get_locus(initialization)),
-                                nodecl_make_integer_literal(get_signed_int_type(), 
+                                nodecl_make_integer_literal(get_signed_int_type(),
                                     const_value_get_integer(num_elements, fortran_get_default_integer_type_kind(), 1),
                                     ast_get_locus(initialization)),
                                 decl_context);
@@ -8144,14 +8233,14 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
         }
 
-        if (current_attr_spec.is_pointer
+        if (is_pointer_type(no_ref(entry->type_information))
                 && current_attr_spec.is_constant)
         {
             error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n",
                     ast_location(declaration));
         }
 
-        if (current_attr_spec.is_constant 
+        if (current_attr_spec.is_constant
                 && initialization == NULL)
         {
             error_printf("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
@@ -8194,7 +8283,8 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
             else
             {
-                error_printf("%s: internal access specifier <is-variable> was passed but the name '%s' was not an undefined nor a variable name\n",
+                error_printf("%s: internal access specifier <is-variable> was passed but the name "
+                        "'%s' was not an undefined nor a variable name\n",
                          ast_location(declaration),
                          entry->symbol_name);
             }
