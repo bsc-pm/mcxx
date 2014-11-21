@@ -82,7 +82,7 @@ namespace TL
         // This is always internal
         prettyprint_set_internal_output();
         const char *c = NULL;
-        if (with_commas && ASTType(this->_ast) == AST_NODE_LIST)
+        if (with_commas && ASTKind(this->_ast) == AST_NODE_LIST)
         {
             c = list_handler_in_buffer(this->_ast);
         }
@@ -150,11 +150,11 @@ namespace TL
             internal_error("Trying to replace an empty tree with another tree", 0);
         }
 
-        if (ASTType(ast._ast) == AST_NODE_LIST)
+        if (ASTKind(ast._ast) == AST_NODE_LIST)
         {
             // If the replacement is a list but the original is not, let's check two cases
             // maybe this list is a one-element list or not.
-            if (ASTType(this->_ast) != AST_NODE_LIST)
+            if (ASTKind(this->_ast) != AST_NODE_LIST)
             {
                 // If it is a one element list
                 if (ASTSon0(ast._ast) == NULL)
@@ -183,8 +183,8 @@ namespace TL
         }
         // If the thing being replaced is a list, but the replacement
         // is not, then convert the latter into a list
-        else if (ASTType(_ast) == AST_NODE_LIST
-                && ASTType(_ast) != AST_NODE_LIST)
+        else if (ASTKind(_ast) == AST_NODE_LIST
+                && ASTKind(_ast) != AST_NODE_LIST)
         {
             // Create a single element list
             AST single(ASTListLeaf(ast._ast));
@@ -289,14 +289,14 @@ namespace TL
 
     std::string AST_t::internal_ast_type() const
     {
-        char* inner_name = ast_node_names[ASTType(this->_ast)];
+        char* inner_name = ast_node_names[ASTKind(this->_ast)];
         std::string result(inner_name);
         return result;
     }
 
     node_t AST_t::internal_ast_type_() const
     {
-        return ASTType(this->_ast);
+        return ASTKind(this->_ast);
     }
 
     void AST_t::append_to_translation_unit(AST_t tree)
@@ -353,12 +353,12 @@ namespace TL
     // XXX - Fixme, implement it using ast_list_concat
     void AST_t::prepend_list(AST orig_list, AST prepended_list)
     {
-        if (ASTType(orig_list) != AST_NODE_LIST
-                || ASTType(prepended_list) != AST_NODE_LIST)
+        if (ASTKind(orig_list) != AST_NODE_LIST
+                || ASTKind(prepended_list) != AST_NODE_LIST)
         {
             std::cerr << "You tried to prepend two lists that are not " 
-                << "orig_list=" << ast_print_node_type(ASTType(orig_list)) << " "
-                << "prepend_list=" << ast_print_node_type(ASTType(prepended_list)) << std::endl;
+                << "orig_list=" << ast_print_node_type(ASTKind(orig_list)) << " "
+                << "prepend_list=" << ast_print_node_type(ASTKind(prepended_list)) << std::endl;
             return;
         }
 
@@ -394,8 +394,8 @@ namespace TL
     // XXX - Fixme, implement it using ast_list_concat
     void AST_t::append_list(AST orig_list, AST appended_list)
     {
-        if (ASTType(orig_list) != AST_NODE_LIST
-                || ASTType(appended_list) != AST_NODE_LIST)
+        if (ASTKind(orig_list) != AST_NODE_LIST
+                || ASTKind(appended_list) != AST_NODE_LIST)
         {
             std::cerr << "You tried to append two lists that are not" << std::endl;
             return;
@@ -471,7 +471,7 @@ namespace TL
             return NULL;
 
         while (node != NULL && 
-                ASTType(node) != AST_TRANSLATION_UNIT)
+                ASTKind(node) != AST_TRANSLATION_UNIT)
         {
             node = ASTParent(node);
         }
@@ -493,15 +493,15 @@ namespace TL
 
     bool AST_t::is_extensible_block(AST node)
     {
-        return (ASTType(node) == AST_COMPOUND_STATEMENT
-                || ASTType(node) == AST_CLASS_SPECIFIER
-                || ASTType(node) == AST_TRANSLATION_UNIT
-                || ASTType(node) == AST_NAMESPACE_DEFINITION);
+        return (ASTKind(node) == AST_COMPOUND_STATEMENT
+                || ASTKind(node) == AST_CLASS_SPECIFIER
+                || ASTKind(node) == AST_TRANSLATION_UNIT
+                || ASTKind(node) == AST_NAMESPACE_DEFINITION);
     }
 
     AST AST_t::get_list_of_extensible_block(AST node)
     {
-        switch ((int)ASTType(node))
+        switch ((int)ASTKind(node))
         {
             case AST_COMPOUND_STATEMENT :
                 {
@@ -553,7 +553,7 @@ namespace TL
             return;
         }
 
-        if (ASTType(t._ast) != AST_NODE_LIST)
+        if (ASTKind(t._ast) != AST_NODE_LIST)
         {
             std::cerr << "The appended tree is not a list. No append performed" << std::endl;
             return;
@@ -579,7 +579,7 @@ namespace TL
             return;
         }
 
-        if (ASTType(t._ast) != AST_NODE_LIST)
+        if (ASTKind(t._ast) != AST_NODE_LIST)
         {
             std::cerr << "The prepended tree is not a list. No prepend performed" << std::endl;
             return;
@@ -608,13 +608,13 @@ namespace TL
         AST node = _ast;
 
         while (node != NULL
-                && ASTType(node) != AST_CLASS_SPECIFIER)
+                && ASTKind(node) != AST_CLASS_SPECIFIER)
         {
             node = ASTParent(node);
         }
 
         while (node != NULL
-                && ASTType(node) != AST_SIMPLE_DECLARATION)
+                && ASTKind(node) != AST_SIMPLE_DECLARATION)
         {
             node = ASTParent(node);
         }
@@ -623,7 +623,7 @@ namespace TL
         {
             while (node != NULL
                     && ASTParent(node) != NULL
-                    && ASTType(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
+                    && ASTKind(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
             {
                 node = ASTParent(node);
             }
@@ -638,8 +638,8 @@ namespace TL
         AST node = _ast;
 
         while (node != NULL
-                && ASTType(node) != AST_NAMESPACE_DEFINITION
-                && ASTType(node) != AST_GCC_NAMESPACE_DEFINITION)
+                && ASTKind(node) != AST_NAMESPACE_DEFINITION
+                && ASTKind(node) != AST_GCC_NAMESPACE_DEFINITION)
         {
             node = ASTParent(node);
         }
@@ -666,7 +666,7 @@ namespace TL
         AST node = _ast;
 
         while (node != NULL && 
-                ASTType(node) != AST_FUNCTION_DEFINITION)
+                ASTKind(node) != AST_FUNCTION_DEFINITION)
         {
             node = ASTParent(node);
         }
@@ -677,7 +677,7 @@ namespace TL
             // Now the node is an AST_FUNCTION_DEFINITION
             while (node != NULL 
                     && ASTParent(node) != NULL
-                    && ASTType(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
+                    && ASTKind(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
             {
                 node = ASTParent(node);
             }
@@ -688,7 +688,7 @@ namespace TL
         {
             while (node != NULL
                     && ASTParent(node) != NULL
-                    && ASTType(ASTParent(node)) == AST_LINKAGE_SPEC_DECL)
+                    && ASTKind(ASTParent(node)) == AST_LINKAGE_SPEC_DECL)
             {
                 node = ASTParent(node);
             }
@@ -703,7 +703,7 @@ namespace TL
         AST list = this->_ast;
         // Look for the enclosing list
         while (list != NULL &&
-                ASTType(list) != AST_NODE_LIST)
+                ASTKind(list) != AST_NODE_LIST)
         {
             list = ASTParent(list);
         }
@@ -744,7 +744,7 @@ namespace TL
 
         // Look for the enclosing list
         while (list != NULL &&
-                ASTType(list) != AST_NODE_LIST)
+                ASTKind(list) != AST_NODE_LIST)
         {
             list = ASTParent(list);
         }
@@ -765,7 +765,7 @@ namespace TL
             return;
         }
 
-        if (ASTType(ast._ast) != AST_NODE_LIST)
+        if (ASTKind(ast._ast) != AST_NODE_LIST)
         {
             std::cerr << "The replacement tree is not a list. No replacement performed" << std::endl;
             return;
@@ -917,7 +917,7 @@ namespace TL
     bool AST_t::is_list() const
     {
         return is_valid()
-            && ASTType(_ast) == AST_NODE_LIST;
+            && ASTKind(_ast) == AST_NODE_LIST;
     }
 
     ASTIterator AST_t::get_list_iterator() const
@@ -930,7 +930,7 @@ namespace TL
         : _ast(ast), _current(ast)
     {
         if (ast == NULL 
-                || ASTType(ast) != AST_NODE_LIST)
+                || ASTKind(ast) != AST_NODE_LIST)
         {
             if (ast != NULL)
             {
@@ -1006,11 +1006,11 @@ namespace TL
 
         AST _possible_next = ASTParent(_current);
         if (_possible_next == NULL
-                || ASTType(_possible_next) != AST_NODE_LIST)
+                || ASTKind(_possible_next) != AST_NODE_LIST)
         {
             return true;
         }
-        else if (ASTType(_possible_next) == AST_NODE_LIST
+        else if (ASTKind(_possible_next) == AST_NODE_LIST
                 && ASTSon0(_possible_next) != _current)
         {
             return true;
@@ -1030,7 +1030,7 @@ namespace TL
         AST it = _ast;
 
         while (it != NULL
-                && ASTType(it) == AST_NODE_LIST)
+                && ASTKind(it) == AST_NODE_LIST)
         {
             it = ASTParent(it);
         }

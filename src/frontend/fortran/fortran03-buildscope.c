@@ -657,7 +657,7 @@ static void build_scope_program_unit_internal(AST program_unit,
 {
     scope_entry_t* _program_unit_symbol = NULL;
 
-    switch (ASTType(program_unit))
+    switch (ASTKind(program_unit))
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
@@ -709,7 +709,7 @@ static void build_scope_program_unit_internal(AST program_unit,
 
                     nodecl_t nodecl_nested_pragma = nodecl_null();
                     // Double nesting of pragmas
-                    if (ASTType(nested_program_unit) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+                    if (ASTKind(nested_program_unit) == AST_PRAGMA_CUSTOM_CONSTRUCT)
                     {
                         int num_items = 0;
                         nodecl_t* list = nodecl_unpack_list(*nodecl_output, &num_items);
@@ -744,7 +744,7 @@ static void build_scope_program_unit_internal(AST program_unit,
             }
         default:
             {
-                internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(program_unit)));
+                internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTKind(program_unit)));
             }
     }
 
@@ -914,7 +914,7 @@ static char inside_interface(AST a)
     if (a == NULL)
         return 0;
 
-    if (ASTType(a) == AST_INTERFACE_BLOCK)
+    if (ASTKind(a) == AST_INTERFACE_BLOCK)
         return 1;
     else
         return inside_interface(ASTParent(a));
@@ -1330,7 +1330,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
     type_t* result = NULL;
 
     if (is_pointer_component
-            && ASTType(a) == AST_TYPE_NAME)
+            && ASTKind(a) == AST_TYPE_NAME)
     {
         result = get_derived_type_name(ASTSon0(a), decl_context);
 
@@ -1362,7 +1362,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
 static nodecl_t check_bind_c(AST bind_c_spec,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(bind_c_spec) != AST_BIND_C_SPEC, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(bind_c_spec) != AST_BIND_C_SPEC, "Invalid node", 0);
 
     AST bind_name_expr = ASTSon0(bind_c_spec);
     if (bind_name_expr == NULL)
@@ -1391,7 +1391,7 @@ static nodecl_t check_bind_c(AST bind_c_spec,
 static nodecl_t check_bind_opencl(AST bind_c_spec,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(bind_c_spec) != AST_BIND_OPENCL_SPEC, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(bind_c_spec) != AST_BIND_OPENCL_SPEC, "Invalid node", 0);
 
     AST bind_name_expr = ASTSon0(bind_c_spec);
     if (bind_name_expr == NULL)
@@ -1441,11 +1441,11 @@ static nodecl_t check_bind_opencl(AST bind_c_spec,
 
 static void check_bind_spec(scope_entry_t* entry, AST bind_spec, decl_context_t decl_context)
 {
-    if (ASTType(bind_spec) == AST_BIND_C_SPEC)
+    if (ASTKind(bind_spec) == AST_BIND_C_SPEC)
     {
         symbol_entity_specs_set_bind_info(entry, check_bind_c(bind_spec, decl_context));
     }
-    else if (ASTType(bind_spec) == AST_BIND_OPENCL_SPEC
+    else if (ASTKind(bind_spec) == AST_BIND_OPENCL_SPEC
             // FIXME - Add a flag to enable opencl binding
             /* && opencl_is_enabled */)
     {
@@ -1545,7 +1545,7 @@ static scope_entry_t* new_procedure_symbol(
         for_each_element(prefix, it)
         {
             AST prefix_spec = ASTSon1(it);
-            ERROR_CONDITION(ASTType(prefix_spec) != AST_ATTR_SPEC, "Invalid tree", 0);
+            ERROR_CONDITION(ASTKind(prefix_spec) != AST_ATTR_SPEC, "Invalid tree", 0);
 
             const char* prefix_spec_str = ASTText(prefix_spec);
 
@@ -1584,7 +1584,7 @@ static scope_entry_t* new_procedure_symbol(
             else
             {
                 internal_error("Invalid tree kind '%s' with spec '%s'\n", 
-                        ast_print_node_type(ASTType(prefix_spec)),
+                        ast_print_node_type(ASTKind(prefix_spec)),
                         ASTText(prefix_spec));
             }
         }
@@ -2057,16 +2057,16 @@ static void build_scope_program_unit_body_declarations(
 
             // Exceptionally we run this one first otherwise it is not possible to
             // tell whether this is an executable or non-executable statement
-            if (ASTType(stmt) == AST_AMBIGUITY)
+            if (ASTKind(stmt) == AST_AMBIGUITY)
             {
                 build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 1);
             }
 
             // If the current statement is not a USE we have to solve
             if (delayed_function_type_spec != NULL
-                    && ASTType(stmt) != AST_USE_STATEMENT
-                    && ASTType(stmt) != AST_USE_ONLY_STATEMENT
-                    && ASTType(stmt) != AST_IMPORT_STATEMENT)
+                    && ASTKind(stmt) != AST_USE_STATEMENT
+                    && ASTKind(stmt) != AST_USE_ONLY_STATEMENT
+                    && ASTKind(stmt) != AST_IMPORT_STATEMENT)
             {
                 solve_delayed_function_type_spec(decl_context);
             }
@@ -2114,7 +2114,7 @@ static void build_scope_program_unit_body_executable(
 
             // Exceptionally we run this one first otherwise it is not possible to
             // tell whether this is an executable or non-executable statement
-            if (ASTType(stmt) == AST_AMBIGUITY)
+            if (ASTKind(stmt) == AST_AMBIGUITY)
             {
                 build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 0);
             }
@@ -2139,7 +2139,7 @@ static void build_scope_program_unit_body_executable(
 
     // Add a labeled CONTINUE for GOTO's to END
     if (end_statement != NULL
-            && (ASTType(end_statement) == AST_LABELED_STATEMENT))
+            && (ASTKind(end_statement) == AST_LABELED_STATEMENT))
     {
         AST label = ASTSon0(end_statement);
 
@@ -2190,7 +2190,7 @@ static scope_entry_t* build_scope_internal_subprogram(
     decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
 
     scope_entry_t* new_entry = NULL;
-    switch (ASTType(subprogram))
+    switch (ASTKind(subprogram))
     {
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
@@ -2239,12 +2239,12 @@ static scope_entry_t* build_scope_internal_subprogram(
             }
         default:
             {
-                internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));
+                internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTKind(subprogram)));
             }
     }
 
-    if ((ASTType(subprogram) == AST_SUBROUTINE_PROGRAM_UNIT
-                || ASTType(subprogram) == AST_FUNCTION_PROGRAM_UNIT)
+    if ((ASTKind(subprogram) == AST_SUBROUTINE_PROGRAM_UNIT
+                || ASTKind(subprogram) == AST_FUNCTION_PROGRAM_UNIT)
             && (new_entry != NULL))
     {
         AST program_body = ASTSon1(subprogram);
@@ -2660,7 +2660,7 @@ static char statement_get_kind(AST statement)
 {
     init_statement_array();
 
-    build_scope_statement_handler_t key = { .ast_kind = ASTType(statement) };
+    build_scope_statement_handler_t key = { .ast_kind = ASTKind(statement) };
     build_scope_statement_handler_t *handler = NULL;
 
     handler = (build_scope_statement_handler_t*)bsearch(&key, build_scope_statement_function, 
@@ -2669,7 +2669,7 @@ static char statement_get_kind(AST statement)
             build_scope_statement_function_compare);
 
     ERROR_CONDITION(handler == NULL 
-            || handler->statement_kind == NULL, "Invalid tree kind %s", ast_print_node_type(ASTType(statement)));
+            || handler->statement_kind == NULL, "Invalid tree kind %s", ast_print_node_type(ASTKind(statement)));
 
     return (handler->statement_kind)(statement);
 }
@@ -2700,7 +2700,7 @@ void fortran_build_scope_statement(AST statement, decl_context_t decl_context, n
         fprintf(stderr, "=== [%s] Statement ===\n", ast_location(statement));
     }
 
-    build_scope_statement_handler_t key = { .ast_kind = ASTType(statement) };
+    build_scope_statement_handler_t key = { .ast_kind = ASTKind(statement) };
     build_scope_statement_handler_t *handler = NULL;
 
     handler = (build_scope_statement_handler_t*)bsearch(&key, build_scope_statement_function, 
@@ -2710,7 +2710,7 @@ void fortran_build_scope_statement(AST statement, decl_context_t decl_context, n
     if (handler == NULL 
             || handler->handler == NULL)
     {
-        running_error("%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTType(statement)));
+        running_error("%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTKind(statement)));
     }
     else
     {
@@ -2735,7 +2735,7 @@ static void fortran_build_scope_statement_inside_block_context(
 
 const char* get_name_of_generic_spec(AST generic_spec)
 {
-    switch (ASTType(generic_spec))
+    switch (ASTKind(generic_spec))
     {
         case AST_SYMBOL:
             {
@@ -2753,7 +2753,7 @@ const char* get_name_of_generic_spec(AST generic_spec)
         default:
             {
                 internal_error("%s: Invalid generic spec '%s'", 
-                        ast_location(generic_spec), ast_print_node_type(ASTType(generic_spec)));
+                        ast_location(generic_spec), ast_print_node_type(ASTKind(generic_spec)));
             }
     }
     return NULL;
@@ -2857,7 +2857,7 @@ static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type
 
 static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_DERIVED_TYPE_NAME, "Invalid tree '%s'\n", ast_print_node_type(ASTType(a)));
+    ERROR_CONDITION(ASTKind(a) != AST_DERIVED_TYPE_NAME, "Invalid tree '%s'\n", ast_print_node_type(ASTKind(a)));
 
     AST name = ASTSon0(a);
     if (ASTSon1(a) != NULL)
@@ -2894,7 +2894,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
         decl_context_t decl_context)
 {
     type_t* result = NULL;
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_INT_TYPE:
             {
@@ -2924,7 +2924,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
         case AST_COMPLEX_TYPE:
             {
                 type_t* element_type = NULL; 
-                if (ASTType(ASTSon0(a)) == AST_DECIMAL_LITERAL)
+                if (ASTKind(ASTSon0(a)) == AST_DECIMAL_LITERAL)
                 {
                     element_type = choose_type_from_kind(ASTSon0(a), decl_context, 
                             choose_float_type_from_kind, fortran_get_default_real_type_kind);
@@ -2959,7 +2959,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
 
                 nodecl_t nodecl_len = nodecl_null();
                 if (len != NULL
-                        && ASTType(len) == AST_SYMBOL
+                        && ASTKind(len) == AST_SYMBOL
                         && strcmp(ASTText(len), "*") == 0)
                 {
                     is_undefined = 1;
@@ -3049,7 +3049,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         default:
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(a)));
             }
     }
 
@@ -3171,7 +3171,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
         attr_spec_handler_table_init = 1;
     }
 
-    switch (ASTType(attr_spec_item))
+    switch (ASTKind(attr_spec_item))
     {
         case AST_ATTR_SPEC:
             {
@@ -3187,7 +3187,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                 if (handler == NULL 
                         || handler->handler == NULL)
                 {
-                    internal_error("Unhandled handler of '%s' (%s)\n", ASTText(attr_spec_item), ast_print_node_type(ASTType(attr_spec_item)));
+                    internal_error("Unhandled handler of '%s' (%s)\n", ASTText(attr_spec_item), ast_print_node_type(ASTKind(attr_spec_item)));
                 }
 
                 (handler->handler)(attr_spec_item, decl_context, attr_spec);
@@ -3195,7 +3195,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
             }
         default:
             {
-                internal_error("Unhandled tree '%s'\n", ast_print_node_type(ASTType(attr_spec_item)));
+                internal_error("Unhandled tree '%s'\n", ast_print_node_type(ASTKind(attr_spec_item)));
             }
     }
 }
@@ -3428,7 +3428,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         nodecl_t upper_bound = nodecl_null();
 
         if (lower_bound_tree != NULL
-                && (ASTType(lower_bound_tree) != AST_SYMBOL
+                && (ASTKind(lower_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(lower_bound_tree), "*") != 0) ))
         {
             fortran_check_array_bounds_expression(lower_bound_tree, decl_context, &lower_bound);
@@ -3447,7 +3447,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         }
 
         if (upper_bound_tree != NULL
-                && (ASTType(upper_bound_tree) != AST_SYMBOL
+                && (ASTKind(upper_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(upper_bound_tree), "*") != 0) ))
         {
             fortran_check_array_bounds_expression(upper_bound_tree, decl_context, &upper_bound);
@@ -3481,7 +3481,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             }
         }
         else if (upper_bound_tree != NULL
-                && ASTType(upper_bound_tree) == AST_SYMBOL
+                && ASTKind(upper_bound_tree) == AST_SYMBOL
                 && strcmp(ASTText(upper_bound_tree), "*") == 0)
         {
             // (*)
@@ -3814,11 +3814,11 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context,
 
         AST name = NULL;
         AST array_spec = NULL;
-        if (ASTType(allocatable_decl) == AST_SYMBOL)
+        if (ASTKind(allocatable_decl) == AST_SYMBOL)
         {
             name = allocatable_decl;
         }
-        else if (ASTType(allocatable_decl) == AST_DIMENSION_DECL)
+        else if (ASTKind(allocatable_decl) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(allocatable_decl);
             array_spec = ASTSon1(allocatable_decl);
@@ -3915,7 +3915,7 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
         AST allocate_object = ASTSon1(it);
 
         // This one is here only for coarrays
-        if (ASTType(allocate_object) == AST_DIMENSION_DECL)
+        if (ASTKind(allocate_object) == AST_DIMENSION_DECL)
         {
             running_error("%s: sorry: coarrays not supported\n", 
                     ast_location(allocate_object));
@@ -4118,7 +4118,7 @@ static void build_scope_bind_stmt(AST a,
     AST language_binding_spec = ASTSon0(a);
     AST bind_entity_list = ASTSon1(a);
 
-    if (ASTType(language_binding_spec) != AST_BIND_C_SPEC)
+    if (ASTKind(language_binding_spec) != AST_BIND_C_SPEC)
     {
         error_printf("%s: error: unsupported BIND statement\n", ast_location(a));
         return;
@@ -4132,7 +4132,7 @@ static void build_scope_bind_stmt(AST a,
         AST bind_entity = ASTSon1(it);
 
         scope_entry_t* entry = NULL;
-        if (ASTType(bind_entity) == AST_COMMON_NAME)
+        if (ASTKind(bind_entity) == AST_COMMON_NAME)
         {
             entry = query_common_name(decl_context, 
                     ASTText(ASTSon0(bind_entity)),
@@ -4208,7 +4208,7 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
     {
         AST case_value_range = ASTSon1(it);
 
-        if (ASTType(case_value_range) == AST_CASE_VALUE_RANGE)
+        if (ASTKind(case_value_range) == AST_CASE_VALUE_RANGE)
         {
             AST lower_bound = ASTSon0(case_value_range);
             AST upper_bound = ASTSon1(case_value_range);
@@ -4360,18 +4360,18 @@ static void build_scope_common_stmt(AST a,
 
             AST name = NULL;
             AST array_spec = NULL;
-            if (ASTType(common_block_object) == AST_SYMBOL)
+            if (ASTKind(common_block_object) == AST_SYMBOL)
             {
                 name = common_block_object;
             }
-            else if (ASTType(common_block_object) == AST_DIMENSION_DECL)
+            else if (ASTKind(common_block_object) == AST_DIMENSION_DECL)
             {
                 name = ASTSon0(common_block_object);
                 array_spec = ASTSon1(common_block_object);
             }
             else
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(common_block_object)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(common_block_object)));
             }
 
             scope_entry_t* sym = get_symbol_for_name(decl_context, name, ASTText(name));
@@ -4797,7 +4797,7 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
     for_each_element(data_stmt_object_list, it2)
     {
         AST data_stmt_object = ASTSon1(it2);
-        if (ASTType(data_stmt_object) == AST_IMPLIED_DO)
+        if (ASTKind(data_stmt_object) == AST_IMPLIED_DO)
         {
             nodecl_t nodecl_implied_do = nodecl_null();
             generic_implied_do_handler(data_stmt_object, decl_context,
@@ -4844,7 +4844,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         for_each_element(data_stmt_value_list, it2)
         {
             AST data_stmt_value = ASTSon1(it2);
-            if (ASTType(data_stmt_value) == AST_MUL)
+            if (ASTKind(data_stmt_value) == AST_MUL)
             {
                 nodecl_t nodecl_repeat;
                 fortran_check_expression(ASTSon0(data_stmt_value), decl_context, &nodecl_repeat);
@@ -4926,7 +4926,7 @@ static void build_scope_deallocate_stmt(AST a,
     {
         AST allocate_object = ASTSon1(it);
 
-        if (ASTType(allocate_object) == AST_DIMENSION_DECL)
+        if (ASTKind(allocate_object) == AST_DIMENSION_DECL)
         {
             running_error("%s: sorry: coarrays not supported\n", 
                     ast_location(allocate_object));
@@ -5022,7 +5022,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         for_each_element(type_attr_spec_list, it)
         {
             AST type_attr_spec = ASTSon1(it);
-            switch (ASTType(type_attr_spec))
+            switch (ASTKind(type_attr_spec))
             {
                 case AST_ABSTRACT:
                     {
@@ -5154,7 +5154,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         {
             AST private_or_sequence = ASTSon1(it);
 
-            if (ASTType(private_or_sequence) == AST_SEQUENCE_STATEMENT)
+            if (ASTKind(private_or_sequence) == AST_SEQUENCE_STATEMENT)
             {
                 if (is_sequence)
                 {
@@ -5163,7 +5163,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 }
                 is_sequence = 1;
             }
-            else if (ASTType(private_or_sequence) == AST_ACCESS_STATEMENT)
+            else if (ASTKind(private_or_sequence) == AST_ACCESS_STATEMENT)
             {
                 if (fields_are_private)
                 {
@@ -5177,7 +5177,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 internal_error("%s: Unexpected statement '%s'\n", 
                         ast_location(private_or_sequence),
-                        ast_print_node_type(ASTType(private_or_sequence)));
+                        ast_print_node_type(ASTKind(private_or_sequence)));
             }
         }
     }
@@ -5197,12 +5197,12 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         {
             AST component_def_stmt = ASTSon1(it);
 
-            if (ASTType(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
+            if (ASTKind(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
             {
                 running_error("%s: sorry: unsupported procedure components in derived type definition\n",
                         ast_location(component_def_stmt));
             }
-            ERROR_CONDITION(ASTType(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
+            ERROR_CONDITION(ASTKind(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
                     "Invalid tree", 0);
 
             AST declaration_type_spec = ASTSon0(component_def_stmt);
@@ -5281,7 +5281,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                         error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                     }
 
-                    if (ASTType(char_length) != AST_SYMBOL
+                    if (ASTKind(char_length) != AST_SYMBOL
                             || strcmp(ASTText(char_length), "*") != 0)
                     {
                         nodecl_t nodecl_char_length = nodecl_null();
@@ -5395,7 +5395,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     entry->kind = SK_VARIABLE;
                     nodecl_t nodecl_init = nodecl_null();
 
-                    if (ASTType(initialization) == AST_POINTER_INITIALIZATION
+                    if (ASTKind(initialization) == AST_POINTER_INITIALIZATION
                             && current_attr_spec.is_pointer)
                     {
                         initialization = ASTSon0(initialization);
@@ -5408,7 +5408,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                         error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                                 ast_location(initialization));
                     }
-                    else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+                    else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
                     {
                         error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                                 ast_location(initialization));
@@ -5619,7 +5619,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
     // Convert a labeled END DO into a labeled CONTINUE at the end of the block
     if (end_do_statement != NULL
-            && ASTType(end_do_statement) == AST_LABELED_STATEMENT)
+            && ASTKind(end_do_statement) == AST_LABELED_STATEMENT)
     {
         AST label = ASTSon0(end_do_statement);
 
@@ -6049,7 +6049,7 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     // We append a labeled CONTINUE statement to the block that lies just
     // before the END IF
     if (endif_statement != NULL
-            && ASTType(endif_statement) == AST_LABELED_STATEMENT)
+            && ASTKind(endif_statement) == AST_LABELED_STATEMENT)
     {
         AST label = ASTSon0(endif_statement);
 
@@ -6260,15 +6260,15 @@ static scope_entry_list_t* build_scope_single_interface_specification(
         nodecl_t* nodecl_pragma)
 {
     scope_entry_list_t* result_entry_list = NULL;
-    if (ASTType(interface_specification) == AST_UNKNOWN_PRAGMA)
+    if (ASTKind(interface_specification) == AST_UNKNOWN_PRAGMA)
     {
         // Ignore these
     }
-    else if (ASTType(interface_specification) == AST_PROCEDURE)
+    else if (ASTKind(interface_specification) == AST_PROCEDURE)
     {
         unsupported_statement(interface_specification, "PROCEDURE");
     }
-    else if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+    else if (ASTKind(interface_specification) == AST_MODULE_PROCEDURE)
     {
         AST procedure_name_list = ASTSon0(interface_specification);
         AST it2;
@@ -6419,8 +6419,8 @@ static scope_entry_list_t* build_scope_single_interface_specification(
             }
         }
     }
-    else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
-            || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
+    else if (ASTKind(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
+            || ASTKind(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
     {
         scope_entry_t* entry = NULL;
         nodecl_t nodecl_program_unit = nodecl_null();
@@ -6446,7 +6446,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
         remove_untyped_symbol(decl_context, entry);
         remove_unknown_kind_symbol(decl_context, entry);
     }
-    else if (ASTType(interface_specification) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+    else if (ASTKind(interface_specification) == AST_PRAGMA_CUSTOM_CONSTRUCT)
     {
         AST pragma_line = ASTSon0(interface_specification);
         AST declaration = ASTSon1(interface_specification);
@@ -6491,7 +6491,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
     }
     else
     {
-        internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+        internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTKind(interface_specification)));
     }
 
     return result_entry_list;
@@ -7015,7 +7015,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
 
         AST pointee_name = pointee_decl;
         AST array_spec = NULL;
-        if (ASTType(pointee_decl) == AST_DIMENSION_DECL)
+        if (ASTKind(pointee_decl) == AST_DIMENSION_DECL)
         {
             pointee_name = ASTSon0(pointee_decl);
             array_spec = ASTSon1(pointee_decl);
@@ -7074,7 +7074,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         AST name = pointer_decl;
         AST array_spec = NULL;
-        if (ASTType(pointer_decl) == AST_DIMENSION_DECL)
+        if (ASTKind(pointer_decl) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(pointer_decl);
             array_spec = ASTSon1(pointer_decl);
@@ -7162,7 +7162,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
 static void build_scope_input_output_item(AST input_output_item, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (ASTType(input_output_item) == AST_IMPLIED_DO)
+    if (ASTKind(input_output_item) == AST_IMPLIED_DO)
     {
         generic_implied_do_handler(input_output_item, decl_context,
                 build_scope_input_output_item_list, nodecl_output);
@@ -7288,7 +7288,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
     if (proc_interface != NULL)
     {
-        if (ASTType(proc_interface) == AST_SYMBOL)
+        if (ASTKind(proc_interface) == AST_SYMBOL)
         {
             interface = get_symbol_for_name(decl_context, proc_interface, ASTText(proc_interface));
 
@@ -7337,7 +7337,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
         AST init = NULL;
 
-        if (ASTType(name) == AST_RENAME)
+        if (ASTKind(name) == AST_RENAME)
         {
             name = ASTSon0(name);
             init = ASTSon0(name);
@@ -7538,7 +7538,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         AST saved_entity = ASTSon1(it);
 
         scope_entry_t* entry = NULL;
-        if (ASTType(saved_entity) == AST_COMMON_NAME)
+        if (ASTKind(saved_entity) == AST_COMMON_NAME)
         {
             entry = query_common_name(decl_context, ASTText(ASTSon0(saved_entity)),
                     ast_get_locus(ASTSon0(saved_entity)));
@@ -7714,7 +7714,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
 
-        if (ASTType(target_decl_list) == AST_DIMENSION_DECL)
+        if (ASTKind(target_decl_list) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(target_decl);
             AST array_spec = ASTSon1(target_decl_list);
@@ -7919,7 +7919,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
             rank0 = array_type_get_element_type(rank0);
 
-            if (ASTType(char_length) != AST_SYMBOL
+            if (ASTKind(char_length) != AST_SYMBOL
                     || strcmp(ASTText(char_length), "*") != 0)
             {
                 nodecl_t nodecl_char_length = nodecl_null();
@@ -8171,7 +8171,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             remove_unknown_kind_symbol(decl_context, entry);
             nodecl_t nodecl_init = nodecl_null();
 
-            if (ASTType(initialization) == AST_POINTER_INITIALIZATION
+            if (ASTKind(initialization) == AST_POINTER_INITIALIZATION
                     && is_pointer_type(no_ref(entry->type_information)))
             {
                 initialization = ASTSon0(initialization);
@@ -8185,7 +8185,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                         ast_location(initialization));
                 nodecl_init = nodecl_make_err_expr(ast_get_locus(initialization));
             }
-            else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+            else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
             {
                 error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                         ast_location(initialization));
@@ -8515,13 +8515,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
     char is_only = 0;
 
-    if (ASTType(a) == AST_USE_STATEMENT)
+    if (ASTKind(a) == AST_USE_STATEMENT)
     {
         module_nature = ASTSon0(a);
         module_name = ASTSon1(a);
         rename_list = ASTSon2(a);
     }
-    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
+    else if (ASTKind(a) == AST_USE_ONLY_STATEMENT)
     {
         module_nature = ASTSon0(a);
         module_name = ASTSon1(a);
@@ -8530,7 +8530,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
     }
     else
     {
-        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
+        internal_error("Unexpected node %s", ast_print_node_type(ASTKind(a)));
     }
 
     char must_be_intrinsic_module = 0;
@@ -8651,7 +8651,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         {
             AST only = ASTSon1(it);
 
-            switch (ASTType(only))
+            switch (ASTKind(only))
             {
                 case AST_RENAME:
                     {
@@ -9005,7 +9005,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
     // Convert a labeled END DO into a labeled CONTINUE at the end of the block
     if (end_do_statement != NULL
-            && ASTType(end_do_statement) == AST_LABELED_STATEMENT)
+            && ASTKind(end_do_statement) == AST_LABELED_STATEMENT)
     {
         AST label = ASTSon0(end_do_statement);
 
@@ -9441,7 +9441,7 @@ static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 
 static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (!(ASTType(value) == AST_SYMBOL
+    if (!(ASTKind(value) == AST_SYMBOL
                 && strcmp(ASTText(value), "*") == 0))
     {
         nodecl_t nodecl_value = nodecl_null();
@@ -9450,7 +9450,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         type_t* t = nodecl_get_type(nodecl_value);
         
         char valid = 1;
-        if (ASTType(value) == AST_DECIMAL_LITERAL)
+        if (ASTKind(value) == AST_DECIMAL_LITERAL)
         {
             scope_entry_t* entry = fortran_query_label(value, decl_context, /* is_definition */ 0);
             if (entry == NULL)
@@ -9766,7 +9766,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 {
     AST value = ASTSon0(opt_value);
     // If it is not 'UNIT = *'
-    if (!(ASTType(value) == AST_SYMBOL
+    if (!(ASTKind(value) == AST_SYMBOL
                 && strcmp(ASTText(value), "*") == 0))
     {
         nodecl_t nodecl_value = nodecl_null();
@@ -10008,7 +10008,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
 
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context, char is_declaration)
 {
-    ERROR_CONDITION(ASTType(ambig_stmt) != AST_AMBIGUITY, "Invalid tree %s\n", ast_print_node_type(ASTType(ambig_stmt)));
+    ERROR_CONDITION(ASTKind(ambig_stmt) != AST_AMBIGUITY, "Invalid tree %s\n", ast_print_node_type(ASTKind(ambig_stmt)));
     ERROR_CONDITION(strcmp(ASTText(ambig_stmt), "ASSIGNMENT") != 0, "Invalid ambiguity", 0);
 
     int num_ambig = ast_get_num_ambiguities(ambig_stmt);
@@ -10021,11 +10021,11 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     {
         AST stmt = ast_get_ambiguity(ambig_stmt, i);
 
-        if (ASTType(stmt) == AST_LABELED_STATEMENT)
+        if (ASTKind(stmt) == AST_LABELED_STATEMENT)
             stmt = ASTSon1(stmt);
 
         char ok = 0;
-        switch (ASTType(stmt))
+        switch (ASTKind(stmt))
         {
             case AST_EXPRESSION_STATEMENT:
                 {
@@ -10050,7 +10050,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                 }
             default:
                 {
-                    internal_error("Invalid node '%s' at %s\n", ast_print_node_type(ASTType(ambig_stmt)), ast_location(ambig_stmt));
+                    internal_error("Invalid node '%s' at %s\n", ast_print_node_type(ASTKind(ambig_stmt)), ast_location(ambig_stmt));
                 }
         }
 

@@ -875,7 +875,7 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
 
     diagnostic_context_push_buffered();
 
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_SIMPLE_DECLARATION :
             {
@@ -978,12 +978,12 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 // using A::b;
                 // using typename A::b;
-                if (ASTType(a) == AST_USING_DECLARATION_TYPENAME)
+                if (ASTKind(a) == AST_USING_DECLARATION_TYPENAME)
                     error_printf("%s: error: 'using typename' is only valid in member-declarations\n",
                             ast_location(a));
 
                 build_scope_using_declaration(a, decl_context, AS_UNKNOWN,
-                        /* is_typename */ ASTType(a) == AST_USING_DECLARATION_TYPENAME,
+                        /* is_typename */ ASTKind(a) == AST_USING_DECLARATION_TYPENAME,
                         nodecl_output);
                 break;
             }
@@ -1001,7 +1001,7 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 solve_ambiguous_declaration(a, decl_context);
                 // Restart function
-                if (ASTType(a) == AST_AMBIGUITY)
+                if (ASTKind(a) == AST_AMBIGUITY)
                 {
                     internal_error("Ambiguity not handled\n", 0);
                 }
@@ -1078,7 +1078,7 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
         default :
             {
                 internal_error("A declaration of kind '%s' is still unsupported (%s)\n", 
-                        ast_print_node_type(ASTType(a)), ast_location(a));
+                        ast_print_node_type(ASTKind(a)), ast_location(a));
                 break;
             }
     }
@@ -1134,7 +1134,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
             {
                 AST asm_operand = ASTSon1(iter);
 
-                if (ASTType(asm_operand) == AST_GCC_ASM_OPERAND)
+                if (ASTKind(asm_operand) == AST_GCC_ASM_OPERAND)
                 {
                     AST identifier = ASTSon0(asm_operand);
                     AST constraint = ASTSon1(asm_operand);
@@ -1170,7 +1170,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                 }
                 else
                 {
-                    internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(asm_operand)));
+                    internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTKind(asm_operand)));
                 }
             }
         }
@@ -1208,7 +1208,7 @@ static void build_scope_explicit_instantiation(AST a,
     AST class_or_function_specifier = ASTSon0(a);
     if (class_or_function_specifier != NULL)
     {
-        if (ASTType(class_or_function_specifier) == AST_EXTERN_SPEC)
+        if (ASTKind(class_or_function_specifier) == AST_EXTERN_SPEC)
         {
             is_expl_inst_decl = 1;
         }
@@ -2124,7 +2124,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             AST init_declarator = ASTSon1(iter);
 
-            if (ASTType(init_declarator) == AST_AMBIGUITY)
+            if (ASTKind(init_declarator) == AST_AMBIGUITY)
             {
                 solve_ambiguous_init_declarator(init_declarator, decl_context, &current_gather_info);
             }
@@ -2140,7 +2140,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 }
             }
 
-            ERROR_CONDITION(ASTType(init_declarator) != AST_INIT_DECLARATOR,
+            ERROR_CONDITION(ASTKind(init_declarator) != AST_INIT_DECLARATOR,
                     "Invalid node", 0);
 
             AST asm_specification_or_gcc_attributes = ASTSon2(init_declarator);
@@ -2365,7 +2365,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "BUILDSCOPE: Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
+                        fprintf(stderr, "BUILDSCOPE: Initializer: '%s'\n", ast_print_node_type(ASTKind(initializer)));
                     }
 
                     char init_check = check_initialization(initializer,
@@ -2618,7 +2618,7 @@ void build_scope_decl_specifier_seq(AST a,
             AST spec = ASTSon1(iter);
             // GCC attributes (previous to type_spec) must be ignored at this point
             // Reason: these attributes refer to declarator_list
-            if (ASTType(spec) != AST_GCC_ATTRIBUTE)
+            if (ASTKind(spec) != AST_GCC_ATTRIBUTE)
             {
                 gather_decl_spec_information(spec, gather_info, decl_context);
             }
@@ -2639,9 +2639,9 @@ void build_scope_decl_specifier_seq(AST a,
             AST spec = ASTSon1(iter);
 
             if (only_seen_attributes
-                    && ASTType(spec) == AST_GCC_ATTRIBUTE
+                    && ASTKind(spec) == AST_GCC_ATTRIBUTE
                     && type_spec != NULL
-                    && ASTType(type_spec) == AST_CLASS_SPECIFIER)
+                    && ASTKind(type_spec) == AST_CLASS_SPECIFIER)
             {
                 // This attribute must be applied to the type not to
                 // the declaration
@@ -2737,7 +2737,7 @@ void build_scope_decl_specifier_seq(AST a,
             for_each_element(list, iter)
             {
                 AST spec = ASTSon1(iter);
-                if (ASTType(spec) == AST_GCC_ATTRIBUTE)
+                if (ASTKind(spec) == AST_GCC_ATTRIBUTE)
                 {
                     gather_decl_spec_information(spec, gather_info, decl_context);
                 }
@@ -2891,7 +2891,7 @@ void build_scope_decl_specifier_seq(AST a,
  */
 static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         // Storage specs
         case AST_AUTO_STORAGE_SPEC :
@@ -2991,7 +2991,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                         AST layout_qualif_kind = ASTSon0(layout);
 
                         if (layout_qualif_kind != NULL
-                                && ASTType(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
+                                && ASTKind(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
                         {
                             // We should be doing something useful with this
                             nodecl_t nodecl_dummy = nodecl_null();
@@ -3058,7 +3058,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                 break;
             }
         default:
-            internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
+            internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTKind(a)), ast_location(a));
             break;
     }
 }
@@ -3066,7 +3066,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 
 static type_t* compute_type_of_decltype(AST a, decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_DECLTYPE, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_DECLTYPE, "Invalid node", 0);
 
     AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
 
@@ -3075,7 +3075,7 @@ static type_t* compute_type_of_decltype(AST a, decl_context_t decl_context)
 
     check_expression_non_executable(expression, decl_context, &nodecl_expr);
     if (!nodecl_is_err_expr(nodecl_expr)
-            && ASTType(expression) == AST_PARENTHESIZED_EXPRESSION)
+            && ASTKind(expression) == AST_PARENTHESIZED_EXPRESSION)
     {
         nodecl_expr = cxx_nodecl_wrap_in_parentheses(nodecl_expr);
     }
@@ -3092,7 +3092,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_SIMPLE_TYPE_SPEC :
             gather_type_spec_from_simple_type_specifier(a, simple_type_info, gather_info, decl_context);
@@ -3434,7 +3434,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             }
         default:
             {
-                internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+                internal_error("Unknown node '%s'", ast_print_node_type(ASTKind(a)));
             }
     }
 }
@@ -3478,7 +3478,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
 
     enum type_tag_t class_kind = TT_INVALID;
     decl_flags_t class_kind_flag = DF_NONE;
-    switch (ASTType(class_key))
+    switch (ASTKind(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
@@ -3513,7 +3513,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
 
     scope_entry_t* entry = NULL;
     if (is_qualified_id_expression(id_expression)
-            || ASTType(id_expression) == AST_TEMPLATE_ID)
+            || ASTKind(id_expression) == AST_TEMPLATE_ID)
     {
         scope_entry_list_t* result_list = NULL;
 
@@ -3614,11 +3614,11 @@ static void gather_type_spec_from_friend_simple_type_specifier_common(
     scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
     ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
-    if (ASTType(a) == AST_SIMPLE_TYPE_SPEC)
+    if (ASTKind(a) == AST_SIMPLE_TYPE_SPEC)
     {
         gather_type_spec_from_simple_type_specifier(a, type_info, gather_info, decl_context);
     }
-    else if (ASTType(a) == AST_ELABORATED_TYPENAME_SPEC)
+    else if (ASTKind(a) == AST_ELABORATED_TYPENAME_SPEC)
     {
         gather_type_spec_from_dependent_typename(a, type_info, gather_info, decl_context);
     }
@@ -3946,13 +3946,13 @@ static void gather_extra_attributes(AST a,
     if (a == NULL)
         return;
 
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Invalid node", 0);
 
     AST it;
     for_each_element(a, it)
     {
         AST item = ASTSon1(it);
-        switch (ASTType(item))
+        switch (ASTKind(item))
         {
             case AST_GCC_ATTRIBUTE:
                 {
@@ -3985,7 +3985,7 @@ static void gather_extra_attributes(AST a,
                 }
             default:
                 {
-                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(item)));
+                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(item)));
                     break;
                 }
         }
@@ -3999,13 +3999,13 @@ static void apply_attributes_to_type(type_t** type,
     if (a == NULL)
         return;
 
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Invalid node", 0);
 
     AST it;
     for_each_element(a, it)
     {
         AST item = ASTSon1(it);
-        switch (ASTType(item))
+        switch (ASTKind(item))
         {
             case AST_GCC_ATTRIBUTE:
                 {
@@ -4020,7 +4020,7 @@ static void apply_attributes_to_type(type_t** type,
                 // FIXME - Standard attributes
             default:
                 {
-                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(item)));
+                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(item)));
                     break;
                 }
         }
@@ -4055,7 +4055,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
     decl_flags_t class_kind_flag = DF_NONE;
-    switch (ASTType(class_key))
+    switch (ASTKind(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
@@ -4125,14 +4125,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 // };
                 !class_gather_info.is_template &&
                 !class_gather_info.parameter_declaration &&
-                (ASTType(id_expression) == AST_TEMPLATE_ID || ASTType(id_expression) == AST_QUALIFIED_ID)
+                (ASTKind(id_expression) == AST_TEMPLATE_ID || ASTKind(id_expression) == AST_QUALIFIED_ID)
          );
 
     CXX_LANGUAGE()
     {
         if (class_gather_info.no_declarators
                 && !class_gather_info.parameter_declaration
-                && ASTType(id_expression) != AST_TEMPLATE_ID)
+                && ASTKind(id_expression) != AST_TEMPLATE_ID)
         {
             if (is_unqualified_id_expression(id_expression))
             {
@@ -4225,11 +4225,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             }
 
             const char* class_name = NULL;
-            if (ASTType(id_expression) == AST_SYMBOL)
+            if (ASTKind(id_expression) == AST_SYMBOL)
             {
                 class_name = ASTText(id_expression);
             }
-            else if (ASTType(id_expression) == AST_TEMPLATE_ID)
+            else if (ASTKind(id_expression) == AST_TEMPLATE_ID)
             {
                 class_name = ASTText(ASTSon0(id_expression));
             }
@@ -4254,7 +4254,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
             if ((!class_gather_info.is_template
                         || !class_gather_info.no_declarators)
-                    && ASTType(id_expression) != AST_TEMPLATE_ID)
+                    && ASTKind(id_expression) != AST_TEMPLATE_ID)
             {
                 DEBUG_CODE()
                 {
@@ -4272,7 +4272,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             }
             else
             {
-                if (ASTType(id_expression) != AST_TEMPLATE_ID)
+                if (ASTKind(id_expression) != AST_TEMPLATE_ID)
                 {
                     if (!check_class_template_parameters(ast_get_locus(a), decl_context.template_parameters))
                     {
@@ -4404,8 +4404,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         ERROR_CONDITION(entry->kind != SK_CLASS, "This must be a class", 0);
 
         if (class_gather_info.no_declarators
-                && (ASTType(id_expression) == AST_TEMPLATE_ID
-                    || ASTType(id_expression) == AST_QUALIFIED_ID)
+                && (ASTKind(id_expression) == AST_TEMPLATE_ID
+                    || ASTKind(id_expression) == AST_QUALIFIED_ID)
                 && !class_gather_info.is_template
                 && !class_gather_info.is_explicit_specialization
                 && !class_gather_info.is_explicit_instantiation)
@@ -4510,7 +4510,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
     gather_cxx11_attributes(enum_attribute_specifier, gather_info);
 
-    char enum_is_scoped = ASTType(enum_key) == AST_SCOPED_ENUM_KEY;
+    char enum_is_scoped = ASTKind(enum_key) == AST_SCOPED_ENUM_KEY;
 
     if(IS_CXX03_LANGUAGE
             && enum_is_scoped)
@@ -4617,7 +4617,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                 fprintf(stderr, "BUILDSCOPE: Enum type not found, creating a stub for this scope\n");
             }
 
-            if (ASTType(id_expression) != AST_SYMBOL)
+            if (ASTKind(id_expression) != AST_SYMBOL)
             {
                 error_printf("%s: invalid enum-name '%s'\n",
                         ast_location(id_expression),
@@ -5092,7 +5092,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     AST enum_name = ASTSon2(enum_head);
     AST enum_base = ASTSon3(enum_head);
 
-    char enum_is_scoped = ASTType(enum_key) == AST_SCOPED_ENUM_KEY;
+    char enum_is_scoped = ASTKind(enum_key) == AST_SCOPED_ENUM_KEY;
 
     if(IS_CXX03_LANGUAGE
             && enum_is_scoped)
@@ -5303,7 +5303,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             CXX11_LANGUAGE()
             {
-                if (ASTType(enum_key) == AST_UNSCOPED_ENUM_KEY)
+                if (ASTKind(enum_key) == AST_UNSCOPED_ENUM_KEY)
                 {
                     // Insert entry in the enclosing scope
                     // (note that in C and C++2003 we are already registering
@@ -5523,7 +5523,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         AST base_specifier = ASTSon1(iter);
 
         char is_expansion = 0;
-        if (ASTType(base_specifier) == AST_BASE_SPEC_PACK_EXPANSION)
+        if (ASTKind(base_specifier) == AST_BASE_SPEC_PACK_EXPANSION)
         {
             is_expansion = 1;
             base_specifier = ASTSon0(base_specifier);
@@ -5555,7 +5555,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
         if (access_spec_tree != NULL)
         {
-            switch (ASTType(access_spec_tree))
+            switch (ASTKind(access_spec_tree))
             {
                 case AST_PUBLIC_SPEC:
                     {
@@ -5574,7 +5574,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
                     }
                 default:
                     {
-                        internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(access_spec_tree)));
+                        internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTKind(access_spec_tree)));
                     }
             }
         }
@@ -6325,7 +6325,7 @@ static void build_scope_ctor_initializer_dependent(
         {
             AST mem_initializer = ASTSon1(iter);
 
-            ERROR_CONDITION(ASTType(mem_initializer) != AST_MEM_INITIALIZER, "Invalid tree", 0);
+            ERROR_CONDITION(ASTKind(mem_initializer) != AST_MEM_INITIALIZER, "Invalid tree", 0);
 
             AST mem_initializer_id = ASTSon0(mem_initializer);
             AST id_expression = ASTSon0(mem_initializer_id);
@@ -9330,7 +9330,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
 
-    switch (ASTType(class_key))
+    switch (ASTKind(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
@@ -9415,7 +9415,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             // If this is the primary template, we will get the template type.
             // Ask for the real primary type
             if (class_entry->kind == SK_TEMPLATE
-                    && ASTType(class_id_expression) != AST_TEMPLATE_ID)
+                    && ASTKind(class_id_expression) != AST_TEMPLATE_ID)
             {
                 scope_entry_t* template_sym = class_entry;
                 if (decl_context.template_parameters == NULL)
@@ -9605,7 +9605,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         {
             // If no class found and no nested name, the symbol must be created
             // here
-            if (ASTType(class_id_expression) == AST_SYMBOL)
+            if (ASTKind(class_id_expression) == AST_SYMBOL)
             {
                 C_LANGUAGE()
                 {
@@ -9623,7 +9623,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                             ASTText(class_id_expression));
                 }
             }
-            else if (ASTType(class_id_expression) == AST_TEMPLATE_ID)
+            else if (ASTKind(class_id_expression) == AST_TEMPLATE_ID)
             {
                 error_printf("%s: error: template class-name '%s' not found in the current scope\n",
                         ast_location(class_id_expression),
@@ -9652,7 +9652,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             }
             else 
             {
-                if (ASTType(class_id_expression) != AST_TEMPLATE_ID)
+                if (ASTKind(class_id_expression) != AST_TEMPLATE_ID)
                 {
                     if (!check_class_template_parameters(ast_get_locus(a), decl_context.template_parameters))
                     {
@@ -9856,7 +9856,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     access_specifier_t current_access;
     // classes have a private by default
-    if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
+    if (ASTKind(class_key) == AST_CLASS_KEY_CLASS)
     {
         current_access = AS_PRIVATE;
     }
@@ -9966,9 +9966,9 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
         AST member_specification = ASTSon1(iter);
 
         // If this is an access specifier update its related access info
-        if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
+        if (ASTKind(member_specification) == AST_MEMBER_ACCESS_SPEC)
         {
-            switch (ASTType(ASTSon0(member_specification)))
+            switch (ASTKind(ASTSon0(member_specification)))
             {
                 case AST_PRIVATE_SPEC : 
                     current_access = AS_PRIVATE;
@@ -9980,7 +9980,7 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
                     current_access = AS_PROTECTED;
                     break;
                 default :
-                    internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
+                    internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTKind(ASTSon0(member_specification))));
             }
         }
         else 
@@ -10103,7 +10103,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         decl_context_t entity_context = decl_context;
         // Adjust context if the name is qualified and this is not a friend
         if (declarator_name != NULL
-                && ASTType(declarator_name) == AST_QUALIFIED_ID
+                && ASTKind(declarator_name) == AST_QUALIFIED_ID
                 // friends do not adjust their context, otherwise they would not be
                 // parsable correctly
                 && !gather_info->is_friend)
@@ -10175,15 +10175,15 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     AST id_expression = declarator_name;
 
                     AST conversion_function_id = NULL;
-                    if (ASTType(id_expression) == AST_QUALIFIED_ID)
+                    if (ASTKind(id_expression) == AST_QUALIFIED_ID)
                     {
-                        if (ASTType(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
+                        if (ASTKind(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
                         {
                             conversion_function_id = ASTSon2(id_expression);
                         }
                     }
 
-                    if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+                    if (ASTKind(id_expression) == AST_CONVERSION_FUNCTION_ID)
                     {
                         conversion_function_id = id_expression;
                     }
@@ -10202,8 +10202,8 @@ static void build_scope_declarator_with_parameter_context(AST a,
                         *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
                     }
                 }
-                else if (ASTType(declarator_name) == AST_DESTRUCTOR_ID
-                        || ASTType(declarator_name) == AST_DESTRUCTOR_TEMPLATE_ID)
+                else if (ASTKind(declarator_name) == AST_DESTRUCTOR_ID
+                        || ASTKind(declarator_name) == AST_DESTRUCTOR_TEMPLATE_ID)
                 {
                     // Patch the type of the function of a destructor so it
                     // works for const objects as well
@@ -10230,7 +10230,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 {
     type_t* pointee_type = *declarator_type;
 
-    switch (ASTType(pointer_tree))
+    switch (ASTKind(pointer_tree))
     {
         case AST_POINTER_SPEC :
             {
@@ -10332,7 +10332,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                 break;
             }
         default :
-            internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(pointer_tree)));
+            internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTKind(pointer_tree)));
             break;
     }
 }
@@ -10538,7 +10538,7 @@ static void set_function_parameter_clause(type_t** function_type,
     memset(parameter_info, 0, sizeof(parameter_info));
     int num_parameters = 0;
 
-    if (ASTType(parameters) == AST_AMBIGUITY)
+    if (ASTKind(parameters) == AST_AMBIGUITY)
     {
         solve_ambiguous_parameter_clause(parameters, decl_context);
     }
@@ -10550,7 +10550,7 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             error_printf("%s: error: ref-qualifier is only valid in C++2011\n", ast_location(ref_qualifier_opt));
         }
-        switch (ASTType(ref_qualifier_opt))
+        switch (ASTKind(ref_qualifier_opt))
         {
             case AST_REFERENCE_SPEC:
                 ref_qualifier = REF_QUALIFIER_LVALUE;
@@ -10559,11 +10559,11 @@ static void set_function_parameter_clause(type_t** function_type,
                 ref_qualifier = REF_QUALIFIER_RVALUE;
                 break;
             default:
-                internal_error("Invalid ref-qualifier '%s'\n", ast_print_node_type(ASTType(ref_qualifier_opt)));
+                internal_error("Invalid ref-qualifier '%s'\n", ast_print_node_type(ASTKind(ref_qualifier_opt)));
         }
     }
 
-    if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
+    if (ASTKind(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
         C_LANGUAGE()
         {
@@ -10583,7 +10583,7 @@ static void set_function_parameter_clause(type_t** function_type,
     AST list = parameters;
 
     // K&R parameters
-    if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
+    if (ASTKind(parameters) == AST_KR_PARAMETER_LIST)
     {
         list = ASTSon0(parameters);
 
@@ -10648,14 +10648,14 @@ static void set_function_parameter_clause(type_t** function_type,
 
             AST parameter_declaration = ASTSon1(iter);
 
-            if (ASTType(parameter_declaration) == AST_AMBIGUITY)
+            if (ASTKind(parameter_declaration) == AST_AMBIGUITY)
             {
                 solve_ambiguous_parameter_decl(parameter_declaration, decl_context);
-                ERROR_CONDITION((ASTType(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %s", 
+                ERROR_CONDITION((ASTKind(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %s", 
                         ast_location(parameter_declaration));
             }
 
-            if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
+            if (ASTKind(parameter_declaration) == AST_VARIADIC_ARG)
             {
                 // Nothing more to do
                 parameter_info[num_parameters].is_ellipsis = 1;
@@ -10664,7 +10664,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 continue;
             }
 
-            ERROR_CONDITION(ASTType(parameter_declaration) != AST_PARAMETER_DECL,
+            ERROR_CONDITION(ASTKind(parameter_declaration) != AST_PARAMETER_DECL,
                     "Invalid node", 0);
 
             // This is never null
@@ -11039,7 +11039,7 @@ static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gat
     if (a == NULL)
         return;
 
-    switch(ASTType(a))
+    switch(ASTKind(a))
     {
         case AST_PARENTHESIZED_DECLARATOR :
             {
@@ -11088,7 +11088,7 @@ static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gat
             }
         default:
             {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(a)));
             }
     }
 }
@@ -11123,7 +11123,7 @@ static void build_scope_declarator_rec(
 
     // In our grammar attributes appear before the ptr-op and before the declarator, so we first handle
 
-    switch(ASTType(a))
+    switch(ASTKind(a))
     {
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
@@ -11142,7 +11142,7 @@ static void build_scope_declarator_rec(
                     *declarator_type = get_error_type();
                     error_printf("%s: error: invalid %s declarator for 'decltype(auto)'\n",
                             ast_location(a),
-                            ASTType(ASTSon0(a)) == AST_POINTER_SPEC ? "pointer" : "reference");
+                            ASTKind(ASTSon0(a)) == AST_POINTER_SPEC ? "pointer" : "reference");
                     return;
                 }
                 AST attributes = ASTSon2(a);
@@ -11296,7 +11296,7 @@ static void build_scope_declarator_rec(
             }
         default:
             {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(a)));
             }
     }
 }
@@ -11305,7 +11305,7 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
 {
     ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
 
-    switch(ASTType(a))
+    switch(ASTKind(a))
     {
         case AST_INIT_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
@@ -11324,7 +11324,7 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                 }
                 else
                 {
-                    switch (ASTType(ASTSon0(a)))
+                    switch (ASTKind(ASTSon0(a)))
                     {
                         case AST_SYMBOL :
                         case AST_TEMPLATE_ID :
@@ -11334,8 +11334,8 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                                 AST qualif = ASTSon0(a);
                                 AST unqualif = ASTSon2(qualif);
 
-                                return ASTType(unqualif) == AST_TEMPLATE_ID
-                                    || ASTType(unqualif) == AST_SYMBOL;
+                                return ASTKind(unqualif) == AST_TEMPLATE_ID
+                                    || ASTKind(unqualif) == AST_SYMBOL;
                                 break;
                             }
                         default :
@@ -11363,7 +11363,7 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
             }
         default:
             {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(a)));
             }
     }
 }
@@ -11384,8 +11384,8 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
     if (declarator_id_expr == NULL)
         return NULL;
 
-    ERROR_CONDITION(ASTType(declarator_id_expr) != AST_DECLARATOR_ID_EXPR,
-            "Invalid node '%s'\n", ast_print_node_type(ASTType(declarator_id_expr)));
+    ERROR_CONDITION(ASTKind(declarator_id_expr) != AST_DECLARATOR_ID_EXPR,
+            "Invalid node '%s'\n", ast_print_node_type(ASTKind(declarator_id_expr)));
 
     scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info,
             decl_context);
@@ -11503,7 +11503,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 {
     AST declarator_id = ASTSon0(declarator_name);
 
-    switch (ASTType(declarator_id))
+    switch (ASTKind(declarator_id))
     {
         // Unqualified ones
         case AST_SYMBOL :
@@ -11527,7 +11527,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // An unqualified destructor name "~name"
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
-                if (ASTType(declarator_id) == AST_DESTRUCTOR_TEMPLATE_ID)
+                if (ASTKind(declarator_id) == AST_DESTRUCTOR_TEMPLATE_ID)
                 {
                     destructor_id = declarator_id;
                 }
@@ -11609,7 +11609,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_dummy);
                 }
 
-                if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID)
+                if (ASTKind(declarator_id) == AST_OPERATOR_FUNCTION_ID)
                 {
                     return register_new_variable_name(operator_id, declarator_type, gather_info, decl_context);
                 }
@@ -11674,8 +11674,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 {
                     scope_entry_t *entry = NULL;
 
-                    if (ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_ID
-                            || ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
+                    if (ASTKind(ASTSon2(declarator_id)) == AST_DESTRUCTOR_ID
+                            || ASTKind(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
                     {
                         // Adjust the type to 'const function () returning void'
                         declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
@@ -11698,7 +11698,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             }
         default :
             {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_id)));
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(declarator_id)));
                 break;
             }
     }
@@ -12388,12 +12388,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     AST declarator_id_without_template_id = NULL;
     char is_template_id = 0;
 
-    if (ASTType(declarator_id) == AST_TEMPLATE_ID)
+    if (ASTKind(declarator_id) == AST_TEMPLATE_ID)
     {
         is_template_id = 1;
         declarator_id_without_template_id = ASTSon0(declarator_id);
     }
-    else if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    else if (ASTKind(declarator_id) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
         is_template_id = 1;
         declarator_id_without_template_id = ASTMake1(AST_OPERATOR_FUNCTION_ID,
@@ -12401,8 +12401,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 ast_get_locus(declarator_id),
                 NULL);
     }
-    else if (ASTType(declarator_id) == AST_QUALIFIED_ID
-            && ASTType(ASTSon2(declarator_id)) == AST_TEMPLATE_ID)
+    else if (ASTKind(declarator_id) == AST_QUALIFIED_ID
+            && ASTKind(ASTSon2(declarator_id)) == AST_TEMPLATE_ID)
     {
         AST unqualified_part = ASTSon2(declarator_id);
         AST name = ASTSon0(unqualified_part);
@@ -12416,8 +12416,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     ast_get_locus(declarator_id),
                     NULL);
     }
-    else if (ASTType(declarator_id) == AST_QUALIFIED_ID
-            && ASTType(ASTSon2(declarator_id)) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    else if (ASTKind(declarator_id) == AST_QUALIFIED_ID
+            && ASTKind(ASTSon2(declarator_id)) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
         is_template_id = 1;
         AST unqualified_part = ASTSon2(declarator_id);
@@ -12435,8 +12435,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     ast_get_locus(declarator_id),
                     NULL);
     }
-    else if (ASTType(declarator_id) == AST_QUALIFIED_ID
-            && ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
+    else if (ASTKind(declarator_id) == AST_QUALIFIED_ID
+            && ASTKind(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
     {
         is_template_id = 1;
         AST unqualified_part = ASTSon2(declarator_id);
@@ -12584,7 +12584,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
         // We should create a new SK_TEMPLATE
         const char* declarator_name = NULL;
-        switch (ASTType(declarator_id))
+        switch (ASTKind(declarator_id))
         {
             case AST_TEMPLATE_ID:
                 {
@@ -12748,13 +12748,13 @@ static char find_function_declaration(AST declarator_id,
     *result_entry = NULL;
 
     AST considered_tree = declarator_id;
-    if (ASTType(declarator_id) == AST_QUALIFIED_ID)
+    if (ASTKind(declarator_id) == AST_QUALIFIED_ID)
     {
         considered_tree = ASTSon2(declarator_id);
     }
 
-    char declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
-            || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+    char declarator_is_template_id = (ASTKind(considered_tree) == AST_TEMPLATE_ID
+            || ASTKind(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 
     // Template function declarations that are friend declared cannot be partially specialized
     if (gather_info->is_friend
@@ -12786,7 +12786,7 @@ static char find_function_declaration(AST declarator_id,
     decl_context_t lookup_context = decl_context;
     if (!gather_info->is_friend)
     {
-        switch (ASTType(declarator_id))
+        switch (ASTKind(declarator_id))
         {
             case AST_SYMBOL :
             case AST_TEMPLATE_ID :
@@ -12807,7 +12807,7 @@ static char find_function_declaration(AST declarator_id,
         // Restrict the lookup to the innermost enclosing namespace
         // if the declarator_id is unqualified and we are not naming a template
         // C++ Standard 7.3.1.2 Namespace member definitions
-        if (ASTType(declarator_id) != AST_QUALIFIED_ID)
+        if (ASTKind(declarator_id) != AST_QUALIFIED_ID)
         {
             lookup_context.current_scope = lookup_context.namespace_scope;
         }
@@ -12815,9 +12815,9 @@ static char find_function_declaration(AST declarator_id,
         // The class or function is not a template class or template function
         if (!gather_info->is_template
                 // The 'declarator_id' is not a template-id
-                && ASTType(declarator_id) != AST_TEMPLATE_ID)
+                && ASTKind(declarator_id) != AST_TEMPLATE_ID)
         {
-            switch (ASTType(declarator_id))
+            switch (ASTKind(declarator_id))
             {
                 case AST_SYMBOL :
                 case AST_TEMPLATE_ID :
@@ -12843,7 +12843,7 @@ static char find_function_declaration(AST declarator_id,
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->locus = ast_get_locus(declarator_id);
 
-        if (ASTType(declarator_id) == AST_TEMPLATE_ID)
+        if (ASTKind(declarator_id) == AST_TEMPLATE_ID)
         {
             result->symbol_name = ASTText(ASTSon0(declarator_id));
         }
@@ -13364,7 +13364,7 @@ static void build_scope_linkage_specifier_declaration(AST a,
 
     linkage_push(current_linkage, /* is braced */ 0);
 
-    if (ASTType(declaration)  == AST_LINKAGE_SPEC_DECL)
+    if (ASTKind(declaration)  == AST_LINKAGE_SPEC_DECL)
     {
         build_scope_linkage_specifier_declaration(declaration, top_linkage_decl, decl_context, 
                 nodecl_output, declared_symbols, gather_decl_spec_list);
@@ -13579,12 +13579,12 @@ static void build_scope_template_declaration(AST a,
     build_scope_template_header(ASTSon0(a), decl_context, &template_context, nodecl_output);
 
     AST templated_decl = ASTSon1(a);
-    if (ASTType(templated_decl) == AST_AMBIGUITY)
+    if (ASTKind(templated_decl) == AST_AMBIGUITY)
     {
         solve_ambiguous_declaration(templated_decl, template_context);
     }
 
-    switch (ASTType(templated_decl))
+    switch (ASTKind(templated_decl))
     {
         case AST_FUNCTION_DEFINITION :
             {
@@ -13628,7 +13628,7 @@ static void build_scope_template_declaration(AST a,
                 break;
             }
         default :
-            internal_error("Unknown node type '%s' (line=%s)\n", ast_print_node_type(ASTType(templated_decl)),
+            internal_error("Unknown node type '%s' (line=%s)\n", ast_print_node_type(ASTKind(templated_decl)),
                     ast_location(templated_decl));
     }
 
@@ -13746,12 +13746,12 @@ static void build_scope_explicit_template_specialization(AST a,
     //   void A3<int>::f(float q) { }
     //
 
-    if (ASTType(ASTSon0(a)) == AST_AMBIGUITY)
+    if (ASTKind(ASTSon0(a)) == AST_AMBIGUITY)
     {
         solve_ambiguous_declaration(ASTSon0(a), template_context);
     }
 
-    switch (ASTType(ASTSon0(a)))
+    switch (ASTKind(ASTSon0(a)))
     {
         case AST_FUNCTION_DEFINITION :
             {
@@ -13803,7 +13803,7 @@ static void build_scope_explicit_template_specialization(AST a,
             }
         default :
             {
-                internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
+                internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTKind(ASTSon0(a))));
             }
     }
 }
@@ -13908,7 +13908,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         else
         {
             if (type_specifier != NULL
-                    && ASTType(type_specifier) == AST_CLASS_SPECIFIER)
+                    && ASTKind(type_specifier) == AST_CLASS_SPECIFIER)
             {
                 error_printf("%s: error: invalid declarator in class template definition\n",
                         ast_location(init_declarator_list));
@@ -13940,7 +13940,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
     {
         AST init_declarator = ASTSon1(init_declarator_list);
 
-        if (ASTType(init_declarator) == AST_AMBIGUITY)
+        if (ASTKind(init_declarator) == AST_AMBIGUITY)
         {
             solve_ambiguous_init_declarator(init_declarator, decl_context, &gather_info);
         }
@@ -14141,7 +14141,7 @@ static void build_scope_template_parameter(AST a,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_PARAMETER_DECL :
             build_scope_nontype_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
@@ -14181,7 +14181,7 @@ static void build_scope_template_parameter(AST a,
             build_scope_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
         default :
-            internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(a)));
+            internal_error("Unknown node type '%s'", ast_print_node_type(ASTKind(a)));
     }
 }
 
@@ -14634,7 +14634,7 @@ static void build_scope_namespace_definition(AST a,
 
     if (namespace_inline != NULL)
     {
-        ERROR_CONDITION(ASTType(namespace_inline) != AST_INLINE_SPEC,
+        ERROR_CONDITION(ASTKind(namespace_inline) != AST_INLINE_SPEC,
                 "Invalid inline specifier tree", 0);
 
         is_inline = 1;
@@ -14944,7 +14944,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     AST function_header = ASTSon0(a);
 
-    if (ASTType(function_header) == AST_AMBIGUITY)
+    if (ASTKind(function_header) == AST_AMBIGUITY)
     {
         solve_ambiguous_function_header(function_header, decl_context);
     }
@@ -15725,7 +15725,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
 
     AST function_header = ASTSon0(function_definition);
 
-    if (ASTType(function_header) == AST_AMBIGUITY)
+    if (ASTKind(function_header) == AST_AMBIGUITY)
     {
         solve_ambiguous_function_header(function_header, decl_context);
     }
@@ -15753,7 +15753,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
 
                 AST declarator_name = get_declarator_name(function_declarator, decl_context);
                 if (decl_context.current_scope->kind == CLASS_SCOPE
-                        && ASTType(declarator_name) == AST_TEMPLATE_ID)
+                        && ASTKind(declarator_name) == AST_TEMPLATE_ID)
                 {
                     scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name, NULL);
                     if (entry_list == NULL
@@ -15923,7 +15923,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
         AST kr_parameter_list = get_function_declarator_parameter_list(function_declarator, decl_context);
 
         if (kr_parameter_declaration != NULL
-                || ASTType(kr_parameter_list) == AST_KR_PARAMETER_LIST)
+                || ASTKind(kr_parameter_list) == AST_KR_PARAMETER_LIST)
         {
             build_scope_kr_parameter_declaration(entry, kr_parameter_declaration, 
                     kr_parameter_list, *block_context, nodecl_output);
@@ -16181,7 +16181,7 @@ static void build_scope_function_definition_body(
     linkage_push(NULL, /* is_braced */ 1);
 
     nodecl_t body_nodecl = nodecl_null();
-    if (ASTType(statement) == AST_COMPOUND_STATEMENT)
+    if (ASTKind(statement) == AST_COMPOUND_STATEMENT)
     {
         // We want to inherit the block context to this compound statement
         // so build_scope_statement cannot be used, because it would create
@@ -16227,7 +16227,7 @@ static void build_scope_function_definition_body(
         body_nodecl = nodecl_make_compound_statement(body_nodecl, nodecl_destructors, 
                 ast_get_locus(statement));
     }
-    else if (ASTType(statement) == AST_TRY_BLOCK)
+    else if (ASTKind(statement) == AST_TRY_BLOCK)
     {
         build_scope_statement(statement, block_context, &body_nodecl);
 
@@ -16375,7 +16375,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         fprintf(stderr, "==== Member declaration line: [%s] ====\n",
                 ast_location(a));
     }
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_MEMBER_DECLARATION :
             {
@@ -16422,7 +16422,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_USING_DECLARATION_TYPENAME :
             {
                 build_scope_using_declaration(a, inner_decl_context, current_access, 
-                        /* is_typename */ ASTType(a) == AST_USING_DECLARATION_TYPENAME,
+                        /* is_typename */ ASTKind(a) == AST_USING_DECLARATION_TYPENAME,
                         nodecl_output);
                 break;
             }
@@ -16477,7 +16477,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         default:
             {
-                internal_error("Unsupported node '%s' (%s)\n", ast_print_node_type(ASTType(a)),
+                internal_error("Unsupported node '%s' (%s)\n", ast_print_node_type(ASTKind(a)),
                         ast_location(a));
                 break;
             }
@@ -16530,12 +16530,12 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     build_scope_template_header(ASTSon0(a), decl_context, &template_context, nodecl_output);
 
     AST templated_decl = ASTSon1(a);
-    if (ASTType(templated_decl) == AST_AMBIGUITY)
+    if (ASTKind(templated_decl) == AST_AMBIGUITY)
     {
         solve_ambiguous_declaration(templated_decl, template_context);
     }
 
-    switch (ASTType(templated_decl))
+    switch (ASTKind(templated_decl))
     {
         case AST_FUNCTION_DEFINITION :
             {
@@ -16563,7 +16563,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
                 break;
             }
         default :
-            internal_error("Unknown node type '%s' at %s\n", ast_print_node_type(ASTType(templated_decl)), ast_location(templated_decl));
+            internal_error("Unknown node type '%s' at %s\n", ast_print_node_type(ASTKind(templated_decl)), ast_location(templated_decl));
     }
 
 }
@@ -16769,7 +16769,7 @@ static void update_member_function_info(AST declarator_name,
 {
     // Update information in the class about this member function
     symbol_entity_specs_set_is_user_declared(entry, 1);
-    switch (ASTType(declarator_name))
+    switch (ASTKind(declarator_name))
     {
         case AST_SYMBOL :
             {
@@ -16842,8 +16842,8 @@ static void update_member_function_info(AST declarator_name,
                 }
 
                 // These are always static
-                if (ASTType(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
-                        || ASTType(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
+                if (ASTKind(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
+                        || ASTKind(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
                 {
                     symbol_entity_specs_set_is_static(entry, 1);
                 }
@@ -16862,7 +16862,7 @@ static void update_member_function_info(AST declarator_name,
             }
         default :
             {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(declarator_name)));
                 break;
             }
     }
@@ -17026,7 +17026,7 @@ static void build_scope_default_or_delete_member_function_definition(
 
     AST function_header = ASTSon0(a);
 
-    if (ASTType(function_header) == AST_AMBIGUITY)
+    if (ASTKind(function_header) == AST_AMBIGUITY)
     {
         solve_ambiguous_function_header(function_header, decl_context);
     }
@@ -17077,7 +17077,7 @@ static void build_scope_default_or_delete_member_function_definition(
 
     update_member_function_info(declarator_name, is_constructor, entry, class_info);
 
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_DEFAULTED_FUNCTION_DEFINITION :
             {
@@ -17162,7 +17162,7 @@ static void gather_single_virt_specifier(AST item,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    switch (ASTType(item))
+    switch (ASTKind(item))
     {
         case AST_CLASS_VIRT_SPEC:
         case AST_MEMBER_VIRT_SPEC:
@@ -17201,7 +17201,7 @@ static void gather_single_virt_specifier(AST item,
             }
         default:
             {
-                internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(item)));
+                internal_error("Invalid node '%s'\n", ast_print_node_type(ASTKind(item)));
                 break;
             }
     }
@@ -17213,7 +17213,7 @@ static void gather_virt_specifiers(AST a,
 {
     if (a == NULL)
         return;
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Invalid node", 0);
 
     AST it;
     for_each_element(a, it)
@@ -17294,14 +17294,14 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 // FIXME Rewrite this using gather_info
                 if (type_specifier != NULL
                         && !gather_info.is_friend
-                        && (ASTType(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
+                        && (ASTKind(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
                             // class A; (no declarator)
-                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
+                            || ((ASTKind(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
                                 && (member_init_declarator_list == NULL))
                             // enum E { } [x];
-                            || ASTType(type_specifier) == AST_ENUM_SPECIFIER
+                            || ASTKind(type_specifier) == AST_ENUM_SPECIFIER
                             // enum E; (no declarator)
-                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
+                            || ((ASTKind(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
                                 && (member_init_declarator_list == NULL))))
                 {
                     scope_entry_t* entry = named_type_get_symbol(member_type);
@@ -17336,7 +17336,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             gather_decl_spec_t current_gather_info;
             copy_gather_info(&current_gather_info, &gather_info);
 
-            switch (ASTType(declarator))
+            switch (ASTKind(declarator))
             {
                 case AST_AMBIGUITY:
                     {
@@ -17445,7 +17445,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         AST too_much_qualified_declarator_name = get_declarator_name(declarator, decl_context);
 
-                        if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID)
+                        if (ASTKind(too_much_qualified_declarator_name) == AST_QUALIFIED_ID)
                         {
                             error_printf("%s: error: extra qualification of member declaration is not allowed: '%s'. "
                                     "Did you mean '%s'?\n",
@@ -17464,7 +17464,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             if (is_constructor_declarator(declarator))
                             {
-                                if (ASTType(declarator_name) == AST_TEMPLATE_ID)
+                                if (ASTKind(declarator_name) == AST_TEMPLATE_ID)
                                 {
                                     scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name, NULL);
                                     if (entry_list == NULL
@@ -17633,10 +17633,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 if (symbol_entity_specs_get_is_virtual(entry))
                                 {
                                     AST equal_initializer = initializer;
-                                    if (ASTType(equal_initializer) == AST_EQUAL_INITIALIZER)
+                                    if (ASTKind(equal_initializer) == AST_EQUAL_INITIALIZER)
                                     {
                                         AST octal_literal = ASTSon0(equal_initializer);
-                                        if (ASTType(octal_literal) == AST_OCTAL_LITERAL)
+                                        if (ASTKind(octal_literal) == AST_OCTAL_LITERAL)
                                         {
                                             if (strcmp(ASTText(octal_literal), "0") == 0)
                                             {
@@ -17681,7 +17681,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     }
                 default :
                     {
-                        internal_error("Unhandled node '%s' (%s)", ast_print_node_type(ASTType(declarator)), ast_location(declarator));
+                        internal_error("Unhandled node '%s' (%s)", ast_print_node_type(ASTKind(declarator)), ast_location(declarator));
                         break;
                     }
             }
@@ -17715,7 +17715,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             class_type_add_member(class_type, new_member, /* is_definition */ 1);
         }
         else if (gather_info.is_friend
-                && (ASTType(type_specifier) != AST_ELABORATED_TYPE_CLASS_SPEC))
+                && (ASTKind(type_specifier) != AST_ELABORATED_TYPE_CLASS_SPEC))
         {
             if (!is_dependent_class_scope(decl_context))
             {
@@ -17751,7 +17751,7 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
         return result;
     }
 
-    ERROR_CONDITION((ASTType(a) != AST_NODE_LIST), "This function expects a list", 0);
+    ERROR_CONDITION((ASTKind(a) != AST_NODE_LIST), "This function expects a list", 0);
 
     AST list, iter;
     list = a;
@@ -17760,7 +17760,7 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
     {
         AST cv_qualifier = ASTSon1(iter);
 
-        switch (ASTType(cv_qualifier))
+        switch (ASTKind(cv_qualifier))
         {
             case AST_CONST_SPEC :
                 result |= CV_CONST;
@@ -17772,7 +17772,7 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
                 result |= CV_RESTRICT;
                 break;
             default:
-                internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(cv_qualifier)));
+                internal_error("Unknown node type '%s'", ast_print_node_type(ASTKind(cv_qualifier)));
                 break;
         }
     }
@@ -17913,11 +17913,11 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
         return;
     }
 
-    if (ASTType(a) == AST_EXCEPTION_SPECIFICATION)
+    if (ASTKind(a) == AST_EXCEPTION_SPECIFICATION)
     {
         build_dynamic_exception_spec(function_type, a, gather_info, decl_context, nodecl_output);
     }
-    else if (ASTType(a) == AST_NOEXCEPT_SPECIFICATION)
+    else if (ASTKind(a) == AST_NOEXCEPT_SPECIFICATION)
     {
         if (gather_info->inside_class_specifier)
         {
@@ -17937,7 +17937,7 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
     else
     {
-        internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(a)));
+        internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTKind(a)));
     }
 }
 
@@ -17945,9 +17945,9 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
 // 'operator +'
 const char* get_operator_function_name(AST declarator_id)
 {
-    ERROR_CONDITION((ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID
-                && ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID_TEMPLATE), 
-            "This node is not valid here '%s'", ast_print_node_type(ASTType(declarator_id)));
+    ERROR_CONDITION((ASTKind(declarator_id) != AST_OPERATOR_FUNCTION_ID
+                && ASTKind(declarator_id) != AST_OPERATOR_FUNCTION_ID_TEMPLATE), 
+            "This node is not valid here '%s'", ast_print_node_type(ASTKind(declarator_id)));
 
     AST operator  = ASTSon0(declarator_id);
 
@@ -17958,7 +17958,7 @@ const char* get_operator_function_name(AST declarator_id)
         return (c = uniquestr(x)); \
     } 
 
-    switch (ASTType(operator))
+    switch (ASTKind(operator))
     {
         case AST_NEW_OPERATOR :
             RETURN_UNIQUESTR_NAME(STR_OPERATOR_NEW);
@@ -18045,7 +18045,7 @@ const char* get_operator_function_name(AST declarator_id)
         case AST_SUBSCRIPT_OPERATOR :
             RETURN_UNIQUESTR_NAME(STR_OPERATOR_SUBSCRIPT);
         default :
-            internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(declarator_id)));
+            internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTKind(declarator_id)));
     }
 
 #undef RETURN_UNIQUESTR_NAME
@@ -18278,7 +18278,7 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
 
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         solve_ambiguous_condition(a, decl_context);
     }
@@ -18290,7 +18290,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         AST type_specifier_seq = ASTSon0(a);
         AST declarator = ASTSon1(a);
 
-        ERROR_CONDITION((ASTType(declarator) == AST_AMBIGUITY), "Unexpected ambiguity", 0);
+        ERROR_CONDITION((ASTKind(declarator) == AST_AMBIGUITY), "Unexpected ambiguity", 0);
 
         // A type_specifier_seq is essentially a subset of a
         // declarator_specifier_seq so we can reuse existing functions
@@ -18343,7 +18343,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
 static void build_scope_normalized_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (ASTType(a) == AST_COMPOUND_STATEMENT)
+    if (ASTKind(a) == AST_COMPOUND_STATEMENT)
     {
         build_scope_statement(a, decl_context, nodecl_output);
     }
@@ -18568,7 +18568,7 @@ static void build_scope_if_else_statement(AST a,
 static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(ASTType(a) != AST_SYMBOL_LITERAL_REF, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_SYMBOL_LITERAL_REF, "Invalid node", 0);
 
     const char *tmp = ASTText(ASTSon0(a));
 
@@ -18638,7 +18638,7 @@ static void build_scope_for_statement_nonrange(AST a,
     // AST end_loop_statement = ASTSon2(a); // Fortran only
     AST synthesized_loop_name = ASTSon3(a); // Mercurium internal parsing
 
-    if (ASTType(for_init_statement) == AST_AMBIGUITY)
+    if (ASTKind(for_init_statement) == AST_AMBIGUITY)
     {
         solve_ambiguous_for_init_statement(for_init_statement, decl_context);
     }
@@ -18646,7 +18646,7 @@ static void build_scope_for_statement_nonrange(AST a,
     decl_context_t block_context = new_block_context(decl_context);
 
     nodecl_t nodecl_loop_init = nodecl_null();
-    if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
+    if (ASTKind(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         nodecl_t nodecl_dummy = nodecl_null();
         scope_entry_list_t* declared_symbols = NULL;
@@ -18676,7 +18676,7 @@ static void build_scope_for_statement_nonrange(AST a,
 
         xfree(gather_decl_spec_list.items);
     }
-    else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
+    else if (ASTKind(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
         build_scope_expression_statement(for_init_statement, block_context, &nodecl_loop_init);
         // This tree contains VLA object inits
@@ -18687,7 +18687,7 @@ static void build_scope_for_statement_nonrange(AST a,
         // Get the expression itself instead of an expression statement
         nodecl_loop_init = nodecl_make_list_1(nodecl_get_child(nodecl_loop_init, 0));
     }
-    else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
+    else if (ASTKind(for_init_statement) == AST_EMPTY_STATEMENT)
     {
         build_scope_statement(for_init_statement, block_context, &nodecl_loop_init);
         // Make it empty
@@ -18695,7 +18695,7 @@ static void build_scope_for_statement_nonrange(AST a,
     }
     else
     {
-        internal_error("unexpected node '%s'", ast_print_node_type(ASTType(for_init_statement)));
+        internal_error("unexpected node '%s'", ast_print_node_type(ASTKind(for_init_statement)));
     }
 
     nodecl_t nodecl_loop_condition = nodecl_null();
@@ -19216,12 +19216,12 @@ static void build_scope_for_statement(AST a,
 {
     AST loop_control = ASTSon0(a);
 
-    if (ASTType(loop_control) == AST_LOOP_CONTROL)
+    if (ASTKind(loop_control) == AST_LOOP_CONTROL)
         return build_scope_for_statement_nonrange(a,
                 decl_context,
                 nodecl_output);
     else if (IS_CXX_LANGUAGE
-            && ASTType(loop_control) == AST_RANGE_LOOP_CONTROL)
+            && ASTKind(loop_control) == AST_RANGE_LOOP_CONTROL)
         // C++2011
         // for (T t : e) S;
         return build_scope_for_statement_range(a,
@@ -19693,7 +19693,7 @@ static void build_scope_return_statement(AST a,
     nodecl_t nodecl_return_expression = nodecl_null();
     if (expression != NULL)
     {
-        if (ASTType(expression) == AST_INITIALIZER_BRACES)
+        if (ASTKind(expression) == AST_INITIALIZER_BRACES)
         {
             compute_nodecl_initialization(expression,
                     decl_context,
@@ -19708,7 +19708,7 @@ static void build_scope_return_statement(AST a,
             // FIXME - overlapped logic with preserve_top_level_parentheses
             if (!nodecl_is_err_expr(nodecl_return_expression)
                     && is_decltype_auto_type(return_type)
-                    && ASTType(expression) == AST_PARENTHESIZED_EXPRESSION)
+                    && ASTKind(expression) == AST_PARENTHESIZED_EXPRESSION)
             {
                 nodecl_return_expression = cxx_nodecl_wrap_in_parentheses(nodecl_return_expression);
             }
@@ -19775,12 +19775,12 @@ static void build_scope_try_block(AST a,
         AST handler_compound_statement = ASTSon1(handler);
 
         decl_context_t catch_handler_context = new_block_context(decl_context);
-        if (ASTType(exception_declaration) == AST_AMBIGUITY)
+        if (ASTKind(exception_declaration) == AST_AMBIGUITY)
         {
             solve_ambiguous_exception_decl(exception_declaration, catch_handler_context);
         }
 
-        if (ASTType(exception_declaration) != AST_ANY_EXCEPTION)
+        if (ASTKind(exception_declaration) != AST_ANY_EXCEPTION)
         {
             AST type_specifier_seq = ASTSon0(exception_declaration);
             // This declarator can be null
@@ -20042,7 +20042,7 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
         nodecl_t* nodecl_output, 
         pragma_block_level_info_t* info)
 {
-    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
 
     AST pragma_line = ASTSon0(pragma);
     AST pragma_stmt = ASTSon1(pragma);
@@ -20051,12 +20051,12 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
 
-    if (ASTType(pragma_stmt) == AST_AMBIGUITY)
+    if (ASTKind(pragma_stmt) == AST_AMBIGUITY)
         solve_ambiguous_statement(pragma_stmt, decl_context);
 
     nodecl_t nodecl_statement = nodecl_null();
 
-    switch (ASTType(pragma_stmt))
+    switch (ASTKind(pragma_stmt))
     {
         case AST_AMBIGUITY:
             {
@@ -20258,7 +20258,7 @@ static void build_scope_pragma_custom_construct_declaration_rec(
         nodecl_t *nodecl_output,
         declaration_pragma_info_t* info)
 {
-    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
 
     AST pragma_line = ASTSon0(pragma);
     AST pragma_decl = ASTSon1(pragma);
@@ -20267,10 +20267,10 @@ static void build_scope_pragma_custom_construct_declaration_rec(
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
 
-    if (ASTType(pragma_decl) == AST_AMBIGUITY)
+    if (ASTKind(pragma_decl) == AST_AMBIGUITY)
         solve_ambiguous_declaration(pragma_decl, decl_context);
 
-    switch (ASTType(pragma_decl))
+    switch (ASTKind(pragma_decl))
     {
         case AST_AMBIGUITY:
             {
@@ -20293,7 +20293,7 @@ static void build_scope_pragma_custom_construct_declaration_rec(
                 build_scope_declaration(pragma_decl, decl_context, nodecl_output,
                         info->declared_symbols,
                         info->gather_decl_spec_list);
-                if (ASTType(pragma_decl) == AST_FUNCTION_DEFINITION)
+                if (ASTKind(pragma_decl) == AST_FUNCTION_DEFINITION)
                 {
                     info->is_function_definition = 1;
                 }
@@ -20342,7 +20342,7 @@ static void build_scope_pragma_custom_construct_member_declaration_rec(
         nodecl_t *nodecl_output,
         member_declaration_pragma_info_t* info)
 {
-    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
 
     AST pragma_line = ASTSon0(pragma);
     AST pragma_decl = ASTSon1(pragma);
@@ -20351,10 +20351,10 @@ static void build_scope_pragma_custom_construct_member_declaration_rec(
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
 
-    if (ASTType(pragma_decl) == AST_AMBIGUITY)
+    if (ASTKind(pragma_decl) == AST_AMBIGUITY)
         solve_ambiguous_declaration(pragma_decl, decl_context);
 
-    switch (ASTType(pragma_decl))
+    switch (ASTKind(pragma_decl))
     {
         case AST_AMBIGUITY:
             {
@@ -20439,7 +20439,7 @@ static void build_scope_upc_synch_statement(AST a,
 #define START_CHECKS \
     if (0);
 #define CHECK(x) \
-    else if (ASTType(a) == AST_##x) { stmt_name = x##_STATEMENT; }
+    else if (ASTKind(a) == AST_##x) { stmt_name = x##_STATEMENT; }
 #define END_CHECKS \
     ERROR_CONDITION(stmt_name == NULL, "Invalid statmeent name", 0);
 
@@ -20465,7 +20465,7 @@ static void build_scope_upc_forall_statement(AST a,
     AST expression = ASTSon2(forall_header);
     AST affinity = ASTSon3(forall_header);
 
-    if (ASTType(for_init_statement) == AST_AMBIGUITY)
+    if (ASTKind(for_init_statement) == AST_AMBIGUITY)
     {
         solve_ambiguous_for_init_statement(for_init_statement, decl_context);
     }
@@ -20473,14 +20473,14 @@ static void build_scope_upc_forall_statement(AST a,
     decl_context_t block_context = new_block_context(decl_context);
 
     nodecl_t nodecl_for_init = nodecl_null();
-    if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
+    if (ASTKind(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         build_scope_simple_declaration(for_init_statement, block_context, 
                 /* is_template */ 0, /* is_explicit_specialization */ 0,
                 &nodecl_for_init,
                 /* declared_symbols */ NULL, /* gather_decl_spec_list_t */ NULL);
     }
-    else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
+    else if (ASTKind(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
         build_scope_expression_statement(for_init_statement, block_context, &nodecl_for_init);
     }
@@ -20639,7 +20639,7 @@ static void build_scope_statement_(AST a,
         fprintf(stderr, "==== Statement line [%s] ====\n", ast_location(a));
     }
 
-    stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)].handler;
+    stmt_scope_handler_t f = stmt_scope_handlers[ASTKind(a)].handler;
 
     if (f != NULL)
     {
@@ -20647,7 +20647,7 @@ static void build_scope_statement_(AST a,
     }
     else
     {
-        WARNING_MESSAGE("Statement node type '%s' does not have handler in %s", ast_print_node_type(ASTType(a)),
+        WARNING_MESSAGE("Statement node type '%s' does not have handler in %s", ast_print_node_type(ASTKind(a)),
                 ast_location(a));
     }
 }
@@ -20663,7 +20663,7 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
 {
     ERROR_CONDITION((funct_declarator == NULL), "This function does not admit NULL trees", 0);
 
-    switch (ASTType(funct_declarator))
+    switch (ASTKind(funct_declarator))
     {
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
@@ -20685,7 +20685,7 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
             }
         default:
             {
-                internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(funct_declarator)),
+                internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTKind(funct_declarator)),
                         ast_location(funct_declarator));
                 break;
             }
@@ -20717,7 +20717,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
     if (a == NULL)
         return NULL;
 
-    switch(ASTType(a))
+    switch(ASTKind(a))
     {
         case AST_INIT_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
@@ -20758,7 +20758,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
             }
         default:
             {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(a)));
             }
     }
 }
@@ -20767,10 +20767,10 @@ const char* get_conversion_function_name(decl_context_t decl_context,
         AST conversion_function_id, 
         type_t** result_conversion_type)
 {
-    if (ASTType(conversion_function_id) != AST_CONVERSION_FUNCTION_ID)
+    if (ASTKind(conversion_function_id) != AST_CONVERSION_FUNCTION_ID)
     {
         internal_error("This node '%s' is not valid for this function", 
-                ast_print_node_type(ASTType(conversion_function_id)));
+                ast_print_node_type(ASTKind(conversion_function_id)));
     }
 
     AST conversion_type_id = ASTSon0(conversion_function_id);

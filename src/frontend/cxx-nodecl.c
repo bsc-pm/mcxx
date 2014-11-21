@@ -289,7 +289,7 @@ nodecl_t nodecl_make_from_ast_nodecl_literal(AST a)
         return nodecl_null();
     }
 
-    ERROR_CONDITION(ASTType(a) != AST_NODECL_LITERAL, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODECL_LITERAL, "Invalid node", 0);
 
     AST string_literal_list = ASTSon0(a);
     AST it;

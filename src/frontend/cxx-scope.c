@@ -950,7 +950,7 @@ char compute_type_of_dependent_conversion_type_id(
     AST type_spec = ASTSon1(type_specifier_seq);
 
     // Build the type tree
-    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+    if (ASTKind(type_spec) == AST_SIMPLE_TYPE_SPEC)
     {
         AST id_expression = ASTSon0(type_spec);
 
@@ -4460,13 +4460,13 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         int position)
 {
     char is_expansion = 0;
-    if (ASTType(template_parameter) == AST_TEMPLATE_ARGUMENT_PACK_EXPANSION)
+    if (ASTKind(template_parameter) == AST_TEMPLATE_ARGUMENT_PACK_EXPANSION)
     {
         template_parameter = ASTSon0(template_parameter);
         is_expansion = 1;
     }
 
-    if (ASTType(template_parameter) == AST_AMBIGUITY)
+    if (ASTKind(template_parameter) == AST_AMBIGUITY)
     {
         template_argument_info_t targ_info = {
             .position = position,
@@ -4481,7 +4481,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 NULL);
     }
 
-    switch (ASTType(template_parameter))
+    switch (ASTKind(template_parameter))
     {
         case AST_TEMPLATE_EXPRESSION_ARGUMENT :
             {
@@ -4591,7 +4591,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
             }
         default:
             {
-                internal_error("Invalid node %s", ast_print_node_type(ASTType(template_parameter)));
+                internal_error("Invalid node %s", ast_print_node_type(ASTKind(template_parameter)));
             }
     }
     return NULL;
@@ -4637,7 +4637,7 @@ static void get_template_arguments_from_syntax_rec(
         // fprintf(stderr, "%p -> miss\n", template_parameters_list_tree);
     }
 
-    if (ASTType(template_parameters_list_tree) == AST_AMBIGUITY)
+    if (ASTKind(template_parameters_list_tree) == AST_AMBIGUITY)
     {
         // We have to try every interpretation and keep the good one. Only one should end being valid
         int num_ambiguities = ast_get_num_ambiguities(template_parameters_list_tree);
@@ -4732,7 +4732,7 @@ static void get_template_arguments_from_syntax_rec(
             dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, cached);
         }
     }
-    else if (ASTType(template_parameters_list_tree) == AST_NODE_LIST)
+    else if (ASTKind(template_parameters_list_tree) == AST_NODE_LIST)
     {
         // If we are not the first, invoke recursively
         if (ASTSon0(template_parameters_list_tree) != NULL)
@@ -6135,19 +6135,19 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
 char is_unqualified_id_expression(AST a)
 {
     return a != NULL
-        && (ASTType(a) == AST_SYMBOL
-                || ASTType(a) == AST_TEMPLATE_ID
-                || ASTType(a) == AST_CONVERSION_FUNCTION_ID
-                || ASTType(a) == AST_DESTRUCTOR_ID
-                || ASTType(a) == AST_DESTRUCTOR_TEMPLATE_ID
-                || ASTType(a) == AST_OPERATOR_FUNCTION_ID
-                || ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+        && (ASTKind(a) == AST_SYMBOL
+                || ASTKind(a) == AST_TEMPLATE_ID
+                || ASTKind(a) == AST_CONVERSION_FUNCTION_ID
+                || ASTKind(a) == AST_DESTRUCTOR_ID
+                || ASTKind(a) == AST_DESTRUCTOR_TEMPLATE_ID
+                || ASTKind(a) == AST_OPERATOR_FUNCTION_ID
+                || ASTKind(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 }
 
 char is_qualified_id_expression(AST a)
 {
     return a != NULL
-        && (ASTType(a) == AST_QUALIFIED_ID);
+        && (ASTKind(a) == AST_QUALIFIED_ID);
 }
 
 char is_id_expression(AST a)
@@ -6928,7 +6928,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         AST type_spec = ASTSon1(type_specifier_seq);
 
         // Build the type tree
-        if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+        if (ASTKind(type_spec) == AST_SIMPLE_TYPE_SPEC)
         {
             AST id_expression = ASTSon0(type_spec);
 
@@ -7973,7 +7973,7 @@ scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
 
 static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    switch (ASTType(unqualified_id))
+    switch (ASTKind(unqualified_id))
     {
         case AST_SYMBOL:
             {
@@ -8058,7 +8058,7 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                 AST type_spec = ASTSon1(type_specifier_seq);
 
                 // Build the type tree
-                if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+                if (ASTKind(type_spec) == AST_SIMPLE_TYPE_SPEC)
                 {
                     AST id_expression = ASTSon0(type_spec);
 
@@ -8123,7 +8123,7 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
             }
         default:
             {
-                internal_error("Unexpected tree of type '%s'\n", ast_print_node_type(ASTType(unqualified_id)));
+                internal_error("Unexpected tree of type '%s'\n", ast_print_node_type(ASTKind(unqualified_id)));
             }
     }
 }
@@ -8136,7 +8136,7 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
 
     if (nested_part != NULL)
     {
-        if (ASTType(nested_part) == AST_AMBIGUITY)
+        if (ASTKind(nested_part) == AST_AMBIGUITY)
         {
             solve_ambiguous_nested_part(nested_part, decl_context);
         }
@@ -8238,7 +8238,7 @@ void compute_nodecl_name_from_qualified_name(AST global_op, AST nested_name_spec
 void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    switch (ASTType(id_expression))
+    switch (ASTKind(id_expression))
     {
         case AST_QUALIFIED_ID:
             {

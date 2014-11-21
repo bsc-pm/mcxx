@@ -100,7 +100,7 @@ static void ast_dump_html_rec(AST a, FILE* f, const char* root_id, int id_node)
             "<span id=\"%s.locus\" class=\"node_locus\">%s</span>",
             current_id_node, // div
             current_id_node, // handle
-            current_id_node, ast_node_type_name(ASTType(a)),
+            current_id_node, ast_node_type_name(ASTKind(a)),
             current_id_node, mini_strip_html(ast_location(a))
            ); // kind
 
@@ -114,7 +114,7 @@ static void ast_dump_html_rec(AST a, FILE* f, const char* root_id, int id_node)
 
     fprintf(f, "</div>\n");
 
-    if (ASTType(a) == AST_NODE_LIST)
+    if (ASTKind(a) == AST_NODE_LIST)
     {
         fprintf(f, "%s", "<div class=\"node_list\">");
         int k = 0;
@@ -128,7 +128,7 @@ static void ast_dump_html_rec(AST a, FILE* f, const char* root_id, int id_node)
         }
         fprintf(f, "%s", "</div>");
     }
-    else if (ASTType(a) == AST_AMBIGUITY)
+    else if (ASTKind(a) == AST_AMBIGUITY)
     {
         fprintf(f, "%s", "<div class=\"node_list\">");
         int num_ambig = ast_get_num_ambiguities(a);

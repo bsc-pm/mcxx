@@ -208,8 +208,8 @@ static inline nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2)
     if (list2.tree == NULL)
         return list1;
 
-    if (ASTType(list1.tree) == AST_NODE_LIST
-            && ASTType(list2.tree) == AST_NODE_LIST)
+    if (ASTKind(list1.tree) == AST_NODE_LIST
+            && ASTKind(list2.tree) == AST_NODE_LIST)
     {
         nodecl_t result;
         result.tree = ast_list_concat(list1.tree, list2.tree);
@@ -279,7 +279,7 @@ static inline nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
     }
 
     AST list = nodecl_get_ast(n);
-    ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Cannot unpack non-list node", 0);
+    ERROR_CONDITION(ASTKind(list) != AST_NODE_LIST, "Cannot unpack non-list node", 0);
     AST it;
     int num_elements = 0;
     for_each_element(list, it)
@@ -322,7 +322,7 @@ static inline nodecl_t nodecl_list_head(nodecl_t list)
 {
     ERROR_CONDITION(nodecl_is_null(list), "Invalid list", 0);
     AST a = nodecl_get_ast(list);
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Cannot get head of non list", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Cannot get head of non list", 0);
     AST it;
     for_each_element(a, it)
     {
@@ -334,7 +334,7 @@ static inline nodecl_t nodecl_list_head(nodecl_t list)
 
 static inline node_t nodecl_get_kind(nodecl_t n)
 {
-    return ASTType(nodecl_get_ast(n));
+    return ASTKind(nodecl_get_ast(n));
 }
 
 static inline char nodecl_is_list(nodecl_t n)

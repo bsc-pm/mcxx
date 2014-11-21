@@ -42,7 +42,7 @@ struct AST_tag
 };
 
 
-static inline node_t ast_get_type(const_AST a)
+static inline node_t ast_get_kind(const_AST a)
 {
     return a->node_type;
 }
@@ -67,7 +67,7 @@ static inline void ast_set_text(AST a, const char* str)
     a->text = str;
 }
 
-static inline void ast_set_type(AST a, node_t node_type)
+static inline void ast_set_kind(AST a, node_t node_type)
 {
     a->node_type = node_type;
 }
@@ -306,7 +306,7 @@ static inline AST ast_list_head(AST list)
     if (list == NULL)
         return NULL;
 
-    if (ASTType(list) != AST_NODE_LIST)
+    if (ASTKind(list) != AST_NODE_LIST)
         return NULL;
 
     AST iter;
@@ -325,8 +325,8 @@ static inline AST ast_list_concat(AST before, AST after)
     if (after == NULL)
         return before;
 
-    if (ASTType(before) != AST_NODE_LIST
-            || ASTType(after) != AST_NODE_LIST)
+    if (ASTKind(before) != AST_NODE_LIST
+            || ASTKind(after) != AST_NODE_LIST)
         return NULL;
 
     AST head_after = ast_list_head(after);
@@ -356,7 +356,7 @@ static inline void ast_fix_parents_inside_intepretation(AST node)
     if (node == NULL)
         return;
 
-    if (ast_get_type(node) == AST_AMBIGUITY)
+    if (ast_get_kind(node) == AST_AMBIGUITY)
         return;
 
     int i;
@@ -387,9 +387,9 @@ int ast_num_of_given_child(const_AST parent, const_AST child)
 // be an actual tree but a DAG
 static inline AST ast_make_ambiguous(AST son0, AST son1)
 {
-    if (ASTType(son0) == AST_AMBIGUITY)
+    if (ASTKind(son0) == AST_AMBIGUITY)
     {
-        if (ASTType(son1) == AST_AMBIGUITY)
+        if (ASTKind(son1) == AST_AMBIGUITY)
         {
             int original_son0 = son0->num_ambig;
 
@@ -413,7 +413,7 @@ static inline AST ast_make_ambiguous(AST son0, AST son1)
             return son0;
         }
     }
-    else if (ASTType(son1) == AST_AMBIGUITY)
+    else if (ASTKind(son1) == AST_AMBIGUITY)
     {
         son1->num_ambig++;
         son1->ambig = (AST*) xrealloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
@@ -455,7 +455,7 @@ static inline void ast_free(AST a)
     // aligned to two bytes)
     a->parent = (struct AST_tag*)(((intptr_t)a->parent) | 0x1);
 
-    if (ast_get_type(a) == AST_AMBIGUITY)
+    if (ast_get_kind(a) == AST_AMBIGUITY)
     {
         int i;
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
@@ -490,7 +490,7 @@ static inline void ast_replace_with_ambiguity(AST a, int n)
     // DEBUG_CODE()
     // {
     //     fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (%s) using %p\n", 
-    //             ast_print_node_type(ASTType(ast_get_ambiguity(a, n))), a, ast_location(ast_get_ambiguity(a, n)), 
+    //             ast_print_node_type(ASTKind(ast_get_ambiguity(a, n))), a, ast_location(ast_get_ambiguity(a, n)), 
     //             ast_get_ambiguity(a, n));
     // }
 

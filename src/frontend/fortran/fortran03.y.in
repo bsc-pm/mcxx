@@ -150,18 +150,18 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 
 static void append_statement_to_block(AST block, AST stmt)
 {
-    if (ASTType(block) == AST_EMPTY_STATEMENT)
+    if (ASTKind(block) == AST_EMPTY_STATEMENT)
     {
-        ast_set_type(block, AST_COMPOUND_STATEMENT);
+        ast_set_kind(block, AST_COMPOUND_STATEMENT);
         ast_set_child(block, 0, ASTListLeaf(stmt));
     }
-    else if (ASTType(block) == AST_COMPOUND_STATEMENT)
+    else if (ASTKind(block) == AST_COMPOUND_STATEMENT)
     {
         ast_set_child(block, 0, ast_list_concat(ASTSon0(block), ASTListLeaf(stmt)));
     }
     else
     {
-        internal_error("Invalid tree %s\n", ast_print_node_type(ASTType(block)));
+        internal_error("Invalid tree %s\n", ast_print_node_type(ASTKind(block)));
     }
 }
 
@@ -3121,7 +3121,7 @@ end_critical_stmt : labeldef TOKEN_END TOKEN_CRITICAL name eos
 do_construct : nonlabel_do_stmt block end_do_stmt
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3139,7 +3139,7 @@ nonblock_do_construct : action_term_do_construct
 action_term_do_construct : label_do_stmt block do_term_action_stmt
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3162,7 +3162,7 @@ do_term_action_stmt : TOKEN_END_NONBLOCK_DO non_top_level_program_unit_stmt
     // But an end do statement is not any action tecnhically, thus nobody would be expecting
     // a end-statement, just fake a CONTINUE here
     AST end_do_stmt = $2;
-    ERROR_CONDITION(ASTType(end_do_stmt) != AST_LABELED_STATEMENT, "We expect a labeled statement here", 0);
+    ERROR_CONDITION(ASTKind(end_do_stmt) != AST_LABELED_STATEMENT, "We expect a labeled statement here", 0);
 
     $$ = ASTMake2(AST_LABELED_STATEMENT,
             ASTSon0(end_do_stmt), 
@@ -3173,7 +3173,7 @@ do_term_action_stmt : TOKEN_END_NONBLOCK_DO non_top_level_program_unit_stmt
 outer_shared_do_construct : label_do_stmt block shared_term_do_construct
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3190,7 +3190,7 @@ shared_term_do_construct : outer_shared_do_construct_2
 outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construct
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3204,7 +3204,7 @@ outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construc
 inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3447,7 +3447,7 @@ case_construct : select_case_stmt case_part_seq end_select_stmt
 {
     AST result = $1;
     AST switch_tree = result;
-    if (ASTType(switch_tree) == AST_LABELED_STATEMENT)
+    if (ASTKind(switch_tree) == AST_LABELED_STATEMENT)
     {
         switch_tree = ASTSon1(switch_tree);
     }
@@ -3473,7 +3473,7 @@ case_part : case_stmt block
 
     // Mold the tree to match that of C/C++
     AST case_stmt = returned_tree;
-    if (ASTType(case_stmt) == AST_LABELED_STATEMENT)
+    if (ASTKind(case_stmt) == AST_LABELED_STATEMENT)
     {
         case_stmt = ASTSon1(case_stmt);
     }
@@ -3482,18 +3482,18 @@ case_part : case_stmt block
     ast_list_split_head_tail(block, &head, &tail);
 
     int son = 0;
-    if (ASTType(case_stmt) == AST_CASE_STATEMENT)
+    if (ASTKind(case_stmt) == AST_CASE_STATEMENT)
     {
         son = 1;
     }
-    else if (ASTType(case_stmt) == AST_DEFAULT_STATEMENT)
+    else if (ASTKind(case_stmt) == AST_DEFAULT_STATEMENT)
     {
         son = 0;
     }
     else
     {
         internal_error("Unexpected node '%s'\n", 
-                ast_print_node_type(ASTType(case_stmt)));
+                ast_print_node_type(ASTKind(case_stmt)));
     }
 
     ast_set_child(case_stmt, son, ASTSon1(head));

@@ -1226,7 +1226,7 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
 
     // 1
     sqlite3_bind_int64(_insert_ast_stmt, 1, P2ULL(a));
-    sqlite3_bind_int64(_insert_ast_stmt, 2, get_oid_from_string_table(handle, ast_print_node_type(ast_get_type(a))));
+    sqlite3_bind_int64(_insert_ast_stmt, 2, get_oid_from_string_table(handle, ast_print_node_type(ast_get_kind(a))));
     sqlite3_bind_int64(_insert_ast_stmt, 3, get_oid_from_string_table(handle, ast_get_filename(a)));
     sqlite3_bind_int  (_insert_ast_stmt, 4, ast_get_line(a));
     sqlite3_bind_int64(_insert_ast_stmt, 5, get_oid_from_string_table(handle, ast_get_text(a)));

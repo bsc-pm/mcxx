@@ -60,13 +60,13 @@ static inline unsigned int ast_get_line(const_AST a);
 static inline const char* ast_get_text(const_AST a);
 
 // Returns the kind of the node
-static inline node_t ast_get_type(const_AST a);
+static inline node_t ast_get_kind(const_AST a);
 
 // Sets the related text
 static inline void ast_set_text(AST a, const char* str);
 
 // Sets the kind
-static inline void ast_set_type(AST a, node_t node_type);
+static inline void ast_set_kind(AST a, node_t node_type);
 
 // Returns the children 'num_child'. Might be
 // NULL
@@ -194,7 +194,7 @@ static inline int ast_node_size(void);
  * otherwise stated)
  */
 
-#define ASTType(a) ast_get_type(a)
+#define ASTKind(a) ast_get_kind(a)
 #define ASTParent(a) (ast_get_parent(a))
 #define ASTLine(a) ast_get_line(a)
 #define ASTText(a) ast_get_text(a)

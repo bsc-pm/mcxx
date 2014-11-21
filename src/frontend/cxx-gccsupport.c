@@ -244,7 +244,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
     {
         do_not_keep_attribute = 1;
         AST argument = advance_expression_nest(ASTSon1(expression_list));
-        if (ASTType(argument) == AST_SYMBOL)
+        if (ASTKind(argument) == AST_SYMBOL)
         {
             const char *argument_text = ASTText(argument);
             if (strcmp(argument_text, "vector__") == 0)
@@ -312,7 +312,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
         AST argument = advance_expression_nest(ASTSon1(expression_list));
 
         char ignored = 0;
-        if (ASTType(argument) == AST_SYMBOL)
+        if (ASTKind(argument) == AST_SYMBOL)
         {
             const char *size_mode = ASTText(argument);
 
@@ -618,7 +618,7 @@ void gather_gcc_attribute(AST attribute,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(attribute) != AST_GCC_ATTRIBUTE,
+    ERROR_CONDITION(ASTKind(attribute) != AST_GCC_ATTRIBUTE,
             "Invalid node", 0);
     AST iter;
     AST list = ASTSon0(attribute);
@@ -678,7 +678,7 @@ void apply_gcc_attribute_to_type(AST a,
         type_t** type,
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    ERROR_CONDITION(ASTType(a) != AST_GCC_ATTRIBUTE, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_GCC_ATTRIBUTE, "Invalid node", 0);
 
     AST gcc_attribute_list = ASTSon0(a);
     AST it;

@@ -4711,7 +4711,7 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
     if (a == NULL)
         return 1;
 
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         *ambiguous_node = a;
         return 0;

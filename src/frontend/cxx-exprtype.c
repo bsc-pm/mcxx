@@ -655,7 +655,7 @@ static char check_list_of_expressions_aux(AST expression_list,
         return 1;
     }
 
-    if (ASTType(expression_list) == AST_AMBIGUITY)
+    if (ASTKind(expression_list) == AST_AMBIGUITY)
     {
         return solve_ambiguous_list_of_expressions(expression_list, decl_context, nodecl_output);
     }
@@ -686,7 +686,7 @@ static char check_list_of_expressions_aux(AST expression_list,
         }
 
         if (preserve_top_level_parentheses
-                && ast_get_type(current_expr) == AST_PARENTHESIZED_EXPRESSION)
+                && ast_get_kind(current_expr) == AST_PARENTHESIZED_EXPRESSION)
         {
             nodecl_current = cxx_nodecl_wrap_in_parentheses(nodecl_current);
         }
@@ -756,7 +756,7 @@ static char c_check_expression(AST expression, decl_context_t decl_context, node
 static void check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_output == NULL, "This cannot be NULL\n", 0);
-    switch (ASTType(expression))
+    switch (ASTKind(expression))
     {
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
@@ -896,14 +896,14 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_POINTER_CLASS_MEMBER_ACCESS :
         case AST_CLASS_MEMBER_ACCESS :
             {
-                char is_arrow = (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS);
+                char is_arrow = (ASTKind(expression) == AST_POINTER_CLASS_MEMBER_ACCESS);
                 check_member_access(expression, decl_context, is_arrow, /*has template tag*/ 0, nodecl_output);
                 break;
             }
         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
         case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
             {
-                char is_arrow = (ASTType(expression) == AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS);
+                char is_arrow = (ASTKind(expression) == AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS);
                 check_templated_member_access(expression, decl_context, is_arrow, nodecl_output);
                 break;
             }
@@ -936,7 +936,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 AST casted_expr = ASTSon1(expression);
 
                 const char* cast_kind = NULL;
-                switch (ASTType(expression))
+                switch (ASTKind(expression))
                 {
                     case AST_DYNAMIC_CAST : cast_kind = "dynamic_cast"; break;
                     case AST_STATIC_CAST : cast_kind = "static_cast"; break;
@@ -1236,7 +1236,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         default :
             {
-                internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
+                internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTKind(expression)), 
                         ast_location(expression));
                 break;
             }
@@ -1387,7 +1387,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         last--;
     }
 
-    char is_decimal = (ASTType(expr) == AST_DECIMAL_LITERAL);
+    char is_decimal = (ASTKind(expr) == AST_DECIMAL_LITERAL);
 
     type_t** eligible_types = NULL;
     int num_eligible_types = 0;
@@ -6380,32 +6380,32 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue,
 
 static char contains_wrongly_associated_template_name(AST a, decl_context_t decl_context)
 {
-    if (ASTType(a) == AST_BITWISE_SHL
-            || ASTType(a) == AST_SHR
-            || ASTType(a) == AST_ADD
-            || ASTType(a) == AST_MINUS
-            || ASTType(a) == AST_DIV
-            || ASTType(a) == AST_MOD
-            || ASTType(a) == AST_MUL
-            || ASTType(a) == AST_LOWER_THAN
-            || ASTType(a) == AST_GREATER_THAN
-            || ASTType(a) == AST_LOWER_OR_EQUAL_THAN
-            || ASTType(a) == AST_GREATER_OR_EQUAL_THAN)
+    if (ASTKind(a) == AST_BITWISE_SHL
+            || ASTKind(a) == AST_SHR
+            || ASTKind(a) == AST_ADD
+            || ASTKind(a) == AST_MINUS
+            || ASTKind(a) == AST_DIV
+            || ASTKind(a) == AST_MOD
+            || ASTKind(a) == AST_MUL
+            || ASTKind(a) == AST_LOWER_THAN
+            || ASTKind(a) == AST_GREATER_THAN
+            || ASTKind(a) == AST_LOWER_OR_EQUAL_THAN
+            || ASTKind(a) == AST_GREATER_OR_EQUAL_THAN)
     {
         return contains_wrongly_associated_template_name(ASTSon1(a), decl_context);
     }
-    else if (ASTType(a) == AST_PREINCREMENT
-            || ASTType(a) == AST_PREDECREMENT
-            || ASTType(a) == AST_DERREFERENCE
-            || ASTType(a) == AST_REFERENCE
-            || ASTType(a) == AST_PLUS
-            || ASTType(a) == AST_NEG
-            || ASTType(a) == AST_LOGICAL_NOT
-            || ASTType(a) == AST_BITWISE_NOT)
+    else if (ASTKind(a) == AST_PREINCREMENT
+            || ASTKind(a) == AST_PREDECREMENT
+            || ASTKind(a) == AST_DERREFERENCE
+            || ASTKind(a) == AST_REFERENCE
+            || ASTKind(a) == AST_PLUS
+            || ASTKind(a) == AST_NEG
+            || ASTKind(a) == AST_LOGICAL_NOT
+            || ASTKind(a) == AST_BITWISE_NOT)
     {
         return contains_wrongly_associated_template_name(ASTSon0(a), decl_context);
     }
-    else if (ASTType(a) == AST_NEW_EXPRESSION) // new TemplateName<
+    else if (ASTKind(a) == AST_NEW_EXPRESSION) // new TemplateName<
     {
         AST new_type_id_tree = ASTSon2(a);
 
@@ -6433,10 +6433,10 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
             return 0;
         }
     }
-    else if (ASTType(a) == AST_SYMBOL                         // E + f<
-            || ASTType(a) == AST_QUALIFIED_ID                 // E + A::f<
-            || ASTType(a) == AST_CLASS_MEMBER_ACCESS          // E + a.f<
-            || ASTType(a) == AST_POINTER_CLASS_MEMBER_ACCESS) // E + p->f<
+    else if (ASTKind(a) == AST_SYMBOL                         // E + f<
+            || ASTKind(a) == AST_QUALIFIED_ID                 // E + A::f<
+            || ASTKind(a) == AST_CLASS_MEMBER_ACCESS          // E + a.f<
+            || ASTKind(a) == AST_POINTER_CLASS_MEMBER_ACCESS) // E + p->f<
     {
         nodecl_t nodecl_check = nodecl_null();
         diagnostic_context_push_buffered();
@@ -6503,7 +6503,7 @@ static void parse_reference(AST op,
     {
         // C++ from now
         // We need this function because this operator is so silly in C++
-        if (ASTType(op) == AST_QUALIFIED_ID)
+        if (ASTKind(op) == AST_QUALIFIED_ID)
         {
             nodecl_t op_name = nodecl_null();
             compute_nodecl_name_from_id_expression(op, decl_context, &op_name);
@@ -7060,7 +7060,7 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
     nodecl_t nodecl_lhs = nodecl_null();
     nodecl_t nodecl_rhs = nodecl_null();
 
-    node_t node_kind = ASTType(expression);
+    node_t node_kind = ASTKind(expression);
     (binary_expression_fun[node_kind].pre_lhs)(lhs, decl_context, &nodecl_lhs);
     // We pass nodecl_lhs because some C/C++ operators are non-strict based on
     // the lhs
@@ -7075,7 +7075,7 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
         return;
     }
 
-    check_binary_expression_(ASTType(expression),
+    check_binary_expression_(ASTKind(expression),
             &nodecl_lhs,
             &nodecl_rhs,
             decl_context,
@@ -7089,7 +7089,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
 
     nodecl_t nodecl_op = nodecl_null();
 
-    node_t node_kind = ASTType(expression);
+    node_t node_kind = ASTKind(expression);
     (unary_expression_fun[node_kind].pre)(op, decl_context, &nodecl_op);
 
     if (nodecl_is_err_expr(nodecl_op))
@@ -7099,7 +7099,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
         return;
     }
 
-    check_unary_expression_(ASTType(expression), 
+    check_unary_expression_(ASTKind(expression), 
             &nodecl_op, 
             decl_context, 
             ast_get_locus(expression),
@@ -9361,19 +9361,19 @@ static void check_conditional_expression(AST expression, decl_context_t decl_con
     AST first_op = ASTSon0(expression);
     AST second_op = NULL, third_op = NULL;
 
-    if (ASTType(expression) == AST_CONDITIONAL_EXPRESSION)
+    if (ASTKind(expression) == AST_CONDITIONAL_EXPRESSION)
     {
         second_op = ASTSon1(expression);
         third_op = ASTSon2(expression);
     }
-    else if (ASTType(expression) == AST_GCC_CONDITIONAL_EXPRESSION)
+    else if (ASTKind(expression) == AST_GCC_CONDITIONAL_EXPRESSION)
     {
         second_op = first_op;
         third_op = ASTSon1(expression);
     }
     else
     {
-        internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(expression)));
+        internal_error("Invalid node '%s'\n", ast_print_node_type(ASTKind(expression)));
     }
 
     check_conditional_expression_impl(expression, 
@@ -9857,7 +9857,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 static void check_delete_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     char is_array_delete = 0;
-    if (ASTType(expression) == AST_DELETE_ARRAY_EXPR)
+    if (ASTKind(expression) == AST_DELETE_ARRAY_EXPR)
     {
         is_array_delete = 1;
     }
@@ -12690,8 +12690,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
         // so the check has to be done here.
         //
         // Unqualified ids are subject to argument dependent lookup
-        if (ASTType(called_expression) == AST_SYMBOL
-            || ASTType(called_expression) == AST_OPERATOR_FUNCTION_ID)
+        if (ASTKind(called_expression) == AST_SYMBOL
+            || ASTKind(called_expression) == AST_OPERATOR_FUNCTION_ID)
         {
             DEBUG_CODE()
             {
@@ -12717,7 +12717,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     {
         AST advanced_called_expression = advance_expression_nest(called_expression);
 
-        if (ASTType(advanced_called_expression) == AST_SYMBOL)
+        if (ASTKind(advanced_called_expression) == AST_SYMBOL)
         {
             scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, advanced_called_expression, NULL);
 
@@ -13640,11 +13640,11 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 
         if (lambda_capture_default_tree != NULL)
         {
-            if (ASTType(lambda_capture_default_tree) == AST_LAMBDA_CAPTURE_DEFAULT_VALUE)
+            if (ASTKind(lambda_capture_default_tree) == AST_LAMBDA_CAPTURE_DEFAULT_VALUE)
             {
                 lambda_capture_default = LAMBDA_CAPTURE_COPY;
             }
-            else if (ASTType(lambda_capture_default_tree) == AST_LAMBDA_CAPTURE_DEFAULT_ADDR)
+            else if (ASTKind(lambda_capture_default_tree) == AST_LAMBDA_CAPTURE_DEFAULT_ADDR)
             {
                 lambda_capture_default = LAMBDA_CAPTURE_REFERENCE;
             }
@@ -13664,13 +13664,13 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                 AST capture = ASTSon1(it);
                 char is_pack = 0;
 
-                if (ASTType(capture) == AST_LAMBDA_CAPTURE_PACK_EXPANSION)
+                if (ASTKind(capture) == AST_LAMBDA_CAPTURE_PACK_EXPANSION)
                 {
                     is_pack = 1;
                     capture = ASTSon0(capture);
                 }
 
-                node_t n = ASTType(capture);
+                node_t n = ASTKind(capture);
                 switch (n)
                 {
                     case AST_LAMBDA_CAPTURE_VALUE:
@@ -13753,7 +13753,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                         }
                     default:
                         {
-                            internal_error("Unexpected node' %s'\n", ast_print_node_type(ASTType(capture)));
+                            internal_error("Unexpected node' %s'\n", ast_print_node_type(ASTKind(capture)));
                         }
                 }
             }
@@ -13848,12 +13848,12 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
         AST body = ASTSon0(compound_statement);
         if (body != NULL
                 && ASTSon0(body) == NULL
-                && ASTType(ASTSon1(body)) == AST_RETURN_STATEMENT)
+                && ASTKind(ASTSon1(body)) == AST_RETURN_STATEMENT)
         {
             AST return_stmt = ASTSon1(body);
             AST return_expr = ASTSon0(return_stmt);
             if (return_expr != NULL
-                    && ASTType(return_expr) != AST_INITIALIZER_BRACES)
+                    && ASTKind(return_expr) != AST_INITIALIZER_BRACES)
             {
                 nodecl_t nodecl_return_expr = nodecl_null();
                 check_expression(return_expr, lambda_block_context, &nodecl_return_expr);
@@ -18160,7 +18160,7 @@ static void compute_nodecl_initializer_clause(AST initializer,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
-    switch (ASTType(initializer))
+    switch (ASTKind(initializer))
     {
         // Default is an expression
         default:
@@ -18176,7 +18176,7 @@ static void compute_nodecl_initializer_clause(AST initializer,
 
                 // We use this for decltype(auto)
                 if (preserve_top_level_parentheses
-                        && ASTType(initializer) == AST_PARENTHESIZED_EXPRESSION)
+                        && ASTKind(initializer) == AST_PARENTHESIZED_EXPRESSION)
                 {
                     *nodecl_output = cxx_nodecl_wrap_in_parentheses(*nodecl_output);
                 }
@@ -18586,7 +18586,7 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
     *nodecl_output = nodecl_null();
     if (initializer_list != NULL)
     {
-        if (ASTType(initializer_list) == AST_AMBIGUITY)
+        if (ASTKind(initializer_list) == AST_AMBIGUITY)
         {
             char result = solve_ambiguous_list_of_initializer_clauses(initializer_list, decl_context, NULL);
             if (result == 0)
@@ -18639,7 +18639,7 @@ static void compute_nodecl_designator_list(AST designator_list, decl_context_t d
     {
         nodecl_t nodecl_designator = nodecl_null();
         AST designator = ASTSon1(it);
-        switch (ASTType(designator))
+        switch (ASTKind(designator))
         {
             case AST_INDEX_DESIGNATOR:
                 {
@@ -18669,7 +18669,7 @@ static void compute_nodecl_designator_list(AST designator_list, decl_context_t d
                 }
             default:
                 {
-                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(ASTType(designator)));
+                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(ASTKind(designator)));
                 }
         }
 
@@ -18804,7 +18804,7 @@ void compute_nodecl_initialization(AST initializer,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
-    switch (ASTType(initializer))
+    switch (ASTKind(initializer))
     {
         case AST_EQUAL_INITIALIZER:
             {
@@ -18831,7 +18831,7 @@ void compute_nodecl_initialization(AST initializer,
             }
         default:
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(initializer)));
             }
     }
 }
@@ -19616,7 +19616,7 @@ AST advance_expression_nest_flags(AST expr, char advance_parentheses)
     AST result = expr;
     for ( ; ; )
     {
-        switch (ASTType(result))
+        switch (ASTKind(result))
         {
             case AST_EXPRESSION : 
             case AST_CONSTANT_EXPRESSION : 
@@ -20500,7 +20500,7 @@ static void check_gcc_real_or_imag_part(AST expression,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
-    char is_real = (ASTType(expression) == AST_GCC_REAL_PART);
+    char is_real = (ASTKind(expression) == AST_GCC_REAL_PART);
 
     nodecl_t nodecl_expr = nodecl_null();
     check_expression_impl_(ASTSon0(expression), decl_context, &nodecl_expr);
@@ -21069,7 +21069,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
         nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
     }
     
-    char is_array_section_size = (ASTType(expression) == AST_ARRAY_SECTION_SIZE);
+    char is_array_section_size = (ASTKind(expression) == AST_ARRAY_SECTION_SIZE);
 
     check_nodecl_array_section_expression(nodecl_postfix, 
             nodecl_lower, nodecl_upper, nodecl_stride,
@@ -21166,7 +21166,7 @@ static const char* prettyprint_shape(AST a)
 {
     if (a == NULL)
         return "[]";
-    else if (ASTType(a) == AST_NODE_LIST)
+    else if (ASTKind(a) == AST_NODE_LIST)
     {
         const char* result = "";
         AST it;
@@ -21199,9 +21199,9 @@ static void check_shaping_expression(AST expression,
     // [X]a[i] is parsed as [X](a[i])
     if (!nodecl_is_err_expr(nodecl_shaped_expr)
             && shaped_expr!= NULL
-            &&(ASTType(shaped_expr) == AST_ARRAY_SUBSCRIPT
-                || ASTType(shaped_expr) == AST_ARRAY_SECTION
-                || ASTType(shaped_expr) == AST_ARRAY_SECTION_SIZE))
+            &&(ASTKind(shaped_expr) == AST_ARRAY_SUBSCRIPT
+                || ASTKind(shaped_expr) == AST_ARRAY_SECTION
+                || ASTKind(shaped_expr) == AST_ARRAY_SECTION_SIZE))
     {
         warn_printf("%s: warning: syntax '%s%s' is equivalent to '%s(%s)'\n",
                 ast_location(expression),
@@ -21211,9 +21211,9 @@ static void check_shaping_expression(AST expression,
                 prettyprint_in_buffer(shaped_expr));
 
         AST subscripted_item = shaped_expr;
-        while (ASTType(subscripted_item) == AST_ARRAY_SUBSCRIPT
-                || ASTType(subscripted_item) == AST_ARRAY_SECTION
-                || ASTType(subscripted_item) == AST_ARRAY_SECTION_SIZE)
+        while (ASTKind(subscripted_item) == AST_ARRAY_SUBSCRIPT
+                || ASTKind(subscripted_item) == AST_ARRAY_SECTION
+                || ASTKind(subscripted_item) == AST_ARRAY_SECTION_SIZE)
         {
             subscripted_item = ASTSon0(subscripted_item);
         }
@@ -21222,20 +21222,20 @@ static void check_shaping_expression(AST expression,
         const char* array_subscript = "";
         for (;;)
         {
-            if (ASTType(subscript_item) == AST_ARRAY_SUBSCRIPT)
+            if (ASTKind(subscript_item) == AST_ARRAY_SUBSCRIPT)
             {
                 uniquestr_sprintf(&array_subscript, "[%s]%s",
                         prettyprint_in_buffer(ASTSon1(subscript_item)),
                         array_subscript);
             }
-            else if (ASTType(subscript_item) == AST_ARRAY_SECTION)
+            else if (ASTKind(subscript_item) == AST_ARRAY_SECTION)
             {
                 uniquestr_sprintf(&array_subscript, "[%s:%s]%s",
                         prettyprint_in_buffer(ASTSon1(subscript_item)),
                         prettyprint_in_buffer(ASTSon2(subscript_item)),
                         array_subscript);
             }
-            else if (ASTType(subscript_item) == AST_ARRAY_SECTION_SIZE)
+            else if (ASTKind(subscript_item) == AST_ARRAY_SECTION_SIZE)
             {
                 uniquestr_sprintf(&array_subscript, "[%s;%s]%s",
                         prettyprint_in_buffer(ASTSon1(subscript_item)),
@@ -21289,7 +21289,7 @@ char check_list_of_initializer_clauses(
         return 1;
     }
 
-    if (ASTType(initializer_clause_list) == AST_AMBIGUITY)
+    if (ASTKind(initializer_clause_list) == AST_AMBIGUITY)
     {
         return solve_ambiguous_list_of_initializer_clauses(initializer_clause_list, decl_context, nodecl_output);
     }

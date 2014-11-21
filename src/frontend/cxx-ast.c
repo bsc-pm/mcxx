@@ -55,7 +55,7 @@ char ast_check(const_AST node)
     if (node != NULL)
     {
         int i;
-        if (ast_get_type(node) != AST_AMBIGUITY)
+        if (ast_get_kind(node) != AST_AMBIGUITY)
         {
             for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
             {
@@ -66,9 +66,9 @@ char ast_check(const_AST node)
                         check = 0;
                         AST wrong_parent = ast_get_parent(ast_get_child(node, i));
                         fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
-                                i, ast_location(node), ast_print_node_type(ast_get_type(node)), node,
+                                i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
                                 wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
-                                wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_type(wrong_parent)),
+                                wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
                                 wrong_parent);
 
                     }
@@ -187,7 +187,7 @@ char ast_equal_node (const_AST ast1, const_AST ast2)
     if (!ast1 || !ast2)
         return 0;
 
-    if (ast_get_type(ast1) != ast_get_type(ast2))
+    if (ast_get_kind(ast1) != ast_get_kind(ast2))
         return 0;
     if (ast_num_children(ast1) != ast_num_children(ast2))
         return 0;

@@ -314,7 +314,7 @@ namespace TL { namespace OpenMP {
         //   - an AST_INIT_DECLARATOR
         //   - an ambiguity including an init-declarator and a at least one expression
 
-        if (ASTType(a) == AST_INIT_DECLARATOR)
+        if (ASTKind(a) == AST_INIT_DECLARATOR)
         {
             AST init_declarator = a;
             AST declarator = ASTSon0(init_declarator);
@@ -359,7 +359,7 @@ namespace TL { namespace OpenMP {
                 return;
             }
         }
-        else if (ASTType(a) == AST_AMBIGUITY)
+        else if (ASTKind(a) == AST_AMBIGUITY)
         {
             int i;
             int valid = -1;

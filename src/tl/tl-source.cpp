@@ -671,7 +671,7 @@ namespace TL
 
     void Source::fortran_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
-        if (ASTType(a) == AST_COMMON_NAME)
+        if (ASTKind(a) == AST_COMMON_NAME)
         {
             // We allow common names in expressions
             scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)),
