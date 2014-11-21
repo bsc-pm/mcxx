@@ -141,13 +141,16 @@ namespace Analysis {
             const Nodecl::Symbol& n)
     {
         if (current->is_visited())
-            return -1;
+        {
+            return 0;
+        }
 
         current->set_visited(true);
+
         // Treat current node
         if (current->is_graph_node())
         {
-            get_assume_aligned_rec(current->get_graph_exit_node(), n);
+            return get_assume_aligned_rec(current->get_graph_exit_node(), n);
         }
         else
         {
@@ -187,7 +190,8 @@ namespace Analysis {
                        
                         if (n.get_symbol() == aligned_sym)
                         {
-                            return const_value_cast_to_4(alignment_node.get_constant());
+                            int value = const_value_cast_to_4(alignment_node.get_constant());
+                            return value;
                         }
                     }
                 }
@@ -195,31 +199,45 @@ namespace Analysis {
         }
 
         // Recursively call with parents
-        const ObjectList<Node*>& parents = current->is_entry_node() ? 
-                current->get_outer_node()->get_parents()
-                : current->get_parents();
+        ObjectList<Node*> parents;
+        if (current->is_entry_node())
+        {
+            Node* outer = current->get_outer_node();
+            outer->set_visited(true);
+            parents = outer->get_parents();
+        }
+        else
+        {
+            parents = current->get_parents();
+        }
 
         int num_attributes = 0;
-        int value = -1;
-        for (ObjectList<Node*>::const_iterator it = parents.begin();
+        int value = 0;
+        for (ObjectList<Node*>::iterator it = parents.begin();
                 it != parents.end(); ++it)
         {
-            int parent_result = get_assume_aligned_rec(*it, n);
-            if (parent_result != -1)
+            int parent_value = get_assume_aligned_rec(*it, n);
+            if (parent_value > 0)
             {
-                if (!(num_attributes != 0 && 
-                        value == parent_result))
+                // First __assume_aligned or different one 
+                // with same alignment info
+                if (num_attributes == 0 ||
+                        value == parent_value)
                 { 
                     num_attributes++;
-                    value = parent_result;
+                    value = parent_value;
+                }
+                else
+                {
+                    return -1;
                 }
             }
         }
 
-        if (num_attributes == 1)
+        if (num_attributes > 0)
             return value;
 
-        return -1;
+        return 0;
     }
 
     int get_assume_aligned_attribute_internal(
@@ -228,7 +246,11 @@ namespace Analysis {
     {
         int result = get_assume_aligned_rec(stmt_node, n);
         ExtensibleGraph::clear_visits_backwards(stmt_node);
-        return result;
+        
+        if (result > 0)
+            return result;
+        else
+            return -1;
     }
 
     bool is_uniform_internal(

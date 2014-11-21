@@ -392,20 +392,32 @@ namespace TL
 
         void TargetInfo::module_write(ModuleWriter& mw)
         {
+            mw.write(_target_symbol);
             mw.write(_copy_in);
             mw.write(_copy_out);
             mw.write(_copy_inout);
+            mw.write(_ndrange);
+            mw.write(_shmem);
+            mw.write(_onto);
             mw.write(_device_list);
+            mw.write(_file);
+            mw.write(_name);
             mw.write(_copy_deps);
             mw.write(_implementation_table);
         }
 
         void TargetInfo::module_read(ModuleReader& mr)
         {
+            mr.read(_target_symbol);
             mr.read(_copy_in);
             mr.read(_copy_out);
             mr.read(_copy_inout);
+            mr.read(_ndrange);
+            mr.read(_shmem);
+            mr.read(_onto);
             mr.read(_device_list);
+            mr.read(_file);
+            mr.read(_name);
             mr.read(_copy_deps);
             mr.read(_implementation_table);
         }

@@ -92,6 +92,10 @@ namespace Analysis {
         void add_label(NBase label);
         void set_label(NBase label);
 
+        const char* get_sync_kind_as_string();
+        SyncKind get_sync_kind();
+        void set_sync_kind(SyncKind kind);
+
         //! Returns the condition of the task synchronization e
         NBase get_condition();
         void set_condition(const NBase& condition);

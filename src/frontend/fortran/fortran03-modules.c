@@ -416,7 +416,7 @@ static void load_storage(sqlite3** handle, const char* filename)
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
-enum { CURRENT_MODULE_VERSION = 12 };
+enum { CURRENT_MODULE_VERSION = 13 };
 
 void load_module_info(const char* module_name, scope_entry_t** module)
 {

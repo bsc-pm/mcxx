@@ -77,33 +77,7 @@ namespace{
         
         return result;
     }
-    
-    TDGEdgeType get_tdg_edge_type_from_pcfg_edge_type(NBase pcfg_edge_type)
-    {
-        TDGEdgeType result;
-        ERROR_CONDITION(!pcfg_edge_type.is<Nodecl::StringLiteral>(), 
-                        "Expected StringLiteral as attribute of a task edge, but %s found.\n", 
-                        ast_print_node_type(pcfg_edge_type.get_kind()));
-        char is_null_ended = 0;
-        std::string type_str = std::string(const_value_string_unpack_to_string(
-                    pcfg_edge_type.get_constant(),
-                    &is_null_ended));
-        if(type_str == "strict")
-            result = Strict;
-        else if(type_str == "static") 
-            result = Static;
-        else if(type_str == "maybe")
-            result = Maybe;
-        else if(type_str == "post")
-            result = Post;
-        else
-        {
-            internal_error("Unexpected type of synchronization edge '%s' from PCFG. "
-                           "Expected strict|static|maybe|post.", pcfg_edge_type.prettyprint().c_str());
-        }
-        return result;
-    }
-    
+
     //! Returns true when there is a path between 'current' and 'task'
     bool task_is_in_path(Node* control_structure, Node* current, Node* task)
     {
@@ -288,8 +262,8 @@ namespace{
         return _control_structures;
     }
     
-    TDG_Edge::TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const NBase& condition)
-        : _source(source), _target(target), _type(type), 
+    TDG_Edge::TDG_Edge(TDG_Node* source, TDG_Node* target, SyncKind kind, const NBase& condition)
+        : _source(source), _target(target), _kind(kind),
           _source_clauses(), _target_clauses(), _condition(condition)
     {
         // Fill source and target lists with the corresponding clauses
@@ -342,10 +316,11 @@ namespace{
         return name;
     }
     
-    void TaskDependencyGraph::connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
-                                                NBase type, const NBase& condition)
+    void TaskDependencyGraph::connect_tdg_nodes(
+            TDG_Node* parent, TDG_Node* child,
+            SyncKind sync_type, const NBase& condition)
     {    
-        TDG_Edge* edge = new TDG_Edge(parent, child, get_tdg_edge_type_from_pcfg_edge_type(type), condition);
+        TDG_Edge* edge = new TDG_Edge(parent, child, sync_type, condition);
         parent->_exits.insert(edge);
         child->_entries.insert(edge);
     }
@@ -502,7 +477,7 @@ namespace{
                     if(child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_label(), (*it)->get_condition());
+                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), (*it)->get_condition());
                         store_condition_list_of_symbols((*it)->get_condition());
                     }
                 }
@@ -528,7 +503,7 @@ namespace{
                     if(child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_label(), (*it)->get_condition());
+                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), (*it)->get_condition());
                         store_condition_list_of_symbols((*it)->get_condition());
                     }
                 }
@@ -651,8 +626,7 @@ namespace{
             // Get the edge info in a string
 //             headlabel = "headlabel=\"" + prettyprint_clauses((*it)->_target_clauses) + "\"";
 //             taillabel = "taillabel=\"" + prettyprint_clauses((*it)->_source_clauses) + "\"";
-            TDGEdgeType etype = (*it)->_type;
-            style = "style=\"" + std::string((etype == Strict || etype == Static) ? "solid" : "dashed") + "\"";
+            style = "style=\"" + std::string((*it)->_kind == __Static ? "solid" : "dashed") + "\"";
             if(!(*it)->_condition.is_null())
                 condition = ", label=\"" + (*it)->_condition.prettyprint() + "\"";
             else

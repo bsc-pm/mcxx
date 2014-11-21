@@ -24,12 +24,21 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-nanos.hpp"
 #include "tl-lowering-visitor.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL {  namespace Nanox {
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
 {
+    if (!Nanos::Version::interface_is_at_least("copies_api", 1004))
+    {
+        error_printf("%s: error: '#pragma omp register' requires a newer Nanos++ library with 'copies_api' >= 1004\n",
+                construct.get_locus_str().c_str());
+        return;
+    }
+
     OutlineInfo outline_info(*_lowering);
 
     OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
