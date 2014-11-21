@@ -3390,7 +3390,6 @@ enum array_spec_kind_tag
 static type_t* compute_type_from_array_spec(type_t* basic_type, 
         AST array_spec_list, 
         decl_context_t decl_context,
-        array_spec_kind_t* array_spec_kind,
         // This is used for saved array expressions
         nodecl_t* nodecl_output)
 {
@@ -3662,11 +3661,6 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         array_type = get_error_type();
     }
 
-    if (array_spec_kind != NULL)
-    {
-        *array_spec_kind = kind;
-    }
-
     if (was_ref
             && !is_error_type(array_type))
     {
@@ -3821,7 +3815,6 @@ static void build_dimension_decl(AST a,
         type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                 array_spec,
                 decl_context,
-                /* array_spec_kind */ NULL,
                 nodecl_saved_dim);
         entry->type_information = array_type;
 
@@ -4405,7 +4398,6 @@ static void build_scope_common_stmt(AST a,
                     type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
                             array_spec,
                             decl_context,
-                            /* array_spec_kind */ NULL,
                             /* nodecl_output */ NULL);
                     sym->type_information = array_type;
 
@@ -5315,7 +5307,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     type_t* array_type = compute_type_from_array_spec(entry->type_information, 
                             current_attr_spec.array_spec,
                             decl_context,
-                            /* array_spec_kind */ NULL,
                             /* nodecl_output */ NULL);
                     entry->type_information = array_type;
                 }
@@ -5451,7 +5442,6 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
         type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                 array_spec,
                 decl_context,
-                /* array_spec_kind */ NULL,
                 &nodecl_saved_dim);
 
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7003,7 +6993,6 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             type_t* array_type = compute_type_from_array_spec(no_ref(pointee_entry->type_information), 
                     array_spec,
                     decl_context,
-                    /* array_spec_kind */ NULL,
                     &nodecl_saved_dim);
 
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7072,7 +7061,6 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                     array_spec,
                     decl_context,
-                    /* array_spec_kind */ NULL,
                     &nodecl_saved_dim);
 
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7687,7 +7675,6 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
                 type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
                         array_spec,
                         decl_context,
-                        /* array_spec_kind */ NULL,
                         &nodecl_saved_dim);
 
                 *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7916,7 +7903,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             type_t* array_type = compute_type_from_array_spec(no_ref(get_unqualified_type(entry->type_information)),
                     current_attr_spec.array_spec,
                     decl_context,
-                    /* array_spec_kind */ NULL,
                     &nodecl_saved_dim);
 
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
