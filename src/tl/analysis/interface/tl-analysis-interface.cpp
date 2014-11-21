@@ -338,8 +338,8 @@ namespace Analysis {
         }
 
         // Check its children
-        ObjectList<Nodecl::NodeclBase> children = n.children( );
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        Nodecl::NodeclBase::Children children = n.children( );
+        for( Nodecl::NodeclBase::Children::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = nodecl_calls_outline_task( *it, function_tasks );
         }
@@ -361,8 +361,8 @@ namespace Analysis {
 
         // Check the children
         bool result = false;
-        ObjectList<Nodecl::NodeclBase> children = n.children( );
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        Nodecl::NodeclBase::Children children = n.children( );
+        for( Nodecl::NodeclBase::Children::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = ompss_reduction_rhs_uses_lhs( *it, lhs, function_tasks );
         }

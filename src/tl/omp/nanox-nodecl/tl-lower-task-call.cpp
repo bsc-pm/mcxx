@@ -119,8 +119,8 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -221,8 +221,8 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -242,8 +242,8 @@ static Nodecl::NodeclBase rewrite_expression_in_terms_of_arguments(Nodecl::Nodec
     if (node.is_null())
         return node;
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -508,8 +508,8 @@ namespace InputValueUtils
             }
             else
             {
-                TL::ObjectList<Nodecl::NodeclBase> expr_children = expr.children();
-                TL::ObjectList<Nodecl::NodeclBase> update_expr_children = update_expr.children();
+                Nodecl::NodeclBase::Children expr_children = expr.children();
+                Nodecl::NodeclBase::Children update_expr_children = update_expr.children();
                 for (unsigned int i = 0; i < expr_children.size(); ++i)
                 {
                     generate_dependences_of_expression(

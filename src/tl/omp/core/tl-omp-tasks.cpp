@@ -1013,8 +1013,8 @@ namespace TL
                         walk_types(node.get_type());
                     }
 
-                    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    Nodecl::NodeclBase::Children children = node.children();
+                    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                             it != children.end();
                             it++)
                     {

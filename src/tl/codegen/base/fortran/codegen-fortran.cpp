@@ -3103,8 +3103,8 @@ OPERATOR_TABLE
         else
         {
             // Generic case
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -3484,8 +3484,8 @@ OPERATOR_TABLE
         if (node.is_null())
             return;
 
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -6060,9 +6060,9 @@ OPERATOR_TABLE
 
         inc_indent();
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
         int i = 0;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++, i++)
         {
