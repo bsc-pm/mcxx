@@ -1163,7 +1163,7 @@ namespace Vectorization
             .as<Nodecl::List>().shallow_copy();
 
         // Add IV update to end of the first block
-        Nodecl::Utils::append_items_in_nesting_compound_statement(
+        Nodecl::Utils::append_items_in_nested_compound_statement(
                 loop_stmts,
                 next_update_stmt.shallow_copy());
 
@@ -1234,13 +1234,13 @@ namespace Vectorization
             // REMOVE UNTIL HERE!
             
             // Add IV update to the end of each block
-            Nodecl::Utils::append_items_in_nesting_compound_statement(
+            Nodecl::Utils::append_items_in_nested_compound_statement(
                     if_else_stmt.get_then(),
                     next_update_stmt.shallow_copy());
 
             // std::cerr << "BLOCK " << i << if_else_stmt.prettyprint() << std::endl;
             // Add IfStatement
-            Nodecl::Utils::append_items_in_nesting_compound_statement(
+            Nodecl::Utils::append_items_in_nested_compound_statement(
                     outer_stmt, if_else_stmt);
 
             outer_stmt = if_else_stmt.get_then().as<Nodecl::List>();
@@ -1495,14 +1495,14 @@ namespace Vectorization
                 // Update Post
                 Nodecl::List post_stmts = 
                     ogroup.get_iteration_update_post();
-                Nodecl::Utils::append_items_in_nesting_compound_statement(
+                Nodecl::Utils::append_items_in_nested_compound_statement(
                         n.get_statement(), post_stmts);
             }
 
             // Update Pre
             Nodecl::List pre_stmts = 
                 ogroup.get_iteration_update_pre();
-            Nodecl::Utils::prepend_items_in_nesting_compound_statement(
+            Nodecl::Utils::prepend_items_in_nested_compound_statement(
                     n.get_statement(), pre_stmts);
         }
         else // No overlap among iterations, only intra-iteration
@@ -1512,7 +1512,7 @@ namespace Vectorization
                 ogroup.get_init_statements(n, is_simd_loop,
                         _is_omp_simd_for, ogroup._inter_it_overlap);
 
-            Nodecl::Utils::prepend_items_in_nesting_compound_statement(
+            Nodecl::Utils::prepend_items_in_nested_compound_statement(
                     n.get_statement(), init_stmts);
 
             // When there is no overlap among iterations we don't need
