@@ -749,6 +749,8 @@ namespace Analysis {
         }
     }
 
+    // This method only keeps cleaning up backwards when
+    // all children of an outer node are already cleaned up
     static void clear_visits_backwards_in_level_rec(Node* n, Node* sc)
     {
         if (!n->is_visited())
@@ -795,24 +797,40 @@ namespace Analysis {
         }
     }
 
+    static void clear_visits_backwards_rec(Node* n)
+    {
+        if (n->is_visited())
+        {
+            n->set_visited(false);
+            if (n->is_graph_node())
+                clear_visits_backwards_rec(n->get_graph_exit_node());
+
+            if (n->is_entry_node())
+            {
+                n = n->get_outer_node();
+                n->set_visited(false);  // Be sure we do not miss any node
+                                        // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& parents = n->get_parents();
+            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it);
+        }
+    }
+
+    // This methods cleans backwards regardless any visit from outer nodes children
     void ExtensibleGraph::clear_visits_backwards(Node* n)
     {
-        if (!n->is_visited())
-            return;
-
-        n->set_visited(false);
-        if (n->is_graph_node())
-            clear_visits_backwards(n->get_graph_exit_node());
-
-        if (n->is_entry_node())
+        if(n->is_graph_node())
         {
-            Node* outer = n->get_outer_node();
-            outer->set_visited(false);
-            n = outer;
+            n->set_visited(false);
+            const ObjectList<Node*>& parents = n->get_parents();
+            for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it);
         }
-        const ObjectList<Node*>& parents = n->get_parents();
-        for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-            clear_visits_backwards(*it);
+        else
+        {
+            clear_visits_backwards_rec(n);
+        }
     }
 
     std::string ExtensibleGraph::get_name() const
@@ -1544,9 +1562,9 @@ namespace Analysis {
                 ObjectList<Node*> children = current->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin();
                     it != children.end() && (result == NULL); ++it)
-                    {
-                        result = find_nodecl_pointer_rec(*it, n);
-                    }
+                {
+                    result = find_nodecl_pointer_rec(*it, n);
+                }
             }
         }
         return result;
