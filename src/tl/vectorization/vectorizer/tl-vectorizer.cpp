@@ -51,6 +51,7 @@ namespace Vectorization
     Vectorizer *Vectorizer::_vectorizer = 0;
     FunctionVersioning Vectorizer::_function_versioning;
     VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
+    bool Vectorizer::_gathers_scatters_disabled(false);
 
 
     Vectorizer& Vectorizer::get_vectorizer()
@@ -75,9 +76,9 @@ namespace Vectorization
     }
 
 
-    Vectorizer::Vectorizer() : _avx2_enabled(false), _knc_enabled(false),
-    _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false),
-    _fast_math_enabled(false)
+    Vectorizer::Vectorizer() :
+        _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false),
+        _fast_math_enabled(false)
     {
     }
 
@@ -658,10 +659,14 @@ namespace Vectorization
         }
     }
 
-
     void Vectorizer::enable_fast_math()
     {
         _fast_math_enabled = true;
+    }
+
+    void Vectorizer::disable_gathers_scatters()
+    {
+        _gathers_scatters_disabled = true;
     }
 }
 }

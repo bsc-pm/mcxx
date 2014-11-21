@@ -758,6 +758,10 @@ namespace Vectorization
                     }
                     else // Vector Scatter
                     {
+                        ERROR_CONDITION(Vectorizer::_gathers_scatters_disabled,
+                                "%s is a non-adjacent vector store. Gather/scatter are disabled.",
+                                lhs.prettyprint().c_str());
+
                         VECTORIZATION_DEBUG()
                         {
                             fprintf(stderr, "VECTORIZER: Scatter '%s'\n",
@@ -1154,6 +1158,10 @@ namespace Vectorization
             }
             else // Vector Gather
             {
+                ERROR_CONDITION(Vectorizer::_gathers_scatters_disabled,
+                        "%s is a non-adjacent vector load. Gather/scatter are disabled.",
+                        n.prettyprint().c_str());
+
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr, "VECTORIZER: Gather '%s'\n", 

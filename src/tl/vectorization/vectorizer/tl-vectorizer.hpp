@@ -46,11 +46,8 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
                 static VectorizationAnalysisInterface* _vectorizer_analysis;
+                static bool _gathers_scatters_disabled;
 
-//                static VectorizationAnalysisInterface *_analysis_info;
-
-                bool _avx2_enabled;
-                bool _knc_enabled;
                 bool _svml_sse_enabled;
                 bool _svml_avx2_enabled;
                 bool _svml_knc_enabled;
@@ -126,7 +123,8 @@ namespace TL
                 void enable_svml_avx2();
                 void enable_svml_knc();
                 void enable_fast_math();
-
+                void disable_gathers_scatters();
+ 
                 friend class VectorizerVisitorExpression;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorLocalSymbol;
