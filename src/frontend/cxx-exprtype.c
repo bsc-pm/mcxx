@@ -672,8 +672,12 @@ static char check_list_of_expressions_aux(AST expression_list,
             return 0;
         }
 
+        AST current_expr = advance_expression_nest_flags(
+                ASTSon1(expression_list),
+                /* advance_parentheses */ !preserve_top_level_parentheses);
+
         nodecl_t nodecl_current = nodecl_null();
-        check_expression_impl_(ASTSon1(expression_list), decl_context, &nodecl_current);
+        check_expression_impl_(current_expr, decl_context, &nodecl_current);
 
         if (nodecl_is_err_expr(nodecl_current))
         {
@@ -682,7 +686,7 @@ static char check_list_of_expressions_aux(AST expression_list,
         }
 
         if (preserve_top_level_parentheses
-                && ast_get_type(ASTSon1(expression_list)) == AST_PARENTHESIZED_EXPRESSION)
+                && ast_get_type(current_expr) == AST_PARENTHESIZED_EXPRESSION)
         {
             nodecl_current = cxx_nodecl_wrap_in_parentheses(nodecl_current);
         }
@@ -7466,7 +7470,9 @@ static void cxx_compute_name_from_entry_list(
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
 
-        if (is_dependent_type(entry->type_information))
+        if (is_dependent_type(entry->type_information)
+                || is_decltype_auto_type(entry->type_information)
+                || type_contains_auto(entry->type_information))
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -18145,6 +18151,10 @@ static void compute_nodecl_initializer_clause(AST initializer,
         // Default is an expression
         default:
             {
+                initializer = advance_expression_nest_flags(
+                        initializer,
+                        /* advance_parentheses */ !preserve_top_level_parentheses);
+
                 check_expression_impl_(initializer, decl_context, nodecl_output);
 
                 if (nodecl_is_err_expr(*nodecl_output))
@@ -19325,7 +19335,7 @@ type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, decl_context_t dec
         return get_error_type();
     }
 
-    if (is_dependent_type(computed_type))
+    if (nodecl_expr_is_type_dependent(nodecl_expr))
     {
         return get_typeof_expr_dependent_type(nodecl_expr,
                 decl_context,
@@ -19590,8 +19600,10 @@ AST advance_expression_nest(AST expr)
 
 AST advance_expression_nest_flags(AST expr, char advance_parentheses)
 {
-    AST result = expr;
+    if (expr == NULL)
+        return NULL;
 
+    AST result = expr;
     for ( ; ; )
     {
         switch (ASTType(result))

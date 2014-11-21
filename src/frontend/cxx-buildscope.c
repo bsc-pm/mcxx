@@ -3057,8 +3057,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 static type_t* compute_type_of_decltype(AST a, decl_context_t decl_context)
 {
     ERROR_CONDITION(ASTType(a) != AST_DECLTYPE, "Invalid node", 0);
-    // Advance just before parentheses
-    // (a normal call to 'advance_expression_nest' would advance after them)
+
     AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
 
     // Compute the expression type and use it for the whole type
@@ -3066,7 +3065,7 @@ static type_t* compute_type_of_decltype(AST a, decl_context_t decl_context)
 
     check_expression_non_executable(expression, decl_context, &nodecl_expr);
     if (!nodecl_is_err_expr(nodecl_expr)
-            && ASTType(a) == AST_PARENTHESIZED_EXPRESSION)
+            && ASTType(expression) == AST_PARENTHESIZED_EXPRESSION)
     {
         nodecl_expr = cxx_nodecl_wrap_in_parentheses(nodecl_expr);
     }
@@ -19668,11 +19667,14 @@ static void build_scope_return_statement(AST a,
                 && function->kind != SK_LAMBDA),
             "Invalid related entry!", 0);
 
-    AST expression = ASTSon0(a);
 
     type_t* return_type = function_type_get_return_type(function->type_information);
     if (return_type == NULL)
         return_type = get_void_type();
+
+    AST expression = advance_expression_nest_flags(
+            ASTSon0(a),
+            /* preserve_top_level_parentheses */ is_decltype_auto_type(return_type));
 
     nodecl_t nodecl_return_expression = nodecl_null();
     if (expression != NULL)
@@ -19684,12 +19686,11 @@ static void build_scope_return_statement(AST a,
                     /* preserve_top_level_parentheses */ 0,
                     &nodecl_return_expression);
         }
-        else 
+        else
         {
             check_expression(expression,
                     decl_context,
                     &nodecl_return_expression);
-
             // FIXME - overlapped logic with preserve_top_level_parentheses
             if (!nodecl_is_err_expr(nodecl_return_expression)
                     && is_decltype_auto_type(return_type)
