@@ -14070,7 +14070,11 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
                 if (valid && is_class_type_or_array_thereof(entry->type_information))
                 {
-                    entry->value = nodecl_make_value_initialization(constructor, ast_get_locus(a));
+                    type_t* t = entry->type_information;
+                    if (is_array_type(t))
+                        t = array_type_get_element_type(t);
+                    t = get_unqualified_type(t);
+                    entry->value = nodecl_make_value_initialization(constructor, t, ast_get_locus(a));
                 }
             }
             else

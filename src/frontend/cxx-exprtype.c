@@ -9737,7 +9737,10 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     }
     else
     {
-        nodecl_initializer = nodecl_make_cxx_parenthesized_initializer(nodecl_initializer, locus);
+        nodecl_initializer = nodecl_make_cxx_parenthesized_initializer(
+                nodecl_initializer,
+                get_sequence_of_types(0, NULL),
+                locus);
     }
 
     check_new_expression_impl(nodecl_placement,
@@ -10159,9 +10162,11 @@ static char conversion_is_valid_static_cast(
     // Otherwise an expression can be explicitly converted to a type T using a
     // static_cast<T>(e) if the declaration T t(e) is well formed for some
     // invented variable t
+    type_t* type_seq[1] = { nodecl_get_type(*nodecl_expression) };
     nodecl_t nodecl_parenthesized_init =
         nodecl_make_cxx_parenthesized_initializer(
                 nodecl_make_list_1(nodecl_shallow_copy(*nodecl_expression)),
+                get_sequence_of_types(1, type_seq),
                 nodecl_get_locus(*nodecl_expression));
     nodecl_t nodecl_static_cast_output = nodecl_null();
 
@@ -13271,8 +13276,10 @@ void implement_lambda_expression(
 
             instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
 
+            type_t* type_seq[1] = { nodecl_get_type(nodecl_parameter) };
             nodecl_t nodecl_init = nodecl_make_cxx_parenthesized_initializer(
                     nodecl_make_list_1(nodecl_parameter),
+                    get_sequence_of_types(1, type_seq),
                     locus);
 
             // check that we can initialize the field using the parameter
@@ -13575,6 +13582,7 @@ void implement_lambda_expression(
     // Now create an instance of the object using the captured symbols
     nodecl_t explicit_initializer = nodecl_null();
 
+    type_t* type_seq[num_captures + 1];
     for (i = 0; i < num_captures; i++)
     {
         scope_entry_t* sym = nodecl_get_symbol(capture_list[i]);
@@ -13582,6 +13590,7 @@ void implement_lambda_expression(
         nodecl_t nodecl_sym = nodecl_make_symbol(sym, locus);
         nodecl_set_type(nodecl_sym, lvalue_ref(no_ref(sym->type_information)));
 
+        type_seq[i] = nodecl_get_type(nodecl_sym);
         explicit_initializer = nodecl_append_to_list(
                 explicit_initializer,
                 nodecl_sym);
@@ -13589,6 +13598,7 @@ void implement_lambda_expression(
 
     explicit_initializer = nodecl_make_cxx_parenthesized_initializer(
             explicit_initializer,
+            get_sequence_of_types(num_captures, type_seq),
             locus);
 
     check_nodecl_explicit_type_conversion(
@@ -16830,7 +16840,9 @@ void check_nodecl_braced_initializer(
 
         // This case is a bit weird, the standard says to value initialize the class object
         // but since it requires a constructor, this is like default initializing it
-        *nodecl_output = nodecl_make_value_initialization(constructor, locus);
+        *nodecl_output = nodecl_make_value_initialization(constructor, 
+                get_unqualified_type(declared_type),
+                locus);
         return;
     }
     else if ((is_class_type(declared_type)
@@ -17885,8 +17897,10 @@ void check_contextual_conversion(nodecl_t expression,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
+    type_t* type_seq[1] = { nodecl_get_type(expression) };
     nodecl_t direct_init = nodecl_make_cxx_parenthesized_initializer(
             nodecl_make_list_1(expression),
+            get_sequence_of_types(1, type_seq),
             nodecl_get_locus(expression));
 
     check_nodecl_parenthesized_initializer(
@@ -18735,6 +18749,9 @@ static void compute_nodecl_direct_initializer(AST initializer,
     char any_is_value_dependent = 0;
     nodecl_t nodecl_initializer_list = nodecl_null();
 
+    int num_types = 0;
+    type_t** type_seq = NULL;
+
     AST initializer_list = ASTSon0(initializer);
     if (initializer_list != NULL)
     {
@@ -18747,9 +18764,9 @@ static void compute_nodecl_direct_initializer(AST initializer,
             return;
         }
 
-        int num_items = 0;
         if (!nodecl_is_null(nodecl_initializer_list))
         {
+            int num_items = 0;
             nodecl_t* nodecl_list = nodecl_unpack_list(nodecl_initializer_list, &num_items);
             for (int i = 0; i < num_items; ++i)
             {
@@ -18765,6 +18782,8 @@ static void compute_nodecl_direct_initializer(AST initializer,
                     nodecl_expr_is_type_dependent(current_nodecl);
                 any_is_value_dependent = any_is_value_dependent ||
                     nodecl_expr_is_value_dependent(current_nodecl);
+
+                P_LIST_ADD(type_seq, num_types, nodecl_get_type(current_nodecl));
             }
             xfree(nodecl_list);
         }
@@ -18772,10 +18791,12 @@ static void compute_nodecl_direct_initializer(AST initializer,
 
     *nodecl_output = nodecl_make_cxx_parenthesized_initializer(
             nodecl_initializer_list,
+            get_sequence_of_types(num_types, type_seq),
             ast_get_locus(initializer));
-
     nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
     nodecl_expr_set_is_value_dependent(*nodecl_output, any_is_value_dependent);
+
+    xfree(type_seq);
 }
 
 void compute_nodecl_initialization(AST initializer,
@@ -21706,7 +21727,12 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
 
     if (is_class_type_or_array_thereof(entry->type_information))
     {
-        entry->value = nodecl_make_value_initialization(constructor, locus);
+        type_t* t = entry->type_information;
+        if (is_array_type(t))
+            t = array_type_get_element_type(t);
+        t = get_unqualified_type(t);
+
+        entry->value = nodecl_make_value_initialization(constructor, t, locus);
 
         type_t* class_type = entry->type_information;
         if (is_array_type(class_type))
@@ -23117,6 +23143,9 @@ static void define_inherited_constructor(
 
     nodecl_t nodecl_arg_list = nodecl_null();
 
+    int num_types = 0;
+    type_t** type_seq = NULL;
+
     char ok = 1;
 
     int i;
@@ -23159,6 +23188,8 @@ static void define_inherited_constructor(
         if (!nodecl_is_err_expr(nodecl_arg))
         {
             nodecl_arg_list = nodecl_append_to_list(nodecl_arg_list, nodecl_arg);
+
+            P_LIST_ADD(type_seq, num_types, nodecl_get_type(nodecl_arg));
         }
         else
         {
@@ -23170,6 +23201,7 @@ static void define_inherited_constructor(
     {
         nodecl_t nodecl_init = nodecl_make_cxx_parenthesized_initializer(
                 nodecl_arg_list,
+                get_sequence_of_types(num_types, type_seq),
                 locus);
 
         check_nodecl_initialization(
@@ -23212,6 +23244,7 @@ static void define_inherited_constructor(
         }
     }
 
+    xfree(type_seq);
     check_expr_flags.must_be_constant = must_be_constant;
 #undef return
 }
@@ -25569,6 +25602,8 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
 
+    type_t* type_seq = get_sequence_of_types(0, NULL);
+
     int i;
     for (i = 0; i < num_items; i++)
     {
@@ -25588,11 +25623,14 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
         {
             nodecl_result_list = nodecl_concat_lists(nodecl_result_list, expr);
         }
+        type_seq = get_sequence_of_types_append_type(type_seq, nodecl_get_type(expr));
     }
 
     xfree(list);
 
-    v->nodecl_result = nodecl_make_cxx_parenthesized_initializer(nodecl_result_list, nodecl_get_locus(node));
+    v->nodecl_result = nodecl_make_cxx_parenthesized_initializer(nodecl_result_list,
+            type_seq,
+            nodecl_get_locus(node));
 }
 
 static void instantiate_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
