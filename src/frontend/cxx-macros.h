@@ -45,6 +45,7 @@
      #define UNUSED_PARAMETER __attribute__((unused))
      #define WARN_FUNCTION(x) __attribute__((warning(x)))
      #define MALLOC_RETURN __attribute__((malloc))
+     #define ALWAYS_INLINE __attribute__((always_inline))
      // Supported in >=4.4
      #if (__GNUC_MINOR__ >= 4)
         #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
@@ -67,6 +68,7 @@
   #define UNUSED_PARAMETER __attribute__((unused))
   #define WARN_FUNCTION(x)
   #define MALLOC_RETURN __attribute__((malloc))
+  #define ALWAYS_INLINE __attribute__((always_inline))
   #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
   #define DEPRECATED_REASON(r) __attribute__((deprecated))
 #else
@@ -76,6 +78,7 @@
   #define DEPRECATED
   #define DEPRECATED_REASON(r)
   #define WARN_FUNCTION(x)
+  #define ALWAYS_INLINE
 #endif
 
 #define UNUSED_FUNCTION UNUSED_PARAMETER
