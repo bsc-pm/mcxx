@@ -6,7 +6,6 @@
 
 MCXX_BEGIN_DECLS
 
-typedef
 struct nodecl_expr_info_tag
 {
     char is_value_dependent:1;
@@ -22,7 +21,7 @@ struct nodecl_expr_info_tag
     AST* placeholder;
 
     decl_context_t* decl_context;
-} nodecl_expr_info_t;
+};
 
 // Nodecl expression routines. 
 static inline nodecl_expr_info_t* nodecl_expr_get_expression_info_noalloc(AST expr)
