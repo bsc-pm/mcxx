@@ -44,7 +44,7 @@
      #define DEPRECATED __attribute__((deprecated))
      #define UNUSED_PARAMETER __attribute__((unused))
      #define WARN_FUNCTION(x) __attribute__((warning(x)))
-     #define MALLOC_RETURN __attribute__((xmalloc))
+     #define MALLOC_RETURN __attribute__((malloc))
      // Supported in >=4.4
      #if (__GNUC_MINOR__ >= 4)
         #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
@@ -66,7 +66,7 @@
   #define DEPRECATED __attribute__((deprecated))
   #define UNUSED_PARAMETER __attribute__((unused))
   #define WARN_FUNCTION(x)
-  #define MALLOC_RETURN __attribute__((xmalloc))
+  #define MALLOC_RETURN __attribute__((malloc))
   #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
   #define DEPRECATED_REASON(r) __attribute__((deprecated))
 #else
