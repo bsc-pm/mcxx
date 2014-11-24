@@ -655,7 +655,42 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
     return new_expresssions;
 }
 
-static void copy_target_info_from_params_to_args(
+static void update_target_info_fortran(OutlineInfo& outline_info)
+{
+        const OutlineInfo::implementation_table_t& implementation_table = outline_info.get_implementation_table();
+        for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
+                it != implementation_table.end();
+                ++it)
+        {
+            TL::Symbol implementor = it->first;
+            TL::Nanox::TargetInformation target_info = it->second;
+            Nodecl::Utils::SimpleSymbolMap& param_to_arg = target_info.get_param_arg_map();
+
+            TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args;
+            TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = ndrange_args.begin();
+                    it2 != ndrange_args.end();
+                    it2++)
+            {
+                Nodecl::NodeclBase arg = Nodecl::Utils::deep_copy(*it2, *it2, param_to_arg);
+                new_ndrange_args.append(arg);
+            }
+
+            TL::ObjectList<Nodecl::NodeclBase> new_shmem_args;
+            TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = shmem_args.begin();
+                    it2 != shmem_args.end();
+                    it2++)
+            {
+                new_shmem_args.append(Nodecl::Utils::deep_copy(*it2, *it2, param_to_arg));
+            }
+
+            outline_info.set_ndrange(implementor, new_ndrange_args);
+            outline_info.set_shmem(implementor, new_shmem_args);
+        }
+}
+
+static void copy_target_info_from_params_to_args_c(
         const OutlineInfo::implementation_table_t& implementation_table,
         const sym_to_argument_expr_t& param_to_arg_expr,
         OutlineInfo& arguments_outline_info,
@@ -715,9 +750,9 @@ static void copy_target_info_from_params_to_args(
         {
             std::string device_name = *it2;
             arguments_outline_info.add_implementation(implementor, device_name);
-            arguments_outline_info.append_to_ndrange(implementor, new_ndrange_args);
-            arguments_outline_info.append_to_shmem(implementor, new_shmem_args);
-            arguments_outline_info.append_to_onto(implementor, target_info.get_onto());
+            arguments_outline_info.set_ndrange(implementor, new_ndrange_args);
+            arguments_outline_info.set_shmem(implementor, new_shmem_args);
+            arguments_outline_info.set_onto(implementor, target_info.get_onto());
             arguments_outline_info.set_file(implementor, target_info.get_file());
         }
     }
@@ -997,7 +1032,7 @@ void LoweringVisitor::visit_task_call_c(
         }
     }
 
-    copy_target_info_from_params_to_args(
+    copy_target_info_from_params_to_args_c(
             parameters_outline_info.get_implementation_table(),
             param_to_arg_expr,
             arguments_outline_info,
@@ -1291,6 +1326,7 @@ static TL::Symbol new_function_symbol_adapter(
                 symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
 
         parameters_of_new_function.append(new_parameter_symbol);
+
         symbol_map.add_map(*it, new_parameter_symbol);
     }
 
@@ -1718,6 +1754,8 @@ void LoweringVisitor::visit_task_call_fortran(
             new_outline_info,
             called_task_function,
             params_to_data_items_map);
+
+    update_target_info_fortran(new_outline_info);
 
     emit_async_common(
             new_task_construct,

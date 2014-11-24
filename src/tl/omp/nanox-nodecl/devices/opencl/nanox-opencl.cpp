@@ -64,6 +64,18 @@ void DeviceOpenCL::generate_ndrange_code(
         // Out
         TL::Source& code_ndrange)
 {
+    // The arguments of the clauses 'ndrange' and 'shmem' must be updated because
+    // they are not expressed in terms of the unpacked function parameters
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
+    update_ndrange_and_shmem_expressions(
+            unpacked_function.get_related_scope(),
+            target_info,
+            outline_data_to_unpacked_fun_map,
+            new_ndrange,
+            new_shmem);
+
+    int num_args_ndrange = new_ndrange.size();
+
     TL::Source code_ndrange_aux;
     Nodecl::Utils::SimpleSymbolMap called_fun_to_unpacked_fun_map;
 
@@ -76,60 +88,6 @@ void DeviceOpenCL::generate_ndrange_code(
         TL::Symbol key = it->first;
         TL::Symbol value = outline_data_to_unpacked_fun_map->map(it->second.get_internal_symbol());
         called_fun_to_unpacked_fun_map.add_map(key, value);
-    }
-
-    // The arguments of the clause 'ndrange' must be updated because they are not
-    // expressed in terms of the unpacked arguments
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
-    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
-    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
-    int num_args_ndrange = ndrange_args.size(),
-        num_args_shmem = shmem_args.size();
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        for (int i = 0; i < num_args_ndrange; ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    ndrange_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_ndrange.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (int i = 0; i < num_args_shmem; ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    shmem_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_shmem.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-    else
-    {
-        for (int i = 0; i < num_args_ndrange; ++i)
-        {
-            new_ndrange.append(Nodecl::Utils::deep_copy(
-                        ndrange_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (int i = 0; i < num_args_shmem; ++i)
-        {
-            new_shmem.append(Nodecl::Utils::deep_copy(
-                        shmem_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
     }
 
     bool dim_const = new_ndrange[0].is_constant();

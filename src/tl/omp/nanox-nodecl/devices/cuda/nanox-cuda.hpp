@@ -51,10 +51,8 @@ namespace TL
                 void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 
                 void update_ndrange_and_shmem_arguments(
-                        const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
                         const TargetInformation& target_info,
-                        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
                         Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
                         // out
                         TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,

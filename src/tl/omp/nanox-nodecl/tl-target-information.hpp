@@ -80,13 +80,16 @@ namespace TL
                 void set_name(std::string name);
                 std::string get_name() const;
 
-                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
+                void set_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
+                //void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase> get_ndrange() const;
 
-                void append_to_shmem(const ObjectList<Nodecl::NodeclBase>& shmem);
+                void set_shmem(const ObjectList<Nodecl::NodeclBase>& shmem);
+                //void append_to_shmem(const ObjectList<Nodecl::NodeclBase>& shmem);
                 ObjectList<Nodecl::NodeclBase> get_shmem() const;
 
-                void append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto);
+                void set_onto(const ObjectList<Nodecl::NodeclBase>& onto);
+                //void append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto);
                 ObjectList<Nodecl::NodeclBase> get_onto() const;
 
                 Nodecl::Utils::SimpleSymbolMap& get_param_arg_map();
