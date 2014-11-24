@@ -1529,9 +1529,21 @@ SIMPLIFY_BUILTIN_FUN2(nextafterf, float, float, float);
 SIMPLIFY_BUILTIN_FUN2(nextafter, double, double, double);
 SIMPLIFY_BUILTIN_FUN2(nextafterl, long_double, long_double, long_double);
 
+#ifdef HAVE__BUILTIN_NEXTTOWARDF
 SIMPLIFY_BUILTIN_FUN2(nexttowardf, float, float, long_double);
+#else
+#define simplify_nexttowardf NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_NEXTTOWARD
 SIMPLIFY_BUILTIN_FUN2(nexttoward, double, double, long_double);
+#else
+#define simplify_nexttoward NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_NEXTTOWARDL
 SIMPLIFY_BUILTIN_FUN2(nexttowardl, long_double, long_double, long_double);
+#else
+#define simplify_nexttowardl NO_EXPAND_FUN
+#endif
 
 SIMPLIFY_BUILTIN_FUN1(popcount, signed_int, unsigned_int);
 SIMPLIFY_BUILTIN_FUN1(popcountl, signed_int, unsigned_long_int);
@@ -1615,6 +1627,7 @@ static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int n
 #endif
 
 
+#ifdef HAVE__BUILTIN_NAN
 static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1630,7 +1643,14 @@ static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
+#ifdef HAVE__BUILTIN_NANF
 static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1646,7 +1666,14 @@ static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
+#ifdef HAVE__BUILTIN_NANL
 static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1662,6 +1689,12 @@ static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
 static nodecl_t simplify_nans(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
@@ -1714,6 +1747,7 @@ static nodecl_t simplify_nansl(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 SIMPLIFY_BUILTIN_FUN1(signbitf, signed_int, float);
 SIMPLIFY_BUILTIN_FUN1(signbitl, signed_int, long_double);
 
+#ifdef HAVE__BUILTIN_SIGNBIT
 static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1747,6 +1781,12 @@ static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
 #define SIMPLIFY_GENERIC_FLOAT_TEST1(builtin_name) \
 static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
@@ -3603,8 +3643,7 @@ type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type)
     else if (equivalent_types(vector_type, get_m512d_struct_type()))
         return get_vector_type(get_double_type(), 64);
 
-    else
-        return NULL;
+    return NULL;
 }
 
 type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type)
