@@ -1882,11 +1882,14 @@ then
   then
     huge_valq="no"
     AC_MSG_CHECKING([for __builtin_huge_valq])
+    keep_LIBS="$LIBS"
+    LIBS="-lquadmath"
     AC_LINK_IFELSE([AC_LANG_PROGRAM([], [return __builtin_huge_valq ();])],
             [AC_DEFINE([HAVE__BUILTIN_HUGE_VALQ], 1, [Define to 1 if __builtin_huge_valq is available])] 
             [huge_valq="yes"]
             [AC_MSG_RESULT([yes])],
             [AC_MSG_RESULT([no])])
+    LIBS="$keep_LIBS"
     if test x$huge_valq = xyes;
     then
         AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is fully useable])
@@ -1918,6 +1921,9 @@ dnl Several of these functions may be missing in some systems
 AC_CHECK_FUNC([mkdtemp], [ AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available]) ], [ AC_LIBOBJ([tempname]) AC_LIBOBJ([mkdtemp]) ])
 AC_CHECK_FUNC([strsignal], [ AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available]) ], [ AC_LIBOBJ([strsignal]) ])
 
+dnl math and complex math functions that may be missing in some systems
+keep_LIBS="$LIBS"
+LIBS="-lm"
 AC_MSG_CHECKING([for __builtin_exp10])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([double d;], [return __builtin_exp10(d);])],   [AC_DEFINE([HAVE__BUILTIN_EXP10],  1, [Define to 1 if __builtin_exp10 is available])]  [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
 
@@ -1967,10 +1973,6 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([float f; double d; long double ld;],
             [return __builtin_signbit(f) + __builtin_signbit (d) + __builtin_signbit(ld);])], [AC_DEFINE([HAVE__BUILTIN_SIGNBIT], 1, [Define to 1 if __builtin_signbit is available])]
         [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
 
-
-dnl math and complex math functions that may be missing in some systems
-keep_LIBS="$LIBS"
-LIBS="-lm"
 AC_CHECK_FUNCS([cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
                [], [])
 LIBS="$keep_LIBS"
