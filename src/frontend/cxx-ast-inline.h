@@ -76,7 +76,7 @@ static inline int ast_bitmap_to_index(unsigned int bitmap, int num)
 {
     ERROR_CONDITION(((1 << num) & bitmap) == 0,
             "Invalid bitmap!", 0);
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+#if HAVE__BUILTIN_POPCOUNT
     bitmap = bitmap & (~(~0U << num));
     return __builtin_popcount(bitmap);
 #else
@@ -121,7 +121,7 @@ static inline void ast_set_parent(AST a, AST parent)
 
 static inline int ast_count_bitmap(unsigned int bitmap)
 {
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+#if HAVE__BUILTIN_POPCOUNT
     return __builtin_popcount(bitmap);
 #else
     int i;

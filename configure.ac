@@ -1925,6 +1925,10 @@ AC_MSG_CHECKING([for __builtin_fpclassify])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_fpclassify (1, 2, 3, 4, 5, 1.0f);])], [AC_DEFINE([HAVE__BUILTIN_FPCLASSIFY], 1, [Define to 1 if __builtin_fpclassify is available])]
         [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
 
+AC_MSG_CHECKING([for __builtin_popcount])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [__builtin_popcount (1);])], [AC_DEFINE([HAVE__BUILTIN_POPCOUNT], 1, [Define to 1 if __builtin_popcount is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
 dnl math and complex math functions that may be missing in some systems
 keep_LIBS="$LIBS"
 LIBS="-lm"
