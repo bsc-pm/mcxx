@@ -364,7 +364,9 @@ then
                          AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
                       fi
                  fi
-             ])
+             ],
+             [AC_MSG_RESULT([no])]
+             )
 
       AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
       AC_ARG_ENABLE([mic-testing],
@@ -378,7 +380,9 @@ then
                 else
                    AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
                 fi
-             ])
+             ],
+             [AC_MSG_RESULT([no])]
+             )
 
       MIC_COMPILATION=$mic_compilation
       MIC_TESTING=$mic_testing
