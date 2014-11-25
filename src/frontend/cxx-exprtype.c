@@ -12963,10 +12963,33 @@ enum lambda_capture_default_tag
     LAMBDA_CAPTURE_REFERENCE
 };
 
+
+typedef
+struct capture_info_tag
+{
+    scope_entry_t* entry;
+    nodecl_t init;
+} capture_info_t;
+
+
+static char symbol_is_in_capture(int num_items,
+        capture_info_t* capture_info,
+        scope_entry_t* entry)
+{
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        if (capture_info[i].entry == entry)
+            return 1;
+    }
+
+    return 0;
+}
+
 static void compute_implicit_captures(nodecl_t node,
         enum lambda_capture_default_tag lambda_capture_default,
-        scope_entry_list_t** capture_copy_entities,
-        scope_entry_list_t** capture_reference_entities,
+        int *num_capture_copy, capture_info_t** capture_copy_info,
+        int *num_capture_ref, capture_info_t** capture_ref_info,
         scope_entry_t* lambda_symbol,
         char *ok)
 {
@@ -12978,8 +13001,8 @@ static void compute_implicit_captures(nodecl_t node,
         return compute_implicit_captures(
                 nodecl_get_symbol(node)->value,
                 lambda_capture_default,
-                capture_copy_entities,
-                capture_reference_entities,
+                num_capture_copy, capture_copy_info,
+                num_capture_ref, capture_ref_info,
                 lambda_symbol,
                 ok);
     }
@@ -13012,9 +13035,10 @@ static void compute_implicit_captures(nodecl_t node,
 
     if (entry != NULL)
     {
-        if (!entry_list_contains(*capture_copy_entities, entry)
-                && !entry_list_contains(*capture_reference_entities, entry))
+        if (!symbol_is_in_capture(*num_capture_copy, *capture_copy_info, entry)
+                && !symbol_is_in_capture(*num_capture_ref, *capture_ref_info, entry))
         {
+            capture_info_t capture_info = { entry, nodecl_null() };
             if (lambda_capture_default == LAMBDA_CAPTURE_NONE)
             {
                 error_printf("%s: error: symbol '%s' has not been captured\n",
@@ -13024,18 +13048,15 @@ static void compute_implicit_captures(nodecl_t node,
             }
             else if (strcmp(entry->symbol_name, "this") == 0)
             {
-                *capture_copy_entities =
-                    entry_list_add(*capture_copy_entities, entry);
+                P_LIST_ADD(*capture_copy_info, *num_capture_copy, capture_info);
             }
             else if (lambda_capture_default == LAMBDA_CAPTURE_COPY)
             {
-                *capture_copy_entities =
-                    entry_list_add(*capture_copy_entities, entry);
+                P_LIST_ADD(*capture_copy_info, *num_capture_copy, capture_info);
             }
             else if (lambda_capture_default == LAMBDA_CAPTURE_REFERENCE)
             {
-                *capture_reference_entities =
-                    entry_list_add(*capture_reference_entities, entry);
+                P_LIST_ADD(*capture_ref_info, *num_capture_ref, capture_info);
             }
             else
             {
@@ -13051,8 +13072,8 @@ static void compute_implicit_captures(nodecl_t node,
         compute_implicit_captures(
                 nodecl_get_child(node, i),
                 lambda_capture_default,
-                capture_copy_entities,
-                capture_reference_entities,
+                num_capture_copy, capture_copy_info,
+                num_capture_ref, capture_ref_info,
                 lambda_symbol,
                 ok);
     }
@@ -13217,10 +13238,19 @@ static void implement_nongeneric_lambda_expression(
 
         nodecl_t member_initializers = nodecl_null();
 
+        scope_entry_t* parameters[num_captures];
+        scope_entry_t* fields[num_captures];
+        memset(parameters, 0, sizeof(parameters));
+        memset(fields, 0, sizeof(fields));
+
+        // First register parameters
+        instantiation_symbol_map_t* initializers_map = instantiation_symbol_map_push(NULL);
+
         int i;
         for (i = 0; i < num_captures; i++)
         {
             scope_entry_t* sym = nodecl_get_symbol(capture_list[i]);
+
             char is_capture_by_copy = (nodecl_get_kind(capture_list[i]) == NODECL_CXX_CAPTURE_COPY);
 
             char is_symbol_this = (strcmp(sym->symbol_name, "this") == 0);
@@ -13270,9 +13300,6 @@ static void implement_nongeneric_lambda_expression(
                     /* nesting */ 0, i);
             symbol_entity_specs_add_related_symbols(constructor, parameter);
 
-            nodecl_t nodecl_parameter = nodecl_make_symbol(parameter, locus);
-            nodecl_set_type(nodecl_parameter, lvalue_ref(parameter->type_information));
-
             // register field
             scope_entry_t* field = new_symbol(
                 inner_class_context,
@@ -13294,20 +13321,46 @@ static void implement_nongeneric_lambda_expression(
             symbol_entity_specs_set_class_type(field, get_user_defined_type(lambda_class));
             symbol_entity_specs_set_access(field, AS_PRIVATE);
 
-            instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
+            class_type_add_member(lambda_class->type_information, field, /* is_definition */ 1);
 
-            type_t* type_seq[1] = { nodecl_get_type(nodecl_parameter) };
-            nodecl_t nodecl_init = nodecl_make_cxx_parenthesized_initializer(
-                    nodecl_make_list_1(nodecl_parameter),
-                    get_sequence_of_types(1, type_seq),
-                    locus);
+            instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
+            instantiation_symbol_map_add(initializers_map, sym, parameter);
+
+            parameters[i] = parameter;
+            fields[i] = field;
+        }
+
+        // Second build initializers
+        for (i = 0; i < num_captures; i++)
+        {
+            nodecl_t nodecl_init = nodecl_get_child(capture_list[i], 0);
+            if (nodecl_is_null(nodecl_init))
+            {
+                nodecl_t nodecl_parameter = nodecl_make_symbol(parameters[i], locus);
+                nodecl_set_type(nodecl_parameter, lvalue_ref(parameters[i]->type_information));
+
+                type_t* type_seq[1] = { nodecl_get_type(nodecl_parameter) };
+                nodecl_init = nodecl_make_cxx_parenthesized_initializer(
+                        nodecl_make_list_1(nodecl_parameter),
+                        get_sequence_of_types(1, type_seq),
+                        locus);
+            }
+            else
+            {
+                // We need to rewrite the initializer in terms of the parameter symbol
+                nodecl_init = instantiate_expression(
+                        nodecl_init,
+                        decl_context,
+                        initializers_map,
+                        /* pack_index */ -1);
+            }
 
             // check that we can initialize the field using the parameter
             check_nodecl_initialization(
                     nodecl_init,
                     block_context,
-                    field,
-                    field->type_information,
+                    fields[i],
+                    fields[i]->type_information,
                     &nodecl_init,
                     /* is_auto_type */ 0,
                     /* is_decltype_auto */ 0);
@@ -13317,20 +13370,20 @@ static void implement_nongeneric_lambda_expression(
                 *nodecl_output = nodecl_init;
                 xfree(capture_list);
                 instantiation_symbol_map_pop(instantiation_symbol_map);
+                instantiation_symbol_map_pop(initializers_map);
                 return;
             }
 
             nodecl_t nodecl_member_init = nodecl_make_member_init(
                     nodecl_init,
-                    field,
+                    fields[i],
                     locus);
 
             member_initializers = nodecl_append_to_list(
                     member_initializers,
                     nodecl_member_init);
-
-            class_type_add_member(lambda_class->type_information, field, /* is_definition */ 1);
         }
+        instantiation_symbol_map_pop(initializers_map);
 
         constructor->type_information =
             get_new_function_type(NULL, parameter_info, num_captures, REF_QUALIFIER_NONE);
@@ -13656,8 +13709,6 @@ static void implement_generic_lambda_expression(
     int num_captures = 0;
     nodecl_t* capture_list = nodecl_unpack_list(captures, &num_captures);
 
-    instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(NULL);
-
     const char* constructor_name = NULL;
     uniquestr_sprintf(&constructor_name, "constructor %s", lambda_class_name_str);
     scope_entry_t* constructor = new_symbol(
@@ -13751,6 +13802,8 @@ static void implement_generic_lambda_expression(
 
     decl_context_t invented_templated_context = inner_class_context;
     invented_templated_context.template_parameters = invented_template_parameter_list;
+
+    instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(NULL);
 
     if (num_captures == 0)
     {
@@ -13862,6 +13915,7 @@ static void implement_generic_lambda_expression(
         symbol_entity_specs_set_is_member(ancillary, 1);
         symbol_entity_specs_set_class_type(ancillary, get_user_defined_type(lambda_class));
         symbol_entity_specs_set_access(ancillary, AS_PRIVATE);
+        symbol_entity_specs_set_is_static(ancillary, 1);
 
         class_type_add_member(lambda_class->type_information, ancillary, /* is_definition */ 1);
 
@@ -13878,9 +13932,17 @@ static void implement_generic_lambda_expression(
 
         nodecl_t member_initializers = nodecl_null();
 
+        scope_entry_t* parameters[num_captures];
+        scope_entry_t* fields[num_captures];
+        memset(parameters, 0, sizeof(parameters));
+        memset(fields, 0, sizeof(fields));
+
+        // First register parameters
+        instantiation_symbol_map_t* initializers_map = instantiation_symbol_map_push(NULL);
         for (i = 0; i < num_captures; i++)
         {
             scope_entry_t* sym = nodecl_get_symbol(capture_list[i]);
+
             char is_capture_by_copy = (nodecl_get_kind(capture_list[i]) == NODECL_CXX_CAPTURE_COPY);
 
             char is_symbol_this = (strcmp(sym->symbol_name, "this") == 0);
@@ -13930,9 +13992,6 @@ static void implement_generic_lambda_expression(
                     /* nesting */ 0, i);
             symbol_entity_specs_add_related_symbols(constructor, parameter);
 
-            nodecl_t nodecl_parameter = nodecl_make_symbol(parameter, locus);
-            nodecl_set_type(nodecl_parameter, lvalue_ref(parameter->type_information));
-
             // register field
             scope_entry_t* field = new_symbol(
                 inner_class_context,
@@ -13954,20 +14013,46 @@ static void implement_generic_lambda_expression(
             symbol_entity_specs_set_class_type(field, get_user_defined_type(lambda_class));
             symbol_entity_specs_set_access(field, AS_PRIVATE);
 
-            instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
+            class_type_add_member(lambda_class->type_information, field, /* is_definition */ 1);
 
-            type_t* type_seq[1] = { nodecl_get_type(nodecl_parameter) };
-            nodecl_t nodecl_init = nodecl_make_cxx_parenthesized_initializer(
-                    nodecl_make_list_1(nodecl_parameter),
-                    get_sequence_of_types(1, type_seq),
-                    locus);
+            instantiation_symbol_map_add(instantiation_symbol_map, sym, field);
+            instantiation_symbol_map_add(initializers_map, sym, parameter);
+
+            parameters[i] = parameter;
+            fields[i] = field;
+        }
+
+        // Second build initializers
+        for (i = 0; i < num_captures; i++)
+        {
+            nodecl_t nodecl_init = nodecl_get_child(capture_list[i], 0);
+            if (nodecl_is_null(nodecl_init))
+            {
+                nodecl_t nodecl_parameter = nodecl_make_symbol(parameters[i], locus);
+                nodecl_set_type(nodecl_parameter, lvalue_ref(parameters[i]->type_information));
+
+                type_t* type_seq[1] = { nodecl_get_type(nodecl_parameter) };
+                nodecl_init = nodecl_make_cxx_parenthesized_initializer(
+                        nodecl_make_list_1(nodecl_parameter),
+                        get_sequence_of_types(1, type_seq),
+                        locus);
+            }
+            else
+            {
+                // We need to rewrite the initializer in terms of the parameter symbol
+                nodecl_init = instantiate_expression(
+                        nodecl_init,
+                        decl_context,
+                        initializers_map,
+                        /* pack_index */ -1);
+            }
 
             // check that we can initialize the field using the parameter
             check_nodecl_initialization(
                     nodecl_init,
                     block_context,
-                    field,
-                    field->type_information,
+                    fields[i],
+                    fields[i]->type_information,
                     &nodecl_init,
                     /* is_auto_type */ 0,
                     /* is_decltype_auto */ 0);
@@ -13977,20 +14062,20 @@ static void implement_generic_lambda_expression(
                 *nodecl_output = nodecl_init;
                 xfree(capture_list);
                 instantiation_symbol_map_pop(instantiation_symbol_map);
+                instantiation_symbol_map_pop(initializers_map);
                 return;
             }
 
             nodecl_t nodecl_member_init = nodecl_make_member_init(
                     nodecl_init,
-                    field,
+                    fields[i],
                     locus);
 
             member_initializers = nodecl_append_to_list(
                     member_initializers,
                     nodecl_member_init);
-
-            class_type_add_member(lambda_class->type_information, field, /* is_definition */ 1);
         }
+        instantiation_symbol_map_pop(initializers_map);
 
         constructor->type_information =
             get_new_function_type(NULL, parameter_info, num_captures, REF_QUALIFIER_NONE);
@@ -14390,8 +14475,11 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 
     enum lambda_capture_default_tag lambda_capture_default = LAMBDA_CAPTURE_NONE;
 
-    scope_entry_list_t* capture_copy_entities = NULL;
-    scope_entry_list_t* capture_reference_entities = NULL;
+    int num_capture_copy = 0;
+    capture_info_t* capture_copy_info = NULL;
+
+    int num_capture_ref = 0;
+    capture_info_t* capture_ref_info = NULL;
 
     if (lambda_capture != NULL)
     {
@@ -14434,6 +14522,8 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                 {
                     case AST_LAMBDA_CAPTURE_VALUE:
                     case AST_LAMBDA_CAPTURE_ADDRESS:
+                    case AST_LAMBDA_CAPTURE_VALUE_INIT:
+                    case AST_LAMBDA_CAPTURE_ADDRESS_INIT:
                         {
                             scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(capture), NULL);
                             if (entry_list == NULL)
@@ -14463,8 +14553,31 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                                     return;
                                 }
 
-                                if (entry_list_contains(capture_reference_entities, entry)
-                                        || entry_list_contains(capture_copy_entities, entry))
+                                nodecl_t nodecl_init = nodecl_null();
+
+                                if (n == AST_LAMBDA_CAPTURE_VALUE_INIT
+                                        || n == AST_LAMBDA_CAPTURE_ADDRESS_INIT)
+                                {
+                                    if (!IS_CXX14_LANGUAGE)
+                                    {
+                                        warn_printf("%s: warning: capture with initializer is a C++14 feature\n",
+                                                ast_location(capture));
+                                    }
+                                    compute_nodecl_initialization(
+                                            ASTSon0(capture),
+                                            decl_context,
+                                            /* preserve_top_level_parentheses */ 0,
+                                            &nodecl_init);
+                                    if (nodecl_is_err_expr(nodecl_init))
+                                    {
+                                        nodecl_init = nodecl_null();
+                                    }
+                                }
+
+                                capture_info_t capture_info = { entry, nodecl_init };
+
+                                if (symbol_is_in_capture(num_capture_copy, capture_copy_info, entry)
+                                        || symbol_is_in_capture(num_capture_ref, capture_ref_info, entry))
                                 {
                                     error_printf("%s: error: entity '%s' captured more than once\n",
                                             ast_location(capture),
@@ -14472,10 +14585,16 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                                 }
                                 else
                                 {
-                                    if (n == AST_LAMBDA_CAPTURE_VALUE)
-                                        capture_copy_entities = entry_list_add(capture_copy_entities, entry);
+
+                                    if (n == AST_LAMBDA_CAPTURE_VALUE
+                                            || n == AST_LAMBDA_CAPTURE_VALUE_INIT)
+                                    {
+                                        P_LIST_ADD(capture_copy_info, num_capture_copy, capture_info);
+                                    }
                                     else
-                                        capture_reference_entities = entry_list_add(capture_reference_entities, entry);
+                                    {
+                                        P_LIST_ADD(capture_ref_info, num_capture_ref, capture_info);
+                                    }
                                 }
                             }
 
@@ -14496,8 +14615,10 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                                 scope_entry_t* entry = entry_list_head(entry_list);
                                 entry_list_free(entry_list);
 
-                                if (entry_list_contains(capture_reference_entities, entry)
-                                        || entry_list_contains(capture_copy_entities, entry)
+                                capture_info_t capture_info = { entry, nodecl_null() };
+
+                                if (symbol_is_in_capture(num_capture_copy, capture_copy_info, entry)
+                                        || symbol_is_in_capture(num_capture_ref, capture_ref_info, entry)
                                         || lambda_capture_default == LAMBDA_CAPTURE_COPY)
                                 {
                                     error_printf("%s: error: entity 'this' captured more than once\n",
@@ -14505,7 +14626,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                                 }
                                 else
                                 {
-                                    capture_copy_entities = entry_list_add(capture_copy_entities, entry);
+                                    P_LIST_ADD(capture_copy_info, num_capture_copy, capture_info);
                                 }
                             }
                             break;
@@ -14616,8 +14737,8 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     char ok = 1;
     compute_implicit_captures(nodecl_lambda_body,
             lambda_capture_default,
-            &capture_copy_entities,
-            &capture_reference_entities,
+            &num_capture_copy, &capture_copy_info,
+            &num_capture_ref, &capture_ref_info,
             lambda_symbol,
             &ok);
 
@@ -14635,42 +14756,40 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 
     char lambda_class_is_dependent = is_dependent_type(function_type);
 
-    scope_entry_list_iterator_t *it = NULL;
-    for (it = entry_list_iterator_begin(capture_copy_entities);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    int i;
+    for (i = 0; i < num_capture_copy; i++)
     {
-        scope_entry_t* sym = entry_list_iterator_current(it);
+        scope_entry_t* sym = capture_copy_info[i].entry;
+
         lambda_class_is_dependent = lambda_class_is_dependent
             || is_dependent_type(sym->type_information);
 
         captures = nodecl_append_to_list(
                 captures,
                 nodecl_make_cxx_capture_copy(
+                    capture_copy_info[i].init,
                     sym,
                     ast_get_locus(expression)));
     }
-    entry_list_iterator_free(it);
-    entry_list_free(capture_copy_entities);
-    capture_copy_entities = NULL;
+    num_capture_copy = 0;
+    xfree(capture_copy_info); capture_copy_info = NULL;
 
-    for (it = entry_list_iterator_begin(capture_reference_entities);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    for (i = 0; i < num_capture_ref; i++)
     {
-        scope_entry_t* sym = entry_list_iterator_current(it);
+        scope_entry_t* sym = capture_ref_info[i].entry;
+
         lambda_class_is_dependent = lambda_class_is_dependent
             || is_dependent_type(sym->type_information);
 
         captures = nodecl_append_to_list(
                 captures,
                 nodecl_make_cxx_capture_reference(
+                    capture_ref_info[i].init,
                     sym,
                     ast_get_locus(expression)));
     }
-    entry_list_iterator_free(it);
-    entry_list_free(capture_reference_entities);
-    capture_reference_entities = NULL;
+    num_capture_ref = 0;
+    xfree(capture_ref_info); capture_ref_info = NULL;
 
     // A lambda is dependent if the enclosing function is dependent
     scope_entry_t* enclosing_function = NULL;
