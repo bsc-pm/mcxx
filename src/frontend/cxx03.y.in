@@ -5584,7 +5584,7 @@ lambda_capture_item_simple : identifier_token
 
 lambda_capture_item_init : identifier_token initializer
 {
-	$$ = ASTMake1(AST_LAMBDA_CAPTURE_ADDRESS_INIT, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_LAMBDA_CAPTURE_VALUE_INIT, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | '&' identifier_token initializer
 {
