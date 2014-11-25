@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.5],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.6],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -43,6 +43,9 @@ AM_PROG_CC_C_O
 
 dnl Check libtool
 LT_INIT([disable-static,win32-dll])
+
+dnl Which library we need to use to dlopen
+LT_LIB_DLLOAD
 
 dnl Check cpp
 AC_PROG_CPP
@@ -361,7 +364,9 @@ then
                          AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
                       fi
                  fi
-             ])
+             ],
+             [AC_MSG_RESULT([no])]
+             )
 
       AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
       AC_ARG_ENABLE([mic-testing],
@@ -375,7 +380,9 @@ then
                 else
                    AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
                 fi
-             ])
+             ],
+             [AC_MSG_RESULT([no])]
+             )
 
       MIC_COMPILATION=$mic_compilation
       MIC_TESTING=$mic_testing
@@ -1694,12 +1701,15 @@ dnl We try to figure a sensible default environment based on the configure envir
            ;;
        powerpc64-bgq-linux*)
            # BlueGeneQ requires extra flags at link time
-           default_type_environ="linux-ppc64"
+           default_type_environ="linux-bgq-ppc64"
            NANOX_GNU_LDFLAGS="-dynamic"
            NANOX_IBM_LDFLAGS="-qnostaticlink"
            ;;
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"
+           ;;
+	   powerpc64le-*-linux*)
+           default_type_environ="linux-ppc64-le"
            ;;
        x86_64-*-linux*)
            default_type_environ="linux-x86_64"
@@ -1853,20 +1863,43 @@ then
  AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
 fi
 
-dnl -- Check if our GCC supports quadmath.h (and __float128)
+dnl -- Check if our GCC supports __float128 quadmath.h and HUGE_VALQ
 have_float_128="no"
 quadmath_LIBS=""
-AC_CHECK_HEADER([quadmath.h], [have_float_128="yes"])
+AC_CHECK_TYPE([__float128], [have_float_128="yes"])
 
 if test x$disable_float128 = xyes;
 then
     have_float_128=no
 fi
 
+
+have_quadmath_h="no"
 if test x$have_float_128 = xyes;
 then
- AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
- quadmath_LIBS="-lquadmath"
+  AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
+  if test x$have_quadmath_h = xyes;
+  then
+    huge_valq="no"
+    AC_MSG_CHECKING([for __builtin_huge_valq])
+    keep_LIBS="$LIBS"
+    LIBS="-lquadmath"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [return __builtin_huge_valq ();])],
+            [AC_DEFINE([HAVE__BUILTIN_HUGE_VALQ], 1, [Define to 1 if __builtin_huge_valq is available])] 
+            [huge_valq="yes"]
+            [AC_MSG_RESULT([yes])],
+            [AC_MSG_RESULT([no])])
+    LIBS="$keep_LIBS"
+    if test x$huge_valq = xyes;
+    then
+        AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is fully useable])
+        quadmath_LIBS="-lquadmath"
+    else
+        have_float_128=no
+    fi
+  else
+    have_float_128=no
+  fi
 fi
 
 AC_SUBST([quadmath_LIBS])
@@ -1881,26 +1914,73 @@ AC_CHECK_FUNC([open_memstream],
 
 AC_SEARCH_LIBS([mallinfo], [malloc], AC_DEFINE([HAVE_MALLINFO], 1, [Define to 1 if mallinfo is available]))
 
+# set AC_LIBOBJ replacements directory
 AC_CONFIG_LIBOBJ_DIR([gnulib])
 
-AC_CHECK_FUNC([mkdtemp],
-        [
-        AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available])
-        ],
-        [
-        AC_LIBOBJ([tempname])
-        AC_LIBOBJ([mkdtemp])
-        ]
-        )
+dnl Several of these functions may be missing in some systems
+AC_CHECK_FUNC([mkdtemp], [ AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available]) ], [ AC_LIBOBJ([tempname]) AC_LIBOBJ([mkdtemp]) ])
+AC_CHECK_FUNC([strsignal], [ AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available]) ], [ AC_LIBOBJ([strsignal]) ])
 
-AC_CHECK_FUNC([strsignal],
-        [
-        AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available])
-        ],
-        [
-        AC_LIBOBJ([strsignal])
-        ]
-        )
+dnl math and complex math functions that may be missing in some systems
+keep_LIBS="$LIBS"
+LIBS="-lm"
+AC_MSG_CHECKING([for __builtin_exp10])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([double d;], [return __builtin_exp10(d);])],   [AC_DEFINE([HAVE__BUILTIN_EXP10],  1, [Define to 1 if __builtin_exp10 is available])]  [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_exp10f])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_exp10f(f);])], [AC_DEFINE([HAVE__BUILTIN_EXP10F], 1, [Define to 1 if __builtin_exp10f is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_exp10l])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([long double ld;], [return __builtin_exp10l(ld);])], [AC_DEFINE([HAVE__BUILTIN_EXP10L], 1, [Define to 1 if __builtin_exp10l is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isnanf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_isnanf(f);])], [AC_DEFINE([HAVE__BUILTIN_ISNANF], 1, [Define to 1 if __builtin_isnanf is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isnanl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([long double ld;], [return __builtin_isnanl(ld);])], [AC_DEFINE([HAVE__BUILTIN_ISNANL], 1, [Define to 1 if __builtin_isnanl is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isinff])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_isinff(f);])], [AC_DEFINE([HAVE__BUILTIN_ISINFF], 1, [Define to 1 if __builtin_isinff is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isinfl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([long double ld;], [return __builtin_isinfl(ld);])], [AC_DEFINE([HAVE__BUILTIN_ISINFL], 1, [Define to 1 if __builtin_isinfl is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_fpclassify])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_fpclassify (1, 2, 3, 4, 5, f);])], [AC_DEFINE([HAVE__BUILTIN_FPCLASSIFY], 1, [Define to 1 if __builtin_fpclassify is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_popcount])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([int x;], [return __builtin_popcount (x);])], [AC_DEFINE([HAVE__BUILTIN_POPCOUNT], 1, [Define to 1 if __builtin_popcount is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_nan])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([const char *c;], [return __builtin_nan (c);])], [AC_DEFINE([HAVE__BUILTIN_NAN], 1, [Define to 1 if __builtin_nan is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nanf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([const char* c;], [return __builtin_nanf (c);])], [AC_DEFINE([HAVE__BUILTIN_NANF], 1, [Define to 1 if __builtin_nanf is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nanl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([const char* c;], [return __builtin_nanl (c);])], [AC_DEFINE([HAVE__BUILTIN_NANL], 1, [Define to 1 if __builtin_nanl is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nexttoward])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([double d; long double ld;], [return __builtin_nexttoward (d, ld);])], [AC_DEFINE([HAVE__BUILTIN_NEXTTOWARD], 1, [Define to 1 if __builtin_nexttoward is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nexttowardf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f; long double ld;], [return __builtin_nexttowardf (f, ld);])], [AC_DEFINE([HAVE__BUILTIN_NEXTTOWARDF], 1, [Define to 1 if __builtin_nexttowardf is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_signbit])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f; double d; long double ld;],
+            [return __builtin_signbit(f) + __builtin_signbit (d) + __builtin_signbit(ld);])], [AC_DEFINE([HAVE__BUILTIN_SIGNBIT], 1, [Define to 1 if __builtin_signbit is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_CHECK_FUNCS([cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
+               [], [])
+LIBS="$keep_LIBS"
+
+AC_SEARCH_LIBS([backtrace], [execinfo], AC_DEFINE([HAVE_BACKTRACE], 1, [Define to 1 if backtrace is available] ) )
+dnl AC_CHECK_FUNC([backtrace_symbols_fd], [ AC_DEFINE([HAVE_BACKTRACE_SYMBOLS_FD], 1, [Define to 1 if backtrace_symbols_fd is available]) ], [])
+
+AM_ICONV
 
 dnl Versioning things
 dnl Make sure build_version is double-quoted!
@@ -1963,6 +2043,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
+           tests/05_torture_cxx_1.dg/mercurium-cxx11
            tests/05_torture_cxx_2.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
@@ -1985,7 +2066,7 @@ echo ""
 echo " * Tools configured:"
 echo ""
 
-function print_tool()
+print_tool()
 {
     tool_name="$1"
     tool_path="$2"

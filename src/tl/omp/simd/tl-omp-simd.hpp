@@ -127,6 +127,7 @@ namespace TL
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses);
 
+                using SimdVisitor::visit;
                 virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);
         };
 

@@ -33,7 +33,7 @@ test_generator=config/mercurium
 
 void f()
 {
-#if defined(__GNUC__) && __GNUC__ == 4 && __GNUC_MINOR__ >= 6
+#if defined(__x86_64__) && defined(__GNUC__) && __GNUC__ == 4 && __GNUC_MINOR__ >= 6
     __float128 a;
     a = 3;
     a = 3.4f;

@@ -166,6 +166,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     xfree(sanitized_message);
     xfree(long_message);
 
+#if defined(HAVE_BACKTRACE) && defined(HAVE_BACKTRACE_SYMBOLS_FD)
     if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
     {
         int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
@@ -174,6 +175,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
            would produce similar output to the following: */
         backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
     }
+#endif
 }
 
 void running_error(const char* message, ...)

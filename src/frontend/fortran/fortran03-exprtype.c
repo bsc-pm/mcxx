@@ -280,7 +280,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
         check_expression_function_init = 1;
     }
 
-    check_expression_handler_t key = { .ast_kind = ASTType(expression) };
+    check_expression_handler_t key = { .ast_kind = ASTKind(expression) };
     check_expression_handler_t *handler = NULL;
 
     // void *bsearch(const void *key, const void *base,
@@ -295,7 +295,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     {
         running_error("%s: sorry: unhandled expression %s\n", 
                 ast_location(expression), 
-                ast_print_node_type(ASTType(expression)));
+                ast_print_node_type(ASTKind(expression)));
     }
     (handler->handler)(expression, decl_context, nodecl_output);
 
@@ -373,7 +373,7 @@ static void check_ac_value_list(
     {
         AST ac_value = ASTSon1(it);
 
-        if (ASTType(ac_value) == AST_IMPLIED_DO)
+        if (ASTKind(ac_value) == AST_IMPLIED_DO)
         {
             AST implied_do_ac_value = ASTSon0(ac_value);
 
@@ -1038,7 +1038,7 @@ static void check_array_ref_(
     {
         AST subscript = ASTSon1(it);
 
-        if (ASTType(subscript) == AST_SUBSCRIPT_TRIPLET)
+        if (ASTKind(subscript) == AST_SUBSCRIPT_TRIPLET)
         {
             AST lower = ASTSon0(subscript);
             AST upper = ASTSon1(subscript);
@@ -1351,7 +1351,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
 
     // This ordering is important to preserve the proper meaning of the subscript
     // A(1:2) where 'A' is an array
-    if (ASTType(ASTSon0(expr)) != AST_ARRAY_SUBSCRIPT
+    if (ASTKind(ASTSon0(expr)) != AST_ARRAY_SUBSCRIPT
             && (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
@@ -1368,7 +1368,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
     }
     // A(1:2)(3:4) where 'A' is an array of CHARACTER and 'A(1:2)' yields an array type (i.e. an array-section)
     else if (
-            ASTType(ASTSon0(expr)) == AST_ARRAY_SUBSCRIPT
+            ASTKind(ASTSon0(expr)) == AST_ARRAY_SUBSCRIPT
             && (// An array of CHARACTER
                 (fortran_is_array_type(no_ref(subscripted_type))
                  && fortran_is_character_type(fortran_get_rank0_type(no_ref(subscripted_type))))
@@ -1754,7 +1754,7 @@ static void check_component_ref_(AST expr,
     AST rhs = ASTSon1(expr);
     AST name = rhs;
 
-    switch (ASTType(name))
+    switch (ASTKind(name))
     {
         case AST_SYMBOL:
             {
@@ -1768,7 +1768,7 @@ static void check_component_ref_(AST expr,
             }
         default:
             {
-                internal_error("Unexpected tree '%s' at right hand side of '%%'\n", ast_print_node_type(ASTType(name)));
+                internal_error("Unexpected tree '%s' at right hand side of '%%'\n", ast_print_node_type(ASTKind(name)));
             }
     }
 
@@ -1790,7 +1790,7 @@ static void check_component_ref_(AST expr,
     nodecl_t nodecl_rhs = nodecl_make_symbol(component_symbol, ast_get_locus(name));
     type_t* component_type = no_ref(component_symbol->type_information);
 
-    if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT
+    if (ASTKind(rhs) == AST_ARRAY_SUBSCRIPT
             && !fortran_is_array_type(component_type)
             && !fortran_is_pointer_to_array_type(component_type)
             && !fortran_is_character_type(no_ref(component_type))
@@ -1883,7 +1883,7 @@ static void check_component_ref_(AST expr,
                     ast_get_locus(expr));
     }
 
-    if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
+    if (ASTKind(rhs) == AST_ARRAY_SUBSCRIPT)
     {
         if (fortran_is_array_type(component_type)
                 || fortran_is_pointer_to_array_type(component_type))
@@ -2201,7 +2201,7 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-#define check_range_of_floating(expr, text, value, kind) \
+#define check_range_of_floating(expr, text, value, kind, isfun) \
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
@@ -2209,7 +2209,7 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
                     ast_location(expr), text, kind); \
             value = 0.0; \
         } \
-        else if (isinf(value)) \
+        else if (isfun(value)) \
         { \
             error_printf("%s: error: value '%s' overflows REAL(KIND=%d)\n", \
                     ast_location(expr), text, kind); \
@@ -2248,7 +2248,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    {
        errno = 0;
        float f = strtof(floating_text, NULL);
-       check_range_of_floating(expr, floating_text, f, kind);
+       check_range_of_floating(expr, floating_text, f, kind, isinf);
 
        value = const_value_get_float(f);
    }
@@ -2256,7 +2256,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    {
        errno = 0;
        double d = strtod(floating_text, NULL);
-       check_range_of_floating(expr, floating_text, d, kind);
+       check_range_of_floating(expr, floating_text, d, kind, isinf);
 
        value = const_value_get_double(d);
    }
@@ -2264,7 +2264,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    {
        errno = 0;
        long double ld = strtold(floating_text, NULL);
-       check_range_of_floating(expr, floating_text, ld, kind);
+       check_range_of_floating(expr, floating_text, ld, kind, isinf);
 
        value = const_value_get_long_double(ld);
    }
@@ -2276,7 +2276,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
        {
            errno = 0;
            __float128 f128 = strtoflt128(floating_text, NULL);
-           check_range_of_floating(expr, floating_text, f128, kind);
+           check_range_of_floating(expr, floating_text, f128, kind, isinfq);
 
            value = const_value_get_float128(f128);
        }
@@ -3285,13 +3285,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
             AST actual_arg = ASTSon1(actual_arg_spec);
 
-            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
+            if (ASTKind(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
             {
                 nodecl_t nodecl_argument = nodecl_null();
 
                 // If the actual_arg is a symbol, we'll do a special checking
                 // The reason: detect intrinsic functions in arguments
-                if (ASTType(actual_arg) == AST_SYMBOL)
+                if (ASTKind(actual_arg) == AST_SYMBOL)
                 {
                     check_symbol_of_argument(actual_arg, decl_context, &nodecl_argument);
                 }
@@ -3927,7 +3927,7 @@ static void check_symbol_literal(AST expr, decl_context_t decl_context UNUSED_PA
 static char is_name_of_funtion_call(AST expr)
 {
     return ASTParent(expr) != NULL
-        && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
+        && ASTKind(ASTParent(expr)) == AST_FUNCTION_CALL;
 }
 #endif
 
@@ -3936,15 +3936,15 @@ static void check_symbol_of_called_name(AST sym,
         scope_entry_list_t** call_list, 
         char is_call_stmt)
 {
-    if (ASTType(sym) != AST_SYMBOL
-            && ASTType(sym) != AST_SYMBOL_LITERAL_REF)
+    if (ASTKind(sym) != AST_SYMBOL
+            && ASTKind(sym) != AST_SYMBOL_LITERAL_REF)
     {
         error_printf("%s: error: expression is not a valid procedure designator\n", ast_location(sym));
         *call_list = NULL;
         return;
     }
 
-    if (ASTType(sym) == AST_SYMBOL_LITERAL_REF)
+    if (ASTKind(sym) == AST_SYMBOL_LITERAL_REF)
     {
         nodecl_t nodecl_output = nodecl_null();
         check_symbol_literal(sym, decl_context, &nodecl_output);
@@ -4476,6 +4476,9 @@ static void check_symbol_of_variable(AST expr, decl_context_t decl_context, node
     if (entry->kind != SK_VARIABLE
              && entry->kind != SK_UNDEFINED)
     {
+        error_printf("%s: error: name '%s' is not valid in expression\n",
+                ast_location(expr),
+                entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
@@ -4923,18 +4926,31 @@ static void cast_initialization(
     }
     else
     {
-        // FIXME: if the type of 'val' and 'initialized_type' are the same but they
-        // have different kinds, we need a cast!
-
         if (is_floating_type(initialized_type)
                 && const_value_is_floating(val))
         {
             *casted_const = const_value_cast_to_floating_type_value(val, initialized_type);
+
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = nodecl_make_floating_literal(
+                        initialized_type,
+                        *casted_const,
+                        nodecl_get_locus(*nodecl_output));
+            }
         }
         else if (is_integer_type(initialized_type)
                 && const_value_is_integer(val))
         {
             *casted_const = const_value_cast_to_bytes(val, type_get_size(initialized_type), /* sign */ 1);
+
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = nodecl_make_integer_literal(
+                        initialized_type,
+                        *casted_const,
+                        nodecl_get_locus(*nodecl_output));
+            }
         }
         else
         {
@@ -5062,7 +5078,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
 
     nodecl_t nodecl_lvalue = nodecl_null();
     // Special handling for array subscripts
-    if (ASTType(lvalue) == AST_ARRAY_SUBSCRIPT)
+    if (ASTKind(lvalue) == AST_ARRAY_SUBSCRIPT)
     {
         // A(1:, 2:) => ...
         nodecl_t nodecl_subscripted = nodecl_null();
@@ -5083,7 +5099,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
             return;
         }
     }
-    else if (ASTType(lvalue) == AST_CLASS_MEMBER_ACCESS)
+    else if (ASTKind(lvalue) == AST_CLASS_MEMBER_ACCESS)
     {
         // X % A(1:, 2:) => ...
         check_component_ref_(lvalue, decl_context, &nodecl_lvalue,
@@ -5283,7 +5299,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
     {
         AST current_expr = ast_get_ambiguity(expr, i);
 
-        switch (ASTType(current_expr))
+        switch (ASTKind(current_expr))
         {
             case AST_FUNCTION_CALL:
                 {
@@ -5318,7 +5334,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
                 {
                     internal_error("%s: unexpected node '%s'\n", 
                             ast_location(current_expr),
-                            ast_print_node_type(ASTType(current_expr)));
+                            ast_print_node_type(ASTKind(current_expr)));
                     break;
                 }
         }
@@ -5810,7 +5826,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         operand_map_init = 1;
     }
 
-    operand_map_t key = { .node_type = ASTType(expr) };
+    operand_map_t key = { .node_type = ASTKind(expr) };
     operand_map_t* value = (operand_map_t*)bsearch(&key, operand_map,
                 sizeof(operand_map) / sizeof(operand_map[0]), 
                 sizeof(operand_map[0]),
@@ -6052,7 +6068,7 @@ const char* operator_names[] =
 
 static const char * get_operator_for_expr(AST expr)
 {
-    return operator_names[ASTType(expr)];
+    return operator_names[ASTKind(expr)];
 }
 
 static void conform_types_(type_t* lhs_type, type_t* rhs_type, 

@@ -1386,7 +1386,49 @@ namespace TL { namespace Nanox {
         // Do nothing
         else return t;
     }
-    
+
+    static void update_expressions(
+            TL::ObjectList<Nodecl::NodeclBase> exprs,
+            const TL::Scope& related_scope,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            // Out
+            TL::ObjectList<Nodecl::NodeclBase>&updated_exprs)
+    {
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = exprs.begin();
+                it != exprs.end();
+                ++it)
+        {
+            Nodecl::NodeclBase current_expr = *it;
+            updated_exprs.append(
+                    Nodecl::Utils::deep_copy(
+                        current_expr,
+                        related_scope,
+                        *symbol_map));
+        }
+    }
+
+    void DeviceProvider::update_ndrange_and_shmem_expressions(
+            const TL::Scope& related_scope,
+            const TargetInformation& target_info,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            // out
+            TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_exprs,
+            TL::ObjectList<Nodecl::NodeclBase>& new_shmem_exprs)
+    {
+        update_expressions(
+                target_info.get_ndrange(),
+                related_scope,
+                symbol_map,
+                new_ndrange_exprs);
+
+        update_expressions(
+                target_info.get_shmem(),
+                related_scope,
+                symbol_map,
+                new_shmem_exprs);
+    }
+
+
 //    bool DeviceProvider::is_serializable(TL::Symbol& sym){
 //        bool serializable=false;
 //        TL::Type ser_type = sym.get_type();

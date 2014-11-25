@@ -82,6 +82,7 @@ enum type_kind
     TK_PACK,
     TK_SEQUENCE,
     TK_AUTO,
+    TK_DECLTYPE_AUTO,
     TK_ERROR
 };
 
@@ -262,8 +263,6 @@ struct simple_type_tag {
 
     // States that this STK_TYPEOF is a decltype and not a __typeof__
     _Bool is_decltype:1;
-    // States that this STK_TYPEOF cannot yield a reference
-    _Bool is_removed_reference:1;
 
     // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
     floating_type_info_t* floating_info;
@@ -420,7 +419,7 @@ typedef
 struct braced_list_info_tag
 {
     int num_types;
-    type_t** type_list;
+    type_t** types;
 } braced_list_info_t;
 
 typedef
@@ -514,7 +513,6 @@ struct type_tag
     // Braced list type
     // (kind == TK_BRACED_LIST)
     braced_list_info_t* braced_type;
-
 
     // For template specialized parameters and template types
     // (kind == TK_DIRECT && (type->kind == STK_CLASS || type->kind == STK_TEMPLATE_TYPE))
@@ -640,6 +638,7 @@ static char equivalent_builtin_type(type_t* t1, type_t *t2);
 
 static char equivalent_pack_types(type_t* t1, type_t *t2);
 static char equivalent_sequence_types(type_t* t1, type_t *t2);
+static char equivalent_braced_types(type_t* t1, type_t *t2);
 
 
 /* Type constructors : Builtins */
@@ -1180,8 +1179,7 @@ extern inline type_t* get_void_type(void)
 }
 
 extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context,
-        char is_decltype,
-        char is_removed_reference)
+        char is_decltype)
 {
     type_t* type = get_simple_type();
 
@@ -1190,7 +1188,6 @@ extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_
     type->type->typeof_decl_context = decl_context;
 
     type->type->is_decltype = is_decltype;
-    type->type->is_removed_reference = is_removed_reference;
 
     // We always return a dependent type
     type->info->is_dependent = 1;
@@ -1223,15 +1220,6 @@ extern inline decl_context_t typeof_expr_type_get_expression_context(type_t* t)
     return t->type->typeof_decl_context;
 }
 
-extern inline char typeof_expr_type_is_removed_reference(type_t* t)
-{
-    ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
-
-    t = advance_over_typedefs(t);
-
-    return t->type->is_removed_reference;
-}
-
 extern inline char typeof_expr_type_is_decltype(type_t* t)
 {
     ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
@@ -1247,13 +1235,20 @@ extern inline type_t* get_gcc_builtin_va_list_type(void)
 
     if (result == NULL)
     {
-        result = get_simple_type();
+        if (CURRENT_CONFIGURATION->type_environment->builtin_va_list_type == NULL)
+        {
+            result = get_simple_type();
 
-        result->type->kind = STK_VA_LIST;
+            result->type->kind = STK_VA_LIST;
 
-        result->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_builtin_va_list;
-        result->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_builtin_va_list;
-        result->info->valid_size = 1;
+            result->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_builtin_va_list;
+            result->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_builtin_va_list;
+            result->info->valid_size = 1;
+        }
+        else
+        {
+            result = (CURRENT_CONFIGURATION->type_environment->builtin_va_list_type)();
+        }
     }
 
     return result;
@@ -1818,8 +1813,22 @@ static type_t* rewrite_redundant_typedefs(type_t* orig);
 
 static type_t* simplify_types_template_arguments(type_t* t)
 {
+    // Canonicalize zero types
+    if (is_zero_type(t))
+    {
+        t = variant_type_get_nonvariant(t);
+    }
+
+    // Canonicalize throw types
+    if (is_throw_expr_type(t))
+    {
+        t = get_void_type();
+    }
+
     // We remove nonlocal typedefs from everywhere in the type
-    return rewrite_redundant_typedefs(t);
+    t = rewrite_redundant_typedefs(t);
+
+    return t;
 }
 
 static template_parameter_list_t* simplify_template_arguments(template_parameter_list_t* template_arguments)
@@ -4109,7 +4118,8 @@ static type_t* _get_array_type(type_t* element_type,
         decl_context_t decl_context,
         array_region_t* array_region,
         char with_descriptor,
-        char is_string_literal);
+        char is_string_literal,
+        char force_dependent_type);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
@@ -4136,7 +4146,8 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
                 decl_context,
                 array_region,
                 with_descriptor,
-                is_string_literal);
+                is_string_literal,
+                /* force_dependent_type */ 0);
 
         return result;
 }
@@ -4591,14 +4602,16 @@ static void _get_array_type_components(type_t* array_type,
 
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
-static type_t* _get_array_type(type_t* element_type, 
+static type_t* _get_array_type(
+        type_t* element_type, 
         nodecl_t whole_size,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
         decl_context_t decl_context,
         array_region_t* array_region,
         char with_descriptor,
-        char is_string_literal)
+        char is_string_literal,
+        char force_dependent_type)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -4673,11 +4686,17 @@ static type_t* _get_array_type(type_t* element_type,
         // Use the same strategy we use for pointers when all components (size,
         // lower, upper) of the array are null otherwise create a new array
         // every time (it is safer)
-        static dhash_ptr_t *_undefined_array_types[2][2] = { { NULL, NULL}, {NULL, NULL} };
+        static dhash_ptr_t *_undefined_array_types[2][2][2] = {
+            { { NULL, NULL }, { NULL, NULL }  },
+            { { NULL, NULL }, { NULL, NULL }  }
+        };
 
-        if (_undefined_array_types[!!with_descriptor][!!is_string_literal] == NULL)
+        char is_dependent_array = force_dependent_type
+            || is_dependent_type(element_type);
+
+        if (_undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array] == NULL)
         {
-            _undefined_array_types[!!with_descriptor][!!is_string_literal] = dhash_ptr_new(5);
+            _undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array] = dhash_ptr_new(5);
         }
 
         type_t* undefined_array_type = NULL;
@@ -4685,7 +4704,8 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound)
                 && array_region == NULL)
         {
-            undefined_array_type = dhash_ptr_query(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+            undefined_array_type = dhash_ptr_query(
+                    _undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array],
                     (const char*)element_type);
         }
         if (undefined_array_type == NULL)
@@ -4724,13 +4744,14 @@ static type_t* _get_array_type(type_t* element_type,
             // is a complete type actually
             result->info->is_incomplete = !with_descriptor;
 
-            result->info->is_dependent = is_dependent_type(element_type);
+            result->info->is_dependent = is_dependent_array;
 
             if (nodecl_is_null(lower_bound)
                     && nodecl_is_null(upper_bound)
                     && array_region == NULL)
             {
-                dhash_ptr_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+                dhash_ptr_insert(
+                        _undefined_array_types[!!with_descriptor][!!is_string_literal][!!is_dependent_array],
                         (const char*)element_type, result);
             }
         }
@@ -4882,7 +4903,10 @@ extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, 
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 0);
+            /* array_region */ NULL,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 0);
 }
 
 static type_t* get_array_type_for_literal_string(type_t* element_type,
@@ -4921,8 +4945,11 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
         }
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 1);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context,
+            /* array_region */ NULL,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 1,
+            /* force_dependent_type */ 0);
 }
 
 static nodecl_t compute_whole_size_given_bounds(
@@ -4977,8 +5004,11 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
 {
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, with_descriptor, /* is_string_literal */ 0);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context,
+            /* array_region */ NULL,
+            with_descriptor,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 0);
 }
 
 extern inline type_t* get_array_type_bounds(type_t* element_type,
@@ -5023,7 +5053,24 @@ extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->region_decl_context = region_decl_context;
     
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            array_region, /* with_descriptor */ 0, /* is_string_literal */ 0);
+            array_region,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 0);
+}
+
+extern inline type_t* get_array_type_unknown_size_dependent(type_t* element_type)
+{
+    return _get_array_type(
+            element_type,
+            /* whole_size */ nodecl_null(),
+            /* lower_bound */ nodecl_null(),
+            /* upper_bound */ nodecl_null(),
+            CURRENT_COMPILED_FILE->global_decl_context,
+            /* array_region */ NULL,
+            /* with_descriptor */ 0,
+            /* is_string_literal */ 0,
+            /* force_dependent_type */ 1);
 }
 
 static dhash_ptr_t* get_vector_sized_hash(unsigned int vector_size)
@@ -6820,7 +6867,11 @@ extern inline char equivalent_types(type_t* t1, type_t* t2)
         case TK_SEQUENCE:
             result = equivalent_sequence_types(t1, t2);
             break;
+        case TK_BRACED_LIST:
+            result = equivalent_braced_types(t1, t2);
+            break;
         case TK_AUTO:
+        case TK_DECLTYPE_AUTO:
         case TK_ERROR:
             // This is always true
             result = 1;
@@ -7208,13 +7259,13 @@ extern inline char equivalent_function_types_may_differ_ref_qualifier(type_t* ft
 }
 
 
-extern inline char equivalent_pack_types(type_t* t1, type_t *t2)
+static inline char equivalent_pack_types(type_t* t1, type_t *t2)
 {
     return equivalent_types(t1->pack_type->packed,
             t2->pack_type->packed);
 }
 
-extern inline char equivalent_sequence_types(type_t* t1, type_t *t2)
+static inline char equivalent_sequence_types(type_t* t1, type_t *t2)
 {
     if (t1->sequence_type->num_types != t2->sequence_type->num_types)
         return 0;
@@ -7224,6 +7275,23 @@ extern inline char equivalent_sequence_types(type_t* t1, type_t *t2)
     {
         if (!equivalent_types(t1->sequence_type->types[i],
                     t2->sequence_type->types[i]))
+            return 0;
+    }
+
+    return 1;
+}
+
+static inline char equivalent_braced_types(type_t* t1, type_t *t2)
+{
+    if (t1->braced_type->num_types != t2->braced_type->num_types)
+        return 0;
+
+    int i;
+    for (i = 0; i < t1->braced_type->num_types; i++)
+    {
+        if (!equivalent_types(
+                    t1->braced_type->types[i],
+                    t2->braced_type->types[i]))
             return 0;
     }
 
@@ -10400,6 +10468,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         result = UNIQUESTR_LITERAL("auto");
     }
+    else if (is_decltype_auto_type(type_info))
+    {
+        result = UNIQUESTR_LITERAL("decltype(auto)");
+    }
     else if (is_braced_list_type(type_info))
     {
         result = "<braced-initializer-list-type>";
@@ -11107,6 +11179,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         case TK_ERROR:
         case TK_SEQUENCE:
         case TK_AUTO:
+        case TK_DECLTYPE_AUTO:
         case TK_BRACED_LIST:
             {
                 break;
@@ -11870,6 +11943,12 @@ extern inline const char* print_declarator(type_t* printed_declarator)
             case TK_AUTO:
                 {
                     tmp_result = strappend(tmp_result, "auto");
+                    printed_declarator = NULL;
+                    break;
+                }
+            case TK_DECLTYPE_AUTO:
+                {
+                    tmp_result = strappend(tmp_result, "decltype(auto)");
                     printed_declarator = NULL;
                     break;
                 }
@@ -13327,18 +13406,56 @@ extern inline char is_ellipsis_type(type_t* t)
 
 extern inline type_t* get_braced_list_type(int num_types, type_t** type_list)
 {
-    type_t* result = new_empty_type();
+    ERROR_CONDITION(num_types < 0, "Invalid number of types (%d)", num_types);
 
-    result->kind = TK_BRACED_LIST;
+    // Special case for empty braced lists
+    if (num_types == 0)
+    {
+        static type_t* _empty_braces_type = NULL;
 
-    result->unqualified_type = result;
+        if (_empty_braces_type == NULL)
+        {
+            _empty_braces_type = new_empty_type();
+            _empty_braces_type->kind = TK_BRACED_LIST;
+            _empty_braces_type->unqualified_type = _empty_braces_type;
+            _empty_braces_type->braced_type = xcalloc(1, sizeof(*_empty_braces_type->braced_type));
+        }
 
-    result->braced_type = xcalloc(1, sizeof(*result->braced_type));
+        return _empty_braces_type;
+    }
 
-    result->braced_type->num_types = num_types;
-    result->braced_type->type_list = xcalloc(num_types, sizeof(*result->braced_type->type_list));
-    memcpy(result->braced_type->type_list, type_list,
-            num_types* sizeof(*result->braced_type->type_list));
+    static type_trie_t* _braced_types_trie = NULL;
+    if (_braced_types_trie == NULL)
+    {
+        _braced_types_trie = allocate_type_trie();
+    }
+
+    int i;
+
+    char any_is_dependent = 0;
+    for (i = 0; i < num_types && !any_is_dependent; i++)
+    {
+        any_is_dependent = is_dependent_type(type_list[i]);
+    }
+
+    type_t* result = (type_t*)lookup_type_trie(_braced_types_trie, (const type_t**)type_list, num_types);
+
+    if (result == NULL)
+    {
+        result = new_empty_type();
+        result->kind = TK_BRACED_LIST;
+
+        result->unqualified_type = result;
+
+        result->braced_type = xcalloc(1, sizeof(*result->braced_type));
+
+        result->braced_type->num_types = num_types;
+        result->braced_type->types = xcalloc(num_types, sizeof(*result->braced_type->types));
+        memcpy(result->braced_type->types, type_list,
+                num_types* sizeof(*result->braced_type->types));
+
+        result->info->is_dependent = any_is_dependent;
+    }
 
     return result;
 }
@@ -13352,13 +13469,13 @@ extern inline int braced_list_type_get_num_types(type_t* t)
 extern inline type_t** braced_list_type_get_types(type_t* t)
 {
     ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
-    return t->braced_type->type_list;
+    return t->braced_type->types;
 }
 
 extern inline type_t* braced_list_type_get_type_num(type_t* t, int num)
 {
     ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
-    return t->braced_type->type_list[num];
+    return t->braced_type->types[num];
 }
 
 extern inline char is_braced_list_type(type_t* t)
@@ -14878,6 +14995,10 @@ static type_t* get_foundation_type(type_t* t)
     {
         return t;
     }
+    else if (is_decltype_auto_type(t))
+    {
+        return t;
+    }
     else if (is_gxx_underlying_type(t))
     {
         return t;
@@ -15401,14 +15522,28 @@ extern inline type_t* pack_type_get_packed_type(type_t* t)
 extern inline type_t* get_sequence_of_types(int num_types, type_t** types)
 {
     ERROR_CONDITION(num_types < 0, "Invalid number of types (%d)", num_types);
+
+    // Special case for empty sequences
+    if (num_types == 0)
+    {
+        static type_t* _empty_sequence = NULL;
+
+        if (_empty_sequence == NULL)
+        {
+            _empty_sequence = new_empty_type();
+            _empty_sequence->kind = TK_SEQUENCE;
+            _empty_sequence->unqualified_type = _empty_sequence;
+            _empty_sequence->sequence_type = xcalloc(1, sizeof(*_empty_sequence->sequence_type));
+        }
+
+        return _empty_sequence;
+    }
+
     static type_trie_t *_sequence_types_trie = NULL;
     if (_sequence_types_trie == NULL)
     {
         _sequence_types_trie = allocate_type_trie();
     }
-
-    const type_t* type_seq[num_types + 1];
-    type_seq[0] = get_void_type();
 
     char any_is_dependent = 0;
     int i;
@@ -15416,30 +15551,28 @@ extern inline type_t* get_sequence_of_types(int num_types, type_t** types)
     {
         ERROR_CONDITION(is_sequence_of_types(types[i]), "Cannot have a sequence inside another sequence type", 0);
         // ERROR_CONDITION(types[i] == NULL, "Invalid NULL type", 0);
-
-        type_seq[i + 1] = types[i];
         any_is_dependent = any_is_dependent || is_dependent_type(types[i]);
     }
 
-    type_t* seq_type = (type_t*)lookup_type_trie(_sequence_types_trie, type_seq, num_types + 1);
+    type_t* result = (type_t*)lookup_type_trie(_sequence_types_trie, (const type_t**)types, num_types);
 
-    if (seq_type == NULL)
+    if (result == NULL)
     {
-        seq_type = new_empty_type();
-        seq_type->unqualified_type = seq_type;
-        seq_type->kind = TK_SEQUENCE;
-        seq_type->sequence_type = xcalloc(1, sizeof(*seq_type->sequence_type));
-        seq_type->sequence_type->num_types = num_types;
-        seq_type->sequence_type->types = xcalloc(num_types, sizeof(*seq_type->sequence_type->types));
-        memcpy(seq_type->sequence_type->types, types,
-                sizeof(*seq_type->sequence_type->types) * num_types);
+        result = new_empty_type();
+        result->unqualified_type = result;
+        result->kind = TK_SEQUENCE;
+        result->sequence_type = xcalloc(1, sizeof(*result->sequence_type));
+        result->sequence_type->num_types = num_types;
+        result->sequence_type->types = xcalloc(num_types, sizeof(*result->sequence_type->types));
+        memcpy(result->sequence_type->types, types,
+                sizeof(*result->sequence_type->types) * num_types);
 
-        seq_type->info->is_dependent = any_is_dependent;
+        result->info->is_dependent = any_is_dependent;
 
-        insert_type_trie(_sequence_types_trie, type_seq, num_types + 1, seq_type);
+        insert_type_trie(_sequence_types_trie, (const type_t**)types, num_types, result);
     }
 
-    return seq_type;
+    return result;
 }
 
 static void flatten_type(type_t* t, type_t*** flattened_type_seq, int* flattened_num_types)
@@ -15558,24 +15691,24 @@ extern inline type_t* get_auto_type(void)
         _auto = new_empty_type();
         _auto->kind = TK_AUTO;
         _auto->unqualified_type = _auto;
-        _auto->info->is_dependent = 1;
+        _auto->info->is_dependent = 0;
     }
 
     return _auto;
 }
 
-static type_t* _nondep_auto = NULL;
-type_t* get_nondependent_auto_type(void)
+static type_t* _decltype_auto = NULL;
+extern inline type_t* get_decltype_auto_type(void)
 {
-    if (_nondep_auto == NULL)
+    if (_decltype_auto == NULL)
     {
-        _nondep_auto = new_empty_type();
-        _nondep_auto->kind = TK_AUTO;
-        _nondep_auto->unqualified_type = _nondep_auto;
-        _nondep_auto->info->is_dependent = 0;
+        _decltype_auto = new_empty_type();
+        _decltype_auto->kind = TK_DECLTYPE_AUTO;
+        _decltype_auto->unqualified_type = _decltype_auto;
+        _decltype_auto->info->is_dependent = 0;
     }
 
-    return _nondep_auto;
+    return _decltype_auto;
 }
 
 extern inline char is_auto_type(type_t* t)
@@ -15584,6 +15717,48 @@ extern inline char is_auto_type(type_t* t)
 
     return t != NULL
         && t->kind == TK_AUTO;
+}
+
+extern inline char type_contains_auto(type_t* t)
+{
+    if (is_auto_type(t))
+    {
+        return 1;
+    }
+    else if (is_pointer_type(t))
+    {
+        return type_contains_auto(pointer_type_get_pointee_type(t));
+    }
+    else if (is_lvalue_reference_type(t)
+            || is_rvalue_reference_type(t))
+    {
+        return type_contains_auto(reference_type_get_referenced_type(t));
+    }
+    else if (is_array_type(t))
+    {
+        return type_contains_auto(array_type_get_element_type(t));
+    }
+    else if (is_function_type(t))
+    {
+        return type_contains_auto(function_type_get_return_type(t));
+
+    }
+    else if (is_vector_type(t))
+    {
+        return type_contains_auto(vector_type_get_element_type(t));
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+extern inline char is_decltype_auto_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return t != NULL
+        && t->kind == TK_DECLTYPE_AUTO;
 }
 
 extern inline parameter_info_t get_parameter_info_for_type(type_t* t)
@@ -16147,156 +16322,153 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
             return orig;
         }
     }
-    else
+    else if (is_pointer_type(orig))
     {
-        if (is_pointer_type(orig))
+        type_t* pointee = pointer_type_get_pointee_type(orig);
+        pointee = rewrite_redundant_typedefs(pointee);
+        result = get_pointer_type(pointee);
+    }
+    else if (is_pointer_to_member_type(orig))
+    {
+        type_t* pointee = pointer_type_get_pointee_type(orig);
+        pointee = rewrite_redundant_typedefs(pointee);
+
+        type_t* class_type = pointer_to_member_type_get_class_type(orig);
+        class_type = rewrite_redundant_typedefs(class_type);
+
+        result = get_pointer_to_member_type(pointee, class_type);
+    }
+    else if (is_rebindable_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = rewrite_redundant_typedefs(ref_type);
+
+        result = get_rebindable_reference_type(ref_type);
+    }
+    else if (is_lvalue_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = rewrite_redundant_typedefs(ref_type);
+
+        result = get_lvalue_reference_type(ref_type);
+    }
+    else if (is_rvalue_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = rewrite_redundant_typedefs(ref_type);
+
+        result = get_rvalue_reference_type(ref_type);
+    }
+    else if (is_array_type(orig))
+    {
+        type_t* element_type = array_type_get_element_type(orig);
+        element_type = rewrite_redundant_typedefs(element_type);
+
+        if (array_type_is_string_literal(orig))
         {
-            type_t* pointee = pointer_type_get_pointee_type(orig);
-            pointee = rewrite_redundant_typedefs(pointee);
-            result = get_pointer_type(pointee);
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
+            get_array_type_for_literal_string(element_type, array_size,
+                    array_type_get_array_size_expr_context(orig));
         }
-        else if (is_pointer_to_member_type(orig))
+        else if ((IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+                && !array_type_has_region(orig))
         {
-            type_t* pointee = pointer_type_get_pointee_type(orig);
-            pointee = rewrite_redundant_typedefs(pointee);
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
 
-            type_t* class_type = pointer_to_member_type_get_class_type(orig);
-            class_type = rewrite_redundant_typedefs(class_type);
-
-            result = get_pointer_to_member_type(pointee, class_type);
+            result = get_array_type(
+                    element_type,
+                    array_size,
+                    array_type_get_array_size_expr_context(orig));
         }
-        else if (is_rebindable_reference_type(orig))
+        else if (IS_FORTRAN_LANGUAGE
+                && !array_type_has_region(orig))
         {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_redundant_typedefs(ref_type);
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
 
-            result = get_rebindable_reference_type(ref_type);
-        }
-        else if (is_lvalue_reference_type(orig))
-        {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_redundant_typedefs(ref_type);
+            bool has_descriptor = array_type_with_descriptor(orig);
 
-            result = get_lvalue_reference_type(ref_type);
-        }
-        else if (is_rvalue_reference_type(orig))
-        {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_redundant_typedefs(ref_type);
-
-            result = get_rvalue_reference_type(ref_type);
-        }
-        else if (is_array_type(orig))
-        {
-            type_t* element_type = array_type_get_element_type(orig);
-            element_type = rewrite_redundant_typedefs(element_type);
-
-            if (array_type_is_string_literal(orig))
+            if (!has_descriptor)
             {
-                nodecl_t array_size = array_type_get_array_size_expr(orig);
-                get_array_type_for_literal_string(element_type, array_size,
-                        array_type_get_array_size_expr_context(orig));
-            }
-            else if ((IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                    && !array_type_has_region(orig))
-            {
-                nodecl_t array_size = array_type_get_array_size_expr(orig);
-
-                result = get_array_type(
+                result = get_array_type_bounds(
                         element_type,
-                        array_size,
-                        array_type_get_array_size_expr_context(orig));
-            }
-            else if (IS_FORTRAN_LANGUAGE
-                    && !array_type_has_region(orig))
-            {
-                nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
-                nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
-
-                bool has_descriptor = array_type_with_descriptor(orig);
-
-                if (!has_descriptor)
-                {
-                    result = get_array_type_bounds(
-                            element_type,
-                            lower_bound,
-                            upper_bound,
-                            array_type_get_array_size_expr_context(orig));
-                }
-                else
-                {
-                    result = get_array_type_bounds_with_descriptor(
-                            element_type,
-                            lower_bound,
-                            upper_bound,
-                            array_type_get_array_size_expr_context(orig));
-                }
-            }
-            else if (array_type_has_region(orig))
-            {
-                nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
-                nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
-
-                nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
-                nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
-                nodecl_t region_stride = array_type_get_region_stride(orig);
-
-                result = get_array_type_bounds_with_regions(element_type,
                         lower_bound,
                         upper_bound,
-                        array_type_get_array_size_expr_context(orig),
-                        nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
-                            get_signed_int_type(), make_locus("", 0, 0)),
                         array_type_get_array_size_expr_context(orig));
             }
             else
             {
-                internal_error("Code unreachable", 0);
+                result = get_array_type_bounds_with_descriptor(
+                        element_type,
+                        lower_bound,
+                        upper_bound,
+                        array_type_get_array_size_expr_context(orig));
             }
         }
-        else if (is_function_type(orig))
+        else if (array_type_has_region(orig))
         {
-            type_t* return_type = function_type_get_return_type(orig);
-            return_type = rewrite_redundant_typedefs(return_type);
+            nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
+            nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
 
-            if (function_type_get_lacking_prototype(orig))
-            {
-                result = get_nonproto_function_type(return_type, 
-                        function_type_get_num_parameters(orig));
-            }
-            else
-            {
-                int i, N = function_type_get_num_parameters(orig), P = N;
+            nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
+            nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
+            nodecl_t region_stride = array_type_get_region_stride(orig);
 
-                parameter_info_t param_info[N+1];
-                memset(param_info, 0, sizeof(param_info));
-
-                if (function_type_get_has_ellipsis(orig))
-                {
-                    param_info[N-1].is_ellipsis = 1;
-                    param_info[N-1].type_info = get_ellipsis_type();
-                    param_info[N-1].nonadjusted_type_info = NULL;
-                    P = N - 1;
-                }
-
-                for (i = 0; i < P; i++)
-                {
-                    param_info[i].type_info = rewrite_redundant_typedefs(function_type_get_parameter_type_num(orig, i));
-                }
-
-                result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
-            }
+            result = get_array_type_bounds_with_regions(element_type,
+                    lower_bound,
+                    upper_bound,
+                    array_type_get_array_size_expr_context(orig),
+                    nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
+                        get_signed_int_type(), make_locus("", 0, 0)),
+                    array_type_get_array_size_expr_context(orig));
         }
-        else if (is_vector_type(orig))
+        else
         {
-            type_t * element_type = vector_type_get_element_type(orig);
-            element_type = rewrite_redundant_typedefs(element_type);
-
-            result = get_vector_type(
-                    element_type,
-                    vector_type_get_vector_size(orig));
+            internal_error("Code unreachable", 0);
         }
+    }
+    else if (is_function_type(orig))
+    {
+        type_t* return_type = function_type_get_return_type(orig);
+        return_type = rewrite_redundant_typedefs(return_type);
+
+        if (function_type_get_lacking_prototype(orig))
+        {
+            result = get_nonproto_function_type(return_type, 
+                    function_type_get_num_parameters(orig));
+        }
+        else
+        {
+            int i, N = function_type_get_num_parameters(orig), P = N;
+
+            parameter_info_t param_info[N+1];
+            memset(param_info, 0, sizeof(param_info));
+
+            if (function_type_get_has_ellipsis(orig))
+            {
+                param_info[N-1].is_ellipsis = 1;
+                param_info[N-1].type_info = get_ellipsis_type();
+                param_info[N-1].nonadjusted_type_info = NULL;
+                P = N - 1;
+            }
+
+            for (i = 0; i < P; i++)
+            {
+                param_info[i].type_info = rewrite_redundant_typedefs(function_type_get_parameter_type_num(orig, i));
+            }
+
+            result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
+        }
+    }
+    else if (is_vector_type(orig))
+    {
+        type_t * element_type = vector_type_get_element_type(orig);
+        element_type = rewrite_redundant_typedefs(element_type);
+
+        result = get_vector_type(
+                element_type,
+                vector_type_get_vector_size(orig));
     }
 
     cv_qualifier_t cv_qualif_orig = CV_NONE;

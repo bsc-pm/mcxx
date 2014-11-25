@@ -56,7 +56,7 @@ location_t current_location = { NULL, NULL, 1, 1};
 
 %}
 
-%option noyyalloc noyyrealloc noyyfree
+%option noyyalloc noyyrealloc noyyfree noinput nounput
 
 %x linecomment
 %x maybe_comes_option_line
@@ -266,16 +266,6 @@ void close_configuration_file_for_scan(void)
         fclose(current_location.file);
     }
 }
-
-UNUSED_PARAMETER static void yyunput (int c, register char * yy_bp );
-
-#ifndef YY_NO_INPUT
-#ifdef __cplusplus
-    UNUSED_PARAMETER static int yyinput (void);
-#else
-    UNUSED_PARAMETER static int input  (void);
-#endif
-#endif
 
 void * configfilealloc (size_t bytes)
 {

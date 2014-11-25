@@ -554,16 +554,16 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     if (a == NULL)
         return;
 
-    prettyprint_handler_t hnd = handlers_list[ASTType(a)].handler;
+    prettyprint_handler_t hnd = handlers_list[ASTKind(a)].handler;
 
     if (hnd == NULL)
     {
-        fprintf(stderr, "Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
+        fprintf(stderr, "Node '%s' has NULL handler\n", ast_node_names[ASTKind(a)]);
         return;
     }
     else
     {
-        // fprintf(stderr, "Calling handler of '%s'\n", ast_node_names[ASTType(a)]);
+        // fprintf(stderr, "Calling handler of '%s'\n", ast_node_names[ASTKind(a)]);
     }
 
     // If there is a callback, call it
@@ -587,7 +587,7 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 static void character_separated_sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx, 
         const char* separator, prettyprint_handler_t specific_handler)
 {
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         character_separated_sequence_handler(f, ast_get_ambiguity(a, 0), pt_ctx, separator, specific_handler);
         return;
@@ -840,7 +840,7 @@ static void attr_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         if (ASTSon0(a) != NULL)
         {
             token_fprintf(f, a, pt_ctx, "(");
-            if (ASTType(ASTSon0(a)) == AST_NODE_LIST)
+            if (ASTKind(ASTSon0(a)) == AST_NODE_LIST)
             {
                 list_handler(f, ASTSon0(a), pt_ctx);
             }
@@ -1131,18 +1131,18 @@ static void complex_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     AST subtype = ASTSon0(a);
     if (subtype != NULL
-            && ASTType(subtype) == AST_DOUBLE_TYPE)
+            && ASTKind(subtype) == AST_DOUBLE_TYPE)
     {
         token_fprintf(f, a, pt_ctx, "DOUBLE ");
     }
     token_fprintf(f, a, pt_ctx, "COMPLEX");
     if (subtype != NULL
-            && ASTType(subtype) != AST_DOUBLE_TYPE
-            && (ASTType(subtype) != AST_FLOAT_TYPE 
+            && ASTKind(subtype) != AST_DOUBLE_TYPE
+            && (ASTKind(subtype) != AST_FLOAT_TYPE 
                 || ASTSon0(subtype) != NULL))
     {
         token_fprintf(f, a, pt_ctx, "(KIND = ");
-        if (ASTType(subtype) == AST_DECIMAL_LITERAL)
+        if (ASTKind(subtype) == AST_DECIMAL_LITERAL)
         {
             prettyprint_level(f, subtype, pt_ctx);
         }
@@ -1292,7 +1292,7 @@ static void declaration_specs_handler(FILE* f, AST a, prettyprint_context_t* pt_
     }
     if (ASTSon3(a) != NULL)
     {
-        if (ASTType(ASTSon3(a)) != AST_POINTER_INITIALIZATION)
+        if (ASTKind(ASTSon3(a)) != AST_POINTER_INITIALIZATION)
         {
             token_fprintf(f, a, pt_ctx, " = ");
             prettyprint_level(f, ASTSon3(a), pt_ctx);
@@ -1416,7 +1416,7 @@ static void do_loop_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     if (ASTSon0(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
-        if (ASTType(a) == AST_WHILE_STATEMENT)
+        if (ASTKind(a) == AST_WHILE_STATEMENT)
         {
             token_fprintf(f, a, pt_ctx, "WHILE (");
             prettyprint_level(f, ASTSon0(a), pt_ctx);
@@ -1575,7 +1575,7 @@ static void exit_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 static void expression_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
-    if (ASTType(ASTSon0(a)) == AST_FUNCTION_CALL)
+    if (ASTKind(ASTSon0(a)) == AST_FUNCTION_CALL)
     {
         token_fprintf(f, a, pt_ctx, "CALL ");
     }
@@ -1744,11 +1744,11 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     if (ASTParent(a) != NULL)
     {
         AST parent = ASTParent(a);
-        if (ASTType(parent) == AST_LABELED_STATEMENT)
+        if (ASTKind(parent) == AST_LABELED_STATEMENT)
         {
             parent = ASTSon1(parent);
         }
-        else if (ASTType(parent) == AST_IF_ELSE_STATEMENT)
+        else if (ASTKind(parent) == AST_IF_ELSE_STATEMENT)
         {
             token_fprintf(f, a, pt_ctx, "ELSE");
         }
@@ -1756,7 +1756,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     token_fprintf(f, a, pt_ctx, "IF (");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     if (ASTSon1(a) != NULL
-            && ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
+            && ASTKind(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
     {
         token_fprintf(f, a, pt_ctx, ") ");
     }
@@ -1768,7 +1768,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
 
     if (ASTSon1(a) != NULL)
     {
-        if (ASTType(ASTSon1(a)) == AST_COMPOUND_STATEMENT)
+        if (ASTKind(ASTSon1(a)) == AST_COMPOUND_STATEMENT)
         {
             NEW_PT_CONTEXT(new_ctx, increase_level);
             prettyprint_level(f, ASTSon1(a), new_ctx);
@@ -1782,11 +1782,11 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     if (ASTSon2(a) != NULL)
     {
         AST else_tree = ASTSon2(a);
-        if (ASTType(else_tree) == AST_LABELED_STATEMENT)
+        if (ASTKind(else_tree) == AST_LABELED_STATEMENT)
             else_tree = ASTSon1(else_tree);
 
         indent_at_level(f, a, pt_ctx);
-        if (ASTType(else_tree) != AST_IF_ELSE_STATEMENT)
+        if (ASTKind(else_tree) != AST_IF_ELSE_STATEMENT)
         {
             token_fprintf(f, a, pt_ctx, "ELSE");
             end_of_statement_handler(f, a, pt_ctx);

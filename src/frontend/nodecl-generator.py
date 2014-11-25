@@ -958,9 +958,9 @@ def generate_routines_header(rule_map):
    print ""
    print "#include \"cxx-macros.h\""
    print "#include \"cxx-nodecl.h\""
-   print "#include \"cxx-scope-fwd.h\""
    print "#include \"cxx-type-fwd.h\""
    print "#include \"cxx-cexpr-fwd.h\""
+   print "#include \"cxx-scope-decls.h\""
    print "#include \"mem.h\""
    print ""
    print "MCXX_BEGIN_DECLS"
@@ -1186,7 +1186,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
     AST tree = nodecl_get_ast(n);
     if (tree == NULL)
         return;
-    switch (ASTType(tree))
+    switch (ASTKind(tree))
     {
         case AST_NODE_LIST: { AST it; for_each_element(tree, it) { AST elem = ASTSon1(it); nodecl_walk(external_visitor, _nodecl_wrap(elem)); } break; }
 """
@@ -1200,7 +1200,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
         print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, n); break; }" % (node[0], node[1], node[1])
     print """
        default:
-           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTType(tree))); }
+           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTKind(tree))); }
     }
 }
 

@@ -174,6 +174,7 @@ struct type_environment_tag
     // Special type for GCC compatibility
     _size_t sizeof_builtin_va_list;
     _size_t alignof_builtin_va_list;
+    type_t* (*builtin_va_list_type)(void); // overrides __builtin_va_list if not NULL
 };
 
 typedef struct type_environment_tag type_environment_t;

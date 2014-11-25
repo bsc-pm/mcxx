@@ -54,9 +54,9 @@ namespace Nodecl
             }
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
 
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -137,9 +137,9 @@ namespace Nodecl
             get_all_symbols_occurrences_rec(n.get_symbol().get_value(), result);
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
 
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -217,8 +217,8 @@ namespace Nodecl
             get_all_symbols_first_occurrence_rec(n.get_symbol().get_value(), result);
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = n.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -291,8 +291,8 @@ namespace Nodecl
                 if (n.is<Nodecl::ClassMemberAccess>())
                     in_class_member = true;
 
-            const TL::ObjectList<Nodecl::NodeclBase>& children = n.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = n.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end(); it++)
             {
                 get_all_memory_accesses_rec(it->no_conv(), in_ref, in_class_member, result);
@@ -1438,8 +1438,8 @@ namespace Nodecl
 
         node.set_symbol(m.map(sym));
 
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -1626,9 +1626,9 @@ namespace Nodecl
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+            Nodecl::NodeclBase::Children children = n.children();
 
-            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            for(Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -1674,9 +1674,9 @@ namespace Nodecl
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+            Nodecl::NodeclBase::Children children = n.children();
 
-            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            for(Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {

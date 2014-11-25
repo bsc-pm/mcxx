@@ -190,7 +190,7 @@ namespace TL
                 
                 void visit(const Nodecl::ForStatement&);
 
-            friend class OverlapGroup;
+            friend struct OverlapGroup;
 
        };
     }

@@ -70,11 +70,9 @@ BUILT_SOURCES =
 
 # These variables are not intended for any further modification
 if WINDOWS_BUILD
-DL_LIBRARY=
 no_undefined=-no-undefined
 dll_exports=-Wl,src/frontend/dll-exports.def
 else
-DL_LIBRARY=-ldl
 no_undefined=
 dll_exports=
 endif
@@ -225,9 +223,11 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-asttype-str-internal.h \
   src/frontend/cxx-ast.c \
   src/frontend/cxx-ast.h \
+  src/frontend/cxx-ast-inline.h \
   src/frontend/cxx-ast-fwd.h \
   src/frontend/cxx-ast-decls.h \
   src/frontend/cxx-nodecl.h \
+  src/frontend/cxx-nodecl-inline.h \
   src/frontend/cxx-nodecl.c \
   src/frontend/cxx-nodecl-fwd.h \
   src/frontend/cxx-nodecl-decls.h \
@@ -2468,7 +2468,7 @@ src_mcxx_tl_libmcxxtl_la_LIBADD = \
         $(top_builddir)/src/tl/libtl.la \
         $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
 	    $(top_builddir)/lib/libmcxx-utils.la \
-        $(DL_LIBRARY)
+        $(LIBADD_DLOPEN)
 		$(END)
 
 src_mcxx_tl_libmcxxtl_la_LDFLAGS=-avoid-version $(no_undefined) \

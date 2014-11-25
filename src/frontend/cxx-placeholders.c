@@ -27,6 +27,7 @@
 #include "cxx-placeholders.h"
 #include "cxx-process.h"
 #include "cxx-ast.h"
+#include "cxx-nodecl-output.h"
 
 #include <string.h>
 #include <stdio.h>

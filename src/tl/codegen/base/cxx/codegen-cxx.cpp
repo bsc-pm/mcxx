@@ -8033,8 +8033,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     }
     else
     {
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -9465,9 +9465,9 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 {
     *file << ast_print_node_type(n.get_kind()) << "(";
-    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+    Nodecl::NodeclBase::Children children = n.children();
     int i = 0;
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {

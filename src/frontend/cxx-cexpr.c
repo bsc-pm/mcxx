@@ -3717,6 +3717,108 @@ static const_value_kind_t get_common_complex_kind(const_value_t *v1, const_value
         return kind2;
 }
 
+#ifndef HAVE_CPOWF
+#define cpowf fallback_cpowf
+static float complex fallback_cpowf (float complex X, float complex Y)
+{
+	float complex Res;
+	float i;
+	float r = hypot (__real__ X, __imag__ X);
+	if (r == 0.0f)
+	{
+		__real__ Res = __imag__ Res = 0.0;
+	}
+	else
+	{
+		float rho;
+		float theta;
+		i = cargf (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0f)
+			/* This gives slightly more accurate results in these cases. */
+			rho = powf (r, __real__ Y);
+		else
+		{
+			r = logf (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = expf (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cosf (theta);
+		__imag__ Res = rho * sinf (theta);
+	}
+	return Res;
+} 
+#endif
+
+#ifndef HAVE_CPOW
+#define cpow fallback_cpow
+static double complex fallback_cpow (double complex X, double complex Y)
+{
+	double complex Res;
+	double i;
+	double r = hypot (__real__ X, __imag__ X);
+	if (r == 0.0)
+	{
+		__real__ Res = __imag__ Res = 0.0;
+	}
+	else
+	{
+		double rho;
+		double theta;
+		i = carg (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0)
+			/* This gives slightly more accurate results in these cases. */
+			rho = pow (r, __real__ Y);
+		else
+		{
+			r = log (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = exp (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cos (theta);
+		__imag__ Res = rho * sin (theta);
+	}
+	return Res;
+} 
+#endif
+
+#ifndef HAVE_CPOWL
+#define cpowl fallback_cpowl
+static long double complex fallback_cpowl (long double complex X, long double complex Y)
+{
+	long double complex Res;
+	long double i;
+	long double r = hypotl (__real__ X, __imag__ X);
+	if (r == 0.0L)
+	{
+		__real__ Res = __imag__ Res = 0.0L;
+	}
+	else
+	{
+		long double rho;
+		long double theta;
+		i = cargl (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0L)
+			/* This gives slightly more accurate results in these cases. */
+			rho = powl (r, __real__ Y);
+		else
+		{
+			r = logl (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = expl (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cosl (theta);
+		__imag__ Res = rho * sinl (theta);
+	}
+	return Res;
+} 
+#endif
+
 static const_value_t* arith_powz(const_value_t* v1, const_value_t* v2)
 {
     switch (get_common_complex_kind(v1, v2))

@@ -69,8 +69,8 @@ namespace TL { namespace OpenMP {
 
             void unhandled_node(const Nodecl::NodeclBase & n)
             {
-                TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                Nodecl::NodeclBase::Children children = n.children();
+                for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                         it != children.end();
                         it++)
                 {
@@ -738,13 +738,12 @@ namespace TL { namespace OpenMP {
     struct ReportExecEnvironmentDependences : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            const locus_t* _locus;
             std::ofstream* _omp_report_file;
 
         public:
 
-        ReportExecEnvironmentDependences(const locus_t* locus, std::ofstream* omp_report_file)
-            : _locus(locus), _omp_report_file(omp_report_file)
+        ReportExecEnvironmentDependences(const locus_t*, std::ofstream* omp_report_file)
+            : _omp_report_file(omp_report_file)
         {
         }
 
@@ -1960,8 +1959,8 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -2261,8 +2260,8 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {

@@ -51,6 +51,7 @@ namespace Codegen
 
             void handle_parameter(int n, void* data);
 
+            using CodegenPhase::visit;
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);

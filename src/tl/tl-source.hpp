@@ -188,7 +188,7 @@ namespace TL
         L _l;
     };
 
-    struct ReferenceScope
+    class ReferenceScope
     {
         private:
             Scope _scope;

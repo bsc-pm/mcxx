@@ -57,7 +57,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         ambiguity_fallback_interpretation_fun_t* ambiguity_fallback_interpretation
         )
 {
-    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY, "Tree is not an ambiguity", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_AMBIGUITY, "Tree is not an ambiguity", 0);
 
     int valid_option = -1;
 
@@ -180,7 +180,7 @@ static char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, v
         ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation
         )
 {
-    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY, "Tree is not an ambiguity", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_AMBIGUITY, "Tree is not an ambiguity", 0);
 
     int valid_option = -1;
 
@@ -268,17 +268,17 @@ do \
 } while (0);
 
 
-// Returns 1 if ASTType(t1) == n1 && ASTType(t2) == n2
-// Returns -1 if ASTType(t1) == n2 && ASTType(t2) == n1
+// Returns 1 if ASTKind(t1) == n1 && ASTKind(t2) == n2
+// Returns -1 if ASTKind(t1) == n2 && ASTKind(t2) == n1
 // Returns 0 otherwise
 int either_type(AST t1, AST t2, node_t n1, node_t n2)
 {
-    if ((ASTType(t1) == n1) 
-            && (ASTType(t2) == n2)) 
+    if ((ASTKind(t1) == n1) 
+            && (ASTKind(t2) == n2)) 
         return 1;
 
-    if ((ASTType(t1) == n2) 
-            && (ASTType(t2) == n1)) 
+    if ((ASTKind(t1) == n2) 
+            && (ASTKind(t2) == n1)) 
         return -1;
 
     return 0;
@@ -343,18 +343,18 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
         void* p)
 {
     char current_valid = 0;
-    if (ASTType(declaration) == AST_FUNCTION_DEFINITION)
+    if (ASTKind(declaration) == AST_FUNCTION_DEFINITION)
     {
         AST function_header = ASTSon0(declaration);
         AST declarator = ASTSon1(function_header);
         current_valid = check_function_definition_declarator(declarator, decl_context);
     }
-    else if (ASTType(declaration) == AST_SIMPLE_DECLARATION
-            || ASTType(declaration) == AST_MEMBER_DECLARATION)
+    else if (ASTKind(declaration) == AST_SIMPLE_DECLARATION
+            || ASTKind(declaration) == AST_MEMBER_DECLARATION)
     {
         current_valid = check_simple_or_member_declaration(declaration, decl_context, (gather_decl_spec_t*)p);
     }
-    else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
+    else if (ASTKind(declaration) == AST_MEMBER_DECLARATION_QUALIF)
     {
         AST id_expr = ASTSon0(declaration);
         scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expr, NULL, DF_DEPENDENT_TYPENAME);
@@ -363,7 +363,7 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
     }
     else
     {
-        internal_error("Unexpected ambiguous node '%s'\n", ast_print_node_type(ASTType(declaration)));
+        internal_error("Unexpected ambiguous node '%s'\n", ast_print_node_type(ASTKind(declaration)));
     }
 
     return current_valid;
@@ -372,7 +372,7 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
 static char simple_declaration_is_elaborated_class_specifier_and_one_declarator_named_class_virtspec(
         AST a, decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
     AST decl_specifier_seq = ASTSon0(a);
     if (decl_specifier_seq == NULL)
         return 0;
@@ -381,7 +381,7 @@ static char simple_declaration_is_elaborated_class_specifier_and_one_declarator_
     if (type_spec == NULL)
         return 0;
 
-    if (ASTType(type_spec) != AST_ELABORATED_TYPE_CLASS_SPEC)
+    if (ASTKind(type_spec) != AST_ELABORATED_TYPE_CLASS_SPEC)
         return 0;
 
     AST init_declarator_list = ASTSon1(a);
@@ -411,7 +411,7 @@ static char simple_declaration_is_elaborated_class_specifier_and_one_declarator_
 
 static char simple_declaration_is_class_specifier_without_declarators(AST a)
 {
-    ERROR_CONDITION(ASTType(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
     AST decl_specifier_seq = ASTSon0(a);
     if (decl_specifier_seq == NULL)
         return 0;
@@ -420,7 +420,7 @@ static char simple_declaration_is_class_specifier_without_declarators(AST a)
     if (type_spec == NULL)
         return 0;
 
-    if (ASTType(type_spec) != AST_CLASS_SPECIFIER)
+    if (ASTKind(type_spec) != AST_CLASS_SPECIFIER)
         return 0;
 
     AST init_declarator_list = ASTSon1(a);
@@ -535,7 +535,7 @@ static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t
         int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current_check = 0;
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_DECLARATION_STATEMENT :
             {
@@ -570,7 +570,7 @@ static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t
             }
         default :
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(a)));
                 break;
             }
     }
@@ -594,7 +594,7 @@ static int solve_ambiguous_statement_choose_interpretation(AST current_interpret
 static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER,
         int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
-    return (ASTType(a) == AST_EXPRESSION_STATEMENT);
+    return (ASTKind(a) == AST_EXPRESSION_STATEMENT);
 }
 #endif
 
@@ -658,7 +658,7 @@ static char check_simple_type_spec(AST type_spec,
             }
         }
         if (!allow_class_templates
-                && ASTType(type_id_expr) == AST_SYMBOL
+                && ASTKind(type_id_expr) == AST_SYMBOL
                 && (entry->kind == SK_TEMPLATE
                     || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
                     || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
@@ -702,7 +702,7 @@ static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, c
                 "type-id cannot be null", 0);
     }
 
-    switch (ASTType(type_id))
+    switch (ASTKind(type_id))
     {
         case AST_SIMPLE_TYPE_SPEC :
             return check_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL, allow_class_templates);
@@ -750,7 +750,7 @@ static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, c
             }
         default :
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(type_id)));
             }
     }
 }
@@ -808,7 +808,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             for_each_element(decl_specifier_seq_list, iter)
             {
                 AST spec = ASTSon1(iter);
-                if (ASTType(spec) == AST_TYPEDEF_SPEC)
+                if (ASTKind(spec) == AST_TYPEDEF_SPEC)
                 {
                     return 0;
                 }
@@ -832,12 +832,12 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         AST first_declarator = NULL;
         if (first_init_declarator != NULL)
         {
-            if (ASTType(first_init_declarator) == AST_AMBIGUITY)
+            if (ASTKind(first_init_declarator) == AST_AMBIGUITY)
             {
                 if (!try_to_solve_ambiguous_init_declarator(first_init_declarator, decl_context, gather_info))
                     return 0;
             }
-            else if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR)
+            else if (ASTKind(first_init_declarator) == AST_BITFIELD_DECLARATOR)
             {
                 // This ambiguity brought to you by C++11
                 // A bit-field shall have integral or enumeration type. This
@@ -905,9 +905,9 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             // This ambiguity brought to you by C++11
             // struct X :   T { };
             // enum E : class { };
-            if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR
-                    && (ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
-                        || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC))
+            if (ASTKind(first_init_declarator) == AST_BITFIELD_DECLARATOR
+                    && (ASTKind(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
+                        || ASTKind(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC))
             {
                 return 0;
             }
@@ -917,13 +917,13 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             AST declarator_id_expression;
             // T is just a parenthesized declarator_id_expr
             if (first_declarator != NULL
-                    && ASTType(first_declarator) == AST_DECLARATOR
+                    && ASTKind(first_declarator) == AST_DECLARATOR
                     && (parenthesized_declarator = ASTSon0(first_declarator)) != NULL
-                    && ASTType(parenthesized_declarator) == AST_PARENTHESIZED_DECLARATOR
+                    && ASTKind(parenthesized_declarator) == AST_PARENTHESIZED_DECLARATOR
                     && (inner_declarator = ASTSon0(parenthesized_declarator)) != NULL
-                    && ASTType(inner_declarator) == AST_DECLARATOR
+                    && ASTKind(inner_declarator) == AST_DECLARATOR
                     && (declarator_id_expression = ASTSon0(inner_declarator)) != NULL
-                    && ASTType(declarator_id_expression) == AST_DECLARATOR_ID_EXPR)
+                    && ASTKind(declarator_id_expression) == AST_DECLARATOR_ID_EXPR)
             {
                 AST id_expression = ASTSon0(declarator_id_expression);
                 scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression, NULL);
@@ -941,7 +941,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
                     {
                         // A is a simple type specifier
-                        if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+                        if (ASTKind(type_spec) == AST_SIMPLE_TYPE_SPEC)
                         {
                             AST type_id_expr = ASTSon0(type_spec);
 
@@ -968,7 +968,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 }
                 // Something is wrong here
                 if (entry_list == NULL
-                        && ASTType(id_expression) == AST_QUALIFIED_ID)
+                        && ASTKind(id_expression) == AST_QUALIFIED_ID)
                 {
                     return 0;
                 }
@@ -991,7 +991,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             AST init_declarator = ASTSon1(iter);
             AST declarator = ASTSon0(init_declarator);
 
-            if (ASTType(init_declarator) == AST_AMBIGUITY)
+            if (ASTKind(init_declarator) == AST_AMBIGUITY)
             {
                 if (!try_to_solve_ambiguity_generic(init_declarator, decl_context, NULL,
                             solve_typeless_init_declarator_check_interpretation, NULL))
@@ -1013,14 +1013,14 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
 static char solve_ambiguous_declaration_statement_check_interpretation(AST a, decl_context_t decl_context,
         int option UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_SIMPLE_DECLARATION:
             {
                 return check_simple_or_member_declaration(a, decl_context, (gather_decl_spec_t*)p);
             }
         default:
-            internal_error("Unexpected ambiguity '%s'\n", ast_print_node_type(ASTType(a)));
+            internal_error("Unexpected ambiguity '%s'\n", ast_print_node_type(ASTKind(a)));
     }
 
     return 0;
@@ -1033,11 +1033,11 @@ static char check_declaration_statement(AST declaration_statement,
     AST a = ASTSon0(declaration_statement);
 
     // In general only AST_SIMPLE_DECLARATION gets ambiguous here
-    if (ASTType(a) == AST_SIMPLE_DECLARATION)
+    if (ASTKind(a) == AST_SIMPLE_DECLARATION)
     {
         return check_simple_or_member_declaration(a, decl_context, gather_info);
     }
-    else if (ASTType(a) == AST_AMBIGUITY)
+    else if (ASTKind(a) == AST_AMBIGUITY)
     {
         return try_to_solve_ambiguity_generic(
                 a, decl_context, gather_info,
@@ -1050,7 +1050,7 @@ static char check_declaration_statement(AST declaration_statement,
 
 static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_context, int nfuncs)
 {
-    switch (ASTType(declarator))
+    switch (ASTKind(declarator))
     {
         case AST_PARENTHESIZED_EXPRESSION :
         case AST_DECLARATOR :
@@ -1104,7 +1104,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
 
     AST id_expression = ASTSon0(declarator);
 
-    switch (ASTType(id_expression))
+    switch (ASTKind(id_expression))
     {
         case AST_QUALIFIED_ID :
             {
@@ -1113,9 +1113,9 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                 AST symbol = ASTSon2(id_expression);
 
                 // These always have type
-                if (ASTType(symbol) == AST_OPERATOR_FUNCTION_ID
-                        || ASTType(symbol) == AST_TEMPLATE_ID
-                        || ASTType(symbol) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+                if (ASTKind(symbol) == AST_OPERATOR_FUNCTION_ID
+                        || ASTKind(symbol) == AST_TEMPLATE_ID
+                        || ASTKind(symbol) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
                 {
                     return 0;
                 }
@@ -1154,8 +1154,8 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                     return 0;
                 }
 
-                if (ASTType(id_expression) == AST_DESTRUCTOR_ID ||
-                        ASTType(id_expression) == AST_DESTRUCTOR_TEMPLATE_ID)
+                if (ASTKind(id_expression) == AST_DESTRUCTOR_ID ||
+                        ASTKind(id_expression) == AST_DESTRUCTOR_TEMPLATE_ID)
                 {
                     // Jump '~'
                     class_name++;
@@ -1216,7 +1216,7 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
 char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
+    ERROR_CONDITION(ASTKind(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
 
     int i;
     int correct_choice = -1;
@@ -1248,8 +1248,8 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
                 AST previous_choice = ast_get_ambiguity(ambiguous_list, correct_choice);
                 AST current_choice = ast_get_ambiguity(ambiguous_list, i);
                 internal_error("More than one valid alternative '%s' vs '%s'",
-                        ast_print_node_type(ASTType(previous_choice)),
-                        ast_print_node_type(ASTType(current_choice)));
+                        ast_print_node_type(ASTKind(previous_choice)),
+                        ast_print_node_type(ASTKind(current_choice)));
             }
         }
     }
@@ -1291,7 +1291,7 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
 char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
+    ERROR_CONDITION(ASTKind(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
 
     int i;
     int correct_choice = -1;
@@ -1323,8 +1323,8 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
                 AST previous_choice = ast_get_ambiguity(ambiguous_list, correct_choice);
                 AST current_choice = ast_get_ambiguity(ambiguous_list, i);
                 internal_error("More than one valid alternative '%s' vs '%s'",
-                        ast_print_node_type(ASTType(previous_choice)),
-                        ast_print_node_type(ASTType(current_choice)));
+                        ast_print_node_type(ASTKind(previous_choice)),
+                        ast_print_node_type(ASTKind(current_choice)));
             }
         }
     }
@@ -1366,7 +1366,7 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
 static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context,
         int position UNUSED_PARAMETER, void* info UNUSED_PARAMETER)
 {
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "invalid kind\n", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "invalid kind\n", 0);
     nodecl_t nodecl_nested_part;
     compute_nodecl_name_from_nested_part(a, decl_context, &nodecl_nested_part);
     return !nodecl_is_err_expr(nodecl_nested_part);
@@ -1520,7 +1520,7 @@ static char check_init_declarator(AST init_declarator,
         AST declarator_name = get_declarator_name(declarator, decl_context);
 
         if (declarator_name != NULL
-                && ASTType(declarator_name) == AST_QUALIFIED_ID
+                && ASTKind(declarator_name) == AST_QUALIFIED_ID
                 && (gather_info == NULL
                     || !gather_info->is_friend))
         {
@@ -1551,7 +1551,7 @@ static char check_init_declarator(AST init_declarator,
         // here types are not used
         //
         // Ambiguous cases are '= e' and '(e1, e2, .., e3)'
-        switch (ASTType(initializer))
+        switch (ASTKind(initializer))
         {
             // Plain expression
             default:
@@ -1581,7 +1581,7 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
     if (declarator == NULL)
         return 1;
 
-    switch (ASTType(declarator))
+    switch (ASTKind(declarator))
     {
         case AST_DECLARATOR_ARRAY :
             {
@@ -1641,7 +1641,7 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
             }
         default :
             {
-                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(declarator)));
+                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTKind(declarator)));
                 break;
             }
     }
@@ -1716,8 +1716,8 @@ static int solve_ambiguous_function_declarator_parameter_choose_intepretation(
         // prettyprint(stderr, current_interpretation);
         // fprintf(stderr, "\n");
         // internal_error("More than one valid alternative '%s' vs '%s' %s", 
-        //         ast_print_node_type(ASTType(previous_interpretation)),
-        //         ast_print_node_type(ASTType(current_interpretation)),
+        //         ast_print_node_type(ASTKind(previous_interpretation)),
+        //         ast_print_node_type(ASTKind(current_interpretation)),
         //         ast_location(previous_interpretation));
     }
 }
@@ -1727,12 +1727,12 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
     AST list = parameter_declaration_clause;
     AST iter;
 
-    if (ASTType(parameter_declaration_clause) == AST_AMBIGUITY)
+    if (ASTKind(parameter_declaration_clause) == AST_AMBIGUITY)
     {
         solve_ambiguous_parameter_clause(parameter_declaration_clause, decl_context);
     }
 
-    if (ASTType(parameter_declaration_clause) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
+    if (ASTKind(parameter_declaration_clause) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
         return 1;
     }
@@ -1741,12 +1741,12 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
     {
         AST parameter = ASTSon1(iter);
 
-        if (ASTType(parameter) == AST_VARIADIC_ARG)
+        if (ASTKind(parameter) == AST_VARIADIC_ARG)
         {
             continue;
         }
 
-        if (ASTType(parameter) == AST_AMBIGUITY)
+        if (ASTKind(parameter) == AST_AMBIGUITY)
         {
             if (!try_to_solve_ambiguity_generic(parameter, decl_context, NULL,
                     solve_ambiguous_function_declarator_parameter_check_intepretation,
@@ -1754,9 +1754,9 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
                 return 0;
         }
 
-        if (ASTType(parameter) != AST_PARAMETER_DECL)
+        if (ASTKind(parameter) != AST_PARAMETER_DECL)
         {
-            internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(parameter)));
+            internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(parameter)));
         }
 
         AST decl_specifier_seq = ASTSon0(parameter);
@@ -1851,7 +1851,7 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
 
         // Ignore any implicit int here
         if (previous_type_spec != NULL
-                && ASTType(previous_type_spec) == AST_IMPLICIT_INT_TYPE)
+                && ASTKind(previous_type_spec) == AST_IMPLICIT_INT_TYPE)
             previous_type_spec = NULL;
     }
     if (current_decl_speq_seq != NULL)
@@ -1860,7 +1860,7 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
 
         // Ignore any implicit int here
         if (current_type_spec != NULL
-                && ASTType(current_type_spec) == AST_IMPLICIT_INT_TYPE)
+                && ASTKind(current_type_spec) == AST_IMPLICIT_INT_TYPE)
             current_type_spec = NULL;
     }
 
@@ -1910,7 +1910,7 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
         int option UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current = 0;
-    switch (ASTType(for_init_statement))
+    switch (ASTKind(for_init_statement))
     {
         case AST_SIMPLE_DECLARATION :
             if (check_simple_or_member_declaration(for_init_statement, decl_context, (gather_decl_spec_t*)p))
@@ -1929,7 +1929,7 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
             break;
         default :
             internal_error("Unknown node '%s' at '%s'\n", 
-                    ast_print_node_type(ASTType(for_init_statement)),
+                    ast_print_node_type(ASTKind(for_init_statement)),
                     ast_location(for_init_statement));
     }
 
@@ -1957,18 +1957,18 @@ static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifi
 {
     char current_typeof = 0;
     AST typeof_argument = ASTSon0(type_specifier);
-    if (ASTType(type_specifier) == AST_GCC_TYPEOF)
+    if (ASTKind(type_specifier) == AST_GCC_TYPEOF)
     {
         current_typeof = check_type_id_tree(typeof_argument, decl_context);
     }
-    else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
+    else if (ASTKind(type_specifier) == AST_GCC_TYPEOF_EXPR)
     {
         nodecl_t nodecl_dummy = nodecl_null();
         current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
     }
     else
     {
-        internal_error("Unexpected node type %s\n", ast_print_node_type(ASTType(type_specifier)));
+        internal_error("Unexpected node type %s\n", ast_print_node_type(ASTKind(type_specifier)));
     }
     return current_typeof;
 }
@@ -1987,8 +1987,8 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
     {
         AST type_specifier = ast_get_ambiguity(ambig_type, i);
 
-        is_typeof_ambiguity = ((ASTType(type_specifier) == AST_GCC_TYPEOF)
-                || (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR));
+        is_typeof_ambiguity = ((ASTKind(type_specifier) == AST_GCC_TYPEOF)
+                || (ASTKind(type_specifier) == AST_GCC_TYPEOF_EXPR));
     }
 
     if (!is_typeof_ambiguity)
@@ -2014,7 +2014,7 @@ static int select_node_type(AST a, node_t type)
 
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
-        if (ASTType(ast_get_ambiguity(a, i)) == type)
+        if (ASTKind(ast_get_ambiguity(a, i)) == type)
         {
             return i;
         }
@@ -2030,7 +2030,7 @@ static AST recursive_search(AST a, node_t type)
 
     AST result = NULL;
 
-    if (ASTType(a) == type)
+    if (ASTKind(a) == type)
     {
         result = a;
     }
@@ -2191,7 +2191,7 @@ static char solve_ambiguous_expression_fallback(AST current_interpretation,
 {
     struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
     // Prioritize function calls
-    if (ASTType(current_interpretation) == AST_FUNCTION_CALL)
+    if (ASTKind(current_interpretation) == AST_FUNCTION_CALL)
     {
         data->chosen = position;
         return 1;
@@ -2306,7 +2306,7 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
     if (a == NULL)
         return 0;
 
-    if (ASTType(a) == AST_SYMBOL)
+    if (ASTKind(a) == AST_SYMBOL)
     {
         scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(a), NULL);
         if (entry_list != NULL)
@@ -2321,7 +2321,7 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
                 return 1;
         }
     }
-    else if (ASTType(a) == AST_AMBIGUITY)
+    else if (ASTKind(a) == AST_AMBIGUITY)
     {
         int i, n = ast_get_num_ambiguities(a);
         for (i = 0; i < n; i++)
@@ -2331,8 +2331,8 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
                 return 1;
         }
     }
-    else if (ASTType(a) == AST_DECLARATOR_ID_PACK
-            || ASTType(a) == AST_INITIALIZER_CLAUSE_PACK_EXPANSION)
+    else if (ASTKind(a) == AST_DECLARATOR_ID_PACK
+            || ASTKind(a) == AST_INITIALIZER_CLAUSE_PACK_EXPANSION)
     {
         // Stop here as these start a new expansion
         return 0;
@@ -2360,7 +2360,7 @@ static char solve_ambiguous_parameter_clause_check_interpretation(
     C_LANGUAGE()
     {
         // K&R parameter lists
-        if (ASTType(parameter_clause) == AST_KR_PARAMETER_LIST)
+        if (ASTKind(parameter_clause) == AST_KR_PARAMETER_LIST)
         {
             return check_kr_parameter_list(parameter_clause, decl_context);
         }
@@ -2372,11 +2372,11 @@ static char solve_ambiguous_parameter_clause_check_interpretation(
 
     CXX_LANGUAGE()
     {
-        ERROR_CONDITION(ASTType(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
+        ERROR_CONDITION(ASTKind(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
 
         AST last = ASTSon1(parameter_clause);
 
-        if (ASTType(last) == AST_VARIADIC_ARG)
+        if (ASTKind(last) == AST_VARIADIC_ARG)
         {
             // void f(T...); where T is NOT a parameter pack
             ERROR_CONDITION(ASTSon0(parameter_clause) == NULL, "Invalid tree", 0);
@@ -2385,14 +2385,14 @@ static char solve_ambiguous_parameter_clause_check_interpretation(
 
             result = !contains_template_parameter_pack(before_last, decl_context);
         }
-        else if (ASTType(last) == AST_PARAMETER_DECL)
+        else if (ASTKind(last) == AST_PARAMETER_DECL)
         {
             // void f(T...); where T is a parameter pack
             result = contains_template_parameter_pack(last, decl_context);
         }
         else
         {
-            internal_error("Invalid node %s", ast_print_node_type(ASTType(last)));
+            internal_error("Invalid node %s", ast_print_node_type(ASTKind(last)));
         }
     }
 

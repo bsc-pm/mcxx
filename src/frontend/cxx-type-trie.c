@@ -48,12 +48,6 @@ struct type_trie_tag
     type_trie_element_t* elements;
 };
 
-static struct type_trie_tag const TYPE_TRIE_INITIALIZER =
-{
-    .num_elements = 0,
-    .elements = NULL
-};
-
 static type_trie_element_t *lookup_element(const type_trie_t* type_trie, const type_t** type_seq);
 
 static const type_t* lookup_list(const type_trie_t* type_trie, const type_t** type_seq, int length)

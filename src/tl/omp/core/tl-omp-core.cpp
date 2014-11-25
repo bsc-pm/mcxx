@@ -640,8 +640,8 @@ namespace TL
                         walk_type(t);
                     }
 
-                    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    Nodecl::NodeclBase::Children children = n.children();
+                    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                             it != children.end();
                             it++)
                     {

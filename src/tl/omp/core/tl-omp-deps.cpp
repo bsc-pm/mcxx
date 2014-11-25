@@ -51,8 +51,8 @@ namespace TL { namespace OpenMP {
                 DataSharingEnvironment& _data_sharing;
                 ObjectList<Symbol>& _symbols;
 
-                ExtraDataSharing(DataSharingEnvironment& ds, ObjectList<Symbol>& symbols)
-                    :_data_sharing(ds), _symbols(symbols) { }
+                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
+                    :_data_sharing(ds_), _symbols(symbols) { }
 
                 void visit(const Nodecl::Symbol& node)
                 {
@@ -79,8 +79,8 @@ namespace TL { namespace OpenMP {
 
             ExtraDataSharing _extra_data_sharing;
 
-            DataRefVisitorDep(DataSharingEnvironment& ds, ObjectList<Symbol>& symbols)
-                : _extra_data_sharing(ds, symbols) { }
+            DataRefVisitorDep(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
+                : _extra_data_sharing(ds_, symbols) { }
 
             void visit_pre(const Nodecl::Symbol &node)
             {

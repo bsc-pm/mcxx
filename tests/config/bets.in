@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #constants
 readonly bets_version=0.9.3
@@ -88,7 +88,7 @@ message ()
 escape_xml ()
 {
     # Got from http://www.daemonforums.org/showthread.php?t=4054
-    cat $1 | sed -e 's~&~\&amp;~g' -e 's~<~\&lt;~g'  -e  's~>~\&gt;~g' 1> $2
+    cat $1 | @SED@ -e 's~&~\&amp;~g' -e 's~<~\&lt;~g'  -e  's~>~\&gt;~g' 1> $2
 }
 
 # action functions
@@ -577,7 +577,7 @@ run_gen_test ()
        p
    }'
 
-   sed -e "${SED_SCRIPT}" -n $srcdir/$source > $tmpfile
+   @SED@ -e "${SED_SCRIPT}" -n $srcdir/$source > $tmpfile
    source $tmpfile >> $logfile
 
    test_generator=${test_generator:-$TEST_GENERATOR}

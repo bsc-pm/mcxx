@@ -631,9 +631,9 @@ void DeviceFPGA::add_hls_pragmas(
         << std::endl;
 
     //Dig into the tree and find where the function statements are
-    ObjectList<Nodecl::NodeclBase> tchildren = task.children();
+    Nodecl::NodeclBase::Children tchildren = task.children();
     Nodecl::NodeclBase& context = tchildren.front();
-    ObjectList<Nodecl::NodeclBase> cchildren = context.children();
+    Nodecl::NodeclBase::Children cchildren = context.children();
     Nodecl::List list(cchildren.front().get_internal_nodecl());
     Nodecl::List stlist(list.begin()->children().front().get_internal_nodecl());
 
