@@ -258,13 +258,13 @@ static inline nodecl_t nodecl_duplicate(nodecl_t t)
     return _nodecl_wrap(ast_duplicate_one_node(nodecl_get_ast(t)));
 }
 
-static inline nodecl_t _nodecl_wrap(AST a)
+ALWAYS_INLINE static inline nodecl_t _nodecl_wrap(AST a)
 {
     nodecl_t n = { a };
     return n;
 }
 
-static inline nodecl_t nodecl_get_child(nodecl_t n, int i)
+ALWAYS_INLINE static inline nodecl_t nodecl_get_child(nodecl_t n, int i)
 {
     return _nodecl_wrap(ast_get_child(n.tree, i));
 }
