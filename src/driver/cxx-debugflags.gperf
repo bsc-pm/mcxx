@@ -101,3 +101,9 @@ struct debug_flags_list_t** list_of_debug_flags(void)
 
     return result;
 }
+
+struct debug_flags_list_t *
+debugflags_lookup (register const char *str, register unsigned int len)
+{
+    return debugflags_lookup_inline(str, len);
+}
