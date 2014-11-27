@@ -1,5 +1,7 @@
 
 #include "tl-expression-reduction.hpp"
+#include "tl-optimizations.hpp"
+
 #include "tl-nodecl-utils.hpp"
 
 namespace TL {
@@ -1112,11 +1114,28 @@ namespace Optimizations {
 
         if (it != _unitary_rhss.end())
         {
+            // Nullify nodecl from lhs (visitor)
             n.replace(const_value_to_nodecl(
                         const_value_get_zero(1, 4)));
-            it->replace(const_value_to_nodecl(
-                        const_value_get_zero(1, 4)));
+
+            // Nullify nodecl from rhs (list)
+            Nodecl::NodeclBase rhs_it = *it;
             _unitary_rhss.erase(it);
+
+            rhs_it.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+
+            Nodecl::NodeclBase rhs_it_parent = rhs_it.get_parent();
+
+            // Remove Conversion?
+            if ((!rhs_it_parent.is_null()) && rhs_it_parent.is<Nodecl::Conversion>())
+            {
+                TL::Type dst_type = rhs_it_parent.get_type().no_ref();
+                TL::Type src_type = rhs_it.get_type().no_ref(); 
+
+                if (dst_type.is_same_type(src_type))
+                    rhs_it_parent.replace(rhs_it);
+            }
         }
     }
  
@@ -1143,8 +1162,9 @@ namespace Optimizations {
                         lhs.get_constant(), rhs.get_constant())));
         }
 
-        TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
-        reduce_expr_visitor.walk(n);
+        TL::Optimizations::canonicalize_and_fold(n, false /*fast_math*/);
+//        TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
+//        reduce_expr_visitor.walk(n);
 
         if (n.is<Nodecl::Minus>())
         {
@@ -1175,15 +1195,15 @@ namespace Optimizations {
 
     void UnitaryReductor::visit(const Nodecl::Conversion& n)
     {
-        //TODO
-        //bool is_symbol_pre = n.get_nest().is<Nodecl::Symbol>();
-
         walk(n.get_nest());
+        
+        TL::Type dst_type = n.get_type().no_ref();
+        TL::Type src_type = n.get_nest().get_type().no_ref();
 
         bool is_integer_post = n.get_nest().is<Nodecl::IntegerLiteral>();
 
         //if (is_symbol_pre && is_integer_post)
-        if (is_integer_post)
+        if (is_integer_post && (src_type.is_same_type(dst_type)))
             n.replace(n.get_nest());
     }
 

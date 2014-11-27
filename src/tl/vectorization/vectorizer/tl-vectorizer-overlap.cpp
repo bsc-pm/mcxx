@@ -148,6 +148,7 @@ namespace Vectorization
                     }
                 }
             }
+
             
             Nodecl::List flags;
             if (_aligned_strategy)
@@ -173,6 +174,8 @@ namespace Vectorization
 
             Nodecl::ExpressionStatement exp_stmt =
                 Nodecl::ExpressionStatement::make(vassignment);
+
+            Optimizations::canonicalize_and_fold(exp_stmt, false /*fast math*/);
 
             result_list.prepend(exp_stmt);
         }
@@ -211,6 +214,8 @@ namespace Vectorization
 
         Nodecl::ExpressionStatement exp_stmt =
             Nodecl::ExpressionStatement::make(vassignment);
+
+        Optimizations::canonicalize_and_fold(exp_stmt, false /*fast math*/);
 
         result_list.append(exp_stmt);
 
@@ -298,9 +303,12 @@ namespace Vectorization
         Nodecl::NodeclBase first_subscript =
             Utils::get_vector_load_subscript(first_vload);
 
-        std::cerr << "First subscript: " 
-            << first_subscript.prettyprint()
-            << std::endl;
+        VECTORIZATION_DEBUG()
+        {
+            std::cerr << "First subscript: " 
+                << first_subscript.prettyprint()
+                << std::endl;
+        }
 
         int min_offset = 0;
         int max_offset = 0;
@@ -365,10 +373,13 @@ namespace Vectorization
 
                 int min_vload_type_size = min_vload.get_type().basic_type().get_size();
                 int negative_num_elements = alignment/min_vload_type_size;
-
-                std::cerr << "OVERLAP ALIGNMENT: " << alignment 
-                    << " negative offset " << negative_num_elements
-                    << " num elements" << std::endl;
+                
+                VECTORIZATION_DEBUG()
+                {
+                    std::cerr << "OVERLAP ALIGNMENT: " << alignment 
+                        << " negative offset " << negative_num_elements
+                        << " num elements" << std::endl;
+                }
 
                 // New flags
                 Nodecl::List new_flags = flags.shallow_copy().as<Nodecl::List>();
@@ -403,8 +414,8 @@ namespace Vectorization
                 else
                 {
                     new_subscript = Nodecl::Add::make(
-                            neg,
                             subscript.shallow_copy(),
+                            neg,
                             subscript.get_type(),
                             subscript.get_locus());
                 }
@@ -425,8 +436,8 @@ namespace Vectorization
                 min_vload = aligned_vector_load;
                 min_offset = min_offset - negative_num_elements;
 
-                Optimizations::ReduceExpressionVisitor reduce_expression_visitor;
-                reduce_expression_visitor.walk(min_vload);
+                Optimizations::canonicalize_and_fold(
+                        min_vload, false /*fast math*/);
             }
 
             // max_vload = the rightmost aligned load
@@ -446,9 +457,12 @@ namespace Vectorization
                 int positive_num_elements = environment._vectorization_factor -
                     alignment/max_vload_type_size;
 
-                std::cerr << "OVERLAP ALIGNMENT: " << alignment 
-                    << " positive offset " << positive_num_elements
-                    << " num elements" << std::endl;
+                VECTORIZATION_DEBUG()
+                {
+                    std::cerr << "OVERLAP ALIGNMENT: " << alignment 
+                        << " positive offset " << positive_num_elements
+                        << " num elements" << std::endl;
+                }
 
                 // New flags ***************************************
                 Nodecl::List new_flags = flags.shallow_copy().as<Nodecl::List>();
@@ -475,8 +489,8 @@ namespace Vectorization
                 else
                 {
                     new_subscript = Nodecl::Add::make(
-                            const_value_to_nodecl(const_int),
                             subscript.shallow_copy(),
+                            const_value_to_nodecl(const_int),
                             subscript.get_type(),
                             subscript.get_locus());
                 }
@@ -497,8 +511,8 @@ namespace Vectorization
                 max_vload = aligned_vector_load;
                 max_offset = max_offset + positive_num_elements;
 
-                Optimizations::ReduceExpressionVisitor reduce_expression_visitor;
-                reduce_expression_visitor.walk(max_vload);
+                Optimizations::canonicalize_and_fold(
+                        max_vload, false /*fast math*/);
             }
         }
         // UNALIGNED STRATEGY
@@ -550,8 +564,8 @@ namespace Vectorization
                 else
                 {
                     new_subscript = Nodecl::Add::make(
-                            const_value_to_nodecl(const_int),
                             subscript.shallow_copy(),
+                            const_value_to_nodecl(const_int),
                             subscript.get_type(),
                             subscript.get_locus());
                 }
@@ -572,8 +586,8 @@ namespace Vectorization
                 max_vload = vector_load;
                 max_offset = max_offset + positive_num_elements;
 
-                Optimizations::ReduceExpressionVisitor reduce_expression_visitor;
-                reduce_expression_visitor.walk(max_vload);
+                Optimizations::canonicalize_and_fold(
+                        max_vload, false /*fast math*/);
             }
         }
 
@@ -585,10 +599,13 @@ namespace Vectorization
         else
             std::cerr << "UNALIGNED STRATEGY: " << std::endl;
 
-        std::cerr << "Min index is " << _leftmost_vload.prettyprint()
-            << " with " << min_offset << " offset" << std::endl;
-        std::cerr << "Max index is " << _rightmost_vload.prettyprint()
-            << " with " << max_offset << " offset" << std::endl;
+        VECTORIZATION_DEBUG()
+        {
+            std::cerr << "Min index is " << _leftmost_vload.prettyprint()
+                << " with " << min_offset << " offset" << std::endl;
+            std::cerr << "Max index is " << _rightmost_vload.prettyprint()
+                << " with " << max_offset << " offset" << std::endl;
+        }
     }
 
     void OverlapGroup::compute_num_registers(
@@ -616,13 +633,16 @@ namespace Vectorization
                 const_value_get_signed_int(
                     environment._vectorization_factor));
 
-        std::cerr << "Rightmost: " << rightmost_index.prettyprint()
-            << " MINUS Leftmost: " << leftmost_index.prettyprint()
-            << " = "
-            << minus.prettyprint()
-            << ". Mod = " << const_value_cast_to_signed_int(mod)
-            << ". Div = " << const_value_cast_to_signed_int(div)
-            << std::endl;
+        VECTORIZATION_DEBUG()
+        {
+            std::cerr << "Rightmost: " << rightmost_index.prettyprint()
+                << " MINUS Leftmost: " << leftmost_index.prettyprint()
+                << " = "
+                << minus.prettyprint()
+                << ". Mod = " << const_value_cast_to_signed_int(mod)
+                << ". Div = " << const_value_cast_to_signed_int(div)
+                << std::endl;
+        }
 
         ERROR_CONDITION(!const_value_is_zero(mod),
                 "Leftmost and Rightmost are not multiple of VL", 0);
@@ -1362,9 +1382,28 @@ namespace Vectorization
 
         std::cerr << "Overlap Groups Summary:" << std::endl;
         std::cerr << "    - Total groups: "
-            << ogroups.size() << std::endl;
-        std::cerr << "    - Groups after merging: "
-            << ogroups.size() << std::endl;
+            << ogroups.size() << " ";
+
+        for(objlist_ogroup_t::iterator it_ogroup =
+                ogroups.begin();
+                it_ogroup != ogroups.end();
+                it_ogroup++)
+        {
+            std::cerr << "(" << it_ogroup->_loads.size() << ") ";
+        }
+ 
+        std::cerr << std::endl << 
+            "    - Groups after merging: "
+            << ogroups.size();
+
+        for(objlist_ogroup_t::iterator it_ogroup =
+                ogroups.begin();
+                it_ogroup != ogroups.end();
+                it_ogroup++)
+        {
+            std::cerr << "(" << it_ogroup->_loads.size() << ") ";
+        }
+ 
 
         // TODO: Merge overlaped groups
         
@@ -1388,8 +1427,18 @@ namespace Vectorization
             }
         }
 
-        std::cerr << "    - Groups after min cardinality filtering: "
-            << ogroups.size() << std::endl;
+        std::cerr << std::endl << 
+            "    - Groups after min cardinality filtering: "
+            << ogroups.size();
+
+        for(objlist_ogroup_t::iterator it_ogroup =
+                ogroups.begin();
+                it_ogroup != ogroups.end();
+                it_ogroup++)
+        {
+            std::cerr << "(" << it_ogroup->_loads.size() << ") ";
+        }
+         std::cerr << std::endl;
 
         return ogroups;
     }
@@ -1428,15 +1477,6 @@ namespace Vectorization
                 new_sym.set_type(ogroup._vector_type);
 
                 ogroup._registers.push_back(new_sym);
-                ogroup._registers_indexes.push_back(
-                        (i == 0) ? leftmost_index : 
-                        Nodecl::Add::make(
-                            leftmost_index.shallow_copy(),
-                            const_value_to_nodecl(const_value_mul(
-                                    const_value_get_signed_int(i),
-                                    const_value_get_signed_int(
-                                        vectorization_factor))),
-                            leftmost_index.get_type()));
             }
             else
             {
@@ -1447,16 +1487,32 @@ namespace Vectorization
                 ERROR_CONDITION(!sym.is_valid(), "cache symbol is invalid.", 0);
 
                 ogroup._registers.push_back(sym);
-                ogroup._registers_indexes.push_back(
-                        (i == 0) ? leftmost_index : 
-                        Nodecl::Add::make(
-                            leftmost_index.shallow_copy(),
-                            const_value_to_nodecl(const_value_mul(
-                                    const_value_get_signed_int(i),
-                                    const_value_get_signed_int(
-                                        vectorization_factor))),
-                            leftmost_index.get_type()));
             }
+
+            // Add register index
+
+            Nodecl::NodeclBase new_reg_index;
+
+            if (i == 0)
+            {
+                new_reg_index = leftmost_index;
+            }
+            else
+            {
+                new_reg_index = Nodecl::Add::make(
+                        leftmost_index.shallow_copy(),
+                        const_value_to_nodecl(const_value_mul(
+                                const_value_get_signed_int(i),
+                                const_value_get_signed_int(
+                                    vectorization_factor))),
+                        leftmost_index.get_type());
+
+                Optimizations::canonicalize_and_fold(
+                        new_reg_index, false /*fast math*/);
+            }
+ 
+            ogroup._registers_indexes.push_back(
+                    new_reg_index);
         }
     }
 
