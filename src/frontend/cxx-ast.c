@@ -47,64 +47,75 @@
 #include "cxx-nodecl-decls.h"
 
 /**
-  Checks that double-linked nodes are
+  Checks that nodes are really doubly-linked.
+
+  We used to have the usual recursive traversal here
+  but some big trees feature very deep recursion
+  which caused stack overflows.
  */
-char ast_check(const_AST node)
+char ast_check(const_AST root)
 {
-    char check = 1;
-    if (node == NULL)
-        return check;
+    int stack_capacity = 1024;
+    int stack_length = 1;
+    const_AST *stack = xmalloc(stack_capacity * sizeof(*stack));
 
-    // Already visited. See below
-    if (__builtin_expect(((((intptr_t)node->parent) & 0x1) == 0x1), 0))
-    {
-        check = 0;
-        fprintf(stderr, "ERROR: Cycle detected in node '%s'\n", ast_location(node));
-        return check;
-    }
+    stack[0] = root;
 
-    int i;
-    if (ast_get_kind(node) != AST_AMBIGUITY)
+#define PUSH_BACK(child) \
+{ \
+    if (stack_length == stack_capacity) \
+    { \
+        stack_capacity *= 2; \
+        stack = xrealloc(stack, stack_capacity * sizeof(*stack)); \
+    } \
+    stack_length++; \
+    stack[stack_length - 1] = (child); \
+}
+
+    char ok = 1;
+    while (stack_length > 0 && ok)
     {
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN && check; i++)
+        const_AST node = stack[stack_length - 1];
+        stack_length--;
+
+        int i;
+        if (ast_get_kind(node) != AST_AMBIGUITY)
         {
-            if (ast_get_child(node, i) != NULL)
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN && ok; i++)
             {
-                if (ast_get_parent(ast_get_child(node, i)) != node)
+                AST c = ast_get_child(node, i);
+                if (c != NULL)
                 {
-                    check = 0;
-                    AST wrong_parent = ast_get_parent(ast_get_child(node, i));
-                    fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
-                            i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
-                            wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
-                            wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
-                            wrong_parent);
-                }
-                else
-                {
-                    // Tag this node as visited to avoid infinite recursion under the presence
-                    // of cycles (note that this works as long as AST pointers are at least
-                    // aligned to two bytes)
-                    ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) | 0x1);
-
-                    check = check && ast_check(ast_get_child(node, i));
-
-                    // Remove tag
-                    ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) & ~0x1);
+                    if (ast_get_parent(c) != node)
+                    {
+                        AST wrong_parent = ast_get_parent(c);
+                        fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
+                                i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
+                                wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
+                                wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
+                                wrong_parent);
+                        ok = 0;
+                    }
+                    else
+                    {
+                        PUSH_BACK(c);
+                    }
                 }
             }
         }
-    }
-    else
-    {
-        ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) | 0x1);
-        for (i = 0; i < node->num_ambig && check; i++)
+        else
         {
-            check = check && ast_check(node->ambig[i]);
+            for (i = 0; i < node->num_ambig; i++)
+            {
+                AST c = node->ambig[i];
+                PUSH_BACK(c);
+            }
         }
-        ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) & ~0x1);
     }
-    return check;
+
+    xfree(stack);
+
+    return ok;
 }
 
 static void ast_copy_one_node(AST dest, AST orig)
