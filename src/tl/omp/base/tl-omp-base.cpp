@@ -2718,7 +2718,6 @@ namespace TL { namespace OpenMP {
     struct ReportSymbols : TL::Functor<void, DataSharingEnvironment::DataSharingInfoPair>
     {
         private:
-            const locus_t* _locus;
             DataSharingAttribute _data_sharing;
             std::ofstream *_omp_report_file;
 
@@ -2750,11 +2749,10 @@ namespace TL { namespace OpenMP {
             }
 
         public:
-            ReportSymbols(const locus_t* locus,
+            ReportSymbols(const locus_t*,
                     DataSharingAttribute data_sharing,
                     std::ofstream* omp_report_file)
-                : _locus(locus),
-                _data_sharing(data_sharing),
+                : _data_sharing(data_sharing),
                 _omp_report_file(omp_report_file)
             {
             }
@@ -2815,14 +2813,12 @@ namespace TL { namespace OpenMP {
     struct ReportReductions : TL::Functor<void, ReductionSymbol>
     {
         private:
-            const locus_t* _locus;
             std::ofstream* _omp_report_file;
 
         public:
-            ReportReductions(const locus_t* locus,
+            ReportReductions(const locus_t*,
                     std::ofstream* omp_report_file)
-                : _locus(locus),
-                _omp_report_file(omp_report_file)
+                : _omp_report_file(omp_report_file)
             {
             }
 

@@ -1769,6 +1769,7 @@ static type_environment_t linux_amd64;
 static type_environment_t linux_ia64;
 static type_environment_t linux_ppc32;
 static type_environment_t linux_ppc64;
+static type_environment_t linux_ppc64_le;
 static type_environment_t linux_bgq_ppc64;
 static type_environment_t linux_spu;
 static type_environment_t linux_arm_eabi;
@@ -2005,7 +2006,7 @@ void init_type_environments(void)
     //     Linux PowerPC 32
     // ***************************+***************
     linux_ppc32.environ_id = "linux-ppc32";
-    linux_ppc32.environ_name = "Linux PowerPC 32";
+    linux_ppc32.environ_name = "Linux PowerPC 32 (ELFv1 Big Endian)";
 
     linux_ia64.endianness = ENV_BIG_ENDIAN;
 
@@ -2077,7 +2078,7 @@ void init_type_environments(void)
     //     Linux PowerPC 64
     // ***************************+***************
     linux_ppc64.environ_id = "linux-ppc64";
-    linux_ppc64.environ_name = "Linux PowerPC 64";
+    linux_ppc64.environ_name = "Linux PowerPC 64 (ELFv1 Big Endian)";
 
     linux_ppc64.endianness = ENV_BIG_ENDIAN;
 
@@ -2135,7 +2136,7 @@ void init_type_environments(void)
     // Valid both for C and C++
     linux_ppc64.compute_sizeof = generic_system_v_sizeof;
 
-    // In PPC64 a size_t is an unsigned long 
+    // In PPC64 a size_t is an unsigned long
     linux_ppc64.type_of_sizeof = get_unsigned_long_int_type;
     linux_ppc64.type_of_ptrdiff_t = get_signed_long_int_type;
 
@@ -2151,8 +2152,81 @@ void init_type_environments(void)
     // ***************************+***************
     linux_bgq_ppc64 = linux_ppc64;
     linux_bgq_ppc64.environ_id = "linux-bgq-ppc64";
-    linux_bgq_ppc64.environ_name = "BlueGene/Q PowerPC 64";
+    linux_bgq_ppc64.environ_name = "BlueGene/Q PowerPC 64 (ELFv1 Big Endian)";
     linux_bgq_ppc64.builtin_va_list_type = bgq_get_pointer_to_char;
+
+    // ***************************+***************
+    //     Linux PowerPC 64 Elv2 Little endian
+    // ***************************+***************
+    linux_ppc64_le.environ_id = "linux-ppc64-le";
+    linux_ppc64_le.environ_name = "Linux PowerPC 64 (ELFv2 Little Endian)";
+
+    linux_ppc64_le.endianness = ENV_LITTLE_ENDIAN;
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    linux_ppc64_le.sizeof_bool = 1;
+    linux_ppc64_le.alignof_bool = 1;
+
+    linux_ppc64_le.int_type_of_wchar_t = get_signed_int_type;
+    linux_ppc64_le.sizeof_wchar_t = 4;
+    linux_ppc64_le.alignof_wchar_t = 4;
+
+    linux_ppc64_le.sizeof_unsigned_short = 2;
+    linux_ppc64_le.alignof_unsigned_short = 2;
+
+    linux_ppc64_le.sizeof_signed_short = 2;
+    linux_ppc64_le.alignof_signed_short = 2;
+
+    linux_ppc64_le.sizeof_unsigned_int = 4;
+    linux_ppc64_le.alignof_unsigned_int = 4;
+
+    linux_ppc64_le.sizeof_signed_int = 4;
+    linux_ppc64_le.alignof_signed_int = 4;
+
+    linux_ppc64_le.sizeof_unsigned_long = 8;
+    linux_ppc64_le.alignof_unsigned_long = 8;
+
+    linux_ppc64_le.sizeof_signed_long = 8;
+    linux_ppc64_le.alignof_signed_long = 8;
+
+    linux_ppc64_le.sizeof_unsigned_long_long = 8;
+    linux_ppc64_le.alignof_unsigned_long_long = 8;
+
+    linux_ppc64_le.sizeof_signed_long_long = 8;
+    linux_ppc64_le.alignof_signed_long_long = 8;
+
+    DEFINE_FLOAT_TYPE(linux_ppc64_le, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_ppc64_le, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_ppc64_le, long_double, binary_float_2x64)
+
+    linux_ppc64_le.sizeof_pointer = 8;
+    linux_ppc64_le.alignof_pointer = 8;
+
+    // One 'ptrdiff_t'
+    linux_ppc64_le.sizeof_pointer_to_data_member = 8;
+    linux_ppc64_le.alignof_pointer_to_data_member = 8;
+
+    linux_ppc64_le.sizeof_function_pointer = 8;
+    linux_ppc64_le.alignof_function_pointer = 8;
+
+    // Two 'ptrdiff_t'
+    linux_ppc64_le.sizeof_pointer_to_member_function = 16;
+    linux_ppc64_le.alignof_pointer_to_member_function = 8;
+
+    // Valid both for C and C++
+    linux_ppc64_le.compute_sizeof = generic_system_v_sizeof;
+
+    // In PPC64 a size_t is an unsigned long
+    linux_ppc64_le.type_of_sizeof = get_unsigned_long_int_type;
+    linux_ppc64_le.type_of_ptrdiff_t = get_signed_long_int_type;
+
+    // In PPC64 'char' == 'unsigned char'
+    linux_ppc64_le.char_type = get_unsigned_char_type;
+
+    // __builtin_va_list
+    linux_ppc64_le.sizeof_builtin_va_list = 8;
+    linux_ppc64_le.alignof_builtin_va_list = 8;
 
     // ***************************+***************
     //     Linux SPU
@@ -2467,6 +2541,7 @@ type_environment_t* type_environment_list[] = {
     &linux_ppc32,
     &linux_ppc64,
     &linux_bgq_ppc64,
+    &linux_ppc64_le,
     &linux_amd64,
     &linux_spu,
     &linux_arm_eabi,

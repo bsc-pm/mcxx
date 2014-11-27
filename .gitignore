@@ -126,6 +126,7 @@ support/mpi/openmpi/mpi.mf03
 support/openmp/fortran/omp_lib.mf03
 support/openmp/fortran/omp_lib_kinds.mf03
 tests/05_torture_cxx_1.dg/mercurium
+tests/05_torture_cxx_1.dg/mercurium-cxx11
 tests/05_torture_cxx_2.dg/mercurium
 tests/07_phases_hlt.dg/mercurium
 tests/07_phases_omp.dg/simd/test.log

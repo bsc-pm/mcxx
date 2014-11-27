@@ -80,7 +80,7 @@ namespace Analysis {
         void add_control_structure(ControlStructure cs);
         ObjectList<ControlStructure> get_control_structures();
         
-        friend class TDG_Edge;
+        friend struct TDG_Edge;
         friend class TaskDependencyGraph;
     };
 
@@ -96,7 +96,7 @@ namespace Analysis {
         TDG_Node* get_source();
         TDG_Node* get_target();
         
-        friend class TDG_Node;
+        friend struct TDG_Node;
         friend class TaskDependencyGraph;
     };
     

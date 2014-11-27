@@ -78,9 +78,9 @@ namespace TL { namespace Nanox {
         return _name;
     }
 
-    void TargetInformation::append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    void TargetInformation::set_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
     {
-        _ndrange_exprs.append(ndrange_exprs);
+        _ndrange_exprs = ndrange_exprs;
     }
 
     ObjectList<Nodecl::NodeclBase> TargetInformation::get_ndrange() const
@@ -88,9 +88,9 @@ namespace TL { namespace Nanox {
         return _ndrange_exprs;
     }
 
-    void TargetInformation::append_to_shmem(const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
+    void TargetInformation::set_shmem(const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
     {
-        _shmem_exprs.append(shmem_exprs);
+        _shmem_exprs = shmem_exprs;
     }
 
     ObjectList<Nodecl::NodeclBase> TargetInformation::get_shmem() const
@@ -98,7 +98,7 @@ namespace TL { namespace Nanox {
         return _shmem_exprs;
     }
 
-    void TargetInformation::append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto_exprs)
+    void TargetInformation::set_onto(const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
         _onto_exprs.append(onto_exprs);
     }

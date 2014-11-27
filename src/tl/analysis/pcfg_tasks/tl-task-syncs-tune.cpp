@@ -164,6 +164,7 @@ namespace {
         return modification_type;
     }
 
+#if 0
     SyncModification match_variable_values(
             Node* n_node, Node* m_node,
             const NBase& n, const NBase& m,
@@ -219,6 +220,7 @@ namespace {
 
         return modification_type;
     }
+#endif
 
     SyncModification match_array_subscripts(Node* n_node, Node* m_node,
                                             const Nodecl::List& n_subs, const Nodecl::List& m_subs,

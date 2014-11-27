@@ -66,6 +66,7 @@ struct gather_decl_spec_tag {
     // type-specifiers and decl-specifiers
     bool is_auto_storage:1;
     bool is_auto_type:1;
+    bool is_decltype_auto:1;
     bool is_register:1;
     bool is_static:1;
     bool is_extern:1;

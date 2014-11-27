@@ -68,7 +68,8 @@ LIBMCXX_EXTERN char check_initialization(AST initializer,
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto_type);
+        char is_auto_type,
+        char is_decltype_auto);
 
 LIBMCXX_EXTERN void check_nodecl_initialization(
         nodecl_t nodecl_initializer,
@@ -76,12 +77,20 @@ LIBMCXX_EXTERN void check_nodecl_initialization(
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto_type);
+        char is_auto_type,
+        char is_decltype_auto);
 
-LIBMCXX_EXTERN void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void compute_nodecl_initialization(AST initializer,
+        decl_context_t decl_context,
+        char preserve_top_level_parentheses,
+        nodecl_t* nodecl_output);
 
 // Used in some TL phases, do not remove
-LIBMCXX_EXTERN void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void check_initializer_clause(AST initializer,
+        decl_context_t decl_context,
+        type_t* declared_type,
+        char is_decltype_auto,
+        nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
         const locus_t* locus,
@@ -174,6 +183,7 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(
         decl_context_t,
         const locus_t* locus);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus);
+LIBMCXX_EXTERN nodecl_t cxx_nodecl_wrap_in_parentheses(nodecl_t n);
 
 LIBMCXX_EXTERN scope_entry_t* resolve_symbol_this(decl_context_t decl_context);
  

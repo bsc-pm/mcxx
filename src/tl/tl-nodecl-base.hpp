@@ -36,6 +36,7 @@
 #include "cxx-nodecl.h"
 #include "cxx-utils.h"
 #include <cstdlib>
+#include <tr1/array>
 
 namespace Nodecl {
 
@@ -75,11 +76,14 @@ namespace Nodecl {
             void set_locus(const locus_t*l ) { nodecl_set_locus(_n, l); }
             const nodecl_t& get_internal_nodecl() const { return _n; }
             nodecl_t& get_internal_nodecl() { return _n; }
-            TL::ObjectList<NodeclBase> children() const {
-                TL::ObjectList<NodeclBase> result;
+
+            typedef std::tr1::array<NodeclBase, MCXX_MAX_AST_CHILDREN> Children;
+
+            Children children() const {
+                Children result;
                 for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
                 {
-                    result.push_back(nodecl_get_child(_n, i));
+                    result[i] = nodecl_get_child(_n, i);
                 }
                 return result;
             }
@@ -149,13 +153,9 @@ namespace Nodecl {
             void append_sibling(Nodecl::NodeclBase items) const;
             void prepend_sibling(Nodecl::NodeclBase items) const;
 
-            // Works like replace but handles lists.
-            DEPRECATED void integrate(Nodecl::NodeclBase new_node) const;
-
             // This sets this Nodecls as childs of the current node
-            void rechild(const TL::ObjectList<NodeclBase>& new_childs)
+            void rechild(const Children &new_childs)
             {
-                ERROR_CONDITION(new_childs.size() != ::MCXX_MAX_AST_CHILDREN, "Invalid list of children", 0);
                 for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
                 {
                     nodecl_set_child(_n, i, new_childs[i].get_internal_nodecl());

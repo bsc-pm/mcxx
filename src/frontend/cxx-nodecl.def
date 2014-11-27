@@ -311,15 +311,15 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_VALUE_INITIALIZATION() symbol
+                  | NODECL_VALUE_INITIALIZATION() symbol type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
                   | cxx-pack
 
 # Used for C++11 lambdas
-explicit-capture: NODECL_CXX_CAPTURE_COPY() symbol
-                | NODECL_CXX_CAPTURE_REFERENCE() symbol
+explicit-capture: NODECL_CXX_CAPTURE_COPY([init] expression-opt) symbol
+                | NODECL_CXX_CAPTURE_REFERENCE([init] expression-opt) symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 
@@ -363,7 +363,7 @@ cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
     | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type
     | NODECL_CXX_EQUAL_INITIALIZER([init]expression) type
-    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
+    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt) type
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
     | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression)
