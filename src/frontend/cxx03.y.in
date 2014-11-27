@@ -627,6 +627,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> lambda_capture_default
 %type<ast> lambda_capture_list
 %type<ast> lambda_capture_item
+%type<ast> lambda_capture_item_simple
+%type<ast> lambda_capture_item_init
 %type<ast> lambda_declarator
 %type<ast> lambda_declarator_opt
 %type<ast> lambda_expression
@@ -5556,7 +5558,17 @@ lambda_capture_list : lambda_capture_item
 }
 ;
 
-lambda_capture_item : identifier_token
+lambda_capture_item : lambda_capture_item_simple
+{
+    $$ = $1;
+}
+| lambda_capture_item_init
+{
+    $$ = $1;
+}
+;
+
+lambda_capture_item_simple : identifier_token
 {
 	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -5567,6 +5579,16 @@ lambda_capture_item : identifier_token
 | TOKEN_THIS
 {
 	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_THIS, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+lambda_capture_item_init : identifier_token initializer
+{
+	$$ = ASTMake1(AST_LAMBDA_CAPTURE_VALUE_INIT, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| '&' identifier_token initializer
+{
+	$$ = ASTMake1(AST_LAMBDA_CAPTURE_ADDRESS_INIT, $3, make_locus($1.token_file, $1.token_line, 0), $2.token_text);
 }
 ;
 

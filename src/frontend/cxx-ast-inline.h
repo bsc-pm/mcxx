@@ -92,17 +92,17 @@ static inline int ast_bitmap_to_index(unsigned int bitmap, int num)
 #endif
 }
 
-static inline int ast_son_num_to_son_index(const_AST a, int num_son)
+ALWAYS_INLINE static inline int ast_son_num_to_son_index(const_AST a, int num_son)
 {
     return ast_bitmap_to_index(a->bitmap_sons, num_son);
 }
 
-static inline char ast_has_son(const_AST a, int son)
+ALWAYS_INLINE static inline char ast_has_son(const_AST a, int son)
 {
     return (((1 << son) & a->bitmap_sons) != 0);
 }
 
-static inline AST ast_get_child(const_AST a, int num_child)
+ALWAYS_INLINE static inline AST ast_get_child(const_AST a, int num_child)
 {
     if (ast_has_son(a, num_child))
     {
