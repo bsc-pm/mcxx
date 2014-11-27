@@ -52,40 +52,57 @@
 char ast_check(const_AST node)
 {
     char check = 1;
-    if (node != NULL)
-    {
-        int i;
-        if (ast_get_kind(node) != AST_AMBIGUITY)
-        {
-            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-            {
-                if (ast_get_child(node, i) != NULL)
-                {
-                    if (ast_get_parent(ast_get_child(node, i)) != node)
-                    {
-                        check = 0;
-                        AST wrong_parent = ast_get_parent(ast_get_child(node, i));
-                        fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
-                                i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
-                                wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
-                                wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
-                                wrong_parent);
+    if (node == NULL)
+        return check;
 
-                    }
-                    else
-                    {
-                        check &= ast_check(ast_get_child(node, i));
-                    }
+    // Already visited. See below
+    if (__builtin_expect(((((intptr_t)node->parent) & 0x1) == 0x1), 0))
+    {
+        check = 0;
+        fprintf(stderr, "ERROR: Cycle detected in node '%s'\n", ast_location(node));
+        return check;
+    }
+
+    int i;
+    if (ast_get_kind(node) != AST_AMBIGUITY)
+    {
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN && check; i++)
+        {
+            if (ast_get_child(node, i) != NULL)
+            {
+                if (ast_get_parent(ast_get_child(node, i)) != node)
+                {
+                    check = 0;
+                    AST wrong_parent = ast_get_parent(ast_get_child(node, i));
+                    fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
+                            i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
+                            wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
+                            wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
+                            wrong_parent);
+                }
+                else
+                {
+                    // Tag this node as visited to avoid infinite recursion under the presence
+                    // of cycles (note that this works as long as AST pointers are at least
+                    // aligned to two bytes)
+                    ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) | 0x1);
+
+                    check = check && ast_check(ast_get_child(node, i));
+
+                    // Remove tag
+                    ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) & ~0x1);
                 }
             }
         }
-        else 
+    }
+    else
+    {
+        ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) | 0x1);
+        for (i = 0; i < node->num_ambig && check; i++)
         {
-            for (i = 0; i < node->num_ambig; i++)
-            {
-                check &= ast_check(node->ambig[i]);
-            }
+            check = check && ast_check(node->ambig[i]);
         }
+        ((AST)node)->parent = (struct AST_tag*)(((intptr_t)node->parent) & ~0x1);
     }
     return check;
 }
