@@ -1350,36 +1350,35 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-disable_vectorization="no"
+is_enabled_vectorization="yes"
 AC_MSG_CHECKING([if disabled Vectorization build and install])
 AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler]),
+  AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
   [
-    if test x$enableval = xno -o x$enableval = x;
+    if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_vectorization="no"
+      is_enabled_vectorization="yes"
       AC_MSG_RESULT([no])
     else if test x$enableval = xno;
       then
-        disable_vectorization="no"
-        AC_MSG_RESULT([no])
+        is_enabled_vectorization="no"
+        AC_MSG_RESULT([yes])
       else
         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
       fi
     fi
   ],
   [
-    disable_vectorization="no"
+    is_enabled_vectorization="yes"
     AC_MSG_RESULT([no])
-  ]
-)
+  ])
 
-if test x$disable_vectorization = xyes;
+if test x$is_enabled_vectorization = xno;
 then
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$disable_vectorization = xno])
+AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$is_enabled_vectorization = xyes])
 
 dnl ------------------------------------
 
@@ -1415,9 +1414,10 @@ then
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
   AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
-  if test x$disable_vectorization = xno
+  if test x$is_enabled_vectorization = xyes
   then
-    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled])
+    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled.
+* To do that, you should use the --disable-vectorization flag])
   fi
 fi
 
@@ -2144,11 +2144,11 @@ echo ""
 echo " * Optional phases :"
 echo ""
 
-if test x$disable_vectorization = xyes;
+if test x$is_enabled_vectorization = xyes;
 then
-  echo "   Vectorization build and install disabled"
-else
   echo "   Vectorization build and install enabled"
+else
+  echo "   Vectorization build and install disabled"
 fi
 
 if test x$disable_analysis = xyes;
