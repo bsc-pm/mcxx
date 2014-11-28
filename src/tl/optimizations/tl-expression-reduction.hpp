@@ -49,11 +49,6 @@ namespace Optimizations {
     *         -    c2     =>    c1-c2     t            c1    -     =>  c1-c2     t
     *       /   \                                          /  \
     *     c1    t                                        c2   t
-    * R6i :      +                     +      
-    *          /   \                 /   \
-    *         +    c     =>         +    t1
-    *       /   \                  /  \
-    *     t1    t2                c   t2
     *
     * R7 :   *                                     R8 :    *                 *
     *      /   \          =>     c1 * c2                 /   \     =>      /   \

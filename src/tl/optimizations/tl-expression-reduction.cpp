@@ -55,17 +55,6 @@ namespace Optimizations {
                             n.replace(lhs_rhs.shallow_copy());
                         }
                     }
-                    else
-                    {
-                        // R6i
-                        // Diego: I commented this rule some time ago.
-                        //        This rule is needed but it will probably
-                        //        make something fail or maybe it was commented
-                        //        for debugging. Let's keep this comment for a while
-                        Nodecl::NodeclBase tmp = lhs_lhs.shallow_copy();
-                        lhs_lhs.replace(rhs.shallow_copy());
-                        rhs.replace(tmp);
-                    }
                 }
                 else if(lhs.is<Nodecl::Minus>())
                 {   // R6c
@@ -87,9 +76,18 @@ namespace Optimizations {
                         }
                     }
                 }
-                else
-                {   // R2
-                    n.replace(Nodecl::Add::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+
+                // R2: This rule applys independetly from the kind of lhs
+                // Re-check again everything, the node could have changed
+                if (n.is<Nodecl::Add>())
+                {
+                    lhs = n.get_lhs();
+                    rhs = n.get_rhs();
+                    
+                    if (!lhs.is_constant() && rhs.is_constant())
+                    {
+                        n.replace(Nodecl::Add::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+                    }
                 }
             }
             else if(lhs.is_constant())
@@ -553,9 +551,18 @@ namespace Optimizations {
                             }
                         }
                     }
-                    else
-                    {   // R8
-                        n.replace(Nodecl::Mul::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+
+                    // R8: This rule applys independetly from the kind of lhs
+                    // Re-check again everything, the node could have changed
+                    if (n.is<Nodecl::Mul>())
+                    {
+                        lhs = n.get_lhs();
+                        rhs = n.get_rhs();
+
+                        if (!lhs.is_constant() && rhs.is_constant())
+                        {
+                            n.replace(Nodecl::Mul::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+                        }
                     }
                 }
             }
@@ -634,9 +641,19 @@ namespace Optimizations {
                         }
                     }
                 }
-                else
-                {   // R2
-                    n.replace(Nodecl::VectorAdd::make(rhs.shallow_copy(), lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
+
+                // R2: This rule applys independetly from the kind of lhs
+                // Re-check again everything, the node could have changed
+                if (n.is<Nodecl::VectorAdd>())
+                {
+                    lhs = n.get_lhs();
+                    rhs = n.get_rhs();
+                    
+                    if (!lhs.is_constant() && rhs.is_constant())
+                    {
+                        n.replace(Nodecl::VectorAdd::make(rhs.shallow_copy(), lhs.shallow_copy(), 
+                                    n.get_mask().shallow_copy(), lhs.get_type(), n.get_locus()));
+                    }
                 }
             }
             else if(lhs.is_constant())
@@ -1068,9 +1085,19 @@ namespace Optimizations {
                             }
                         }
                     }
-                    else
-                    {   // R8
-                        n.replace(Nodecl::VectorMul::make(rhs.shallow_copy(), lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
+                    
+                    // R2: This rule applys independetly from the kind of lhs
+                    // Re-check again everything, the node could have changed
+                    if (n.is<Nodecl::VectorMul>())
+                    {
+                        lhs = n.get_lhs();
+                        rhs = n.get_rhs();
+
+                        if (!lhs.is_constant() && rhs.is_constant())
+                        {
+                            n.replace(Nodecl::VectorMul::make(rhs.shallow_copy(), lhs.shallow_copy(), 
+                                        n.get_mask().shallow_copy(), lhs.get_type(), n.get_locus()));
+                        }
                     }
                 }
             }
