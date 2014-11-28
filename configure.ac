@@ -62,6 +62,8 @@ AC_PROG_LN_S
 dnl Check fortran compiler
 AC_PROG_FC
 
+dnl C++11 -std=c++11
+AX_CXX_COMPILE_STDCXX_11([noext],[optional])
 
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
