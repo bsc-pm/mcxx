@@ -18101,8 +18101,6 @@ void check_nodecl_braced_initializer(
                         if (!nodecl_is_err_expr(nodecl_init_output))
                         {
                             diagnostic_context_pop_and_commit();
-                            // It seems fine
-                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
                             // Keep the constant
                             if (type_stack[type_stack_idx].num_values >= 0)
                             {
@@ -18137,6 +18135,28 @@ void check_nodecl_braced_initializer(
                                         = nodecl_get_constant(nodecl_init_output);
                                 }
                             }
+
+                            // Create a designator if possible
+                            if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER)
+                            {
+                                if (designator_is_ok)
+                                {
+                                    // Keep the designator
+                                    nodecl_t designator = nodecl_get_child(list[i], 0);
+                                    nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                                }
+                            }
+                            else
+                            {
+                                nodecl_craft_designator(nodecl_init_output,
+                                        type_stack,
+                                        type_stack_idx,
+                                        nodecl_get_locus(list[i]),
+                                        &nodecl_init_output);
+                            }
+
+                            // It seems fine
+                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
                             // This item has been consumed
                             i++;
                             type_stack[type_stack_idx].item++;
