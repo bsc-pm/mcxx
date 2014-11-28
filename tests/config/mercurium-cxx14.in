@@ -12,12 +12,12 @@ function detect_gcc_version() {
 
 detect_gcc_version
 
-if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 8 ')' ];
+if [ $GCC_VERSION_MAJOR -lt 3 -o '(' $GCC_VERSION_MAJOR -eq 4 -a $GCC_VERSION_MINOR -lt 9 ')' ];
 then
 
 cat <<EOF
 test_ignore=yes
-test_ignore_reason="requires g++ 4.8 or better"
+test_ignore_reason="requires g++ 4.9 or better"
 EOF
 
 else
@@ -25,7 +25,7 @@ else
 cat <<EOF
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose"
 test_CC="do_not_use_this_profile_for_c"
-test_CXX="\${MCXX} --profile=plaincxx -std=c++11"
+test_CXX="\${MCXX} --profile=plaincxx -std=c++14"
 test_FC="do_not_use_this_profile_for_fortran"
 
 if [ "$test_nolink" = "no" -o "$1" = "run" ];

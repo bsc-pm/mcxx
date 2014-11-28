@@ -47,47 +47,75 @@
 #include "cxx-nodecl-decls.h"
 
 /**
-  Checks that double-linked nodes are
+  Checks that nodes are really doubly-linked.
+
+  We used to have the usual recursive traversal here
+  but some big trees feature very deep recursion
+  which caused stack overflows.
  */
-char ast_check(const_AST node)
+char ast_check(const_AST root)
 {
-    char check = 1;
-    if (node != NULL)
+    int stack_capacity = 1024;
+    int stack_length = 1;
+    const_AST *stack = xmalloc(stack_capacity * sizeof(*stack));
+
+    stack[0] = root;
+
+#define PUSH_BACK(child) \
+{ \
+    if (stack_length == stack_capacity) \
+    { \
+        stack_capacity *= 2; \
+        stack = xrealloc(stack, stack_capacity * sizeof(*stack)); \
+    } \
+    stack_length++; \
+    stack[stack_length - 1] = (child); \
+}
+
+    char ok = 1;
+    while (stack_length > 0 && ok)
     {
+        const_AST node = stack[stack_length - 1];
+        stack_length--;
+
         int i;
         if (ast_get_kind(node) != AST_AMBIGUITY)
         {
-            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN && ok; i++)
             {
-                if (ast_get_child(node, i) != NULL)
+                AST c = ast_get_child(node, i);
+                if (c != NULL)
                 {
-                    if (ast_get_parent(ast_get_child(node, i)) != node)
+                    if (ast_get_parent(c) != node)
                     {
-                        check = 0;
-                        AST wrong_parent = ast_get_parent(ast_get_child(node, i));
+                        AST wrong_parent = ast_get_parent(c);
                         fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
                                 i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
                                 wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
                                 wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
                                 wrong_parent);
-
+                        ok = 0;
                     }
                     else
                     {
-                        check &= ast_check(ast_get_child(node, i));
+                        PUSH_BACK(c);
                     }
                 }
             }
         }
-        else 
+        else
         {
             for (i = 0; i < node->num_ambig; i++)
             {
-                check &= ast_check(node->ambig[i]);
+                AST c = node->ambig[i];
+                PUSH_BACK(c);
             }
         }
     }
-    return check;
+
+    xfree(stack);
+
+    return ok;
 }
 
 static void ast_copy_one_node(AST dest, AST orig)

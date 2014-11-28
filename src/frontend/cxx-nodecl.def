@@ -318,8 +318,8 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | cxx-pack
 
 # Used for C++11 lambdas
-explicit-capture: NODECL_CXX_CAPTURE_COPY() symbol
-                | NODECL_CXX_CAPTURE_REFERENCE() symbol
+explicit-capture: NODECL_CXX_CAPTURE_COPY([init] expression-opt) symbol
+                | NODECL_CXX_CAPTURE_REFERENCE([init] expression-opt) symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 

@@ -2618,7 +2618,7 @@ CLEANFILES += src/driver/cxx-target-tools.h
 src/driver/cxx-configoptions.c : $(srcdir)/src/driver/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/src/driver/cxx-configfile.h
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
-      --lookup-function-name=configoptions_lookup --output=src/driver/cxx-configoptions.c \
+      --lookup-function-name=configoptions_lookup_inline --output=src/driver/cxx-configoptions.c \
       --initializer-suffix=,NULL $(srcdir)/src/driver/cxx-configoptions.gperf
 else
 	@echo "*** ERROR: file cxx-configoptions.gperf was modified but no suitable gperf was found during configure ***"
@@ -2628,7 +2628,7 @@ endif
 src/driver/cxx-fileextensions.c : $(srcdir)/src/driver/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
-      --lookup-function-name=fileextensions_lookup --output=src/driver/cxx-fileextensions.c \
+      --lookup-function-name=fileextensions_lookup_inline --output=src/driver/cxx-fileextensions.c \
       --initializer-suffix=,SOURCE_LANGUAGE_UNKNOWN,SOURCE_KIND_UNKNOWN $(srcdir)/src/driver/cxx-fileextensions.gperf
 else
 	@echo "*** ERROR: file cxx-fileextensions.gperf was modified but no suitable gperf was found during configure ***"
@@ -2638,7 +2638,7 @@ endif
 src/driver/cxx-debugflags.c : $(srcdir)/src/driver/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
-      --lookup-function-name=debugflags_lookup --output=src/driver/cxx-debugflags.c \
+      --lookup-function-name=debugflags_lookup_inline --output=src/driver/cxx-debugflags.c \
       --global-table --word-array-name=debugflags_list \
 	  "--initializer-suffix=,0,\"\"" $(srcdir)/src/driver/cxx-debugflags.gperf
 else
