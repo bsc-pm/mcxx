@@ -1384,31 +1384,32 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Analysis ----------------------------
 
-disable_analysis="no"
+is_enabled_analysis="yes"
 AC_MSG_CHECKING([if disabled Analysis build and install])
 AC_ARG_ENABLE([analysis],
   AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_analysis="no"
+      is_enabled_analysis="yes"
       AC_MSG_RESULT([no])
     else if test x$enableval = xno;
       then
+
+        is_enabled_analysis="no"
         AC_MSG_RESULT([yes])
-        disable_analysis="yes"
       else
         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
       fi
     fi
   ],
   [
-    disable_analysis="no"
+    is_enabled_analysis="yes"
     AC_MSG_RESULT([no])
   ]
 )
 
-if test x$disable_analysis = xno;
+if test x$is_enabled_analysis = xyes;
 then
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
@@ -1421,17 +1422,17 @@ else
   fi
 fi
 
-AM_CONDITIONAL([BUILD_ANALYSIS], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_HLT],           test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
 
 
 CORRECTNESS_LOG_DIR=""
 
-if test x$disable_analysis = xno;
+if test x$is_enabled_analysis = xyes;
 then
     AC_ARG_WITH([correctness-logs],
         AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
@@ -2151,11 +2152,11 @@ else
   echo "   Vectorization build and install disabled"
 fi
 
-if test x$disable_analysis = xyes;
+if test x$is_enabled_analysis = xyes;
 then
-  echo "   Analysis build and install disabled"
-else
   echo "   Analysis build and install enabled"
+else
+  echo "   Analysis build and install disabled"
 fi
 
 echo ""
