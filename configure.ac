@@ -427,41 +427,18 @@ fi
 dnl -- End of extra compiler checks ---
 
 dnl --------------------- Support for OMPSS ------------------------------------------
-is_enabled_openmpt="no"
-dnl Legacy name of openmpt
-AC_MSG_CHECKING([if enabled OpenMPT (ENCORE) support in the compiler])
-AC_ARG_ENABLE([openmpt],
-    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE). This is an alias for --enable-ompss]),
-    [
-      if test x$enableval = xyes -o x$enableval = x;
-      then
-         is_enabled_openmpt="yes"
-         AC_MSG_RESULT([yes])
-      else if test x$enableval = xno;
-           then
-              is_enabled_openmpt="no"
-              AC_MSG_RESULT([no])
-           else
-              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-           fi
-      fi
-    ],
-    [
-       AC_MSG_RESULT([no])
-    ]
-)
-
-AC_MSG_CHECKING([if enabled OpenMPSs (ENCORE) support in the compiler])
+is_enabled_ompss="no"
+AC_MSG_CHECKING([if enabled OmpSs support in the compiler])
 AC_ARG_ENABLE([ompss],
-    AS_HELP_STRING([--enable-ompss], [Enables support of OpenMPSs (ENCORE)]),
+    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
-         is_enabled_openmpt="yes"
+         is_enabled_ompss="yes"
          AC_MSG_RESULT([yes])
       else if test x$enableval = xno;
            then
-              is_enabled_openmpt="no"
+              is_enabled_ompss="no"
               AC_MSG_RESULT([no])
            else
               AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
@@ -495,10 +472,10 @@ AC_ARG_ENABLE([tl-openmp-nanox],
     fi
   ],
   [
-    if test x$is_enabled_openmpt = xyes;
+    if test x$is_enabled_ompss = xyes;
     then
         is_enabled_tl_omp_nanox="yes"
-          AC_MSG_RESULT([yes (ENCORE)])
+          AC_MSG_RESULT([yes])
     else
           is_enabled_tl_omp_nanox="no"
           AC_MSG_RESULT([no])
@@ -525,7 +502,7 @@ MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
 
-if test x$is_enabled_openmpt = xyes;
+if test x$is_enabled_ompss = xyes;
 then
     nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
