@@ -120,6 +120,12 @@ namespace Optimizations {
     *   /  \                      / \    
     *  c   t1                    t1  t2
     *
+    * R51b : +                  -
+    *      /   \              /   \
+    *     -     t2        => c     - 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
     * R51b : -                  +
     *      /   \              /   \
     *     +     t2        => c     - 
