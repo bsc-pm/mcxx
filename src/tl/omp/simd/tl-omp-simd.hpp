@@ -52,27 +52,25 @@ namespace TL
                 std::string _fast_math_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _knc_enabled_str;
-                std::string _prefer_gather_scatter_str;
-                std::string _prefer_mask_gather_scatter_str;
                 std::string _spml_enabled_str;
+                std::string _only_adjacent_accesses_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
                 bool _fast_math_enabled;
                 bool _avx2_enabled;
                 bool _knc_enabled;
-                bool _prefer_gather_scatter;
-                bool _prefer_mask_gather_scatter;
                 bool _spml_enabled;
+                bool _only_adjacent_accesses_enabled;
 
                 void set_simd(const std::string simd_enabled_str);
                 void set_svml(const std::string svml_enabled_str);
                 void set_fast_math(const std::string fast_math_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
-                void set_prefer_gather_scatter(const std::string prefer_gather_scatter_str);
-                void set_prefer_mask_gather_scatter(const std::string prefer_gather_scatter_str);
                 void set_spml(const std::string spml_enabled_str);
+                void set_only_adjcent_accesses(
+                        const std::string only_adjacent_accesses_str);
         };
 
         class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -114,7 +112,8 @@ namespace TL
 
             public:
                 SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled);
+                        bool fast_math_enabled, bool svml_enabled,
+                        bool only_adjacent_accesses);
 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
@@ -125,7 +124,8 @@ namespace TL
         {
             public:
                 SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled);
+                        bool fast_math_enabled, bool svml_enabled,
+                        bool only_adjacent_accesses);
 
                 using SimdVisitor::visit;
                 virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);

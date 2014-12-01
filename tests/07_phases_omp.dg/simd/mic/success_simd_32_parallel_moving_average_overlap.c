@@ -26,6 +26,7 @@
 
 /*
 <testinfo>
+test_CFLAGS=--only-adjacent-accesses
 test_generator=config/mercurium-parallel-simd-mic
 </testinfo>
 */

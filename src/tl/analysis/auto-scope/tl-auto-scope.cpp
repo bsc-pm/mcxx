@@ -31,93 +31,7 @@ namespace TL {
 namespace Analysis {
 
 namespace {
-    
-#if 0
-    bool sync_in_all_branches(Node* current, Node* original)
-    {
-        bool res = false;
-        
-        if(!current->is_visited_aux())
-        {
-            current->set_visited_aux(true);
-            
-            if(!current->is_exit_node())
-            {
-                if(current->is_graph_node())
-                {
-                    if(current->is_ifelse_statement() || current->is_switch_statement())
-                    {
-                        Node* condition = current->get_graph_entry_node()->get_children()[0];
-                        ObjectList<Node*> children = condition->get_children();
-                        bool partial_res = true;
-                        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end() && partial_res; ++it)
-                        {
-                            partial_res = partial_res && sync_in_all_branches(*it, original);
-                        }
-                        res = partial_res;
-                    }
-                    else if(current->is_omp_barrier_graph_node())
-                    {
-                        res = true;
-                    }
-                    else
-                    {
-                        res = sync_in_all_branches(current->get_graph_entry_node(), original);
-                    }
-                }
-                else if(current->is_omp_taskwait_node())
-                {
-                    res = true;
-                }
-                
-                // If we are navigating inside a graph node
-                if(!res && (current != original))
-                {
-                    ObjectList<Node*> children = current->get_children();
-                    ERROR_CONDITION(children.size() != 1, 
-                                     "PCFG non-conditional nodes other than a graph exit node, are expected to have one child.\n"\
-                                     "Node '%d' has '%d' children.\n", current->get_id(), children.size());
-                    bool partial_res = true;
-                    for(ObjectList<Node*>::iterator it = children.begin(); it != children.end() && partial_res; ++it)
-                    {
-                        partial_res = partial_res && sync_in_all_branches(*it, original);
-                    }
-                    res = partial_res;
-                }
-            }
-        }
-        
-        return res;
-    }
-    
-    void collect_tasks_between_nodes(Node* current, Node* last, Node* skip, ObjectList<Node*>& result)
-    {
-        if(!current->is_visited() && (current != last))
-        {
-            current->set_visited(true);
-            
-            if(current->is_exit_node())
-                return;
-            
-            if(current->is_graph_node())
-            {
-                // Add inner tasks recursively, if exist
-                collect_tasks_between_nodes(current->get_graph_entry_node(), last, skip, result);
-                
-                // Add current node if it is a task
-                if(current->is_omp_task_node() && (current != skip))
-                    result.insert(current);
-            }
-            
-            ObjectList<Node*> children = current->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-            {
-                collect_tasks_between_nodes(*it, last, skip, result);
-            }
-        }
-    }
-#endif
-    
+
     Utils::UsageKind compute_usage_in_region_rec(Node* current, NBase n, Node* region)
     {
         Utils::UsageKind result(Utils::UsageKind::NONE);
@@ -250,13 +164,13 @@ namespace {
     {
         _simultaneous_tasks = _graph->get_task_concurrent_tasks(task);
         
-        const ObjectList<Node*>& last_sync = _graph->get_task_last_synchronization(task);
-        const ObjectList<Node*>& next_sync = _graph->get_task_next_synchronization(task);
+        const ObjectList<Node*>& last_sync = _graph->get_task_last_sync_for_tasks(task);
+        const ObjectList<Node*>& next_sync = _graph->get_task_next_sync_for_tasks(task);
         if (VERBOSE)
         {
             std::cerr << "    Task concurrent regions limits: \n";
             if (last_sync.empty())
-                std::cerr << "        * Last sync not fund" << std::endl;
+                std::cerr << "        * Last sync not found" << std::endl;
             else
             {
                 std::cerr << "        * Last sync:  ";

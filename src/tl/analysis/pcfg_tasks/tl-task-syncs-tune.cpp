@@ -522,7 +522,7 @@ match_array_subscripts_end:
         _pcfg->disconnect_nodes(source, target);
         
         // Remove the target from the list of "next_synchronizations" of the source
-        _pcfg->remove_next_synchronization(source, target);
+        _pcfg->remove_next_sync_for_tasks(source, target);
     }
     
 }

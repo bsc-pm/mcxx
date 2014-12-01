@@ -2692,7 +2692,7 @@ next_it:    ;
 
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
-        const char* s = "create";
+        const char* s = "Create";
         int slen = strlen(s);
         NBase label = Nodecl::StringLiteral::make(
                 Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
@@ -2732,7 +2732,7 @@ next_it:    ;
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
-        const char* s = "create";
+        const char* s = "Create";
         int slen = strlen(s);
         NBase label = Nodecl::StringLiteral::make(
                 Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
