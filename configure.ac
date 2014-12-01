@@ -37,7 +37,6 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
-dnl Check cc
 AC_PROG_CC
 AM_PROG_CC_C_O
 
@@ -111,9 +110,8 @@ AC_COMPILE_IFELSE(
      #endif
    ]])],
    [AC_MSG_RESULT([ok])],
-   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
+   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is requested])]
 )
-
 
 dnl --------------------- end check of old gcc ---
 
@@ -1330,27 +1328,34 @@ dnl ------------------------------------
 dnl ---------------------- TL Vectorization ----------------------------
 
 is_enabled_vectorization="yes"
-AC_MSG_CHECKING([if disabled Vectorization build and install])
-AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-      is_enabled_vectorization="yes"
-      AC_MSG_RESULT([no])
-    else if test x$enableval = xno;
-      then
-        is_enabled_vectorization="no"
-        AC_MSG_RESULT([yes])
-      else
-        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-      fi
-    fi
-  ],
-  [
-    is_enabled_vectorization="yes"
-    AC_MSG_RESULT([no])
-  ])
+AC_MSG_CHECKING([if enabling Vectorization build and install])
+if test x$HAVE_CXX11 = x1;
+then
+    AC_ARG_ENABLE([vectorization],
+        AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
+        [
+            if test x$enableval = xyes -o x$enableval = x;
+            then
+                is_enabled_vectorization="yes"
+                AC_MSG_RESULT([no])
+            else if test x$enableval = xno;
+                then
+                    is_enabled_vectorization="no"
+                    AC_MSG_RESULT([yes])
+                else
+                    AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                fi
+            fi
+        ],
+        [
+            is_enabled_vectorization="yes"
+            AC_MSG_RESULT([no2])
+        ])
+else
+    is_enabled_vectorization="no"
+    AC_MSG_RESULT([no (gcc 4.7 or higher is requested)])
+fi
+
 
 if test x$is_enabled_vectorization = xno;
 then
@@ -1364,7 +1369,7 @@ dnl ------------------------------------
 dnl ---------------------- TL Analysis ----------------------------
 
 is_enabled_analysis="yes"
-AC_MSG_CHECKING([if disabled Analysis build and install])
+AC_MSG_CHECKING([if enabling Analysis build and install])
 AC_ARG_ENABLE([analysis],
   AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
   [
