@@ -2039,10 +2039,17 @@ AS_MKDIR_P([support/openmp/fortran])
 AS_MKDIR_P([support/mpi/openmpi])
 AS_MKDIR_P([support/mpi/mpich])
 
+cxxdialect="C++2003"
+if test "$HAVE_CXX11" = "1";
+then
+    cxxdialect="C++2011"
+fi
 
 echo ""
 echo "Mercurium configuration summary"
 echo "==============================="
+echo ""
+echo " * C++ dialect used to build Mercurium : $cxxdialect"
 echo ""
 echo " * Tools configured:"
 echo ""
