@@ -37,43 +37,51 @@
 #define AVX2_MASK_BIT_SIZE 0
 
 
-#define _CMP_EQ_OQ     0x00
-#define _CMP_LT_OS     0x01
-#define _CMP_LE_OS     0x02
-#define _CMP_UNORD_Q   0x03
-#define _CMP_NEQ_UQ    0x04
-#define _CMP_NLT_US    0x05
-#define _CMP_NLE_US    0x06
-#define _CMP_ORD_Q     0x07
-#define _CMP_EQ_UQ     0x08
-#define _CMP_NGE_US    0x09
-#define _CMP_NGT_US    0x0A
-#define _CMP_FALSE_OQ  0x0B
-#define _CMP_NEQ_OQ    0x0C
-#define _CMP_GE_OS     0x0D
-#define _CMP_GT_OS     0x0E
-#define _CMP_TRUE_UQ   0x0F
-#define _CMP_EQ_OS     0x10
-#define _CMP_LT_OQ     0x11
-#define _CMP_LE_OQ     0x12
-#define _CMP_UNORD_S   0x13
-#define _CMP_NEQ_US    0x14
-#define _CMP_NLT_UQ    0x15
-#define _CMP_NLE_UQ    0x16
-#define _CMP_ORD_S     0x17
-#define _CMP_EQ_US     0x18
-#define _CMP_NGE_UQ    0x19
-#define _CMP_NGT_UQ    0x1A
-#define _CMP_FALSE_OS  0x1B
-#define _CMP_NEQ_OS    0x1C
-#define _CMP_GE_OQ     0x1D
-#define _CMP_GT_OQ     0x1E
-#define _CMP_TRUE_US   0x1F
+namespace AVX2Comparison
+{
 
-#define _MM_HINT_NONE 0x0
-#define _MM_HINT_NT   0x1
+const int EQ_OQ    = 0x00;
+const int LT_OS    = 0x01;
+const int LE_OS    = 0x02;
+const int UNORD_Q  = 0x03;
+const int NEQ_UQ   = 0x04;
+const int NLT_US   = 0x05;
+const int NLE_US   = 0x06;
+const int ORD_Q    = 0x07;
+const int EQ_UQ    = 0x08;
+const int NGE_US   = 0x09;
+const int NGT_US   = 0x0A;
+const int FALSE_OQ = 0x0B;
+const int NEQ_OQ   = 0x0C;
+const int GE_OS    = 0x0D;
+const int GT_OS    = 0x0E;
+const int TRUE_UQ  = 0x0F;
+const int EQ_OS    = 0x10;
+const int LT_OQ    = 0x11;
+const int LE_OQ    = 0x12;
+const int UNORD_S  = 0x13;
+const int NEQ_US   = 0x14;
+const int NLT_UQ   = 0x15;
+const int NLE_UQ   = 0x16;
+const int ORD_S    = 0x17;
+const int EQ_US    = 0x18;
+const int NGE_UQ   = 0x19;
+const int NGT_UQ   = 0x1A;
+const int FALSE_OS = 0x1B;
+const int NEQ_OS   = 0x1C;
+const int GE_OQ    = 0x1D;
+const int GT_OQ    = 0x1E;
+const int TRUE_US  = 0x1F;
 
-#define _MM_FROUND_CUR_DIRECTION     0x04
+};
+
+namespace AVX2MM
+{
+const int HINT_NONE = 0x0;
+const int HINT_NT   = 0x1;
+
+const int FROUND_CUR_DIRECTION  = 0x04;
+};
 
 
 namespace TL
@@ -549,7 +557,7 @@ namespace Vectorization
             << ", "
             << as_expression(third_op)
             << ", "
-            << _MM_FROUND_CUR_DIRECTION
+            << AVX2MM::FROUND_CUR_DIRECTION
             ;
 
         Nodecl::NodeclBase function_call =
@@ -572,7 +580,7 @@ namespace Vectorization
         if (type.is_float())
         {
             intrin_name << "_ps";
-            cmp_flavor << ", " << _CMP_LT_OS;
+            cmp_flavor << ", " << AVX2Comparison::LT_OS;
             turn = false;
         }
         else if (type.is_signed_int() ||
@@ -633,7 +641,7 @@ namespace Vectorization
         if (type.is_float())
         {
             cmp_intrin_suffix << "_ps";
-            cmp_flavor << ", " << _CMP_LE_OS;
+            cmp_flavor << ", " << AVX2Comparison::LE_OS;
             turn = false;
         }
         else if (type.is_signed_int() ||
@@ -704,7 +712,7 @@ namespace Vectorization
         if (type.is_float())
         {
             intrin_name << "_ps";
-            cmp_flavor << ", " << _CMP_GT_OS;
+            cmp_flavor << ", " << AVX2Comparison::GT_OS;
         }
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
@@ -750,7 +758,7 @@ namespace Vectorization
         if (type.is_float())
         {
             cmp_intrin_suffix << "_ps";
-            cmp_flavor << ", " << _CMP_GE_OS;
+            cmp_flavor << ", " << AVX2Comparison::GE_OS;
             turn = false;
         }
         else if (type.is_signed_int() ||
@@ -821,7 +829,7 @@ namespace Vectorization
         if (type.is_float())
         {
             intrin_name << "_ps";
-            cmp_flavor << ", " << _CMP_EQ_OQ;
+            cmp_flavor << ", " << AVX2Comparison::EQ_OQ;
         }
         else if (type.is_signed_int() ||
                 type.is_unsigned_int())
@@ -867,7 +875,7 @@ namespace Vectorization
         if (type.is_float())
         {
             cmp_intrin_suffix << "_ps";
-            cmp_flavor << ", " << _CMP_NEQ_UQ;
+            cmp_flavor << ", " << AVX2Comparison::NEQ_UQ;
             turn = false;
         }
         else if (type.is_signed_int() ||
