@@ -137,6 +137,9 @@ namespace Optimizations {
             // The node could have changed
             if (n.is<Nodecl::Add>())
             {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
                 // R50a: 
                 // TODO: This rule is changing the order of the operations (as many other).
                 //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
@@ -515,6 +518,9 @@ namespace Optimizations {
             // The node could have changed
             if (n.is<Nodecl::Minus>())
             {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
                 // R50b: 
                 // TODO: This rule is changing the order of the operations (as many other).
                 //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
@@ -660,6 +666,9 @@ namespace Optimizations {
             // The node could have changed
             if (n.is<Nodecl::Mul>())
             {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
                 // R50c: 
                 // TODO: This rule is changing the order of the operations (as many other).
                 //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
@@ -818,6 +827,9 @@ namespace Optimizations {
             // The node could have changed
             if (n.is<Nodecl::VectorAdd>())
             {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
                 // R50a: 
                 // TODO: This rule is changing the order of the operations (as many other).
                 //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
@@ -1167,6 +1179,9 @@ namespace Optimizations {
             // The node could have changed
             if (n.is<Nodecl::VectorMinus>())
             {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
                 // R50b: 
                 // TODO: This rule is changing the order of the operations (as many other).
                 //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
@@ -1310,6 +1325,7 @@ namespace Optimizations {
             // The node could have changed
             if (n.is<Nodecl::VectorMul>())
             {
+
                 // R50c: 
                 // TODO: This rule is changing the order of the operations (as many other).
                 //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
