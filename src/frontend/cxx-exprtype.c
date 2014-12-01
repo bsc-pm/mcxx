@@ -23691,7 +23691,7 @@ struct special_member_info_tag
     const char* (*function_name)(type_t*, decl_context_t);
 } special_member_info_t;
 
-static const char* constructor_name(type_t* class_type,
+static const char* get_constructor_name(type_t* class_type,
         decl_context_t decl_context)
 {
     ERROR_CONDITION(!is_named_class_type(class_type), "Invalid class", 0);
@@ -23799,7 +23799,7 @@ static void define_defaulted_copy_constructor(scope_entry_t* entry,
 
     special_member_info_t special_member = {
         class_type_get_copy_constructors,
-        constructor_name,
+        get_constructor_name,
     };
     apply_function_to_data_layout_members(
             named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
@@ -23865,7 +23865,7 @@ static void define_defaulted_move_constructor(scope_entry_t* entry,
 
     special_member_info_t special_member = {
         class_type_get_move_constructors,
-        constructor_name,
+        get_constructor_name,
     };
     apply_function_to_data_layout_members(
             named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
