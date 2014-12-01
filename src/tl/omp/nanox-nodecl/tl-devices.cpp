@@ -1428,26 +1428,6 @@ namespace TL { namespace Nanox {
                 new_shmem_exprs);
     }
 
-
-//    bool DeviceProvider::is_serializable(TL::Symbol& sym){
-//        bool serializable=false;
-//        TL::Type ser_type = sym.get_type();
-//        //If the object is a class, generate everything so nanox can it
-//        if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
-//                TL::Symbol sym_serializer = ser_type.get_symbol();
-//                if (sym_serializer.get_type().is_pointer_to_class()){
-//                    ser_type= sym_serializer.get_type().get_pointer_to();
-//                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-//                }
-//                ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
-//                ObjectList<TL::Symbol>::iterator ser_it;
-//                for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !serializable; ++ser_it){
-//                    if (ser_it->get_name()=="serialize") serializable=true;
-//                }    
-//        }
-//        return serializable;
-//    }
-
 } }
 
 namespace TL

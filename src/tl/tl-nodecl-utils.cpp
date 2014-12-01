@@ -578,7 +578,7 @@ namespace Nodecl
         {
             Nodecl::NodeclBase target_node = *it;
 
-            //Conversions!
+            // Conversions!
             if (target_node.get_parent() != Nodecl::NodeclBase::null() &&
                     !replacement.is<Nodecl::Symbol>() &&
                     target_node.get_parent().is<Nodecl::Conversion>())
@@ -586,8 +586,7 @@ namespace Nodecl
                 Nodecl::Conversion parent_conv =
                     target_node.as<Nodecl::Conversion>();
 
-                if (parent_conv.get_type().no_ref() ==
-                        replacement.get_type())
+                if (parent_conv.get_type().no_ref().is_same_type(replacement.get_type()))
                 {
                     target_node = target_node.get_parent();
                 }

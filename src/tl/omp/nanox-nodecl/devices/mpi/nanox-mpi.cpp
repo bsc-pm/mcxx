@@ -52,76 +52,6 @@ static std::string get_outline_name(const std::string & name) {
 }
 
 
-
-static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items) {
-    //If there are other non-mpi devices and we modify some data sharing, throw a warning
-//    bool check_for_incompatibility=false;
-//    bool is_incompatible=false;
-//    
-//    OutlineInfo::implementation_table_t implementation_table = outlineInfo.get_implementation_table();
-//    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-//            it != implementation_table.end() && !check_for_incompatibility;
-//            ++it)
-//    {
-//        TargetInformation target_info = it->second;
-//        ObjectList<std::string> devices = target_info.get_device_names();
-//        for (ObjectList<std::string>::iterator it2 = devices.begin();
-//                it2 != devices.end() && !check_for_incompatibility;
-//                ++it2)
-//        {
-//            if (*it2!="mpi" || *it2!="MPI") check_for_incompatibility=true;
-//        }
-//    }
-//    if (IS_FORTRAN_LANGUAGE){
-//        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//                it != data_items.end();
-//                it++)
-//        {
-//            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
-//                continue;
-//            }
-//             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
-//            if ((*it)->get_symbol().is_allocatable()){
-//                if ((*it)->get_symbol().is_from_module()){  
-////                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-//                    (*it)->set_sharing(OutlineDataItem::SHARING_ALLOCA);
-//                    (*it)->get_copies().clear();
-//                } else {
-////                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-//                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-//                    (*it)->get_copies().clear();
-//                }
-//            } else {
-//               if ((*it)->get_symbol().is_from_module()) {
-////                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-//                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
-//               } else {            
-//                    if ((*it)->get_copies().empty()){
-////                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-//                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-//                    }
-//               }
-//            }
-//        }
-//    }
-        
-//    if (is_incompatible) std::cerr << "warning: error in MPI task, do not mix MPI device tasks with other devices (implements or multi-device)"
-//            " in this situation " << std::endl;
-    
-//    std::vector<std::string> probanding;
-//    probanding.push_back("waw");
-//    probanding.push_back("SHARED");
-//    probanding.push_back("SHARED CAPTUR");
-//    probanding.push_back("SHARING_PRIVATE");
-//    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//            it != data_items.end();
-//            it++)
-//    {
-//         std::cout << (*it)->get_symbol().get_name() << " es " << probanding.at((*it)->get_sharing()) << " con copias " << !(*it)->get_copies().empty() << " \n";
-//    }
-////    
-}
-
 void DeviceMPI::generate_additional_mpi_code(
         const TL::ObjectList<OutlineDataItem*>& data_items,
         const TL::Symbol& struct_args,
@@ -316,7 +246,6 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map) {
     
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    preprocess_datasharing(data_items);
     
     // Unpack DTO 
     const std::string& device_outline_name = get_outline_name(info._outline_name);
@@ -471,18 +400,33 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     //If is from module(fort)/common (fort)/global (C) and is sharing ca or sharing shared (no sharing capture)
                     //copy address and data
                     if ((*it)->get_symbol().is_allocatable() && (*it)->get_copy_of_array_descriptor()!=NULL){  
-                        std::string symbol_name=(*it)->get_symbol().get_name();
-                        std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
+                        if ( !(*it)->get_copies().empty() ) {
+                            std::string symbol_name=(*it)->get_symbol().get_name();
+                            std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
 
-                        data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
-                        //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
-                        //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
-                        if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                            ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
-                            TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
-                                    info._original_statements.retrieve_context());
+                            data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
+                            //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
+                            //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
+                            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                        info._original_statements.retrieve_context());
 
-                            data_input_global << "offload_err = nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
+                                data_input_global << "offload_err = nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
+                            }
+                        } else {
+
+                            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                std::string symbol_name=(*it)->get_symbol().get_name();
+                                TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                            info._original_statements.retrieve_context());
+                                data_input_global << "args." << symbol_name <<"= " << ptr_of_sym.get_name() << "(" << symbol_name <<");";  
+                            } else {                                
+                                std::string symbol_name=(*it)->get_symbol().get_name();
+                                std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
+                                data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
+                            }
                         }
                     }
 

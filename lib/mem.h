@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #if defined(__GNUC__) && __GNUC__ >= 4
   #if defined(__GNUC_MINOR__) && __GNUC_MINOR__ >= 4
     #define MEM_WARN_UNUSED __attribute__((warn_unused_result))
@@ -29,6 +33,8 @@ char *xstrdup(const char *s) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
 }
 #endif
 
+// In C++11 there are inline functions that use malloc
+#if !defined(HAVE_CXX11)
 // Some systems redefine these as macros
 #undef malloc
 #undef calloc
@@ -41,5 +47,6 @@ char *xstrdup(const char *s) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
 #define free   (+use_xfree_instead)
 #define realloc (+use_xrealloc_instead)
 #define strdup (+use_xstrdup_instead)
+#endif
 
 #endif // MEM_H
