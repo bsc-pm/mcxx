@@ -4827,7 +4827,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
     AST data_stmt_set_list = ASTSon0(a);
 
     scope_entry_t* entry = get_or_create_data_symbol_info(decl_context);
-    
+
     AST it;
     for_each_element(data_stmt_set_list, it)
     {
@@ -4903,11 +4903,9 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
             }
         }
 
-        entry->value = nodecl_append_to_list(entry->value, 
-                nodecl_make_context(
-                    nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ast_get_locus(data_stmt_set)),
-                    decl_context,
-                    ast_get_locus(data_stmt_set)));
+        entry->value = nodecl_append_to_list(entry->value,
+                nodecl_make_fortran_data(nodecl_item_set,
+                    nodecl_data_set, ast_get_locus(data_stmt_set)));
     }
 }
 
@@ -5780,11 +5778,7 @@ static void build_scope_equivalence_stmt(AST a,
                 ast_get_locus(equivalence_set));
 
         equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
-                nodecl_make_context(
-                    nodecl_equivalence,
-                    decl_context,
-                    ast_get_locus(equivalence_set))
-                );
+                    nodecl_equivalence);
     }
 
 }
