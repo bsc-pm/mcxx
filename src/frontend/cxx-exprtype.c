@@ -13601,9 +13601,7 @@ static void implement_nongeneric_lambda_expression(
                 ancillary,
                 nodecl_make_function_code(
                     nodecl_make_context(
-                        nodecl_make_list_1(
-                            nodecl_compound_statement
-                            ),
+                        nodecl_compound_statement,
                         block_context,
                         locus),
                     nodecl_null(),
@@ -13628,21 +13626,20 @@ static void implement_nongeneric_lambda_expression(
         //    return __ancillary__;
         // }
         nodecl_compound_statement =
-            nodecl_make_compound_statement(
-                    nodecl_make_list_1(
-                        nodecl_make_return_statement(
-                            nodecl_ancillary_ref,
-                            locus)),
-                    nodecl_null(),
-                    locus);
+            nodecl_make_list_1(
+                    nodecl_make_compound_statement(
+                        nodecl_make_list_1(
+                            nodecl_make_return_statement(
+                                nodecl_ancillary_ref,
+                                locus)),
+                        nodecl_null(),
+                        locus));
 
         symbol_entity_specs_set_function_code(
                 conversion,
                 nodecl_make_function_code(
                     nodecl_make_context(
-                        nodecl_make_list_1(
-                            nodecl_compound_statement
-                            ),
+                        nodecl_compound_statement,
                         block_context,
                         locus),
                     nodecl_null(),
@@ -14311,9 +14308,7 @@ static void implement_generic_lambda_expression(
                 ancillary,
                 nodecl_make_template_function_code(
                     nodecl_make_context(
-                        nodecl_make_list_1(
-                            nodecl_compound_statement
-                            ),
+                        nodecl_compound_statement,
                         block_context,
                         locus),
                     nodecl_null(),
@@ -14340,21 +14335,20 @@ static void implement_generic_lambda_expression(
         //    return __ancillary__;
         // }
         nodecl_compound_statement =
-            nodecl_make_compound_statement(
-                    nodecl_make_list_1(
-                        nodecl_make_return_statement(
-                            nodecl_ancillary_ref,
-                            locus)),
-                    nodecl_null(),
-                    locus);
+            nodecl_make_list_1(
+                    nodecl_make_compound_statement(
+                        nodecl_make_list_1(
+                            nodecl_make_return_statement(
+                                nodecl_ancillary_ref,
+                                locus)),
+                        nodecl_null(),
+                        locus));
 
         symbol_entity_specs_set_function_code(
                 conversion,
                 nodecl_make_template_function_code(
                     nodecl_make_context(
-                        nodecl_make_list_1(
-                            nodecl_compound_statement
-                            ),
+                        nodecl_compound_statement,
                         block_context,
                         locus),
                     nodecl_null(),
