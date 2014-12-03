@@ -65,7 +65,7 @@ void h(void)
     @const-value-check@(t5[0].y);
     @const-value-check@(t5[1].y);
 
-    @const-value-check@(t8); // this one include unknown members
+    @const-value-check@(t8); // this one includes unknown members
     @const-value-check@(t8.d);
 
     @const-value-check@(t9[0]);

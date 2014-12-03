@@ -62,6 +62,8 @@ AC_PROG_LN_S
 dnl Check fortran compiler
 AC_PROG_FC
 
+dnl C++11 -std=c++11
+AX_CXX_COMPILE_STDCXX_11([noext],[optional])
 
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
@@ -427,41 +429,18 @@ fi
 dnl -- End of extra compiler checks ---
 
 dnl --------------------- Support for OMPSS ------------------------------------------
-is_enabled_openmpt="no"
-dnl Legacy name of openmpt
-AC_MSG_CHECKING([if enabled OpenMPT (ENCORE) support in the compiler])
-AC_ARG_ENABLE([openmpt],
-    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE). This is an alias for --enable-ompss]),
-    [
-      if test x$enableval = xyes -o x$enableval = x;
-      then
-         is_enabled_openmpt="yes"
-         AC_MSG_RESULT([yes])
-      else if test x$enableval = xno;
-           then
-              is_enabled_openmpt="no"
-              AC_MSG_RESULT([no])
-           else
-              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-           fi
-      fi
-    ],
-    [
-       AC_MSG_RESULT([no])
-    ]
-)
-
-AC_MSG_CHECKING([if enabled OpenMPSs (ENCORE) support in the compiler])
+is_enabled_ompss="no"
+AC_MSG_CHECKING([if enabled OmpSs support in the compiler])
 AC_ARG_ENABLE([ompss],
-    AS_HELP_STRING([--enable-ompss], [Enables support of OpenMPSs (ENCORE)]),
+    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
-         is_enabled_openmpt="yes"
+         is_enabled_ompss="yes"
          AC_MSG_RESULT([yes])
       else if test x$enableval = xno;
            then
-              is_enabled_openmpt="no"
+              is_enabled_ompss="no"
               AC_MSG_RESULT([no])
            else
               AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
@@ -495,10 +474,10 @@ AC_ARG_ENABLE([tl-openmp-nanox],
     fi
   ],
   [
-    if test x$is_enabled_openmpt = xyes;
+    if test x$is_enabled_ompss = xyes;
     then
         is_enabled_tl_omp_nanox="yes"
-          AC_MSG_RESULT([yes (ENCORE)])
+          AC_MSG_RESULT([yes])
     else
           is_enabled_tl_omp_nanox="no"
           AC_MSG_RESULT([no])
@@ -525,7 +504,7 @@ MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
 
-if test x$is_enabled_openmpt = xyes;
+if test x$is_enabled_ompss = xyes;
 then
     nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
@@ -1350,88 +1329,89 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-disable_vectorization="no"
+is_enabled_vectorization="yes"
 AC_MSG_CHECKING([if disabled Vectorization build and install])
 AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler]),
+  AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
   [
-    if test x$enableval = xno -o x$enableval = x;
+    if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_vectorization="no"
+      is_enabled_vectorization="yes"
       AC_MSG_RESULT([no])
     else if test x$enableval = xno;
       then
-        disable_vectorization="no"
-        AC_MSG_RESULT([no])
+        is_enabled_vectorization="no"
+        AC_MSG_RESULT([yes])
       else
         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
       fi
     fi
   ],
   [
-    disable_vectorization="no"
+    is_enabled_vectorization="yes"
     AC_MSG_RESULT([no])
-  ]
-)
+  ])
 
-if test x$disable_vectorization = xyes;
+if test x$is_enabled_vectorization = xno;
 then
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$disable_vectorization = xno])
+AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$is_enabled_vectorization = xyes])
 
 dnl ------------------------------------
 
 dnl ---------------------- TL Analysis ----------------------------
 
-disable_analysis="no"
+is_enabled_analysis="yes"
 AC_MSG_CHECKING([if disabled Analysis build and install])
 AC_ARG_ENABLE([analysis],
   AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_analysis="no"
+      is_enabled_analysis="yes"
       AC_MSG_RESULT([no])
     else if test x$enableval = xno;
       then
+
+        is_enabled_analysis="no"
         AC_MSG_RESULT([yes])
-        disable_analysis="yes"
       else
         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
       fi
     fi
   ],
   [
-    disable_analysis="no"
+    is_enabled_analysis="yes"
     AC_MSG_RESULT([no])
   ]
 )
 
-if test x$disable_analysis = xno;
+if test x$is_enabled_analysis = xyes;
 then
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
   AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
-  if test x$disable_vectorization = xno
+  if test x$is_enabled_vectorization = xyes
   then
-    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled])
+    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled.
+* To do that, you should use the --disable-vectorization flag])
   fi
 fi
 
-AM_CONDITIONAL([BUILD_ANALYSIS], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_HLT],           test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
 
 
 CORRECTNESS_LOG_DIR=""
 
-if test x$disable_analysis = xno;
+if test x$is_enabled_analysis = xyes;
 then
     AC_ARG_WITH([correctness-logs],
         AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
@@ -2059,10 +2039,17 @@ AS_MKDIR_P([support/openmp/fortran])
 AS_MKDIR_P([support/mpi/openmpi])
 AS_MKDIR_P([support/mpi/mpich])
 
+cxxdialect="C++2003"
+if test "$HAVE_CXX11" = "1";
+then
+    cxxdialect="C++2011"
+fi
 
 echo ""
 echo "Mercurium configuration summary"
 echo "==============================="
+echo ""
+echo " * C++ dialect used to build Mercurium : $cxxdialect"
 echo ""
 echo " * Tools configured:"
 echo ""
@@ -2144,18 +2131,18 @@ echo ""
 echo " * Optional phases :"
 echo ""
 
-if test x$disable_vectorization = xyes;
+if test x$is_enabled_vectorization = xyes;
 then
-  echo "   Vectorization build and install disabled"
-else
   echo "   Vectorization build and install enabled"
+else
+  echo "   Vectorization build and install disabled"
 fi
 
-if test x$disable_analysis = xyes;
+if test x$is_enabled_analysis = xyes;
 then
-  echo "   Analysis build and install disabled"
-else
   echo "   Analysis build and install enabled"
+else
+  echo "   Analysis build and install disabled"
 fi
 
 echo ""

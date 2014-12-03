@@ -92,7 +92,7 @@ namespace Analysis{
                                 if((sym_name == "malloc") && (args.size() == 1))
                                 {   // void* malloc (size_t size);
                                     Type arg0_t = args[0].get_type();
-                                    if(return_t.is_pointer() && return_t.points_to().is_void() && (arg0_t == get_size_t_type()))
+                                    if(return_t.is_pointer() && return_t.points_to().is_void() && arg0_t.is_same_type(get_size_t_type()))
                                     {   // We recognize the form 'sizeof(base_type) * n_elemes' and 'n_elemes * sizeof(base_type)'
                                         if(args[0].is<Nodecl::Mul>())
                                         {
@@ -109,8 +109,9 @@ namespace Analysis{
                                 {   // void* calloc (size_t num, size_t size);
                                     Type arg0_t = args[0].get_type();
                                     Type arg1_t = args[1].get_type();
-                                    if(return_t.is_pointer() && return_t.points_to().is_void() && 
-                                        (arg0_t == get_size_t_type()) && (arg1_t ==get_size_t_type()))
+                                    if(return_t.is_pointer() && return_t.points_to().is_void()
+                                            && arg0_t.is_same_type(get_size_t_type())
+                                            && arg1_t.is_same_type(get_size_t_type()))
                                     {
                                         size = args[0];
                                     }

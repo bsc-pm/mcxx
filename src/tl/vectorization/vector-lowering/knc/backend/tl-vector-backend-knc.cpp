@@ -555,32 +555,32 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LT_OS, "_MM_CMPINT_LT");
+        common_comparison_op_lowering(n, KNCComparison::LT_OS, "_MM_CMPINT_LT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LE_OS, "_MM_CMPINT_LE");
+        common_comparison_op_lowering(n, KNCComparison::LE_OS, "_MM_CMPINT_LE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GT_OS, "_MM_CMPINT_NLE");
+        common_comparison_op_lowering(n, KNCComparison::GT_OS, "_MM_CMPINT_NLE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GE_OS, "_MM_CMPINT_NLT");
+        common_comparison_op_lowering(n, KNCComparison::GE_OS, "_MM_CMPINT_NLT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorEqual& n)
     {
-        common_comparison_op_lowering(n, _CMP_EQ_OQ, "_MM_CMPINT_EQ");
+        common_comparison_op_lowering(n, KNCComparison::EQ_OQ, "_MM_CMPINT_EQ");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorDifferent& n)
     {
-        common_comparison_op_lowering(n, _CMP_NEQ_UQ, "_MM_CMPINT_NE");
+        common_comparison_op_lowering(n, KNCComparison::NEQ_UQ, "_MM_CMPINT_NE");
     }
 
     void KNCVectorBackend::bitwise_binary_op_lowering(const Nodecl::NodeclBase& n,

@@ -282,7 +282,7 @@ namespace TL
                     mr.read(t);
                     mr.read(q);
 
-                    table.insert(std::make_pair<T, Q>(t, q));
+                    table.insert(std::make_pair(t, q));
                 }
             }
         };

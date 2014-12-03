@@ -119,7 +119,7 @@ namespace Optimizations {
                     Nodecl::NodeclBase rhs_rhs = rhs_minus.get_rhs();
                     if(rhs_lhs.is_constant())
                     {   // R6d
-                        Nodecl::NodeclBase c = Nodecl::Minus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), lhs.get_type());
+                        Nodecl::NodeclBase c = Nodecl::Add::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), lhs.get_type());
                         const_value_t* c_value = _calc.compute_const_value(c);
                         if(!const_value_is_zero(c_value))
                         {

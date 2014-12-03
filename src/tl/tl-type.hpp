@@ -357,8 +357,6 @@ namespace TL
             //! Returns the alignment of the type
             int get_alignment_of();
 
-            bool operator==(Type t) const;
-            bool operator!=(Type t) const;
             Type& operator=(Type t);
             bool operator<(Type t) const;
 
