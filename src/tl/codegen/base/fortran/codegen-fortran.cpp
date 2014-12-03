@@ -3618,11 +3618,6 @@ OPERATOR_TABLE
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
 
-        if (entry.get_name() == "struct_descriptor_0")
-        {
-        std::cerr << "---> " << entry.get_name() << std::endl;
-        }
-
         // This function has nothing to do with stuff coming from modules
         if (entry.is_from_module())
             return;
