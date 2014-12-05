@@ -137,6 +137,20 @@ namespace {
             is_iv = true;
         }
 
+        // Purge the results: if the variable detected as a possible IV is declared within the loop context,
+        // then it cannot be a IV of the loop!
+        if (!iv.is_null())
+        {
+            Scope loop_ctx = loop->get_graph_related_ast().retrieve_context();
+            Scope iv_ctx = Utils::get_nodecl_base(iv).get_symbol().get_scope();
+            if (iv_ctx.scope_is_enclosed_by(loop_ctx))
+            {
+                iv = Nodecl::NodeclBase::null();
+                incr = Nodecl::NodeclBase::null();
+                is_iv = false;
+            }
+        }
+
         return is_iv;
     }
 }
