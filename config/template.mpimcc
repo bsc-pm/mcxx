@@ -39,7 +39,7 @@ else
     ORIGINAL_MCC_COMPILER="${ORIGINAL_MCC_COMPILER}_imcc"
 fi
 #Extra flags for intel MPI (pretty hackish)
-if [[ `$ORIGINAL_MPI_COMPILER -help` == *I_MPI* ]] 
+if [[ `$ORIGINAL_MPI_COMPILER -help 2> /dev/null` == *I_MPI* ]]
 then
    MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -mt_mpi"
    EXTRA_MCC_FLAGS="$EXTRA_MCC_FLAGS -mt_mpi"
@@ -118,6 +118,11 @@ else
        fi
        echo "OmpSs MPI Offload library could not be compiled. Try to solve the problem if its related to your environment. If its not a problem from your environment, plase submit a ticket to https://pm.bsc.es/projects/nanox/newticket"
        exit -1
+   fi
+   #If the compiler has lmpi_cxx (openmpi), link manually with it because we'll use fortran mpi wrapper
+   if [[ `$ORIGINAL_CXX_MPI_COMPILER -show` == *-lmpi_cxx* ]] 
+   then
+      EXTRA_MCC_FLAGS="$EXTRA_MCC_FLAGS -lmpi_cxx"
    fi
 	${ORIGINAL_MCC_COMPILER} $EXTRA_MCC_FLAGS $OLDPPWD/temporaloffloadplugin$$.o $USER_FLAGS
 	rm -f $OLDPPWD/temporaloffloadplugin$$.o

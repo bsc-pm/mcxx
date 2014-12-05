@@ -192,7 +192,7 @@ namespace Analysis {
                            parents.size(), actual_etypes.size(), actual_elabels.size());
         }
 
-        ObjectList<Node*>::const_iterator it = parents.begin();
+            ObjectList<Node*>::const_iterator it = parents.begin();
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         for(; it != parents.end()

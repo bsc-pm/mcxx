@@ -676,8 +676,16 @@ namespace Nodecl
         }
         else if( container.is<Nodecl::ClassMemberAccess>( ) )
         {
-            Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
-            result = dataref_contains_dataref( container, lhs );
+            if (contained.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
+                result = dataref_contains_dataref(container, lhs);
+            }
+            else if (contained.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::NodeclBase subscripted = contained.as<Nodecl::ArraySubscript>().get_subscripted();
+                result = dataref_contains_dataref(container, subscripted);
+            }
         }
         else if( container.is<Nodecl::Symbol>( ) )
         {

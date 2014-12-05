@@ -81,6 +81,14 @@
   #define ALWAYS_INLINE
 #endif
 
+#if defined(__cplusplus) && defined(HAVE_CXX11)
+  #define OVERRIDE override
+  #define FINAL final
+#else
+  #define OVERRIDE
+  #define FINAL
+#endif
+
 #define UNUSED_FUNCTION UNUSED_PARAMETER
 
 #ifdef __cplusplus

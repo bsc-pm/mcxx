@@ -26,23 +26,40 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-analysis
+test_nolink=yes
+</testinfo>
+*/
 
-#ifndef TL_COMMON_HPP
-#define TL_COMMON_HPP
+float coeffs[10] = {0.9, 1.1, 1.2, 1.3, 1.4,
+    1.5, 1.6, 1.7, 1.8, 1.9};
 
-#ifdef _WIN32
-  #ifdef LIBTL_DLL_EXPORT
-    #define LIBTL_EXTERN extern __declspec(dllexport)
-    #define LIBTL_CLASS __declspec(dllexport)
-  #else
-    #define LIBTL_EXTERN extern __declspec(dllimport)
-    #define LIBTL_CLASS __declspec(dllimport)
-  #endif
-  #define LIBTL_ALWAYS_EXPORT __declspec(dllexport)
-#else
-  #define LIBTL_EXTERN extern
-  #define LIBTL_CLASS
-  #define LIBTL_ALWAYS_EXPORT 
-#endif
+// This test checks that variable 'tmp', which is local to the loop
+// is not falsely detected as an induction variable
+void foo (float *out, float d0)
+{
+    int i;
 
-#endif // TL_COMMON_HPP
+    #pragma analysis_check assert induction_var(i:0:15:1)
+    for (i=0; i < 16; i++)
+    {
+        float tmp  = coeffs[0] * d0;
+        tmp += coeffs[1] * d0;
+        out[i] = tmp;
+    }
+}
+
+void bar (float *out, float d0)
+{
+    int i, tmp;
+
+    #pragma analysis_check assert induction_var(i:0:15:1)
+    for (i=0; i < 16; i++)
+    {
+        tmp = coeffs[0] * d0;
+        tmp += coeffs[1] * d0;
+        out[i] = tmp;
+    }
+}
