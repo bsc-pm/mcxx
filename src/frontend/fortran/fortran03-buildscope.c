@@ -2798,13 +2798,14 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
 static type_t* choose_type_from_kind_function(nodecl_t expr, 
         type_t* (*kind_function)(int kind),
         int kind_size,
-        int default_kind_size)
+        int default_kind_size,
+        const char* type_name)
 {
     type_t* result = kind_function(kind_size);
 
     if (result == NULL)
     {
-        error_printf("%s: error: KIND=%d not supported\n", nodecl_locus_to_str(expr), kind_size);
+        error_printf("%s: error: %s(KIND=%d) not supported\n", nodecl_locus_to_str(expr), type_name, kind_size);
 
         result = kind_function(default_kind_size);
         // Desperate attempt
@@ -2822,22 +2823,38 @@ static type_t* choose_type_from_kind_function(nodecl_t expr,
 // This is why they are external
 type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_int_type_from_kind, kind_size, fortran_get_default_integer_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_int_type_from_kind,
+            kind_size,
+            fortran_get_default_integer_type_kind(),
+            "INTEGER");
 }
 
 type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_float_type_from_kind, kind_size, fortran_get_default_real_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_float_type_from_kind,
+            kind_size,
+            fortran_get_default_real_type_kind(),
+            "REAL");
 }
 
 type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_logical_type_from_kind, kind_size, fortran_get_default_logical_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_logical_type_from_kind,
+            kind_size,
+            fortran_get_default_logical_type_kind(),
+            "LOGICAL");
 }
 
 type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_character_type_from_kind, kind_size, fortran_get_default_character_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_character_type_from_kind,
+            kind_size,
+            fortran_get_default_character_type_kind(),
+            "CHARACTER");
 }
 
 static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type_t* (*fun)(nodecl_t expr, int kind_size),
