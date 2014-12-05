@@ -68,10 +68,7 @@ statement : statement-but-object-init
           | context
           | function-code
 
-context : NODECL_CONTEXT([in_context] in_context) context
-
-in_context : statement-seq-opt
-           | expression
+context : NODECL_CONTEXT([in_context] statement-seq-opt) context
 
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)

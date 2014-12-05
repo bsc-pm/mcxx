@@ -59,7 +59,8 @@ void DeviceMPI::generate_additional_mpi_code(
         TL::Source& code_host,
         TL::Source& code_device_pre,        
         TL::Source& code_device_post,
-        const TL::Symbol& curr_function) 
+        const TL::Symbol& curr_function_host,
+        const TL::Symbol& curr_function_dev ) 
 {    
     std::string ompss_get_mpi_type="ompss_get_mpi_type";
 
@@ -79,19 +80,30 @@ void DeviceMPI::generate_additional_mpi_code(
     new_dev_info.append(UNKOWN_RANKSRCDST);
 
 
-    code_host << "int offload_err; ";
     
+    Source type_name_host;
+    type_name_host << "(void*)"
+        << "(" << as_type(curr_function_host.get_type().get_pointer_to()) << " )"
+        << curr_function_host.get_qualified_name();
+    code_host << "int offload_err; ";
+    code_host << "int id_func_ompss=ompss_mpi_get_function_index_host(" << type_name_host << ")" << ";";
+    
+    
+    
+    Source type_name_dev;
+    type_name_dev << "(void*)"
+        << "(" << as_type(curr_function_dev.get_type().get_pointer_to()) << " )"
+        << curr_function_dev.get_qualified_name();
     Source struct_arg_type_name;
     struct_arg_type_name
          << ((struct_args.get_type().is_template_specialized_type()
                      &&  struct_args.get_type().is_dependent()) ? "typename " : "")
-         << struct_args.get_qualified_name();
-    //std::cout << "struct name " << struct_arg_type_name.get_source() << "\n";
-    
+         << struct_args.get_qualified_name();      
     code_device_pre << struct_arg_type_name.get_source() << " args;"
             << "int offload_err; "            
             << "MPI_Comm ompss_parent_comp; "            
-            << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);";
+            << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);"
+            << "int id_func_ompss=ompss_mpi_get_function_index_dev(" << type_name_dev << ")" << ";";
 
     Source typelist_src, blocklen_src, displ_src;
     //Source parameter_call;
@@ -101,29 +113,8 @@ void DeviceMPI::generate_additional_mpi_code(
     if (num_params>0){
         int count_params=num_params;
         Source struct_mpi_create, host_call, device_call;
-
-
-        Source type_name;
-        //type_name << "(void (*)(void*))"
-        type_name << "(void*)"
-				<< "(" << as_type(curr_function.get_type().get_pointer_to()) << " )"
-				<< curr_function.get_qualified_name();
-
-        host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host(" << type_name << ")" << ";";
-        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
-        //host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
-
-        //Recv datastruct from parent (rank will be ignored by nanox)
-        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp); ";
-
         for (int i = 0; i < num_params; ++i) { 
             std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
-            //TODO: Check if this is not needed
-//            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
-//                --count_params;
-//                continue;
-//            }
             
             displ_src.append_with_separator("(( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
             if (parameters_called[i].get_type().is_pointer()) {
@@ -142,79 +133,33 @@ void DeviceMPI::generate_additional_mpi_code(
 
         }
         
-        struct_mpi_create << "MPI_Datatype ompss___datatype;"
-                "MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
-                "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
-                "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};";
+        struct_mpi_create <<"MPI_Datatype* ompss___datatype;"
+                           "offload_err=nanos_mpi_type_get_struct( id_func_ompss, &ompss___datatype );"
+                           "if ( ompss___datatype == 0 )  "
+                           "{ "
+                               "MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
+                               "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
+                               "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};"
+                               "offload_err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, "
+                               "ompss___typelist, &ompss___datatype, id_func_ompss); "
+                           "}";       
 
-        struct_mpi_create << "offload_err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+        host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+
+        //Recv datastruct from parent (rank will be ignored by nanox)
+        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp); ";
+                
         code_host << struct_mpi_create
                 << host_call;
         code_device_pre << struct_mpi_create
                 << device_call;
-    //If there are no parameters, just send the order to start the task and wait for the ending ack
+    //If there are no parameters, just send the order to start the task
     } else {
-        Source type_name;
-        //type_name << "(void (*)(void*))"
-        type_name << "(void*)"
-				<< "(" << as_type(curr_function.get_type().get_pointer_to()) << " )"
-				<< curr_function.get_qualified_name();
-
-        code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host(" << type_name << ")" << ";";
         code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        //code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
     
-    if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
-//        int counter=0;
-        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
-                    it != data_items.end();
-                    it++)
-        {
-            OutlineDataItem& data_item=(*(*it));
-            TL::ObjectList<OutlineDataItem::CopyItem> copies = data_item.get_copies();
-            TL::Symbol data_sym= data_item.get_symbol();
-
-            //Only serialize when there are no copies and the symbol is serializable
-//            if (!copies.empty() && is_serializable(data_sym)){
-//                TL::Type ser_type = data_sym.get_type();
-//                TL::Symbol sym_serializer = ser_type.get_symbol();
-//                if (sym_serializer.get_type().is_pointer_to_class()){
-//                    ser_type= sym_serializer.get_type().get_pointer_to();
-//                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-//                }
-//                int input=0;
-//                int output=0;
-//                for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
-//                        copy_it != copies.end();
-//                        copy_it++)
-//                {
-//                    TL::DataReference data_ref(copy_it->expression);
-//                    OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
-//
-//                    Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
-//
-//                    input += (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-//                    output += (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-//                }
-//
-//                //If no input, warning (a serializable object MUST be input)
-//                if (input==0){
-//                    std::cerr << data_sym.get_locus_str() << ": warning: when serializing an object it must be declared as copy_in, skipping serialization "  << std::endl;
-//                } else {
-//                    if (output!=0) code_device_pre << "nanos::omemstream " << " " << "outbuff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";   
-//                    code_device_pre << "nanos::imemstream " << " " << "buff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";                    
-//                    code_device_pre << sym_serializer.get_qualified_name() << " " << "tmp_" << data_sym.get_name() << counter << "(buff_" << data_sym.get_name() << counter << ");";
-//                    code_device_pre << "args." << data_sym.get_name() << "=&tmp_" << data_sym.get_name() << counter << ";";
-//                    //If there is an output, serialize the object after the task, so when nanox comes back to the device, the buffer is updated
-//                    if (output!=0){
-//                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(outbuff_" << data_sym.get_name() << counter << ");";
-//                    }
-//                }
-//                ++counter;
-//            }
-        }
-    }
+    
     //Insert implicit #taskwait noflush after task
     code_device_post << "nanos_err_t tskwait_err;"
                      << " nanos_wd_t nanos_wd_ = nanos_current_wd(); "
@@ -223,9 +168,8 @@ void DeviceMPI::generate_additional_mpi_code(
                      << "  { "
                      << "    nanos_handle_error(tskwait_err); "
                      << "  } ";
-    code_device_post << "int ompss_id_func=" << _currTaskId << ";";
     //Send taskEnd to parent (rank will be ignored by nanox)
-    code_device_post << "offload_err= nanos_mpi_send_taskend(&ompss_id_func, 1, 0, ompss_parent_comp);";
+    code_device_post << "offload_err= nanos_mpi_send_taskend(&id_func_ompss, 1, 0, ompss_parent_comp);";
 
 
 }
@@ -466,7 +410,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                                 {
                                     TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
                                     TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
-                                    argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                    argument << "*(args." << (*it)->get_field_name() << ")";
                                 }
                                 CXX_LANGUAGE()
                                 {
@@ -491,12 +435,12 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                                     {
                                         TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
                                         TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
-                                        argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                        argument << "*(args." << (*it)->get_field_name() << ")";
                                     }
                                     else
                                     {
                                         TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
-                                        argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                        argument << "args." << (*it)->get_field_name();
                                     }
                                 }
 
@@ -577,7 +521,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             code_host,
             code_device_pre,
             code_device_post,
-            host_function);
+            host_function,
+            device_function);
     
     Source unpacked_source;
     Source extra_declarations;

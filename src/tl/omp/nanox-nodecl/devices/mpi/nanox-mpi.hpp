@@ -63,7 +63,8 @@ namespace TL
                     TL::Source& code_host,
                     TL::Source& code_device_pre,        
                     TL::Source& code_device_post,
-                    const TL::Symbol& curr_function);
+                    const TL::Symbol& curr_function,
+                    const TL::Symbol& curr_function_dev);
 
 //                  void add_included_cuda_files(FILE* file);                  
                   std::string get_ompss_mpi_type(Type type);
