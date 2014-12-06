@@ -1565,6 +1565,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.cpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-internals.hpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-internals.cpp \
+                           src/tl/vectorization/common/tl-vectorization-three-addresses.hpp \
+                           src/tl/vectorization/common/tl-vectorization-three-addresses.cpp \
                            $(END)
 endif
 

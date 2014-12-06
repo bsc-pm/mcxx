@@ -58,99 +58,63 @@ namespace Vectorization
         n.replace(Nodecl::Utils::linearize_array_subscript(n));
     }
 
+    template <typename OpAssignment, typename Op>  
+    void VectorizerVisitorPreprocessor::visit_op_assignment(const OpAssignment& n)
+    {
+        auto lhs = n.get_lhs();
+        auto rhs = n.get_rhs();
+
+        walk(lhs);
+        walk(rhs);
+
+        TL::Type lhs_type = lhs.get_type();
+
+        Nodecl::NodeclBase lhs_op;
+        if(lhs.template is<Nodecl::Symbol>() && lhs_type.is_lvalue_reference())
+        {
+            lhs_op = Nodecl::Conversion::make(
+                    lhs.shallow_copy(),
+                    lhs_type.references_to(),
+                    lhs.get_locus());
+        }    
+        else
+        {
+            lhs_op = lhs.shallow_copy();
+        }
+
+        const Nodecl::Assignment assignment =
+            Nodecl::Assignment::make(
+                    lhs.shallow_copy(),
+                    Op::make(
+                        lhs_op,
+                        rhs.shallow_copy(),
+                        lhs_type.no_ref(),
+                        lhs.get_locus()),
+                    n.get_type(),
+                    n.get_locus());
+
+        n.replace(assignment);
+    }
+
     void VectorizerVisitorPreprocessor::visit(const Nodecl::AddAssignment& n)
     {
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::Assignment assignment =
-            Nodecl::Assignment::make(
-                    n.get_lhs().shallow_copy(),
-                    Nodecl::Add::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        n.get_type(),
-                        n.get_locus()),
-                    n.get_type(),
-                    n.get_locus());
-
-        n.replace(assignment);
+        visit_op_assignment<Nodecl::AddAssignment, Nodecl::Add>(n);
     }
-
     void VectorizerVisitorPreprocessor::visit(const Nodecl::MinusAssignment& n)
     {
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::Assignment assignment =
-            Nodecl::Assignment::make(
-                    n.get_lhs().shallow_copy(),
-                    Nodecl::Minus::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        n.get_type(),
-                        n.get_locus()),
-                    n.get_type(),
-                    n.get_locus());
-
-        n.replace(assignment);
+        visit_op_assignment<Nodecl::MinusAssignment, Nodecl::Minus>(n);
     }
-
     void VectorizerVisitorPreprocessor::visit(const Nodecl::MulAssignment& n)
     {
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::Assignment assignment =
-            Nodecl::Assignment::make(
-                    n.get_lhs().shallow_copy(),
-                    Nodecl::Mul::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        n.get_type(),
-                        n.get_locus()),
-                    n.get_type(),
-                    n.get_locus());
-
-        n.replace(assignment);
+        visit_op_assignment<Nodecl::MulAssignment, Nodecl::Mul>(n);
     }
-
     void VectorizerVisitorPreprocessor::visit(const Nodecl::DivAssignment& n)
     {
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::Assignment assignment =
-            Nodecl::Assignment::make(
-                    n.get_lhs().shallow_copy(),
-                    Nodecl::Div::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        n.get_type(),
-                        n.get_locus()),
-                    n.get_type(),
-                    n.get_locus());
-
-        n.replace(assignment);
+        visit_op_assignment<Nodecl::DivAssignment, Nodecl::Div>(n);
     }
-
     void VectorizerVisitorPreprocessor::visit(const Nodecl::ModAssignment& n)
     {
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::Assignment assignment =
-            Nodecl::Assignment::make(
-                    n.get_lhs().shallow_copy(),
-                    Nodecl::Mod::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        n.get_type(),
-                        n.get_locus()),
-                    n.get_type(),
-                    n.get_locus());
-
-        n.replace(assignment);
+        visit_op_assignment<Nodecl::ModAssignment, Nodecl::Mod>(n);
     }
 
     void VectorizerVisitorPreprocessor::visit_pre_post_increment(

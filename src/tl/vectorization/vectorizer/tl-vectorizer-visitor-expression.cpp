@@ -906,37 +906,46 @@ namespace Vectorization
         // Therefore do nothing, I'm no longer a Conversion!!
         if (n.is<Nodecl::Conversion>())
         {
-            TL::Type src_type = n.get_nest().get_type();
-            TL::Type dst_type = n.get_type();
+            Nodecl::NodeclBase nest = n.get_nest();
 
-            if (src_type.no_ref().is_vector())
+            TL::Type src_vector_type = nest.get_type().no_ref();
+            TL::Type dst_type = n.get_type();           
+
+            if (src_vector_type.is_vector())
             {
-                // Remove rvalue conversions. In a vector code they are
-                // explicit loads ops.
-                //                    if (src_type != dst_type)
-
-                TL::Type dst_vec_type;
-
-                if (dst_type.is_bool())
-                    dst_vec_type = TL::Type::get_mask_type(
-                            _environment._vectorization_factor);
+                // Remove lvalue conversions.
+                // In a vector code they are explicit loads ops.
+                if (src_vector_type.basic_type().is_same_type(dst_type) &&
+                        (nest.is<Nodecl::VectorLoad>() ||
+                         nest.is<Nodecl::VectorGather>()))
+                {
+                    n.replace(nest.shallow_copy());
+                }
                 else
-                    dst_vec_type = Utils::get_qualified_vector_to(dst_type,
-                            _environment._vectorization_factor);
+                {
+                    TL::Type dst_vec_type;
+
+                    if (dst_type.is_bool())
+                        dst_vec_type = TL::Type::get_mask_type(
+                                _environment._vectorization_factor);
+                    else
+                        dst_vec_type = Utils::get_qualified_vector_to(dst_type,
+                                _environment._vectorization_factor);
 
 
-                Nodecl::VectorConversion vector_conv =
-                    Nodecl::VectorConversion::make(
-                            n.get_nest().shallow_copy(),
-                            mask,
-                            dst_vec_type,
-                            n.get_locus());
+                    Nodecl::VectorConversion vector_conv =
+                        Nodecl::VectorConversion::make(
+                                n.get_nest().shallow_copy(),
+                                mask,
+                                dst_vec_type,
+                                n.get_locus());
 
-                vector_conv.set_constant(const_value_convert_to_type(
-                            n.get_nest().get_constant(),
-                            dst_type.get_internal_type()));
+                    vector_conv.set_constant(const_value_convert_to_type(
+                                n.get_nest().get_constant(),
+                                dst_type.get_internal_type()));
 
-                n.replace(vector_conv);
+                    n.replace(vector_conv);
+                }
             }
         }
     }
