@@ -44,7 +44,8 @@ namespace TL
 
                 template <typename ScalarNode,
                          typename VectorNode>
-                    void visit_binary_op(const ScalarNode& n);
+                    void visit_binary_op(const ScalarNode& n,
+                            const bool returns_mask_type);
 
             public:
                 VectorizerVisitorExpression(

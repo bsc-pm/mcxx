@@ -41,7 +41,6 @@
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-vectorization-utils.hpp"
-#include "tl-vectorization-three-addresses.hpp"
 
 #include "tl-vectorizer-report.hpp"
 
@@ -114,9 +113,6 @@ namespace Vectorization
         vectorizer_postproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
-
-        VectorizationThreeAddresses three_addresses_visitor;
-        three_addresses_visitor.walk(n);
     }
 
     void Vectorizer::vectorize_loop(Nodecl::NodeclBase& loop_statement,

@@ -39,7 +39,7 @@ namespace Vectorization
             static unsigned long long int sym_counter;
             Nodecl::NodeclBase _object_init;
             
-            Nodecl::Symbol get_temporal_symbol(const Nodecl::NodeclBase& reference);
+            TL::Symbol get_temporal_symbol(const Nodecl::NodeclBase& reference);
 
             void decomp(const Nodecl::NodeclBase& n);
             void visit_vector_unary(const Nodecl::NodeclBase& n);
@@ -63,6 +63,7 @@ namespace Vectorization
             void visit(const Nodecl::VectorSincos& n);
             void visit(const Nodecl::VectorFunctionCall& n);
             void visit(const Nodecl::VectorAlignRight& n);
+            void visit(const Nodecl::VectorLoad& n);
             void visit(const Nodecl::VectorGather& n);
             void visit(const Nodecl::VectorStore& n);
             void visit(const Nodecl::VectorScatter& n);
@@ -88,7 +89,16 @@ namespace Vectorization
             void visit(const Nodecl::VectorBitwiseAnd& n);
             void visit(const Nodecl::VectorBitwiseOr& n);
             void visit(const Nodecl::VectorBitwiseXor& n);
-            
+           
+            void visit(const Nodecl::VectorMaskNot& n);
+            void visit(const Nodecl::VectorMaskAnd& n);
+            void visit(const Nodecl::VectorMaskOr& n);
+            void visit(const Nodecl::VectorMaskXor& n);
+            void visit(const Nodecl::VectorMaskAnd1Not& n);
+            void visit(const Nodecl::VectorMaskAnd2Not& n);
+
+            void visit(const Nodecl::VectorConversion& n);
+            void visit(const Nodecl::VectorConditionalExpression& n);
             void visit(const Nodecl::ForStatement& n);
             void visit(const Nodecl::WhileStatement& n);
     };

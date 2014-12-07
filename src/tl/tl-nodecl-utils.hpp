@@ -424,8 +424,6 @@ namespace Utils {
             const Nodecl::NodeclBase& haystack,
             const Nodecl::NodeclBase& needle,
             const Nodecl::NodeclBase& replacement);
-
-    void print_ast(Nodecl::NodeclBase n);
 }
 }
 
@@ -509,5 +507,9 @@ namespace TL
             Nodecl::NodeclBase get_next();
     };
 }
+
+void deb_print_ast(Nodecl::NodeclBase n);
+std::string deb_print_type(TL::Type type);
+std::string deb_print_type(const Nodecl::NodeclBase& n);
 
 #endif // TL_NODECL_UTILS_HPP

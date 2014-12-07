@@ -1726,16 +1726,10 @@ namespace Nodecl
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
 
-// #################
-//  DEBUG FUNCTIONS
-// #################
-
-    void Utils::print_ast(Nodecl::NodeclBase n)
-    {
-        ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
-    }
-
 }
+
+
+
 
 namespace TL
 {
@@ -2231,3 +2225,25 @@ namespace TL
         }
     }
 }
+
+// #################
+//  DEBUG FUNCTIONS
+// #################
+
+void deb_print_ast(Nodecl::NodeclBase n)
+{
+    ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
+}
+
+std::string deb_print_type(TL::Type type)
+{
+    return type.get_simple_declaration(CURRENT_COMPILED_FILE->global_decl_context, "");
+}
+
+std::string deb_print_type(const Nodecl::NodeclBase& n)
+{
+    return deb_print_type(n.get_type());
+}
+
+
+

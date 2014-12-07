@@ -36,21 +36,6 @@ namespace Vectorization
     {
     }
 
-    void VectorizationThreeAddresses::visit(const Nodecl::ObjectInit& n)
-    {
-        _object_init = n;
-
-        TL::Symbol sym = n.get_symbol();
-        Nodecl::NodeclBase init = sym.get_value();
-
-        if(!init.is_null())
-        {
-            walk(init);
-        }
-
-        // TODO:
-        _object_init = Nodecl::NodeclBase::null(); 
-    }
 
     bool needs_decomposition(const Nodecl::NodeclBase& n)
     {
@@ -92,51 +77,70 @@ namespace Vectorization
                 n.is<Nodecl::VectorFabs>() ||
                 n.is<Nodecl::VectorSincos>() ||
                 n.is<Nodecl::VectorFunctionCall>() ||
+                n.is<Nodecl::VectorConversion>() ||
+                n.is<Nodecl::VectorConditionalExpression>() ||
                 n.is<Nodecl::VectorAlignRight>())
             return true;
 
         return false;
     }
 
-    Nodecl::Symbol VectorizationThreeAddresses::get_temporal_symbol(
+    TL::Symbol VectorizationThreeAddresses::get_temporal_symbol(
             const Nodecl::NodeclBase& reference)
     {
         TL::Scope scope = _object_init.is_null() ? 
             reference.retrieve_context() : _object_init.retrieve_context();
 
         std::stringstream new_sym_name;
-        new_sym_name << "__vtmp_" << sym_counter;
+        new_sym_name << "_v3atmp" << sym_counter;
 
         TL::Symbol tl_sym = scope.new_symbol(new_sym_name.str());
         tl_sym.get_internal_symbol()->kind = SK_VARIABLE;
         symbol_entity_specs_set_is_user_declared(tl_sym.get_internal_symbol(), 1);
-        tl_sym.set_type(reference.get_type().get_unqualified_type());
+        tl_sym.set_type(reference.get_type().no_ref().get_unqualified_type());
+
+// DEBUG __m1024 types
+//
+//        if (tl_sym.get_type().is_vector() &&
+//                (tl_sym.get_type().basic_type().is_signed_long_int() ||
+//                tl_sym.get_type().basic_type().is_unsigned_long_int()))
+//        {
+//            abort();
+//        }
 
         sym_counter++;
 
-        return tl_sym.make_nodecl();
+        return tl_sym;
+    }
+
+    bool is_nodecl_statement(const Nodecl::NodeclBase& n)
+    {
+        return n.is<Nodecl::ExpressionStatement>() ||
+            n.is<Nodecl::ReturnStatement>();
     }
 
     void VectorizationThreeAddresses::decomp(
             const Nodecl::NodeclBase& n)
     {
-        Nodecl::Symbol tmp_sym = get_temporal_symbol(n);
+        TL::Symbol tmp_sym = get_temporal_symbol(n);
 
         auto new_stmt = Nodecl::ExpressionStatement::make(
                 Nodecl::Assignment::make(
-                    tmp_sym,
+                    tmp_sym.make_nodecl(false /*ref_type*/),
                     n.shallow_copy(),
                     n.get_type(),
                     n.get_locus()));
 
-        n.replace(tmp_sym);
+        n.replace(Nodecl::Conversion::make(
+                    tmp_sym.make_nodecl(true /*ref_type*/),
+                    tmp_sym.get_type()));
 
         if (!_object_init.is_null())
             _object_init.prepend_sibling(new_stmt);
         else
         {
             Nodecl::NodeclBase expr_stmt = n;
-            while (!expr_stmt.is<Nodecl::ExpressionStatement>())
+            while (!is_nodecl_statement(expr_stmt))
             {
                 expr_stmt = expr_stmt.get_parent();
             }
@@ -211,6 +215,21 @@ namespace Vectorization
         }
     }
 
+    void VectorizationThreeAddresses::visit(const Nodecl::ObjectInit& n)
+    {
+        _object_init = n;
+
+        TL::Symbol sym = n.get_symbol();
+        Nodecl::NodeclBase init = sym.get_value();
+
+        if(!init.is_null())
+        {
+            walk(init);
+        }
+
+        _object_init = Nodecl::NodeclBase::null(); 
+    }
+
     void VectorizationThreeAddresses::visit(const Nodecl::VectorAdd& n)
     {
         visit_vector_binary(n);
@@ -259,9 +278,13 @@ namespace Vectorization
     {
         visit_vector_ternary(n);
     }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorLoad& n)
+    {
+        visit_vector_unary(n);
+    }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorGather& n)
     {
-        visit_vector_ternary(n);
+        visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorStore& n)
     {
@@ -337,11 +360,11 @@ namespace Vectorization
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorLogicalAnd& n)
     {
-        visit_vector_unary(n);
+        visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorLogicalOr& n)
     {
-        visit_vector_unary(n);
+        visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseNot& n)
     {
@@ -349,15 +372,49 @@ namespace Vectorization
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseAnd& n)
     {
-        visit_vector_unary(n);
+        visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseOr& n)
     {
-        visit_vector_unary(n);
+        visit_vector_binary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseXor& n)
     {
+        visit_vector_binary(n);
+    }
+           
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorMaskNot& n)
+    {
         visit_vector_unary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorMaskAnd& n)
+    {
+        visit_vector_binary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorMaskOr& n)
+    {
+        visit_vector_binary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorMaskXor& n)
+    {
+        visit_vector_binary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorMaskAnd1Not& n)
+    {
+        visit_vector_binary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorMaskAnd2Not& n)
+    {
+        visit_vector_binary(n);
+    }
+
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorConversion& n)
+    {
+        visit_vector_unary(n);
+    }
+    void VectorizationThreeAddresses::visit(const Nodecl::VectorConditionalExpression& n)
+    {
+        visit_vector_ternary(n);
     }
     void VectorizationThreeAddresses::visit(const Nodecl::ForStatement& n)
     {
@@ -369,6 +426,5 @@ namespace Vectorization
         // Do not walk through LoopHeader!
         walk(n.get_statement());
     }
-
 }
 }

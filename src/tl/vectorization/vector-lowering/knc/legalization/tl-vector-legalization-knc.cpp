@@ -80,13 +80,12 @@ namespace Vectorization
         }
         else
         {
-            /*
-               printf("Conversion from %s(%s) to %s(%s)\n",
-               src_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-               src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-               dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-               dst_type.get_simple_declaration(n.retrieve_context(), "").c_str());
-             */
+            //printf("Conversion from %s(%s) to %s(%s)\n",
+            //src_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+            //src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+            //dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+            //dst_type.get_simple_declaration(n.retrieve_context(), "").c_str());
+            
             const unsigned int src_num_elements = src_vector_type.vector_num_elements();
             const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
@@ -118,6 +117,12 @@ namespace Vectorization
 
                 }
             }
+
+            // If both types are the same, remove conversion
+            if (n.get_type().no_ref().is_same_type(n.get_nest().get_type().no_ref()))
+            {
+                n.replace(n.get_nest());
+            }
         }
     }
 
@@ -125,9 +130,11 @@ namespace Vectorization
     {
         const Nodecl::NodeclBase rhs = n.get_rhs();
         const Nodecl::NodeclBase mask = n.get_mask();
+        const Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
         walk(rhs);
         walk(mask);
+        walk(flags);
 
         // Turn unaligned load into gather
         if (_prefer_gather_scatter ||
@@ -139,8 +146,8 @@ namespace Vectorization
                         "adjacent gather\n", rhs.prettyprint().c_str());
             }
 
-            Nodecl::VectorGather vector_gather = n.get_flags().
-                as<Nodecl::List>().find_first<Nodecl::VectorGather>();
+            Nodecl::VectorGather vector_gather = flags.
+                find_first<Nodecl::VectorGather>();
 
             ERROR_CONDITION(vector_gather.is_null(), "Gather is null in "\
                     "legalization of unaligned load with mask", 0);
@@ -163,23 +170,24 @@ namespace Vectorization
     void KNCVectorLegalization::visit(
             const Nodecl::VectorStore& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> flags = 
-            n.get_flags().as<Nodecl::List>().to_object_list();
+        const Nodecl::NodeclBase lhs = n.get_lhs();
+        const Nodecl::NodeclBase rhs = n.get_rhs();
+        const Nodecl::NodeclBase mask = n.get_mask();
+        const Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
-        bool aligned =
-            Nodecl::Utils::list_contains_nodecl_by_structure(
-                flags, Nodecl::AlignedFlag());
+        TL::ObjectList<Nodecl::NodeclBase> flags_obj_list = 
+            flags.to_object_list();
+
+        bool aligned = Nodecl::Utils::list_contains_nodecl_by_structure(
+                flags_obj_list, Nodecl::AlignedFlag());
+
+        walk(lhs);
+        walk(rhs);
+        walk(mask);
+        walk(flags);
 
         if (!aligned)
         {
-            const Nodecl::NodeclBase lhs = n.get_lhs();
-            const Nodecl::NodeclBase rhs = n.get_rhs();
-            const Nodecl::NodeclBase mask = n.get_mask();
-
-            walk(lhs);
-            walk(rhs);
-            walk(mask);
-
             // Turn unaligned store into scatter
             if (_prefer_gather_scatter ||
                     (_prefer_mask_gather_scatter && !mask.is_null()))
@@ -191,8 +199,8 @@ namespace Vectorization
                             lhs.prettyprint().c_str());
                 }
 
-                Nodecl::VectorScatter vector_scatter = n.get_flags().
-                    as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
+                Nodecl::VectorScatter vector_scatter = flags.
+                    find_first<Nodecl::VectorScatter>();
 
                 ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
                         "legalization of unaligned load with mask", 0);
@@ -207,7 +215,8 @@ namespace Vectorization
                                       lhs.prettyprint().c_str(),
                                       vector_scatter.get_base().prettyprint().c_str(),
                                       vector_scatter.get_strides().prettyprint().c_str());
-                     */          }
+                     */     
+                }
 
                 n.replace(vector_scatter);
             }
@@ -216,79 +225,60 @@ namespace Vectorization
 
     void KNCVectorLegalization::visit(const Nodecl::VectorGather& n)
     {
-        const Nodecl::NodeclBase base = n.get_base();
+        Nodecl::NodeclBase base = n.get_base();
+        Nodecl::NodeclBase strides = n.get_strides();
 
-        walk(base);
-
-        TL::Type index_vector_type = n.get_strides().get_type();
+        TL::Type index_vector_type = strides.get_type().no_ref();
         TL::Type index_type = index_vector_type.basic_type();
 
-        if (index_type.is_signed_long_int() || index_type.is_unsigned_long_int())
+        VECTORIZATION_DEBUG()
         {
             TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
                     index_vector_type.vector_num_elements());
 
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "KNC Legalization: '%s' gather indexes conversion from %s(%s) to %s(%s)\n",
-                        base.prettyprint().c_str(),
-                        index_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-                        index_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-                        dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-                        dst_vector_type.basic_type().get_simple_declaration(n.retrieve_context(), "").c_str());
-            }
-
-            Nodecl::VectorGather new_gather = n.shallow_copy().as<Nodecl::VectorGather>();
-            KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
-            stride_visitor.walk(new_gather.get_strides());
-
-            new_gather.get_strides().set_type(dst_vector_type);
-
-            n.replace(new_gather);
+            fprintf(stderr, "KNC Legalization: '%s' gather indexes conversion from %s(%s) to %s(%s)\n",
+                    base.prettyprint().c_str(),
+                    index_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    index_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    dst_vector_type.basic_type().get_simple_declaration(n.retrieve_context(), "").c_str());
         }
-        else
-        {
-            walk(n.get_strides());
-        }
+
+        KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
+        stride_visitor.walk(strides);
+
+        walk(base);
+        walk(strides);
     }
 
     void KNCVectorLegalization::visit(const Nodecl::VectorScatter& n)
     {
-        const Nodecl::NodeclBase base = n.get_base();
+        Nodecl::NodeclBase base = n.get_base();
+        Nodecl::NodeclBase strides = n.get_strides();
+        Nodecl::NodeclBase source = n.get_source();
 
-        walk(base);
-        walk(n.get_source());
-
-        TL::Type index_vector_type = n.get_strides().get_type();
+        TL::Type index_vector_type = strides.get_type().no_ref();
         TL::Type index_type = index_vector_type.basic_type();
 
-        if (index_type.is_signed_long_int() || index_type.is_unsigned_long_int())
+        VECTORIZATION_DEBUG()
         {
             TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
                     n.get_strides().get_type().vector_num_elements());
 
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "KNC Lowering: '%s' scatter indexes conversion from %s(%s) to %s(%s)\n",
-                        base.prettyprint().c_str(),
-                        index_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-                        index_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-                        dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-                        dst_vector_type.basic_type().get_simple_declaration(n.retrieve_context(), "").c_str());
-            }
-
-            Nodecl::VectorScatter new_scatter = n.shallow_copy().as<Nodecl::VectorScatter>();
-            KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
-            stride_visitor.walk(new_scatter.get_strides());
-
-            new_scatter.get_strides().set_type(dst_vector_type);
-
-            n.replace(new_scatter);
+            fprintf(stderr, "KNC Lowering: '%s' scatter indexes conversion from %s(%s) to %s(%s)\n",
+                    base.prettyprint().c_str(),
+                    index_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    index_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    dst_vector_type.basic_type().get_simple_declaration(n.retrieve_context(), "").c_str());
         }
-        else
-        {
-            walk(n.get_strides());
-        }
+
+        KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
+        stride_visitor.walk(strides);
+
+        walk(base);
+        walk(strides);
+        walk(source);
     }
 
     Nodecl::NodeclVisitor<void>::Ret KNCVectorLegalization::unhandled_node(
@@ -301,49 +291,37 @@ namespace Vectorization
         return Ret();
     }
 
-
     KNCStrideVisitorConv::KNCStrideVisitorConv(unsigned int vector_num_elements)
         : _vector_num_elements(vector_num_elements)
     {
     }
-
-    /*
-       void KNCStrideVisitorConv::visit(const Nodecl::VectorConversion& n)
-       {
-       walk(n.get_nest());
-
-       Nodecl::VectorConversion new_n = n.shallow_copy().as<Nodecl::VectorConversion>();
-
-    // TODO better
-    new_n.set_type(TL::Type::get_int_type().get_vector_of_elements(
-    _vector_num_elements));
-
-    n.replace(new_n);
-    }
-     */
 
     Nodecl::NodeclVisitor<void>::Ret KNCStrideVisitorConv::unhandled_node(
             const Nodecl::NodeclBase& n)
     {
         //printf("Unsupported %d: %s\n", _vector_num_elements, n.prettyprint().c_str());
 
-        if (n.get_type().is_vector())
-        {
+        TL::Type type = n.get_type();
+        bool is_lvalue_ref = type.is_lvalue_reference();
 
+        if (type.no_ref().is_vector())
+        {
             Nodecl::NodeclBase new_n = n.shallow_copy().as<Nodecl::NodeclBase>();
 
-            new_n.set_type(TL::Type::get_int_type().get_vector_of_elements(
-                        _vector_num_elements));
+            if (is_lvalue_ref)
+                new_n.set_type(TL::Type::get_int_type().
+                        get_vector_of_elements(_vector_num_elements).
+                        get_lvalue_reference_to());
+            else
+                new_n.set_type(TL::Type::get_int_type().
+                        get_vector_of_elements(_vector_num_elements));
 
             // TODO better
             n.replace(new_n);
 
-            Nodecl::NodeclBase::Children children = n.children();
-            for(Nodecl::NodeclBase::Children::iterator it = children.begin();
-                    it != children.end();
-                    it ++)
+            for(const auto& it : n.children())
             {
-                walk(*it);
+                walk(it);
             }
         }
         return Ret();
