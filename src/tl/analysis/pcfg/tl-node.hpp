@@ -66,18 +66,18 @@ namespace Analysis {
 
             // *** Private methods for NodeclSet/NodeclMap/ObjectList linked data *** //
             template <typename T>
-            T get_vars(std::string data_name);
+            T get_vars(PCFGAttribute attr);
             
             template <typename T>
-            void add_var_to_container(const NBase& var, std::string data_name);
+            void add_var_to_container(const NBase& var, PCFGAttribute attr);
             
             template <typename T>
-            void add_vars_to_container(const T& vars, std::string data_name);
+            void add_vars_to_container(const T& vars, PCFGAttribute attr);
             
-            void add_var_to_list(const NBase& var, std::string data_name);
-            void add_vars_to_list(const Nodecl::List& vars, std::string data_name);
+            void add_var_to_list(const NBase& var, PCFGAttribute attr);
+            void add_vars_to_list(const Nodecl::List& vars, PCFGAttribute attr);
             
-            void remove_var_from_set(const NBase& var, std::string data_name);
+            void remove_var_from_set(const NBase& var, PCFGAttribute attr);
             
         public:
             // *** Constructors *** //

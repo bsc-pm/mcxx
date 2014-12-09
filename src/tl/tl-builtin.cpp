@@ -33,7 +33,7 @@ namespace TL
 {
     LinkData::LinkData()
     {
-        _data_list = new std::map<std::string, data_info>;
+        _data_list = new Dict;
         _num_copies = new int(1);
     }
 
@@ -50,7 +50,7 @@ namespace TL
         (*_num_copies)--;
         if (*_num_copies == 0)
         {
-            for (std::map<std::string, data_info>::iterator it = _data_list->begin();
+            for (Dict::iterator it = _data_list->begin();
                     it != _data_list->end();
                     it ++)
             {
@@ -81,13 +81,5 @@ namespace TL
         }
 
         return *this;
-    }
-    
-    bool LinkData::has_key(std::string str) const
-    {
-        if (_data_list->find(str) == _data_list->end())
-            return false;
-        else
-            return true;
     }
 }

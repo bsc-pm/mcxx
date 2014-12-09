@@ -35,6 +35,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <tr1/unordered_map>
 #include <strings.h>
 #include "tl-object.hpp"
 
@@ -442,7 +443,8 @@ namespace TL
                 {}
             };
             // This is a pointer so this class can be copied
-            std::map<std::string, data_info> *_data_list;
+            typedef std::tr1::unordered_map<int, data_info> Dict;
+            Dict *_data_list;
             int *_num_copies;
 
             void release_code();
@@ -476,9 +478,9 @@ namespace TL
                 delete t;
             }
 
-            //! Retrieves the data with name str
+            //! Retrieves the data with key
             /*!
-            * \param str The name of the data. If it was not retrieved never
+            * \param key The name of the data. If it was not retrieved never
             * before, a default construction will happen.
             * \param t Copy constructor value
             *
@@ -487,10 +489,10 @@ namespace TL
             * shared) LinkData objects will fail miserably.
             */
         template <typename _T>
-            _T& get_data(const std::string& str, const _T& t = _T())
+        _T& get_data(const int key, const _T& t = _T())
             {
                 _T* result = NULL;
-                if (_data_list->find(str) == _data_list->end())
+                if (_data_list->find(key) == _data_list->end())
                 {
                     result = new _T(t);
 
@@ -498,18 +500,18 @@ namespace TL
                     d.data = result;
                     d.destructor = destroy_adapter<_T>;
 
-                    (*_data_list)[str] = d;
+                    (*_data_list)[key] = d;
                 }
 
-                data_info d = (*_data_list)[str];
+                data_info d = (*_data_list)[key];
                 result = reinterpret_cast<_T*>(d.data);
 
                 return *result;
             }
 
-            //! Retrieves the data with name str
+            //! Retrieves the data with key
             /*!
-            * \param str The name of the data. If it was not retrieved never
+             * \param key The name of the data. If it was not retrieved never
             * before, a default construction will happen.
             * \param data The data to be set.
             *
@@ -518,9 +520,9 @@ namespace TL
             * shared) LinkData objects will fail miserably.
             */
         template <typename _T>
-            void set_data(const std::string& str, const _T& data)
+            void set_data(const int key, const _T& data)
             {
-                data_info &d = (*_data_list)[str];
+                data_info &d = (*_data_list)[key];
                 d.destructor(d.data);
                     
                 d.data = new _T(data);
@@ -529,8 +531,11 @@ namespace TL
 
             LinkData& operator=(const LinkData&);
 
-            bool has_key(std::string str) const;
-            
+            bool has_key(const int key) const
+            {
+                return (_data_list->find(key) != _data_list->end());
+            }
+
             //! Destroy object
             /*!
             * This destructor decreases the number of copies counter.
