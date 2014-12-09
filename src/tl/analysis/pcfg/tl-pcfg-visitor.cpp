@@ -3184,17 +3184,7 @@ next_it:    ;
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseShlI& n )
-    {
-        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseShr& n )
-    {
-        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseShrI& n )
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }

@@ -441,23 +441,9 @@ namespace Vectorization
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
-            const Nodecl::VectorBitwiseShlI& n)
-    {
-        return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShlI,
-               Nodecl::BitwiseShl>(n, const_value_bitshl);
-    }
-
-    stride_splitter_ret_t StrideSplitterVisitor::visit(
             const Nodecl::VectorBitwiseShr& n)
     {
         return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShr,
-               Nodecl::BitwiseShr>(n, const_value_shr);
-    }
-
-    stride_splitter_ret_t StrideSplitterVisitor::visit(
-            const Nodecl::VectorBitwiseShrI& n)
-    {
-        return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShrI,
                Nodecl::BitwiseShr>(n, const_value_shr);
     }
 

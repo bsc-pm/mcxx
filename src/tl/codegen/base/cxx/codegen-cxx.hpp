@@ -215,9 +215,7 @@ namespace Codegen
             Ret visit(const Nodecl::VectorBitwiseXor &);
             Ret visit(const Nodecl::VectorBitwiseShl &);
             Ret visit(const Nodecl::VectorBitwiseShr &);
-            Ret visit(const Nodecl::VectorBitwiseShrI &);
             Ret visit(const Nodecl::VectorArithmeticShr &);
-            Ret visit(const Nodecl::VectorArithmeticShrI &);
             Ret visit(const Nodecl::VectorAssignment &);
             Ret visit(const Nodecl::VectorMaskAssignment &);
             Ret visit(const Nodecl::VectorLaneId &);

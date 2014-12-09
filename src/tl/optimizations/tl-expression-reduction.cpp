@@ -898,23 +898,7 @@ namespace Optimizations {
         }
     }
 
-    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShlI& n)
-    {
-        if(n.is_constant())
-        {   // R1
-            n.replace(const_value_to_nodecl(n.get_constant()));
-        }
-    }
-
     void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShr& n)
-    {
-        if(n.is_constant())
-        {   // R1
-            n.replace(const_value_to_nodecl(n.get_constant()));
-        }
-    }
-
-    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShrI& n)
     {
         if(n.is_constant())
         {   // R1

@@ -159,9 +159,7 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::VectorBitwiseAnd& n );
         Ret visit_post( const Nodecl::VectorBitwiseOr& n );
         Ret visit_post( const Nodecl::VectorBitwiseShl& n );
-        Ret visit_post( const Nodecl::VectorBitwiseShlI& n );
         Ret visit_post( const Nodecl::VectorBitwiseShr& n );
-        Ret visit_post( const Nodecl::VectorBitwiseShrI& n );
         Ret visit_post( const Nodecl::VectorDiv& n );
         Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
         Ret visit_post( const Nodecl::VectorLowerThan& n );

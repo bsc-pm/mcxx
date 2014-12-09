@@ -444,9 +444,7 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorBitwiseNot& n );
         Ret visit( const Nodecl::VectorBitwiseOr& n );
         Ret visit( const Nodecl::VectorBitwiseShl& n );
-        Ret visit( const Nodecl::VectorBitwiseShlI& n );
         Ret visit( const Nodecl::VectorBitwiseShr& n );
-        Ret visit( const Nodecl::VectorBitwiseShrI& n );
         Ret visit( const Nodecl::VectorBitwiseXor& n );
         Ret visit( const Nodecl::VectorConditionalExpression& n );
         Ret visit( const Nodecl::VectorConversion& n );

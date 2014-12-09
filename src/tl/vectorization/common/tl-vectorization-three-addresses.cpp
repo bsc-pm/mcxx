@@ -48,17 +48,12 @@ namespace Vectorization
                 n.is<Nodecl::VectorFmadd>() ||
                 n.is<Nodecl::VectorFmminus>() ||
                 n.is<Nodecl::VectorBitwiseShr>() ||
-                n.is<Nodecl::VectorBitwiseShrI>() ||
                 n.is<Nodecl::VectorBitwiseShl>() ||
-                n.is<Nodecl::VectorBitwiseShlI>() ||
+                n.is<Nodecl::VectorArithmeticShr>() ||
                 n.is<Nodecl::VectorPromotion>() ||
                 n.is<Nodecl::VectorLiteral>() ||
                 n.is<Nodecl::VectorLoad>() ||
                 n.is<Nodecl::VectorGather>() ||
-                n.is<Nodecl::VectorArithmeticShr>() ||
-                n.is<Nodecl::VectorArithmeticShrI>() ||
-                n.is<Nodecl::VectorBitwiseShr>() ||
-                n.is<Nodecl::VectorBitwiseShrI>() ||
                 n.is<Nodecl::VectorEqual>() ||
                 n.is<Nodecl::VectorDifferent>() ||
                 n.is<Nodecl::VectorLowerThan>() ||
@@ -306,15 +301,7 @@ namespace Vectorization
     {
         visit_vector_binary(n);
     }
-    void VectorizationThreeAddresses::visit(const Nodecl::VectorArithmeticShrI& n)
-    {
-        visit_vector_binary(n);
-    }
     void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShr& n)
-    {
-        visit_vector_binary(n);
-    }
-    void VectorizationThreeAddresses::visit(const Nodecl::VectorBitwiseShrI& n)
     {
         visit_vector_binary(n);
     }

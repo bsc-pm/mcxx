@@ -184,9 +184,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
     BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
     BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
     BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  

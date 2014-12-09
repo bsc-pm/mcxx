@@ -70,9 +70,7 @@ namespace Vectorization
             void visit(const Nodecl::VectorFmadd& n);
             void visit(const Nodecl::VectorFmminus& n);
             void visit(const Nodecl::VectorArithmeticShr& n);
-            void visit(const Nodecl::VectorArithmeticShrI& n);
             void visit(const Nodecl::VectorBitwiseShr& n);
-            void visit(const Nodecl::VectorBitwiseShrI& n);
             void visit(const Nodecl::VectorReductionAdd& n);
             void visit(const Nodecl::VectorReductionMinus& n);
             void visit(const Nodecl::VectorReductionMul& n);

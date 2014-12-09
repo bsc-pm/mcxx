@@ -205,11 +205,8 @@ expression : literal
            | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_SHL([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_BITWISE_SHL_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ARITHMETIC_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_ARITHMETIC_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_BITWISE_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt,[flags] vector-flags-seq-opt) type const-value-opt
