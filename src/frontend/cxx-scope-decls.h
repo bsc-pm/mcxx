@@ -185,7 +185,8 @@ struct decl_context_tag
     SYMBOL_KIND(SK_NAMELIST, "NAMELIST name") \
     SYMBOL_KIND(SK_MODULE, "MODULE name") \
     SYMBOL_KIND(SK_PROGRAM, "PROGRAM name") \
-    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") 
+    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") \
+    SYMBOL_KIND(SK_GENERIC_NAME, "generic name specifier")
 
 enum cxx_symbol_kind
 {

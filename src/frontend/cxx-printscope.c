@@ -450,13 +450,10 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
-            || entry->kind == SK_MODULE)
+            || entry->kind == SK_MODULE
+            || entry->kind == SK_GENERIC_NAME)
     {
         print_scope_full_context(entry->related_decl_context, global_indent + 1);
-    }
-    if (symbol_entity_specs_get_is_generic_spec(entry))
-    {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is a generic specifier\n");
     }
     if (symbol_entity_specs_get_num_related_symbols(entry) != 0)
     {

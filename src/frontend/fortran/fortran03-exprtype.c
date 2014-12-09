@@ -2682,7 +2682,7 @@ static void check_called_symbol_list(
 
     // First solve the generic specifier
     if (entry_list_size(symbol_list) > 1
-            || symbol_entity_specs_get_is_generic_spec(entry_list_head(symbol_list)))
+            || entry_list_head(symbol_list)->kind == SK_GENERIC_NAME)
     {
         scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
@@ -2707,7 +2707,7 @@ static void check_called_symbol_list(
                             specific_symbol_set);
                 }
             }
-            else if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
+            else if (current_generic_spec->kind == SK_GENERIC_NAME)
             {
                 scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
                         explicit_num_actual_arguments,
@@ -2781,7 +2781,7 @@ static void check_called_symbol_list(
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
-                if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
+                if (current_generic_spec->kind == SK_GENERIC_NAME)
                 {
                     info_printf("%s: info: specific interface '%s' matches\n",
                             locus_to_str(current_generic_spec->locus),
@@ -4117,7 +4117,7 @@ static void check_symbol_of_called_name(AST sym,
         // if more than one generic name is found, all the visible ones in the current scope are returned
         // thus we do not have to check anything
         if (entry_list_size(entry_list) == 1
-                && !symbol_entity_specs_get_is_generic_spec(entry_list_head(entry_list))
+                && entry_list_head(entry_list)->kind != SK_GENERIC_NAME
                 && !symbol_entity_specs_get_is_builtin(entry_list_head(entry_list)))
         {
             scope_entry_t* entry = entry_list_head(entry_list);
