@@ -334,7 +334,7 @@ namespace TL
             /*!
              * This function is a no-op in C and Fortran
              */
-            Type no_ref();
+            Type no_ref() const;
 
             //! Returns the alignment of the type
             int get_alignment_of();

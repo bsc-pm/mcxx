@@ -1019,7 +1019,7 @@ namespace TL
                 (cv_qualifier_t)(cv | get_cv_qualifier(this->_type_info)));
     }
 
-    Type Type::no_ref()
+    Type Type::no_ref() const
     {
         if (::is_lvalue_reference_type(this->_type_info)
                 || ::is_rvalue_reference_type(this->_type_info))
