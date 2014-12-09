@@ -53,6 +53,8 @@
  #error Q cannot be defined here
 #endif
 
+enum { CURRENT_MODULE_VERSION = 14 };
+
 // Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
 // #define DEBUG_SQLITE3_MPRINTF 1
 
@@ -415,8 +417,6 @@ static void load_storage(sqlite3** handle, const char* filename)
 
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
-
-enum { CURRENT_MODULE_VERSION = 13 };
 
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
