@@ -101,7 +101,7 @@ namespace OpenMP {
     {
         this->PragmaCustomCompilerPhase::run(dto);
 
-        Analysis::NBase ast = dto["nodecl"];
+        Analysis::NBase ast = *std::static_pointer_cast<Analysis::NBase>(dto["nodecl"]);
 
         if(_auto_scope_enabled)
         {

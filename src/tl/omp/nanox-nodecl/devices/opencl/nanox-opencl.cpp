@@ -990,7 +990,8 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {
     if (_opencl_tasks_processed)
     {
-        create_weak_device_symbol("ompss_uses_opencl", data_flow["nodecl"]);
+        create_weak_device_symbol("ompss_uses_opencl",
+                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
         _opencl_tasks_processed = false;
     }
 

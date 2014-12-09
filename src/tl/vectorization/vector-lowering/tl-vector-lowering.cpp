@@ -95,7 +95,8 @@ namespace TL
 
         void VectorLoweringPhase::run(TL::DTO& dto)
         {
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit =
+                *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
             if (_avx2_enabled && _knc_enabled)
             {

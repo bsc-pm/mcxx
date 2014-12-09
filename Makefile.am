@@ -934,7 +934,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-objectlist.cpp \
     src/tl/tl-externalvars.hpp \
     src/tl/tl-externalvars.cpp \
-    src/tl/tl-refptr.hpp \
     src/tl/tl-multifile.hpp \
     src/tl/tl-multifile.cpp \
     src/tl/tl-compilerpipeline.cpp \

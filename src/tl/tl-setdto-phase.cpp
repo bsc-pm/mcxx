@@ -49,15 +49,15 @@ namespace TL
 		{
 			if (*it_type=="bool")
             {
-                dto.set_object(*it_var, RefPtr<Bool>(new Bool(atoi((*it_val).c_str()))));
+                dto.set_object(*it_var, std::shared_ptr<Bool>(new Bool(atoi((*it_val).c_str()))));
             }
 			else if (*it_type=="int")
             {
-                dto.set_object(*it_var, RefPtr<Integer>(new Integer(atoi((*it_val).c_str()))));
+                dto.set_object(*it_var, std::shared_ptr<Integer>(new Integer(atoi((*it_val).c_str()))));
             }
 			else if (*it_type=="string")
             {
-                dto.set_object(*it_var, RefPtr<String>(new String(*it_val)));
+                dto.set_object(*it_var, std::shared_ptr<String>(new String(*it_val)));
             }
 		}
 	}

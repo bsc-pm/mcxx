@@ -57,7 +57,7 @@ namespace TL {
 
         void NanosMain::pre_run(TL::DTO& dto)
         {
-            _root = dto["nodecl"];
+            _root = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             this->PragmaCustomCompilerPhase::pre_run(dto);
         }
 

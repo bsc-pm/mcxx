@@ -2176,7 +2176,7 @@ skip_current_var: ;
 
     void Lint::run(TL::DTO& dto)
     {
-        Nodecl::NodeclBase top_level = dto["nodecl"];
+        Nodecl::NodeclBase top_level = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         if (_disable_phase == "0")
         {

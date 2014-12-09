@@ -39,7 +39,7 @@ namespace TL { namespace OpenMP {
     class FunctionCallVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            RefPtr<FunctionTaskSet> _function_task_set;
+            std::shared_ptr<FunctionTaskSet> _function_task_set;
 
             typedef std::set<Symbol> module_function_tasks_set_t;
             module_function_tasks_set_t _module_function_tasks;
@@ -55,7 +55,7 @@ namespace TL { namespace OpenMP {
             OpenMP::Base *_base;
             bool _ignore_template_functions;
         public:
-            FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
+            FunctionCallVisitor(std::shared_ptr<FunctionTaskSet> function_task_set,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
                     const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
@@ -151,7 +151,7 @@ namespace TL { namespace OpenMP {
             int _new_return_vars_counter;
             Nodecl::NodeclBase _enclosing_stmt;
 
-            RefPtr<FunctionTaskSet> _function_task_set;
+            std::shared_ptr<FunctionTaskSet> _function_task_set;
 
             std::map<TL::Symbol, TL::Symbol> _transformed_task_map;
 
@@ -167,7 +167,7 @@ namespace TL { namespace OpenMP {
 
         public:
 
-            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set,
+            TransformNonVoidFunctionCalls(std::shared_ptr<FunctionTaskSet> function_task_set,
                     bool task_expr_optim_disabled,
                     bool ignore_template_functions);
 

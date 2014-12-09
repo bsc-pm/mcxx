@@ -922,7 +922,7 @@ namespace {
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        NBase ast = dto["nodecl"];
+        NBase ast = *std::static_pointer_cast<NBase>(dto["nodecl"]);
 
         // 1.- Execute analyses
         // 1.1.- Compute all data-flow analysis

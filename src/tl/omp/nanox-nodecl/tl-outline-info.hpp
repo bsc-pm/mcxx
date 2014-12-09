@@ -471,7 +471,7 @@ namespace TL
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
@@ -486,7 +486,7 @@ namespace TL
                 OutlineInfo(Nanox::Lowering& lowering,
                         Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
+                        std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>());
 
                 ~OutlineInfo();
 

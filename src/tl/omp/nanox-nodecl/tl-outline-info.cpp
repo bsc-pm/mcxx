@@ -1283,7 +1283,7 @@ namespace TL { namespace Nanox {
     OutlineInfo::OutlineInfo(
             Nanox::Lowering& lowering,
             Nodecl::NodeclBase environment,
-            TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+            TL::Symbol funct_symbol, std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set)
         : _lowering(lowering), _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
@@ -1472,7 +1472,7 @@ namespace TL { namespace Nanox {
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
 
-            if (_function_task_set.valid())
+            if (_function_task_set != NULL)
             {
                 set_file(function_symbol,
                         _function_task_set->get_function_task(function_symbol).get_target_info().get_file());

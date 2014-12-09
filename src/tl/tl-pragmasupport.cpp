@@ -134,7 +134,7 @@ namespace TL
 
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
-        Nodecl::NodeclBase node = data_flow["nodecl"];
+        Nodecl::NodeclBase node = *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]);
 
         this->walk(node);
     }
