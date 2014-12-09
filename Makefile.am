@@ -216,6 +216,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-limits.h \
   src/frontend/cxx-macros.h \
   src/frontend/cxx-locus.h \
+  src/frontend/cxx-locus-inline.h \
   src/frontend/cxx-locus.c \
   src/frontend/cxx-asttype.h \
   src/frontend/cxx-asttype.c \
@@ -2729,10 +2730,7 @@ src_driver_mcxx_embedder_SOURCES = \
                         src/driver/cxx-parameters.c \
                         $(END)
 
-src_driver_mcxx_embedder_LDADD = \
-   $(top_builddir)/gnulib/libgnulib.la \
-   $(top_builddir)/lib/libmcxx-utils.la \
-   $(top_builddir)/src/frontend/libmcxx-process.la \
+src_driver_mcxx_embedder_LDADD = $(src_driver_plaincxx_LDADD)
    $(END)
 
 src_driver_mcxx_embedder_LDFLAGS = \
@@ -2774,10 +2772,7 @@ src_driver_fortran_mf03_prescanner_SOURCES = \
                           src/driver/cxx-driver-utils.c \
                           $(END)
 
-src_driver_fortran_mf03_prescanner_LDADD = \
-   $(top_builddir)/gnulib/libgnulib.la \
-   $(top_builddir)/lib/libmcxx-utils.la \
-   $(top_builddir)/src/frontend/libmcxx-process.la \
+src_driver_fortran_mf03_prescanner_LDADD = $(src_driver_plaincxx_LDADD) \
    $(top_builddir)/src/frontend/fortran/libmf03-prescanner.la \
    $(END)
 

@@ -4792,19 +4792,6 @@ static compilation_configuration_t* get_sublanguage_configuration(
     return fallback_config;
 }
 
-
-// Useful for debugging sessions
-extern void _enable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
-}
-
-extern void _disable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
-}
-
-
 #ifdef HAVE_MALLINFO
 static char* power_suffixes[9] = 
 {

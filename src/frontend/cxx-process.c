@@ -217,3 +217,14 @@ void running_error(const char* message, ...)
 
     exit(EXIT_FAILURE);
 }
+
+// Useful for debugging sessions
+extern void _enable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
+}
+
+extern void _disable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
+}
