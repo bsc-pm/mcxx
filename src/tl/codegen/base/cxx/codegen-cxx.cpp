@@ -987,7 +987,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
     this->push_scope(node.retrieve_context());
 
-    walk(node.get_in_context());
+    ERROR_CONDITION(!node.get_in_context().is<Nodecl::List>(), "invalid node", 0);
+    Nodecl::List l = node.get_in_context().as<Nodecl::List>();
+
+    // Transient kludge
+    bool emit_decls = 
+    (l.size() != 1
+           && !(l[0].is<Nodecl::CompoundStatement>()
+               || l[0].is<Nodecl::ForStatement>()
+               || l[0].is<Nodecl::WhileStatement>()
+               || l[0].is<Nodecl::SwitchStatement>()
+               || l[0].is<Nodecl::IfElseStatement>()));
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* << fake context >> { */\n";
+        define_local_entities_in_trees(l);
+    }
+
+    walk(l);
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* } << fake context >> */\n";
+    }
 
     this->pop_scope();
 }
@@ -7190,6 +7215,11 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
         TL::Scope* scope)
 {
+    if (symbol.get_name() == "_v3atmp0")
+    {
+        std::cerr << "Hello world\n";
+    }
+
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
 
@@ -7403,6 +7433,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
         TL::Scope* scope)
 {
+    if (symbol.get_name() == "_v3atmp0")
+    {
+        std::cerr << "Hello world\n";
+    }
+
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
 
