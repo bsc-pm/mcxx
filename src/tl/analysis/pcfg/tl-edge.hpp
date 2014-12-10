@@ -29,19 +29,23 @@
 #ifndef TL_EDGE_HPP
 #define TL_EDGE_HPP
 
-#include "tl-builtin.hpp"
+#include "tl-link-data.hpp"
 #include "tl-pcfg-utils.hpp"
 
 namespace TL {
 namespace Analysis {
-    
-    class Node;
 
     //! This class represents an edge within a graph that connects two nodes
     class LIBTL_CLASS Edge : public LinkData {
     private:
         Node* _source;
         Node* _target;
+
+        EdgeType _type;
+        Nodecl::NodeclBase _label;
+
+        bool _is_task_edge;
+        bool _is_back_edge;
 
     public:
         // *** Constructors *** //
@@ -53,13 +57,13 @@ namespace Analysis {
         * \param source         Pointer to the source node of the new edge
         * \param target         Pointer to the target node of the new edge
         * \param is_task_edge   Boolean indicating whether the edge target is a Task
-        * \param type           Type of the new edge, belonging to the enum Edge_type
+        * \param type           Type of the new edge, belonging to the enum EdgeType
         * \param label          Additional argument, when the edge will not be always taken in the graph
         *                       flow. It indicates the condition of the edge.
         * \param is_back_edge   Boolean indicating whether the edge's target is a node that appears before in the flow
         */
-        Edge(Node *source, Node *target, bool is_task_edge, Edge_type type, 
-              NBase label=NBase::null(), bool is_back_edge=false);
+        Edge(Node *source, Node *target, bool is_task_edge, EdgeType type,
+             NBase label=NBase::null(), bool is_back_edge=false);
 
 
         // *** Getters and Setters *** //
@@ -70,27 +74,38 @@ namespace Analysis {
         //! Returns a pointer the the target node of the edge
         Node* get_target() const;
 
-        void set_type(Edge_type type);
+        void set_type(EdgeType type);
         
         //! Returns the type of the edge
-        Edge_type get_type();
+        EdgeType get_type() const;
 
         //! Returns a string with the type of the node
-        std::string get_type_as_string();
+        inline std::string get_type_as_string() const
+        {
+            switch(_type)
+            {
+                #undef EDGE_TYPE
+                #define EDGE_TYPE(X) case __##X : return #X;
+                EDGE_TYPE_LIST
+                #undef EDGE_TYPE
+                default: WARNING_MESSAGE("Unexpected type of edge '%d'", _type);
+            }
+            return "";
+        }
 
         //! Returns the boolean indicating whether the target of the edge is a Task
-        bool is_task_edge();
-        
+        bool is_task_edge() const;
+
         //! Returns the boolean indicating whether the target of the edge is a node that appears before in the flow
-        bool is_back_edge();
+        bool is_back_edge() const;
 
         /*! Returns the label of the edge.
          * \return When the label is empty, meaning the edge is always taken, an empty string is returned.
          */
         std::string get_label_as_string();
-        NBase get_label();
-        void add_label(NBase label);
-        void set_label(NBase label);
+        const NBase& get_label() const;
+        void add_label(const NBase& label);
+        void set_label(const NBase& label);
 
         const char* get_sync_kind_as_string();
         SyncKind get_sync_kind();
@@ -99,7 +114,7 @@ namespace Analysis {
         //! Returns the condition of the task synchronization e
         NBase get_condition();
         void set_condition(const NBase& condition);
-        
+
         void set_true_edge();
         void set_false_edge();
         void set_catch_edge();
@@ -124,9 +139,6 @@ namespace Analysis {
         // ************** END getters and setters for constants analysis **************** //
         // ****************************************************************************** //
     };
-    
-    typedef ObjectList<Edge_type> EdgeTypeList;
-    typedef ObjectList<Edge*> EdgeList;
 }
 }
 

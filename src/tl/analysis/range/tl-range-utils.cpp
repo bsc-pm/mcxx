@@ -39,7 +39,7 @@ namespace {
     unsigned int cgnode_id = 0;
 }
     
-    CGNode::CGNode(CGNode_type type, const NBase& constraint)
+    CGNode::CGNode(CGNodeType type, const NBase& constraint)
         : _id(++cgnode_id), _type(type), 
           _constraint(constraint), _valuation(), 
           _entries(), _exits()
@@ -50,7 +50,7 @@ namespace {
         return _id;
     }
     
-    CGNode_type CGNode::get_type() const
+    CGNodeType CGNode::get_type() const
     {
         return _type;
     }

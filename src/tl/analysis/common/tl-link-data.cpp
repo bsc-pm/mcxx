@@ -24,11 +24,60 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-link-data.hpp"
 
+namespace TL {
+namespace Analysis {
 
+    LinkData::LinkData()
+    {
+        _data_list = new Dict;
+        _num_copies = new int(1);
+    }
 
-#include "tl-builtin.hpp"
+    LinkData::LinkData(const LinkData& l)
+    {
+        _data_list = l._data_list;
+        _num_copies = l._num_copies;
 
-namespace TL
-{
+        (*_num_copies)++;
+    }
+
+    void LinkData::release_code()
+    {
+        (*_num_copies)--;
+        if (*_num_copies == 0)
+        {
+            for (Dict::iterator it = _data_list->begin();
+                 it != _data_list->end(); it ++)
+            {
+                data_info d = it->second;
+                d.destructor(d.data);
+            }
+
+            delete _num_copies;
+            delete _data_list;
+        }
+    }
+
+    LinkData::~LinkData()
+    {
+        release_code();
+    }
+
+    LinkData& LinkData::operator=(const LinkData& l)
+    {
+        if (&l != this)
+        {
+            release_code();
+
+            _num_copies = l._num_copies;
+            _data_list = l._data_list;
+
+            (*_num_copies)++;
+        }
+
+        return *this;
+    }
+}
 }

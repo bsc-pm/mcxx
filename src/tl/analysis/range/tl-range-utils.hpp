@@ -39,7 +39,7 @@ namespace Analysis {
     CGNODE_TYPE(CG_Add) \
     CGNODE_TYPE(CG_Sub)
     
-    enum CGNode_type {
+    enum CGNodeType {
         #undef CGNODE_TYPE
         #define CGNODE_TYPE(X) __##X,
         CGNODE_TYPE_LIST
@@ -51,7 +51,7 @@ namespace Analysis {
     private:
         // *** Members *** //
         unsigned int _id;
-        CGNode_type _type;
+        CGNodeType _type;
         NBase _constraint;
         NBase _valuation;
         ObjectList<CGEdge*> _entries;
@@ -59,11 +59,11 @@ namespace Analysis {
         
     public:    
         // *** Constructor *** //
-        CGNode(CGNode_type type, const NBase& constraint=NBase::null());
+        CGNode(CGNodeType type, const NBase& constraint=NBase::null());
         
         // *** Getters and setters *** //
         unsigned int get_id() const;
-        CGNode_type get_type() const;
+        CGNodeType get_type() const;
         std::string get_type_as_str() const;
         
         NBase get_constraint() const;
