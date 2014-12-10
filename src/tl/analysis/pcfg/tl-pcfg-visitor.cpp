@@ -3159,6 +3159,11 @@ next_it:    ;
         return ObjectList<Node*>( 1, merge_nodes( n, all_nodes ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorArithmeticShr& n )
+    {
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorAssignment& n )
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );

@@ -439,6 +439,7 @@ namespace Analysis {
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
+        Ret visit( const Nodecl::VectorArithmeticShr& n );
         Ret visit( const Nodecl::VectorAssignment& n );
         Ret visit( const Nodecl::VectorBitwiseAnd& n );
         Ret visit( const Nodecl::VectorBitwiseNot& n );

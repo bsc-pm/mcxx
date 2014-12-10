@@ -1165,12 +1165,12 @@ namespace Analysis {
     
     AliveTaskSet& Node::get_live_in_tasks()
     {
-        return get_data<AliveTaskSet>("live_tasks_in");
+        return get_data<AliveTaskSet>(_LIVE_IN_TASKS);
     }
     
     AliveTaskSet& Node::get_live_out_tasks()
     {
-        return get_data<AliveTaskSet>("live_tasks_out");
+        return get_data<AliveTaskSet>(_LIVE_OUT_TASKS);
     }
 
     // StaticSyncTaskSet& Node::get_static_sync_in_tasks()
@@ -1238,18 +1238,18 @@ namespace Analysis {
     // *************** Getters and setters for use-definition analysis ************** //
 
     template <typename T>
-    T Node::get_vars(std::string data_name)
+    T Node::get_vars(PCFGAttribute attr)
     {
         T c;
-        if (has_key(data_name))
-            c = get_data<T>(data_name);
+        if (has_key(attr))
+            c = get_data<T>(attr);
         return c;
     }
     
     template <typename T>
-    void Node::add_var_to_container(const NBase& var, std::string data_name)
+    void Node::add_var_to_container(const NBase& var, PCFGAttribute attr)
     {
-        T c = get_data<T>(data_name);
+        T c = get_data<T>(attr);
         if (Utils::nodecl_set_contains_enclosing_nodecl(var, c).is_null())
         {
             const Nodecl::List subparts = Utils::nodecl_set_contains_enclosed_nodecl(var, c);
@@ -1260,28 +1260,28 @@ namespace Analysis {
             }
             
             c.insert(var);
-            set_data(data_name, c);
+            set_data(attr, c);
         }
     }
     
     template <typename T>
-    void Node::add_vars_to_container(const T& vars, std::string data_name)
+    void Node::add_vars_to_container(const T& vars, PCFGAttribute attr)
     {
         if (vars.empty())
-        {   // ensure that, in case no attribute called #data_name was attached to the node, now it will be attached
-            T c = get_data<T>(data_name);
-            set_data(data_name, c);
+        {   // ensure that, in case no attribute called #attr was attached to the node, now it will be attached
+            T c = get_data<T>(attr);
+            set_data(attr, c);
         }
         else
         {
             for (typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
-                add_var_to_container<T>(*it, data_name);
+                add_var_to_container<T>(*it, attr);
         }
     }
     
-    void Node::add_var_to_list(const NBase& var, std::string data_name)
+    void Node::add_var_to_list(const NBase& var, PCFGAttribute attr)
     {
-        Nodecl::List list = get_data<Nodecl::List>(data_name);
+        Nodecl::List list = get_data<Nodecl::List>(attr);
         for (Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
         {
             if (Nodecl::Utils::structurally_equal_nodecls(var, *it))
@@ -1289,28 +1289,28 @@ namespace Analysis {
         }
 
         list.append(var);
-        set_data(data_name, list);
+        set_data(attr, list);
     }
     
-    void Node::add_vars_to_list(const Nodecl::List& vars, std::string data_name)
+    void Node::add_vars_to_list(const Nodecl::List& vars, PCFGAttribute attr)
     {
         if (vars.empty())
-        {   // ensure that, in case no attribute called #data_name was attached to the node, now it will be attached
-            Nodecl::List list = get_data<Nodecl::List>(data_name);
-            set_data(data_name, list);
+        {   // ensure that, in case no attribute called #attr was attached to the node, now it will be attached
+            Nodecl::List list = get_data<Nodecl::List>(attr);
+            set_data(attr, list);
         }
         else
         {
             for (Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
-                add_var_to_list(*it, data_name);
+                add_var_to_list(*it, attr);
         }
     }
     
-    void Node::remove_var_from_set(const NBase& var, std::string data_name)
+    void Node::remove_var_from_set(const NBase& var, PCFGAttribute attr)
     {
-        NodeclSet set = get_data<NodeclSet>(data_name);
+        NodeclSet set = get_data<NodeclSet>(attr);
         set.erase(var);
-        set_data(data_name, set);
+        set_data(attr, set);
     }
     
     bool Node::usage_is_computed()
