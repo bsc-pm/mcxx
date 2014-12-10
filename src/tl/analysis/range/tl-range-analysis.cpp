@@ -816,7 +816,7 @@ namespace {
         return node;
     }
     
-    CGNode* ConstraintGraph::insert_node(CGNode_type type)
+    CGNode* ConstraintGraph::insert_node(CGNodeType type)
     {
         CGNode* node = new CGNode(type, NBase::null());
         NBase value = Nodecl::IntegerLiteral::make(Type::get_int_type(), 
@@ -1068,7 +1068,7 @@ namespace {
             unsigned int source = n->get_id();
             
             // 1.- Print the Constraint Node
-            CGNode_type node_t = n->get_type();
+            CGNodeType node_t = n->get_type();
             // 1.1.- The node has a constraint associated
             if(node_t == __CG_Sym)
             {
@@ -1244,7 +1244,7 @@ root_done:  ;
     void ConstraintGraph::evaluate_cgnode(CGNode* const node)
     {
         NBase valuation;
-        CGNode_type type = node->get_type();
+        CGNodeType type = node->get_type();
         NBase constraint = node->get_constraint();
         if(!constraint.is_null() && constraint.is<Nodecl::Range>())
         {

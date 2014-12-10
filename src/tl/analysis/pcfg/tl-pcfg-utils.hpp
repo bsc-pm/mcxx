@@ -72,7 +72,7 @@ namespace Analysis {
     NODE_TYPE(VectorStore) \
     NODE_TYPE(Graph)
     
-    enum Node_type {
+    enum NodeType {
         #undef NODE_TYPE
         #define NODE_TYPE(X) __##X,
         NODE_TYPE_LIST
@@ -117,7 +117,7 @@ namespace Analysis {
     GRAPH_TYPE(VectorCondExpr) \
     GRAPH_TYPE(VectorFunctionCallGraph)
     
-    enum Graph_type {
+    enum GraphType {
         #undef GRAPH_TYPE
         #define GRAPH_TYPE(X) __##X,
         GRAPH_NODE_TYPE_LIST
@@ -134,7 +134,7 @@ namespace Analysis {
     EDGE_TYPE(GotoEdge) \
     EDGE_TYPE(TrueEdge)
     
-    enum Edge_type {
+    enum EdgeType {
         #undef EDGE_TYPE
         #define EDGE_TYPE(X) __##X,
         EDGE_TYPE_LIST
@@ -166,19 +166,6 @@ namespace Analysis {
     //////////////////
     
     enum PCFGAttribute {
-        /*! \def _NODE_TYPE
-        * Type of a node. This will be a value of the enumeration Node_type.
-        * Mandatory in all nodes.
-        */
-        _NODE_TYPE,
-
-        /*! \def _OUTER_NODE
-        * Pointer to the node that contains a node.
-        * __ExtensibleGraph node is the only on with this value equals to NULL
-        * Mandatory in all nodes.
-        */
-        _OUTER_NODE,
-
         /*! \def _NODE_LABEL
         * String containing the label of a node.
         * It may have different meanings depending on the node type:
@@ -219,7 +206,7 @@ namespace Analysis {
         _STRIDE_NODE,
 
         /*! \def _GRAPH_TYPE
-        * Type of the graph node. This will be a value of the enumeration Graph_type.
+        * Type of the graph node. This will be a value of the enumeration GraphType.
         * Mandatory in all graph nodes.
         */
         _GRAPH_TYPE,
@@ -266,7 +253,7 @@ namespace Analysis {
 
         //! Definitions of the different edge attributes
         /*! \def _EDGE_TYPE
-        * Type of the edge. This will be a value of the enumeration Edge_type.
+        * Type of the edge. This will be a value of the enumeration EdgeType.
         * Mandatory in all edges.
         */
         _EDGE_TYPE,
@@ -929,6 +916,13 @@ namespace Analysis {
     
     // ************************** END class for task synchronizations **************************** //
     // ******************************************************************************************* //
+
+    class Node;
+    class Edge;
+
+    typedef ObjectList<Node*> NodeList;
+    typedef ObjectList<Edge*> EdgeList;
+    typedef ObjectList<EdgeType> EdgeTypeList;
 
 }
 }

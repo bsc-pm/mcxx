@@ -32,21 +32,18 @@
 namespace TL {
 namespace Analysis {
 
-    Edge::Edge(Node *source, Node *target, bool is_task_edge_, Edge_type type, Nodecl::NodeclBase label, bool is_back_edge_)
-        : _source(source), _target(target)
-    {
-        set_data(_EDGE_TYPE, type);
-        set_data(_EDGE_LABEL, label);
-        set_data(_IS_TASK_EDGE, is_task_edge_);
-        set_data(_IS_BACK_EDGE, is_back_edge_);
-    }
+    Edge::Edge(Node *source, Node *target, bool is_task_edge_, EdgeType type,
+               NBase label, bool is_back_edge_)
+        : _source(source), _target(target), _type(type),
+          _label(label), _is_task_edge(is_task_edge_), _is_back_edge(is_back_edge_)
+    {}
 
     Node* Edge::get_source() const
     {
         return _source;
     }
 
-    void Edge::set_type(Edge_type type)
+    void Edge::set_type(EdgeType type)
     {
         set_data(_EDGE_TYPE, type);
     }
@@ -56,126 +53,61 @@ namespace Analysis {
         return _target;
     }
 
-    Edge_type Edge::get_type()
+    EdgeType Edge::get_type() const
     {
-        if(has_key(_EDGE_TYPE))
-        {
-            return get_data<Edge_type>(_EDGE_TYPE);
-        }
-        else
-        {
-            return __UnclassifiedEdge;
-        }
+        return _type;
     }
 
-    //! Returns a string with the edge type
-    inline std::string edge_type_to_str(Edge_type et)
+    bool Edge::is_task_edge() const
     {
-        switch(et)
-        {
-            #undef EDGE_TYPE
-            #define EDGE_TYPE(X) case __##X : return #X;
-            EDGE_TYPE_LIST
-            #undef EDGE_TYPE
-            default: WARNING_MESSAGE("Unexpected type of edge '%d'", et);
-        }
-        return "";
-    }
-    
-    std::string Edge::get_type_as_string()
-    {
-        std::string result = "";
-
-        if (has_key(_EDGE_TYPE))
-        {
-            Edge_type etype = get_data<Edge_type>(_EDGE_TYPE);
-            result = edge_type_to_str(etype);
-        }
-
-        return result;
+        return _is_task_edge;
     }
 
-    bool Edge::is_task_edge()
+    bool Edge::is_back_edge() const
     {
-        if (has_key(_IS_TASK_EDGE))
-        {
-            return get_data<bool>(_IS_TASK_EDGE);
-        }
-        else
-        {
-            internal_error("Edge between '%d' and '%d 'without attribute _IS_TASK_EDGE. This attribute is mandatory for all edges",
-                            _source->get_id(), _target->get_id());
-        }
-    }
-
-    bool Edge::is_back_edge()
-    {
-        if(has_key(_IS_BACK_EDGE))
-        {
-            return get_data<bool>(_IS_BACK_EDGE);
-        }
-        else
-        {
-            internal_error("Edge between '%d' and '%d 'without attribute _IS_BACK_EDGE. This attribute is mandatory for all edges",
-                            _source->get_id(), _target->get_id());
-        }
+        return _is_back_edge;
     }
     
     std::string Edge::get_label_as_string()
     {
-        std::string label = "";
-
-        if(has_key(_EDGE_TYPE) && has_key(_EDGE_LABEL))
+        switch (_type)
         {
-            Edge_type etype = get_data<Edge_type>(_EDGE_TYPE);
-            switch (etype)
-            {
-                case __Always:
-                case __Catch:
-                case __GotoEdge:    {   Nodecl::NodeclBase lab = get_label();
-                                        if(!lab.is_null())
-                                        {
-                                            char is_null_ended = 0;
-                                            if(lab.is<Nodecl::StringLiteral>())       // avoid printing "\"...\""
-                                                label = std::string(const_value_string_unpack_to_string(lab.get_constant(), &is_null_ended));
-                                            else
-                                                label = lab.prettyprint();
+            case __Always:
+            case __Catch:
+            case __GotoEdge:    {   if(!_label.is_null())
+                                    {
+                                        char is_null_ended = 0;
+                                        if(_label.is<Nodecl::StringLiteral>())       // avoid printing "\"...\""
+                                            return std::string(const_value_string_unpack_to_string(_label.get_constant(), &is_null_ended));
+                                        else
+                                            return _label.prettyprint();
                                     }
-                                     break; }
-                case __Case:        {   Nodecl::NodeclBase lab = get_label();
-                                        label = (lab.is_null() ? "default" : lab.prettyprint());
-                                        break; }
-                case __FalseEdge:   {   label = "FALSE";
-                                        break; }
-                case __TrueEdge:    {   label = "TRUE";
-                                        break; }
-                default:            WARNING_MESSAGE("Unexpected type '%d'\n", etype);
-            };
-        }
-
-        return label;
+                                    break;
+                                }
+            case __Case:        return (_label.is_null() ? "default" : _label.prettyprint());
+            case __FalseEdge:   return "FALSE";
+            case __TrueEdge:    return "TRUE";
+            default:            WARNING_MESSAGE("Unexpected type '%d'\n", _type);
+        };
+        return "";
     }
 
-    Nodecl::NodeclBase Edge::get_label()
+    const NBase& Edge::get_label() const
     {
-        Nodecl::NodeclBase label = Nodecl::NodeclBase::null();
-        if(has_key(_EDGE_LABEL))
-            label = get_data<Nodecl::NodeclBase>(_EDGE_LABEL);
-        return label;
+        return _label;
     }
     
-    void Edge::add_label(Nodecl::NodeclBase label)
+    void Edge::add_label(const NBase& label)
     {
-        Nodecl::NodeclBase new_label = label;
-        Nodecl::NodeclBase old_label = get_label();
-        if(!old_label.is_null())
-            new_label = Nodecl::BitwiseAnd::make(old_label, new_label, old_label.get_type());
-        set_data(_EDGE_LABEL, new_label);
+        NBase new_label = label.shallow_copy();
+        if(!_label.is_null())
+            new_label = Nodecl::BitwiseAnd::make(_label, new_label, _label.get_type());
+        _label.replace(new_label);
     }
     
-    void Edge::set_label(Nodecl::NodeclBase label)
+    void Edge::set_label(const NBase& label)
     {
-        set_data(_EDGE_LABEL, label);
+        _label = label;
     }
 
     const char* Edge::get_sync_kind_as_string()
@@ -202,66 +134,68 @@ namespace Analysis {
         set_data(_SYNC_KIND, kind);
     }
 
-    Nodecl::NodeclBase Edge::get_condition()
+    NBase Edge::get_condition()
     {
         ERROR_CONDITION(!_source->is_omp_task_node()
-                            || (!_target->is_omp_task_node() && !_target->is_omp_taskwait_node() && !_target->is_omp_barrier_node()),
-                        "Only edges between tasks and synchronization points (tasks, taskwaits or barriers) can have a condition."
-                        "Edge between %d and %d does not fulfill.\n", _source->get_id(), _target->get_id());
-        Nodecl::NodeclBase cond;
+                            || (!_target->is_omp_task_node() && !_target->is_omp_taskwait_node()
+                                && !_target->is_omp_barrier_node()),
+                        "Only edges between tasks and synchronization points (tasks, taskwaits or barriers)"
+                        "can have a condition. Edge between %d and %d does not fulfill.\n",
+                        _source->get_id(), _target->get_id());
+        NBase cond;
         if (has_key(_CONDITION))
-            cond = get_data<Nodecl::NodeclBase>(_CONDITION);
+            cond = get_data<NBase>(_CONDITION);
         return cond;
     }
     
-    void Edge::set_condition(const Nodecl::NodeclBase& condition)
+    void Edge::set_condition(const NBase& condition)
     {
         set_data(_CONDITION, condition);
     }
     
     void Edge::set_true_edge()
     {
-        set_data(_EDGE_TYPE, __TrueEdge);
+        _type = __TrueEdge;
     }
 
     void Edge::set_false_edge()
     {
-        set_data(_EDGE_TYPE, __FalseEdge);
+        _type = __FalseEdge;
     }
 
     void Edge::set_catch_edge()
     {
-        set_data(_EDGE_TYPE, __Catch);
+        _type = __Catch;
     }
 
     bool Edge::is_always_edge()
     {
-        return (get_data<Edge_type>(_EDGE_TYPE) == __Always);
+        return (_type == __Always);
     }
 
     bool Edge::is_case_edge()
     {
-        return (get_data<Edge_type>(_EDGE_TYPE) == __Case);
+        return (_type == __Case);
     }
 
     bool Edge::is_catch_edge()
     {
-        return (get_data<Edge_type>(_EDGE_TYPE) == __Catch);
+        return (_type == __Catch);
     }
 
     bool Edge::is_false_edge()
     {
-        return (get_data<Edge_type>(_EDGE_TYPE) == __FalseEdge);
+        return (_type == __FalseEdge);
     }
 
     bool Edge::is_goto_edge()
     {
-        return (get_data<Edge_type>(_EDGE_TYPE) == __GotoEdge);
+        return (_type == __GotoEdge);
     }
 
     bool Edge::is_true_edge()
     {
-        return (get_data<Edge_type>(_EDGE_TYPE) == __TrueEdge);
+        return (_type == __TrueEdge);
     }
 
 
