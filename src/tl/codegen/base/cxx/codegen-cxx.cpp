@@ -7215,11 +7215,6 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
         TL::Scope* scope)
 {
-    if (symbol.get_name() == "_v3atmp0")
-    {
-        std::cerr << "Hello world\n";
-    }
-
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
 
@@ -7433,11 +7428,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
         TL::Scope* scope)
 {
-    if (symbol.get_name() == "_v3atmp0")
-    {
-        std::cerr << "Hello world\n";
-    }
-
     if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
         return;
 
