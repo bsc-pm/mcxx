@@ -170,23 +170,6 @@ namespace TL
                 return false;
             }
 
-            //! Creates a scope after a reference to Object
-            Scope(RefPtr<Object> obj)
-            {
-                RefPtr<Scope> sc = RefPtr<Scope>::cast_dynamic(obj);
-                if (sc.get_pointer() != NULL)
-                {
-                    this->_decl_context = sc->_decl_context;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization for Scope" << std::endl;
-                    }
-                }
-            }
-
             //! Debugging function that prints the scope
             /*!
              * The compiler will dump the scope calling the internal

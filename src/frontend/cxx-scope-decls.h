@@ -30,6 +30,7 @@
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
+#include <stdbool.h>
 #include "cxx-scope-fwd.h"
 
 #include "cxx-locus.h"
@@ -184,7 +185,8 @@ struct decl_context_tag
     SYMBOL_KIND(SK_NAMELIST, "NAMELIST name") \
     SYMBOL_KIND(SK_MODULE, "MODULE name") \
     SYMBOL_KIND(SK_PROGRAM, "PROGRAM name") \
-    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") 
+    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") \
+    SYMBOL_KIND(SK_GENERIC_NAME, "generic name specifier")
 
 enum cxx_symbol_kind
 {
@@ -320,11 +322,11 @@ struct scope_entry_tag
     // Kind of this symbol
     enum cxx_symbol_kind kind:8;
     // This allows us to enforce the one-definition-rule within a translation unit
-    _Bool defined:1;
+    bool defined:1;
     // Do not print this symbol (because of recursion, hiding, etc) Used
     // specially for the injected class-name, where printing it in print scope
     // routines would create an infinite recursion.
-    _Bool do_not_print:1;
+    bool do_not_print:1;
 
     // Decl context when the symbol was declared it contains the scope where
     // the symbol was registered

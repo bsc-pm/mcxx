@@ -192,24 +192,6 @@ namespace TL
                 return false;
             }
 
-            //! Constructs a Symbol after a reference to Object
-            Type(RefPtr<Object> obj)
-            {
-                RefPtr<Type> pint = RefPtr<Type>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_type_info = pint->_type_info;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Type" << std::endl;
-                    }
-                    this->_type_info = NULL;
-                }
-            }
-
             virtual ~Type()
             {
             }
@@ -352,7 +334,7 @@ namespace TL
             /*!
              * This function is a no-op in C and Fortran
              */
-            Type no_ref();
+            Type no_ref() const;
 
             //! Returns the alignment of the type
             int get_alignment_of();

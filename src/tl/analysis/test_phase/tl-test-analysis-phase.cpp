@@ -103,7 +103,7 @@ namespace Analysis {
     {
         AnalysisBase analysis(_ompss_mode_enabled);
 
-        Nodecl::NodeclBase ast = dto["nodecl"];
+        Nodecl::NodeclBase ast = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         // Test PCFG creation
         if (_pcfg_enabled)

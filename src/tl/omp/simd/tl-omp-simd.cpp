@@ -149,9 +149,7 @@ namespace TL {
         {
             this->PragmaCustomCompilerPhase::run(dto);
 
-            //RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
-
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
             if (_simd_enabled)
             {

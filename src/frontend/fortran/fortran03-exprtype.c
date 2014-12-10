@@ -2682,7 +2682,7 @@ static void check_called_symbol_list(
 
     // First solve the generic specifier
     if (entry_list_size(symbol_list) > 1
-            || symbol_entity_specs_get_is_generic_spec(entry_list_head(symbol_list)))
+            || entry_list_head(symbol_list)->kind == SK_GENERIC_NAME)
     {
         scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
@@ -2707,7 +2707,7 @@ static void check_called_symbol_list(
                             specific_symbol_set);
                 }
             }
-            else if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
+            else if (current_generic_spec->kind == SK_GENERIC_NAME)
             {
                 scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
                         explicit_num_actual_arguments,
@@ -2781,7 +2781,7 @@ static void check_called_symbol_list(
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
-                if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
+                if (current_generic_spec->kind == SK_GENERIC_NAME)
                 {
                     info_printf("%s: info: specific interface '%s' matches\n",
                             locus_to_str(current_generic_spec->locus),
@@ -3599,31 +3599,55 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 {
     const char* literal = ASTText(expr);
 
-    char kind[31] = { 0 };
-    char has_kind = 0;
+    enum { MAX_KIND_LENGTH = 31 };
+    char kind_str[MAX_KIND_LENGTH + 1] = { 0 };
+    char *kind_last = kind_str;
 
-    if ((has_kind = (literal[0] != '"'
-                    && literal[0] != '\'')))
+    type_t* character_type = fortran_get_default_character_type();
+
+    if ((literal[0] != '"'
+                    && literal[0] != '\''))
     {
-        char *q = kind;
-        while (*literal != '_'
-                && ((unsigned int)(q - kind) < (sizeof(kind) - 1)))
+        // There is KIND, check it
+        // First gather the characters that make up the kind
+        while (*literal != '"'
+                && *literal != '\''
+                && ((unsigned int)(kind_last - kind_str) < MAX_KIND_LENGTH))
         {
+            *kind_last = *literal;
             literal++;
+            kind_last++;
         }
-        if (*literal != '_')
+
+        if (*literal != '"'
+                && *literal != '\'')
         {
             error_printf("%s: error: KIND specifier is too long\n",
                     ast_location(expr));
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }
-        literal++;
 
-        warn_printf("%s: warning: ignoring KIND=%s of character-literal, assuming KIND=1\n",
-                kind,
-                ast_location(expr));
+        ERROR_CONDITION(kind_last == kind_str, "No characters were consumed", 0);
+        kind_last--;
+
+        ERROR_CONDITION(*kind_last != '_', "Wrong delimiter '%c'", *kind_last);
+        *kind_last = '\0';
+
+        // Compute the value
+        int kind = compute_kind_from_literal(kind_str, expr, decl_context);
+        if (kind == 0)
+        {
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+
+        nodecl_t loc = nodecl_make_text(ASTText(expr), ast_get_locus(expr));
+        character_type = choose_character_type_from_kind(loc, kind);
+        nodecl_free(loc);
     }
+
+    const char* whole_literal = literal;
 
     int length = strlen(literal);
 
@@ -3642,7 +3666,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
             real_string[real_length] = *literal;
             literal++;
         }
-        else 
+        else
         {
             real_string[real_length] = *literal;
             // Jump both '' or ""
@@ -3654,11 +3678,12 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     real_string[real_length] = '\0';
 
     nodecl_t one = nodecl_make_integer_literal(
-            fortran_get_default_integer_type(), 
-            const_value_get_signed_int(1), 
+            fortran_get_default_integer_type(),
+            const_value_get_signed_int(1),
             ast_get_locus(expr));
-    nodecl_t length_tree = nodecl_make_integer_literal(fortran_get_default_integer_type(), 
-            const_value_get_signed_int(real_length), 
+    nodecl_t length_tree = nodecl_make_integer_literal(
+            character_type,
+            const_value_get_signed_int(real_length),
             ast_get_locus(expr));
 
     type_t* t = get_array_type_bounds(fortran_get_default_character_type(), one, length_tree, decl_context);
@@ -3668,7 +3693,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     *nodecl_output = nodecl_make_string_literal(t, value, ast_get_locus(expr));
 
     // Also keep the string itself for codegen
-    nodecl_set_text(*nodecl_output, ASTText(expr));
+    nodecl_set_text(*nodecl_output, whole_literal);
 }
 
 static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4092,7 +4117,7 @@ static void check_symbol_of_called_name(AST sym,
         // if more than one generic name is found, all the visible ones in the current scope are returned
         // thus we do not have to check anything
         if (entry_list_size(entry_list) == 1
-                && !symbol_entity_specs_get_is_generic_spec(entry_list_head(entry_list))
+                && entry_list_head(entry_list)->kind != SK_GENERIC_NAME
                 && !symbol_entity_specs_get_is_builtin(entry_list_head(entry_list)))
         {
             scope_entry_t* entry = entry_list_head(entry_list);

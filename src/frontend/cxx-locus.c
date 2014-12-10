@@ -4,12 +4,6 @@
 #include "uniquestr.h"
 #include "string_utils.h"
 
-struct locus_tag
-{
-    const char* filename;
-    unsigned int line, col;
-};
-
 // Heavily inspired in lib/char_hash.c contributed by Jan Hoogerbrugge
 
 struct locus_link
@@ -77,33 +71,3 @@ const locus_t* make_locus(const char* filename, unsigned int line, unsigned int 
     return new_link->locus;
 }
 
-const char* locus_to_str(const locus_t* l)
-{
-    const char* result = NULL;
-    if (l == NULL)
-        return ":0";
-
-    if (l->col != 0)
-        uniquestr_sprintf(&result, "%s:%d:%d", l->filename, l->line, l->col);
-    else 
-        uniquestr_sprintf(&result, "%s:%d", l->filename, l->line);
-
-    return result;
-}
-
-const char* locus_get_filename(const locus_t* l)
-{
-    if (l == NULL)
-        return "";
-    return l->filename;
-}
-
-unsigned int locus_get_line(const locus_t* l)
-{
-    return l == NULL ? 0 : l->line;
-}
-
-unsigned int locus_get_col(const locus_t* l)
-{
-    return l == NULL ? 0 : l->col;
-}

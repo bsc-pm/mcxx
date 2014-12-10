@@ -33,23 +33,6 @@
 
 namespace Nodecl
 {
-    NodeclBase::NodeclBase(TL::RefPtr<TL::Object> obj)
-         : _n(nodecl_null())
-    {
-        TL::RefPtr<Nodecl::NodeclBase> pint = TL::RefPtr<Nodecl::NodeclBase>::cast_dynamic(obj);
-        if (pint.get_pointer() != NULL)
-        {
-            this->_n = pint->_n;
-        }
-        else
-        {
-            if (typeid(*obj.get_pointer()) != typeid(TL::Undefined))
-            {
-                std::cerr << "Bad initialization of Nodecl" << std::endl;
-            }
-        }
-    }
-
     Nodecl::NodeclBase NodeclBase::no_conv() const
     {
         if (is_null())
@@ -61,7 +44,7 @@ namespace Nodecl
         }
         return result;
     }
-    
+
     std::string NodeclBase::prettyprint() const
     {
         const char* result = NULL;

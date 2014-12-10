@@ -97,7 +97,7 @@ namespace TL { namespace Nanox {
 
         this->load_headers(dto);
 
-        Nodecl::NodeclBase n = dto["nodecl"];
+        Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         FinalStmtsGenerator final_generator;
         // If the final clause transformation is disabled we shouldn't generate the final stmts
@@ -106,7 +106,7 @@ namespace TL { namespace Nanox {
 
         LoweringVisitor lowering_visitor(
                 this,
-                RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]),
+                std::static_pointer_cast<OpenMP::FunctionTaskSet>(dto["openmp_task_info"]),
                 final_generator.get_final_stmts());
         lowering_visitor.walk(n);
 

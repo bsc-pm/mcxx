@@ -67,23 +67,6 @@ namespace TL
             {
             }
 
-            Integer(RefPtr<Object> obj)
-            {
-                RefPtr<Integer> pint = RefPtr<Integer>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_i = pint->_i;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Integer" << std::endl;
-                    }
-                    this->_i = 0;
-                }
-            }
-
             virtual operator int() const
             {
                 return _i;
@@ -201,23 +184,6 @@ namespace TL
             {
             }
 
-            Bool(RefPtr<Object> obj)
-            {
-                RefPtr<Bool> pint = RefPtr<Bool>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_b = pint->_b;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Bool (" << typeid(*obj.get_pointer()).name() << ")"  << std::endl;
-                    }
-                    this->_b = false;
-                }
-            }
-
             virtual operator int() const
             {
                 return int(_b);
@@ -316,27 +282,6 @@ namespace TL
             {
             }
 
-            // String( std::input_iterator start, std::input_iterator end )
-            //     : std::string(start, end)
-            // {
-            // }
-
-            String(RefPtr<Object> obj)
-            {
-                RefPtr<String> pint = RefPtr<String>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->operator=(*pint.operator->());
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of String" << std::endl;
-                    }
-                }
-            }
-
             virtual bool is_string() const
             {
                 return true;
@@ -393,23 +338,6 @@ namespace TL
                 return _file;
             }
 
-            File(RefPtr<Object> obj)
-                : _file(NULL)
-            {
-                RefPtr<File> pint = RefPtr<File>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->operator=(*pint.operator->());
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of File" << std::endl;
-                    }
-                }
-            }
-
             ~File()
             {
             }
@@ -435,9 +363,9 @@ namespace TL
                 void *data;
                 //! The destructor function
                 void (*destructor)(void*);
-                
+
                 static void do_nothing(void*) { }
-                
+
                 data_info()
                         : data(NULL), destructor(data_info::do_nothing)
                 {}

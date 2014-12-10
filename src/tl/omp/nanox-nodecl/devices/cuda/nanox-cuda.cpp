@@ -840,13 +840,14 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (_cuda_tasks_processed)
     {
-        create_weak_device_symbol("ompss_uses_cuda", data_flow["nodecl"]);
+        create_weak_device_symbol("ompss_uses_cuda",
+                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
         _cuda_tasks_processed = false;
     }
 
     if (_is_nanos_get_cublas_handle)
     {
-        Nodecl::NodeclBase root = data_flow["nodecl"];
+        Nodecl::NodeclBase root = *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]);
         Source nanox_device_enable_section;
         nanox_device_enable_section << "__attribute__((weak)) char gpu_cublas_init = 1;";
 

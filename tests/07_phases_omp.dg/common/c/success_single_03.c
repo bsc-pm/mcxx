@@ -24,29 +24,42 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "codegen-phase.hpp"
-#include "tl-builtin.hpp"
 
-namespace Codegen
+
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
+
+#include <assert.h>
+
+int main(int argc, char **argv)
 {
-    void CodegenPhase::run(TL::DTO& dto)
+	int arrSize = 20;
+	int testArr[arrSize];
+
+    int i;
+
+	#pragma omp single
     {
-        TL::File output_file = *std::static_pointer_cast<TL::File>(dto["output_file"]);
-        FILE* f = output_file.get_file();
-
-        TL::String output_filename_ = *std::static_pointer_cast<TL::String>(dto["output_filename"]);
-
-        Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
-
-        this->codegen_top_level(n, f, output_filename_);
+        testArr[0] = -1;
     }
-    void CodegenPhase::handle_parameter(int n, void* data)
-    {}
+
+	#pragma omp single
+    {
+        for (i = 1; i < sizeof(testArr)/sizeof(testArr[0]); i++)
+        {
+            testArr[i] = i;
+        }
+    }
+
+    assert(testArr[0] == -1);
+    for (i = 1; i < arrSize; i++)
+    {
+        assert(testArr[i] == i);
+	}
+
+    return 0;
 }
 
-Codegen::CodegenPhase& Codegen::get_current()
-{
-    CodegenPhase* result = reinterpret_cast<CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
-
-    return *result;
-}

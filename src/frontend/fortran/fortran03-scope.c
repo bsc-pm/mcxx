@@ -488,7 +488,7 @@ static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        result = symbol_entity_specs_get_is_generic_spec(entry);
+        result = entry->kind == SK_GENERIC_NAME;
     }
     entry_list_iterator_free(it);
 
@@ -499,8 +499,7 @@ static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
 static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PARAMETER)
 {
     return sym != NULL
-        && sym->kind == SK_FUNCTION
-        && symbol_entity_specs_get_is_generic_spec(sym);
+        && sym->kind == SK_GENERIC_NAME;
 }
 
 static char symbol_is_generic_specifier_or_generic_intrinsic(scope_entry_t* sym, void* data UNUSED_PARAMETER)

@@ -161,7 +161,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    FunctionCallVisitor::FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
+    FunctionCallVisitor::FunctionCallVisitor(std::shared_ptr<FunctionTaskSet> function_task_set,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
@@ -1011,7 +1011,7 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
-    static bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+    static bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
@@ -1251,7 +1251,7 @@ namespace TL { namespace OpenMP {
     }
 
     TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(
-            RefPtr<FunctionTaskSet> function_task_set,
+            std::shared_ptr<FunctionTaskSet> function_task_set,
             bool task_expr_optim_disabled,
             bool ignore_template_functions)
         :
@@ -1612,10 +1612,10 @@ namespace TL { namespace OpenMP {
         {
             private:
                 int _num_involved_tasks;
-                RefPtr<FunctionTaskSet> _function_task_set;
+                std::shared_ptr<FunctionTaskSet> _function_task_set;
 
             public:
-                TaskFinder(RefPtr<FunctionTaskSet> function_task_set) :
+                TaskFinder(std::shared_ptr<FunctionTaskSet> function_task_set) :
                     _num_involved_tasks(0),
                     _function_task_set(function_task_set) { }
 

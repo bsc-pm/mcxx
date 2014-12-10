@@ -1149,7 +1149,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
 }
 
 void DeviceMPI::pre_run(DTO& dto) {
-    _root = dto["nodecl"];
+    _root = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
     _mpi_task_processed = false;
 }
 

@@ -48,7 +48,6 @@
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
 #include "tl-objectlist.hpp"
-#include "tl-refptr.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl.hpp"
 #include "codegen-phase.hpp"
@@ -692,7 +691,7 @@ extern "C"
         }
 
         translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), make_locus(translation_unit->input_filename, 0, 0));
-        TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
+        std::shared_ptr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
         dto.set_object("nodecl", top_level_nodecl);
     }
 
@@ -723,10 +722,10 @@ extern "C"
 
         TL::CompilerPhase* codegen_phase = reinterpret_cast<TL::CompilerPhase*>(CURRENT_CONFIGURATION->codegen_phase);
 
-        TL::RefPtr<TL::File> output_file(new TL::File(out_file));
+        std::shared_ptr<TL::File> output_file(new TL::File(out_file));
         dto.set_object("output_file", output_file);
 
-        TL::RefPtr<TL::String> output_filename_p(new TL::String(output_filename));
+        std::shared_ptr<TL::String> output_filename_p(new TL::String(output_filename));
         dto.set_object("output_filename", output_filename_p);
 
         codegen_phase->run(dto);

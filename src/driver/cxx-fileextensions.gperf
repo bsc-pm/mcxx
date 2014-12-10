@@ -64,9 +64,3 @@ struct extensions_table_t;
 ".cl",  SOURCE_SUBLANGUAGE_OPENCL,   SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_DO_NOT_EMBED | SOURCE_KIND_DO_NOT_COMPILE | SOURCE_KIND_DO_NOT_LINK
 ".ocl", SOURCE_SUBLANGUAGE_OPENCL,   SOURCE_KIND_DO_NOT_PROCESS | SOURCE_KIND_DO_NOT_EMBED | SOURCE_KIND_DO_NOT_COMPILE | SOURCE_KIND_DO_NOT_LINK
 %%
-
-struct extensions_table_t * fileextensions_lookup (register const char *str, register unsigned int len)
-{
-    return fileextensions_lookup_inline(str, len);
-}
-

@@ -3996,7 +3996,8 @@ OPERATOR_TABLE
                 }
             }
         }
-        else if (entry.is_function())
+        else if (entry.is_function()
+                || entry.is_generic_specifier())
         {
             TL::Type function_type = entry.get_type();
 

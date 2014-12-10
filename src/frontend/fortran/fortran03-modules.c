@@ -53,6 +53,8 @@
  #error Q cannot be defined here
 #endif
 
+enum { CURRENT_MODULE_VERSION = 14 };
+
 // Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
 // #define DEBUG_SQLITE3_MPRINTF 1
 
@@ -415,8 +417,6 @@ static void load_storage(sqlite3** handle, const char* filename)
 
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
-
-enum { CURRENT_MODULE_VERSION = 13 };
 
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
@@ -2082,17 +2082,7 @@ static int get_symbol(void *datum,
                 if (strcasecmp(member->symbol_name, name) == 0
                         && member->kind == (enum cxx_symbol_kind)symbol_kind
                         && symbol_entity_specs_get_from_module(member) == from_module
-                        && symbol_entity_specs_get_alias_to(member) == alias_to
-                        // Generic specifiers can have the same name as a
-                        // specific interface in the same module. Unfortunately
-                        // they have the same kind too, so they are virtually
-                        // indistinguishable except for the fact that one is a
-                        // generic specifier and the other is not.
-                        //
-                        // This extra check is weird but is necessary for the
-                        // unusual cases when the specific interface is somehow
-                        // loaded before its generic specifier.
-                        && symbol_entity_specs_get_is_generic_spec(member) == packed_bits.is_generic_spec)
+                        && symbol_entity_specs_get_alias_to(member) == alias_to)
                 {
                     (*result) = member;
                     insert_map_ptr(handle, oid, (*result));
