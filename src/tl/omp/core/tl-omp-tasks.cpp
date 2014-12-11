@@ -1164,7 +1164,7 @@ namespace TL
             if (input_clause.is_defined())
             {
                 ObjectList<Nodecl::NodeclBase> all_input_arguments;
-                all_input_arguments = input_clause.get_arguments_as_expressions(parsing_scope);
+                all_input_arguments = parse_dependences_ompss_clause(input_clause, parsing_scope);
                 all_input_arguments = update_clauses(all_input_arguments, function_sym);
 
                separate_input_arguments(construct, all_input_arguments, input_arguments, input_value_arguments, function_sym);
@@ -1176,7 +1176,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> input_private_arguments;
             if (input_private_clause.is_defined())
             {
-                input_private_arguments = input_private_clause.get_arguments_as_expressions(parsing_scope);
+                input_private_arguments = parse_dependences_ompss_clause(input_private_clause, parsing_scope);
                 input_private_arguments = update_clauses(input_private_arguments, function_sym);
             }
 
@@ -1185,7 +1185,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
-                output_arguments = output_clause.get_arguments_as_expressions(parsing_scope);
+                output_arguments = parse_dependences_ompss_clause(output_clause, parsing_scope);
                 output_arguments = update_clauses(output_arguments, function_sym);
             }
 
@@ -1193,7 +1193,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> inout_arguments;
             if (inout_clause.is_defined())
             {
-                inout_arguments = inout_clause.get_arguments_as_expressions(parsing_scope);
+                inout_arguments = parse_dependences_ompss_clause(inout_clause, parsing_scope);
                 inout_arguments = update_clauses(inout_arguments, function_sym);
             }
 
@@ -1214,7 +1214,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> concurrent_arguments;
             if (concurrent_clause.is_defined())
             {
-                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(parsing_scope);
+                concurrent_arguments = parse_dependences_ompss_clause(concurrent_clause, parsing_scope);
                 concurrent_arguments = update_clauses(concurrent_arguments, function_sym);
             }
 
@@ -1222,7 +1222,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> commutative_arguments;
             if (commutative_clause.is_defined())
             {
-                commutative_arguments = commutative_clause.get_arguments_as_expressions(parsing_scope);
+                commutative_arguments = parse_dependences_ompss_clause(commutative_clause, parsing_scope);
                 commutative_arguments = update_clauses(commutative_arguments, function_sym);
             }
 

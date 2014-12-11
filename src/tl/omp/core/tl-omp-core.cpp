@@ -1838,6 +1838,7 @@ namespace TL
             ObjectList<Symbol> extra_symbols;
             get_dependences_ompss_info_clause(
                     construct.get_pragma_line().get_clause("on"),
+                    construct,
                     data_sharing,
                     DEP_DIR_INOUT,
                     /* default data sharing */ DS_UNDEFINED,

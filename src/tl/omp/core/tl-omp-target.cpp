@@ -80,19 +80,19 @@ namespace TL
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments_as_expressions(scope);
+                target_ctx.copy_in = parse_dependences_ompss_clause(copy_in, scope);
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments_as_expressions(scope);
+                target_ctx.copy_out = parse_dependences_ompss_clause(copy_out, scope);
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
+                target_ctx.copy_inout = parse_dependences_ompss_clause(copy_inout, scope);
             }
 
             PragmaCustomClause ndrange = pragma_line.get_clause("ndrange");

@@ -271,27 +271,27 @@ namespace TL { namespace OpenMP {
     {
         // Ompss clauses
         PragmaCustomClause input_clause = construct.get_clause("in",/* deprecated */ "input");
-        get_dependences_ompss_info_clause(input_clause, data_sharing, DEP_DIR_IN,
+        get_dependences_ompss_info_clause(input_clause, construct, data_sharing, DEP_DIR_IN,
                 default_data_attr, "in", extra_symbols);
 
         PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE,
+        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing, DEP_DIR_IN_PRIVATE,
                 default_data_attr, "inprivate", extra_symbols);
 
         PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
-        get_dependences_ompss_info_clause(output_clause, data_sharing, DEP_DIR_OUT,
+        get_dependences_ompss_info_clause(output_clause, construct, data_sharing, DEP_DIR_OUT,
                 default_data_attr, "out", extra_symbols);
 
         PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_ompss_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT,
+        get_dependences_ompss_info_clause(inout_clause, construct, data_sharing, DEP_DIR_INOUT,
                 default_data_attr, "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_ompss_info_clause(concurrent_clause, data_sharing, DEP_CONCURRENT,
+        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing, DEP_CONCURRENT,
                 default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_ompss_info_clause(commutative_clause, data_sharing, DEP_COMMUTATIVE,
+        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing, DEP_COMMUTATIVE,
                 default_data_attr, "commutative", extra_symbols);
 
         // OpenMP standard clauses
@@ -300,9 +300,11 @@ namespace TL { namespace OpenMP {
                 default_data_attr, extra_symbols);
     }
 
-    static decl_context_t decl_context_map_id(decl_context_t d)
-    {
-        return d;
+    namespace {
+        decl_context_t decl_context_map_id(decl_context_t d)
+        {
+            return d;
+        }
     }
 
     void Core::parse_dependences_openmp_clause(
@@ -398,6 +400,7 @@ namespace TL { namespace OpenMP {
             }
 
             Source src;
+            src << "#line " << clause.get_pragma_line().get_line() << " \"" << clause.get_pragma_line().get_filename() << "\"\n";
             src << current_dep_expr;
 
             // Now, parse a single OpenMP list item and hand it to the usual dependency routines
@@ -417,6 +420,10 @@ namespace TL { namespace OpenMP {
                         "@OMP-DEPEND-ITEM@",
                         Source::fortran_check_expression_adapter,
                         decl_context_map_id);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
 
             // Singleton
@@ -450,16 +457,91 @@ namespace TL { namespace OpenMP {
                     DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)", extra_symbols);
     }
 
+    namespace {
+        void c_cxx_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        {
+            if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
+            {
+                error_printf("%s: error: OmpSs multi-dependences not supported yet\n",
+                        ast_location(a));
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
+            }
+            else
+            {
+                Source::c_cxx_check_expression_adapter(a, decl_context, nodecl_output);
+            }
+        }
+
+        void fortran_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        {
+            if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
+            {
+                error_printf("%s: error: OmpSs multi-dependences not supported yet\n",
+                        ast_location(a));
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
+            }
+            else
+            {
+                Source::fortran_check_expression_adapter(a, decl_context, nodecl_output);
+            }
+        }
+    }
+
+    ObjectList<Nodecl::NodeclBase> Core::parse_dependences_ompss_clause(
+            PragmaCustomClause& clause,
+            TL::ReferenceScope parsing_scope)
+    {
+        ObjectList<Nodecl::NodeclBase> result;
+
+        ObjectList<std::string> arguments = clause.get_tokenized_arguments();
+
+        for (ObjectList<std::string>::iterator it = arguments.begin();
+                it != arguments.end();
+                it++)
+        {
+            Source src;
+            src << "#line " << clause.get_pragma_line().get_line() << " \"" << clause.get_pragma_line().get_filename() << "\"\n";
+            src << *it;
+
+            Nodecl::NodeclBase expr;
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                expr = src.parse_generic(parsing_scope,
+                        /* ParseFlags */ Source::DEFAULT,
+                        "@OMPSS-DEPENDENCY-EXPR@",
+                        c_cxx_ompss_dep_expression,
+                        decl_context_map_id);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                expr = src.parse_generic(parsing_scope,
+                        /* ParseFlags */ Source::DEFAULT,
+                        "@OMPSS-DEPENDENCY-EXPR@",
+                        fortran_ompss_dep_expression,
+                        decl_context_map_id);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            result.append(expr);
+        }
+
+        return result;
+    }
+
     void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
-           DataSharingEnvironment& data_sharing,
-           DependencyDirection dep_attr,
-           DataSharingAttribute default_data_attr,
-           const std::string& clause_name,
-           ObjectList<Symbol>& extra_symbols)
+            Nodecl::NodeclBase construct,
+            DataSharingEnvironment& data_sharing,
+            DependencyDirection dep_attr,
+            DataSharingAttribute default_data_attr,
+            const std::string& clause_name,
+            ObjectList<Symbol>& extra_symbols)
     {
         if (clause.is_defined())
         {
-            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
+            ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, construct);
             add_data_sharings(expr_list, data_sharing,
                     dep_attr, default_data_attr, this->in_ompss_mode(), clause_name, extra_symbols);
         }
