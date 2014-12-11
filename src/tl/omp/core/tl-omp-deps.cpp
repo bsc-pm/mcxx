@@ -458,13 +458,178 @@ namespace TL { namespace OpenMP {
     }
 
     namespace {
+
+        void ompss_multidep_check_range(AST range,
+                decl_context_t decl_context,
+                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                nodecl_t* nodecl_output)
+        {
+            switch (ASTKind(range))
+            {
+                case AST_OMPSS_ITERATOR_RANGE_SECTION: // lower : upper
+                    {
+                        AST lower = ASTSon0(range);
+                        nodecl_t nodecl_lower = nodecl_null();
+
+                        check_expression(lower, decl_context, &nodecl_lower);
+                        if (nodecl_is_err_expr(nodecl_lower))
+                        {
+                            *nodecl_output = nodecl_lower;
+                            return;
+                        }
+
+                        AST upper = ASTSon1(range);
+                        nodecl_t nodecl_upper = nodecl_null();
+
+                        check_expression(upper, decl_context, &nodecl_upper);
+                        if (nodecl_is_err_expr(nodecl_upper))
+                        {
+                            *nodecl_output = nodecl_upper;
+                            return;
+                        }
+
+                        nodecl_t nodecl_stride = nodecl_null();
+                        AST stride = ASTSon2(range);
+                        if (stride != NULL)
+                        {
+                            check_expression(stride, decl_context, &nodecl_stride);
+                            if (nodecl_is_err_expr(nodecl_stride))
+                            {
+                                *nodecl_output = nodecl_stride;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            nodecl_stride = const_value_to_nodecl(const_value_get_signed_int(1));
+                        }
+
+                        *nodecl_output = nodecl_make_range(
+                                nodecl_lower,
+                                nodecl_upper,
+                                nodecl_stride,
+                                get_signed_int_type(),
+                                ast_get_locus(range));
+                        break;
+                    }
+                case AST_OMPSS_ITERATOR_RANGE_SIZE: // lower ; num_elements [C/C++ only]
+                    {
+                        AST lower = ASTSon0(range);
+                        nodecl_t nodecl_lower = nodecl_null();
+
+                        check_expression(lower, decl_context, &nodecl_lower);
+                        if (nodecl_is_err_expr(nodecl_lower))
+                        {
+                            *nodecl_output = nodecl_lower;
+                            return;
+                        }
+
+                        AST size = ASTSon1(range);
+                        nodecl_t nodecl_length = nodecl_null();
+
+                        check_expression(size, decl_context, &nodecl_length);
+                        if (nodecl_is_err_expr(nodecl_length))
+                        {
+                            *nodecl_output = nodecl_length;
+                            return;
+                        }
+
+                        nodecl_t nodecl_stride = nodecl_null();
+                        AST stride = ASTSon2(range);
+                        if (stride != NULL)
+                        {
+                            check_expression(stride, decl_context, &nodecl_stride);
+                            if (nodecl_is_err_expr(nodecl_stride))
+                            {
+                                *nodecl_output = nodecl_stride;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            nodecl_stride = const_value_to_nodecl(const_value_get_signed_int(1));
+                        }
+
+                        nodecl_t nodecl_upper = nodecl_make_minus(
+                                nodecl_make_add(
+                                    nodecl_lower,
+                                    nodecl_length,
+                                    get_signed_int_type(),
+                                    ast_get_locus(range)),
+                                const_value_to_nodecl(const_value_get_signed_int(1)),
+                                get_signed_int_type(),
+                                ast_get_locus(range));
+
+                        *nodecl_output = nodecl_make_range(
+                                nodecl_lower,
+                                nodecl_upper,
+                                nodecl_stride,
+                                get_signed_int_type(),
+                                ast_get_locus(range));
+                        break;
+                    }
+                default:
+                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(ASTKind(range)));
+            }
+        }
+
+        void ompss_multidep_expression(
+                AST a,
+                decl_context_t decl_context,
+                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                nodecl_t* nodecl_output)
+        {
+            if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
+            {
+                AST ompss_iterator = ASTSon1(a);
+                AST identifier = ASTSon0(ompss_iterator);
+                AST range = ASTSon1(ompss_iterator);
+
+                scope_entry_t* new_iterator = new_symbol(decl_context,
+                        decl_context.current_scope,
+                        ASTText(identifier));
+                new_iterator->kind = SK_VARIABLE;
+                new_iterator->type_information = get_signed_int_type();
+                new_iterator->locus = ast_get_locus(ompss_iterator);
+
+                nodecl_t nodecl_range = nodecl_null();
+                ompss_multidep_check_range(range, decl_context, check_expression, &nodecl_range);
+
+                if (nodecl_is_err_expr(nodecl_range))
+                {
+                    *nodecl_output = nodecl_range;
+                    return;
+                }
+
+                nodecl_t nodecl_subexpr = nodecl_null();
+                ompss_multidep_expression(ASTSon0(a), decl_context, check_expression, &nodecl_subexpr);
+
+                if (nodecl_is_err_expr(nodecl_subexpr))
+                {
+                    *nodecl_output = nodecl_subexpr;
+                    return;
+                }
+
+                *nodecl_output = nodecl_make_omp_ss_multi_dependence(nodecl_range,
+                        nodecl_subexpr,
+                        new_iterator,
+                        nodecl_get_type(nodecl_subexpr),
+                        ast_get_locus(a));
+            }
+            else
+            {
+                check_expression(a, decl_context, nodecl_output);
+            }
+        }
+
         void c_cxx_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                error_printf("%s: error: OmpSs multi-dependences not supported yet\n",
-                        ast_location(a));
-                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
+                decl_context_t new_context = new_block_context(decl_context);
+                ompss_multidep_expression(a, new_context,
+                        Source::c_cxx_check_expression_adapter,
+                        nodecl_output);
             }
             else
             {
@@ -476,9 +641,10 @@ namespace TL { namespace OpenMP {
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                error_printf("%s: error: OmpSs multi-dependences not supported yet\n",
-                        ast_location(a));
-                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
+                decl_context_t new_context = new_block_context(decl_context);
+                ompss_multidep_expression(a, new_context,
+                        Source::fortran_check_expression_adapter,
+                        nodecl_output);
             }
             else
             {
