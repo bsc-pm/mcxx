@@ -45,8 +45,19 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
     outline_info_register.add_copies(
             construct.get_registered_set().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
 
-    int num_copies = count_copies(outline_info);
+    int num_copies;
+    int num_static_copies, num_dynamic_copies;
+    count_copies(outline_info, num_static_copies, num_dynamic_copies);
     int num_copies_dimensions = count_copies_dimensions(outline_info);
+
+    if (num_dynamic_copies != 0)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        num_copies = num_static_copies;
+    }
 
     TL::Symbol structure_symbol;
 
