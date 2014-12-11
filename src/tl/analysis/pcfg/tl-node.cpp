@@ -1576,17 +1576,31 @@ namespace Analysis {
 
     void Node::set_induction_variable(Utils::InductionVar* iv)
     {
-        if (is_loop_node() || is_omp_loop_node())
+        if (!is_loop_node() && !is_omp_loop_node())
         {
-            Utils::InductionVarList ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
-            ivs.insert(iv);
-            set_data(_INDUCTION_VARS, ivs);
+            internal_error("Unexpected node type '%s' while reporting an induction variable. LOOP expected.",
+                           get_type_as_string().c_str(), _id);
         }
-        else
+
+        Utils::InductionVarList ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
+        ivs.insert(iv);
+        set_data(_INDUCTION_VARS, ivs);
+    }
+
+    bool Node::is_loop_induction_variable(const NBase& iv)
+    {
+        if (!is_loop_node() && !is_omp_loop_node())
         {
-            internal_error("Unexpected node type '%s' while setting a induction variable in the graph node '%d'. LOOP expected.",
-                            get_type_as_string().c_str(), _id);
+            internal_error("Unexpected node type '%s' while reporting an induction variable. LOOP expected.",
+                           get_type_as_string().c_str(), _id);
         }
+
+        const Utils::InductionVarList& ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
+        for (Utils::InductionVarList::const_iterator it = ivs.begin(); it != ivs.end(); ++it)
+            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), iv, /*skip_conversions*/true))
+                return true;
+
+        return false;
     }
 
     Node* Node::get_condition_node()

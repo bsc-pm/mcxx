@@ -35,9 +35,13 @@
 namespace TL {
 namespace Analysis {
 
+    // ********************************************************************************************* //
+    // ******************************************* Utils ******************************************* //
+
 namespace {
     const_value_t* one = const_value_get_one(/* bytes */ 4, /* signed */ 1);
 
+    // FIXME We have to add the family as a reference parameter for the derived induction variables
     bool is_accepted_induction_variable_syntax(Node* loop, NBase stmt, NBase& iv, NBase& incr)
     {
         bool is_iv = false;
@@ -48,29 +52,42 @@ namespace {
             NBase lhs = st_.get_lhs();
             NBase rhs = st_.get_rhs();
 
-            NBase lhs_rhs, rhs_rhs;
             if (rhs.is<Nodecl::Add>())
             {   // Expression accepted: iv = c + iv; iv = iv + x; iv = -c + iv; iv = iv - x;
                 Nodecl::Add _rhs = rhs.as<Nodecl::Add>();
-                lhs_rhs = _rhs.get_lhs();
-                rhs_rhs = _rhs.get_rhs();
+                const NBase& rhs_lhs = _rhs.get_lhs();
+                const NBase& rhs_rhs = _rhs.get_rhs();
 
+                // The LHS is accepted to be an array subscript only if the subscripts are constant in the loop
                 if ((!lhs.is<Nodecl::ArraySubscript>()
-                        || (lhs.is<Nodecl::ArraySubscript>()
-                                && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
+                        || ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts())))
                 {
                     if (Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_rhs, /*skip_conversions*/true)
-                            && ExtensibleGraph::is_constant_in_context(loop, lhs_rhs))
-                    {
+                            && ExtensibleGraph::is_constant_in_context(loop, rhs_lhs))
+                    {   // iv = c + iv
                         iv = lhs;
-                        incr = lhs_rhs;
+                        incr = rhs_lhs;
                         is_iv = true;
                     }
-                    else if (Nodecl::Utils::structurally_equal_nodecls(lhs, lhs_rhs, /*skip_conversions*/true)
+                    else if (Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_lhs, /*skip_conversions*/true)
                             && ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))
-                    {
+                    {   // iv = iv + c
                         iv = lhs;
                         incr = rhs_rhs;
+                        is_iv = true;
+                    }
+                    else if (loop->is_loop_induction_variable(rhs_lhs)
+                            && ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))
+                    {   // iv = iv_B + x
+                        iv = lhs;
+                        incr = rhs_rhs;
+                        is_iv = true;
+                    }
+                    else if (loop->is_loop_induction_variable(rhs_rhs)
+                            && ExtensibleGraph::is_constant_in_context(loop, rhs_lhs))
+                    {   // iv = x + iv_B
+                        iv = lhs;
+                        incr = rhs_lhs;
                         is_iv = true;
                     }
                 }
@@ -79,8 +96,9 @@ namespace {
         else if (stmt.is<Nodecl::AddAssignment>())
         {   // Expression accepted: iv += x;
             Nodecl::AddAssignment st_ = stmt.as<Nodecl::AddAssignment>();
-            NBase lhs = st_.get_lhs();
-            if (ExtensibleGraph::is_constant_in_context(loop, st_.get_rhs())
+            const NBase& lhs = st_.get_lhs();
+            const NBase& rhs = st_.get_rhs();
+            if (ExtensibleGraph::is_constant_in_context(loop, rhs)
                     && (!lhs.is<Nodecl::ArraySubscript>()
                             || (lhs.is<Nodecl::ArraySubscript>()
                                 && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
@@ -95,7 +113,7 @@ namespace {
             Nodecl::MinusAssignment st_ = stmt.as<Nodecl::MinusAssignment>();
             NBase lhs = st_.get_lhs();
             NBase rhs = st_.get_rhs();
-            if (ExtensibleGraph::is_constant_in_context(loop, st_.get_rhs())
+            if (ExtensibleGraph::is_constant_in_context(loop, rhs)
                     && (!lhs.is<Nodecl::ArraySubscript>()
                             || (lhs.is<Nodecl::ArraySubscript>()
                                 && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
@@ -164,68 +182,77 @@ namespace {
     // ************************** Class for induction variables analysis *************************** //
 
     InductionVariableAnalysis::InductionVariableAnalysis(ExtensibleGraph* graph)
-            : _induction_vars(), _graph(graph)
+            : _induction_vars(), _graph(graph), _var_type(Utils::BASIC_IV)
     {}
 
     void InductionVariableAnalysis::compute_induction_variables()
     {
         Node* graph = _graph->get_graph();
-        compute_induction_variables_rec(graph);
-        ExtensibleGraph::clear_visits(graph);
+        bool changed = true;
+        int i = 0;
+        while (changed)
+        {
+            changed = false;
+            compute_induction_variables_rec(graph, changed);
+            ExtensibleGraph::clear_visits(graph);
+            _var_type = Utils::DERIVED_IV;  // In the first iteration, the IVs are BASIC,
+                                            // but in the following, we can only found DERIVED
+            i++;
+        }
     }
 
-    void InductionVariableAnalysis::compute_induction_variables_rec(Node* current)
+    void InductionVariableAnalysis::compute_induction_variables_rec(Node* n, bool& changed)
     {
-        if (current->is_visited())
+        if (n->is_visited())
             return;
 
-        current->set_visited(true);
+        n->set_visited(true);
 
-        if(current->is_graph_node())
+        if (n->is_graph_node())
         {
-            // IV is computed from inner to outer loops
-            Node* entry = current->get_graph_entry_node();
-            compute_induction_variables_rec(entry);
+            // IVs are computed from inner to outer loops
+            Node* entry = n->get_graph_entry_node();
+            compute_induction_variables_rec(entry, changed);
 
-            if (current->is_loop_node())
+            if (n->is_loop_node())
             {   // Treat current loop
-                ExtensibleGraph::clear_visits_in_level(entry, current);
-                detect_induction_variables(entry, current);
+                ExtensibleGraph::clear_visits_in_level(entry, n);
+                compute_loop_induction_variables(entry, n, changed);
             }
-            else if (current->is_omp_loop_node())
+            else if (n->is_omp_loop_node())
             {   //Propagate induction variables from the inner loop to the omp loop node
-                Node* loop_entry_node = current->get_graph_entry_node()->get_children()[0];
+                Node* loop_entry_node = n->get_graph_entry_node()->get_children()[0];
                 Node* loop_node = loop_entry_node->get_children()[0];
                 std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
                 _induction_vars.equal_range(loop_node->get_id());
                 for (Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it)
                 {
-                    current->set_induction_variable(it->second);
-                    _induction_vars.insert(std::pair<int, Utils::InductionVar*>(current->get_id(), it->second));
+                    n->set_induction_variable(it->second);
+                    _induction_vars.insert(std::pair<int, Utils::InductionVar*>(n->get_id(), it->second));
                 }
             }
         }
 
-        const ObjectList<Node*>& children = current->get_children();
+        const ObjectList<Node*>& children = n->get_children();
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-            compute_induction_variables_rec(*it);
+            compute_induction_variables_rec(*it, changed);
     }
 
-    void InductionVariableAnalysis::detect_induction_variables(Node* current, Node* loop)
+    void InductionVariableAnalysis::compute_loop_induction_variables(Node* n, Node* loop, bool& changed)
     {
-        if (current->is_visited() || current->is_graph_exit_node(loop))
+        if (n->is_visited()
+                || !n->node_is_enclosed_by(loop)) // Avoid exiting the scope (return and goto may cause it)
             return;
 
-        current->set_visited(true);
+        n->set_visited(true);
 
-        if (current->is_graph_node() && !current->is_loop_node())
+        if (n->is_graph_node())
         {
-            detect_induction_variables(current->get_graph_entry_node(), loop);
+            compute_loop_induction_variables(n->get_graph_entry_node(), loop, changed);
         }
         else
-        {
-            // Look for IVs in the current node
-            const NodeclList& stmts = current->get_statements();
+        {   // Look for IVs in the current node
+            const NodeclList& stmts = n->get_statements();
             for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
                 NBase incr;
@@ -233,7 +260,8 @@ namespace {
                 NBase iv = is_induction_variable(*it, loop, incr, incr_list);
                 if (!iv.is_null())
                 {
-                    Utils::InductionVar* ivd = new Utils::InductionVar(iv, Utils::BASIC_IV, iv);
+                    changed = true;
+                    Utils::InductionVar* ivd = new Utils::InductionVar(iv, _var_type, iv);
                     ivd->set_increment(incr);
                     ivd->set_increment_list(incr_list);
                     loop->set_induction_variable(ivd);
@@ -243,9 +271,9 @@ namespace {
         }
 
         // Look for IVs in current's children
-        const ObjectList<Node*>& children = current->get_children();
+        const ObjectList<Node*>& children = n->get_children();
         for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-            detect_induction_variables(*it, loop);
+            compute_loop_induction_variables(*it, loop, changed);
     }
 
     // FIXME This method does not cover all kind induction variable.
@@ -257,18 +285,23 @@ namespace {
 
         if (is_accepted_induction_variable_syntax(loop, st, iv, incr))
         {
-            incr_list.insert(incr);
             // Get a list from the IVs in the map corresponding to the current loop
-            Utils::InductionVarList ivs;
             std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
                     _induction_vars.equal_range(loop->get_id());
             for (Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it)
-                ivs.append(it->second);
-
-            if (Utils::induction_variable_list_contains_variable(ivs, iv)
-                    || !check_potential_induction_variable(iv, incr, incr_list, st, loop))
             {
-                iv = NBase::null();
+                if (Nodecl::Utils::structurally_equal_nodecls(it->second->get_variable(), iv, /*skip_conversions*/true))
+                    return NBase::null();   // The variable was already detected as an IV, there is nothing else to do
+            }
+
+            // Check if the variable is modified in some other point of the loop
+            if (!check_potential_induction_variable(iv, incr, incr_list, st, loop))
+            {   // The variable is not really an IV => return a null nodecl
+                return NBase::null();
+            }
+            else
+            {   // The variable is an IV => add the increment to the list of increments of the variable
+                incr_list.insert(incr);
             }
         }
 

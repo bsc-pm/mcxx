@@ -708,6 +708,9 @@ namespace Analysis {
             //! Set a new induction variable in a loop graph node
             void set_induction_variable(Utils::InductionVar* iv);
 
+            //! Returns true when \p iv is an induction variable of the node
+            bool is_loop_induction_variable(const NBase& iv);
+
             Node* get_condition_node();
             void set_condition_node(Node* cond);
 

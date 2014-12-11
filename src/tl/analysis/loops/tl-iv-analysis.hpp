@@ -47,19 +47,14 @@ namespace Analysis {
         // Variables for Induction Variables analysis
         Utils::InductionVarsPerNode _induction_vars;
         ExtensibleGraph* _graph;
+        Utils::InductionVarType _var_type;
 
-        // Variables for modified Nodecl visitor
-        Nodecl::NodeclBase _constant;           /*!< Nodecl to be checked of being constant */
-        bool _defining;                         /*!< Boolean used during the visit indicating whether we are in a defining context */
-        bool _is_induction_var;                 /*!< Boolean used during the visit indicating whether a nodecl is an induction variable */
+        //! Recursive method traversing a PCFG from node \p current
+        //! to compute all induction variables
+        void compute_induction_variables_rec(Node* current, bool& changed);
 
-        //! Recursive method that actually computes the induction variables of \_graph
-        void compute_induction_variables_rec(Node* current);
-
-        void detect_induction_variables(Node* node, Node* loop);
-
-        bool is_there_unique_definition_in_loop(Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop);
-        bool is_there_definition_in_loop_(Nodecl::NodeclBase iv_st, Node* iv_node, Node* current, Node* loop);
+        //! Method computing the induction variable of loop \p loop from node \p node
+        void compute_loop_induction_variables(Node* node, Node* loop, bool& changed);
 
         /*!This method returns true when a potential IV is a real IV within a loop
          * This means that no other modifications of the variable make it not be an IV and
