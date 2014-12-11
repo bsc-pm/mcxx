@@ -264,6 +264,12 @@ namespace TL
         // #pragma omp target on top of a #pragma omp task outline
         void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
 
@@ -339,6 +345,12 @@ namespace TL
         // #pragma omp target on top of a #pragma omp task inline
         void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
             if (!nested_pragma.is_null()
                     && nested_pragma.is<Nodecl::List>())
