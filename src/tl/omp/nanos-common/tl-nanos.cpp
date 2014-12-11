@@ -127,14 +127,14 @@ namespace TL
                 _already_registered = true;
             }
 
-            dispatcher().directive.pre["interface"].connect(functor(&Interface::interface_preorder, *this));
-            dispatcher().directive.post["interface"].connect(functor(&Interface::interface_postorder, *this));
+            dispatcher().directive.pre["interface"].connect(std::bind(&Interface::interface_preorder, this, std::placeholders::_1));
+            dispatcher().directive.post["interface"].connect(std::bind(&Interface::interface_postorder, this, std::placeholders::_1));
 
-            dispatcher().directive.pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
-            dispatcher().directive.post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
+            dispatcher().directive.pre["instrument|declare"].connect(std::bind(&Interface::instrument_declare_pre, this, std::placeholders::_1));
+            dispatcher().directive.post["instrument|declare"].connect(std::bind(&Interface::instrument_declare_post, this, std::placeholders::_1));
 
-            dispatcher().directive.pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
-            dispatcher().directive.post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
+            dispatcher().directive.pre["instrument|emit"].connect(std::bind(&Interface::instrument_emit_pre, this, std::placeholders::_1));
+            dispatcher().directive.post["instrument|emit"].connect(std::bind(&Interface::instrument_emit_post, this, std::placeholders::_1));
         }
 
         void Interface::run(TL::DTO& dto)

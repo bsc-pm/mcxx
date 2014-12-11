@@ -24,6 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "cxx-diagnostic.h"
 #include "cxx-exprtype.h"
 
@@ -813,7 +817,7 @@ namespace TL
         }
 
 
-        struct FunctionTaskDependencyGenerator : public Functor<FunctionTaskDependency, Nodecl::NodeclBase>
+        struct FunctionTaskDependencyGenerator
         {
             private:
                 DependencyDirection _direction;
@@ -823,7 +827,7 @@ namespace TL
                 {
                 }
 
-                FunctionTaskDependency do_(FunctionTaskDependencyGenerator::ArgType nodecl) const
+                FunctionTaskDependency operator()(Nodecl::NodeclBase nodecl) const
                 {
                     DataReference expr(nodecl);
 
@@ -838,9 +842,12 @@ namespace TL
 
                     return FunctionTaskDependency(expr, _direction);
                 }
+#if !defined(HAVE_CXX11)
+                typedef FunctionTaskDependency result_type;
+#endif
         };
 
-        struct FunctionCopyItemGenerator : public Functor<CopyItem, Nodecl::NodeclBase>
+        struct FunctionCopyItemGenerator
         {
             private:
                 CopyDirection _copy_direction;
@@ -851,12 +858,16 @@ namespace TL
                 {
                 }
 
-                CopyItem do_(FunctionCopyItemGenerator::ArgType node) const
+                CopyItem operator()(Nodecl::NodeclBase node) const
                 {
                     DataReference data_ref(node);
 
                     return CopyItem(data_ref, _copy_direction);
                 }
+
+#if !defined(HAVE_CXX11)
+                typedef CopyItem result_type;
+#endif
         };
 
         void CopyItem::module_write(ModuleWriter& mw)
@@ -871,7 +882,7 @@ namespace TL
             mr.read(_kind);
         }
 
-        struct IsUselessDependence : Predicate<Nodecl::NodeclBase>
+        struct IsUselessDependence
         {
 
             private:
@@ -880,7 +891,7 @@ namespace TL
                 IsUselessDependence(DependencyDirection &direction)
                     : _direction(direction) { }
 
-                virtual bool do_(IsUselessDependence::ArgType expr) const
+                bool operator()(Nodecl::NodeclBase expr) const
                 {
                     if (expr.is<Nodecl::Symbol>())
                     {
@@ -916,13 +927,13 @@ namespace TL
                 }
         };
 
-        struct LocalSymbolsInDependences : Predicate<Nodecl::NodeclBase>
+        struct LocalSymbolsInDependences
         {
             private:
                 TL::Symbol _function;
                 TL::ObjectList<TL::Symbol> &_seen_local_symbols;
 
-                bool is_local_symbol(TL::Symbol sym)
+                bool is_local_symbol(TL::Symbol sym) const
                 {
                     return sym.get_scope().is_block_scope()
                         && (sym.get_scope().get_related_symbol() == _function)
@@ -944,14 +955,15 @@ namespace TL
                 {
                 }
 
-                virtual bool do_(LocalSymbolsInDependences::ArgType expr) const
+                bool operator()(Nodecl::NodeclBase expr) const
                 {
                     TL::ObjectList<TL::Symbol> local_symbols;
                     local_symbols.insert(
                             Nodecl::Utils::get_all_symbols(expr)
-                            .filter(predicate(&LocalSymbolsInDependences::is_local_symbol,
-                                    /* predicates were lacking some cases at the moment of writing this */
-                                    (LocalSymbolsInDependences&)*this))
+                            .filter(std::bind(
+                                &LocalSymbolsInDependences::is_local_symbol,
+                                this,
+                                std::placeholders::_1))
                             );
 
                     for (TL::ObjectList<TL::Symbol>::iterator it = local_symbols.begin();
@@ -971,8 +983,6 @@ namespace TL
                     return !local_symbols.empty();
                 }
         };
-
-
 
         static void dependence_list_check(
                 ObjectList<Nodecl::NodeclBase>& expression_list,
@@ -1250,35 +1260,36 @@ namespace TL
             dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
             dependence_list.append(input_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
-                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+                    .filter(&FunctionTaskDependency::is_valid));
 
             dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE, function_sym);
-            dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
+            dependence_list.append(input_value_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
 
             dependence_list_check(input_private_arguments, DEP_DIR_IN_PRIVATE, function_sym);
             dependence_list.append(input_private_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_IN_PRIVATE))
-                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+                    .filter(&FunctionTaskDependency::is_valid));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT, function_sym);
             dependence_list.append(output_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
-                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+                    .filter(&FunctionTaskDependency::is_valid));
 
             dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
             dependence_list.append(inout_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
-                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+                    .filter(&FunctionTaskDependency::is_valid));
 
             dependence_list_check(concurrent_arguments, DEP_CONCURRENT, function_sym);
             dependence_list.append(concurrent_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_CONCURRENT))
-                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+                    .filter(&FunctionTaskDependency::is_valid));
 
             dependence_list_check(commutative_arguments, DEP_COMMUTATIVE, function_sym);
             dependence_list.append(commutative_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
-                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+                    .filter(&FunctionTaskDependency::is_valid));
 
             // Target-style clauses
             if (_target_context.empty())
@@ -1319,16 +1330,16 @@ namespace TL
                     target_ctx_copy_inout.append(commutative_arguments);
                 }
 
-                ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(FunctionCopyItemGenerator(
-                            COPY_DIR_IN));
+                ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(
+                        FunctionCopyItemGenerator(COPY_DIR_IN));
                 target_info.append_to_copy_in(copy_in);
 
-                ObjectList<CopyItem> copy_out = target_ctx_copy_out.map(FunctionCopyItemGenerator(
-                            COPY_DIR_OUT));
+                ObjectList<CopyItem> copy_out = target_ctx_copy_out.map(
+                        FunctionCopyItemGenerator(COPY_DIR_OUT));
                 target_info.append_to_copy_out(copy_out);
 
-                ObjectList<CopyItem> copy_inout = target_ctx_copy_inout.map(FunctionCopyItemGenerator(
-                            COPY_DIR_INOUT));
+                ObjectList<CopyItem> copy_inout = target_ctx_copy_inout.map(
+                        FunctionCopyItemGenerator(COPY_DIR_INOUT));
                 target_info.append_to_copy_inout(copy_inout);
 
                 target_info.set_file(target_context.file);

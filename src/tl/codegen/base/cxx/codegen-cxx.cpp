@@ -7992,7 +7992,7 @@ bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
             || sym.is_dependent_friend_class())
         return friends.contains(sym);
     else
-        return friends.map(functor(&TL::Symbol::get_alias_to)).contains(sym);
+        return friends.map(&TL::Symbol::get_alias_to).contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
@@ -9800,19 +9800,19 @@ CxxBase::CxxBase()
     register_parameter("emit_saved_variables_as_unused",
             "Emits saved-expression variables as __attribute__((unused))",
             _emit_saved_variables_as_unused_str,
-            "0").connect(functor(&CxxBase::set_emit_saved_variables_as_unused, *this));
+            "0").connect(std::bind(&CxxBase::set_emit_saved_variables_as_unused, this, std::placeholders::_1));
 
     _prune_saved_variables = true;
     register_parameter("prune_saved_variables",
             "Disables removal of unused saved-expression variables. If you need to enable this, please report a ticket",
             _prune_saved_variables_str,
-            "1").connect(functor(&CxxBase::set_prune_saved_variables, *this));
+            "1").connect(std::bind(&CxxBase::set_prune_saved_variables, this, std::placeholders::_1));
 
     _use_old_method_for_class_definitions = false;
     register_parameter("old_method_for_class_definitions",
             "Uses an old method to emit class definitions. If you need to enable this, please report a ticket",
             _use_old_method_for_class_definitions_str,
-            "0").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
+            "0").connect(std::bind(&CxxBase::set_old_method_for_class_definitions, this, std::placeholders::_1));
 }
 
 void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)

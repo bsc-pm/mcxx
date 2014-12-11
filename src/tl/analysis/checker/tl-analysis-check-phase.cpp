@@ -866,10 +866,10 @@ namespace {
         register_construct("assert");
         register_construct("assert_decl");
 
-        dispatcher( ).statement.pre["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_pre, *this ) );
-        dispatcher( ).statement.post["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_post, *this ) );
-        dispatcher( ).declaration.pre["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_pre, *this ) );
-        dispatcher( ).declaration.post["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_post, *this ) );
+        dispatcher( ).statement.pre["assert"].connect( std::bind( &AnalysisCheckPhase::assert_handler_pre, this, std::placeholders::_1 ) );
+        dispatcher( ).statement.post["assert"].connect( std::bind( &AnalysisCheckPhase::assert_handler_post, this, std::placeholders::_1 ) );
+        dispatcher( ).declaration.pre["assert_decl"].connect( std::bind( &AnalysisCheckPhase::assert_decl_handler_pre, this, std::placeholders::_1 ) );
+        dispatcher( ).declaration.post["assert_decl"].connect( std::bind( &AnalysisCheckPhase::assert_decl_handler_post, this, std::placeholders::_1 ) );
         
         // Register parameters
         register_parameter("correctness_log_dir",
@@ -880,7 +880,7 @@ namespace {
         register_parameter("ompss_mode",
                            "Enables OmpSs semantics instead of OpenMP semantics",
                            _ompss_mode_str,
-                           "0").connect(functor(&AnalysisCheckPhase::set_ompss_mode, *this));
+                           "0").connect(std::bind(&AnalysisCheckPhase::set_ompss_mode, this, std::placeholders::_1));
     }
 
     void AnalysisCheckPhase::assert_handler_pre( TL::PragmaCustomStatement directive )

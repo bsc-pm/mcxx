@@ -910,7 +910,7 @@ DeviceOpenCL::DeviceOpenCL()
     register_parameter("disable_opencl_file_check",
             "Do not check if the argument of the 'file' clause is specified as an OpenCL file in the command line",
             _disable_opencl_file_check_str,
-            "0").connect(functor(&DeviceOpenCL::disable_opencl_file_check, *this));
+            "0").connect(std::bind(&DeviceOpenCL::disable_opencl_file_check, this, std::placeholders::_1));
 }
 
 void  DeviceOpenCL::disable_opencl_file_check(const std::string &str)

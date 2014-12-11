@@ -1602,7 +1602,7 @@ namespace TL { namespace Nanox {
 
     ObjectList<OutlineDataItem*> OutlineInfo::get_fields() const
     {
-        return _data_env_items.filter(predicate(is_not_private));
+        return _data_env_items.filter(is_not_private);
     }
 
     bool OutlineInfo::only_has_smp_or_mpi_implementations() const

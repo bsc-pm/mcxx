@@ -50,52 +50,52 @@ namespace Analysis {
         register_parameter("pcfg_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _pcfg_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_pcfg, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_pcfg, this, std::placeholders::_1));
 
         register_parameter("use_def_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _use_def_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_use_def, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_use_def, this, std::placeholders::_1));
 
         register_parameter("liveness_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _liveness_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_liveness, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_liveness, this, std::placeholders::_1));
 
         register_parameter("reaching_defs_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _reaching_defs_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_reaching_defs, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_reaching_defs, this, std::placeholders::_1));
 
         register_parameter("induction_vars_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _induction_vars_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_induction_vars, this, std::placeholders::_1));
                             
         register_parameter("task_sync_tune_enabled",
                            "If set to '1' enables task synchronizations tunning in the PCFG",
                            _task_sync_tune_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_task_sync_tune, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_task_sync_tune, this, std::placeholders::_1));
                             
         register_parameter("tdg_enabled",
                            "If set to '1' enables tdg analysis, otherwise it is disabled",
                            _tdg_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_tdg, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_tdg, this, std::placeholders::_1));
 
         register_parameter("range_analysis_enabled",
                            "If set to '1' enables range analysis, otherwise it is disabled",
                            _range_analysis_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_range_analsysis, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_range_analsysis, this, std::placeholders::_1));
                             
         register_parameter("cyclomatic_complexity_enabled",
                            "If set to '1' enables cyclomatic complexity calculation, otherwise it is disabled",
                            _cyclomatic_complexity_enabled_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_cyclomatic_complexity, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_cyclomatic_complexity, this, std::placeholders::_1));
                             
         register_parameter("ompss_mode",
                            "Enables OmpSs semantics instead of OpenMP semantics",
                            _ompss_mode_str,
-                           "0").connect(functor(&TestAnalysisPhase::set_ompss_mode, *this));
+                           "0").connect(std::bind(&TestAnalysisPhase::set_ompss_mode, this, std::placeholders::_1));
         
     }
 

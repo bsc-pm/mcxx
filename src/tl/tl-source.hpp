@@ -433,7 +433,7 @@ namespace TL
      * \return A single string with the result of \a to_str applied to all elements of \a t separated with \a separator
      */
     template <class T>
-    std::string to_string(const ObjectList<T>& t, Functor<std::string, T>& to_str, const std::string& separator = "")
+    std::string to_string(const ObjectList<T>& t, std::function<std::string(T)>& to_str, const std::string& separator = "")
     {
         std::string result;
 

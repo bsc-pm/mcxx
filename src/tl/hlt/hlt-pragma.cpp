@@ -43,16 +43,18 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("normalize");
     dispatcher().statement.post["normalize"].connect(
-            functor(
-                (void (HLTPragmaPhase::*)(TL::PragmaCustomStatement))&HLTPragmaPhase::do_loop_normalize,
-                *this)
+            std::bind(
+                &HLTPragmaPhase::do_loop_normalize,
+                this,
+                std::placeholders::_1)
             );
 
     register_construct("unroll");
     dispatcher().statement.post["unroll"].connect(
-            functor(
-                (void (HLTPragmaPhase::*)(TL::PragmaCustomStatement))&HLTPragmaPhase::do_loop_unroll,
-                *this)
+            std::bind(
+                &HLTPragmaPhase::do_loop_unroll,
+                this,
+                std::placeholders::_1)
             );
 }
 

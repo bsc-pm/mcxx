@@ -928,7 +928,7 @@ void LoweringVisitor::visit_task_call_c(
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                lift_pointer<OutlineDataItem>(outline_data_item_get_parameter_position),
                 parameter.get_parameter_position_in(called_sym));
 
         ERROR_CONDITION(found.empty(), "%s: error: cannot find parameter '%s' in OutlineInfo",
@@ -1736,7 +1736,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                lift_pointer<OutlineDataItem>(outline_data_item_get_parameter_position),
                 parameter.get_parameter_position_in(called_task_function));
 
         if (found.empty())

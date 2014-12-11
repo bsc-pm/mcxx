@@ -95,7 +95,7 @@ namespace TL { namespace Nanox {
         register_parameter("instrument",
                 "Enables instrumentation of the device provider if set to '1'",
                 _enable_instrumentation_str,
-                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+                "0").connect(std::bind(&DeviceProvider::set_instrumentation, this, std::placeholders::_1));
     }
 
     void DeviceProvider::get_instrumentation_code(

@@ -98,11 +98,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     private_list  // TL::ObjectList<OpenMP::Private>
-                    .map(functor(&Nodecl::OpenMP::Private::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -111,11 +111,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-                    .map(functor(&Nodecl::OpenMP::Firstprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -125,11 +125,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     lastprivate_list  // TL::ObjectList<OpenMP::Lastprivate>
-                    .map(functor(&Nodecl::OpenMP::Lastprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Lastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -139,11 +139,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     firstlastprivate_list  // TL::ObjectList<OpenMP::FirstLastprivate>
-                    .map(functor(&Nodecl::OpenMP::FirstLastprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::FirstLastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -154,12 +154,13 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     reduction_list // TL::ObjectList<OpenMP::Reduction>
-                    .map(functor(&Nodecl::OpenMP::Reduction::get_reductions)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list_as<Nodecl::OpenMP::ReductionItem>)) // TL::ObjectList<TL::ObjectList<Nodecl::OpenMP::ReductionItem> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::OpenMP::ReductionItem>)) // TL::ObjectList<OpenMP::ReductionItem>
-                    .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)); // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Reduction::get_reductions) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list_as<Nodecl::OpenMP::ReductionItem>)
+                    // TL::ObjectList<TL::ObjectList<Nodecl::OpenMP::ReductionItem> >
+                    .reduction(TL::append_two_lists<Nodecl::OpenMP::ReductionItem>) // TL::ObjectList<OpenMP::ReductionItem>
+                    .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
                 private_symbols.insert(tmp);
                 reduction_symbols.insert(tmp);
@@ -391,11 +392,11 @@ namespace TL { namespace Intel {
             if (!reduction_list.empty())
             {
                 TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items = reduction_list
-                    .map(functor(&Nodecl::OpenMP::Reduction::get_reductions))
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>))
-                    .map(functor(&Nodecl::List::to_object_list))
-                    .reduction(functor(&TL::append_two_lists<Nodecl::NodeclBase>))
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>));
+                    .map(&Nodecl::OpenMP::Reduction::get_reductions)
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>)
+                    .map(&Nodecl::List::to_object_list)
+                    .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
+                    .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
 
 
                 for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();

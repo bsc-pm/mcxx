@@ -57,32 +57,32 @@ namespace TL { namespace Nanox {
         register_parameter("weaks_as_statics",
                 "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
                 _static_weak_symbols_str,
-                "0").connect(functor(&Lowering::set_weaks_as_statics, *this));
+                "0").connect(std::bind(&Lowering::set_weaks_as_statics, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
-                "0").connect(functor(&Lowering::set_ompss_mode, *this));
+                "0").connect(std::bind(&Lowering::set_ompss_mode, this, std::placeholders::_1));
 
         register_parameter("instrument", 
                 "Enables Nanos++ instrumentation", 
                 _instrumentation_str,
-                "0").connect(functor(&Lowering::set_instrumentation, *this));
+                "0").connect(std::bind(&Lowering::set_instrumentation, this, std::placeholders::_1));
 
         register_parameter("nanos-debug", 
                 "Enables Nanos++ debugging features", 
                 _nanos_debug_str,
-                "0").connect(functor(&Lowering::set_nanos_debug, *this));
+                "0").connect(std::bind(&Lowering::set_nanos_debug, this, std::placeholders::_1));
 
         register_parameter("disable_final_clause_transformation",
                 "Disables the OpenMP/OmpSs transformation of the 'final' clause",
                 _final_clause_transformation_str,
-                "0").connect(functor(&Lowering::set_disable_final_clause_transformation, *this));
+                "0").connect(std::bind(&Lowering::set_disable_final_clause_transformation, this, std::placeholders::_1));
 
         register_parameter("firstprivates_always_references",
                 "For C/C++, passes firstprivates always by reference",
                 _firstprivates_always_references_str,
-                "0").connect(functor(&Lowering::set_firstprivates_always_references, *this));
+                "0").connect(std::bind(&Lowering::set_firstprivates_always_references, this, std::placeholders::_1));
     }
 
     void Lowering::run(DTO& dto)
