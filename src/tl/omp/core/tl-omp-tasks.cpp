@@ -1200,7 +1200,7 @@ namespace TL
             {
                 // OpenMP standard clauses
                 TL::ObjectList<Nodecl::NodeclBase> std_in, std_out, std_inout;
-                parse_dependences_info_std_clause(
+                parse_dependences_openmp_clause(
                         parsing_scope,
                         pragma_line.get_clause("depend"),
                         std_in, std_out, std_inout,

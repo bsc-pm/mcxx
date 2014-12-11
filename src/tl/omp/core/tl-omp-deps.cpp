@@ -269,33 +269,34 @@ namespace TL { namespace OpenMP {
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
+        // Ompss clauses
         PragmaCustomClause input_clause = construct.get_clause("in",/* deprecated */ "input");
-        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN,
+        get_dependences_ompss_info_clause(input_clause, data_sharing, DEP_DIR_IN,
                 default_data_attr, "in", extra_symbols);
 
         PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE,
+        get_dependences_ompss_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE,
                 default_data_attr, "inprivate", extra_symbols);
 
         PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
-        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT,
+        get_dependences_ompss_info_clause(output_clause, data_sharing, DEP_DIR_OUT,
                 default_data_attr, "out", extra_symbols);
 
         PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT,
+        get_dependences_ompss_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT,
                 default_data_attr, "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_info_clause(concurrent_clause, data_sharing, DEP_CONCURRENT,
+        get_dependences_ompss_info_clause(concurrent_clause, data_sharing, DEP_CONCURRENT,
                 default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_info_clause(commutative_clause, data_sharing, DEP_COMMUTATIVE,
+        get_dependences_ompss_info_clause(commutative_clause, data_sharing, DEP_COMMUTATIVE,
                 default_data_attr, "commutative", extra_symbols);
 
-        // OpenMP standard proposal
+        // OpenMP standard clauses
         PragmaCustomClause depends = construct.get_clause("depend");
-        get_dependences_info_std_clause(construct, depends, data_sharing,
+        get_dependences_openmp(construct, depends, data_sharing,
                 default_data_attr, extra_symbols);
     }
 
@@ -304,7 +305,7 @@ namespace TL { namespace OpenMP {
         return d;
     }
 
-    void Core::parse_dependences_info_std_clause(
+    void Core::parse_dependences_openmp_clause(
             TL::ReferenceScope parsing_scope,
             TL::PragmaCustomClause clause,
             TL::ObjectList<Nodecl::NodeclBase> &in,
@@ -425,7 +426,7 @@ namespace TL { namespace OpenMP {
         regfree(&preg);
     }
 
-    void Core::get_dependences_info_std_clause(
+    void Core::get_dependences_openmp(
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
             DataSharingEnvironment& data_sharing,
@@ -433,7 +434,7 @@ namespace TL { namespace OpenMP {
             ObjectList<Symbol>& extra_symbols)
     {
             TL::ObjectList<Nodecl::NodeclBase> in, out, inout;
-            parse_dependences_info_std_clause(
+            parse_dependences_openmp_clause(
                     construct,
                     clause,
                     in,
@@ -449,7 +450,7 @@ namespace TL { namespace OpenMP {
                     DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)", extra_symbols);
     }
 
-    void Core::get_dependences_info_clause(PragmaCustomClause clause,
+    void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
            DataSharingEnvironment& data_sharing,
            DependencyDirection dep_attr,
            DataSharingAttribute default_data_attr,

@@ -152,7 +152,7 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
-                void get_dependences_info_clause(
+                void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr,
@@ -160,7 +160,7 @@ namespace TL
                         const std::string& clause_name,
                         ObjectList<Symbol>& extra_symbols);
 
-                void parse_dependences_info_std_clause(
+                void parse_dependences_openmp_clause(
                         TL::ReferenceScope parsing_scope,
                         TL::PragmaCustomClause clause,
                         TL::ObjectList<Nodecl::NodeclBase> &in,
@@ -168,7 +168,7 @@ namespace TL
                         TL::ObjectList<Nodecl::NodeclBase> &inout,
                         const locus_t* locus);
 
-                void get_dependences_info_std_clause(
+                void get_dependences_openmp(
                         TL::PragmaCustomLine construct,
                         TL::PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,

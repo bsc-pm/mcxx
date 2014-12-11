@@ -1836,7 +1836,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
 
             ObjectList<Symbol> extra_symbols;
-            get_dependences_info_clause(
+            get_dependences_ompss_info_clause(
                     construct.get_pragma_line().get_clause("on"),
                     data_sharing,
                     DEP_DIR_INOUT,
