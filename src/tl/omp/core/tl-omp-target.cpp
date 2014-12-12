@@ -654,10 +654,6 @@ namespace TL
                                 " copy directionality. This may cause problems at run-time\n",
                                 construct.get_locus_str().c_str(),
                                 io_it->get_qualified_name().c_str());
-
-                        Nodecl::Symbol new_symbol_ref =
-                            Nodecl::Symbol::make(*io_it, construct.get_locus());
-                        new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
                     }
                 }
             }
