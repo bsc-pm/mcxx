@@ -20970,7 +20970,9 @@ static void instantiate_template_function_code(
     int num_parameter;
 
     // Register function parameters
-    for (num_parameter = 0; num_parameter < symbol_entity_specs_get_num_related_symbols(v->orig_function_instantiated); num_parameter++)
+    for (num_parameter = 0;
+            num_parameter < symbol_entity_specs_get_num_related_symbols(v->orig_function_instantiated);
+            num_parameter++)
     {
         scope_entry_t* orig_parameter =
                 symbol_entity_specs_get_related_symbols_num(v->orig_function_instantiated, num_parameter);
