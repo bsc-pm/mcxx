@@ -2023,7 +2023,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[2] == 't'
                         && argument[3] == 'd'
                         && argument[4] == '=')
-                { 
+                {
                     if ( strcmp(&argument[5], "c++11") == 0
                             || strcmp(&argument[5], "gnu++11") == 0
                             // Old flags
@@ -2031,6 +2031,14 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                             || strcmp(&argument[5], "gnu++0x") == 0)
                     {
                         CURRENT_CONFIGURATION->enable_cxx11 = 1;
+                    }
+                    else if (strcmp(&argument[5], "c++14") == 0
+                            || strcmp(&argument[5], "gnu++14") == 0
+                            // clang flag
+                            || strcmp(&argument[5], "c++1y") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
+                        CURRENT_CONFIGURATION->enable_cxx14 = 1;
                     }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
@@ -4703,7 +4711,7 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
     if (a == NULL)
         return 1;
 
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         *ambiguous_node = a;
         return 0;
@@ -4783,19 +4791,6 @@ static compilation_configuration_t* get_sublanguage_configuration(
 
     return fallback_config;
 }
-
-
-// Useful for debugging sessions
-extern void _enable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
-}
-
-extern void _disable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
-}
-
 
 #ifdef HAVE_MALLINFO
 static char* power_suffixes[9] = 

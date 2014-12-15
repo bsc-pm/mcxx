@@ -70,8 +70,6 @@ namespace TL
 
             public:
                 KNCStrideVisitorConv(unsigned int vector_num_elements);
-        //        virtual void visit(const Nodecl::VectorConversion& n);
-
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
 
         };

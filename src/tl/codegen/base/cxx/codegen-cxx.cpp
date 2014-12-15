@@ -184,9 +184,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
     BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
     BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
     BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  
@@ -989,7 +987,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
     this->push_scope(node.retrieve_context());
 
-    walk(node.get_in_context());
+    ERROR_CONDITION(!node.get_in_context().is<Nodecl::List>(), "invalid node", 0);
+    Nodecl::List l = node.get_in_context().as<Nodecl::List>();
+
+    // Transient kludge
+    bool emit_decls = 
+    (l.size() != 1
+           && !(l[0].is<Nodecl::CompoundStatement>()
+               || l[0].is<Nodecl::ForStatement>()
+               || l[0].is<Nodecl::WhileStatement>()
+               || l[0].is<Nodecl::SwitchStatement>()
+               || l[0].is<Nodecl::IfElseStatement>()));
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* << fake context >> { */\n";
+        define_local_entities_in_trees(l);
+    }
+
+    walk(l);
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* } << fake context >> */\n";
+    }
 
     this->pop_scope();
 }
@@ -8033,8 +8056,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     }
     else
     {
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -9465,9 +9488,9 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 {
     *file << ast_print_node_type(n.get_kind()) << "(";
-    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+    Nodecl::NodeclBase::Children children = n.children();
     int i = 0;
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {

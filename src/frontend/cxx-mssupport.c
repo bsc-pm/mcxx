@@ -48,7 +48,7 @@ static void gather_ms_declspec_item(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_MS_DECLSPEC_ITEM, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_MS_DECLSPEC_ITEM, "Invalid node", 0);
 
     const char* declspec_name = ASTText(a);
     ERROR_CONDITION(declspec_name == NULL, "Invalide node", 0);
@@ -116,7 +116,7 @@ void gather_ms_declspec(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_MS_DECLSPEC, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_MS_DECLSPEC, "Invalid node", 0);
     AST list = ASTSon0(a), it = NULL;
 
     for_each_element(list, it)
@@ -129,7 +129,7 @@ void gather_ms_declspec_list(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Node must be a list", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Node must be a list", 0);
 
     AST list = a, it = NULL;
     for_each_element(list, it)

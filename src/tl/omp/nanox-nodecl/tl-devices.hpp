@@ -250,14 +250,24 @@ namespace TL { namespace Nanox {
                      TL::Symbol &arguments_symbol);
 
              /**
-              * Returns if the symbol(sym) is serializable or not
-              * in case it's serializable and the device has a separate
-              * memory address space (non-smp), it should take care of-deserializing
-              * inside the outline function
-              * @param sym
-              * @return 
+              * This function applies the symbol map to the ndrange and shmem
+              * expressions that are stored inside the TargetInformation. The
+              * new expressions are stored in the output objectlists.
+              *
+              * @param related_scope
+              * @param target_info
+              * @param symbol_map
+              * @param new_ndrange_exprs
+              * @param new_shmem_exprs
               */
-             bool is_serializable(TL::Symbol &sym);
+             void update_ndrange_and_shmem_expressions(
+                     const TL::Scope& related_scope,
+                     const TargetInformation& target_info,
+                     Nodecl::Utils::SimpleSymbolMap* symbol_map,
+                     // out
+                     TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_exprs,
+                     TL::ObjectList<Nodecl::NodeclBase>& new_shmem_exprs);
+
     };
 
     class DeviceHandler

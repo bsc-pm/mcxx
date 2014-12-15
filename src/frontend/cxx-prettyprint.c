@@ -706,7 +706,7 @@ static void increase_level_num(prettyprint_context_t *pt_ctx, int num)
 
 static void increase_level_if_not_compound( prettyprint_context_t* pt_ctx, AST a)
 {
-    if (ASTType(a) != AST_COMPOUND_STATEMENT)
+    if (ASTKind(a) != AST_COMPOUND_STATEMENT)
         pt_ctx->level++;
 }
 
@@ -734,16 +734,16 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     if (a == NULL)
         return;
 
-    prettyprint_handler_t hnd = handlers_list[ASTType(a)].handler;
+    prettyprint_handler_t hnd = handlers_list[ASTKind(a)].handler;
 
     if (hnd == NULL)
     {
-        fprintf(f, "<<<%s:%p>>>", ast_node_names[ASTType(a)], a);
+        fprintf(f, "<<<%s:%p>>>", ast_node_names[ASTKind(a)], a);
         return;
     }
     else
     {
-        // fprintf(stderr, "Calling handler of '%s'\n", ast_node_names[ASTType(a)]);
+        // fprintf(stderr, "Calling handler of '%s'\n", ast_node_names[ASTKind(a)]);
     }
 
     // If there is a callback, call it
@@ -777,7 +777,7 @@ static void character_separated_sequence_handler(FILE* f, AST a, prettyprint_con
 {
     if (a == NULL)
         return;
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         character_separated_sequence_handler(f, ast_get_ambiguity(a, 0), pt_ctx, separator, specific_handler);
         return;
@@ -910,7 +910,7 @@ static void abstract_declarator_function_handler(FILE* f, AST a, prettyprint_con
         prettyprint_level(f, ASTSon0(a), pt_ctx);
     }
 
-    if (ASTType(ASTSon1(a)) != AST_KR_PARAMETER_LIST)
+    if (ASTKind(ASTSon1(a)) != AST_KR_PARAMETER_LIST)
     {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
@@ -1236,7 +1236,7 @@ static void delete_expression_handler(FILE* f, AST a, prettyprint_context_t* pt_
     }
     
     token_fprintf(f, a, pt_ctx, "delete");
-    if (ASTType(a) == AST_DELETE_ARRAY_EXPR)
+    if (ASTKind(a) == AST_DELETE_ARRAY_EXPR)
     {
         token_fprintf(f, a, pt_ctx, "[]");
     }
@@ -1423,7 +1423,7 @@ static void using_declaration_handler(FILE* f, AST a, prettyprint_context_t* pt_
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "using ");
 
-    if (ASTType(a) == AST_USING_DECLARATION_TYPENAME)
+    if (ASTKind(a) == AST_USING_DECLARATION_TYPENAME)
     {
         token_fprintf(f, a, pt_ctx, "typename ");
     }
@@ -1436,7 +1436,7 @@ static void using_declaration_handler(FILE* f, AST a, prettyprint_context_t* pt_
 static void template_declaration_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
-    if (ASTType(a) == AST_EXPORT_TEMPLATE_DECLARATION)
+    if (ASTKind(a) == AST_EXPORT_TEMPLATE_DECLARATION)
     {
         token_fprintf(f, a, pt_ctx, "export ");
     }
@@ -1837,7 +1837,7 @@ static void operator_function_id_handler(FILE* f, AST a, prettyprint_context_t* 
     token_fprintf(f, a, pt_ctx, "operator ");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     
-    if (ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    if (ASTKind(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
         token_fprintf(f, a, pt_ctx, "<");
         if (ASTSon1(a) != NULL)

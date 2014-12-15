@@ -128,9 +128,6 @@ namespace Utils {
 
     //! Prints all induction variables information to the standard error
     void print_induction_vars(const InductionVarsPerNode& iv_list);
-    
-    //! Look for nodecl \p var in the \p iv_list list of induction variables
-    bool induction_variable_list_contains_variable(const InductionVarList& iv_list, const NBase& var);
 
     //! Looks for the induction variable \p var in the list \p ivs of induction variables
     InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var);

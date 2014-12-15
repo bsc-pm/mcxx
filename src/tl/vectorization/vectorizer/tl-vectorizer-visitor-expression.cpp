@@ -166,7 +166,8 @@ namespace Vectorization
     }
 
     template <typename ScalarNode, typename VectorNode>
-    void VectorizerVisitorExpression::visit_binary_op(const ScalarNode& n)
+    void VectorizerVisitorExpression::visit_binary_op(const ScalarNode& n,
+            const bool returns_mask_type)
     {
         if(!((n.template is<Nodecl::Add>() || n.template is<Nodecl::Minus>()) &&
                     process_fmul_op(n)))
@@ -180,13 +181,17 @@ namespace Vectorization
             walk(lhs);
             walk(rhs);
 
+            TL::Type vector_type = returns_mask_type ?
+                TL::Type::get_mask_type(_environment._vectorization_factor) :
+                Utils::get_qualified_vector_to(n.get_type(),
+                        _environment._vectorization_factor);
+
             VectorNode vector_node =
                 VectorNode::make(
                         lhs.shallow_copy(),
                         rhs.shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(),
-                            _environment._vectorization_factor),
+                        vector_type,
                         n.get_locus());
 
             if (n.is_constant())
@@ -201,27 +206,27 @@ namespace Vectorization
 
     void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
     {
-        visit_binary_op<Nodecl::Add, Nodecl::VectorAdd>(n);
+        visit_binary_op<Nodecl::Add, Nodecl::VectorAdd>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
     {
-        visit_binary_op<Nodecl::Minus, Nodecl::VectorMinus>(n);
+        visit_binary_op<Nodecl::Minus, Nodecl::VectorMinus>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)
     {
-        visit_binary_op<Nodecl::Mul, Nodecl::VectorMul>(n);
+        visit_binary_op<Nodecl::Mul, Nodecl::VectorMul>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Div& n)
     {
-        visit_binary_op<Nodecl::Div, Nodecl::VectorDiv>(n);
+        visit_binary_op<Nodecl::Div, Nodecl::VectorDiv>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Mod& n)
     {
-        visit_binary_op<Nodecl::Mod, Nodecl::VectorMod>(n);
+        visit_binary_op<Nodecl::Mod, Nodecl::VectorMod>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Neg& n)
@@ -271,69 +276,69 @@ namespace Vectorization
 
     void VectorizerVisitorExpression::visit(const Nodecl::LowerThan& n)
     {
-        visit_binary_op<Nodecl::LowerThan, Nodecl::VectorLowerThan>(n);
+        visit_binary_op<Nodecl::LowerThan, Nodecl::VectorLowerThan>(n, true /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::LowerOrEqualThan& n)
     {
         visit_binary_op<Nodecl::LowerOrEqualThan,
-            Nodecl::VectorLowerOrEqualThan>(n);
+            Nodecl::VectorLowerOrEqualThan>(n, true /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::GreaterThan& n)
     {
-        visit_binary_op<Nodecl::GreaterThan, Nodecl::VectorGreaterThan>(n);
+        visit_binary_op<Nodecl::GreaterThan, Nodecl::VectorGreaterThan>(n, true /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::GreaterOrEqualThan& n)
     {
         visit_binary_op<Nodecl::GreaterOrEqualThan,
-            Nodecl::VectorGreaterOrEqualThan>(n);
+            Nodecl::VectorGreaterOrEqualThan>(n, true /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Equal& n)
     {
-        visit_binary_op<Nodecl::Equal, Nodecl::VectorEqual>(n);
+        visit_binary_op<Nodecl::Equal, Nodecl::VectorEqual>(n, true /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Different& n)
     {
-        visit_binary_op<Nodecl::Different, Nodecl::VectorDifferent>(n);
+        visit_binary_op<Nodecl::Different, Nodecl::VectorDifferent>(n, true /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)
     {
-        visit_binary_op<Nodecl::BitwiseAnd, Nodecl::VectorBitwiseAnd>(n);
+        visit_binary_op<Nodecl::BitwiseAnd, Nodecl::VectorBitwiseAnd>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseOr& n)
     {
-        visit_binary_op<Nodecl::BitwiseOr, Nodecl::VectorBitwiseOr>(n);
+        visit_binary_op<Nodecl::BitwiseOr, Nodecl::VectorBitwiseOr>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShl& n)
     {
-        visit_binary_op<Nodecl::BitwiseShl, Nodecl::VectorBitwiseShl>(n);
+        visit_binary_op<Nodecl::BitwiseShl, Nodecl::VectorBitwiseShl>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::ArithmeticShr& n)
     {
-        visit_binary_op<Nodecl::ArithmeticShr, Nodecl::VectorArithmeticShr>(n);
+        visit_binary_op<Nodecl::ArithmeticShr, Nodecl::VectorArithmeticShr>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShr& n)
     {
-        visit_binary_op<Nodecl::BitwiseShr, Nodecl::VectorBitwiseShr>(n);
+        visit_binary_op<Nodecl::BitwiseShr, Nodecl::VectorBitwiseShr>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::LogicalAnd& n)
     {
-        visit_binary_op<Nodecl::LogicalAnd, Nodecl::VectorLogicalAnd>(n);
+        visit_binary_op<Nodecl::LogicalAnd, Nodecl::VectorLogicalAnd>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::LogicalOr& n)
     {
-        visit_binary_op<Nodecl::LogicalOr, Nodecl::VectorLogicalOr>(n);
+        visit_binary_op<Nodecl::LogicalOr, Nodecl::VectorLogicalOr>(n, false /* returns_mask_type */);
     }
 
     void VectorizerVisitorExpression::visit(
@@ -345,6 +350,9 @@ namespace Vectorization
 
         if(_environment._support_masking)
         {
+            TL::Type mask_type = TL::Type::get_mask_type(
+                    _environment._vectorization_factor);
+
             Nodecl::NodeclBase prev_mask =
                 _environment._mask_list.back();
 
@@ -357,7 +365,7 @@ namespace Vectorization
 
                 Nodecl::VectorMaskNot neg_condition =
                     Nodecl::VectorMaskNot::make(condition,
-                            condition.get_type(),
+                            mask_type,
                             condition.get_locus());
 
                 // ConditionalExpression doesn't allow new contexts 
@@ -378,7 +386,7 @@ namespace Vectorization
                     Nodecl::VectorMaskAnd::make(
                             prev_mask.shallow_copy(),
                             condition.shallow_copy(),
-                            true_mask_nodecl_sym.get_type().no_ref(),
+                            mask_type,
                             n.get_locus());
 
                 Nodecl::ExpressionStatement true_mask_exp =
@@ -386,7 +394,7 @@ namespace Vectorization
                             Nodecl::VectorMaskAssignment::make(
                                 true_mask_nodecl_sym,
                                 true_mask_value,
-                                true_mask_nodecl_sym.get_type().no_ref(),
+                                mask_type,
                                 n.get_locus()));
 
                 // Visit True
@@ -409,7 +417,7 @@ namespace Vectorization
                     Nodecl::VectorMaskAnd2Not::make(
                             prev_mask.shallow_copy(),
                             condition.shallow_copy(),
-                            false_mask_nodecl_sym.get_type().no_ref(),
+                            mask_type,
                             n.get_locus());
 
                 Nodecl::ExpressionStatement else_mask_exp =
@@ -417,7 +425,7 @@ namespace Vectorization
                             Nodecl::VectorMaskAssignment::make(
                                 false_mask_nodecl_sym.shallow_copy(),
                                 false_mask_value,
-                                false_mask_nodecl_sym.get_type().no_ref(),
+                                mask_type,
                                 n.get_locus()));
 
                 // Visit False
@@ -758,6 +766,10 @@ namespace Vectorization
                     }
                     else // Vector Scatter
                     {
+                        ERROR_CONDITION(Vectorizer::_gathers_scatters_disabled,
+                                "%s is a non-adjacent vector store. Gather/scatter are disabled.",
+                                lhs.prettyprint().c_str());
+
                         VECTORIZATION_DEBUG()
                         {
                             fprintf(stderr, "VECTORIZER: Scatter '%s'\n",
@@ -902,37 +914,47 @@ namespace Vectorization
         // Therefore do nothing, I'm no longer a Conversion!!
         if (n.is<Nodecl::Conversion>())
         {
-            TL::Type src_type = n.get_nest().get_type();
-            TL::Type dst_type = n.get_type();
+            // Update nest
+            nest = n.get_nest();
 
-            if (src_type.no_ref().is_vector())
+            TL::Type src_vector_type = nest.get_type().no_ref();
+            TL::Type dst_type = n.get_type();           
+
+            if (src_vector_type.is_vector())
             {
-                // Remove rvalue conversions. In a vector code they are
-                // explicit loads ops.
-                //                    if (src_type != dst_type)
-
-                TL::Type dst_vec_type;
-
-                if (dst_type.is_bool())
-                    dst_vec_type = TL::Type::get_mask_type(
-                            _environment._vectorization_factor);
+                // Remove lvalue conversions.
+                // In a vector code they are explicit loads ops.
+                if (src_vector_type.basic_type().is_same_type(dst_type) &&
+                        (nest.is<Nodecl::VectorLoad>() ||
+                         nest.is<Nodecl::VectorGather>()))
+                {
+                    n.replace(nest.shallow_copy());
+                }
                 else
-                    dst_vec_type = Utils::get_qualified_vector_to(dst_type,
-                            _environment._vectorization_factor);
+                {
+                    TL::Type dst_vec_type;
+
+                    if (dst_type.is_bool())
+                        dst_vec_type = TL::Type::get_mask_type(
+                                _environment._vectorization_factor);
+                    else
+                        dst_vec_type = Utils::get_qualified_vector_to(dst_type,
+                                _environment._vectorization_factor);
 
 
-                Nodecl::VectorConversion vector_conv =
-                    Nodecl::VectorConversion::make(
-                            n.get_nest().shallow_copy(),
-                            mask,
-                            dst_vec_type,
-                            n.get_locus());
+                    Nodecl::VectorConversion vector_conv =
+                        Nodecl::VectorConversion::make(
+                                n.get_nest().shallow_copy(),
+                                mask,
+                                dst_vec_type,
+                                n.get_locus());
 
-                vector_conv.set_constant(const_value_convert_to_type(
-                            n.get_nest().get_constant(),
-                            dst_type.get_internal_type()));
+                    vector_conv.set_constant(const_value_convert_to_type(
+                                n.get_nest().get_constant(),
+                                dst_vec_type.get_internal_type()));
 
-                n.replace(vector_conv);
+                    n.replace(vector_conv);
+                }
             }
         }
     }
@@ -1154,6 +1176,10 @@ namespace Vectorization
             }
             else // Vector Gather
             {
+                ERROR_CONDITION(Vectorizer::_gathers_scatters_disabled,
+                        "%s is a non-adjacent vector load. Gather/scatter are disabled.",
+                        n.prettyprint().c_str());
+
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr, "VECTORIZER: Gather '%s'\n", 
@@ -1885,7 +1911,6 @@ namespace Vectorization
                                 const_value_add(promoted_nest.get_constant(),
                                     offset_vector_literal.get_constant()));
                     }
-
 
                     vector_induction_var =
                         Nodecl::VectorConversion::make(

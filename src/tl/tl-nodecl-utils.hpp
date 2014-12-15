@@ -111,10 +111,10 @@ namespace Utils {
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 
-    void append_items_in_nesting_compound_statement(
+    void append_items_in_nested_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items);
-    void prepend_items_in_nesting_compound_statement(
+    void prepend_items_in_nested_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items);
 
@@ -423,8 +423,6 @@ namespace Utils {
             const Nodecl::NodeclBase& haystack,
             const Nodecl::NodeclBase& needle,
             const Nodecl::NodeclBase& replacement);
-
-    void print_ast(Nodecl::NodeclBase n);
 }
 }
 
@@ -508,5 +506,9 @@ namespace TL
             Nodecl::NodeclBase get_next();
     };
 }
+
+void deb_print_ast(Nodecl::NodeclBase n);
+std::string deb_print_type(TL::Type type);
+std::string deb_print_type(const Nodecl::NodeclBase& n);
 
 #endif // TL_NODECL_UTILS_HPP

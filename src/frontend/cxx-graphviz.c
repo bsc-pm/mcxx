@@ -111,7 +111,7 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
         symbol_name = "<<unnamed symbol>>";
     }
 
-    fprintf(f, "sym_%zd[fontcolor=\"/dark28/2\",color=\"/dark28/2\", shape=rectangle,label=\"%p\n%s\\n%s:%u\"]\n", 
+    fprintf(f, "sym_%zd[fontcolor=\"/dark28/2\",color=\"/dark28/2\", shape=rectangle,label=\"%p\\n%s\\n%s:%u\"]\n", 
             (size_t)entry, entry, symbol_name, locus_get_filename(entry->locus), locus_get_line(entry->locus));
 
 
@@ -228,19 +228,19 @@ static char list_tree_is_ok(AST a)
     if (a == NULL)
         return 0;
 
-    if (ASTType(a) != AST_NODE_LIST)
+    if (ASTKind(a) != AST_NODE_LIST)
         return 0;
 
     if (ASTSon1(a) == NULL)
         return 0;
 
-    if (ASTType(ASTSon1(a)) == AST_NODE_LIST)
+    if (ASTKind(ASTSon1(a)) == AST_NODE_LIST)
         return 0;
 
     if (ASTSon0(a) == NULL)
         return 1;
 
-    if (ASTType(ASTSon0(a)) != AST_NODE_LIST)
+    if (ASTKind(ASTSon0(a)) != AST_NODE_LIST)
         return 0;
 
     if (ASTSon0(a) != NULL && ASTParent(ASTSon0(a)) != a)
@@ -268,19 +268,19 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
     if (a != NULL)
     {
         char list_is_ok = 0;
-        if (ASTType(a) == AST_AMBIGUITY)
+        if (ASTKind(a) == AST_AMBIGUITY)
         {
             shape = "ellipse";
             color = "color=\"/dark28/4\",fontcolor=\"/dark28/4\"";
         }
-        else if (ASTType(a) == AST_NODE_LIST)
+        else if (ASTKind(a) == AST_NODE_LIST)
         {
             list_is_ok = list_tree_is_ok(a);
             if (!list_is_ok)
                 shape = "Mdiamond";
         }
 
-        if (ASTType(a) == AST_NODE_LIST
+        if (ASTKind(a) == AST_NODE_LIST
                 && list_is_ok)
         {
             shape="record";
@@ -313,21 +313,21 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                 i++;
             }
         }
-        else if (ASTType(a) != AST_AMBIGUITY)
+        else if (ASTKind(a) != AST_AMBIGUITY)
         {
             if (ASTText(a) != NULL)
             {
                 char *quoted = quote_protect(ASTText(a));
 
                 fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
-                        current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
+                        current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a), quoted);
 
                 xfree(quoted);
             }
             else
             {
                 fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
-                        current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
+                        current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a));
             }
 
             int i;
@@ -346,10 +346,10 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                 }
             }
         }
-        else if (ASTType(a) == AST_AMBIGUITY)
+        else if (ASTKind(a) == AST_AMBIGUITY)
         {
             fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
-                    current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
+                    current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a));
 
             int i;
             for(i = 0; i < ast_get_num_ambiguities(a); i++)
@@ -360,8 +360,8 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             }
         }
 
-        if (ASTType(a) == NODECL_CONTEXT || 
-                ASTType(a) == NODECL_PRAGMA_CONTEXT)
+        if (ASTKind(a) == NODECL_CONTEXT || 
+                ASTKind(a) == NODECL_PRAGMA_CONTEXT)
         {
             int k = decl_context_t_dump_graphviz(f, nodecl_get_decl_context(_nodecl_wrap(a)));
 

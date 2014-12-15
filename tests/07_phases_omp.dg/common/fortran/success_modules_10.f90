@@ -1,6 +1,6 @@
 ! <testinfo>
 ! test_generator=config/mercurium-omp
-! test_compile_fail=yes
+! test_nolink=yes
 ! </testinfo>
 MODULE KINDS
 IMPLICIT NONE

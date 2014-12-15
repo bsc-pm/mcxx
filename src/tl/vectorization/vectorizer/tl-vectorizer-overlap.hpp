@@ -118,10 +118,11 @@ namespace TL
                     const Vectorization::VectorizerEnvironment& environment,
                     const bool aligned_strategy);
  
+            void compute_basic_properties();
+            void compute_inter_iteration_overlap();
+
             void compute_num_registers(
                     const Vectorization::VectorizerEnvironment& environment);
-
-            void compute_inter_iteration_overlap();
         };
 
         typedef TL::ObjectList<OverlapGroup> objlist_ogroup_t;
@@ -131,7 +132,7 @@ namespace TL
             private:
                 const VectorizerEnvironment& _environment;
                 bool _is_omp_simd_for;
-                bool _is_epilog;
+                bool _is_simd_epilog;
                 Nodecl::List& _prependix_stmts;
                 
                 VectorizationAnalysisInterface* _first_analysis;
@@ -153,16 +154,24 @@ namespace TL
                         const Nodecl::NodeclBase& loop_ind_var,
                         const Nodecl::NodeclBase& loop_ind_var_step);
 
-                void compute_group_properties(
+                void retrieve_group_registers(
                         OverlapGroup& ogroup,
                         TL::Scope& scope,
-                        const int max_registers,
                         const int num_group);
+
+                bool need_init_cache(
+                        const bool is_nested_loop,
+                        const bool is_simd_epilog,
+                        const bool is_overlap_epilog);
+                bool need_update_post(
+                        const bool is_nested_loop,
+                        const bool is_simd_epilog,
+                        const bool is_overlap_epilog);
+
                 void insert_group_update_stmts(
                         OverlapGroup& ogroup,
                         const Nodecl::ForStatement& n,
-                        const bool init_cache,
-                        const bool update_post);
+                        const bool is_overlap_epilog);
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
@@ -181,7 +190,7 @@ namespace TL
                 
                 void visit(const Nodecl::ForStatement&);
 
-            friend class OverlapGroup;
+            friend struct OverlapGroup;
 
        };
     }

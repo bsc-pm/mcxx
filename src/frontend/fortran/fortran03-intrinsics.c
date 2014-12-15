@@ -7378,11 +7378,10 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq = new_symbol(module_context,
                 module_context.current_scope,
                 uniquestr(operator_eq_neq[i].operator_generic));
-        new_operator_eq->kind = SK_FUNCTION;
+        new_operator_eq->kind = SK_GENERIC_NAME;
         new_operator_eq->locus = locus;
         new_operator_eq->type_information = get_void_type();
         symbol_entity_specs_set_in_module(new_operator_eq, ieee_arithmetic);
-        symbol_entity_specs_set_is_generic_spec(new_operator_eq, 1);
         symbol_entity_specs_set_is_implicit_basic_type(new_operator_eq, 0);
 
         symbol_entity_specs_add_related_symbols(new_operator_eq,

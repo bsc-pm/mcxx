@@ -46,7 +46,7 @@ namespace Analysis {
     }
 
     Node* ExtensibleGraph::append_new_child_to_parent(ObjectList<Node*> parents, NodeclList stmts,
-                                                      Node_type ntype, Edge_type etype)
+                                                      NodeType ntype, EdgeType etype)
     {
         if(ntype == __Graph)
             internal_error("A Graph node must be created with the function 'create_graph_node' "
@@ -56,7 +56,7 @@ namespace Analysis {
         {
             Node* new_node = new Node(_utils->_nid, ntype, _utils->_outer_nodes.top());
             new_node->set_statements(stmts);
-            connect_nodes(parents, new_node, ObjectList<Edge_type>(parents.size(), etype));
+            connect_nodes(parents, new_node, ObjectList<EdgeType>(parents.size(), etype));
 
             return new_node;
         }
@@ -67,19 +67,19 @@ namespace Analysis {
     }
 
     Node* ExtensibleGraph::append_new_child_to_parent(Node* parent, NBase stmt,
-                                                      Node_type ntype, Edge_type etype)
+                                                      NodeType ntype, EdgeType etype)
     {
         return append_new_child_to_parent(ObjectList<Node*>(1, parent), NodeclList(1, stmt), ntype, etype);
     }
 
     Node* ExtensibleGraph::append_new_child_to_parent(ObjectList<Node*> parents, NBase stmt,
-                                                      Node_type ntype, Edge_type etype)
+                                                      NodeType ntype, EdgeType etype)
     {
         return append_new_child_to_parent(parents, NodeclList(1, stmt), ntype, etype);
     }
 
     Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, 
-                                         Edge_type etype, const NBase& label,
+                                         EdgeType etype, const NBase& label,
                                          bool is_task_edge, bool is_back_edge)
     {
         Edge* edge = NULL;
@@ -117,10 +117,10 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_nodes(
             const ObjectList<Node*>& parents, const ObjectList<Node*>& children,
-            const ObjectList<Edge_type>& etypes, const NodeclList& elabels)
+            const ObjectList<EdgeType>& etypes, const NodeclList& elabels)
     {
         unsigned int n_conn = parents.size() * children.size();
-        ObjectList<Edge_type> actual_etypes = (etypes.empty() ? ObjectList<Edge_type>(n_conn, __Always) : etypes);
+        ObjectList<EdgeType> actual_etypes = (etypes.empty() ? ObjectList<EdgeType>(n_conn, __Always) : etypes);
         NodeclList actual_elabels = 
                 (elabels.empty() ? NodeclList(n_conn, NBase::null()) : elabels);
         
@@ -132,12 +132,12 @@ namespace Analysis {
         }
 
         int children_size = children.size();
-        ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
+        ObjectList<EdgeType>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end();
              ++it, itt+=children_size, itl+=children_size)
         {
-            ObjectList<Edge_type> current_etypes(itt, itt + children_size);
+            ObjectList<EdgeType> current_etypes(itt, itt + children_size);
             NodeclList current_elabels(itl, itl + children_size);
             connect_nodes(*it, children, current_etypes, current_elabels);
         }
@@ -145,10 +145,10 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_nodes(
             Node* parent, const ObjectList<Node*>& children,
-            const ObjectList<Edge_type>& etypes, const NodeclList& elabels)
+            const ObjectList<EdgeType>& etypes, const NodeclList& elabels)
     {
         unsigned int n_conn = children.size();
-        ObjectList<Edge_type> actual_etypes = (etypes.empty() ? ObjectList<Edge_type>(n_conn, __Always) : etypes);
+        ObjectList<EdgeType> actual_etypes = (etypes.empty() ? ObjectList<EdgeType>(n_conn, __Always) : etypes);
         NodeclList actual_elabels = 
                 (elabels.empty() ? NodeclList(n_conn, NBase::null()) : elabels);
 
@@ -160,11 +160,13 @@ namespace Analysis {
                            children.size(), actual_etypes.size(), actual_elabels.size());
         }
 
-        ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
+        ObjectList<EdgeType>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         ObjectList<Node*>::const_iterator it = children.begin();
-        for(; it != children.end() && itt != actual_etypes.end(), itl != actual_elabels.end();
-             ++it, ++itt, ++itl)
+        for(; it != children.end()
+                && itt != actual_etypes.end()
+                && itl != actual_elabels.end();
+            ++it, ++itt, ++itl)
         {
             connect_nodes(parent, *it, *itt, *itl);
         }
@@ -172,13 +174,13 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_nodes(
             const ObjectList<Node*>& parents, Node* child,
-            const ObjectList<Edge_type>& etypes, const NodeclList& elabels,
+            const ObjectList<EdgeType>& etypes, const NodeclList& elabels,
             bool is_task_edge, bool is_back_edge)
     {
         // When etypes|labels are empty, the default parameter is a set of 
         // __Always|NBase::null() connections
         unsigned int n_conn = parents.size();
-        ObjectList<Edge_type> actual_etypes = (etypes.empty() ? ObjectList<Edge_type>(n_conn, __Always) : etypes);
+        ObjectList<EdgeType> actual_etypes = (etypes.empty() ? ObjectList<EdgeType>(n_conn, __Always) : etypes);
         NodeclList actual_elabels = 
                 (elabels.empty() ? NodeclList(n_conn, NBase::null()) : elabels);
 
@@ -190,10 +192,12 @@ namespace Analysis {
                            parents.size(), actual_etypes.size(), actual_elabels.size());
         }
 
-        ObjectList<Node*>::const_iterator it = parents.begin();
-        ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
+            ObjectList<Node*>::const_iterator it = parents.begin();
+        ObjectList<EdgeType>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
-        for(; it != parents.end(), itt != actual_etypes.end() && itl != actual_elabels.end();
+        for(; it != parents.end()
+                && itt != actual_etypes.end()
+                && itl != actual_elabels.end();
              ++it, ++itt, ++itl)
         {
             connect_nodes(*it, child, *itt, *itl, is_task_edge, is_back_edge);
@@ -219,7 +223,7 @@ namespace Analysis {
     }
 
     Node* ExtensibleGraph::create_graph_node(Node* outer_node, NBase label,
-                                              Graph_type graph_type, NBase context)
+                                              GraphType graph_type, NBase context)
     {
         Node* result = new Node(_utils->_nid, __Graph, outer_node);
 
@@ -252,7 +256,7 @@ namespace Analysis {
         return flush_node;
     }
 
-    Node* ExtensibleGraph::create_unconnected_node(Node_type type, NBase nodecl)
+    Node* ExtensibleGraph::create_unconnected_node(NodeType type, NBase nodecl)
     {
         Node* result = new Node(_utils->_nid, type, _utils->_outer_nodes.top());
         if(!nodecl.is_null())
@@ -349,10 +353,10 @@ namespace Analysis {
             Node* front = node_l.front();
             Node* back = node_l.back();
             ObjectList<Node*> front_parents = front->get_parents();
-            ObjectList<Edge_type> front_entry_edge_types = front->get_entry_edge_types();
+            ObjectList<EdgeType> front_entry_edge_types = front->get_entry_edge_types();
             NodeclList front_entry_edge_labels = front->get_entry_edge_labels();
             ObjectList<Node*> back_children = back->get_children();
-            ObjectList<Edge_type> back_exit_edge_types = back->get_exit_edge_types();
+            ObjectList<EdgeType> back_exit_edge_types = back->get_exit_edge_types();
             NodeclList back_exit_edge_labels = back->get_exit_edge_labels();
 
             // Destroy the nodes which has been concatenated
@@ -422,12 +426,12 @@ namespace Analysis {
                     // Find out connection types for the new connections
                     ObjectList<Node*> parents = current->get_parents();
                     int n_connects = parents.size() * children.size();
-                    ObjectList<Edge_type> etypes;
+                    ObjectList<EdgeType> etypes;
                     NodeclList elabels;
                     if(non_always_entries)
                     {
                         int n_children = children.size();
-                        ObjectList<Edge_type> entry_types = current->get_entry_edge_types();
+                        ObjectList<EdgeType> entry_types = current->get_entry_edge_types();
                         NodeclList entry_labels = current->get_entry_edge_labels();
                         while (n_children > 0)
                         {
@@ -439,7 +443,7 @@ namespace Analysis {
                     else if(non_always_exits)
                     {
                         int n_children = children.size();
-                        ObjectList<Edge_type> exit_types = current->get_exit_edge_types();
+                        ObjectList<EdgeType> exit_types = current->get_exit_edge_types();
                         NodeclList exit_labels = current->get_exit_edge_labels();
                         while (n_children > 0)
                         {
@@ -450,7 +454,7 @@ namespace Analysis {
                     }
                     else
                     {
-                        etypes = ObjectList<Edge_type>(n_connects, __Always);
+                        etypes = ObjectList<EdgeType>(n_connects, __Always);
                         elabels = NodeclList(n_connects, NBase::null());
                     }
 
@@ -491,7 +495,7 @@ namespace Analysis {
 
                 // Get current current connecting information
                 ObjectList<Node*> parents = current->get_parents();
-                ObjectList<Edge_type> etypes = current->get_entry_edge_types();
+                ObjectList<EdgeType> etypes = current->get_entry_edge_types();
                 NodeclList elabels = current->get_entry_edge_labels();
 
                 // Disconnect currents
@@ -749,6 +753,8 @@ namespace Analysis {
         }
     }
 
+    // This method only keeps cleaning up backwards when
+    // all children of an outer node are already cleaned up
     static void clear_visits_backwards_in_level_rec(Node* n, Node* sc)
     {
         if (!n->is_visited())
@@ -795,24 +801,40 @@ namespace Analysis {
         }
     }
 
+    static void clear_visits_backwards_rec(Node* n)
+    {
+        if (n->is_visited())
+        {
+            n->set_visited(false);
+            if (n->is_graph_node())
+                clear_visits_backwards_rec(n->get_graph_exit_node());
+
+            if (n->is_entry_node())
+            {
+                n = n->get_outer_node();
+                n->set_visited(false);  // Be sure we do not miss any node
+                                        // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& parents = n->get_parents();
+            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it);
+        }
+    }
+
+    // This methods cleans backwards regardless any visit from outer nodes children
     void ExtensibleGraph::clear_visits_backwards(Node* n)
     {
-        if (!n->is_visited())
-            return;
-
-        n->set_visited(false);
-        if (n->is_graph_node())
-            clear_visits_backwards(n->get_graph_exit_node());
-
-        if (n->is_entry_node())
+        if(n->is_graph_node())
         {
-            Node* outer = n->get_outer_node();
-            outer->set_visited(false);
-            n = outer;
+            n->set_visited(false);
+            const ObjectList<Node*>& parents = n->get_parents();
+            for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it);
         }
-        const ObjectList<Node*>& parents = n->get_parents();
-        for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-            clear_visits_backwards(*it);
+        else
+        {
+            clear_visits_backwards_rec(n);
+        }
     }
 
     std::string ExtensibleGraph::get_name() const
@@ -1080,7 +1102,7 @@ namespace Analysis {
     static Node* advance_over_outer_nodes_until_loop(Node* node)
     {
         Node* outer = node->get_outer_node();
-        Graph_type outer_type = outer->get_graph_type();
+        GraphType outer_type = outer->get_graph_type();
         if((outer_type == __LoopDoWhile) || (outer_type == __LoopFor) || (outer_type == __LoopWhile))
             return node;
         else if(outer != NULL)
@@ -1544,9 +1566,9 @@ namespace Analysis {
                 ObjectList<Node*> children = current->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin();
                     it != children.end() && (result == NULL); ++it)
-                    {
-                        result = find_nodecl_pointer_rec(*it, n);
-                    }
+                {
+                    result = find_nodecl_pointer_rec(*it, n);
+                }
             }
         }
         return result;

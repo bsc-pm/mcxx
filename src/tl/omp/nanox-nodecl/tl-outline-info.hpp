@@ -471,7 +471,7 @@ namespace TL
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
@@ -486,7 +486,7 @@ namespace TL
                 OutlineInfo(Nanox::Lowering& lowering,
                         Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
+                        std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>());
 
                 ~OutlineInfo();
 
@@ -514,9 +514,9 @@ namespace TL
                 void set_name(TL::Symbol function_symbol,std::string name);
                 std::string get_name(TL::Symbol function_symbol);
 
-                void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                void append_to_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
-                void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
+                void set_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
+                void set_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
+                void set_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
 
                 /**
                  * Adds implementation, if already exists, it adds device name to that symbol

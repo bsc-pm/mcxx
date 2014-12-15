@@ -230,14 +230,6 @@ namespace Utils {
             std::cerr << "        * " << it->first << ": " << prettyprint_induction_var(it->second) << std::endl;
         }
     }
-    
-    bool induction_variable_list_contains_variable(const InductionVarList& iv_list, const NBase& var)
-    {
-        for (InductionVarList::const_iterator it = iv_list.begin(); it != iv_list.end(); ++it)
-            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/ true))
-                return true;
-        return false;
-    }
 
     InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var)
     {

@@ -555,32 +555,32 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LT_OS, "_MM_CMPINT_LT");
+        common_comparison_op_lowering(n, KNCComparison::LT_OS, "_MM_CMPINT_LT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LE_OS, "_MM_CMPINT_LE");
+        common_comparison_op_lowering(n, KNCComparison::LE_OS, "_MM_CMPINT_LE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GT_OS, "_MM_CMPINT_NLE");
+        common_comparison_op_lowering(n, KNCComparison::GT_OS, "_MM_CMPINT_NLE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GE_OS, "_MM_CMPINT_NLT");
+        common_comparison_op_lowering(n, KNCComparison::GE_OS, "_MM_CMPINT_NLT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorEqual& n)
     {
-        common_comparison_op_lowering(n, _CMP_EQ_OQ, "_MM_CMPINT_EQ");
+        common_comparison_op_lowering(n, KNCComparison::EQ_OQ, "_MM_CMPINT_EQ");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorDifferent& n)
     {
-        common_comparison_op_lowering(n, _CMP_NEQ_UQ, "_MM_CMPINT_NE");
+        common_comparison_op_lowering(n, KNCComparison::NEQ_UQ, "_MM_CMPINT_NE");
     }
 
     void KNCVectorBackend::bitwise_binary_op_lowering(const Nodecl::NodeclBase& n,
@@ -1040,6 +1040,12 @@ namespace Vectorization
         const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
         const int src_type_size = src_type.get_size();
         const int dst_type_size = dst_type.get_size();
+
+        ERROR_CONDITION(src_vector_type.is_same_type(dst_vector_type),
+                "VectorConversion between same vector types: %s", 
+                print_type_str(dst_vector_type.get_internal_type(),
+                    n.retrieve_context().get_decl_context()));
+
         /*
            printf("Conversion from %s(%s) to %s(%s)\n",
            src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
@@ -1069,12 +1075,7 @@ namespace Vectorization
 
         walk(nest);
 
-        if (src_type.is_same_type(dst_type))
-        {
-            n.replace(nest);
-            return;
-        }
-        else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
+        if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
                 (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
                 (src_type.is_signed_int() && dst_type.is_signed_long_int()) ||
                 (src_type.is_signed_int() && dst_type.is_unsigned_long_int()) ||
@@ -1852,12 +1853,10 @@ namespace Vectorization
         TL::Type type = n.get_lhs().get_type().basic_type();
 
         TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
-            mask_prefix, mask_args, args_lo, args_hi, extra_args, tmp_var,
-            tmp_var_type, tmp_var_name, tmp_var_init;
+            mask_prefix, mask_args, args_lo, args_hi, extra_args;
 
         intrin_src
             << "({"
-            << tmp_var << ";"
             << intrin_name_lo << "(" << args_lo << ");"
             << intrin_name_hi << "(" << args_hi << ");"
             << "})"
@@ -1879,32 +1878,23 @@ namespace Vectorization
             << intrin_type_suffix
             ;
 
-        tmp_var << tmp_var_type
-            << " "
-            << tmp_var_name
-            << tmp_var_init;
-
         process_mask_component(mask, mask_prefix, mask_args, type,
                 KNCConfigMaskProcessing::ONLY_MASK);
-
 
         if (type.is_float())
         {
             intrin_type_suffix << "ps";
             extra_args << "_MM_DOWNCONV_PS_NONE";
-            tmp_var_type << "__m512";
         }
         else if (type.is_double())
         {
             intrin_type_suffix << "pd";
             extra_args << "_MM_DOWNCONV_PD_NONE";
-            tmp_var_type << "__m512d";
         }
         else if (type.is_integral_type())
         {
             intrin_type_suffix << "epi32";
             extra_args << "_MM_DOWNCONV_EPI32_NONE";
-            tmp_var_type << "__m512i";
         }
         else
         {
@@ -1916,15 +1906,14 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        tmp_var_name << "__vtmp";
-
-        tmp_var_init << " = "
-            << as_expression(rhs);
+        ERROR_CONDITION(!rhs.no_conv().is<Nodecl::Symbol>(),
+                "KNC Backed: Nodecl::Symbol expected in unaligned vector store: %s",
+                rhs.prettyprint().c_str());
 
         args_lo << as_expression(lhs)
             << ", "
             << mask_args
-            << tmp_var_name
+            << as_expression(rhs)
             << ", "
             << extra_args
             << ", "
@@ -1937,7 +1926,7 @@ namespace Vectorization
             << _vector_length
             << ", "
             << mask_args
-            << tmp_var_name
+            << as_expression(rhs)
             << ", "
             << extra_args
             << ", "

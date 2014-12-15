@@ -33,6 +33,7 @@
 #include "cxx-target-tools.h"
 #include <string.h>
 #include <stdlib.h>
+#include "mem.h"
 #include "uniquestr.h"
 
 #include <stdio.h>

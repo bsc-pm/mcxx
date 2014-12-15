@@ -766,10 +766,10 @@ namespace Vectorization
         register_copy_base(n, n_copy);
 
         // Register also children
-        objlist_nodecl_t children_list = n.children();
-        objlist_nodecl_t children_copy_list = n_copy.children();
+        Nodecl::NodeclBase::Children children_list = n.children();
+        Nodecl::NodeclBase::Children children_copy_list = n_copy.children();
 
-        for(objlist_nodecl_t::iterator children_it = children_list.begin(),
+        for(Nodecl::NodeclBase::Children::iterator children_it = children_list.begin(),
                 children_copy_it = children_copy_list.begin();
                 children_it != children_list.end();
                 children_it++, children_copy_it++)

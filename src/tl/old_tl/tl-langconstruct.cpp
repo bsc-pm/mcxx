@@ -224,7 +224,7 @@ namespace TL
 
         ObjectList<TemplateHeader> result;
 
-        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
+        while (ASTKind(a) == AST_TEMPLATE_DECLARATION)
         {
             result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
             a = ASTSon1(a);
@@ -313,7 +313,7 @@ namespace TL
 
         ObjectList<TemplateHeader> result;
 
-        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
+        while (ASTKind(a) == AST_TEMPLATE_DECLARATION)
         {
             result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
             a = ASTSon1(a);

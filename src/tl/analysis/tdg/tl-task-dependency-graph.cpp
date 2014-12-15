@@ -289,8 +289,18 @@ check_ivs:
         // 1.- Check whether the variable is an Induction Variable
         if(current_cs_node->get_type() == Loop)
         {
+            bool is_loop_iv = false;
             Utils::InductionVarList ivs = current_cs_node->get_pcfg_node()->get_induction_variables();
-            if(Utils::induction_variable_list_contains_variable(ivs, var))
+            for (Utils::InductionVarList::iterator it = ivs.begin(); it != ivs.end(); ++it)
+            {
+                if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/true))
+                {
+                    is_loop_iv = true;
+                    break;
+                }
+            }
+
+            if(is_loop_iv)
             {   // The variable is an IV: 
                 // If we are parsing the original Control Structure, get the values of the Induction Variable
                 if(cs_node == current_cs_node)
@@ -488,8 +498,18 @@ end_get_vars:
                     ControlStructure* cs = it->first;
                     if(cs->get_type() == Loop)
                     {
+                        bool is_loop_iv = false;
                         Utils::InductionVarList ivs = cs->get_pcfg_node()->get_induction_variables();
-                        if(Utils::induction_variable_list_contains_variable(ivs, v))
+                        for (Utils::InductionVarList::iterator it = ivs.begin(); it != ivs.end(); ++it)
+                        {
+                            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), v, /*skip_conversions*/true))
+                            {
+                                is_loop_iv = true;
+                                break;
+                            }
+                        }
+
+                        if (is_loop_iv)
                         {   // The variable is an IV
                             report_default_offset(pcfg_n, cs->get_pcfg_node(), v);
                             values = Nodecl::IntegerLiteral::make(Type::get_int_type(), const_value_get_zero(/* bytes */ 4, /* signed */ 1));

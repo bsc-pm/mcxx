@@ -67,27 +67,27 @@ namespace TL
             if (!dto.get_keys().contains("openmp_info"))
             {
                 DataSharingEnvironment* root_data_sharing = new DataSharingEnvironment(NULL);
-                _openmp_info = RefPtr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
+                _openmp_info = std::shared_ptr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
                 dto.set_object("openmp_info", _openmp_info);
             }
             else
             {
-                _openmp_info = RefPtr<OpenMP::Info>::cast_static(dto["openmp_info"]);
+                _openmp_info = std::static_pointer_cast<OpenMP::Info>(dto["openmp_info"]);
             }
 
             if (!dto.get_keys().contains("openmp_task_info"))
             {
-                _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
+                _function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
                 dto.set_object("openmp_task_info", _function_task_set);
             }
             else
             {
-                _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+                _function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
             }
 
             if (!dto.get_keys().contains("openmp_core_should_run"))
             {
-                RefPtr<TL::Bool> should_run(new TL::Bool(true));
+                std::shared_ptr<TL::Bool> should_run(new TL::Bool(true));
                 dto.set_object("openmp_core_should_run", should_run);
             }
         }
@@ -103,7 +103,7 @@ namespace TL
             }
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
-                RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+                std::shared_ptr<TL::Bool> should_run = std::static_pointer_cast<TL::Bool>(dto["openmp_core_should_run"]);
                 if (!(*should_run))
                     return;
 
@@ -113,13 +113,13 @@ namespace TL
 
 			if (dto.get_keys().contains("show_warnings"))
 			{
-				dto.set_value("show_warnings", RefPtr<Integer>(new Integer(1)));
+				dto.set_value("show_warnings", std::shared_ptr<Integer>(new Integer(1)));
 			}
 
             // Reset any data computed so far
             _openmp_info->reset();
 
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             Scope global_scope = translation_unit.retrieve_context();
 
             // Initialize OpenMP reductions
@@ -134,7 +134,7 @@ namespace TL
             _function_task_set->emit_module_info();
         }
 
-        RefPtr<OpenMP::Info> Core::get_openmp_info()
+        std::shared_ptr<OpenMP::Info> Core::get_openmp_info()
         {
             return _openmp_info;
         }
@@ -640,8 +640,8 @@ namespace TL
                         walk_type(t);
                     }
 
-                    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    Nodecl::NodeclBase::Children children = n.children();
+                    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                             it != children.end();
                             it++)
                     {
@@ -2246,7 +2246,8 @@ namespace TL
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
-            RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+            std::shared_ptr<TL::Bool> openmp_core_should_run =
+                std::static_pointer_cast<TL::Bool>(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
         }
     }

@@ -1027,7 +1027,7 @@ namespace {
         }
         return node;
     }
-    
+
     CGNode* ConstraintGraph::insert_node(CGOpType type)
     {
         CGNode* node = new CGNode(type, NBase::null());

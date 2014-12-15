@@ -54,7 +54,7 @@ namespace TL
             private:
                 OpenMP::Core _core;
 
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string _openmp_dry_run;
 

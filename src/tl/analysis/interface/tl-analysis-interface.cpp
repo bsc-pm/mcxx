@@ -322,7 +322,7 @@ namespace Analysis {
         return get_assume_aligned_attribute_internal(n_node, n);
     }
     
-    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks )
     {
         if( n.is_null( ) )
             return false;
@@ -338,8 +338,8 @@ namespace Analysis {
         }
 
         // Check its children
-        ObjectList<Nodecl::NodeclBase> children = n.children( );
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        Nodecl::NodeclBase::Children children = n.children( );
+        for( Nodecl::NodeclBase::Children::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = nodecl_calls_outline_task( *it, function_tasks );
         }
@@ -348,7 +348,7 @@ namespace Analysis {
     }
 
     static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs,
-                                              RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+                                              std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks )
     {
         if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) ||
             ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) ||
@@ -361,15 +361,15 @@ namespace Analysis {
 
         // Check the children
         bool result = false;
-        ObjectList<Nodecl::NodeclBase> children = n.children( );
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        Nodecl::NodeclBase::Children children = n.children( );
+        for( Nodecl::NodeclBase::Children::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = ompss_reduction_rhs_uses_lhs( *it, lhs, function_tasks );
         }
         return result;
     }
 
-    bool AnalysisInterface::is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const
+    bool AnalysisInterface::is_ompss_reduction( const Nodecl::NodeclBase& n, std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks ) const
     {
         bool result = false;
 

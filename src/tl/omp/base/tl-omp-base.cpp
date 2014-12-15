@@ -182,9 +182,9 @@ namespace TL { namespace OpenMP {
 
         this->PragmaCustomCompilerPhase::run(dto);
 
-        RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+        std::shared_ptr<FunctionTaskSet> function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
 
-        Nodecl::NodeclBase translation_unit = dto["nodecl"];
+        Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
         TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
@@ -2718,7 +2718,6 @@ namespace TL { namespace OpenMP {
     struct ReportSymbols : TL::Functor<void, DataSharingEnvironment::DataSharingInfoPair>
     {
         private:
-            const locus_t* _locus;
             DataSharingAttribute _data_sharing;
             std::ofstream *_omp_report_file;
 
@@ -2750,11 +2749,10 @@ namespace TL { namespace OpenMP {
             }
 
         public:
-            ReportSymbols(const locus_t* locus,
+            ReportSymbols(const locus_t*,
                     DataSharingAttribute data_sharing,
                     std::ofstream* omp_report_file)
-                : _locus(locus),
-                _data_sharing(data_sharing),
+                : _data_sharing(data_sharing),
                 _omp_report_file(omp_report_file)
             {
             }
@@ -2815,14 +2813,12 @@ namespace TL { namespace OpenMP {
     struct ReportReductions : TL::Functor<void, ReductionSymbol>
     {
         private:
-            const locus_t* _locus;
             std::ofstream* _omp_report_file;
 
         public:
-            ReportReductions(const locus_t* locus,
+            ReportReductions(const locus_t*,
                     std::ofstream* omp_report_file)
-                : _locus(locus),
-                _omp_report_file(omp_report_file)
+                : _omp_report_file(omp_report_file)
             {
             }
 

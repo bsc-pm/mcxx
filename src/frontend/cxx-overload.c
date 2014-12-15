@@ -3238,7 +3238,7 @@ scope_entry_t* address_of_overloaded_function(
     }
     else if (is_function_type(functional_type))
     {
-        functional_type = functional_type;
+        // functional_type = functional_type;
     }
 
     if (!is_function_type(functional_type))

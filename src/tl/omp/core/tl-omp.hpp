@@ -641,8 +641,8 @@ namespace OpenMP
                 Scope global_scope;
                 bool _disable_clause_warnings;
 
-                RefPtr<OpenMP::Info> openmp_info;
-                RefPtr<OpenMP::FunctionTaskSet> function_task_set;
+                std::shared_ptr<OpenMP::Info> openmp_info;
+                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set;
             public:
                 //! Pre entry
                 virtual void pre_run(DTO& data_flow);

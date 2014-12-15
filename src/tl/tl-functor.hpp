@@ -32,6 +32,7 @@
 
 #include "tl-common.hpp"
 #include <iostream>
+#include "cxx-macros.h"
 
 namespace TL
 {
@@ -78,7 +79,7 @@ namespace TL
     class Functor : public FunctorBase<Ret, T>
     {
         public:
-            FINAL Ret operator()(typename FunctorBase<Ret, T>::ArgType t) const
+            virtual Ret operator()(typename FunctorBase<Ret, T>::ArgType t) const FINAL
             {
                 return this->do_(t);
             }

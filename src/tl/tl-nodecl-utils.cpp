@@ -54,9 +54,9 @@ namespace Nodecl
             }
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
 
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -137,9 +137,9 @@ namespace Nodecl
             get_all_symbols_occurrences_rec(n.get_symbol().get_value(), result);
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
 
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -217,8 +217,8 @@ namespace Nodecl
             get_all_symbols_first_occurrence_rec(n.get_symbol().get_value(), result);
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = n.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -291,8 +291,8 @@ namespace Nodecl
                 if (n.is<Nodecl::ClassMemberAccess>())
                     in_class_member = true;
 
-            const TL::ObjectList<Nodecl::NodeclBase>& children = n.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = n.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end(); it++)
             {
                 get_all_memory_accesses_rec(it->no_conv(), in_ref, in_class_member, result);
@@ -563,6 +563,39 @@ namespace Nodecl
         return !finder._found_node.is_null();
     }
 
+    void nodecl_replace_nodecl_common(
+            TL::ObjectList<Nodecl::NodeclBase>& target_nodes,
+            const Nodecl::NodeclBase& replacement)
+    {
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                target_nodes.begin();
+                it != target_nodes.end();
+                it++)
+        {
+            Nodecl::NodeclBase target_node = *it;
+            Nodecl::NodeclBase target_node_parent = target_node.get_parent();
+
+            //Conversions!
+            if (target_node_parent != Nodecl::NodeclBase::null() &&
+                    !replacement.is<Nodecl::Symbol>() && // TODO:
+                    target_node_parent.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion parent_conv =
+                    target_node_parent.as<Nodecl::Conversion>();
+                
+                TL::Type dst_type = parent_conv.get_type().no_ref();
+                TL::Type src_type = replacement.get_type().no_ref();
+
+                if (dst_type.is_same_type(src_type))
+                {
+                    target_node = target_node_parent;
+                }
+            }
+
+            target_node.replace(replacement.shallow_copy());
+        }
+    }
+
     void Utils::nodecl_replace_nodecl_by_structure(
             const Nodecl::NodeclBase& haystack,
             const Nodecl::NodeclBase& needle,
@@ -571,30 +604,7 @@ namespace Nodecl
         CollectStructuralNodeFinderVisitor finder(needle);
         finder.walk(haystack);
 
-        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
-                finder._found_nodes.begin();
-                it != finder._found_nodes.end();
-                it++)
-        {
-            Nodecl::NodeclBase target_node = *it;
-
-            //Conversions!
-            if (target_node.get_parent() != Nodecl::NodeclBase::null() &&
-                    !replacement.is<Nodecl::Symbol>() &&
-                    target_node.get_parent().is<Nodecl::Conversion>())
-            {
-                Nodecl::Conversion parent_conv =
-                    target_node.as<Nodecl::Conversion>();
-
-                if (parent_conv.get_type().no_ref() ==
-                        replacement.get_type())
-                {
-                    target_node = target_node.get_parent();
-                }
-            }
-
-            target_node.replace(replacement.shallow_copy());
-        }
+        nodecl_replace_nodecl_common(finder._found_nodes, replacement);
     }
 
     void Utils::nodecl_replace_nodecl_by_pointer(
@@ -602,16 +612,12 @@ namespace Nodecl
             const Nodecl::NodeclBase& needle,
             const Nodecl::NodeclBase& replacement)
     {
+        // Is it necessary to use CollectPointerNodeFinderVisitor?
+        // It will return only one node
         CollectPointerNodeFinderVisitor finder(needle);
         finder.walk(haystack);
 
-        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
-                finder._found_nodes.begin();
-                it != finder._found_nodes.end();
-                it++)
-        {
-            it->replace(replacement.shallow_copy());
-        }
+        nodecl_replace_nodecl_common(finder._found_nodes, replacement);
     }
 
     bool Utils::dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
@@ -670,8 +676,16 @@ namespace Nodecl
         }
         else if( container.is<Nodecl::ClassMemberAccess>( ) )
         {
-            Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
-            result = dataref_contains_dataref( container, lhs );
+            if (contained.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
+                result = dataref_contains_dataref(container, lhs);
+            }
+            else if (contained.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::NodeclBase subscripted = contained.as<Nodecl::ArraySubscript>().get_subscripted();
+                result = dataref_contains_dataref(container, subscripted);
+            }
         }
         else if( container.is<Nodecl::Symbol>( ) )
         {
@@ -1011,7 +1025,7 @@ namespace Nodecl
         }
     }
 
-    void Nodecl::Utils::prepend_items_in_nesting_compound_statement(
+    void Nodecl::Utils::prepend_items_in_nested_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -1027,7 +1041,7 @@ namespace Nodecl
         stmts_list.prepend(items);
     }
 
-    void Nodecl::Utils::append_items_in_nesting_compound_statement(
+    void Nodecl::Utils::append_items_in_nested_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -1438,8 +1452,8 @@ namespace Nodecl
 
         node.set_symbol(m.map(sym));
 
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -1626,9 +1640,9 @@ namespace Nodecl
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+            Nodecl::NodeclBase::Children children = n.children();
 
-            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            for(Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -1674,9 +1688,9 @@ namespace Nodecl
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+            Nodecl::NodeclBase::Children children = n.children();
 
-            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            for(Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -1712,16 +1726,10 @@ namespace Nodecl
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
 
-// #################
-//  DEBUG FUNCTIONS
-// #################
-
-    void Utils::print_ast(Nodecl::NodeclBase n)
-    {
-        ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
-    }
-
 }
+
+
+
 
 namespace TL
 {
@@ -2217,3 +2225,25 @@ namespace TL
         }
     }
 }
+
+// #################
+//  DEBUG FUNCTIONS
+// #################
+
+void deb_print_ast(Nodecl::NodeclBase n)
+{
+    ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
+}
+
+std::string deb_print_type(TL::Type type)
+{
+    return type.get_simple_declaration(CURRENT_COMPILED_FILE->global_decl_context, "");
+}
+
+std::string deb_print_type(const Nodecl::NodeclBase& n)
+{
+    return deb_print_type(n.get_type());
+}
+
+
+

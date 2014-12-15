@@ -149,7 +149,7 @@ namespace Analysis {
         unsigned int get_id() const;
         CGOpType get_type() const;
         std::string get_type_as_string() const;
-        
+
         NBase get_constraint() const;
         NBase get_valuation() const;
         void set_valuation(const NBase& valuation);

@@ -444,26 +444,49 @@ namespace {
                 }
                 if (inner_loop->is_loop_node())
                 {
-                    if (!assert_induction_vars.empty())
+                    Utils::InductionVarList induction_vars = inner_loop->get_induction_variables();
+                    if (assert_induction_vars.size() != induction_vars.size())
                     {
-                        Utils::InductionVarList induction_vars = inner_loop->get_induction_variables();
-                        for (Utils::InductionVarList::iterator it = assert_induction_vars.begin();
-                            it != assert_induction_vars.end(); ++it)
-                        {
-                            Utils::InductionVar* iv = *it;
-                            NBase iv_nodecl = iv->get_variable();
-                            bool found = false;
-                            for (Utils::InductionVarList::iterator it2 = induction_vars.begin();
-                                 it2 != induction_vars.end() && !found; ++it2)
-                            {
-                                if(Nodecl::Utils::structurally_equal_nodecls((*it2)->get_variable(), iv_nodecl, /*skip_conversions*/true))
-                                {
-                                    found = true;
+                        internal_error("%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                       "because Induction Variables Analysis for node %d has computed set \n%s.\n",
+                                       locus_str.c_str(),
+                                       prettyprint_induction_vars(assert_induction_vars, /*to_dot*/false).c_str(),
+                                       inner_loop->get_id(),
+                                       prettyprint_induction_vars(induction_vars, /*to_dot*/false).c_str());
+                    }
 
-                                    // Compare LBs
-                                    const NodeclSet& lb_a = iv->get_lb();
-                                    const NodeclSet& lb = (*it2)->get_lb();
-                                    ERROR_CONDITION(lb_a.size() != lb.size(),
+                    for (Utils::InductionVarList::iterator it = assert_induction_vars.begin();
+                         it != assert_induction_vars.end(); ++it)
+                    {
+                        Utils::InductionVar* iv = *it;
+                        NBase iv_nodecl = iv->get_variable();
+                        bool found = false;
+                        for (Utils::InductionVarList::iterator it2 = induction_vars.begin();
+                             it2 != induction_vars.end() && !found; ++it2)
+                        {
+                            if (Nodecl::Utils::structurally_equal_nodecls(
+                                    (*it2)->get_variable(), iv_nodecl, /*skip_conversions*/true))
+                            {
+                                found = true;
+
+                                // Compare LBs
+                                const NodeclSet& lb_a = iv->get_lb();
+                                const NodeclSet& lb = (*it2)->get_lb();
+                                ERROR_CONDITION(lb_a.size() != lb.size(),
+                                                "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                                "Lower Bounds computed for induction variable '%s' "
+                                                "in node %d are '%s', but lower bounds indicated in the assertion are '%s'.\n",
+                                                locus_str.c_str(),
+                                                Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                iv_nodecl.prettyprint().c_str(),
+                                                inner_loop->get_id(),
+                                                Utils::prettyprint_iv_boundary_list((*it2)->get_lb()).c_str(),
+                                                Utils::prettyprint_iv_boundary_list(iv->get_lb()).c_str());
+                                NodeclSet::const_iterator it_lb_a = lb_a.begin();
+                                NodeclSet::const_iterator it_lb = lb.begin();
+                                for ( ; it_lb_a != lb_a.end(); ++it_lb_a, ++it_lb)
+                                {
+                                    ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_lb_a, *it_lb, /*skip_conversions*/true),
                                                     "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
                                                     "Lower Bounds computed for induction variable '%s' "
                                                     "in node %d are '%s', but lower bounds indicated in the assertion are '%s'.\n",
@@ -473,26 +496,26 @@ namespace {
                                                     inner_loop->get_id(),
                                                     Utils::prettyprint_iv_boundary_list((*it2)->get_lb()).c_str(),
                                                     Utils::prettyprint_iv_boundary_list(iv->get_lb()).c_str());
-                                    NodeclSet::const_iterator it_lb_a = lb_a.begin();
-                                    NodeclSet::const_iterator it_lb = lb.begin();
-                                    for ( ; it_lb_a != lb_a.end(); ++it_lb_a, ++it_lb)
-                                    {
-                                        ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_lb_a, *it_lb, /*skip_conversions*/true),
-                                                        "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                                        "Lower Bounds computed for induction variable '%s' "
-                                                        "in node %d are '%s', but lower bounds indicated in the assertion are '%s'.\n",
-                                                        locus_str.c_str(),
-                                                        Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                                        iv_nodecl.prettyprint().c_str(),
-                                                        inner_loop->get_id(),
-                                                        Utils::prettyprint_iv_boundary_list((*it2)->get_lb()).c_str(),
-                                                        Utils::prettyprint_iv_boundary_list(iv->get_lb()).c_str());
-                                    }
+                                }
 
-                                    // Compare UBs
-                                    const NodeclSet& ub_a = iv->get_ub();
-                                    const NodeclSet& ub = (*it2)->get_ub();
-                                    ERROR_CONDITION(ub_a.size() != ub.size(),
+                                // Compare UBs
+                                const NodeclSet& ub_a = iv->get_ub();
+                                const NodeclSet& ub = (*it2)->get_ub();
+                                ERROR_CONDITION(ub_a.size() != ub.size(),
+                                                "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                                "Upper Bounds computed for induction variable '%s' "
+                                                "in node %d are '%s', but the upper bounds indicated in the assertion are '%s'.\n",
+                                                locus_str.c_str(),
+                                                Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
+                                                Utils::prettyprint_iv_boundary_list((*it2)->get_ub()).c_str(),
+                                                Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
+                                NodeclSet::const_iterator it_ub_a = ub_a.begin();
+                                NodeclSet::const_iterator it_ub = ub.begin();
+                                for ( ; it_ub_a != ub_a.end(); ++it_ub_a, ++it_ub)
+                                {
+
+                                    ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_ub_a, *it_ub, /*skip_conversions*/true),
                                                     "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
                                                     "Upper Bounds computed for induction variable '%s' "
                                                     "in node %d are '%s', but the upper bounds indicated in the assertion are '%s'.\n",
@@ -501,40 +524,25 @@ namespace {
                                                     iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
                                                     Utils::prettyprint_iv_boundary_list((*it2)->get_ub()).c_str(),
                                                     Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
-                                    NodeclSet::const_iterator it_ub_a = ub_a.begin();
-                                    NodeclSet::const_iterator it_ub = ub.begin();
-                                    for ( ; it_ub_a != ub_a.end(); ++it_ub_a, ++it_ub)
-                                    {
-
-                                        ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls(*it_ub_a, *it_ub, /*skip_conversions*/true),
-                                                        "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                                        "Upper Bounds computed for induction variable '%s' "
-                                                        "in node %d are '%s', but the upper bounds indicated in the assertion are '%s'.\n",
-                                                        locus_str.c_str(),
-                                                        Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                                        iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
-                                                        Utils::prettyprint_iv_boundary_list((*it2)->get_ub()).c_str(),
-                                                        Utils::prettyprint_iv_boundary_list(iv->get_ub()).c_str());
-                                    }
-
-                                    // Compare Strides
-                                    ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls((*it2)->get_increment(), iv->get_increment(), /*skip_conversions*/true),
-                                                    "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                                    "Stride computed for induction variable '%s' "
-                                                    "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n",
-                                                    locus_str.c_str(),
-                                                    Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                                    iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
-                                                    (*it2)->get_increment().prettyprint().c_str(),
-                                                    iv->get_increment().prettyprint().c_str());
                                 }
+
+                                // Compare Strides
+                                ERROR_CONDITION(!Nodecl::Utils::structurally_equal_nodecls((*it2)->get_increment(), iv->get_increment(), /*skip_conversions*/true),
+                                                "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                                "Stride computed for induction variable '%s' "
+                                                "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n",
+                                                locus_str.c_str(),
+                                                Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                iv_nodecl.prettyprint().c_str(), inner_loop->get_id(),
+                                                (*it2)->get_increment().prettyprint().c_str(),
+                                                iv->get_increment().prettyprint().c_str());
                             }
-                            ERROR_CONDITION(!found,
-                                            "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
-                                            "Induction variable '%s' not found in the induction variables list of node %d\n",
-                                            locus_str.c_str(), Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
-                                            iv_nodecl.prettyprint().c_str(), inner_loop->get_id());
                         }
+                        ERROR_CONDITION(!found,
+                                        "%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                        "Induction variable '%s' not found in the induction variables list of node %d\n",
+                                        locus_str.c_str(), Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                        iv_nodecl.prettyprint().c_str(), inner_loop->get_id());
                     }
                 }
                 else
@@ -922,7 +930,7 @@ namespace {
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        NBase ast = dto["nodecl"];
+        NBase ast = *std::static_pointer_cast<NBase>(dto["nodecl"]);
 
         // 1.- Execute analyses
         // 1.1.- Compute all data-flow analysis

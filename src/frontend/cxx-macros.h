@@ -36,7 +36,7 @@
 #endif
 
 // Some gcc-isms
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
   #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 3
      // Supported in >=4.3
      #define NORETURN __attribute__((noreturn))
@@ -44,7 +44,8 @@
      #define DEPRECATED __attribute__((deprecated))
      #define UNUSED_PARAMETER __attribute__((unused))
      #define WARN_FUNCTION(x) __attribute__((warning(x)))
-     #define MALLOC_RETURN __attribute__((xmalloc))
+     #define MALLOC_RETURN __attribute__((malloc))
+     #define ALWAYS_INLINE __attribute__((always_inline))
      // Supported in >=4.4
      #if (__GNUC_MINOR__ >= 4)
         #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
@@ -60,6 +61,16 @@
   #else
      #error "Unsupported version of GCC. It must be 4.3 or better"
   #endif
+#elif defined(__clang__)
+  #define NORETURN __attribute__((noreturn))
+  #define WARN_UNUSED __attribute__((warn_unused_result))
+  #define DEPRECATED __attribute__((deprecated))
+  #define UNUSED_PARAMETER __attribute__((unused))
+  #define WARN_FUNCTION(x)
+  #define MALLOC_RETURN __attribute__((malloc))
+  #define ALWAYS_INLINE __attribute__((always_inline))
+  #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
+  #define DEPRECATED_REASON(r) __attribute__((deprecated))
 #else
   #define NORETURN
   #define WARN_UNUSED
@@ -67,6 +78,15 @@
   #define DEPRECATED
   #define DEPRECATED_REASON(r)
   #define WARN_FUNCTION(x)
+  #define ALWAYS_INLINE
+#endif
+
+#if defined(__cplusplus) && defined(HAVE_CXX11)
+  #define OVERRIDE override
+  #define FINAL final
+#else
+  #define OVERRIDE
+  #define FINAL
 #endif
 
 #define UNUSED_FUNCTION UNUSED_PARAMETER

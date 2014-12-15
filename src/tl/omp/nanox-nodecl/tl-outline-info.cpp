@@ -1168,19 +1168,19 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::NDRange& ndrange)
             {
-                _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),
                         ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::ShMem& shmem)
             {
-                _outline_info.append_to_shmem(shmem.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_shmem(shmem.get_function_name().as<Nodecl::Symbol>().get_symbol(),
                         shmem.get_shmem_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Onto& onto)
             {
-                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),
                         onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
@@ -1283,7 +1283,7 @@ namespace TL { namespace Nanox {
     OutlineInfo::OutlineInfo(
             Nanox::Lowering& lowering,
             Nodecl::NodeclBase environment,
-            TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+            TL::Symbol funct_symbol, std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set)
         : _lowering(lowering), _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
@@ -1417,31 +1417,31 @@ namespace TL { namespace Nanox {
         return _implementation_table[function_symbol].get_name();
     }
 
-    void OutlineInfo::append_to_ndrange(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
+    void OutlineInfo::set_ndrange(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& ndrange_exprs)
     {
        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                "Function symbol '%s' not found in outline info implementation table",
                function_symbol.get_name().c_str());
 
-       _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);
+       _implementation_table[function_symbol].set_ndrange(ndrange_exprs);
     }
 
-    void OutlineInfo::append_to_shmem(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
+    void OutlineInfo::set_shmem(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
     {
        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                "Function symbol '%s' not found in outline info implementation table",
                function_symbol.get_name().c_str());
 
-       _implementation_table[function_symbol].append_to_shmem(shmem_exprs);
+       _implementation_table[function_symbol].set_shmem(shmem_exprs);
     }
 
-    void OutlineInfo::append_to_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto_exprs)
+    void OutlineInfo::set_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
         ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                 "Function symbol '%s' not found in outline info implementation table",
                 function_symbol.get_name().c_str());
 
-        _implementation_table[function_symbol].append_to_onto(onto_exprs);
+        _implementation_table[function_symbol].set_onto(onto_exprs);
     }
 
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
@@ -1472,12 +1472,19 @@ namespace TL { namespace Nanox {
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
 
-            if (_function_task_set.valid())
+            if (_function_task_set != NULL)
             {
-                set_file(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
-                append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
-                append_to_shmem(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_shmem());
-                append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
+                set_file(function_symbol,
+                        _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
+
+                set_ndrange(function_symbol,
+                        _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
+
+                set_shmem(function_symbol,
+                        _function_task_set->get_function_task(function_symbol).get_target_info().get_shmem());
+
+                set_onto(function_symbol,
+                        _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
             }
         }
         else

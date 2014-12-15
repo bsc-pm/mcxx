@@ -35,6 +35,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <tr1/unordered_map>
 #include <strings.h>
 #include "tl-object.hpp"
 
@@ -64,23 +65,6 @@ namespace TL
             Integer(const Integer& i)
                 : Object(i), _i(i._i)
             {
-            }
-
-            Integer(RefPtr<Object> obj)
-            {
-                RefPtr<Integer> pint = RefPtr<Integer>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_i = pint->_i;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Integer" << std::endl;
-                    }
-                    this->_i = 0;
-                }
             }
 
             virtual operator int() const
@@ -200,23 +184,6 @@ namespace TL
             {
             }
 
-            Bool(RefPtr<Object> obj)
-            {
-                RefPtr<Bool> pint = RefPtr<Bool>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_b = pint->_b;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Bool (" << typeid(*obj.get_pointer()).name() << ")"  << std::endl;
-                    }
-                    this->_b = false;
-                }
-            }
-
             virtual operator int() const
             {
                 return int(_b);
@@ -315,27 +282,6 @@ namespace TL
             {
             }
 
-            // String( std::input_iterator start, std::input_iterator end )
-            //     : std::string(start, end)
-            // {
-            // }
-
-            String(RefPtr<Object> obj)
-            {
-                RefPtr<String> pint = RefPtr<String>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->operator=(*pint.operator->());
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of String" << std::endl;
-                    }
-                }
-            }
-
             virtual bool is_string() const
             {
                 return true;
@@ -392,151 +338,9 @@ namespace TL
                 return _file;
             }
 
-            File(RefPtr<Object> obj)
-                : _file(NULL)
-            {
-                RefPtr<File> pint = RefPtr<File>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->operator=(*pint.operator->());
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of File" << std::endl;
-                    }
-                }
-            }
-
             ~File()
             {
             }
-    };
-
-    //! This class allows linking arbitrary named data into any class.
-    /*!
-     * This class is used in TL::OpenMP::Construct to store information
-     * in preorder that can be retrieved in postorder.
-     *
-     * This class has its own memory management. It can be copied but
-     * it will not duplicate its contents but increase a number of copies
-     * counter. In destruction this number is decreased, when it reaches zero
-     * the whole structure will be deleted.
-     */
-    class LIBTL_CLASS LinkData
-    {
-        private:
-            //! Data info structure
-            struct data_info
-            {
-                //! The data itself
-                void *data;
-                //! The destructor function
-                void (*destructor)(void*);
-                
-                static void do_nothing(void*) { }
-                
-                data_info()
-                        : data(NULL), destructor(data_info::do_nothing)
-                {}
-            };
-            // This is a pointer so this class can be copied
-            std::map<std::string, data_info> *_data_list;
-            int *_num_copies;
-
-            void release_code();
-
-        public:
-
-            //! Creates a new LinkData object.
-            /*
-             * Will set the number of copies counter to 1 and
-             * create the map of data.
-             */
-            LinkData();
-
-            //! Copy constructor
-            /*!
-             * It does not duplicate the data, but increases a shared number of
-             * copies counter.
-             */
-            LinkData(const LinkData& l);
-
-            //! Destructor adaptor of any given type
-            /*!
-             * This function is used to preserve type safety in C++ and to
-             * allow proper constructors be called.
-             */
-        template <typename _T>
-            static void destroy_adapter(void* p)
-            {
-                _T* t = reinterpret_cast<_T*>(p);
-//                 t->_T::~_T();
-                delete t;
-            }
-
-            //! Retrieves the data with name str
-            /*!
-            * \param str The name of the data. If it was not retrieved never
-            * before, a default construction will happen.
-            * \param t Copy constructor value
-            *
-            * The requested type must be default constructible. Calling
-            * this function with a same name and different types with same (or
-            * shared) LinkData objects will fail miserably.
-            */
-        template <typename _T>
-            _T& get_data(const std::string& str, const _T& t = _T())
-            {
-                _T* result = NULL;
-                if (_data_list->find(str) == _data_list->end())
-                {
-                    result = new _T(t);
-
-                    data_info d;
-                    d.data = result;
-                    d.destructor = destroy_adapter<_T>;
-
-                    (*_data_list)[str] = d;
-                }
-
-                data_info d = (*_data_list)[str];
-                result = reinterpret_cast<_T*>(d.data);
-
-                return *result;
-            }
-
-            //! Retrieves the data with name str
-            /*!
-            * \param str The name of the data. If it was not retrieved never
-            * before, a default construction will happen.
-            * \param data The data to be set.
-            *
-            * The requested type must be default constructible. Calling
-            * this function with a same name and different types with same (or
-            * shared) LinkData objects will fail miserably.
-            */
-        template <typename _T>
-            void set_data(const std::string& str, const _T& data)
-            {
-                data_info &d = (*_data_list)[str];
-                d.destructor(d.data);
-                    
-                d.data = new _T(data);
-                d.destructor = destroy_adapter<_T>;
-            }
-
-            LinkData& operator=(const LinkData&);
-
-            bool has_key(std::string str) const;
-            
-            //! Destroy object
-            /*!
-            * This destructor decreases the number of copies counter.
-            * If it reaches zero, all data information is properly freed.
-            */
-            ~LinkData();
     };
 }
 

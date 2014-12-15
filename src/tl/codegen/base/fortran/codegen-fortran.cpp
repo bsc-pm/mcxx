@@ -2395,8 +2395,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranData& node)
     {
-        declare_everything_needed(node.get_objects(), node.retrieve_context());
-        declare_everything_needed(node.get_values(), node.retrieve_context());
+        ERROR_CONDITION(_being_declared_stack.empty(), "Unexpected visit", 0);
+        TL::Scope data_scope = _being_declared_stack.back().get_related_scope();
+
+        declare_everything_needed(node.get_objects(), data_scope);
+        declare_everything_needed(node.get_values(), data_scope);
 
         indent();
         *(file) << "DATA ";
@@ -2410,8 +2413,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranEquivalence& node)
     {
-        declare_everything_needed(node.get_first(), node.retrieve_context());
-        declare_everything_needed(node.get_second(), node.retrieve_context());
+        ERROR_CONDITION(_being_declared_stack.empty(), "Unexpected visit", 0);
+        TL::Scope equivalence_scope = _being_declared_stack.back().get_related_scope();
+
+        declare_everything_needed(node.get_first(), equivalence_scope);
+        declare_everything_needed(node.get_second(), equivalence_scope);
 
         indent();
         *(file) << "EQUIVALENCE (";
@@ -3103,8 +3109,8 @@ OPERATOR_TABLE
         else
         {
             // Generic case
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -3484,8 +3490,8 @@ OPERATOR_TABLE
         if (node.is_null())
             return;
 
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -3611,11 +3617,6 @@ OPERATOR_TABLE
     void FortranBase::declare_symbol(TL::Symbol entry, TL::Scope sc)
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
-
-        if (entry.get_name() == "struct_descriptor_0")
-        {
-        std::cerr << "---> " << entry.get_name() << std::endl;
-        }
 
         // This function has nothing to do with stuff coming from modules
         if (entry.is_from_module())
@@ -3995,7 +3996,8 @@ OPERATOR_TABLE
                 }
             }
         }
-        else if (entry.is_function())
+        else if (entry.is_function()
+                || entry.is_generic_specifier())
         {
             TL::Type function_type = entry.get_type();
 
@@ -6060,9 +6062,9 @@ OPERATOR_TABLE
 
         inc_indent();
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
         int i = 0;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++, i++)
         {

@@ -709,6 +709,7 @@ namespace TL
             mw.write(_if_clause_cond_expr);
             mw.write(_final_clause_cond_expr);
             mw.write(_untied);
+            mw.write(_priority_clause_expr);
             mw.write(_task_label);
             mw.write(_parsing_scope);
             mw.write(_locus);
@@ -723,6 +724,7 @@ namespace TL
             mr.read(_if_clause_cond_expr);
             mr.read(_final_clause_cond_expr);
             mr.read(_untied);
+            mr.read(_priority_clause_expr);
             mr.read(_task_label);
             mr.read(_parsing_scope);
             mr.read(_locus);
@@ -1013,8 +1015,8 @@ namespace TL
                         walk_types(node.get_type());
                     }
 
-                    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    Nodecl::NodeclBase::Children children = node.children();
+                    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                             it != children.end();
                             it++)
                     {

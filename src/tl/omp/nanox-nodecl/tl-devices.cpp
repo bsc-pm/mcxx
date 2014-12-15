@@ -1386,25 +1386,47 @@ namespace TL { namespace Nanox {
         // Do nothing
         else return t;
     }
-    
-//    bool DeviceProvider::is_serializable(TL::Symbol& sym){
-//        bool serializable=false;
-//        TL::Type ser_type = sym.get_type();
-//        //If the object is a class, generate everything so nanox can it
-//        if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
-//                TL::Symbol sym_serializer = ser_type.get_symbol();
-//                if (sym_serializer.get_type().is_pointer_to_class()){
-//                    ser_type= sym_serializer.get_type().get_pointer_to();
-//                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-//                }
-//                ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
-//                ObjectList<TL::Symbol>::iterator ser_it;
-//                for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !serializable; ++ser_it){
-//                    if (ser_it->get_name()=="serialize") serializable=true;
-//                }    
-//        }
-//        return serializable;
-//    }
+
+    static void update_expressions(
+            TL::ObjectList<Nodecl::NodeclBase> exprs,
+            const TL::Scope& related_scope,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            // Out
+            TL::ObjectList<Nodecl::NodeclBase>&updated_exprs)
+    {
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = exprs.begin();
+                it != exprs.end();
+                ++it)
+        {
+            Nodecl::NodeclBase current_expr = *it;
+            updated_exprs.append(
+                    Nodecl::Utils::deep_copy(
+                        current_expr,
+                        related_scope,
+                        *symbol_map));
+        }
+    }
+
+    void DeviceProvider::update_ndrange_and_shmem_expressions(
+            const TL::Scope& related_scope,
+            const TargetInformation& target_info,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            // out
+            TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_exprs,
+            TL::ObjectList<Nodecl::NodeclBase>& new_shmem_exprs)
+    {
+        update_expressions(
+                target_info.get_ndrange(),
+                related_scope,
+                symbol_map,
+                new_ndrange_exprs);
+
+        update_expressions(
+                target_info.get_shmem(),
+                related_scope,
+                symbol_map,
+                new_shmem_exprs);
+    }
 
 } }
 

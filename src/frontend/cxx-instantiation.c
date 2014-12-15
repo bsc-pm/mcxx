@@ -347,7 +347,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 new_member,
                                 get_unqualified_type(new_member->type_information),
                                 &new_member->value,
-                                /* is_auto */ 0);
+                                /* is_auto */ 0,
+                                /* is_decltype_auto */ 0);
                     }
                     else
                     {

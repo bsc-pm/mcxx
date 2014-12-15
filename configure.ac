@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.5],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.6],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -37,7 +37,6 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
-dnl Check cc
 AC_PROG_CC
 AM_PROG_CC_C_O
 
@@ -62,6 +61,8 @@ AC_PROG_LN_S
 dnl Check fortran compiler
 AC_PROG_FC
 
+dnl C++11 -std=c++11
+AX_CXX_COMPILE_STDCXX_11([noext],[optional])
 
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
@@ -109,9 +110,8 @@ AC_COMPILE_IFELSE(
      #endif
    ]])],
    [AC_MSG_RESULT([ok])],
-   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
+   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is requested])]
 )
-
 
 dnl --------------------- end check of old gcc ---
 
@@ -364,7 +364,9 @@ then
                          AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
                       fi
                  fi
-             ])
+             ],
+             [AC_MSG_RESULT([no])]
+             )
 
       AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
       AC_ARG_ENABLE([mic-testing],
@@ -378,7 +380,9 @@ then
                 else
                    AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
                 fi
-             ])
+             ],
+             [AC_MSG_RESULT([no])]
+             )
 
       MIC_COMPILATION=$mic_compilation
       MIC_TESTING=$mic_testing
@@ -423,41 +427,18 @@ fi
 dnl -- End of extra compiler checks ---
 
 dnl --------------------- Support for OMPSS ------------------------------------------
-is_enabled_openmpt="no"
-dnl Legacy name of openmpt
-AC_MSG_CHECKING([if enabled OpenMPT (ENCORE) support in the compiler])
-AC_ARG_ENABLE([openmpt],
-    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE). This is an alias for --enable-ompss]),
-    [
-      if test x$enableval = xyes -o x$enableval = x;
-      then
-         is_enabled_openmpt="yes"
-         AC_MSG_RESULT([yes])
-      else if test x$enableval = xno;
-           then
-              is_enabled_openmpt="no"
-              AC_MSG_RESULT([no])
-           else
-              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-           fi
-      fi
-    ],
-    [
-       AC_MSG_RESULT([no])
-    ]
-)
-
-AC_MSG_CHECKING([if enabled OpenMPSs (ENCORE) support in the compiler])
+is_enabled_ompss="no"
+AC_MSG_CHECKING([if enabled OmpSs support in the compiler])
 AC_ARG_ENABLE([ompss],
-    AS_HELP_STRING([--enable-ompss], [Enables support of OpenMPSs (ENCORE)]),
+    AS_HELP_STRING([--enable-ompss], [Enables support of OmpSs Programming Model]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
-         is_enabled_openmpt="yes"
+         is_enabled_ompss="yes"
          AC_MSG_RESULT([yes])
       else if test x$enableval = xno;
            then
-              is_enabled_openmpt="no"
+              is_enabled_ompss="no"
               AC_MSG_RESULT([no])
            else
               AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
@@ -491,10 +472,10 @@ AC_ARG_ENABLE([tl-openmp-nanox],
     fi
   ],
   [
-    if test x$is_enabled_openmpt = xyes;
+    if test x$is_enabled_ompss = xyes;
     then
         is_enabled_tl_omp_nanox="yes"
-          AC_MSG_RESULT([yes (ENCORE)])
+          AC_MSG_RESULT([yes])
     else
           is_enabled_tl_omp_nanox="no"
           AC_MSG_RESULT([no])
@@ -521,7 +502,7 @@ MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
 
-if test x$is_enabled_openmpt = xyes;
+if test x$is_enabled_ompss = xyes;
 then
     nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
@@ -1346,88 +1327,96 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-disable_vectorization="no"
-AC_MSG_CHECKING([if disabled Vectorization build and install])
-AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler]),
-  [
-    if test x$enableval = xno -o x$enableval = x;
-    then
-      disable_vectorization="no"
-      AC_MSG_RESULT([no])
-    else if test x$enableval = xno;
-      then
-        disable_vectorization="no"
-        AC_MSG_RESULT([no])
-      else
-        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-      fi
-    fi
-  ],
-  [
-    disable_vectorization="no"
-    AC_MSG_RESULT([no])
-  ]
-)
+is_enabled_vectorization="yes"
+AC_MSG_CHECKING([if enabling Vectorization build and install])
+if test x$HAVE_CXX11 = x1;
+then
+    AC_ARG_ENABLE([vectorization],
+        AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
+        [
+            if test x$enableval = xyes -o x$enableval = x;
+            then
+                is_enabled_vectorization="yes"
+                AC_MSG_RESULT([no])
+            else if test x$enableval = xno;
+                then
+                    is_enabled_vectorization="no"
+                    AC_MSG_RESULT([yes])
+                else
+                    AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                fi
+            fi
+        ],
+        [
+            is_enabled_vectorization="yes"
+            AC_MSG_RESULT([no2])
+        ])
+else
+    is_enabled_vectorization="no"
+    AC_MSG_RESULT([no (gcc 4.7 or higher is requested)])
+fi
 
-if test x$disable_vectorization = xyes;
+
+if test x$is_enabled_vectorization = xno;
 then
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$disable_vectorization = xno])
+AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$is_enabled_vectorization = xyes])
 
 dnl ------------------------------------
 
 dnl ---------------------- TL Analysis ----------------------------
 
-disable_analysis="no"
-AC_MSG_CHECKING([if disabled Analysis build and install])
+is_enabled_analysis="yes"
+AC_MSG_CHECKING([if enabling Analysis build and install])
 AC_ARG_ENABLE([analysis],
   AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_analysis="no"
+      is_enabled_analysis="yes"
       AC_MSG_RESULT([no])
     else if test x$enableval = xno;
       then
+
+        is_enabled_analysis="no"
         AC_MSG_RESULT([yes])
-        disable_analysis="yes"
       else
         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
       fi
     fi
   ],
   [
-    disable_analysis="no"
+    is_enabled_analysis="yes"
     AC_MSG_RESULT([no])
   ]
 )
 
-if test x$disable_analysis = xno;
+if test x$is_enabled_analysis = xyes;
 then
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
   AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
-  if test x$disable_vectorization = xno
+  if test x$is_enabled_vectorization = xyes
   then
-    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled])
+    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled.
+* To do that, you should use the --disable-vectorization flag])
   fi
 fi
 
-AM_CONDITIONAL([BUILD_ANALYSIS], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
-AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_ANALYSIS],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_HLT],           test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
 
 
 CORRECTNESS_LOG_DIR=""
 
-if test x$disable_analysis = xno;
+if test x$is_enabled_analysis = xyes;
 then
     AC_ARG_WITH([correctness-logs],
         AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
@@ -1704,6 +1693,9 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"
            ;;
+	   powerpc64le-*-linux*)
+           default_type_environ="linux-ppc64-le"
+           ;;
        x86_64-*-linux*)
            default_type_environ="linux-x86_64"
            NANOS4_32_BIT_COMPAT="-m32"
@@ -1856,21 +1848,43 @@ then
  AC_DEFINE([HAVE_FORTRAN_KIND16], 1, [Define to 1 if Fortran KIND=16 is supported])
 fi
 
-dnl -- Check if our GCC supports __float128 and quadmath.h
+dnl -- Check if our GCC supports __float128 quadmath.h and HUGE_VALQ
 have_float_128="no"
 quadmath_LIBS=""
 AC_CHECK_TYPE([__float128], [have_float_128="yes"])
-AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
 
 if test x$disable_float128 = xyes;
 then
     have_float_128=no
 fi
 
-if test x$have_float_128 = xyes -a x$have_quadmath_h = xyes;
+
+have_quadmath_h="no"
+if test x$have_float_128 = xyes;
 then
- AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
- quadmath_LIBS="-lquadmath"
+  AC_CHECK_HEADER([quadmath.h], [have_quadmath_h="yes"])
+  if test x$have_quadmath_h = xyes;
+  then
+    huge_valq="no"
+    AC_MSG_CHECKING([for __builtin_huge_valq])
+    keep_LIBS="$LIBS"
+    LIBS="-lquadmath"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [return __builtin_huge_valq ();])],
+            [AC_DEFINE([HAVE__BUILTIN_HUGE_VALQ], 1, [Define to 1 if __builtin_huge_valq is available])] 
+            [huge_valq="yes"]
+            [AC_MSG_RESULT([yes])],
+            [AC_MSG_RESULT([no])])
+    LIBS="$keep_LIBS"
+    if test x$huge_valq = xyes;
+    then
+        AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is fully useable])
+        quadmath_LIBS="-lquadmath"
+    else
+        have_float_128=no
+    fi
+  else
+    have_float_128=no
+  fi
 fi
 
 AC_SUBST([quadmath_LIBS])
@@ -1895,7 +1909,56 @@ AC_CHECK_FUNC([strsignal], [ AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strs
 dnl math and complex math functions that may be missing in some systems
 keep_LIBS="$LIBS"
 LIBS="-lm"
-AC_CHECK_FUNCS([exp10 exp10f exp10l cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
+AC_MSG_CHECKING([for __builtin_exp10])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([double d;], [return __builtin_exp10(d);])],   [AC_DEFINE([HAVE__BUILTIN_EXP10],  1, [Define to 1 if __builtin_exp10 is available])]  [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_exp10f])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_exp10f(f);])], [AC_DEFINE([HAVE__BUILTIN_EXP10F], 1, [Define to 1 if __builtin_exp10f is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_exp10l])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([long double ld;], [return __builtin_exp10l(ld);])], [AC_DEFINE([HAVE__BUILTIN_EXP10L], 1, [Define to 1 if __builtin_exp10l is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isnanf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_isnanf(f);])], [AC_DEFINE([HAVE__BUILTIN_ISNANF], 1, [Define to 1 if __builtin_isnanf is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isnanl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([long double ld;], [return __builtin_isnanl(ld);])], [AC_DEFINE([HAVE__BUILTIN_ISNANL], 1, [Define to 1 if __builtin_isnanl is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isinff])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_isinff(f);])], [AC_DEFINE([HAVE__BUILTIN_ISINFF], 1, [Define to 1 if __builtin_isinff is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_isinfl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([long double ld;], [return __builtin_isinfl(ld);])], [AC_DEFINE([HAVE__BUILTIN_ISINFL], 1, [Define to 1 if __builtin_isinfl is available])] [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_fpclassify])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f;], [return __builtin_fpclassify (1, 2, 3, 4, 5, f);])], [AC_DEFINE([HAVE__BUILTIN_FPCLASSIFY], 1, [Define to 1 if __builtin_fpclassify is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_popcount])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([int x;], [return __builtin_popcount (x);])], [AC_DEFINE([HAVE__BUILTIN_POPCOUNT], 1, [Define to 1 if __builtin_popcount is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_MSG_CHECKING([for __builtin_nan])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([const char *c;], [return __builtin_nan (c);])], [AC_DEFINE([HAVE__BUILTIN_NAN], 1, [Define to 1 if __builtin_nan is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nanf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([const char* c;], [return __builtin_nanf (c);])], [AC_DEFINE([HAVE__BUILTIN_NANF], 1, [Define to 1 if __builtin_nanf is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nanl])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([const char* c;], [return __builtin_nanl (c);])], [AC_DEFINE([HAVE__BUILTIN_NANL], 1, [Define to 1 if __builtin_nanl is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nexttoward])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([double d; long double ld;], [return __builtin_nexttoward (d, ld);])], [AC_DEFINE([HAVE__BUILTIN_NEXTTOWARD], 1, [Define to 1 if __builtin_nexttoward is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_nexttowardf])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f; long double ld;], [return __builtin_nexttowardf (f, ld);])], [AC_DEFINE([HAVE__BUILTIN_NEXTTOWARDF], 1, [Define to 1 if __builtin_nexttowardf is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+AC_MSG_CHECKING([for __builtin_signbit])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([float f; double d; long double ld;],
+            [return __builtin_signbit(f) + __builtin_signbit (d) + __builtin_signbit(ld);])], [AC_DEFINE([HAVE__BUILTIN_SIGNBIT], 1, [Define to 1 if __builtin_signbit is available])]
+        [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])])
+
+AC_CHECK_FUNCS([cpow cpowf cpowl cacoshl cacosl casinhl casinl catanhl catanl ccoshl ccosl csinhl csinl ctanhl ctanl],
                [], [])
 LIBS="$keep_LIBS"
 
@@ -1946,6 +2009,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/Makefile
            tests/config/mercurium
            tests/config/mercurium-cxx11
+           tests/config/mercurium-cxx14
            tests/config/mercurium-run
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
@@ -1965,6 +2029,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
+           tests/05_torture_cxx_1.dg/mercurium-cxx11
            tests/05_torture_cxx_2.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
@@ -1979,10 +2044,17 @@ AS_MKDIR_P([support/openmp/fortran])
 AS_MKDIR_P([support/mpi/openmpi])
 AS_MKDIR_P([support/mpi/mpich])
 
+cxxdialect="C++2003"
+if test "$HAVE_CXX11" = "1";
+then
+    cxxdialect="C++2011"
+fi
 
 echo ""
 echo "Mercurium configuration summary"
 echo "==============================="
+echo ""
+echo " * C++ dialect used to build Mercurium : $cxxdialect"
 echo ""
 echo " * Tools configured:"
 echo ""
@@ -2064,18 +2136,18 @@ echo ""
 echo " * Optional phases :"
 echo ""
 
-if test x$disable_vectorization = xyes;
+if test x$is_enabled_vectorization = xyes;
 then
-  echo "   Vectorization build and install disabled"
-else
   echo "   Vectorization build and install enabled"
+else
+  echo "   Vectorization build and install disabled"
 fi
 
-if test x$disable_analysis = xyes;
+if test x$is_enabled_analysis = xyes;
 then
-  echo "   Analysis build and install disabled"
-else
   echo "   Analysis build and install enabled"
+else
+  echo "   Analysis build and install disabled"
 fi
 
 echo ""

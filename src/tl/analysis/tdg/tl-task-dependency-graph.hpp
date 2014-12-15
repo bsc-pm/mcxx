@@ -96,9 +96,9 @@ namespace Analysis {
         Node* get_pcfg_node() const;
         void add_control_structure(ControlStructure* cs, const ObjectList<std::string>& taken_branches);
         ControlStList get_control_structures() const;
-        
-    friend class TDG_Edge;
-    friend class TaskDependencyGraph;
+
+        friend struct TDG_Edge;
+        friend class TaskDependencyGraph;
     };
 
     struct TDG_Edge {
@@ -111,7 +111,7 @@ namespace Analysis {
         
         // *** Constructor *** //
         TDG_Edge(TDG_Node* source, TDG_Node* target, SyncKind kind, const NBase& condition);
-        
+
         // *** Getters and setters *** //
         TDG_Node* get_source() const;
         TDG_Node* get_target() const;

@@ -145,7 +145,7 @@ namespace TL
                 return;
 
             // Run looking up for every "#pragma nanos"
-            Nodecl::NodeclBase top_level = dto["nodecl"];
+            Nodecl::NodeclBase top_level = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             this->Interface::walk(top_level);
         }
 

@@ -280,7 +280,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
         check_expression_function_init = 1;
     }
 
-    check_expression_handler_t key = { .ast_kind = ASTType(expression) };
+    check_expression_handler_t key = { .ast_kind = ASTKind(expression) };
     check_expression_handler_t *handler = NULL;
 
     // void *bsearch(const void *key, const void *base,
@@ -295,7 +295,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     {
         running_error("%s: sorry: unhandled expression %s\n", 
                 ast_location(expression), 
-                ast_print_node_type(ASTType(expression)));
+                ast_print_node_type(ASTKind(expression)));
     }
     (handler->handler)(expression, decl_context, nodecl_output);
 
@@ -373,7 +373,7 @@ static void check_ac_value_list(
     {
         AST ac_value = ASTSon1(it);
 
-        if (ASTType(ac_value) == AST_IMPLIED_DO)
+        if (ASTKind(ac_value) == AST_IMPLIED_DO)
         {
             AST implied_do_ac_value = ASTSon0(ac_value);
 
@@ -1038,7 +1038,7 @@ static void check_array_ref_(
     {
         AST subscript = ASTSon1(it);
 
-        if (ASTType(subscript) == AST_SUBSCRIPT_TRIPLET)
+        if (ASTKind(subscript) == AST_SUBSCRIPT_TRIPLET)
         {
             AST lower = ASTSon0(subscript);
             AST upper = ASTSon1(subscript);
@@ -1351,7 +1351,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
 
     // This ordering is important to preserve the proper meaning of the subscript
     // A(1:2) where 'A' is an array
-    if (ASTType(ASTSon0(expr)) != AST_ARRAY_SUBSCRIPT
+    if (ASTKind(ASTSon0(expr)) != AST_ARRAY_SUBSCRIPT
             && (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
@@ -1368,7 +1368,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
     }
     // A(1:2)(3:4) where 'A' is an array of CHARACTER and 'A(1:2)' yields an array type (i.e. an array-section)
     else if (
-            ASTType(ASTSon0(expr)) == AST_ARRAY_SUBSCRIPT
+            ASTKind(ASTSon0(expr)) == AST_ARRAY_SUBSCRIPT
             && (// An array of CHARACTER
                 (fortran_is_array_type(no_ref(subscripted_type))
                  && fortran_is_character_type(fortran_get_rank0_type(no_ref(subscripted_type))))
@@ -1754,7 +1754,7 @@ static void check_component_ref_(AST expr,
     AST rhs = ASTSon1(expr);
     AST name = rhs;
 
-    switch (ASTType(name))
+    switch (ASTKind(name))
     {
         case AST_SYMBOL:
             {
@@ -1768,7 +1768,7 @@ static void check_component_ref_(AST expr,
             }
         default:
             {
-                internal_error("Unexpected tree '%s' at right hand side of '%%'\n", ast_print_node_type(ASTType(name)));
+                internal_error("Unexpected tree '%s' at right hand side of '%%'\n", ast_print_node_type(ASTKind(name)));
             }
     }
 
@@ -1790,7 +1790,7 @@ static void check_component_ref_(AST expr,
     nodecl_t nodecl_rhs = nodecl_make_symbol(component_symbol, ast_get_locus(name));
     type_t* component_type = no_ref(component_symbol->type_information);
 
-    if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT
+    if (ASTKind(rhs) == AST_ARRAY_SUBSCRIPT
             && !fortran_is_array_type(component_type)
             && !fortran_is_pointer_to_array_type(component_type)
             && !fortran_is_character_type(no_ref(component_type))
@@ -1883,7 +1883,7 @@ static void check_component_ref_(AST expr,
                     ast_get_locus(expr));
     }
 
-    if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
+    if (ASTKind(rhs) == AST_ARRAY_SUBSCRIPT)
     {
         if (fortran_is_array_type(component_type)
                 || fortran_is_pointer_to_array_type(component_type))
@@ -2682,7 +2682,7 @@ static void check_called_symbol_list(
 
     // First solve the generic specifier
     if (entry_list_size(symbol_list) > 1
-            || symbol_entity_specs_get_is_generic_spec(entry_list_head(symbol_list)))
+            || entry_list_head(symbol_list)->kind == SK_GENERIC_NAME)
     {
         scope_entry_list_t* specific_symbol_set = NULL;
         scope_entry_list_iterator_t* it = NULL;
@@ -2707,7 +2707,7 @@ static void check_called_symbol_list(
                             specific_symbol_set);
                 }
             }
-            else if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
+            else if (current_generic_spec->kind == SK_GENERIC_NAME)
             {
                 scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
                         explicit_num_actual_arguments,
@@ -2781,7 +2781,7 @@ static void check_called_symbol_list(
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
-                if (symbol_entity_specs_get_is_generic_spec(current_generic_spec))
+                if (current_generic_spec->kind == SK_GENERIC_NAME)
                 {
                     info_printf("%s: info: specific interface '%s' matches\n",
                             locus_to_str(current_generic_spec->locus),
@@ -3285,13 +3285,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
             AST actual_arg = ASTSon1(actual_arg_spec);
 
-            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
+            if (ASTKind(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
             {
                 nodecl_t nodecl_argument = nodecl_null();
 
                 // If the actual_arg is a symbol, we'll do a special checking
                 // The reason: detect intrinsic functions in arguments
-                if (ASTType(actual_arg) == AST_SYMBOL)
+                if (ASTKind(actual_arg) == AST_SYMBOL)
                 {
                     check_symbol_of_argument(actual_arg, decl_context, &nodecl_argument);
                 }
@@ -3599,31 +3599,55 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 {
     const char* literal = ASTText(expr);
 
-    char kind[31] = { 0 };
-    char has_kind = 0;
+    enum { MAX_KIND_LENGTH = 31 };
+    char kind_str[MAX_KIND_LENGTH + 1] = { 0 };
+    char *kind_last = kind_str;
 
-    if ((has_kind = (literal[0] != '"'
-                    && literal[0] != '\'')))
+    type_t* character_type = fortran_get_default_character_type();
+
+    if ((literal[0] != '"'
+                    && literal[0] != '\''))
     {
-        char *q = kind;
-        while (*literal != '_'
-                && ((unsigned int)(q - kind) < (sizeof(kind) - 1)))
+        // There is KIND, check it
+        // First gather the characters that make up the kind
+        while (*literal != '"'
+                && *literal != '\''
+                && ((unsigned int)(kind_last - kind_str) < MAX_KIND_LENGTH))
         {
+            *kind_last = *literal;
             literal++;
+            kind_last++;
         }
-        if (*literal != '_')
+
+        if (*literal != '"'
+                && *literal != '\'')
         {
             error_printf("%s: error: KIND specifier is too long\n",
                     ast_location(expr));
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
             return;
         }
-        literal++;
 
-        warn_printf("%s: warning: ignoring KIND=%s of character-literal, assuming KIND=1\n",
-                kind,
-                ast_location(expr));
+        ERROR_CONDITION(kind_last == kind_str, "No characters were consumed", 0);
+        kind_last--;
+
+        ERROR_CONDITION(*kind_last != '_', "Wrong delimiter '%c'", *kind_last);
+        *kind_last = '\0';
+
+        // Compute the value
+        int kind = compute_kind_from_literal(kind_str, expr, decl_context);
+        if (kind == 0)
+        {
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+
+        nodecl_t loc = nodecl_make_text(ASTText(expr), ast_get_locus(expr));
+        character_type = choose_character_type_from_kind(loc, kind);
+        nodecl_free(loc);
     }
+
+    const char* whole_literal = literal;
 
     int length = strlen(literal);
 
@@ -3642,7 +3666,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
             real_string[real_length] = *literal;
             literal++;
         }
-        else 
+        else
         {
             real_string[real_length] = *literal;
             // Jump both '' or ""
@@ -3654,11 +3678,12 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     real_string[real_length] = '\0';
 
     nodecl_t one = nodecl_make_integer_literal(
-            fortran_get_default_integer_type(), 
-            const_value_get_signed_int(1), 
+            fortran_get_default_integer_type(),
+            const_value_get_signed_int(1),
             ast_get_locus(expr));
-    nodecl_t length_tree = nodecl_make_integer_literal(fortran_get_default_integer_type(), 
-            const_value_get_signed_int(real_length), 
+    nodecl_t length_tree = nodecl_make_integer_literal(
+            character_type,
+            const_value_get_signed_int(real_length),
             ast_get_locus(expr));
 
     type_t* t = get_array_type_bounds(fortran_get_default_character_type(), one, length_tree, decl_context);
@@ -3668,7 +3693,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     *nodecl_output = nodecl_make_string_literal(t, value, ast_get_locus(expr));
 
     // Also keep the string itself for codegen
-    nodecl_set_text(*nodecl_output, ASTText(expr));
+    nodecl_set_text(*nodecl_output, whole_literal);
 }
 
 static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3927,7 +3952,7 @@ static void check_symbol_literal(AST expr, decl_context_t decl_context UNUSED_PA
 static char is_name_of_funtion_call(AST expr)
 {
     return ASTParent(expr) != NULL
-        && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
+        && ASTKind(ASTParent(expr)) == AST_FUNCTION_CALL;
 }
 #endif
 
@@ -3936,15 +3961,15 @@ static void check_symbol_of_called_name(AST sym,
         scope_entry_list_t** call_list, 
         char is_call_stmt)
 {
-    if (ASTType(sym) != AST_SYMBOL
-            && ASTType(sym) != AST_SYMBOL_LITERAL_REF)
+    if (ASTKind(sym) != AST_SYMBOL
+            && ASTKind(sym) != AST_SYMBOL_LITERAL_REF)
     {
         error_printf("%s: error: expression is not a valid procedure designator\n", ast_location(sym));
         *call_list = NULL;
         return;
     }
 
-    if (ASTType(sym) == AST_SYMBOL_LITERAL_REF)
+    if (ASTKind(sym) == AST_SYMBOL_LITERAL_REF)
     {
         nodecl_t nodecl_output = nodecl_null();
         check_symbol_literal(sym, decl_context, &nodecl_output);
@@ -4092,7 +4117,7 @@ static void check_symbol_of_called_name(AST sym,
         // if more than one generic name is found, all the visible ones in the current scope are returned
         // thus we do not have to check anything
         if (entry_list_size(entry_list) == 1
-                && !symbol_entity_specs_get_is_generic_spec(entry_list_head(entry_list))
+                && entry_list_head(entry_list)->kind != SK_GENERIC_NAME
                 && !symbol_entity_specs_get_is_builtin(entry_list_head(entry_list)))
         {
             scope_entry_t* entry = entry_list_head(entry_list);
@@ -5078,7 +5103,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
 
     nodecl_t nodecl_lvalue = nodecl_null();
     // Special handling for array subscripts
-    if (ASTType(lvalue) == AST_ARRAY_SUBSCRIPT)
+    if (ASTKind(lvalue) == AST_ARRAY_SUBSCRIPT)
     {
         // A(1:, 2:) => ...
         nodecl_t nodecl_subscripted = nodecl_null();
@@ -5099,7 +5124,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
             return;
         }
     }
-    else if (ASTType(lvalue) == AST_CLASS_MEMBER_ACCESS)
+    else if (ASTKind(lvalue) == AST_CLASS_MEMBER_ACCESS)
     {
         // X % A(1:, 2:) => ...
         check_component_ref_(lvalue, decl_context, &nodecl_lvalue,
@@ -5299,7 +5324,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
     {
         AST current_expr = ast_get_ambiguity(expr, i);
 
-        switch (ASTType(current_expr))
+        switch (ASTKind(current_expr))
         {
             case AST_FUNCTION_CALL:
                 {
@@ -5334,7 +5359,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
                 {
                     internal_error("%s: unexpected node '%s'\n", 
                             ast_location(current_expr),
-                            ast_print_node_type(ASTType(current_expr)));
+                            ast_print_node_type(ASTKind(current_expr)));
                     break;
                 }
         }
@@ -5826,7 +5851,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         operand_map_init = 1;
     }
 
-    operand_map_t key = { .node_type = ASTType(expr) };
+    operand_map_t key = { .node_type = ASTKind(expr) };
     operand_map_t* value = (operand_map_t*)bsearch(&key, operand_map,
                 sizeof(operand_map) / sizeof(operand_map[0]), 
                 sizeof(operand_map[0]),
@@ -6068,7 +6093,7 @@ const char* operator_names[] =
 
 static const char * get_operator_for_expr(AST expr)
 {
-    return operator_names[ASTType(expr)];
+    return operator_names[ASTKind(expr)];
 }
 
 static void conform_types_(type_t* lhs_type, type_t* rhs_type, 

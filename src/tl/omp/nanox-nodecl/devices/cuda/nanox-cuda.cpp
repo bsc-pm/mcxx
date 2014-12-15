@@ -56,72 +56,6 @@ bool DeviceCUDA::is_gpu_device() const
     return true;
 }
 
-
-void DeviceCUDA::update_ndrange_and_shmem_arguments(
-        const TL::Symbol& called_task,
-        const TL::Symbol& unpacked_function,
-        const TargetInformation& target_info,
-        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
-        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
-        // out
-        TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
-        TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args)
-{
-    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-    TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
-
-    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
-    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        for (unsigned int i = 0; i < ndrange_args.size(); ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    ndrange_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_ndrange_args.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (unsigned int i = 0; i < shmem_args.size(); ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    shmem_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_shmem_args.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-    else
-    {
-        for (unsigned int i = 0; i < ndrange_args.size(); ++i)
-        {
-
-            new_ndrange_args.append(Nodecl::Utils::deep_copy(
-                        ndrange_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (unsigned int i = 0; i < shmem_args.size(); ++i)
-        {
-
-            new_shmem_args.append(Nodecl::Utils::deep_copy(
-                        shmem_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-}
-
 void DeviceCUDA::generate_ndrange_additional_code(
         const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
         TL::Source& code_ndrange)
@@ -493,12 +427,13 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (is_function_task
             && target_info.get_ndrange().size() > 0)
     {
-
-        Nodecl::Utils::SimpleSymbolMap param_to_args_map =
-            info._target_info.get_param_arg_map();
-
-        update_ndrange_and_shmem_arguments(called_task, unpacked_function, target_info,
-                &param_to_args_map, symbol_map, new_ndrange_args, new_shmem_args);
+        update_ndrange_and_shmem_expressions(
+                unpacked_function.get_related_scope(),
+                target_info,
+                symbol_map,
+                // Out
+                new_ndrange_args,
+                new_shmem_args);
 
         generate_ndrange_additional_code(new_ndrange_args, ndrange_code);
     }
@@ -905,13 +840,14 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (_cuda_tasks_processed)
     {
-        create_weak_device_symbol("ompss_uses_cuda", data_flow["nodecl"]);
+        create_weak_device_symbol("ompss_uses_cuda",
+                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
         _cuda_tasks_processed = false;
     }
 
     if (_is_nanos_get_cublas_handle)
     {
-        Nodecl::NodeclBase root = data_flow["nodecl"];
+        Nodecl::NodeclBase root = *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]);
         Source nanox_device_enable_section;
         nanox_device_enable_section << "__attribute__((weak)) char gpu_cublas_init = 1;";
 

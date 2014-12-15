@@ -1,5 +1,9 @@
 ! <testinfo>
 ! test_generator=config/mercurium-omp
+! # We request -O0 in this test because
+! # Intel Fortran generates speculative stores
+! # that cause data races
+! test_FFLAGS="-O0"
 ! </testinfo>
 PROGRAM MAIN
     IMPLICIT NONE

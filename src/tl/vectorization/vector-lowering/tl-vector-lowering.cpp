@@ -30,6 +30,7 @@
 #include "tl-vector-backend-knc.hpp"
 #include "tl-vector-legalization-avx2.hpp"
 #include "tl-vector-backend-avx2.hpp"
+#include "tl-vectorization-three-addresses.hpp"
 
 
 namespace TL
@@ -95,7 +96,8 @@ namespace TL
 
         void VectorLoweringPhase::run(TL::DTO& dto)
         {
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit =
+                *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
             if (_avx2_enabled && _knc_enabled)
             {
@@ -118,6 +120,9 @@ namespace TL
                 KNCVectorLegalization knc_vector_legalization(
                         _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 knc_vector_legalization.walk(translation_unit);
+                
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
 
                 // Lowering to intrinsics
                 KNCVectorBackend knc_vector_backend;

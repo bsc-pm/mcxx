@@ -88,8 +88,8 @@ namespace TL
                 static bool _reductions_already_registered;
                 static bool _already_informed_new_ompss_copy_deps;
 
-                RefPtr<OpenMP::Info> _openmp_info;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::Info> _openmp_info;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
@@ -252,7 +252,7 @@ namespace TL
 
                 virtual ~Core() { }
 
-                RefPtr<OpenMP::Info> get_openmp_info();
+                std::shared_ptr<OpenMP::Info> get_openmp_info();
 
                 //! Used when parsing declare reduction
                 static bool _silent_declare_reduction;
