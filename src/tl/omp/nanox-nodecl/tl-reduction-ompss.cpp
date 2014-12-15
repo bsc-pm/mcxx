@@ -123,7 +123,7 @@ namespace TL { namespace Nanox {
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         ERROR_CONDITION (reduction_items.empty(), "No reductions to process", 0);
 
         for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
@@ -142,7 +142,7 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+               lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         if (!reduction_items.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> reduction_stmts;

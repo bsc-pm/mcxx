@@ -2166,17 +2166,17 @@ skip_current_var: ;
         register_parameter("lint_deprecated_flag",
                 "Emits a warning as the \"--openmp-lint\" flag is deprecated",
                 _lint_deprecated_flag,
-                "0").connect(functor(&Lint::set_lint_deprecated_flag, *this));
+                "0").connect(std::bind(&Lint::set_lint_deprecated_flag, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
-                "0").connect(functor(&Lint::set_ompss_mode, *this));
+                "0").connect(std::bind(&Lint::set_ompss_mode, this, std::placeholders::_1));
     }
 
     void Lint::run(TL::DTO& dto)
     {
-        Nodecl::NodeclBase top_level = dto["nodecl"];
+        Nodecl::NodeclBase top_level = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         if (_disable_phase == "0")
         {

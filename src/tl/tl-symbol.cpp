@@ -785,7 +785,7 @@ namespace TL
 
     bool Symbol::is_generic_specifier() const
     {
-        return symbol_entity_specs_get_is_generic_spec(_symbol);
+        return _symbol->kind == SK_GENERIC_NAME;
     }
 
     bool Symbol::has_nondefault_linkage() const

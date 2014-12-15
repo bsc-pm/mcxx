@@ -675,6 +675,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/
+/*!include cxx-ompss.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
 /*!include cxx-opencl.y*/
@@ -6600,6 +6601,7 @@ right_bracket_token : '>'
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/
+/*!include cxx-ompss.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
 /*!include cxx-opencl.y*/

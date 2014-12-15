@@ -88,8 +88,8 @@ namespace TL
                 static bool _reductions_already_registered;
                 static bool _already_informed_new_ompss_copy_deps;
 
-                RefPtr<OpenMP::Info> _openmp_info;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::Info> _openmp_info;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
@@ -152,28 +152,33 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
-                void get_dependences_info_clause(
+                void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
+                        Nodecl::NodeclBase construct,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr,
                         DataSharingAttribute default_data_attr,
                         const std::string& clause_name,
                         ObjectList<Symbol>& extra_symbols);
 
-                void parse_dependences_info_std_clause(
+                ObjectList<Nodecl::NodeclBase> parse_dependences_ompss_clause(
+                        PragmaCustomClause& clause,
+                        TL::ReferenceScope parsing_scope);
+
+                void get_dependences_openmp(
+                        TL::PragmaCustomLine construct,
+                        TL::PragmaCustomClause clause,
+                        DataSharingEnvironment& data_sharing,
+                        DataSharingAttribute default_data_attr,
+                        ObjectList<Symbol>& extra_symbols);
+
+                void parse_dependences_openmp_clause(
                         TL::ReferenceScope parsing_scope,
                         TL::PragmaCustomClause clause,
                         TL::ObjectList<Nodecl::NodeclBase> &in,
                         TL::ObjectList<Nodecl::NodeclBase> &out,
                         TL::ObjectList<Nodecl::NodeclBase> &inout,
                         const locus_t* locus);
-
-                void get_dependences_info_std_clause(
-                        TL::PragmaCustomLine construct,
-                        TL::PragmaCustomClause clause,
-                        DataSharingEnvironment& data_sharing,
-                        DataSharingAttribute default_data_attr,
-                        ObjectList<Symbol>& extra_symbols);
 
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing,
@@ -252,7 +257,7 @@ namespace TL
 
                 virtual ~Core() { }
 
-                RefPtr<OpenMP::Info> get_openmp_info();
+                std::shared_ptr<OpenMP::Info> get_openmp_info();
 
                 //! Used when parsing declare reduction
                 static bool _silent_declare_reduction;

@@ -32,7 +32,6 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
-#include "tl-refptr.hpp"
 #include "cxx-nodecl.h"
 #include "cxx-utils.h"
 #include <cstdlib>
@@ -135,10 +134,6 @@ namespace Nodecl {
             // Equality by pointer
             bool operator==(const NodeclBase& n) const { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
             bool operator!=(const NodeclBase& n) const { return nodecl_get_ast(this->_n) != nodecl_get_ast(n._n); }
-
-
-            // Convenience
-            NodeclBase(TL::RefPtr<TL::Object>);
 
             // Basic replacement
             //

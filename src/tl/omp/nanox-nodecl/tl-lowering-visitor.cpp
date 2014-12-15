@@ -30,7 +30,7 @@ namespace TL { namespace Nanox {
 
     LoweringVisitor::LoweringVisitor(
             Lowering* lowering,
-            RefPtr<OpenMP::FunctionTaskSet> function_task_set,
+            std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set,
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map)
             : _lowering(lowering),
               _function_task_set(function_task_set),

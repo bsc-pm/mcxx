@@ -1483,7 +1483,7 @@ static scope_entry_t* new_procedure_symbol(
             // We found something declared in another scope, ignore it
             entry = NULL;
         }
-        else if (symbol_entity_specs_get_is_generic_spec(entry))
+        else if (entry->kind == SK_GENERIC_NAME)
         {
             // This is a generic specifier named like this symbol and in the
             // same scope, ignore it
@@ -2798,13 +2798,14 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
 static type_t* choose_type_from_kind_function(nodecl_t expr, 
         type_t* (*kind_function)(int kind),
         int kind_size,
-        int default_kind_size)
+        int default_kind_size,
+        const char* type_name)
 {
     type_t* result = kind_function(kind_size);
 
     if (result == NULL)
     {
-        error_printf("%s: error: KIND=%d not supported\n", nodecl_locus_to_str(expr), kind_size);
+        error_printf("%s: error: %s(KIND=%d) not supported\n", nodecl_locus_to_str(expr), type_name, kind_size);
 
         result = kind_function(default_kind_size);
         // Desperate attempt
@@ -2822,22 +2823,38 @@ static type_t* choose_type_from_kind_function(nodecl_t expr,
 // This is why they are external
 type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_int_type_from_kind, kind_size, fortran_get_default_integer_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_int_type_from_kind,
+            kind_size,
+            fortran_get_default_integer_type_kind(),
+            "INTEGER");
 }
 
 type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_float_type_from_kind, kind_size, fortran_get_default_real_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_float_type_from_kind,
+            kind_size,
+            fortran_get_default_real_type_kind(),
+            "REAL");
 }
 
 type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_logical_type_from_kind, kind_size, fortran_get_default_logical_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_logical_type_from_kind,
+            kind_size,
+            fortran_get_default_logical_type_kind(),
+            "LOGICAL");
 }
 
 type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_character_type_from_kind, kind_size, fortran_get_default_character_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_character_type_from_kind,
+            kind_size,
+            fortran_get_default_character_type_kind(),
+            "CHARACTER");
 }
 
 static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type_t* (*fun)(nodecl_t expr, int kind_size),
@@ -6290,7 +6307,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                     if (symbol_entity_specs_get_in_module(current) == decl_context.current_scope->related_entry
                             && symbol_entity_specs_get_from_module(current) == NULL)
                     {
-                        if (symbol_entity_specs_get_is_generic_spec(current))
+                        if (current->kind == SK_GENERIC_NAME)
                         {
                             is_generic_name_of_this_module = 1;
                         }
@@ -6305,7 +6322,6 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                     // procedure
                     else if (symbol_entity_specs_get_from_module(current) != NULL
                             && current->kind == SK_FUNCTION
-                            && !symbol_entity_specs_get_is_generic_spec(current)
                             && symbol_entity_specs_get_is_module_procedure(current))
                     {
                         entry = current;
@@ -6380,7 +6396,6 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 {
                     scope_entry_t* current = entry_list_iterator_current(it);
                     if (current->kind == SK_FUNCTION
-                            && !symbol_entity_specs_get_is_generic_spec(current)
                             && symbol_entity_specs_get_is_module_procedure(current))
                     {
                         entry = current;
@@ -6532,9 +6547,10 @@ static void build_scope_interface_block(AST a,
                     previous_generic_spec_sym = NULL;
                     generic_spec_sym = current_sym;
                 }
-                else if (current_sym->kind == SK_FUNCTION)
+                else if (current_sym->kind == SK_FUNCTION
+                        || current_sym->kind == SK_GENERIC_NAME)
                 {
-                    if (symbol_entity_specs_get_from_module(current_sym))
+                    if (symbol_entity_specs_get_from_module(current_sym) != NULL)
                     {
                         // We need this for the following case
                         //
@@ -6551,25 +6567,19 @@ static void build_scope_interface_block(AST a,
                         // END MODULE BAR
                         previous_generic_spec_sym = current_sym;
                     }
-                    else if (symbol_entity_specs_get_is_generic_spec(current_sym))
+                    else if (current_sym->kind == SK_GENERIC_NAME)
                     {
                         previous_generic_spec_sym = NULL;
                         generic_spec_sym = current_sym;
                     }
-                    else
-                    {
-                        if (current_sym->kind != SK_UNDEFINED
-                                && (current_sym->kind != SK_FUNCTION
-                                    || (!symbol_entity_specs_get_is_generic_spec(current_sym)
-                                        && !symbol_entity_specs_get_is_builtin(current_sym))))
-                        {
-                            error_printf("%s: error: redefining symbol '%s'\n",
-                                    ast_location(generic_spec),
-                                    name);
-                            entry_list_iterator_free(it);
-                            return;
-                        }
-                    }
+                }
+                else // otherwise
+                {
+                    error_printf("%s: error: redefining symbol '%s'\n",
+                            ast_location(generic_spec),
+                            name);
+                    entry_list_iterator_free(it);
+                    return;
                 }
             }
             entry_list_iterator_free(it);
@@ -6587,8 +6597,7 @@ static void build_scope_interface_block(AST a,
         // The symbol won't be unknown anymore
         remove_untyped_symbol(decl_context, generic_spec_sym);
 
-        generic_spec_sym->kind = SK_FUNCTION;
-        symbol_entity_specs_set_is_generic_spec(generic_spec_sym, 1);
+        generic_spec_sym->kind = SK_GENERIC_NAME;
         symbol_entity_specs_set_is_implicit_basic_type(generic_spec_sym, 0);
         remove_unknown_kind_symbol(decl_context, generic_spec_sym);
 

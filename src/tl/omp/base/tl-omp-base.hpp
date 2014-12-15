@@ -54,7 +54,7 @@ namespace TL
             private:
                 OpenMP::Core _core;
 
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string _openmp_dry_run;
 
@@ -70,7 +70,7 @@ namespace TL
                 std::ofstream* _omp_report_file;
                 std::string _omp_report_str;
                 bool _omp_report;
-                void set_omp_report(const std::string &str);
+                void set_omp_report_parameter(const std::string &str);
 
                 std::string _copy_deps_str;
                 bool _copy_deps_by_default;

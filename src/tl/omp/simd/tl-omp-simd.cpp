@@ -51,32 +51,32 @@ namespace TL {
             register_parameter("simd_enabled",
                     "If set to '1' enables simd constructs, otherwise it is disabled",
                     _simd_enabled_str,
-                    "0").connect(functor(&Simd::set_simd, *this));
+                    "0").connect(std::bind(&Simd::set_simd, this, std::placeholders::_1));
 
             register_parameter("svml_enabled",
                     "If set to '1' enables svml math library, otherwise it is disabled",
                     _svml_enabled_str,
-                    "0").connect(functor(&Simd::set_svml, *this));
+                    "0").connect(std::bind(&Simd::set_svml, this, std::placeholders::_1));
 
             register_parameter("fast_math_enabled",
                     "If set to '1' enables fast_math operations, otherwise it is disabled",
                     _fast_math_enabled_str,
-                    "0").connect(functor(&Simd::set_fast_math, *this));
+                    "0").connect(std::bind(&Simd::set_fast_math, this, std::placeholders::_1));
 
             register_parameter("mic_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
                     _knc_enabled_str,
-                    "0").connect(functor(&Simd::set_knc, *this));
+                    "0").connect(std::bind(&Simd::set_knc, this, std::placeholders::_1));
 
             register_parameter("avx2_enabled",
                     "If set to '1' enables compilation for AVX2 instruction set, otherwise it is disabled",
                     _avx2_enabled_str,
-                    "0").connect(functor(&Simd::set_avx2, *this));
+                    "0").connect(std::bind(&Simd::set_avx2, this, std::placeholders::_1));
 
             register_parameter("spml_enabled",
                     "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
                     _spml_enabled_str,
-                    "0").connect(functor(&Simd::set_spml, *this));
+                    "0").connect(std::bind(&Simd::set_spml, this, std::placeholders::_1));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -136,9 +136,7 @@ namespace TL {
         {
             this->PragmaCustomCompilerPhase::run(dto);
 
-            //RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
-
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
             if (_simd_enabled)
             {

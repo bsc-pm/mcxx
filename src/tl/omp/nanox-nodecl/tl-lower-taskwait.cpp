@@ -83,7 +83,17 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
                 outline_info,
                 dependences);
 
-        int num_dependences = count_dependences(outline_info);
+        int num_dependences;
+        int num_static_dependences, num_dynamic_dependences;
+        count_dependences(outline_info, num_static_dependences, num_dynamic_dependences);
+        if (num_dynamic_dependences != 0)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+        else
+        {
+            num_dependences = num_static_dependences;
+        }
 
         src << "{"
             <<     dependences

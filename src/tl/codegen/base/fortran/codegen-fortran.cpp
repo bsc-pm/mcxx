@@ -3618,11 +3618,6 @@ OPERATOR_TABLE
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
 
-        if (entry.get_name() == "struct_descriptor_0")
-        {
-        std::cerr << "---> " << entry.get_name() << std::endl;
-        }
-
         // This function has nothing to do with stuff coming from modules
         if (entry.is_from_module())
             return;
@@ -4001,7 +3996,8 @@ OPERATOR_TABLE
                 }
             }
         }
-        else if (entry.is_function())
+        else if (entry.is_function()
+                || entry.is_generic_specifier())
         {
             TL::Type function_type = entry.get_type();
 
@@ -6406,19 +6402,19 @@ OPERATOR_TABLE
         register_parameter("emit_fun_loc",
                 "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",
                 _emit_fun_loc_str,
-                "0").connect(functor(&FortranBase::set_emit_fun_loc, *this));
+                "0").connect(std::bind(&FortranBase::set_emit_fun_loc, this, std::placeholders::_1));
 
         _deduce_use_statements = false;
         register_parameter("deduce_use_statements",
                 "Tries to deduce use statements regardless of the information in the scope",
                 _deduce_use_statements_str,
-                "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
+                "0").connect(std::bind(&FortranBase::set_deduce_use_statements, this, std::placeholders::_1));
 
         _emit_full_array_subscripts = false;
         register_parameter("emit_full_array_subscripts",
                 "Emits synthetic array subscripts ranges introduced by the FE",
                 _emit_full_array_subscripts_str,
-                "0").connect(functor(&FortranBase::set_emit_full_array_subscripts, *this));
+                "0").connect(std::bind(&FortranBase::set_emit_full_array_subscripts, this, std::placeholders::_1));
     }
 
     void FortranBase::set_emit_fun_loc(const std::string& str)

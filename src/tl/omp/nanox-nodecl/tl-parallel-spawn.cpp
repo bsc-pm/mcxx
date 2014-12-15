@@ -232,7 +232,16 @@ namespace TL { namespace Nanox {
         fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
 
         // Fill dependences for outline
-        num_dependences << count_dependences(outline_info);
+        int num_static_dependences, num_dynamic_dependences;
+        count_dependences(outline_info, num_static_dependences, num_dynamic_dependences);
+        if (num_dynamic_dependences != 0)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+        else
+        {
+            num_dependences << num_static_dependences;
+        }
 
         int num_copies = 0;
         fill_copies(construct,

@@ -177,7 +177,17 @@ Source LoweringVisitor::fill_const_wd_info(
     // MultiMap with every implementation of the current function task
 
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    int num_copies = count_copies(outline_info);
+    int num_copies;
+    int num_static_copies, num_dynamic_copies;
+    count_copies(outline_info, num_static_copies, num_dynamic_copies);
+    if (num_dynamic_copies != 0)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        num_copies = num_static_copies;
+    }
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
@@ -733,7 +743,16 @@ void LoweringVisitor::emit_async_common(
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
 
     // Fill dependences for outline
-    num_dependences << count_dependences(outline_info);
+    int num_static_dependences, num_dynamic_dependences;
+    count_dependences(outline_info, num_static_dependences, num_dynamic_dependences);
+    if (num_dynamic_dependences == 0)
+    {
+        num_dependences << num_static_dependences;
+    }
+    else
+    {
+        internal_error("Not yet implemented", 0);
+    }
 
     int num_copies = 0;
     fill_copies(construct,
@@ -1490,34 +1509,64 @@ void LoweringVisitor::fill_arguments(
     }
 }
 
-int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
+void LoweringVisitor::count_dependences(OutlineInfo& outline_info,
+        int &num_static_dependences,
+        int &num_dynamic_dependences)
 {
-    int num_deps = 0;
+    num_static_dependences = 0;
+    num_dynamic_dependences = 0;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        num_deps += (*it)->get_dependences().size();
+        TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+        for (TL::ObjectList<OutlineDataItem::DependencyItem>::iterator it_deps = deps.begin();
+                it_deps != deps.end();
+                it_deps++)
+        {
+            DataReference data_ref(it_deps->expression);
+            if (!data_ref.is_multidependence())
+            {
+                num_static_dependences++;
+            }
+            else
+            {
+                num_dynamic_dependences++;
+            }
+        }
     }
-
-    return num_deps;
 }
 
-int LoweringVisitor::count_copies(OutlineInfo& outline_info)
+void LoweringVisitor::count_copies(OutlineInfo& outline_info,
+        int &num_static_copies,
+        int &num_dynamic_copies)
 {
-    int num_copies = 0;
+    num_static_copies = 0;
+    num_dynamic_copies = 0;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        num_copies += (*it)->get_copies().size();
+        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator it_copies = copies.begin();
+                it_copies != copies.end();
+                it_copies++)
+        {
+            DataReference data_ref(it_copies->expression);
+            if (!data_ref.is_multidependence())
+            {
+                num_static_copies++;
+            }
+            else
+            {
+                num_dynamic_copies++;
+            }
+        }
     }
-
-    return num_copies;
 }
 
 int LoweringVisitor::count_copies_dimensions(OutlineInfo& outline_info)
@@ -1917,7 +1966,16 @@ void LoweringVisitor::fill_copies(
         TL::Symbol& xlate_function_symbol
         )
 {
-    num_copies = count_copies(outline_info);
+    int num_static_copies, num_dynamic_copies;
+    count_copies(outline_info, num_static_copies, num_dynamic_copies);
+    if (num_dynamic_copies != 0)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        num_copies = num_static_copies;
+    }
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
@@ -2569,7 +2627,17 @@ void LoweringVisitor::fill_dependences_internal(
 {
     Source dependency_init;
 
-    int num_deps = count_dependences(outline_info);
+    int num_deps;
+    int num_static_deps, num_dynamic_deps;
+    count_dependences(outline_info, num_static_deps, num_dynamic_deps);
+    if (num_dynamic_deps != 0)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        num_deps = num_static_deps;
+    }
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 

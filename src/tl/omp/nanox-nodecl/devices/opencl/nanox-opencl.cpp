@@ -910,7 +910,7 @@ DeviceOpenCL::DeviceOpenCL()
     register_parameter("disable_opencl_file_check",
             "Do not check if the argument of the 'file' clause is specified as an OpenCL file in the command line",
             _disable_opencl_file_check_str,
-            "0").connect(functor(&DeviceOpenCL::disable_opencl_file_check, *this));
+            "0").connect(std::bind(&DeviceOpenCL::disable_opencl_file_check, this, std::placeholders::_1));
 }
 
 void  DeviceOpenCL::disable_opencl_file_check(const std::string &str)
@@ -990,7 +990,8 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {
     if (_opencl_tasks_processed)
     {
-        create_weak_device_symbol("ompss_uses_opencl", data_flow["nodecl"]);
+        create_weak_device_symbol("ompss_uses_opencl",
+                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
         _opencl_tasks_processed = false;
     }
 

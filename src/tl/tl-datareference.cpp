@@ -435,6 +435,21 @@ namespace TL
                 return rebuilt_type;
             }
 
+            virtual void visit(const Nodecl::OmpSs::MultiDependence& multi_deps)
+            {
+                TL::Symbol sym = multi_deps.get_symbol();
+                Nodecl::NodeclBase range = multi_deps.get_range();
+
+                _data_ref._iterators.append(std::make_pair(sym, range));
+
+                walk(multi_deps.get_dependence());
+
+                if (!_data_ref._is_valid)
+                {
+                    _data_ref._iterators.clear();
+                }
+            }
+
     };
 
     DataReference::DataReference(Nodecl::NodeclBase expr)
@@ -1200,5 +1215,16 @@ namespace TL
         mr.read(_error_log);
 
         mr.read(_base_address);
+    }
+
+    bool DataReference::is_multidependence() const
+    {
+        return !_iterators.empty();
+    }
+
+    TL::ObjectList<DataReference::MultiDepIterator>
+        DataReference::multidependences() const
+    {
+        return _iterators;
     }
 }

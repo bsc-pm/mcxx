@@ -46,7 +46,7 @@ namespace TL {
 
     void Complexity::run(TL::DTO& dto)
     {
-        Nodecl::NodeclBase top_level = dto["nodecl"];
+        Nodecl::NodeclBase top_level = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         // This phase does not care about OpenMP or OmpSs, so we use 'false' by default
         // To be more accurate, we could register the parameter 'is_ompss_enabled' and use it

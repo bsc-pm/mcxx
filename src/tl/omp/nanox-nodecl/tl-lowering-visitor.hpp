@@ -43,7 +43,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     public:
         LoweringVisitor(
                 Lowering* lowering,
-                RefPtr<OpenMP::FunctionTaskSet> function_task_set,
+                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set,
                 std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map);
 
         ~LoweringVisitor();
@@ -72,7 +72,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
 
         Lowering* _lowering;
-        RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+        std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
@@ -110,8 +110,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& fill_immediate_arguments
                 );
 
-        int count_dependences(OutlineInfo& outline_info);
-        int count_copies(OutlineInfo& outline_info);
+        void count_dependences(OutlineInfo& outline_info, int &num_static_dependences, int &num_dynamic_dependences);
+        void count_copies(OutlineInfo& outline_info, int &num_static_copies, int &num_dynamic_copies);
         int count_copies_dimensions(OutlineInfo& outline_info);
 
         void fill_copies(

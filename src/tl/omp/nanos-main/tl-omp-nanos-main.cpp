@@ -44,7 +44,7 @@ namespace TL {
             register_parameter("nanos_main_enabled",
                     "If set to '1' nanos main will be called before main, otherwise it is disabled",
                     _nmain_enabled_str,
-                    "0").connect(functor(&NanosMain::set_nmain, *this));
+                    "0").connect(std::bind(&NanosMain::set_nmain, this, std::placeholders::_1));
         }
 
         void NanosMain::set_nmain(const std::string nmain_str)
@@ -57,7 +57,7 @@ namespace TL {
 
         void NanosMain::pre_run(TL::DTO& dto)
         {
-            _root = dto["nodecl"];
+            _root = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             this->PragmaCustomCompilerPhase::pre_run(dto);
         }
 

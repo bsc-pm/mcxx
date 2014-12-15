@@ -475,7 +475,7 @@ namespace TL { namespace Nanox {
     bool LoweringVisitor::there_are_reductions(OutlineInfo& outline_info)
     {
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         return !reduction_items.empty();
     }
 
@@ -493,7 +493,7 @@ namespace TL { namespace Nanox {
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         ERROR_CONDITION (reduction_items.empty(), "No reductions to process", 0);
 
         Source result;
@@ -741,7 +741,7 @@ namespace TL { namespace Nanox {
         Source reduction_code;
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         if (!reduction_items.empty())
         {
             for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();

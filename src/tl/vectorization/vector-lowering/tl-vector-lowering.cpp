@@ -41,22 +41,22 @@ namespace TL
             register_parameter("mic_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
                     _knc_enabled_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_knc, *this));
+                    "0").connect(std::bind(&VectorLoweringPhase::set_knc, this, std::placeholders::_1));
 
             register_parameter("avx2_enabled",
                     "If set to '1' enables compilation for AVX2 architecture, otherwise it is disabled",
                     _avx2_enabled_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_avx2, *this));
+                    "0").connect(std::bind(&VectorLoweringPhase::set_avx2, this, std::placeholders::_1));
 
             register_parameter("prefer_mask_gather_scatter",
                     "If set to '1' enables gather/scatter generation for unaligned load/stores with masks",
                     _prefer_mask_gather_scatter_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_prefer_mask_gather_scatter, *this));
+                    "0").connect(std::bind(&VectorLoweringPhase::set_prefer_mask_gather_scatter, this, std::placeholders::_1));
 
             register_parameter("prefer_gather_scatter",
                     "If set to '1' enables gather/scatter generation for unaligned load/stores",
                     _prefer_gather_scatter_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_prefer_gather_scatter, *this));
+                    "0").connect(std::bind(&VectorLoweringPhase::set_prefer_gather_scatter, this, std::placeholders::_1));
         }
 
         void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
@@ -95,7 +95,8 @@ namespace TL
 
         void VectorLoweringPhase::run(TL::DTO& dto)
         {
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit =
+                *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
             if (_avx2_enabled && _knc_enabled)
             {

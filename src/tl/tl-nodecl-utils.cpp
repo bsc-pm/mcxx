@@ -71,7 +71,7 @@ namespace Nodecl
         return sym_list;
     }
 
-    struct IsLocalSymbol : TL::Predicate<TL::Symbol>
+    struct IsLocalSymbol
     {
         private:
             TL::Scope _sc;
@@ -82,7 +82,7 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const TL::Symbol& sym) const
+            bool operator()(const TL::Symbol& sym) const
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
@@ -90,7 +90,7 @@ namespace Nodecl
             }
     };
 
-    struct IsNonLocalSymbol : TL::Predicate<TL::Symbol>
+    struct IsNonLocalSymbol
     {
         private:
             TL::Scope _sc;
@@ -101,7 +101,7 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const TL::Symbol& sym) const
+            bool operator()(const TL::Symbol& sym) const
             {
                 // If its scope is not contained in the base node one, then it
                 // is "nonlocal"
@@ -154,7 +154,7 @@ namespace Nodecl
         return result;
     }
 
-    struct IsLocalOcurrence : TL::Predicate<Nodecl::Symbol>
+    struct IsLocalOcurrence
     {
         private:
             IsLocalSymbol _pred;
@@ -165,13 +165,13 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const Nodecl::Symbol& n) const
+            bool operator()(const Nodecl::Symbol& n) const
             {
                 return _pred(n.get_symbol());
             }
     };
 
-    struct IsNonLocalOcurrence : TL::Predicate<Nodecl::Symbol>
+    struct IsNonLocalOcurrence
     {
         private:
             IsNonLocalSymbol _pred;
@@ -182,7 +182,7 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const Nodecl::Symbol& n) const
+            bool operator()(const Nodecl::Symbol& n) const
             {
                 return _pred(n.get_symbol());
             }
@@ -210,7 +210,7 @@ namespace Nodecl
                 && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
             result.insert(n.as<Nodecl::Symbol>(),
-                    TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
+                   &Nodecl::Symbol::get_symbol);
         }
         else if (n.is<Nodecl::ObjectInit>())
         {

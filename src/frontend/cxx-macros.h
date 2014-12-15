@@ -30,6 +30,10 @@
 #ifndef CXX_MACROS_H
 #define CXX_MACROS_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 // Some useful macros
 #ifndef __GNUC__
     #define __attribute__(x)
@@ -79,6 +83,14 @@
   #define DEPRECATED_REASON(r)
   #define WARN_FUNCTION(x)
   #define ALWAYS_INLINE
+#endif
+
+#if defined(__cplusplus) && defined(HAVE_CXX11)
+  #define OVERRIDE override
+  #define FINAL final
+#else
+  #define OVERRIDE
+  #define FINAL
 #endif
 
 #define UNUSED_FUNCTION UNUSED_PARAMETER

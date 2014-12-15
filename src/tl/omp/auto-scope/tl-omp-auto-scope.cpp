@@ -47,12 +47,12 @@ namespace OpenMP {
         register_parameter("auto_scope_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _auto_scope_enabled_str,
-                           "0").connect(functor(&AutoScopePhase::set_auto_scope, *this));
+                           "0").connect(std::bind(&AutoScopePhase::set_auto_scope, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                             "Enables OmpSs semantics instead of OpenMP semantics",
                             _ompss_mode_str,
-                            "0").connect(functor(&AutoScopePhase::set_ompss_mode, *this));
+                            "0").connect(std::bind(&AutoScopePhase::set_ompss_mode, this, std::placeholders::_1));
     }
 
     void AutoScopePhase::pre_run(TL::DTO& dto)
@@ -101,7 +101,7 @@ namespace OpenMP {
     {
         this->PragmaCustomCompilerPhase::run(dto);
 
-        Analysis::NBase ast = dto["nodecl"];
+        Analysis::NBase ast = *std::static_pointer_cast<Analysis::NBase>(dto["nodecl"]);
 
         if(_auto_scope_enabled)
         {

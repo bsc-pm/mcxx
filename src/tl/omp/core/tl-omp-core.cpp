@@ -67,27 +67,27 @@ namespace TL
             if (!dto.get_keys().contains("openmp_info"))
             {
                 DataSharingEnvironment* root_data_sharing = new DataSharingEnvironment(NULL);
-                _openmp_info = RefPtr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
+                _openmp_info = std::shared_ptr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
                 dto.set_object("openmp_info", _openmp_info);
             }
             else
             {
-                _openmp_info = RefPtr<OpenMP::Info>::cast_static(dto["openmp_info"]);
+                _openmp_info = std::static_pointer_cast<OpenMP::Info>(dto["openmp_info"]);
             }
 
             if (!dto.get_keys().contains("openmp_task_info"))
             {
-                _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
+                _function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
                 dto.set_object("openmp_task_info", _function_task_set);
             }
             else
             {
-                _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+                _function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
             }
 
             if (!dto.get_keys().contains("openmp_core_should_run"))
             {
-                RefPtr<TL::Bool> should_run(new TL::Bool(true));
+                std::shared_ptr<TL::Bool> should_run(new TL::Bool(true));
                 dto.set_object("openmp_core_should_run", should_run);
             }
         }
@@ -103,7 +103,7 @@ namespace TL
             }
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
-                RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+                std::shared_ptr<TL::Bool> should_run = std::static_pointer_cast<TL::Bool>(dto["openmp_core_should_run"]);
                 if (!(*should_run))
                     return;
 
@@ -113,13 +113,13 @@ namespace TL
 
 			if (dto.get_keys().contains("show_warnings"))
 			{
-				dto.set_value("show_warnings", RefPtr<Integer>(new Integer(1)));
+				dto.set_value("show_warnings", std::shared_ptr<Integer>(new Integer(1)));
 			}
 
             // Reset any data computed so far
             _openmp_info->reset();
 
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             Scope global_scope = translation_unit.retrieve_context();
 
             // Initialize OpenMP reductions
@@ -134,7 +134,7 @@ namespace TL
             _function_task_set->emit_module_info();
         }
 
-        RefPtr<OpenMP::Info> Core::get_openmp_info()
+        std::shared_ptr<OpenMP::Info> Core::get_openmp_info()
         {
             return _openmp_info;
         }
@@ -165,16 +165,16 @@ namespace TL
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
             if (_pred) { \
                 std::string directive_name = remove_separators_of_directive(_directive); \
-                dispatcher().directive.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, *this)); \
-                dispatcher().directive.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, *this)); \
+                dispatcher().directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+                dispatcher().directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
             }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
             if (_pred) { \
                 std::string directive_name = remove_separators_of_directive(_directive); \
-                dispatcher().declaration.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
-                dispatcher().declaration.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
-                dispatcher().statement.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
-                dispatcher().statement.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
+                dispatcher().declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+                dispatcher().declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+                dispatcher().statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+                dispatcher().statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
             }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -348,14 +348,14 @@ namespace TL
                 }
         };
 
-        struct NotInRefList : Predicate<DataReference>
+        struct NotInRefList
         {
             ObjectList<DataReference> &_ref_list;
             NotInRefList(ObjectList<DataReference>& ref_list) : _ref_list(ref_list) { }
 
-            virtual bool do_(Predicate<DataReference>::ArgType t) const
+            bool operator()(DataReference t) const
             {
-                return !_ref_list.contains(t, functor(&DataReference::get_base_symbol));
+                return !_ref_list.contains(t, &DataReference::get_base_symbol);
             }
         };
 
@@ -368,7 +368,7 @@ namespace TL
                     it != firstprivate.end();
                     it++)
             {
-                if (lastprivate.contains(*it, functor(&DataReference::get_base_symbol)))
+                if (lastprivate.contains(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
                 {
                     result.append(*it);
                 }
@@ -767,7 +767,7 @@ namespace TL
 
             ObjectList<TL::Symbol> nonlocal_symbols =
                 Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-                .map(functor<TL::Symbol, Nodecl::Symbol>(&Nodecl::NodeclBase::get_symbol));
+                .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
 
             ObjectList<Symbol> already_nagged;
 
@@ -1257,7 +1257,7 @@ namespace TL
 
             ObjectList<TL::Symbol> nonlocal_symbols =
                 Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-                .map(functor<TL::Symbol, Nodecl::Symbol>(&Nodecl::NodeclBase::get_symbol));
+                .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
 
             if (!_ompss_mode)
             {
@@ -1836,8 +1836,9 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
 
             ObjectList<Symbol> extra_symbols;
-            get_dependences_info_clause(
+            get_dependences_ompss_info_clause(
                     construct.get_pragma_line().get_clause("on"),
+                    construct,
                     data_sharing,
                     DEP_DIR_INOUT,
                     /* default data sharing */ DS_UNDEFINED,
@@ -2246,7 +2247,8 @@ namespace TL
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
-            RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+            std::shared_ptr<TL::Bool> openmp_core_should_run =
+                std::static_pointer_cast<TL::Bool>(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
         }
     }

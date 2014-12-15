@@ -71,24 +71,6 @@ namespace TL
             {
             }
 
-            //! Constructs a Symbol after a reference to Object
-            Symbol(RefPtr<Object> obj)
-            {
-                RefPtr<Symbol> pint = RefPtr<Symbol>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_symbol = pint->_symbol;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Symbol" << std::endl;
-                    }
-                    this->_symbol = NULL;
-                }
-            }
-
             //! Gets the type related to this symbol
             Type get_type() const;
 

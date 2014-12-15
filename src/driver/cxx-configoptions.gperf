@@ -58,10 +58,3 @@ target_objcopy, config_set_target_objcopy
 target_objdump, config_set_target_objdump
 target_ar, config_set_target_ar
 %%
-
-struct configuration_directive_t*
-configoptions_lookup (register const char *str, 
-        register unsigned int len)
-{
-    return configoptions_lookup_inline (str, len);
-}

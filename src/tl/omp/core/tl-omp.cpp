@@ -280,12 +280,12 @@ namespace TL
         void OpenMPPhase::run(DTO& dto)
         {
             // Use the DTO instead
-            translation_unit = (*(Nodecl::NodeclBase*)dto["nodecl"].get_pointer());
+            translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             global_scope = translation_unit.retrieve_context();
 
             if (dto.get_keys().contains("openmp_info"))
             {
-                openmp_info = RefPtr<Info>::cast_static(dto["openmp_info"]);
+                openmp_info = std::static_pointer_cast<Info>(dto["openmp_info"]);
             }
             else
             {
@@ -296,7 +296,7 @@ namespace TL
 
             if (dto.get_keys().contains("openmp_task_info"))
             {
-                function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+                function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
             }
 
             // Let the user register its slots

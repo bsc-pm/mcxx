@@ -56,7 +56,7 @@ namespace TL { namespace Intel {
 
         std::cerr << "Intel OpenMP RTL phase" << std::endl;
 
-        Nodecl::NodeclBase n = dto["nodecl"];
+        Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
         LoweringVisitor lowering_visitor(this);
         lowering_visitor.walk(n);
 

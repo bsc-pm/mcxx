@@ -83,7 +83,7 @@ namespace TL
 
             if (last->is_source_text())
             {
-                RefPtr<SourceText> text = RefPtr<SourceText>::cast_dynamic(last);
+                std::shared_ptr<SourceText> text = std::static_pointer_cast<SourceText>(last);
                 text->_source += str;
             }
             else
@@ -114,7 +114,7 @@ namespace TL
     
     Source& Source::operator<<(Source& src)
     {
-        RefPtr<Source> ref_src = RefPtr<Source>(new Source(src));
+        std::shared_ptr<Source> ref_src = std::shared_ptr<Source>(new Source(src));
 
         SourceChunkRef new_src = SourceChunkRef(new SourceRef(ref_src));
 
@@ -122,13 +122,15 @@ namespace TL
         return *this;
     }
 
-    Source& Source::operator<<(RefPtr<Source> src)
+#if 0
+    Source& Source::operator<<(std::shared_ptr<Source> src)
     {
         SourceChunkRef new_src = SourceChunkRef(new SourceRef(src));
 
         append_source_ref(new_src);
         return *this;
     }
+#endif
 
     Source::operator std::string()
     {
@@ -307,7 +309,7 @@ namespace TL
             {
                 append_text_chunk(separator);
             }
-            RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
+            std::shared_ptr<Source> ref_source = std::shared_ptr<Source>(new Source(src));
             append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
         }
 
