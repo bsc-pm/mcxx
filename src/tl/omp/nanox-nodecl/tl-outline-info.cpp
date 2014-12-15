@@ -100,23 +100,24 @@ namespace TL { namespace Nanox {
         return (*_data_env_items.back());
     }
 
+    struct MatchingSymbol
+    {
+        TL::Symbol _sym;
+        MatchingSymbol(OutlineDataItem& item)
+            : _sym(item.get_symbol())
+        {
+        }
+
+        bool operator()(OutlineDataItem* item)
+        {
+            return (item != NULL
+                    && item->get_symbol() == _sym);
+        }
+    };
+
+
     void OutlineInfo::remove_entity(OutlineDataItem& item)
     {
-        struct MatchingSymbol
-        {
-            TL::Symbol _sym;
-            MatchingSymbol(OutlineDataItem& item)
-                : _sym(item.get_symbol())
-            {
-            }
-
-            bool operator()(OutlineDataItem* item)
-            {
-                return (item != NULL
-                        && item->get_symbol() == _sym);
-            }
-        };
-
         _data_env_items.erase(
                 std::remove_if(
                     _data_env_items.begin(),
