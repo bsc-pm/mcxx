@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-nanox-nodecl.hpp"
+#include "tl-nanos.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-final-stmts-generator.hpp"
 #include "tl-lowering-visitor.hpp"
@@ -175,6 +176,10 @@ namespace TL { namespace Nanox {
 
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
     {
+        if (Nanos::Version::interface_is_at_least("master", 5028))
+            // Do nothing
+            return;
+
         Source src;
         if (!_static_weak_symbols)
         {

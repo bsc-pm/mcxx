@@ -2853,6 +2853,8 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOX_NEW_LINK[@]|$(NANOX_NEW_LINK)|g' \
+     -e 's|@NANOX_OLD_LINK[@]|$(NANOX_OLD_LINK)|g' \
      -e 's|@NANOX[@]|$(NANOX)|g' \
      -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
      -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \
