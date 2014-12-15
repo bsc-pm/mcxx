@@ -1062,6 +1062,8 @@ void LoweringVisitor::visit_task_call_c(
         outline_register_entities.add_copy_of_outline_data_item(**it);
     }
 
+    outline_register_entities.purge_saved_expressions();
+
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
     //

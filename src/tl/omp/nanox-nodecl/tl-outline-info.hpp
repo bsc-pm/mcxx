@@ -459,8 +459,6 @@ namespace TL
             return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
         }
 
-        //Symbol::invalid it's theorically used when the outline has no symbol
-        //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo
         {
             private:
@@ -480,7 +478,6 @@ namespace TL
                 // OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
-
             public:
                 OutlineInfo(Nanox::Lowering& lowering);
                 OutlineInfo(Nanox::Lowering& lowering,
@@ -498,6 +495,8 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
+
+                void remove_entity(OutlineDataItem&);
 
                 ObjectList<OutlineDataItem*> get_data_items();
 
@@ -535,7 +534,7 @@ namespace TL
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
 
                 // This is needed for VLAs
-                void move_at_end(OutlineDataItem&);
+                void move_at_beginning(OutlineDataItem&);
 
                 bool only_has_smp_or_mpi_implementations() const;
 
@@ -582,6 +581,8 @@ namespace TL
                         Nodecl::NodeclBase &conditional_bound);
 
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+
+                void purge_saved_expressions();
         };
     }
 }

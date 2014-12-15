@@ -893,9 +893,17 @@ namespace TL { namespace Nanox {
 
                         break;
                     }
+                case OutlineDataItem::SHARING_UNDEFINED:
+                    {
+                        internal_error("Undefined data sharing kind for symbol %s",
+                                (*it)->get_symbol().get_name().c_str());
+                        break;
+                    }
                 default:
                     {
-                        internal_error("Unexpected data sharing kind", 0);
+                        internal_error("Unexpected data sharing kind = %d for symbol %s",
+                                (*it)->get_sharing(),
+                                (*it)->get_symbol().get_name().c_str());
                     }
             }
         }
