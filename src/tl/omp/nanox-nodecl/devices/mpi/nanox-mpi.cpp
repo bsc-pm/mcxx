@@ -378,10 +378,12 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
                             ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
-                        data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
 
                         if (!(*it)->get_copies().empty())
-                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+                        {
+                            data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
+                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));";
+                        }
 
                         data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
 
