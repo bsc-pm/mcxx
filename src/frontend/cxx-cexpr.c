@@ -1343,11 +1343,19 @@ nodecl_t const_value_to_nodecl_(const_value_t* v,
             {
                 // Zero is special
                 if (basic_type == NULL && v->value.i == 0)
+                {
+                    type_t* t = basic_type;
+                    if (t == NULL)
+                        t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
+
                     return cache_const(
                             v,
                             basic_type,
-                            nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0)),
+                            nodecl_make_integer_literal(
+                                get_zero_type(t),
+                                v, make_locus("", 0, 0)),
                             cached);
+                }
 
                 type_t* t = basic_type;
                 if (t == NULL)
@@ -1376,8 +1384,9 @@ nodecl_t const_value_to_nodecl_(const_value_t* v,
                     }
                     else
                     {
-                        // We cannot directly represent a negative integer literal in nodecl,
-                        // so use a negated value instead
+                        // We do not want to directly represent a negative
+                        // integer literal in nodecl, so use a negated value
+                        // instead
                         nodecl_t nodecl_result = nodecl_make_neg(
                                 nodecl_make_integer_literal(t, const_value_neg(v), make_locus("", 0, 0)),
                                 t, make_locus("", 0, 0));

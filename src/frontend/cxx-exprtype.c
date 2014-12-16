@@ -21021,8 +21021,9 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
 
     ERROR_CONDITION((length < 0), "Invalid length computed", 0);
 
-    *nodecl_output = const_value_to_nodecl(
-            const_value_get_integer(length, type_get_size(get_size_t_type()), 0));
+    *nodecl_output = const_value_to_nodecl_with_basic_type(
+            const_value_get_integer(length, type_get_size(get_size_t_type()), /* signed */ 0),
+            /* make sure is a size_t */ get_size_t_type());
 }
 
 static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
