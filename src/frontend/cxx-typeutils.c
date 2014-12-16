@@ -13392,6 +13392,8 @@ extern inline type_t* get_ellipsis_type(void)
     {
         _ellipsis_type = new_empty_type();
         _ellipsis_type->kind = TK_ELLIPSIS;
+
+        _ellipsis_type->unqualified_type = _ellipsis_type;
     }
 
     return _ellipsis_type;
