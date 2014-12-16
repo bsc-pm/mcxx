@@ -17240,8 +17240,36 @@ char is_narrowing_conversion_type(type_t* orig_type,
             // We assume all bits are significative and remove the leading and
             // trailing bits (since v != 0)
             unsigned int num_significative_bits = sizeof(cvalue_uint_t)*8;
+
+#ifdef HAVE_INT128
+            // We need to do this using two unsigned long long
+            {
+                unsigned long long low = v;
+                unsigned long long upp = v >> 64ULL;
+
+                // Redundant but repeated for clarity
+                ERROR_CONDITION(low == 0 && upp == 0, "Invalid value", 0);
+
+                if (upp == 0)
+                {
+                    num_significative_bits -= __builtin_clzll(low) + 64;
+                    num_significative_bits -= __builtin_ctzll(low);
+                }
+                else if (low == 0) // upp != 0
+                {
+                    num_significative_bits -= __builtin_clzll(upp);
+                    num_significative_bits -= __builtin_ctzll(upp) + 64;
+                }
+                else // low != 0 && upp != 0
+                {
+                    num_significative_bits -= __builtin_clzll(upp);
+                    num_significative_bits -= __builtin_ctzll(low);
+                }
+            }
+#else
             num_significative_bits -= __builtin_clzll(v);
             num_significative_bits -= __builtin_ctzll(v);
+#endif
 
             const floating_type_info_t* finfo = floating_type_get_info(dest_type);
 
