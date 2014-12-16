@@ -726,7 +726,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     //
                     // (this code has been copied from cxx-instantiation.c)
                     {
-
                         // 1. Remove the default argument info from the new member
                         symbol_entity_specs_free_default_argument_info(new_member);
 
@@ -869,7 +868,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member = instantiate_template_type_member(template_type,
                             context_of_being_instantiated,
                             member_of_template,
-                            being_instantiated, 
+                            being_instantiated,
                             /* is_class */ 0,
                             locus,
                             instantiation_symbol_map);

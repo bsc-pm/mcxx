@@ -11759,6 +11759,7 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
         }
 
         if (symbol_entity_specs_get_num_parameters(function_with_defaults) > 0
+                && num_arguments < symbol_entity_specs_get_num_parameters(function_with_defaults)
                 && symbol_entity_specs_get_default_argument_info_num(function_with_defaults, num_arguments) != NULL)
         {
             // Sanity check
@@ -26441,6 +26442,10 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
     for (i = 0; i < num_items; i++)
     {
         nodecl_t expr = instantiate_expr_walk(v, list[i]);
+
+        // We allow this case for empty pack expansions
+        if (nodecl_is_null(expr))
+            continue;
 
         if (nodecl_is_err_expr(expr))
         {
