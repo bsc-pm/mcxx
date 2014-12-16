@@ -2225,14 +2225,29 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             // Only variables can be initialized
             if (initializer != NULL)
             {
-                if (current_gather_info.is_extern)
+                if (entry->kind == SK_VARIABLE)
                 {
-                    error_printf("%s: error: cannot initialize an 'extern' declaration\n", ast_location(a));
+                    if (current_gather_info.is_extern)
+                    {
+                        if (decl_context.current_scope->kind != NAMESPACE_SCOPE)
+                        {
+                            error_printf("%s: error: cannot initialize an 'extern' declaration\n", ast_location(a));
+                        }
+                        else if (!IS_CXX_LANGUAGE
+                                || !current_gather_info.is_const)
+                        {
+                            // In C++ initializing a const variable is OK
+                            warn_printf("%s: warning: initializing an 'extern' declaration\n", ast_location(a));
+                        }
+                    }
                 }
-
-                if (entry->kind == SK_TYPEDEF)
+                else if (entry->kind == SK_TYPEDEF)
                 {
-                    error_printf("%s: error: cannot initialize an typedef\n", ast_location(a));
+                    error_printf("%s: error: cannot initialize a typedef\n", ast_location(a));
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
             }
 
