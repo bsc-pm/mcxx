@@ -1090,7 +1090,7 @@ phases_LTLIBRARIES =
 
 ANALYSIS_CFLAGS=-I$(top_srcdir)/src/tl/analysis/common -I$(top_srcdir)/src/tl/analysis/pcfg \
 		-I$(top_srcdir)/src/tl/optimizations
-ANALYSIS_LIBADD=src/tl/analysis/common/libanalysis_utils.la src/tl/analysis/pcfg/libpcfg.la
+ANALYSIS_LIBADD=src/tl/analysis/common/libanalysis_utils.la src/tl/analysis/pcfg/libpcfg.la -lrt
 
 ##########################################################################
 # src/tl/optimizations
