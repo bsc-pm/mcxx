@@ -10476,6 +10476,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         result = "<braced-initializer-list-type>";
     }
+    else if (is_ellipsis_type(type_info))
+    {
+        result = "<ellipsis-type>";
+    }
     else
     {
         result = get_cv_qualifier_string(type_info);
@@ -15002,6 +15006,10 @@ static type_t* get_foundation_type(type_t* t)
         return t;
     }
     else if (is_gxx_underlying_type(t))
+    {
+        return t;
+    }
+    else if (is_ellipsis_type(t))
     {
         return t;
     }
