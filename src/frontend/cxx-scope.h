@@ -95,9 +95,9 @@ LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(
 // There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
 // and nested_name == NULL
 LIBMCXX_EXTERN scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 
-        struct AST_tag* global_op, 
-        struct AST_tag* nested_name, 
-        struct AST_tag* unqualified_name,
+        AST global_op, 
+        AST nested_name, 
+        AST unqualified_name,
         field_path_t* field_path,
         decl_flags_t decl_flags);
 #define query_nested_name(_decl_context, _global_op, _nested_name, _unqualified_name, _field_path) \
@@ -110,13 +110,13 @@ LIBMCXX_EXTERN scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_
     query_in_scope_str_flags(_decl_context, _name, _field_path, DF_NONE)
 
 LIBMCXX_EXTERN scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
-        struct AST_tag* unqualified_name, field_path_t* field_path, decl_flags_t decl_flags);
+        AST unqualified_name, field_path_t* field_path, decl_flags_t decl_flags);
 #define query_in_scope(_decl_context, _unqualified_name, _field_path) \
     query_in_scope_flags(_decl_context, _unqualified_name, _field_path, DF_NONE)
 
 // Convenience function
 LIBMCXX_EXTERN scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
-        struct AST_tag* id_expression,
+        AST id_expression,
         field_path_t* field_path,
         decl_flags_t decl_flags);
 #define query_id_expression(_decl_context, _id_expression, _field_path) \

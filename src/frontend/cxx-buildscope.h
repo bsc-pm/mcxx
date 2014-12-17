@@ -42,18 +42,18 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN const char* get_operator_function_name(struct AST_tag* declarator_id);
+LIBMCXX_EXTERN const char* get_operator_function_name(AST declarator_id);
 LIBMCXX_EXTERN void build_scope_template_parameters(
         decl_context_t lookup_context,
         decl_context_t argument_context,
-        struct AST_tag* class_head_id,
+        AST class_head_id,
         template_parameter_list_t** template_parameters);
-LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info,
+LIBMCXX_EXTERN void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
         struct type_tag** type_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
-LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a,
+LIBMCXX_EXTERN void compute_declarator_type(AST a,
         gather_decl_spec_t* gather_info,
         struct type_tag* type_info,
         struct type_tag** declarator_type,
@@ -63,14 +63,14 @@ LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a,
 LIBMCXX_EXTERN char get_is_inside_pack_expansion(void);
 LIBMCXX_EXTERN void set_is_inside_pack_expansion(char b);
 
-LIBMCXX_EXTERN AST get_declarator_name(struct AST_tag* a, decl_context_t decl_context);
-LIBMCXX_EXTERN AST get_declarator_id_expression(struct AST_tag* a, decl_context_t decl_context);
-LIBMCXX_EXTERN AST get_function_declarator_parameter_list(struct AST_tag* funct_declarator, decl_context_t decl_context);
+LIBMCXX_EXTERN AST get_declarator_name(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN AST get_declarator_id_expression(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t decl_context);
 
 LIBMCXX_EXTERN AST get_declarator_id_pack(AST a, decl_context_t decl_context);
 LIBMCXX_EXTERN char type_does_not_contain_any_template_parameter_pack(type_t* t, const locus_t* locus);
 
-LIBMCXX_EXTERN const char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id,
+LIBMCXX_EXTERN const char* get_conversion_function_name(decl_context_t decl_context, AST conversion_function_id,
         struct type_tag** result_conversion_type);
 
 LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t inner_decl_context,
@@ -82,7 +82,7 @@ LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t i
         gather_decl_spec_list_t* gather_decl_spec_list);
 
 LIBMCXX_EXTERN void build_scope_dynamic_initializer(void);
-LIBMCXX_EXTERN void build_scope_statement(struct AST_tag* statement, decl_context_t decl_context, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void build_scope_statement(AST statement, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 // Needed for phases
 LIBMCXX_EXTERN void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context);
@@ -109,7 +109,7 @@ LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_t
 
 LIBMCXX_EXTERN scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_t decl_context);
 
-LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_tag** type_info,
+LIBMCXX_EXTERN void gather_type_spec_information(AST a, struct type_tag** type_info,
         gather_decl_spec_t *gather_info, decl_context_t dctx, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void enter_class_specifier(void);
