@@ -405,6 +405,30 @@ scope_entry_t* pop_extra_declaration_symbol(void)
 // --
 static scope_entry_list_t* _instantiated_entries = NULL;
 
+// This flag states if we are parsing a declaration of the form 'T D' where 'D'
+// contains the form '... declarator-id' or is an abstract declarator that
+// contains the form '...'
+//
+// This is needed for cases like
+//     template <typename ...T> void g(T (...x)(int a));   [here D = (...x)(int a)]
+//     template <typename ...T> void g(A<int(T* y)> ...x); [here D = ...x]
+//
+// Note that the following declaration involves three declarators ('g', 'p' and
+// 'm'). This flag is only enabled for the declarator 'm'.
+//
+//     template <typename ...T> void g(void (*p)(T ...m))
+static char _is_inside_pack_expansion = 0;
+
+extern inline char get_is_inside_pack_expansion(void)
+{
+    return _is_inside_pack_expansion;
+}
+
+extern inline void set_is_inside_pack_expansion(char b)
+{
+    _is_inside_pack_expansion = b;
+}
+
 static char is_transitively_member_of(scope_entry_t* current, scope_entry_t* entry)
 {
     if (symbol_entity_specs_get_is_member(current))
@@ -4934,41 +4958,22 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     entry_list_free(query_results);
 
-#if 0
-    // If this is a member of a dependent class or a local entity of a template
-    // function craft a dependent typename for it
-    if (is_dependent_type(entry->type_information)
-            && symbol_is_member_of_dependent_class(entry))
+    CXX11_LANGUAGE()
     {
-        // Craft a nodecl name for it
-        nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
-                entry->symbol_name,
-                ast_get_locus(a));
-
-        nodecl_t nodecl_name = nodecl_simple_name;
-
-        if (is_template_specialized_type(entry->type_information))
+        if (!get_is_inside_pack_expansion()
+                && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
         {
-            nodecl_name = nodecl_make_cxx_dep_template_id(
-                    nodecl_name,
-                    // If our enclosing class is dependent
-                    // this template id will require a 'template '
-                    "template ",
-                    template_specialized_type_get_template_arguments(entry->type_information),
-                    ast_get_locus(a));
+            error_printf("%s: error: invalid template %s parameter pack '%s' not inside a pack expansion\n",
+                    ast_location(a),
+                    entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK ? "type" : "template",
+                    entry->symbol_name);
+            *type_info = get_error_type();
+            return;
         }
+    }
 
-        // Craft a dependent typename since we will need it later for proper updates
-        (*type_info) = build_dependent_typename_for_entry(
-                get_function_or_class_where_symbol_depends(entry),
-                nodecl_name,
-                ast_get_locus(a));
-    }
-    else
-#endif
-    {
-        (*type_info) = get_user_defined_type(entry);
-    }
+    (*type_info) = get_user_defined_type(entry);
 }
 
 /*
@@ -10044,16 +10049,16 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
-static void build_scope_declarator_with_parameter_context(AST a, 
+static void build_scope_declarator_with_parameter_context(AST declarator, 
         gather_decl_spec_t* gather_info, type_t* type_info, type_t** declarator_type,
         decl_context_t decl_context, decl_context_t *prototype_context,
         nodecl_t* nodecl_output)
 {
     *declarator_type = type_info;
 
-    if (a != NULL)
+    if (declarator != NULL)
     {
-        gather_extra_attributes_in_declarator(a, gather_info, decl_context);
+        gather_extra_attributes_in_declarator(declarator, gather_info, decl_context);
     }
 
     // Now we can update the base type because of attributes if needed
@@ -10074,7 +10079,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         }
         else
         {
-            // We do not want a 'vector 16 to volatile float' but a 
+            // We do not want declarator 'vector 16 to volatile float' but declarator 
             // 'volatile vector to 16 float'
 
             cv_qualifier_t cv_qualif = get_cv_qualifier(type_info);
@@ -10103,7 +10108,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 && !is_complex_type(*declarator_type))
         {
             error_printf("%s: error: 'mode' attribute is only valid for integral or floating types\n",
-                    ast_location(a));
+                    ast_location(declarator));
         }
         else
         {
@@ -10111,12 +10116,12 @@ static void build_scope_declarator_with_parameter_context(AST a,
         }
     }
 
-    if (a != NULL)
+    if (declarator != NULL)
     {
-        AST declarator_name = get_declarator_name(a, decl_context);
+        AST declarator_name = get_declarator_name(declarator, decl_context);
 
         decl_context_t entity_context = decl_context;
-        // Adjust context if the name is qualified and this is not a friend
+        // Adjust context if the name is qualified and this is not declarator friend
         if (declarator_name != NULL
                 && ASTKind(declarator_name) == AST_QUALIFIED_ID
                 // friends do not adjust their context, otherwise they would not be
@@ -10165,18 +10170,18 @@ static void build_scope_declarator_with_parameter_context(AST a,
             }
         }
 
-        // Register 'this' for a successful parsing of the declarator
+        // Register 'this' for declarator successful parsing of the declarator
         if (prototype_context != NULL
                 && prototype_context->current_scope->kind == BLOCK_SCOPE
                 && entity_context.current_scope->kind == CLASS_SCOPE)
         {
             register_symbol_this(*prototype_context,
                     entity_context.current_scope->related_entry,
-                    ast_get_locus(a));
+                    ast_get_locus(declarator));
         }
 
         // Second traversal, here we build the type
-        build_scope_declarator_rec(a, declarator_type, 
+        build_scope_declarator_rec(declarator, declarator_type,
                 gather_info, decl_context, entity_context, prototype_context, nodecl_output);
 
         if (declarator_name != NULL)
@@ -10220,7 +10225,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 else if (ASTKind(declarator_name) == AST_DESTRUCTOR_ID
                         || ASTKind(declarator_name) == AST_DESTRUCTOR_TEMPLATE_ID)
                 {
-                    // Patch the type of the function of a destructor so it
+                    // Patch the type of the function of declarator destructor so it
                     // works for const objects as well
                     *declarator_type = get_const_qualified_type(*declarator_type);
                 }
@@ -10230,11 +10235,10 @@ static void build_scope_declarator_with_parameter_context(AST a,
         DEBUG_CODE()
         {
             // fprintf(stderr, "BUILDSCOPE: Computed type of '%s' is  '%s'\n", 
-            //         prettyprint_in_buffer(a),
+            //         prettyprint_in_buffer(declarator),
             //         print_declarator(*declarator_type));
         }
     }
-
 }
 
 /*
@@ -10269,6 +10273,40 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     if (entry_list != NULL)
                     {
                         scope_entry_t* entry = entry_list_head(entry_list);
+
+                        scope_entry_t* checked_symbol = entry;
+
+                        if (checked_symbol->kind == SK_TYPEDEF)
+                        {
+                            type_t* t = advance_over_typedefs(checked_symbol->type_information);
+                            if (is_named_type(t))
+                            {
+                                checked_symbol = named_type_get_symbol(t);
+                            }
+                        }
+
+                        if (checked_symbol->kind != SK_CLASS
+                                && checked_symbol->kind != SK_DEPENDENT_ENTITY
+                                && checked_symbol->kind != SK_TEMPLATE_TYPE_PARAMETER
+                                && checked_symbol->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
+                                && checked_symbol->kind != SK_TEMPLATE_ALIAS)
+                        {
+                            error_printf("%s: error: '%s' is not valid as the class-name of a pointer to member\n",
+                                    ast_location(id_type_expr),
+                                    entry->symbol_name);
+                            *declarator_type = get_error_type();
+                            return;
+                        }
+
+                        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                                && !get_is_inside_pack_expansion())
+                        {
+                            error_printf("%s: error: invalid template parameter pack '%s' not inside a pack expansion\n",
+                                    ast_location(id_type_expr),
+                                    entry->symbol_name);
+                            *declarator_type = get_error_type();
+                            return;
+                        }
 
                         if (symbol_entity_specs_get_is_injected_class_name(entry))
                         {
@@ -10502,7 +10540,7 @@ scope_entry_t* get_function_declaration_proxy(void)
     return _decl_proxy;
 }
 
-static char type_does_not_contain_any_template_parameter_pack(type_t* t, const locus_t* locus)
+char type_does_not_contain_any_template_parameter_pack(type_t* t, const locus_t* locus)
 {
     scope_entry_t** packs = NULL;
     int num_packs = 0;
@@ -10517,26 +10555,6 @@ static char type_does_not_contain_any_template_parameter_pack(type_t* t, const l
     }
 
     return num_packs == 0;
-}
-
-static char type_does_contain_some_template_parameter_pack(type_t* t,
-        const locus_t* locus)
-{
-    scope_entry_t** packs = NULL;
-    int num_packs = 0;
-
-    get_packs_in_type(t, &packs, &num_packs);
-
-    int i;
-    for (i = 0; i < num_packs; i++)
-    {
-        error_printf("%s: error: invalid template parameter pack '%s' not inside a pack expansion\n",
-                locus_to_str(locus),
-                packs[i]->symbol_name);
-    }
-
-    xfree(packs);
-    return num_packs != 0;
 }
 
 /*
@@ -10736,6 +10754,14 @@ static void set_function_parameter_clause(type_t** function_type,
             decl_context_t param_decl_context = decl_context;
             param_decl_gather_info.parameter_declaration = 1;
 
+            char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+            char this_is_a_pack = 0;
+            if (get_declarator_id_pack(parameter_declarator, decl_context) != NULL)
+            {
+                set_is_inside_pack_expansion(1);
+                this_is_a_pack = 1;
+            }
+
             build_scope_decl_specifier_seq(parameter_decl_spec_seq,
                     &param_decl_gather_info, &simple_type_info,
                     param_decl_context, nodecl_output);
@@ -10750,6 +10776,8 @@ static void set_function_parameter_clause(type_t** function_type,
 
             if (is_error_type(simple_type_info))
             {
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
                 *function_type = get_error_type();
                 return;
             }
@@ -10762,6 +10790,8 @@ static void set_function_parameter_clause(type_t** function_type,
                 error_printf("%s: error: parameter declared as 'extern'\n", 
                         ast_location(parameter_decl_spec_seq));
 
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
                 *function_type = get_error_type();
                 return;
             }
@@ -10769,6 +10799,9 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 error_printf("%s: error: parameter declared as 'static'\n", 
                         ast_location(parameter_decl_spec_seq));
+
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
                 *function_type = get_error_type();
                 return;
             }
@@ -10793,6 +10826,8 @@ static void set_function_parameter_clause(type_t** function_type,
 
             if (is_error_type(type_info))
             {
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
                 *function_type = get_error_type();
                 return;
             }
@@ -10806,6 +10841,8 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 if (entry != NULL)
                 {
+                    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
                     error_printf("%s: error: parameter '%s' declared as void\n", 
                             ast_location(parameter_decl_spec_seq),
                             entry->symbol_name);
@@ -10815,6 +10852,8 @@ static void set_function_parameter_clause(type_t** function_type,
                 else if (ASTSon0(iter) != NULL
                         || (num_parameters != 0))
                 {
+                    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+
                     error_printf("%s: error: parameter declared as void\n", 
                             ast_location(parameter_decl_spec_seq));
                     *function_type = get_error_type();
@@ -10881,10 +10920,15 @@ static void set_function_parameter_clause(type_t** function_type,
                 type_info = get_pointer_type(type_info);
             }
 
-            if (param_decl_gather_info.is_template_pack)
+            if (this_is_a_pack)
             {
-                if (type_does_not_contain_any_template_parameter_pack(type_info, ast_get_locus(parameter_decl_spec_seq)))
+                // If this parameter declaration explicitly introduces a pack,
+                // make sure it has a pack type somewhere
+                if (type_does_not_contain_any_template_parameter_pack(
+                            type_info,
+                            ast_get_locus(parameter_declaration)))
                 {
+                    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                     *function_type = get_error_type();
                     return;
                 }
@@ -10894,22 +10938,13 @@ static void set_function_parameter_clause(type_t** function_type,
 
                 entry->type_information = original_type;
             }
-            else if (IS_CXX_LANGUAGE)
-            {
-                if (type_does_contain_some_template_parameter_pack(type_info,
-                            ast_get_locus(parameter_decl_spec_seq)))
-                {
-                    *function_type = get_error_type();
-                    return;
-                }
-            }
 
             if (entry != NULL)
             {
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
                 // it was a parameter pack
-                if (param_decl_gather_info.is_template_pack)
+                if (this_is_a_pack)
                 {
                     entry->kind = SK_VARIABLE_PACK;
                 }
@@ -10921,6 +10956,8 @@ static void set_function_parameter_clause(type_t** function_type,
 
                 entry->defined = 1;
             }
+
+            set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 
             parameter_info[num_parameters].is_ellipsis = 0;
             parameter_info[num_parameters].type_info = get_unqualified_type(type_info);
@@ -11288,12 +11325,7 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_ID_PACK :
             {
-                // Do nothing
-                if (gather_info->parameter_declaration)
-                {
-                    gather_info->is_template_pack = 1;
-                }
-                else
+                if (!gather_info->parameter_declaration)
                 {
                     error_printf("%s: error: invalid template-pack in non parameter declaration\n",
                             ast_location(a));
@@ -14476,6 +14508,14 @@ static void build_scope_nontype_template_parameter(AST a,
     // Nontype templates parameters are actually parameter declarators
     gather_info.parameter_declaration = 1;
 
+    char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+    char this_is_a_pack = 0;
+    if (get_declarator_id_pack(parameter_declarator, template_context) != NULL)
+    {
+        set_is_inside_pack_expansion(1);
+        this_is_a_pack = 1;
+    }
+
     build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &type_info,
             template_context, nodecl_output);
 
@@ -14509,14 +14549,14 @@ static void build_scope_nontype_template_parameter(AST a,
     entry->symbol_name = template_parameter_name;
     entry->decl_context = template_context;
 
-    if (!IS_CXX11_LANGUAGE && gather_info.is_template_pack)
+    if (!IS_CXX11_LANGUAGE && this_is_a_pack)
     {
         warn_printf("%s: warning: template-packs are only valid in C++11\n",
                 ast_location(a));
     }
 
     // This is not a variable, but a template parameter
-    if (!gather_info.is_template_pack)
+    if (!this_is_a_pack)
         entry->kind = SK_TEMPLATE_NONTYPE_PARAMETER;
     else
         entry->kind = SK_TEMPLATE_NONTYPE_PARAMETER_PACK;
@@ -14546,26 +14586,28 @@ static void build_scope_nontype_template_parameter(AST a,
         default_argument->is_default = 1;
         default_argument->kind = TPK_NONTYPE;
 
-        if (gather_info.is_template_pack)
+        if (this_is_a_pack)
         {
             error_printf("%s: error: a nontype-template pack cannot have a default argument\n",
                     ast_location(default_expression));
         }
     }
 
-    if (!gather_info.is_template_pack)
+    if (!this_is_a_pack)
         template_parameter->kind = TPK_NONTYPE;
     else
         template_parameter->kind = TPK_NONTYPE_PACK;
 
     // We do this because P_LIST_ADD modifies the number of parameters
     int num_parameters = template_parameters->num_parameters;
-    P_LIST_ADD(template_parameters->parameters, 
+    P_LIST_ADD(template_parameters->parameters,
             num_parameters,
             template_parameter);
-    P_LIST_ADD(template_parameters->arguments, 
+    P_LIST_ADD(template_parameters->arguments,
             template_parameters->num_parameters,
             default_argument);
+
+    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 }
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -17830,32 +17872,52 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
         // We allow variadic typeid's
         inner_gather_info.parameter_declaration = 1;
 
+        char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+        char this_is_a_pack = 0;
+        if (get_declarator_id_pack(abstract_decl, decl_context) != NULL)
+        {
+            this_is_a_pack = 1;
+            set_is_inside_pack_expansion(1);
+        }
+
         build_scope_decl_specifier_seq(type_specifier_seq, &inner_gather_info, &type_info,
                 decl_context, nodecl_output);
 
         if (is_error_type(type_info))
+        {
+                    set_is_inside_pack_expansion(
+                            keep_is_inside_pack_expansion);
             continue;
+        }
 
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &inner_gather_info, type_info, &declarator_type,
                 decl_context, nodecl_output);
 
         if (is_error_type(declarator_type))
-            continue;
-
-        if (inner_gather_info.is_template_pack)
         {
-            if (type_does_not_contain_any_template_parameter_pack(declarator_type,
+            set_is_inside_pack_expansion(
+                    keep_is_inside_pack_expansion);
+            continue;
+        }
+
+        if (this_is_a_pack)
+        {
+            // If this parameter declaration explicitly introduces a pack,
+            // make sure it has a pack type somewhere
+            if (type_does_not_contain_any_template_parameter_pack(
+                        type_info,
                         ast_get_locus(type_id)))
+            {
+                set_is_inside_pack_expansion(
+                        keep_is_inside_pack_expansion);
                 continue;
+            }
+
             declarator_type = get_pack_type(declarator_type);
         }
-        else
-        {
-            if (type_does_contain_some_template_parameter_pack(declarator_type,
-                        ast_get_locus(type_id)))
-                continue;
-        }
+
+        set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 
         P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
     }
@@ -20770,6 +20832,61 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
 
                 // Restart function
                 return get_declarator_id_expression(a, decl_context);
+            }
+        default:
+            {
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTKind(a)));
+            }
+    }
+}
+
+AST get_declarator_id_pack(AST a, decl_context_t decl_context)
+{
+    if (a == NULL)
+        return NULL;
+
+    switch(ASTKind(a))
+    {
+        case AST_INIT_DECLARATOR :
+        case AST_MEMBER_DECLARATOR :
+        case AST_DECLARATOR :
+        case AST_PARENTHESIZED_DECLARATOR :
+            {
+                return get_declarator_id_pack(ASTSon0(a), decl_context); 
+                break;
+            }
+        case AST_POINTER_DECLARATOR :
+            {
+                return get_declarator_id_pack(ASTSon1(a), decl_context);
+                break;
+            }
+        case AST_DECLARATOR_ARRAY :
+            {
+                return get_declarator_id_pack(ASTSon0(a), decl_context);
+                break;
+            }
+        case AST_DECLARATOR_FUNC :
+        case AST_DECLARATOR_FUNC_TRAIL :
+            {
+                return get_declarator_id_pack(ASTSon0(a), decl_context);
+                break;
+            }
+        case AST_DECLARATOR_ID_EXPR :
+            {
+                return NULL;
+                break;
+            }
+        case AST_DECLARATOR_ID_PACK:
+            {
+                return a;
+                break;
+            }
+        case AST_AMBIGUITY :
+            {
+                solve_ambiguous_declarator(a, decl_context);
+
+                // Restart function
+                return get_declarator_id_pack(a, decl_context);
             }
         default:
             {

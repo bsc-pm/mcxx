@@ -7654,6 +7654,15 @@ static void cxx_compute_name_from_entry_list(
     }
     else if (entry->kind == SK_VARIABLE_PACK)
     {
+        if (!get_is_inside_pack_expansion())
+        {
+            error_printf("%s: error: function parameter pack '%s' does not appear inside a pack expansion\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    entry->symbol_name);
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+            return;
+        }
+
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
 
         ERROR_CONDITION(!is_pack_type(entry->type_information),
@@ -14929,7 +14938,13 @@ static void check_initializer_clause_pack_expansion(AST expression, decl_context
     AST expanded_expr = ASTSon0(expression);
 
     nodecl_t nodecl_expander = nodecl_null();
+
+    char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+    set_is_inside_pack_expansion(1);
+
     check_expression_impl_(expanded_expr, decl_context, &nodecl_expander);
+
+    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 
     if (nodecl_is_err_expr(nodecl_expander))
     {
