@@ -7690,9 +7690,10 @@ char is_cxx_special_identifier(nodecl_t nodecl_name, nodecl_t* nodecl_output)
 
     if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
-        const char* text = nodecl_get_text(nodecl_name);
+        const char *null_literal = UNIQUESTR_LITERAL("__null");
+        const char *text = nodecl_get_text(nodecl_name);
         // __null is a special item in g++
-        if (strcmp(text, "__null") == 0)
+        if (null_literal == text)
         {
             type_t* t = get_variant_type_zero((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
 
