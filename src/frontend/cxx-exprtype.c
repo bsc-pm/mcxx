@@ -7868,7 +7868,8 @@ static const_value_t* compute_subconstant_of_array_subscript(
     }
 
     const_value_t* cval = nodecl_get_constant(subscripted);
-    ERROR_CONDITION(!const_value_is_array(cval),
+    ERROR_CONDITION(!const_value_is_array(cval)
+            && !const_value_is_string(cval),
             "Invalid constant value '%s'", const_value_to_str(cval));
 
     for (i = 0; i < num_subscripts; i++)
