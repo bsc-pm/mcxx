@@ -12417,14 +12417,18 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
     //
     // We remember whether the original was a string because we will lose this
     // information when we drop the array type
-    char is_string_literal = is_string_literal_type(orig);
+    char is_string_literal = 0;
+
     if (is_array_type(no_ref(orig)))
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: Applying array-to-pointer conversion\n");
         }
+        is_string_literal = array_type_is_string_literal(no_ref(orig));
+
         (*result).conv[0] = SCI_ARRAY_TO_POINTER;
+
         orig = get_pointer_type(array_type_get_element_type(no_ref(orig)));
     }
     else if (is_function_type(no_ref(orig)))
