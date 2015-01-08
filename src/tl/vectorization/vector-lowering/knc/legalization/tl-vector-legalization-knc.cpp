@@ -119,7 +119,8 @@ namespace Vectorization
             }
 
             // If both types are the same, remove conversion
-            if (n.get_type().no_ref().is_same_type(n.get_nest().get_type().no_ref()))
+            if (n.get_type().get_unqualified_type().no_ref().get_unqualified_type().is_same_type(
+                        n.get_nest().get_type().get_unqualified_type().no_ref().get_unqualified_type()))
             {
                 n.replace(n.get_nest());
             }
