@@ -103,7 +103,10 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             if (_copied_fpga_functions.map(called_task) == called_task)
             {
                 //new task-> add it to the list
-                TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_hls");
+                TL::Symbol new_function = SymbolUtils::new_function_symbol_for_deep_copy(
+                        called_task,
+                        called_task.get_name() + "_hls");
+
                 _copied_fpga_functions.add_map(called_task, new_function);
                 _fpga_file_code.append (Nodecl::Utils::deep_copy(
                             called_task.get_function_code(),
