@@ -117,15 +117,23 @@ namespace TL
             //! Returns an expression that designates the size of the DataReference
             Nodecl::NodeclBase get_sizeof() const;
 
+            //! Returns an expression that computes the offset of a dependence in bytes
+            Nodecl::NodeclBase get_offsetof_dependence() const;
+
             //! Returns an expression that computes the offset in bytes
-            Nodecl::NodeclBase get_offsetof() const;
+            Nodecl::NodeclBase get_offsetof_copy() const;
 
             //! Returns an expression that computes the offset in bytes
             /*!
              * The extra parameters are a reference expression used to compute
              * runtime bounded parameters in Fortran
              */
-            Nodecl::NodeclBase get_offsetof(Nodecl::NodeclBase reference, TL::Scope sc) const;
+            Nodecl::NodeclBase get_offsetof_copy(Nodecl::NodeclBase reference, TL::Scope sc) const;
+
+            //! States if this is a multidependence data-reference
+            bool is_multidependence() const;
+            typedef std::pair<TL::Symbol, Nodecl::NodeclBase> MultiDepIterator;
+            TL::ObjectList<MultiDepIterator> multidependences() const;
 
             friend struct DataReferenceVisitor;
 
@@ -139,16 +147,24 @@ namespace TL
             TL::Symbol _base_symbol;
             TL::Type _data_type;
 
+            TL::ObjectList<MultiDepIterator> _iterators;
+
             // Error log
             std::string _error_log;
 
             Nodecl::NodeclBase _base_address;
 
             Nodecl::NodeclBase compute_sizeof_of_type(TL::Type relevant_type, bool ignore_regions = false) const;
-            Nodecl::NodeclBase compute_offsetof(Nodecl::NodeclBase expr, Nodecl::NodeclBase reference_expr, TL::Scope sc) const;
-            Nodecl::NodeclBase compute_offsetof_integer(Nodecl::NodeclBase expr, 
-                    Nodecl::NodeclBase reference_expr,
-                    TL::Scope scope) const;
+
+            Nodecl::NodeclBase compute_offsetof_array_subscript(Nodecl::NodeclBase expr, TL::Scope scope) const;
+
+            Nodecl::NodeclBase compute_offsetof_dependence(
+                    Nodecl::NodeclBase expr,
+                    TL::Scope sc) const;
+
+            Nodecl::NodeclBase compute_offsetof_copy(
+                    Nodecl::NodeclBase expr,
+                    TL::Scope sc) const;
 
             Nodecl::NodeclBase get_address_of_symbol_helper(Nodecl::NodeclBase expr, bool reference) const;
     };

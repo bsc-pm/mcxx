@@ -472,6 +472,7 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
 
         nodecl_t result = nodecl_make_structured_value(
                 nodecl_list,
+                nodecl_null(),
                 get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
                     nodecl_make_int_literal(kind_),
@@ -645,6 +646,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     {
         result = nodecl_make_structured_value(
                 nodecl_list,
+                nodecl_null(),
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
@@ -671,6 +673,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     else
     {
         result = nodecl_make_structured_value(
+                nodecl_null(),
                 nodecl_null(),
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
@@ -1004,8 +1007,6 @@ static nodecl_t simplify_achar(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 {
     return simplify_char(entry, num_arguments, arguments);
 }
-
-
 
 static void compute_factors_of_array_indexing(
         int N,
@@ -1912,7 +1913,11 @@ static nodecl_t simplify_acos(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             cacosf,
             cacos,
+#ifdef HAVE_CACOSL
             cacosl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             cacosq
 #else
@@ -1944,7 +1949,11 @@ static nodecl_t simplify_acosh(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 #endif
             cacoshf,
             cacosh,
+#ifdef HAVE_CACOSHL
             cacoshl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             cacoshq
 #else
@@ -2084,7 +2093,11 @@ static nodecl_t simplify_asin(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             casinf,
             casin,
+#ifdef HAVE_CASINL
             casinl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             casinq
 #else
@@ -2116,7 +2129,11 @@ static nodecl_t simplify_asinh(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 #endif
             casinhf,
             casinh,
+#ifdef HAVE_CASINHL
             casinhl,
+#else
+            NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             casinhq
 #else
@@ -2147,7 +2164,11 @@ static nodecl_t simplify_atan(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             catanf,
             catan,
+#ifdef HAVE_CATANL
             catanl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             catanq
 #else
@@ -2178,7 +2199,11 @@ static nodecl_t simplify_atanh(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 #endif
             catanhf,
             catanh,
+#ifdef HAVE_CATANHL
             catanhl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             catanhq
 #else
@@ -2209,7 +2234,11 @@ static nodecl_t simplify_cos(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 #endif
             ccosf,
             ccos,
+#ifdef HAVE_CCOSL
             ccosl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ccosq
 #else
@@ -2240,7 +2269,11 @@ static nodecl_t simplify_cosh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             ccoshf,
             ccosh,
+#ifdef HAVE_CCOSHL
             ccoshl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ccoshq
 #else
@@ -2271,7 +2304,11 @@ static nodecl_t simplify_sin(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 #endif
             csinf,
             csin,
+#ifdef HAVE_CSINL
             csinl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             csinq
 #else
@@ -2302,7 +2339,11 @@ static nodecl_t simplify_sinh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             csinhf,
             csinh,
+#ifdef HAVE_CSINHL
             csinhl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             csinhq
 #else
@@ -2333,7 +2374,11 @@ static nodecl_t simplify_tan(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 #endif
             ctanf,
             ctan,
+#ifdef HAVE_CTANL
             ctanl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ctanq
 #else
@@ -2364,7 +2409,11 @@ static nodecl_t simplify_tanh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 #endif
             ctanhf,
             ctanh,
+#ifdef HAVE_CTAHNL
             ctanhl,
+#else
+			NULL,
+#endif
 #ifdef HAVE_QUADMATH_H
             ctanhq
 #else
@@ -2386,14 +2435,15 @@ static nodecl_t simplify_trim(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     if (!const_value_is_string(cval))
         return nodecl_null();
 
-    const char* str = const_value_string_unpack_to_string(cval);
+    char is_null_ended = 0;
+    const char* str = const_value_string_unpack_to_string(cval, &is_null_ended);
 
-    // Should not happen
-    if (str == NULL)
+    int length = strlen(str) + !!is_null_ended;
+    if (length == 0)
         return nodecl_null();
 
     char* new_str = xstrdup(str);
-    char* right = &(new_str[strlen(new_str) - 1]);
+    char* right = &(new_str[length - 1]);
 
     while (*right == ' ')
         right--;
@@ -2466,7 +2516,10 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     int num_elements = 0;
     int *values = NULL;
 
-    const_value_string_unpack_to_int(str, &values, &num_elements);
+    char is_null_ended = 0;
+    const_value_string_unpack_to_int(str, &values, &num_elements, &is_null_ended);
+
+    num_elements += !!is_null_ended;
 
     if (num_elements == 0)
         return nodecl_null();
@@ -2477,7 +2530,6 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     int kind = fortran_get_default_integer_type_kind();
     if (!nodecl_is_null(kind_arg))
         kind = const_value_cast_to_signed_int(nodecl_get_constant(kind_arg));
-
 
     return const_value_to_nodecl_with_basic_type(
             const_value_get_integer(val, /* bytes */ 1, /* sign */ 1),
@@ -2602,6 +2654,6 @@ static nodecl_t simplify_mcc_null(scope_entry_t* entry UNUSED_PARAMETER,
 
     nodecl_t zero_pointer = const_value_to_nodecl(zero);
 
-    nodecl_set_type(zero_pointer, get_zero_type_variant(fortran_get_default_integer_type()));
+    nodecl_set_type(zero_pointer, get_variant_type_zero(fortran_get_default_integer_type()));
     return zero_pointer;
 }

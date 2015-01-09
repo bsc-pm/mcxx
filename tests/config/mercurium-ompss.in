@@ -1,4 +1,3 @@
-#!@BASH@
+#!/usr/bin/env bash
 
-# Choose ompss programming model
-exec @abs_builddir@/mercurium-nanox ompss
+exec @abs_builddir@/mercurium-nanox ompss $1

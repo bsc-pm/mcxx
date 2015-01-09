@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -39,8 +39,8 @@ namespace TL { namespace Nanox {
         bool atomic_binary_check_expr(Nodecl::NodeclBase lhs_assig, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs)
         {
             // Purely syntactic check
-            return (Nodecl::Utils::equal_nodecls(lhs_assig, lhs, /* skip_conversion_nodecls */ true)
-                    != Nodecl::Utils::equal_nodecls(lhs_assig, rhs, /* skip_conversion_nodecls */ true));
+            return (Nodecl::Utils::structurally_equal_nodecls(lhs_assig, lhs, /* skip_conversion_nodecls */ true)
+                    != Nodecl::Utils::structurally_equal_nodecls(lhs_assig, rhs, /* skip_conversion_nodecls */ true));
         }
 
         bool allowed_expressions_critical_fortran(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
@@ -256,7 +256,7 @@ namespace TL { namespace Nanox {
                 expr_type = expr_type.references_to();
             }
 
-            critical_source 
+            critical_source
                 << "{"
                 <<   type << " __oldval;"
                 <<   type << " __newval;"
@@ -267,7 +267,8 @@ namespace TL { namespace Nanox {
                 <<      "__oldval = (" << lhs << ");"
                 <<      "__newval = __oldval " << op << " (" << rhs << ");"
                 <<      "__sync_synchronize();"
-                <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "( (volatile void*)&(" << lhs << ") ,"
+                <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "("
+                <<                 "(" << proper_int_type << "*)&(" << lhs << "),"
                 <<                 "*(" << proper_int_type << "*)&__oldval,"
                 <<                 "*(" << proper_int_type << "*)&__newval ));"
                 << "}"
@@ -444,7 +445,7 @@ namespace TL { namespace Nanox {
                     << "{"
                     << as_type(expr.as<Nodecl::AddAssignment>().get_rhs().get_type()) << "__tmp = "
                         << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs()) << ";"
-                    << intrinsic_function_name << "_" << op_size << "((volatile void*)&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
+                    << intrinsic_function_name << "_" << op_size << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
                     << "}"
                     ;
             }
@@ -579,7 +580,7 @@ namespace TL { namespace Nanox {
 
             Nodecl::NodeclBase value;
 
-            if (Nodecl::Utils::equal_nodecls(lhs_assig, lhs, /* skip_conversion_nodecls */ true))
+            if (Nodecl::Utils::structurally_equal_nodecls(lhs_assig, lhs, /* skip_conversion_nodecls */ true))
                 value = rhs;
             else
                 value = lhs;
@@ -613,6 +614,8 @@ namespace TL { namespace Nanox {
 
         // Get the new statements
         statements = construct.get_statements().as<Nodecl::List>();
+        ERROR_CONDITION(!statements.as<Nodecl::List>()[0].is<Nodecl::Context>(), "Invalid node", 0);
+        statements = statements.as<Nodecl::List>()[0].as<Nodecl::Context>().get_in_context().as<Nodecl::List>();
 
         Nodecl::List replacements;
 

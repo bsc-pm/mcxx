@@ -74,6 +74,7 @@ namespace TL { namespace Nanox {
         {
             Source::source_language = SourceLanguage::Current;
         }
+        placeholder.set_locus(construct.get_locus());
 
         // Create the environment
         Nodecl::NodeclBase private_syms = environment.find_first<Nodecl::OpenMP::Private>();
@@ -98,7 +99,7 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = placeholder_scope.new_symbol("sp_" + orig_sym.get_name());
                 sym.get_internal_symbol()->kind = SK_VARIABLE;
                 sym.get_internal_symbol()->type_information = orig_sym.get_type().no_ref().get_internal_type();
-                sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
 
                 symbol_map.add_map(orig_sym, sym);
 
@@ -127,8 +128,9 @@ namespace TL { namespace Nanox {
                 // FIXME - Improve the naming scheme
                 TL::Symbol sym = placeholder_scope.new_symbol("sfp_" + orig_sym.get_name());
                 sym.get_internal_symbol()->kind = SK_VARIABLE;
-                sym.get_internal_symbol()->type_information = orig_sym.get_type().no_ref().get_internal_type();
-                sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                sym.get_internal_symbol()->type_information =
+                    orig_sym.get_type().no_ref().get_internal_type();
+                symbol_entity_specs_set_is_user_declared(sym.get_internal_symbol(), 1);
 
                 symbol_map.add_map(orig_sym, sym);
 
@@ -142,29 +144,53 @@ namespace TL { namespace Nanox {
                 if (IS_FORTRAN_LANGUAGE
                         || !sym.get_type().no_ref().is_array())
                 {
-                    Nodecl::Symbol sym_ref = sym.make_nodecl();
-                    sym_ref.set_type(sym.get_type());
+                    if (!orig_sym.is_saved_expression())
+                    {
+                        sym.get_internal_symbol()->type_information =
+                            get_unqualified_type(sym.get_internal_symbol()->type_information);
 
-                    if (!sym_ref.get_type().is_any_reference())
-                        sym_ref.set_type(sym.get_type().get_lvalue_reference_to());
+                        Nodecl::Symbol sym_ref = sym.make_nodecl();
+                        sym_ref.set_type(sym.get_type());
 
-                    Nodecl::Symbol orig_sym_ref = orig_sym.make_nodecl();
-                    orig_sym_ref.set_type(orig_sym.get_type());
+                        if (!sym_ref.get_type().is_any_reference())
+                            sym_ref.set_type(sym.get_type().get_lvalue_reference_to());
 
-                    if (!orig_sym_ref.get_type().is_any_reference())
-                        orig_sym_ref.set_type(orig_sym.get_type().get_lvalue_reference_to());
+                        Nodecl::Symbol orig_sym_ref = orig_sym.make_nodecl();
+                        orig_sym_ref.set_type(orig_sym.get_type());
 
-                    Nodecl::NodeclBase assig =
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
-                                    sym_ref,
-                                    orig_sym_ref,
-                                    sym_ref.get_type()));
+                        if (!orig_sym_ref.get_type().is_any_reference())
+                            orig_sym_ref.set_type(orig_sym.get_type().get_lvalue_reference_to());
 
-                    Nodecl::Utils::prepend_items_before(placeholder, assig);
+                        Nodecl::NodeclBase assig =
+                            Nodecl::ExpressionStatement::make(
+                                    Nodecl::Assignment::make(
+                                        sym_ref,
+                                        orig_sym_ref,
+                                        sym_ref.get_type()));
+
+                        Nodecl::Utils::prepend_items_before(placeholder, assig);
+                    }
+                    else
+                    {
+                        Nodecl::Symbol orig_sym_ref = orig_sym.make_nodecl();
+                        orig_sym_ref.set_type(orig_sym.get_type());
+
+                        if (!orig_sym_ref.get_type().is_any_reference())
+                            orig_sym_ref.set_type(orig_sym.get_type().get_lvalue_reference_to());
+
+                        sym.set_value(orig_sym_ref);
+                        symbol_entity_specs_set_is_saved_expression(sym.get_internal_symbol(), 1);
+
+                        Nodecl::NodeclBase init =
+                            Nodecl::ObjectInit::make(sym);
+                        Nodecl::Utils::prepend_items_before(placeholder, init);
+                    }
                 }
                 else // This is not Fortran and the type of the symbol is array
                 {
+                    sym.get_internal_symbol()->type_information =
+                        get_unqualified_type(sym.get_internal_symbol()->type_information);
+
                     Source src;
                     src << "__builtin_memcpy(" << as_symbol(sym) << ", "
                         << as_symbol(orig_sym) << ", "

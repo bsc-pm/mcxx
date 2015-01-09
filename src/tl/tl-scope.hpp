@@ -170,23 +170,6 @@ namespace TL
                 return false;
             }
 
-            //! Creates a scope after a reference to Object
-            Scope(RefPtr<Object> obj)
-            {
-                RefPtr<Scope> sc = RefPtr<Scope>::cast_dynamic(obj);
-                if (sc.get_pointer() != NULL)
-                {
-                    this->_decl_context = sc->_decl_context;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization for Scope" << std::endl;
-                    }
-                }
-            }
-
             //! Debugging function that prints the scope
             /*!
              * The compiler will dump the scope calling the internal
@@ -204,14 +187,29 @@ namespace TL
              */
             ObjectList<Symbol> get_symbols_from_name(const std::string& str) const;
 
+            //! Get a list of symbols only in this scope with name \a str
+            /*!
+             * \param str The unqualified name looked up
+             * \return A list of Symbol that have this name \a str in the current scope
+             */
+            ObjectList<Symbol> get_symbols_from_name_in_scope(const std::string& str) const;
+
             //! Convenience function where only one symbol is expected
             Symbol get_symbol_from_name(const std::string& str) const;
-            
+
+            //! Convenience function where only one symbol is expected
+            Symbol get_symbol_from_name_in_scope(const std::string& str) const;
+
+            //! Returns the global scope of the current compiled file 
+            static Scope get_global_scope();
+
             //! Builds a fake temporal scope not related to any real code
             Scope temporal_scope() const;
 
             //! Returns the template parameters related to this scope
             template_parameter_list_t* get_template_parameters() const;
+
+            Symbol get_symbol_this() const;
 
             //! Returns all symbols signed in in this scope
             /*! 

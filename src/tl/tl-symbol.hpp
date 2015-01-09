@@ -71,29 +71,6 @@ namespace TL
             {
             }
 
-            //! Implements the access to extended attributes of a Symbol
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const;
-            //! Implements the access to extended attributes of a Symbol
-            virtual bool set_extended_attribute(const std::string&, const tl_type_t &data);
-
-            //! Constructs a Symbol after a reference to Object
-            Symbol(RefPtr<Object> obj)
-            {
-                RefPtr<Symbol> pint = RefPtr<Symbol>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_symbol = pint->_symbol;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Symbol" << std::endl;
-                    }
-                    this->_symbol = NULL;
-                }
-            }
-
             //! Gets the type related to this symbol
             Type get_type() const;
 
@@ -150,7 +127,7 @@ namespace TL
             std::string get_filename() const;
 
             //! Returns the line where the symbol was declared
-            int get_line() const;
+            unsigned int get_line() const;
 
             virtual ~Symbol()
             {
@@ -163,6 +140,8 @@ namespace TL
 
             //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is a variable pack (C++11)
+            bool is_variable_pack() const;
             //! States whether this symbol is a variable that stores a runtime value of the program
             bool is_saved_expression() const;
             //! States whether this symbol is the result variable
@@ -183,6 +162,7 @@ namespace TL
             //! States whether this symbol is a namespace
             bool is_namespace() const;
             //! States whether this symbol is a dependent friend class
+            bool is_friend_class() const;
             bool is_dependent_friend_class() const;
             //! States whether this symbol is an enum name
             bool is_enum() const;
@@ -190,10 +170,15 @@ namespace TL
             bool is_enumerator() const;
             //! States whether this symbol is template name
             bool is_template() const;
+            //! States whether this symbol is a template alias
+            bool is_template_alias() const;
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a dependent friend function
+            bool is_friend_function() const;
             bool is_dependent_friend_function() const;
+            //! States whether this symbol is a lambda
+            bool is_lambda() const;
             //! States whether this symbol is a dependent function
             bool is_dependent_function() const;
 
@@ -373,11 +358,31 @@ namespace TL
             //! States whether this symbol is register
             bool is_register() const;
 
-            //! States whether this symbol is __thread
+            //! States whether this symbol is __thread (gcc, ELF)
             bool is_thread() const;
+
+            //! States whether this symbol is thread_local (C++11)
+            bool is_thread_local() const;
+
+            //! States whether this symbol is final (C++11)
+            bool is_final() const;
+
+            //! States whether this symbol is explicit override (C++11)
+            bool is_explicit_override() const;
+
+            //! States whether the symbol has been deleted (C++11)
+            bool is_deleted() const;
+
+            //! States whether the symbol has been defaulted (C++11)
+            bool is_defaulted() const;
+
+            //! States whether this symbol hides a member of a base class (C++11)
+            bool is_hides_member() const;
 
             //! States if this member is a bitfield
             bool is_bitfield() const;
+            //! States if this member is an unnamed bitfield
+            bool is_unnamed_bitfield() const;
 
             //! Returns the size of the bitfield
             Nodecl::NodeclBase get_bitfield_size() const;
@@ -443,6 +448,9 @@ namespace TL
             //! States whether this function was defined inline
             bool is_inline() const;
 
+            //! States whether this function was defined constexpr
+            bool is_constexpr() const;
+
             //! States whether this member function was defined as virtual
             bool is_virtual() const;
 
@@ -461,6 +469,9 @@ namespace TL
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
 
+            // Class marked as explicit
+            bool is_explicit_class() const;
+
             //! States whether symbol exists just because was mentioned in a friend declaration
             /*!
              * This symbol has not been technically declared by the user but the compiler
@@ -473,6 +484,9 @@ namespace TL
 
             //! States whether this function was defined with no exception-specifier
             bool function_throws_any_exception() const;
+
+            //! Returns the noexcept specifier of this function (if any)
+            Nodecl::NodeclBase function_noexcept() const;
 
             //! Returns the thrown exceptions
             /*!
@@ -613,6 +627,14 @@ namespace TL
               */
             bool is_optional() const;
 
+            //! This symbol is CONTIGUOUS
+            /*!
+              States whether this assumed-shape array or pointer to array is contiguous
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_contiguous() const;
+
             //! This Fortran program unit has a global SAVE
             /*!
              * States whether this program unit has a SAVE specifier with an empty name-list
@@ -694,6 +716,11 @@ namespace TL
             bool has_default_argument_num(int i) const;
 
             /*!
+             * States whether this symbol has a parameter i with a hidden default argument
+             */
+            bool has_hidden_default_argument_num(int i) const;
+
+            /*!
              * Returns the default argument of parameter i
              */
             Nodecl::NodeclBase get_default_argument_num(int i) const;
@@ -708,20 +735,6 @@ namespace TL
              */
             Nodecl::NodeclBase get_bind_c_name() const;
 
-            //! States if this class or enum was not given a name
-            /*!
-             * Typical cases are
-             *
-             *   struct { ... } x;
-             *   enum { ...  } y;
-             *
-             * Note that typedefs may be used to give names to classes or enums
-             *  
-             *   typedef struct { ... } C;
-             *   typedef enum { ... } E;
-             */
-            bool is_unnamed();
-
         private:
             scope_entry_t* _symbol;
     };
@@ -729,9 +742,9 @@ namespace TL
     class LIBTL_CLASS GCCAttribute
     {
         private:
-            gather_gcc_attribute_t _attr;
+            gcc_attribute_t _attr;
         public:
-            GCCAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
+            GCCAttribute(gcc_attribute_t attr) : _attr(attr) { }
 
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;
@@ -740,9 +753,9 @@ namespace TL
     class LIBTL_CLASS MSAttribute
     {
         private:
-            gather_gcc_attribute_t _attr;
+            gcc_attribute_t _attr;
         public:
-            MSAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
+            MSAttribute(gcc_attribute_t attr) : _attr(attr) { }
 
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;

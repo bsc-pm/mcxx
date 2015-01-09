@@ -27,7 +27,6 @@
 #ifndef TL_LIVENESS_HPP
 #define TL_LIVENESS_HPP
 
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 
 namespace TL {
@@ -36,49 +35,45 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************* Class implementing liveness analysis ******************************* //
     
-    /*! The equations we use for Liveness analysis are the following:
+    /*! Bottom-up data-flow analysis to determine the liveness of the variables of a PCFG
+     *  The data-flow equations are the following:
      *  - Live In variables for node 'x':
-     *      - General case: LI(x) = UE(x) U ( LO(x) - KILL(x) )
-     *      - x is in task (or is a task) : LI(x) = UE(x) U ( LO(x) - KILL(x) - ( U KILL(y) ) ), 
-     *                                      where y = all concurrent task of x
-     *      - x is in task creation : LI(x) = UE(x) U ( LO(x) - KILL(x) - KILL(y) ), 
-     *                                      where y = task created by x
+     *      - General case:                 LI(x) = UE(x) U ( LO(x) - KILL(x) )
+     *      - x is task:                    LI(x) = UE(x) U ( LO(x) - KILL(x) - Private(x) )
      *  - Live Out variables for node 'x':
-     *      LO(x) = U LI(y),
-     *      where y = all successors of x
+     *      - General case:                 LO(x) = U LI(y),
+     *                                      where y = all successors of x
+     *      - x is a task:                  L0(x) = UE(x) U ( LO(x) - (KILL(x) - Private|Firstprivate(x)) ), 
      */
     class LIBTL_CLASS Liveness
     {
     private:
         ExtensibleGraph* _graph;
 
-        //!Computes the liveness information of each node regarding only its inner statements
-        //!Live In (X) = Upper exposed (X)
-        void gather_live_initial_information( Node* current );
+        //! Computes the liveness information of each node regarding only its inner statements
+        //! Live In (X) = Upper exposed (X)
+        void initialize_live_sets(Node* current);
 
-        //!Computes liveness equations for a given node and calls recursively to its children
-        /*!
-         * Live Out (X) = Union of all Live In (Y), for all Y successors of X
-         * Live In (X) = Upper Exposed (X) + ( Live Out (X) - Killed (X) )
-         */
-        void solve_live_equations( Node* current );
-        void solve_live_equations_rec( Node* current, bool& changed, Node* container_task );
+        //! Computes liveness equations for a given node and calls recursively to its children
+        void solve_live_equations_rec(Node* current, bool& changed);
+        void solve_task_live_equations_rec(Node* n, bool& changed, Node* task);
 
-        void solve_specific_live_in_tasks( Node* current );
+        //! Initiates computation of a task liveness sets
+        //! Excludes from the exit node LiveOut those variables private to the task
+        void solve_specific_live_in_tasks(Node* current);
 
-        //! Computes Live Out information:
-        //! Live Out (X) = Union of all Live In (Y), for all Y successors of X
-        Utils::ext_sym_set compute_live_out( Node* current, Node* container_task );
+        //! U(Live In(Y)), for all Y successors of X
+        NodeclSet compute_successors_live_in(Node* n);
 
         //! Propagates liveness information from inner to outer nodes
-        void set_graph_node_liveness( Node* current, Node* container_task );
+        void set_graph_node_liveness(Node* current);
 
     public:
         //! Constructor
-        Liveness( ExtensibleGraph* graph );
+        Liveness(ExtensibleGraph* graph);
 
         //! Method computing the Liveness information on the member #graph
-        void compute_liveness( );
+        void compute_liveness();
     };
 
     // ***************************** End class implementing liveness analysis ***************************** //

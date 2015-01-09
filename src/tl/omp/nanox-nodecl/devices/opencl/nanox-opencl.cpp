@@ -64,6 +64,18 @@ void DeviceOpenCL::generate_ndrange_code(
         // Out
         TL::Source& code_ndrange)
 {
+    // The arguments of the clauses 'ndrange' and 'shmem' must be updated because
+    // they are not expressed in terms of the unpacked function parameters
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
+    update_ndrange_and_shmem_expressions(
+            unpacked_function.get_related_scope(),
+            target_info,
+            outline_data_to_unpacked_fun_map,
+            new_ndrange,
+            new_shmem);
+
+    int num_args_ndrange = new_ndrange.size();
+
     TL::Source code_ndrange_aux;
     Nodecl::Utils::SimpleSymbolMap called_fun_to_unpacked_fun_map;
 
@@ -78,65 +90,13 @@ void DeviceOpenCL::generate_ndrange_code(
         called_fun_to_unpacked_fun_map.add_map(key, value);
     }
 
-    // The arguments of the clause 'ndrange' must be updated because they are not
-    // expressed in terms of the unpacked arguments
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
-    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
-    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
-    int num_args_ndrange = ndrange_args.size(),
-        num_args_shmem = shmem_args.size();
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        for (int i = 0; i < num_args_ndrange; ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    ndrange_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_ndrange.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (int i = 0; i < num_args_shmem; ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    shmem_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_shmem.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-    else
-    {
-        for (int i = 0; i < num_args_ndrange; ++i)
-        {
-            new_ndrange.append(Nodecl::Utils::deep_copy(
-                        ndrange_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (int i = 0; i < num_args_shmem; ++i)
-        {
-            new_shmem.append(Nodecl::Utils::deep_copy(
-                        shmem_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-
     bool dim_const = new_ndrange[0].is_constant();
 
+    char is_null_ended = 0;
     bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
             && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant(), &is_null_ended),
+                    "noCheckDim") == 0));
 
     int num_dim = 0;
     if (dim_const)
@@ -467,9 +427,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
-    TL::Symbol current_function =
-        original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -952,7 +910,7 @@ DeviceOpenCL::DeviceOpenCL()
     register_parameter("disable_opencl_file_check",
             "Do not check if the argument of the 'file' clause is specified as an OpenCL file in the command line",
             _disable_opencl_file_check_str,
-            "0").connect(functor(&DeviceOpenCL::disable_opencl_file_check, *this));
+            "0").connect(std::bind(&DeviceOpenCL::disable_opencl_file_check, this, std::placeholders::_1));
 }
 
 void  DeviceOpenCL::disable_opencl_file_check(const std::string &str)
@@ -1020,23 +978,23 @@ void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::Nodecl
     // Do nothing
 }
 
+void DeviceOpenCL::generate_outline_events_after(
+        Source& function_name_instr,
+        Source& extra_cast,
+        Source& instrumentation_after)
+{
+    instrumentation_after << "err = nanos_instrument_close_user_fun_event();";
+}
+
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
-{    
-    if (_opencl_tasks_processed){
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_opencl = 1;";
-        if (IS_FORTRAN_LANGUAGE)
-           Source::source_language = SourceLanguage::C;
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
-        Source::source_language = SourceLanguage::Current;
-        if (IS_FORTRAN_LANGUAGE){
-           _extra_c_code.prepend(functions_section_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
-        }
+{
+    if (_opencl_tasks_processed)
+    {
+        create_weak_device_symbol("ompss_uses_opencl",
+                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
         _opencl_tasks_processed = false;
     }
-    
+
     if (_extra_c_code.is_null())
         return;
 
@@ -1065,7 +1023,7 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
     ::mark_file_for_cleanup(new_filename.c_str());
 
     Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-    phase->codegen_top_level(_extra_c_code, ancillary_file);
+    phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
     CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
@@ -1076,7 +1034,6 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 
 void DeviceOpenCL::pre_run(DTO& dto)
 {
-    _root = dto["nodecl"];
     _opencl_tasks_processed = false;
 }
 

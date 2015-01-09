@@ -41,6 +41,7 @@ namespace Codegen
     class CudaGPU : public CxxBase
     {
         public:
+            using CxxBase::visit;
             void visit(const Nodecl::CudaKernelCall &);
 
         protected:

@@ -1,0 +1,30 @@
+# OpenCL profile
+[oclmcc : omp-base]
+language = C
+options = --opencl
+{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{openmp} compiler_phase = libtlnanox-opencl.so
+{openmp} linker_options = -lnanox-opencl-api
+
+[oclmcxx : omp-base]
+language = C++
+options = --opencl
+{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{openmp} compiler_phase = libtlnanox-opencl.so
+{openmp} linker_options = -lnanox-opencl-api
+
+[oclmfc : omp-base]
+language = Fortran
+options = --opencl
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @GFORTRAN@
+fortran_preprocessor_options = -cpp -E
+compiler_name = @GFORTRAN@
+compiler_options = -frecursive
+linker_name = @GFORTRAN@
+linker_options =
+{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+{openmp} compiler_phase = libtlnanox-opencl.so
+{openmp} linker_options = -lnanox-opencl-api
+
+[oclmf95 : oclmfc]

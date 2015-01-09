@@ -39,7 +39,8 @@ namespace TL { namespace Nanox {
             Nodecl::RangeLoopControl& range,
             const std::string& outline_name,
             TL::Symbol structure_symbol,
-            TL::Symbol slicer_descriptor)
+            TL::Symbol slicer_descriptor,
+            Nodecl::NodeclBase task_label)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -60,13 +61,13 @@ namespace TL { namespace Nanox {
 
         struct_size << "sizeof( " << struct_arg_type_name << " )" << dynamic_size;
 
-        Source immediate_decl;
+        Source immediate_decl_dummy;
         allocate_immediate_structure(
                 outline_info,
                 struct_arg_type_name,
                 struct_size,
                 // out
-                immediate_decl,
+                immediate_decl_dummy,
                 dynamic_size);
 
         Nodecl::NodeclBase fill_outline_arguments_tree, fill_slicer_descriptor_tree;
@@ -88,10 +89,21 @@ namespace TL { namespace Nanox {
         std::string slicer_name = schedule_name + "_for";
 
         schedule_setup
-            << "nanos_slicer_t nanos_slicer; nanos_slicer = nanos_find_slicer(\"" << slicer_name << "\");"
+            << "nanos_slicer_t nanos_slicer;"
+            << "nanos_slicer = nanos_find_slicer(\"" << slicer_name << "\");"
             << "if (nanos_slicer == 0) nanos_handle_error(NANOS_UNIMPLEMENTED);"
             << "int nanos_chunk = " << (!schedule.get_chunk().is_null() ? as_expression(schedule.get_chunk()) : "1") << ";"
             ;
+
+        std::string wd_description;
+        if (!task_label.is_null())
+        {
+            wd_description = task_label.get_text();
+        }
+        else
+        {
+            wd_description = enclosing_function.get_name();
+        }
 
         Source const_wd_info;
         const_wd_info
@@ -99,7 +111,7 @@ namespace TL { namespace Nanox {
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
                     /* is_function_task */ false,
-                    /* wd_description */ enclosing_function.get_name(),
+                    wd_description,
                     outline_info,
                     construct);
 
@@ -108,6 +120,7 @@ namespace TL { namespace Nanox {
         dynamic_wd_info
             <<     "nanos_wd_dyn_props_t nanos_dyn_props;"
             <<     "nanos_dyn_props.tie_to = (nanos_thread_t)0;"
+            <<     "nanos_dyn_props.priority = 0;"
             ;
         if (!_lowering->final_clause_transformation_disabled()
                 && Nanos::Version::interface_is_at_least("master", 5024))
@@ -121,14 +134,14 @@ namespace TL { namespace Nanox {
         spawn_code
         << "{"
         <<     "nanos_err_t err;"
-        <<     struct_arg_type_name << "* ol_args, imm_args;"
+        <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     dynamic_wd_info
         <<     const_wd_info
         <<     schedule_setup
         <<     "err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
-        <<            "sizeof(" << struct_arg_type_name << "),"
+        <<            "(size_t)" << struct_size << ","
         <<            "nanos_wd_const_data.base.data_alignment,"
         <<            "(void**)&ol_args, nanos_current_wd(), nanos_slicer, &nanos_wd_const_data.base.props, &nanos_dyn_props,"
         <<            "0, 0, 0, 0);"

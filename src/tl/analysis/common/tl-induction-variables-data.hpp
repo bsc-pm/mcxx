@@ -27,7 +27,7 @@
 #ifndef TL_INDUCTION_VARIABLES_DATA_HPP
 #define TL_INDUCTION_VARIABLES_DATA_HPP
 
-#include "tl-extended-symbol.hpp"
+#include "tl-analysis-utils.hpp"
 #include "tl-nodecl.hpp"
 
 namespace TL {
@@ -42,60 +42,73 @@ namespace Utils {
         DERIVED_IV
     };
 
-    class LIBTL_CLASS InductionVariableData {
+    class LIBTL_CLASS InductionVar {
     private:
-        ExtendedSymbol _var;
+        NBase _var;
 
-        Nodecl::NodeclBase _lb;         /*!< Lower bound within a loop */
-        Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) */
-        Nodecl::NodeclBase _incr;       /*!< Stride within a loop */
+        NodeclSet _lb;      /*!< Lower bound within a loop */
+        NodeclSet _ub;      /*!< Upper bound within a loop (included) */
+        NBase _incr;        /*!< Stride within a loop */
 
-        ObjectList<Nodecl::NodeclBase> _incrs;  /*!< List of modifications to an Induction Variable */
+        ObjectList<NBase> _incrs;  /*!< List of modifications to an Induction Variable */
                                                 // Example: loop { iv = iv + 100; iv = iv + 200 }
                                                 // _incrs = { 100, 200 } 
         
         InductionVarType _type;         /*!< Type of iv: '1' = basic, '2' = derived */
-        Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
-
-        bool _is_linear;                /*!< Boolean indicating whether the IV increments by a linear function */
+        NBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
 
     public:
 
         // *** Constructors *** //
         //! Constructor to store variables that have upper and lower limits and stride but aren't Induction Variables
-        InductionVariableData( ExtendedSymbol var );
+        InductionVar(const NBase& var);
         //! Induction Variable common constructor
-        InductionVariableData( ExtendedSymbol var, InductionVarType type, Nodecl::NodeclBase family );
+        InductionVar(const NBase& var, InductionVarType type, const NBase& family);
 
 
         // *** Getters and Setters *** //
-        ExtendedSymbol get_variable() const;
-        void set_variable( Nodecl::NodeclBase s );
+        NBase get_variable() const;
+        void set_variable(const NBase& s);
 
-        Nodecl::NodeclBase get_lb( ) const;
-        void set_lb( Nodecl::NodeclBase lb );
+        NodeclSet get_lb() const;
+        void set_lb(const NBase& lb);
+        void set_lb(const NodeclSet& lb);
 
-        Nodecl::NodeclBase get_ub( ) const;
-        void set_ub( Nodecl::NodeclBase ub );
+        NodeclSet get_ub() const;
+        void set_ub(const NBase& ub);
+        void set_ub(const NodeclSet& ub);
 
-        Nodecl::NodeclBase get_increment( ) const;
-        void set_increment( Nodecl::NodeclBase incr );
-        bool is_increment_one( ) const;
+        NBase get_increment() const;
+        void set_increment(const NBase& incr);
+        bool is_increment_one() const;
 
-        ObjectList<Nodecl::NodeclBase> get_increment_list( ) const;
-        void set_increment_list( ObjectList<Nodecl::NodeclBase> incr_list );
+        ObjectList<NBase> get_increment_list() const;
+        void set_increment_list(const ObjectList<NBase>& incr_list);
         
-        std::string get_type_as_string( ) const;
+        std::string get_type_as_string() const;
 
-        Nodecl::NodeclBase get_family( ) const;
+        NBase get_family() const;
 
-        bool is_linear( ) const;
+        bool is_basic();
 
-        bool is_basic( );
-
-        bool operator==( const InductionVariableData& rhs ) const;
+        bool operator==(const InductionVar& rhs) const;
     };
 
+    typedef ObjectList<InductionVar*> InductionVarList;
+    
+    struct LinearVars {
+        ObjectList<Symbol> _syms;
+        NBase _step;
+        
+        LinearVars(ObjectList<Symbol> syms, NBase step)
+            : _syms(syms), _step(step)
+        {}
+        
+        ObjectList<Symbol> get_symbols() const { return _syms; }
+        
+        NBase get_step() const { return _step; }
+    };
+    
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //
 
@@ -104,20 +117,24 @@ namespace Utils {
     // ********************************************************************************************* //
     // ********************************* Induction Variables utils ********************************* //
 
-    typedef std::multimap<int, InductionVariableData*> InductionVarsPerNode;
-
-    void print_induction_vars( InductionVarsPerNode ivs );
+    typedef std::multimap<int, InductionVar*> InductionVarsPerNode;
     
-    std::string prettyprint_induction_vars( ObjectList<InductionVariableData*> iv_list );
+    std::string prettyprint_iv_boundary_list(const NodeclSet& boundaries);
 
-    bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
-                                                    Nodecl::NodeclBase var );
+    //! Prints into a string all data associated to each induction variable of \p iv_list
+    std::string prettyprint_induction_vars(const InductionVarList& iv_list, bool to_dot);
 
-    InductionVariableData* get_induction_variable_from_list( ObjectList<InductionVariableData*> ivs,
-                                                             Nodecl::NodeclBase var );
+    //! Prints all induction variables information to the standard error
+    void print_induction_vars(const InductionVarsPerNode& iv_list);
     
-    InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
-                                                             Nodecl::NodeclBase var );
+    //! Look for nodecl \p var in the \p iv_list list of induction variables
+    bool induction_variable_list_contains_variable(const InductionVarList& iv_list, const NBase& var);
+
+    //! Looks for the induction variable \p var in the list \p ivs of induction variables
+    InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var);
+    
+    //! Looks for the induction variable \p var in a map \p ivs of "node, induction variables"
+    InductionVar* get_induction_variable_from_list(const InductionVarsPerNode& ivs, const NBase& var);
 
     // ******************************* END Induction Variables utils ******************************* //
     // ********************************************************************************************* //

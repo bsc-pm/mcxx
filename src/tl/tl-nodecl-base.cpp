@@ -33,21 +33,16 @@
 
 namespace Nodecl
 {
-    NodeclBase::NodeclBase(TL::RefPtr<TL::Object> obj)
-         : _n(nodecl_null())
+    Nodecl::NodeclBase NodeclBase::no_conv() const
     {
-        TL::RefPtr<Nodecl::NodeclBase> pint = TL::RefPtr<Nodecl::NodeclBase>::cast_dynamic(obj);
-        if (pint.get_pointer() != NULL)
+        if (is_null())
+            return *this;
+        Nodecl::NodeclBase result = *this;
+        while (result.is<Nodecl::Conversion>() || result.is<Nodecl::VectorConversion>())
         {
-            this->_n = pint->_n;
+            result = result.as<Nodecl::Conversion>().get_nest();
         }
-        else
-        {
-            if (typeid(*obj.get_pointer()) != typeid(TL::Undefined))
-            {
-                std::cerr << "Bad initialization of Nodecl" << std::endl;
-            }
-        }
+        return result;
     }
 
     std::string NodeclBase::prettyprint() const
@@ -95,14 +90,29 @@ namespace Nodecl
     {
         if (first == last)
         {
-            return nodecl_make_list_1(first->get_internal_nodecl());
+            if (first->is<Nodecl::List>())
+            {
+                return first->get_internal_nodecl();
+            }
+            else
+            {
+                return nodecl_make_list_1(first->get_internal_nodecl());
+            }
         }
         else
         {
             nodecl_t previous_list =  make_list_helper(first, last - 1);
 
-            return nodecl_append_to_list(previous_list, 
-                    last->get_internal_nodecl());
+            if (last->is<Nodecl::List>())
+            {
+                return nodecl_concat_lists(previous_list, 
+                        last->get_internal_nodecl());
+            }
+            else
+            {
+                return nodecl_append_to_list(previous_list, 
+                        last->get_internal_nodecl());
+            }
         }
     }
 

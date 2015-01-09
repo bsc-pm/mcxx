@@ -39,7 +39,15 @@ extern "C" {
 #define uniqstr uniquestr
 LIBUTILS_EXTERN const char *uniquestr(const char*);
 
+#define UNIQUESTR_LITERAL(literal) \
+  ({ static const char* _cached_uniquestr = NULL; \
+     if (_cached_uniquestr == NULL)  _cached_uniquestr = uniquestr(literal); \
+     _cached_uniquestr; \
+  })
+
 LIBUTILS_EXTERN unsigned long long int char_trie_used_memory(void);
+
+LIBUTILS_EXTERN void uniquestr_stats(void);
 
 #ifdef __cplusplus
 }

@@ -11,16 +11,26 @@ compiler_options =
 linker_name = @GCC@
 linker_options = -Xlinker --add-needed
 {openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805 -include intel-omp.h
+{ompss} preprocessor_options = -D_OMPSS=1
 {openmp} compiler_phase = libtlomp-base.so
-{openmp} compiler_phase = libtlomp-simd.so
-{openmp} compiler_phase = libtlvector-lowering.so
+{openmp, simd} compiler_phase = libtlomp-simd.so
+{openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
-{simd, !mmic} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !mmic} compiler_options = @SIMD_FLAGS@
+{ompss} fortran_preprocessor_options = -D_OMPSS=1
+{simd, !mmic, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !mmic, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
+{simd, spml} options = --variable=spml_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
-{ffast-math} options = --variable=ffast_math_enabled:1
+{fast-math} options = --variable=fast_math_enabled:1
+{simd, mmic} options = --variable=mic_enabled:1
+{simd, avx2} options = --variable=avx2_enabled:1
+{simd, mmic} preprocessor_options = -include immintrin.h
+{simd, avx2} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5
 {openmp} compiler_phase = libtlintel-omp-lowering.so
+#simd
+{prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
+{prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1

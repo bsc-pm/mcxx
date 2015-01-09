@@ -40,7 +40,7 @@
 
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
-    scope_entry_list_t* entry_list = query_name_str(decl_context, name);
+    scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(name), NULL);
     ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
 
     scope_entry_t* entry = entry_list_head(entry_list);
@@ -108,7 +108,7 @@ void cuda_kernel_symbols_for_function_body(
         {
             scope_entry_t* cuda_sym = new_symbol(block_context, 
                     block_context.current_scope, 
-                    cuda_builtins[i].name);
+                    uniquestr(cuda_builtins[i].name));
 
             cuda_sym->locus = ast_get_locus(function_body);
 
@@ -145,6 +145,8 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_cuda_kernel_args, &num_items);
 
+    nodecl_t nodecl_actual_cuda_kernel_args = nodecl_null();
+
     int i = 0;
 
     for (i = 0; i < num_items; i++)
@@ -160,49 +162,50 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
         {
             standard_conversion_t result;
             is_convertible = standard_conversion_between_types(&result,
-                    orig_type, dest_type);
+                    orig_type, dest_type, locus);
 
             if (!is_convertible)
             {
                 // we mimick C++ behavior
                 is_convertible =
-                    (standard_conversion_between_types(&result, orig_type, get_signed_int_type())
+                    (standard_conversion_between_types(&result, orig_type, get_signed_int_type(), locus)
                      && equivalent_types(no_ref(get_unqualified_type(dest_type)), dim3_type));
             }
+
+            nodecl_arg = nodecl_shallow_copy(nodecl_arg);
         }
 
         CXX_LANGUAGE()
         {
-            char ambiguous_conversion = 0;
-            scope_entry_t* conversor = NULL;
-            is_convertible = (type_can_be_implicitly_converted_to(
-                        orig_type,
-                        get_lvalue_reference_type(get_const_qualified_type(dest_type)), 
-                        decl_context, 
-                        &ambiguous_conversion, &conversor,
-                        locus)
-                    && !ambiguous_conversion);
+            check_nodecl_function_argument_initialization(
+                    nodecl_arg,
+                    decl_context,
+                    dest_type,
+                    /* disallow_narrowing */ 0,
+                    &nodecl_arg);
+
+            is_convertible = !(nodecl_is_err_expr(nodecl_arg));
         }
 
         if (!is_convertible)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-                        nodecl_locus_to_str(nodecl_arg),
-                        kernel_args[i].position,
-                        codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
-                        print_type_str(dest_type, decl_context));
-            }
+            error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+                    nodecl_locus_to_str(nodecl_arg),
+                    kernel_args[i].position,
+                    codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
+                    print_type_str(dest_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+
+        nodecl_actual_cuda_kernel_args = nodecl_append_to_list(nodecl_actual_cuda_kernel_args,
+                nodecl_arg);
     }
 
     nodecl_t nodecl_plain_call = nodecl_null();
     check_nodecl_function_call(nodecl_postfix, nodecl_call_args, decl_context, &nodecl_plain_call);
 
-    *nodecl_output = nodecl_make_cuda_kernel_call(nodecl_cuda_kernel_args,
+    *nodecl_output = nodecl_make_cuda_kernel_call(nodecl_actual_cuda_kernel_args,
             nodecl_plain_call,
             get_void_type(),
             locus);

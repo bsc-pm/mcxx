@@ -32,8 +32,11 @@
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
 
+
+
+
 //This two vars MUST keep same value than the ones existing at NANOX
-#define TAG_MAIN_OMPSS "__ompss_mpi_daemon" 
+#define UNKOWN_RANKSRCDST "-95"
 #define MASK_TASK_NUMBER 989
 
 namespace TL
@@ -46,7 +49,6 @@ namespace TL
         {
             private:
 
-                  Nodecl::List _cuda_file_code;
                   bool _mpi_task_processed;
                   Source _sectionCodeHost;
                   Source _sectionCodeDevice;
@@ -60,7 +62,9 @@ namespace TL
                     const std::string& outline_name,
                     TL::Source& code_host,
                     TL::Source& code_device_pre,        
-                    TL::Source& code_device_post);
+                    TL::Source& code_device_post,
+                    const TL::Symbol& curr_function,
+                    const TL::Symbol& curr_function_dev);
 
 //                  void add_included_cuda_files(FILE* file);                  
                   std::string get_ompss_mpi_type(Type type);

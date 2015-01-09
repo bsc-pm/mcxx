@@ -33,6 +33,7 @@ test_generator=config/mercurium-omp
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "omp.h"
 
 #pragma omp declare reduction (add: int: omp_out=omp_in+omp_out)

@@ -26,7 +26,14 @@
 # There is a special rule 'nodecl' which is the root of the whole hierarchy and,
 # while not enforced, every rule should be referenced in another rule. The
 # structure must be nonambiguous (i.e. there must be a single way of
-# constructing a given hierarchy)
+# constructing a given hierarchy).
+#
+# There is a special rule 'any' intended only for the frontends that allows
+# to root any parse tree as a child of a nodecl node. Such uses are limited
+# in the frontend itself since the parse trees are freed after the frontend
+# is run. Do not let outlive such children after the FE has run. Currently
+# the only user of this rule is NODECL_CXX_DEP_NAME_CONVERSION due to some
+# oddities in the C++ syntax of conversion-function-id.
 #
 
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
@@ -42,13 +49,16 @@ type : NODECL_TYPE() type
 
 function-code: regular-function-code
              | template-function-code
+             | vector-regular-function-code
 
 regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+vector-regular-function-code : NODECL_VECTOR_FUNCTION_CODE([function_code] regular-function-code)
 
 object-init : NODECL_OBJECT_INIT() symbol
 
 mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
+          | NODECL_IMPLICIT_MEMBER_INIT([init_expr]expression) symbol
           | cxx-mem-init
 
 
@@ -58,10 +68,7 @@ statement : statement-but-object-init
           | context
           | function-code
 
-context : NODECL_CONTEXT([in_context] in_context) context
-
-in_context : statement-seq-opt
-           | expression
+context : NODECL_CONTEXT([in_context] statement-seq-opt) context
 
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
@@ -73,7 +80,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
-          | NODECL_CASE_STATEMENT([case]case-expression-seq, [statement]statement-seq)
+          | NODECL_CASE_STATEMENT([case]expression-seq, [statement]statement-seq)
           | NODECL_BREAK_STATEMENT([construct_name]name-opt)
           | NODECL_CONTINUE_STATEMENT([construct_name]name-opt)
           | NODECL_GOTO_STATEMENT() symbol
@@ -89,13 +96,13 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
 
-case-expression : expression
-
 loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt, [next]expression-opt)
             | range-loop-control
             | NODECL_UNBOUNDED_LOOP_CONTROL()
 
 range-loop-control : NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
+# Next one is for C++2011
+    | NODECL_ITERATOR_LOOP_CONTROL([range_iterator] name, [initializer]expression)
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration
@@ -112,9 +119,11 @@ pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [c
 pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text type-opt
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
-c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
-
-catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]statement-seq-opt, [any]statement-seq-opt)
+# C++2011: for(T symbol : range)
+    | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
+# This one should only appear inside a NODECL_TRY_BLOCK
+    | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
@@ -125,13 +134,20 @@ literal : NODECL_INTEGER_LITERAL() type const-value
 
 string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
+vector-flags: NODECL_ALIGNED_FLAG()
+    | NODECL_ALIGNMENT_INFO() const-value
+    | NODECL_EVICT_FLAG()
+    | NODECL_RELAXED_FLAG()
+    | NODECL_NONTEMPORAL_FLAG()
+    | expression
+
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
-           | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_form]member-access-form-opt) type const-value-opt text-opt
+           | range-expression
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
@@ -162,68 +178,61 @@ expression : literal
            | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
-           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_MINUS([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_MUL([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_NEG([rhs]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_NEG([rhs]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_DIFFERENT([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_GREATER_THAN([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_LOGICAL_NOT([rhs]expression) type const-value-opt 
-           | NODECL_VECTOR_LOGICAL_AND([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_LOGICAL_OR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_NOT([rhs]expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_BITWISE_NOT([rhs]expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression, [mask]expression) type const-value-opt 
-           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
-           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_UNALIGNED_MASKED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_LOAD([rhs] expression, [mask] expression) type const-value-opt 
-           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression) type const-value-opt 
-           | NODECL_UNALIGNED_MASKED_VECTOR_LOAD([rhs] expression, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_GATHER([base] expression, [strides] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_GATHER([base] expression, [strides] expression, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_PROMOTION([rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_LITERAL([scalar_values] expression-seq) type const-value-opt 
-           | NODECL_VECTOR_CONVERSION([nest] expression) type const-value-opt 
-           | NODECL_MASKED_VECTOR_CONVERSION([nest] expression, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name) type const-value-opt 
-           | NODECL_MASKED_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_FABS([argument] argument) type const-value-opt 
-           | NODECL_MASKED_VECTOR_FABS([argument] argument, [mask] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_OR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_XOR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FMADD([first_op]expression, [second_op]expression, [third_op]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FMMINUS([first_mul_op]expression, [second_mul_op]expression, [minus_op]expression-opt, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_RSQRT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_DIFFERENT([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_GREATER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOGICAL_NOT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOGICAL_AND([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOGICAL_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_NOT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHL([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHL_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_ARITHMETIC_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_ARITHMETIC_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt,[flags] vector-flags-seq-opt) type const-value-opt
+           | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
+           | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LANE_ID() type const-value
+           | NODECL_VECTOR_CONVERSION([nest] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_CAST([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FABS([argument] argument, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_SINCOS([source] argument, [sin_pointer] argument, [cos_pointer] argument, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_CONVERSION([nest] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_OR([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_XOR([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_LOOP([peeling] expression, [main_loop] expression, [epilog] expression) type const-value-opt
            | c-cxx-expressions
            | fortran-expressions
            | object-init
@@ -231,15 +240,22 @@ expression : literal
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type const-value-opt
-# Ths one is used when we need an expression only for its type
+# This one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
-structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
+range-expression : NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
 
-initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
-          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
-          | expression
-          | fortran-implied-do
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
+
+structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
+  | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
+  | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
+  | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
+
+initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
+      | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
+      | expression
+      | fortran-implied-do
 
 fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [items]initializer-item-seq)
 
@@ -261,7 +277,7 @@ alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-o
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
+                  | NODECL_COMMA([lhs]expression, [rhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -280,7 +296,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PREDECREMENT([rhs]expression) type const-value-opt
                   | NODECL_POSTDECREMENT([rhs]expression) type const-value-opt
                   | NODECL_SIZEOF([size_type]type, [expr]expression-opt) type const-value-opt
-                  | NODECL_ALIGNOF([align_type]type) type const-value-opt
+                  | NODECL_ALIGNOF([align_type]type-or-expr) type const-value-opt
                   | NODECL_OFFSET([base]expression, [offset]expression) type const-value-opt
                   | NODECL_TYPEID([arg]type-or-expr) type const-value-opt
                   | NODECL_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text const-value-opt
@@ -291,13 +307,18 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_IMAG_PART([rhs]expression) type const-value-opt
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
-                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
-                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt 
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
+                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
+                  | NODECL_VALUE_INITIALIZATION() symbol type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
+                  | cxx-pack
 
+# Used for C++11 lambdas
+explicit-capture: NODECL_CXX_CAPTURE_COPY([init] expression-opt) symbol
+                | NODECL_CXX_CAPTURE_REFERENCE([init] expression-opt) symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 
@@ -309,42 +330,55 @@ cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-initializer
    | cxx-dependent-expressions
 
+cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
+         # This one materializes a subvalue of a pack. const-value should be an integer
+         # Here we materialize the expansion, used for nontype template-arguments packs
+         | NODECL_CXX_VALUE_PACK_EXPANDED([values]expression-seq-opt) type
+
 # nodecl was created entirely to avoid this kind of "declaration nodes" but we
 # will not be able to get rid of them until we instantiate template functions
 cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_DEF([context] context-opt) symbol
-         | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_USING_NAMESPACE([context] context) symbol
-         | NODECL_CXX_USING_DECL([context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DEF([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DECL([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_USING_NAMESPACE([context] context, [used_name]cxx-dependent-name) symbol
+         | NODECL_CXX_USING_DECL([context] context, [used_name]cxx-dependent-name) symbol
+         # Used only in weird cases where parsing must be delayed in the frontend itself
+         # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()
+# experimental
+         | NODECL_CXX_IMPLICIT_INSTANTIATION() symbol
 
 # Special nodes for dependent names
-cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
-                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
-                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) type-opt
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt, [literal_conversion] any-opt) symbol-opt type-opt
 
-cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text type-opt
+cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
-cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression)
-    | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
-    | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
-    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
+cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
+    | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type
+    | NODECL_CXX_EQUAL_INITIALIZER([init]expression) type
+    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt) type
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
     | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression)
 
+# a.b
+cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type const-value-opt text-opt
 # a->b
-cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type const-value-opt text
+    | NODECL_CXX_ARROW([lhs]expression, [member]expression) type const-value-opt text
 # a.*b
     | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type const-value-opt
 # a->*b
     | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type const-value-opt
 # sizeof(expr)
     | NODECL_CXX_SIZEOF([expr] expression) type const-value-opt
+# sizeof...(expr)
+    | NODECL_CXX_SIZEOF_PACK([expr] expression) type const-value-opt
 # alignof(expr)
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
@@ -358,6 +392,10 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
 # T(expr-list) (T being an expression)
     | NODECL_CXX_DEP_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value-opt
     | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
+# noexcept(expr)
+    | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
+# [dependent] C+11 lambdas
+    | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -367,8 +405,6 @@ function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
-
-member-access-form : NODECL_CXX_MEMBER_FORM_QUALIFIED()
 
 type-or-expr : type
              | expression
@@ -462,12 +498,14 @@ text : NODECL_TEXT() text
 
 parallel-statements : parallel-execution
                     | synchronization
+                    | data-coordination
 
 parallel-execution : task-construct
+                   | taskyield-construct
                    | single-construct
                    | critical-construct
                    | parallel-construct
-                   | for-construct
+                   | omp-for-construct
                    | atomic-construct
                    | sections-construct
                    | master-construct
@@ -491,12 +529,13 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression, [site_environment]exec-environment-seq-opt)
 
 # task expression
-task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement-seq)
+task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement)
 
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
 expression : task-call
             | task-expression
+            | ompss-multi-dep
 
 top-level: target-declaration
 
@@ -509,10 +548,11 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
-                 | NODECL_OPEN_M_P*ALLOCA([alloca_expressions]expression-seq)
+                 | NODECL_OPEN_M_P*ALLOCA([exprs] expression-seq)
+                 | NODECL_OPEN_M_P*SHARED_AND_ALLOCA([exprs]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_IN_ALLOCA([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_VALUE([in_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_IN_PRIVATE([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
                  | NODECL_OPEN_M_P*CONCURRENT([inout_deps]expression-seq)
@@ -529,11 +569,20 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
                  | NODECL_OPEN_M_P*TASK_LABEL() text
                  | NODECL_OPEN_M_P*NO_FLUSH()
+                 | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
+# Used for simd
+                 | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
-                 | NODECL_OPEN_M_P*VECTOR_SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*VECTOR_DEVICE([device] text)
-                 | NODECL_OPEN_M_P*VECTOR_MASK()
-                 | NODECL_OPEN_M_P*VECTOR_NO_MASK()
+                 | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
+                 | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [min_group_loads] expression, [max_group_registers] expression, [max_groups] expression)
+                 | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
+                 | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
+                 | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
+                 | NODECL_OPEN_M_P*MASK()
+                 | NODECL_OPEN_M_P*NO_MASK()
+                 | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]reduction-item-seq)
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
@@ -551,7 +600,8 @@ reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
+omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
+              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
 
 # workshare (Fortran only)
 workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)
@@ -577,15 +627,25 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
-# SIMD    
+data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
+
+taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
+
+ompss-multi-dep : NODECL_OMP_SS*MULTI_DEPENDENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
+
+##############################
+# SIMD                       #
+##############################
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
+                | simd-parallel-construct
 
 simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] exec-environment-seq-opt)
 simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] exec-environment-seq-opt)
-simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] for-construct, [environment] exec-environment-seq-opt)
+simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] exec-environment-seq-opt)
 parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] exec-environment-seq-opt)
+simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] exec-environment-seq-opt)
 
 ##############################
 # CUDA                       #
@@ -597,18 +657,50 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 # ANALYSIS                   #
 ##############################
 
+# Used for range analysis
+
+constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*EMPTY_RANGE()
+                      | NODECL_ANALYSIS*MINUS_INFINITY() type
+                      | NODECL_ANALYSIS*PLUS_INFINITY() type
+                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+
+expression : constraint_expression
+           | NODECL_UNKNOWN()
+
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
 
-induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression, [upper] expression, [stride] expression)
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression-seq, [upper] expression-seq, [stride] expression)
 
-analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
-                          | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)
-                          | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq)
-                          | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq)
-                          | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq)
-                          | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq)
-                          | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq)
-                          | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq)
+analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*UNDEFINED([undefined_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq-opt)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq-opt)
+                          | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq-opt)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq-opt)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
+
+top-level : assert-directive
+
+assert-directive : NODECL_ANALYSIS*ASSERT_DECL([environment] analysis-exec-environment-seq-opt) symbol

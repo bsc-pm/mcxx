@@ -27,10 +27,8 @@
 #ifndef TL_TASK_SYNC_ANALYSIS_HPP
 #define TL_TASK_SYNC_ANALYSIS_HPP
 
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
-#include "tl-pcfg-utils.hpp"
 
 namespace TL { 
 namespace Analysis {
@@ -54,7 +52,7 @@ namespace TaskAnalysis {
 #undef SYNC_KIND
     };
 
-    inline std::string sync_kind_to_str(SyncKind sk)
+    inline const char* sync_kind_to_str(SyncKind sk)
     {
         switch (sk)
         {
@@ -68,8 +66,8 @@ namespace TaskAnalysis {
     };
 
     typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
-    typedef std::set<PointOfSyncInfo> PointOfSyncSet;
-    typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
+    typedef ObjectList<PointOfSyncInfo> PointOfSyncList;
+    typedef std::map<Node*, PointOfSyncList> PointsOfSync;
 
     struct LIBTL_CLASS TaskSynchronizations
     {
@@ -77,7 +75,7 @@ namespace TaskAnalysis {
         ExtensibleGraph* _graph;
 
     public:
-        TaskSynchronizations( ExtensibleGraph* graph );
+        TaskSynchronizations( ExtensibleGraph* graph, bool is_ompss_enabled );
 
         void compute_task_synchronizations( );
     };
@@ -101,13 +99,14 @@ namespace TaskAnalysis {
         // there is taskwait / barrier after the task scheduling point inside the loop
         // In that case, the first iteration _last_sync will be previous to the loop, 
         // but for the next iterations, the _last_sync will be the one inside the loop
-        ObjectList<Node*> _last_sync;
-        Node* _next_sync;
+        ObjectList<Node*> _last_sync_for_tasks;
+        ObjectList<Node*> _next_sync;
         
         
         // *** Private methods *** /
         
         void find_last_synchronization_point_in_parents( Node* current );
+        void find_last_synchronization_point_in_children( Node* current, Node* loop );
         
         //! This method calculates the next and last synchronization points of a task
         void define_concurrent_regions_limits( Node* task );
@@ -118,9 +117,12 @@ namespace TaskAnalysis {
         void compute_concurrent_tasks( Node* task );
         
     public:
+        // *** Constructor *** //
         TaskConcurrency( ExtensibleGraph* graph );
         
-        void compute_task_concurrency( );
+        // *** Modifiers *** //
+        void compute_tasks_concurrency( );
+        void compute_task_concurrency( Node* task );
     };
     
     // ************************* END class implementing task concurrency analysis ************************* //

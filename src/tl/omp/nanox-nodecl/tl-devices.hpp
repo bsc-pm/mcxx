@@ -25,8 +25,8 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef NANOX_DEVICES_H
-#define NANOX_DEVICES_H
+#ifndef NANOX_DEVICES_HPP
+#define NANOX_DEVICES_HPP
 
 
 #include "tl-compilerphase.hpp"
@@ -79,7 +79,7 @@ namespace TL { namespace Nanox {
         TargetInformation& _target_info;
 
         // The original statements are the statements written by the user
-        const Nodecl::NodeclBase& _original_statements;
+        Nodecl::NodeclBase _original_statements;
 
         // The task statements are the updated version of the statements written by the user.
         // For example:
@@ -97,16 +97,16 @@ namespace TL { namespace Nanox {
         // The task call "foo(2)" has two possible implementors:
         //  - The foo function: In this case the original statements and the task statements are the same: "foo(2)".
         //  - The fii function: The original statements are "foo(2)", but the task statements are: "fii(2)".
-        const Nodecl::NodeclBase& _task_statements;
-        const Nodecl::NodeclBase& _task_label;
+        Nodecl::NodeclBase _task_statements;
+        Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task;
 
         CreateOutlineInfo(std::string& outline_name,
                 ObjectList<OutlineDataItem*> data_items,
                 TargetInformation& target_info,
-                Nodecl::NodeclBase& original_statements,
-                Nodecl::NodeclBase& task_statements,
+                Nodecl::NodeclBase original_statements,
+                Nodecl::NodeclBase task_statements,
                 Nodecl::NodeclBase task_label,
                 TL::Symbol& args_struct,
                 TL::Symbol& called_task)
@@ -133,6 +133,7 @@ namespace TL { namespace Nanox {
 
              const std::string _device_name;
 
+             // This variable should be only used in Fortran
              Nodecl::List _extra_c_code;
 
          private:
@@ -182,6 +183,21 @@ namespace TL { namespace Nanox {
                      /* output parameters */
                      Source& instrumentation_before,
                      Source& instrumentation_after);
+
+
+             virtual void generate_outline_events_before(
+                     Source& function_name_instr,
+                     Source& extra_cast,
+                     Source& instrumentation_before);
+
+             virtual void generate_outline_events_after(
+                     Source& function_name_instr,
+                     Source& extra_cast,
+                     Source& instrumentation_after);
+
+             virtual void create_weak_device_symbol(
+                     const std::string& symbol_name,
+                     Nodecl::NodeclBase root);
 
              virtual bool remove_function_task_from_original_source() const = 0;
 
@@ -234,14 +250,24 @@ namespace TL { namespace Nanox {
                      TL::Symbol &arguments_symbol);
 
              /**
-              * Returns if the symbol(sym) is serializable or not
-              * in case it's serializable and the device has a separate
-              * memory address space (non-smp), it should take care of-deserializing
-              * inside the outline function
-              * @param sym
-              * @return 
+              * This function applies the symbol map to the ndrange and shmem
+              * expressions that are stored inside the TargetInformation. The
+              * new expressions are stored in the output objectlists.
+              *
+              * @param related_scope
+              * @param target_info
+              * @param symbol_map
+              * @param new_ndrange_exprs
+              * @param new_shmem_exprs
               */
-             bool is_serializable(TL::Symbol &sym);
+             void update_ndrange_and_shmem_expressions(
+                     const TL::Scope& related_scope,
+                     const TargetInformation& target_info,
+                     Nodecl::Utils::SimpleSymbolMap* symbol_map,
+                     // out
+                     TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_exprs,
+                     TL::ObjectList<Nodecl::NodeclBase>& new_shmem_exprs);
+
     };
 
     class DeviceHandler
@@ -277,4 +303,4 @@ namespace TL { namespace Nanox {
             );
 } }
 
-#endif // NANOX_DEVICES_H
+#endif // NANOX_DEVICES_HPP

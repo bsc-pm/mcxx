@@ -11,9 +11,9 @@
 #      -> AST
 #      -> scope /* Avoid at all costs to use these, they take a lot of memory */
 #      -> symbol
+#      -> type
 #      -> typeof("literal-c-typename")
 #      -> array(TYPE)
-#      -> static_array(TYPE, size)
 #      -> string
 #
 # LANG -> all
@@ -27,6 +27,7 @@ bool|all|is_static|States if this is a static storage (or SAVEd in Fortran) vari
 bool|all|is_register|States if this is a register variable
 bool|all|is_extern|The symbol has an explicit extern storage
 bool|all|is_thread|The symbol has thread local storage
+bool|all|is_thread_local|The symbol has thread local storage C++11
 bool|all|is_mutable|The symbol is a mutable entity of a const-class
 bool|all|is_export|This is an exported template. Not used at all
 bool|all|is_inline|The function has been explicitly set as inline
@@ -61,11 +62,14 @@ bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_unnamed|This is an unnamed struct or enum
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
-bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
 bool|all|is_nested_function|States that this function is nested inside another one
 bool|all|is_saved_expression|States that this variable is actually a phony one created to store a runtime value used elsewhere
 bool|all|gcc_extension|States that this variable has the gcc __extension__ attribute
 bool|all|is_result_var|This symbol is the result variable of the function
+bool|all|is_constexpr|States that this symbol is a C++ constexpr
+bool|all|is_override|States that this symbol is explicitly overriden
+bool|all|is_final|States that this symbol is final
+bool|all|is_hides_member|States that this symbol explicitly hides a member in the base class
 bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
@@ -76,7 +80,6 @@ bool|fortran|is_target|This entity has the TARGET attribute
 bool|fortran|is_elemental|This is an ELEMENTAL function
 bool|fortran|is_recursive|This is a RECURSIVE function
 bool|fortran|is_stmt_function|This symbol has been declared after a statement function statement
-bool|fortran|is_generic_spec|This symbol is a generic specifier name
 bool|fortran|is_intrinsic_subroutine|This symbol is an INTRINSIC SUBROUTINE
 bool|fortran|is_intrinsic_function|This symbol is an INTRINSIC FUNCTION
 bool|fortran|is_module_procedure|This function has been named in an interface construct as a MODULE PROCEDURE
@@ -85,6 +88,7 @@ bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 bool|fortran|is_cray_pointer|This symbol is a Cray pointer
 bool|fortran|is_saved_program_unit|States that all non-automatic entities are SAVEd in that program unit
+bool|fortran|is_contiguous|CONTIGUOUS attribute for pointers
 symbol|all|result_var|If this symbol is a function, its result variable, NULL otherwise
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|The generic symbol of an intrinsic (Fortran). The template that must be used to emit this specialization (C++)
@@ -105,6 +109,7 @@ symbol|fortran|in_module|If not NULL it means that this symbol is a component of
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 symbol|fortran|used_modules|Symbol that keeps track of the USEd modules in this program unit
 string|all|linkage_spec|The linkage specifier (C, C++)
+nodecl|all|noexception|C++ noexcept specifier. If this tree is not null it will be at least 'true'
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(function_parameter_info_t))|all|function_parameter_info|Information kept for a symbol that is a parameter of a function
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
@@ -113,10 +118,11 @@ typeof(_size_t,intptr)|all|bitfield_offset|Offset in bytes since the beginning o
 integer|all|bitfield_first|Significance order of the first bit of this bitfield
 integer|all|bitfield_last|Significance order of the last bit of this bitfield (the same as first if the bitfield is just 1 bit wide)
 typeof(_size_t,intptr)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
-array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
-array(typeof(gather_gcc_attribute_t))|all|ms_attributes|MS __declspec attributes
+array(typeof(gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
+array(typeof(gcc_attribute_t))|all|ms_attributes|MS __declspec attributes
 typeof(simplify_function_t,pointer)|all|simplify_function|Function used to simplify expressions
-typeof(emission_handler_t,pointer)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|fortran|bind_info|Information of a BIND(lang, X)
 nodecl|all|asm_specification|__asm specification of GCC
 nodecl|all|*function_code|Nodecl statement of a function
+typeof(pfortran_modules_data_set_t)|fortran|*module_extra_info|Extra info used by fortran modules shared between the FE and TL
+typeof(instantiation_symbol_map_t*)|all|*instantiation_symbol_map|Instantiation map for template classes and functions

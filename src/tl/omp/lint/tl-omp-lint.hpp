@@ -27,26 +27,87 @@
 #ifndef TL_OMP_LINT_HPP
 #define TL_OMP_LINT_HPP
 
+#include "tl-analysis-base.hpp"
 #include "tl-compilerphase.hpp"
+#include "tl-nodecl-visitor.hpp"
 
-namespace TL
-{
-    namespace OpenMP
+namespace TL {
+namespace OpenMP {
+    
+    // We need this method to be visible so it can be used on demand
+    // (Necessary for correctness analysis checker phase)
+    void launch_correctness(
+            const TL::Analysis::AnalysisBase& analysis,
+            std::string log_file_path);
+    
+    class WritesVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
-        //! This class transforms OpenMP pragmas to the Nodecl representation of parallelism
-        class Lint : public TL::CompilerPhase
-        {
-            private:
-                std::string _disable_phase;
-            public:
-                Lint();
+    private:
+        ObjectList<Nodecl::NodeclBase> _defined_vars;
+        bool _define;
+        
+        void visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+        void visit_xx_crement( const Nodecl::NodeclBase& rhs );
+        
+    public:
+        // *** Constructor *** //
+        WritesVisitor( );
+        
+        // *** Getters *** //
+        ObjectList<Nodecl::NodeclBase> get_defined_symbols( );
+        
+        // *** Modifiers *** //
+        void clear( );
+        
+        // *** Visiting methods *** //
+        Ret visit( const Nodecl::AddAssignment& n );
+        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::Assignment& n );
+        Ret visit( const Nodecl::BitwiseAndAssignment& n );
+        Ret visit( const Nodecl::BitwiseOrAssignment& n );
+        Ret visit( const Nodecl::BitwiseShlAssignment& n );
+        Ret visit( const Nodecl::BitwiseShrAssignment& n );
+        Ret visit( const Nodecl::BitwiseXorAssignment& n );
+        Ret visit( const Nodecl::ClassMemberAccess& n );
+        Ret visit( const Nodecl::Dereference& n );
+        Ret visit( const Nodecl::DivAssignment& n );
+        Ret visit( const Nodecl::MinusAssignment& n );
+        Ret visit( const Nodecl::ModAssignment& n );
+        Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::ObjectInit& n );
+        Ret visit( const Nodecl::Postdecrement& n );
+        Ret visit( const Nodecl::Postincrement& n );
+        Ret visit( const Nodecl::Predecrement& n );
+        Ret visit( const Nodecl::Preincrement& n );
+        Ret visit( const Nodecl::Reference& n );
+        Ret visit( const Nodecl::Symbol& n );
+    };
+    
+    //! This class transforms OpenMP pragmas to the Nodecl representation of parallelism
+    class Lint : public TL::CompilerPhase
+    {
+    private:
+        std::string _disable_phase;
+        std::string _correctness_log_path;
+        std::string _lint_deprecated_flag;
+        std::string _ompss_mode_str;
 
-                virtual void run(TL::DTO& dto);
-                virtual void pre_run(TL::DTO& dto);
+        bool _ompss_mode_enabled;
 
-                virtual ~Lint() { }
-        };
-    }
+        void set_ompss_mode( const std::string& ompss_mode_str);
+        void set_lint_deprecated_flag(const std::string& lint_deprecated_flag_str);
+        
+    public:
+        Lint();
+
+        virtual void run(TL::DTO& dto);
+        virtual void pre_run(TL::DTO& dto);
+
+        virtual ~Lint() { }
+    };
+    
+}
 }
 
 #endif // TL_OMP_LINT_HPP

@@ -40,16 +40,25 @@ namespace Analysis {
     class LIBTL_CLASS AnalysisCheckPhase : public PragmaCustomCompilerPhase
     {
     private:
+        std::string _correctness_log_path;
 
     public:
         //! Constructor of this phase
         AnalysisCheckPhase( );
 
-        void assert_handler_pre( TL::PragmaCustomStatement ctr );
-        void assert_handler_post( TL::PragmaCustomStatement ctr );
+        void assert_handler_pre( TL::PragmaCustomStatement directive );
+        void assert_handler_post( TL::PragmaCustomStatement directive );
+        void assert_decl_handler_pre( TL::PragmaCustomDeclaration directive );
+        void assert_decl_handler_post( TL::PragmaCustomDeclaration directive );
         
+        //! Private checking methods
         void check_pcfg_consistency( ExtensibleGraph* graph );
         void check_analysis_assertions( ExtensibleGraph* graph );
+        
+        //! Members to check the programming model being used
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
         
         //!Entry point of the phase
         virtual void run( TL::DTO& dto );
@@ -64,6 +73,7 @@ namespace Analysis {
         
     public:
         Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::AssertDecl& n );
     };
 }
 }

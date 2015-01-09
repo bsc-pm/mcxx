@@ -28,6 +28,7 @@
 
 #include "cxx-cexpr.h"
 #include "codegen-common.hpp"
+#include "tl-expression-reduction.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-node.hpp"
 
@@ -35,97 +36,104 @@ namespace TL {
 namespace Analysis {
 
 namespace {
-    bool is_accepted_induction_variable_syntax( Node* loop, Nodecl::NodeclBase stmt,
-                                                Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr )
+    const_value_t* one = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+
+    bool is_accepted_induction_variable_syntax(Node* loop, NBase stmt, NBase& iv, NBase& incr)
     {
         bool is_iv = false;
 
-        Nodecl::Utils::ReduceExpressionVisitor v;
-        Nodecl::NodeclBase st = stmt.shallow_copy( );
-        v.walk( st );
-
-        if( st.is<Nodecl::Assignment>( ) )
+        if(stmt.is<Nodecl::Assignment>())
         {
-            Nodecl::Assignment st_ = st.as<Nodecl::Assignment>( );
-            Nodecl::NodeclBase lhs = st_.get_lhs( );
-            Nodecl::NodeclBase rhs = st_.get_rhs( );
+            Nodecl::Assignment st_ = stmt.as<Nodecl::Assignment>();
+            NBase lhs = st_.get_lhs();
+            NBase rhs = st_.get_rhs();
 
-            Nodecl::NodeclBase lhs_rhs, rhs_rhs;
-            if( rhs.is<Nodecl::Add>( ) )
-            {   // Expression accepted: iv = x + iv; iv = -x + iv;
-                Nodecl::Add _rhs = rhs.as<Nodecl::Add>( );
-                lhs_rhs = _rhs.get_lhs( );
-                rhs_rhs = _rhs.get_rhs( );
-                
-                if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
-                    && ( !lhs.is<Nodecl::ArraySubscript>( )
-                         || ( lhs.is<Nodecl::ArraySubscript>( )
-                              && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+            NBase lhs_rhs, rhs_rhs;
+            if(rhs.is<Nodecl::Add>())
+            {   // Expression accepted: iv = c + iv; iv = iv + x; iv = -c + iv; iv = iv - x;
+                Nodecl::Add _rhs = rhs.as<Nodecl::Add>();
+                lhs_rhs = _rhs.get_lhs();
+                rhs_rhs = _rhs.get_rhs();
+
+                if((!lhs.is<Nodecl::ArraySubscript>() ||
+                      (lhs.is<Nodecl::ArraySubscript>() &&
+                        ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
                 {
-                    iv = lhs;
-                    incr = lhs_rhs;
-                    is_iv = true;
+                    if(Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_rhs, /*skip_conversion_node*/ true) &&
+                        ExtensibleGraph::is_constant_in_context(loop, lhs_rhs))
+                    {
+                        iv = lhs;
+                        incr = lhs_rhs;
+                        is_iv = true;
+                    }
+                    else if(Nodecl::Utils::structurally_equal_nodecls(lhs, lhs_rhs, /*skip_conversion_node*/ true) &&
+                        ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))
+                    {
+                        iv = lhs;
+                        incr = rhs_rhs;
+                        is_iv = true;
+                    }
                 }
             }
         }
-        else if( st.is<Nodecl::AddAssignment>( ) )
+        else if(stmt.is<Nodecl::AddAssignment>())
         {   // Expression accepted: iv += x;
-            Nodecl::AddAssignment st_ = st.as<Nodecl::AddAssignment>( );
-            Nodecl::NodeclBase lhs = st_.get_lhs( );
-            if( ExtensibleGraph::is_constant_in_context( loop, st_.get_rhs( ) )
-                && ( !lhs.is<Nodecl::ArraySubscript>( )
-                        || ( lhs.is<Nodecl::ArraySubscript>( )
-                            && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+            Nodecl::AddAssignment st_ = stmt.as<Nodecl::AddAssignment>();
+            NBase lhs = st_.get_lhs();
+            if(ExtensibleGraph::is_constant_in_context(loop, st_.get_rhs())
+                && (!lhs.is<Nodecl::ArraySubscript>()
+                        || (lhs.is<Nodecl::ArraySubscript>()
+                            && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
-                iv = st_.get_lhs( );
-                incr = st_.get_rhs( );
+                iv = st_.get_lhs();
+                incr = st_.get_rhs();
                 is_iv = true;
             }
         }
-        else if( st.is<Nodecl::MinusAssignment>( ) )
+        else if(stmt.is<Nodecl::MinusAssignment>())
         {   // Expression accepted: iv -= x;
-            Nodecl::MinusAssignment st_ = st.as<Nodecl::MinusAssignment>( );
-            Nodecl::NodeclBase lhs = st_.get_lhs( );
-            Nodecl::NodeclBase rhs = st_.get_rhs( );
-            if( ExtensibleGraph::is_constant_in_context( loop, st_.get_rhs( ) )
-                && ( !lhs.is<Nodecl::ArraySubscript>( )
-                        || ( lhs.is<Nodecl::ArraySubscript>( )
-                            && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+            Nodecl::MinusAssignment st_ = stmt.as<Nodecl::MinusAssignment>();
+            NBase lhs = st_.get_lhs();
+            NBase rhs = st_.get_rhs();
+            if(ExtensibleGraph::is_constant_in_context(loop, st_.get_rhs())
+                && (!lhs.is<Nodecl::ArraySubscript>()
+                        || (lhs.is<Nodecl::ArraySubscript>()
+                            && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
-                Nodecl::NodeclBase new_rhs = Nodecl::Neg::make( rhs, rhs.get_type( ),
-                                                                rhs.get_locus() );
-                iv = st_.get_lhs( );
+                NBase new_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type(), rhs.get_locus());
+                iv = st_.get_lhs();
                 incr = new_rhs;
                 is_iv = true;
             }
         }
-        else if( st.is<Nodecl::Preincrement>( ) )
+        else if(stmt.is<Nodecl::Preincrement>())
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Preincrement>( ).get_rhs( );
+            NBase rhs = stmt.as<Nodecl::Preincrement>().get_rhs();
             iv = rhs;
-            incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
+            incr = Nodecl::IntegerLiteral::make(rhs.get_type(), one);
             is_iv = true;
         }
-        else if( st.is<Nodecl::Postincrement>( ) )
+        else if(stmt.is<Nodecl::Postincrement>())
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Postincrement>( ).get_rhs( );
+            NBase rhs = stmt.as<Nodecl::Postincrement>().get_rhs();
             iv = rhs;
-            incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
+            incr = Nodecl::IntegerLiteral::make(rhs.get_type(), one);
             is_iv = true;
         }
-        else if( st.is<Nodecl::Predecrement>( ) )
+        else if(stmt.is<Nodecl::Predecrement>())
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Predecrement>( ).get_rhs( );
+            NBase rhs = stmt.as<Nodecl::Predecrement>().get_rhs();
             iv = rhs;
-            incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_minus_one( /* bytes */ 4, /* signed */ 1 ) );
+            incr = Nodecl::Neg::make(const_value_to_nodecl(one), rhs.get_type());
+            incr.set_constant(const_value_neg(one));
             is_iv = true;
         }
-        else if( st.is<Nodecl::Postdecrement>( ) )
+        else if(stmt.is<Nodecl::Postdecrement>())
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Postdecrement>( ).get_rhs( );
+            NBase rhs = stmt.as<Nodecl::Postdecrement>().get_rhs();
             iv = rhs;
-            incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_minus_one( /* bytes */ 4, /* signed */ 1 ) );
+            incr = Nodecl::Neg::make(const_value_to_nodecl(one), rhs.get_type());
+            incr.set_constant(const_value_neg(one));
             is_iv = true;
         }
 
@@ -141,205 +149,202 @@ namespace {
     // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
-    InductionVariableAnalysis::InductionVariableAnalysis( ExtensibleGraph* graph )
-            : _induction_vars( ), _graph( graph )
+    InductionVariableAnalysis::InductionVariableAnalysis(ExtensibleGraph* graph)
+            : _induction_vars(), _graph(graph)
     {}
 
-    void InductionVariableAnalysis::compute_induction_variables( )
+    void InductionVariableAnalysis::compute_induction_variables()
     {
-        Node* graph = _graph->get_graph( );
-        compute_induction_variables_rec( graph );
-        ExtensibleGraph::clear_visits( graph );
+        Node* graph = _graph->get_graph();
+        compute_induction_variables_rec(graph);
+        ExtensibleGraph::clear_visits(graph);
     }
 
-    void InductionVariableAnalysis::compute_induction_variables_rec( Node* current )
+    void InductionVariableAnalysis::compute_induction_variables_rec(Node* current)
     {
-        if( !current->is_visited( ) )
+        if(!current->is_visited())
         {
             current->set_visited(true);
 
-            if( current->is_graph_node( ) )
+            if(current->is_graph_node())
             {
                 // IV is computed from inner to outer loops
-                Node* entry = current->get_graph_entry_node( );
-                compute_induction_variables_rec( entry );
+                Node* entry = current->get_graph_entry_node();
+                compute_induction_variables_rec(entry);
 
-                if( current->is_loop_node( ) )
+                if(current->is_loop_node())
                 {   // Treat current loop
-                    ExtensibleGraph::clear_visits_in_level( entry, current );
-                    detect_basic_induction_variables( entry, current );
-//                     ExtensibleGraph::clear_visits_in_level( entry, current );
-//                     detect_derived_induction_variables( entry, current );
+                    ExtensibleGraph::clear_visits_in_level(entry, current);
+                    detect_basic_induction_variables(entry, current);
+//                     ExtensibleGraph::clear_visits_in_level(entry, current);
+//                     detect_derived_induction_variables(entry, current);
                 }
-                else if( current->is_omp_loop_node( ) )
+                else if(current->is_omp_loop_node())
                 {   //Propagate induction variables from the inner loop to the omp loop node
-                    Node* loop_entry_node = current->get_graph_entry_node( )->get_children( )[0];
-                    Node* loop_node = loop_entry_node->get_children( )[0];
-                    std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs = 
-                    _induction_vars.equal_range( loop_node->get_id( ) );
-                    for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
+                    Node* loop_entry_node = current->get_graph_entry_node()->get_children()[0];
+                    Node* loop_node = loop_entry_node->get_children()[0];
+                    std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
+                    _induction_vars.equal_range(loop_node->get_id());
+                    for(Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it)
                     {
-                        current->set_induction_variable( it->second );
-                        _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( current->get_id( ), it->second ) );
+                        current->set_induction_variable(it->second);
+                        _induction_vars.insert(std::pair<int, Utils::InductionVar*>(current->get_id(), it->second));
                     }
                 }
             }
 
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                compute_induction_variables_rec( *it );
-            }
+            ObjectList<Node*> children = current->get_children();
+            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                compute_induction_variables_rec(*it);
         }
     }
 
-    void InductionVariableAnalysis::detect_basic_induction_variables( Node* current, Node* loop )
+    void InductionVariableAnalysis::detect_basic_induction_variables(Node* current, Node* loop)
     {
-        if( !current->is_visited( ) && !current->is_graph_exit_node( loop ) )
-        {
-            current->set_visited( true );
+        if (current->is_visited() || current->is_graph_exit_node(loop))
+            return;
 
+        current->set_visited(true);
+
+        if (current->is_graph_node() && !current->is_loop_node())
+        {
+            detect_basic_induction_variables(current->get_graph_entry_node(), loop);
+        }
+        else
+        {
             // Look for IVs in the current node
-            ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-            for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+            NodeclList stmts = current->get_statements();
+            for (NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
-                Nodecl::NodeclBase incr;
-                ObjectList<Nodecl::NodeclBase> incr_list;
-                Nodecl::NodeclBase iv = is_basic_induction_variable( *it, loop, incr, incr_list );
-                if( !iv.is_null( ) )
+                NBase incr;
+                ObjectList<NBase> incr_list;
+                NBase iv = is_basic_induction_variable(*it, loop, incr, incr_list);
+                if (!iv.is_null())
                 {
-                    Utils::InductionVariableData* ivd = new Utils::InductionVariableData( Utils::ExtendedSymbol( iv ),
-                                                                                          Utils::BASIC_IV, iv );
-                    ivd->set_increment( incr );
-                    ivd->set_increment_list( incr_list );
-                    loop->set_induction_variable( ivd );
-                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), ivd ) );
+                    Utils::InductionVar* ivd = new Utils::InductionVar(iv, Utils::BASIC_IV, iv);
+                    ivd->set_increment(incr);
+                    ivd->set_increment_list(incr_list);
+                    loop->set_induction_variable(ivd);
+                    _induction_vars.insert(std::pair<int, Utils::InductionVar*>(loop->get_id(), ivd));
                 }
             }
-
-            // Look for IVs in current's children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                detect_basic_induction_variables( *it, loop );
-            }
         }
+
+        // Look for IVs in current's children
+        const ObjectList<Node*>& children = current->get_children();
+        for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            detect_basic_induction_variables(*it, loop);
     }
 
     // FIXME This method does not cover all kind induction variable.
     // F.i., 'st': iv = 1 + iv + z, where 'z' is loop invariant, will return false
-    Nodecl::NodeclBase InductionVariableAnalysis::is_basic_induction_variable( Nodecl::NodeclBase st, Node* loop,
-                                                                               Nodecl::NodeclBase& incr,
-                                                                               ObjectList<Nodecl::NodeclBase>& incr_list )
+    NBase InductionVariableAnalysis::is_basic_induction_variable(NBase st, Node* loop,
+                                                                 NBase& incr, ObjectList<NBase>& incr_list)
     {
-        Nodecl::NodeclBase iv = Nodecl::NodeclBase::null( );
+        NBase iv = NBase::null();
 
-        if( is_accepted_induction_variable_syntax( loop, st, iv, incr ) )
+        if(is_accepted_induction_variable_syntax(loop, st, iv, incr))
         {
-            incr_list.insert( incr );
+            incr_list.insert(incr);
             // Get a list from the IVs in the map corresponding to the current loop
-            ObjectList<Utils::InductionVariableData*> ivs;
+            Utils::InductionVarList ivs;
             std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
-                    _induction_vars.equal_range( loop->get_id( ) );
-            for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
-            {
-                ivs.append( it->second );
-            }
+                    _induction_vars.equal_range(loop->get_id());
+            for(Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it)
+                ivs.append(it->second);
 
-            if( !Utils::induction_variable_list_contains_variable( ivs, iv ) )
+            if(!Utils::induction_variable_list_contains_variable(ivs, iv))
             {
-                if( !check_potential_induction_variable( iv, incr, incr_list, st, loop ) )
-                {
-                    iv = Nodecl::NodeclBase::null( );
-                }
+                if(!check_potential_induction_variable(iv, incr, incr_list, st, loop))
+                    iv = NBase::null();
             }
             else
             {
-                iv = Nodecl::NodeclBase::null( );
+                iv = NBase::null();
             }
         }
 
         return iv;
     }
 
-    void InductionVariableAnalysis::detect_derived_induction_variables( Node* current, Node* loop )
+    void InductionVariableAnalysis::detect_derived_induction_variables(Node* current, Node* loop)
     {
-        if( !current->is_visited( ) && current->is_graph_exit_node( loop ) )
+        if(!current->is_visited() && current->is_graph_exit_node(loop))
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
             // Look for IVs in the current node
-            ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-            for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+            NodeclList stmts = current->get_statements();
+            for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
-                Nodecl::NodeclBase iv_family;
-                Nodecl::NodeclBase n = is_derived_induction_variable( *it, current, loop, iv_family );
-                if( !n.is_null( ) ){
-                    Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
-                                                                                         Utils::DERIVED_IV, n );
-                    loop->set_induction_variable( iv );
-                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), iv ) );
+                NBase iv_family;
+                NBase n = is_derived_induction_variable(*it, current, loop, iv_family);
+                if(!n.is_null())
+                {
+                    Utils::InductionVar* iv = new Utils::InductionVar(n, Utils::DERIVED_IV, n);
+                    loop->set_induction_variable(iv);
+                    _induction_vars.insert(std::pair<int, Utils::InductionVar*>(loop->get_id(), iv));
                 }
 
             }
         }
     }
 
-    Nodecl::NodeclBase InductionVariableAnalysis::is_derived_induction_variable( Nodecl::NodeclBase st, Node* current,
-                                                                                 Node* loop, Nodecl::NodeclBase& family )
+    NBase InductionVariableAnalysis::is_derived_induction_variable(NBase st, Node* current,
+                                                                   Node* loop, NBase& family)
     {
-        Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
+        NBase res = NBase::null();
 
-//         Node* loop_entry = loop->get_graph_entry_node( );
-//         int id_end = loop->get_graph_exit_node( )->get_id( );
-//         if( st.is<Nodecl::Assignment>( ) )
+//         Node* loop_entry = loop->get_graph_entry_node();
+//         int id_end = loop->get_graph_exit_node()->get_id();
+//         if(st.is<Nodecl::Assignment>())
 //         {   /*! Expressions accepted
 //                 * . iv_1 = iv_2 + x;
 //                 * . iv_1 = x + iv_2;
 //                 * . iv_1 = iv_2 * x;
 //                 * . iv_1 = x * iv_2; */
-//             Nodecl::Assignment _st = st.as<Nodecl::Assignment>( );
-//             Nodecl::NodeclBase lhs = _st.get_lhs( );
-//             Nodecl::NodeclBase rhs = _st.get_rhs( );
+//             Nodecl::Assignment _st = st.as<Nodecl::Assignment>();
+//             NBase lhs = _st.get_lhs();
+//             NBase rhs = _st.get_rhs();
 //
-//             Nodecl::NodeclBase lhs_rhs, rhs_rhs;
-//             if( rhs.is<Nodecl::Add>( ) )
+//             NBase lhs_rhs, rhs_rhs;
+//             if(rhs.is<Nodecl::Add>())
 //             {
-//                 Nodecl::Add rhs_ = rhs.as<Nodecl::Add>( );
-//                 lhs_rhs = rhs_.get_lhs( );
-//                 rhs_rhs = rhs_.get_rhs( );
+//                 Nodecl::Add rhs_ = rhs.as<Nodecl::Add>();
+//                 lhs_rhs = rhs_.get_lhs();
+//                 rhs_rhs = rhs_.get_rhs();
 //             }
-//             else if( rhs.is<Nodecl::Mul>( ) )
+//             else if(rhs.is<Nodecl::Mul>())
 //             {
-//                 Nodecl::Mul rhs_ = rhs.as<Nodecl::Mul>( );
-//                 lhs_rhs = rhs_.get_lhs( );
-//                 rhs_rhs = rhs_.get_rhs( );
+//                 Nodecl::Mul rhs_ = rhs.as<Nodecl::Mul>();
+//                 lhs_rhs = rhs_.get_lhs();
+//                 rhs_rhs = rhs_.get_rhs();
 //             }
 //
-//             ObjectList<Utils::InductionVariableData*> loop_ivs = loop->get_induction_variables( );
-//             _constant = Nodecl::NodeclBase::null( );
-//             if( Utils::induction_variable_list_contains_variable( loop_ivs, lhs_rhs ) )
+//             Utils::InductionVarList loop_ivs = loop->get_induction_variables();
+//             _constant = NBase::null();
+//             if(Utils::induction_variable_list_contains_variable(loop_ivs, lhs_rhs))
 //             {
 //                 _constant = rhs_rhs;
 //                 family = lhs_rhs;
 //             }
-//             else if( Utils::induction_variable_list_contains_variable( loop_ivs, rhs_rhs ) )
+//             else if(Utils::induction_variable_list_contains_variable(loop_ivs, rhs_rhs))
 //             {
 //                 _constant= lhs_rhs;
 //                 family = rhs_rhs;
 //             }
-//             if( !_constant.is_null( ) )
+//             if(!_constant.is_null())
 //             {
-//                 if( is_loop_invariant( loop_entry, id_end ) )
+//                 if(is_loop_invariant(loop_entry, id_end))
 //                 {   //! expression of type: "lhs = family (+,*) _constant"
-//                     if( /*!loop_ivs.at(family).is_basic( )*/ true )
+//                     if(/*!loop_ivs.at(family).is_basic()*/ true)
 //                     {
 //                         // The only definition of \family that reaches \lhs is within the loop
 //                         _constant = family;
 //                         if(only_definition_is_in_loop(st, current, loop))
 //                         // The family of \family must not be defined between the definition of \family and \lhs
 //                         // TODO
-//                         if( true )
+//                         if(true)
 //                         {
 //                             res = lhs;
 //                         }
@@ -352,48 +357,50 @@ namespace {
 //             }
 //         }
 //
-//         if( !check_potential_induction_variable( res, st, loop_entry, id_end ) )
+//         if(!check_potential_induction_variable(res, st, loop_entry, id_end))
 //         {
-//             res = Nodecl::NodeclBase::null( );
+//             res = NBase::null();
 //         }
 
         return res;
     }
 
-    bool InductionVariableAnalysis::check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                                        ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                        Nodecl::NodeclBase stmt, Node* loop )
+    bool InductionVariableAnalysis::check_potential_induction_variable(const NBase& iv, NBase& incr,
+                                                                        NodeclList& incr_list,
+                                                                        const NBase& stmt, Node* loop)
     {
         // Check whether the variable is modified in other places inside the loop
-        bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
-        ExtensibleGraph::clear_visits_aux( loop );
-        if( !res )
-        {   // Check whether the variable is private in case it is in a parallel or simd region
-            res = check_private_status( iv, loop );
-        }
-        return !res;
+        Node* entry = loop->get_graph_entry_node();
+        bool res = check_undesired_modifications(iv, incr, incr_list, stmt, entry, loop);
+        ExtensibleGraph::clear_visits_aux(entry);
+
+        // Check whether the variable is always the same memory location (avoid things like a[b[0]]++)
+        res = !res && check_constant_memory_access(iv, loop);
+        ExtensibleGraph::clear_visits_aux(loop);
+
+        return res;
     }
 
-    bool InductionVariableAnalysis::check_undesired_modifications( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                                   ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                   Nodecl::NodeclBase stmt, Node* node, Node* loop )
+    bool InductionVariableAnalysis::check_undesired_modifications(const NBase& iv, NBase& incr,
+                                                                   NodeclList& incr_list,
+                                                                   const NBase& stmt, Node* node, Node* loop)
     {
         bool result = false;
 
-        if( ( node->get_id( ) != loop->get_graph_exit_node( )->get_id( ) ) && !node->is_visited_aux( ) )
+        if((node->get_id() != loop->get_graph_exit_node()->get_id()) && !node->is_visited_aux())
         {
-            node->set_visited_aux( true );
+            node->set_visited_aux(true);
 
             // Check the current node
-            ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
-            for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+            NodeclList stmts = node->get_statements();
+            for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
                 // Check the statement only if it is not the statement where the potential IV was found
-                if( !Nodecl::Utils::equal_nodecls( stmt, *it, /* skip conversion nodes */ true ) )
+                if(!Nodecl::Utils::structurally_equal_nodecls(stmt, *it, /* skip conversion nodes */ true))
                 {
-                    FalseInductionVariablesVisitor v( iv, &incr, &incr_list, loop );
-                    v.walk( *it );
-                    if( !v.get_is_induction_variable( ) )
+                    FalseInductionVariablesVisitor v(iv, &incr, &incr_list, loop);
+                    v.walk(*it);
+                    if(!v.get_is_induction_variable())
                     {
                         result = true;
                         break;
@@ -402,12 +409,12 @@ namespace {
             }
 
             // If IV still looks like an IV, check for false positives in the children nodes
-            if( !result )
+            if(!result)
             {
-                ObjectList<Node*> children = node->get_children( );
-                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                ObjectList<Node*> children = node->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    if( !check_undesired_modifications( iv, incr, incr_list, stmt, *it, loop ) )
+                    if(!check_undesired_modifications(iv, incr, incr_list, stmt, *it, loop))
                     {
                         result = true;
                         break;
@@ -419,63 +426,35 @@ namespace {
         return result;
     }
 
-    
-    
-    bool InductionVariableAnalysis::check_private_status( Nodecl::NodeclBase iv, Node* loop )
+    bool InductionVariableAnalysis::check_constant_memory_access(const NBase& iv, Node* loop)
     {
-        bool result = false;
-        Node* outer_node = loop->get_outer_node( );
-        while( outer_node != NULL )
+        bool res = true;
+
+        if(iv.is<Nodecl::Symbol>() || iv.is<Nodecl::ClassMemberAccess>())
+        {}      // Nothing to be done: this will always be the same memory location
+        else if(iv.is<Nodecl::ArraySubscript>())
         {
-            if( outer_node->is_omp_parallel_node( ) || outer_node->is_omp_simd_node( ) 
-                || outer_node->is_omp_sections_node( ) || outer_node->is_omp_loop_node( )
-                || outer_node->is_omp_task_node( ) )
+            Nodecl::ArraySubscript iv_as = iv.as<Nodecl::ArraySubscript>();
+            Nodecl::List subscripts = iv_as.get_subscripts().as<Nodecl::List>();
+            for(Nodecl::List::iterator it = subscripts.begin(); it != subscripts.end() && res; ++it)
             {
-                // We are a bit tricky here. Just cast to Parallel for convenience, 
-                // because we know all these nodes have a get_environment method
-                Nodecl::List environ = 
-                    outer_node->get_graph_label( ).as<Nodecl::OpenMP::Parallel>( ).get_environment( ).as<Nodecl::List>( );
-                for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ) && !result; ++it )
-                {
-                    if( it->is<Nodecl::OpenMP::Firstprivate>( ) || it->is<Nodecl::OpenMP::Private>( ) )
-                    {
-                        Nodecl::List syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
-                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
-                        {
-                            result = true;
-                            break;
-                        }
-                    }
-                    else if( it->is<Nodecl::OpenMP::Reduction>( ) )
-                    {
-                        Nodecl::List reds = it->as<Nodecl::OpenMP::Reduction>( ).get_reductions( ).as<Nodecl::List>( );
-                        for( Nodecl::List::iterator itr = reds.begin( ); itr != reds.end( ); ++itr )
-                        {
-                            Nodecl::NodeclBase sym = itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( );
-                            if( Nodecl::Utils::equal_nodecls( iv, sym ) )
-                            {
-                                result = true;
-                                break;
-                            }
-                        }
-                    }
-                    else if( it->is<Nodecl::OpenMP::Shared>( ) )
-                    {
-                        Nodecl::List syms = it->as<Nodecl::OpenMP::Shared>( ).get_symbols( ).as<Nodecl::List>( );
-                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
-                        {
-                            break;
-                        }
-                    }
-                }
+                if(!ExtensibleGraph::is_constant_in_context(loop, *it))
+                    res = false;
             }
-            
-            outer_node = outer_node->get_outer_node( );
         }
-        return result;
+        else if(iv.is<Nodecl::Dereference>())
+        {
+            WARNING_MESSAGE("Dereference as Induction Variables analysis is not yet supported\n", 0);
+        }
+        else
+        {
+            WARNING_MESSAGE("Unexpected type of node '%s' as Induction Variable\n", ast_print_node_type(iv.get_kind()));
+        }
+
+        return res;
     }
-    
-    Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
+
+    Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars() const
     {
         return _induction_vars;
     }
@@ -488,373 +467,371 @@ namespace {
     // ********************************************************************************************* //
     // ****************** Visitor that checks whether a potential IV is a real IV ****************** //
 
-    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr, 
-                                                                    ObjectList<Nodecl::NodeclBase>* incr_list, Node* loop )
-        : _iv( iv ), _incr( incr ), _incr_list( incr_list ),  _loop( loop ), 
-          _is_induction_var( true ), _n_nested_conditionals( 0 ), _calc( )
+    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor(NBase iv, NBase* incr,
+                                                                    NodeclList* incr_list, Node* loop)
+        : _iv(iv), _incr(incr), _incr_list(incr_list),  _loop(loop),
+          _is_induction_var(true), _n_nested_conditionals(0), _calc()
     {}
 
-    bool FalseInductionVariablesVisitor::get_is_induction_variable( ) const
+    bool FalseInductionVariablesVisitor::get_is_induction_variable() const
     {
         return _is_induction_var;
     }
 
-    void FalseInductionVariablesVisitor::undefine_induction_variable( )
+    void FalseInductionVariablesVisitor::undefine_induction_variable()
     {
         _is_induction_var = false;
         _incr = NULL;
-        _incr_list->empty( );
+        _incr_list->empty();
     }
 
-    void FalseInductionVariablesVisitor::join_list( TL::ObjectList<bool>& list )
+    void FalseInductionVariablesVisitor::join_list(TL::ObjectList<bool>& list)
     {   // nothing to be done
     }
 
-    void FalseInductionVariablesVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    void FalseInductionVariablesVisitor::unhandled_node(const NBase& n)
     {
         std::cerr << "Unhandled node while Induction Variable analysis '"
-                  << codegen_to_str( n.get_internal_nodecl( ),
-                                     nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-                  << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+                  << n.prettyprint() << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
     }
-    
-    void FalseInductionVariablesVisitor::visit( const Nodecl::AddAssignment& n )
+
+    void FalseInductionVariablesVisitor::visit(const Nodecl::AddAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
-                Nodecl::NodeclBase new_incr;
+                NBase new_incr;
                 // Check whether the statement has the accepted syntax of an induction variable
-                if( is_accepted_induction_variable_syntax( _loop, n, _iv, new_incr ) )
+                if(is_accepted_induction_variable_syntax(_loop, n, _iv, new_incr))
                 {
                     // Check if the increments are linear and can be combined
-                    if( const_value_is_positive( _incr->get_constant( ) ) &&
-                        const_value_is_positive( new_incr.get_constant( ) ) )
+                    if(const_value_is_positive(_incr->get_constant()) &&
+                        const_value_is_positive(new_incr.get_constant()))
                     {
-                        _incr_list->insert( new_incr );
-                        Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
-                        const_value_t* c_value = _calc.compute_const_value( c );
-                        *_incr = const_value_to_nodecl( c_value );
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
                     }
-                    else if( const_value_is_negative( _incr->get_constant( ) ) &&
-                        const_value_is_negative( new_incr.get_constant( ) ) )
+                    else if(const_value_is_negative(_incr->get_constant()) &&
+                        const_value_is_negative(new_incr.get_constant()))
                     {
-                        _incr_list->insert( new_incr );
-                        Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
-                        const_value_t* c_value = _calc.compute_const_value( c );
-                        *_incr = const_value_to_nodecl( c_value );
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
                     }
                     else
                     {
-                        undefine_induction_variable( );
+                        undefine_induction_variable();
                     }
                 }
             }
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::Assignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::Assignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
-                Nodecl::NodeclBase new_incr;
+                NBase new_incr;
                 // Check whether the statement has the accepted syntax of an induction variable
-                if( is_accepted_induction_variable_syntax( _loop, n, _iv, new_incr ) )
+                if(is_accepted_induction_variable_syntax(_loop, n, _iv, new_incr))
                 {
                     // Check if the increments are linear and can be combined
-                    if( const_value_is_positive( _incr->get_constant( ) ) &&
-                        const_value_is_positive( new_incr.get_constant( ) ) )
+                    if(const_value_is_positive(_incr->get_constant()) &&
+                        const_value_is_positive(new_incr.get_constant()))
                     {
-                        _incr_list->insert( new_incr );
-                        Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
-                        const_value_t* c_value = _calc.compute_const_value( c );
-                        *_incr = const_value_to_nodecl( c_value );
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
 
                     }
-                    else if( const_value_is_negative( _incr->get_constant( ) ) &&
-                        const_value_is_negative( new_incr.get_constant( ) ) )
+                    else if(const_value_is_negative(_incr->get_constant()) &&
+                        const_value_is_negative(new_incr.get_constant()))
                     {
-                        _incr_list->insert( new_incr );
-                        Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
-                        const_value_t* c_value = _calc.compute_const_value( c );
-                        *_incr = const_value_to_nodecl( c_value );
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
                     }
                     else
                     {
-                        undefine_induction_variable( );
+                        undefine_induction_variable();
                     }
                 }
             }
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::ConditionalExpression& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::ConditionalExpression& n)
     {
-        walk( n.get_condition() );
+        walk(n.get_condition());
         _n_nested_conditionals++;
-        walk( n.get_true() );
-        walk( n.get_false() );
+        walk(n.get_true());
+        walk(n.get_false());
         _n_nested_conditionals--;
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::DivAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::DivAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::IfElseStatement& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::IfElseStatement& n)
     {
-        walk( n.get_condition() );
+        walk(n.get_condition());
         _n_nested_conditionals++;
-        walk( n.get_then() );
-        walk( n.get_else() );
+        walk(n.get_then());
+        walk(n.get_else());
         _n_nested_conditionals--;
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::MinusAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::MinusAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
-                Nodecl::NodeclBase new_incr;
+                NBase new_incr;
                 // Check whether the statement has the accepted syntax of an induction variable
-                if( is_accepted_induction_variable_syntax( _loop, n, _iv, new_incr ) )
+                if(is_accepted_induction_variable_syntax(_loop, n, _iv, new_incr))
                 {
                     // Check if the increments are linear and can be combined
-                    if( const_value_is_positive( _incr->get_constant( ) ) &&
-                        const_value_is_positive( new_incr.get_constant( ) ) )
+                    if(const_value_is_positive(_incr->get_constant()) &&
+                        const_value_is_positive(new_incr.get_constant()))
                     {
-                        _incr_list->insert( new_incr );
-                        Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
-                        const_value_t* c_value = _calc.compute_const_value( c );
-                        *_incr = const_value_to_nodecl( c_value );
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
                     }
-                    else if( const_value_is_negative( _incr->get_constant( ) ) &&
-                        const_value_is_negative( new_incr.get_constant( ) ) )
+                    else if(const_value_is_negative(_incr->get_constant()) &&
+                        const_value_is_negative(new_incr.get_constant()))
                     {
-                        _incr_list->insert( new_incr );
-                        Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
-                        const_value_t* c_value = _calc.compute_const_value( c );
-                        *_incr = const_value_to_nodecl( c_value );
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
                     }
                     else
                     {
-                        undefine_induction_variable( );
+                        undefine_induction_variable();
                     }
                 }
             }
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::ModAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::ModAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::MulAssignment& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::MulAssignment& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_lhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
-            undefine_induction_variable( );
+            undefine_induction_variable();
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::Postdecrement& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::Postdecrement& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_rhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_rhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
                 // Check if the increments are linear and can be combined
-                if( const_value_is_negative( _incr->get_constant( ) ) )
+                if(const_value_is_negative(_incr->get_constant()))
                 {
-                    Nodecl::NodeclBase new_incr = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
-                    Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
-                    const_value_t* c_value = _calc.compute_const_value( c );
-                    *_incr = const_value_to_nodecl( c_value );
-                    _incr_list->insert( new_incr );
+                    NBase new_incr = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                    NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                    const_value_t* c_value = _calc.compute_const_value(c);
+                    *_incr = const_value_to_nodecl(c_value);
+                    _incr_list->insert(new_incr);
                 }
                 else
                 {
-                    undefine_induction_variable( );
+                    undefine_induction_variable();
                 }
             }
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::Postincrement& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::Postincrement& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_rhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_rhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
                 // Check if the increments are linear and can be combined
-                if( const_value_is_positive( _incr->get_constant( ) ) )
+                if(const_value_is_positive(_incr->get_constant()))
                 {
-                    Nodecl::NodeclBase new_incr = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
-                    Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
-                    const_value_t* c_value = _calc.compute_const_value( c );
-                    *_incr = const_value_to_nodecl( c_value );
-                    _incr_list->insert( new_incr );
+                    NBase new_incr = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                    NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                    const_value_t* c_value = _calc.compute_const_value(c);
+                    *_incr = const_value_to_nodecl(c_value);
+                    _incr_list->insert(new_incr);
                 }
                 else
                 {
-                    undefine_induction_variable( );
+                    undefine_induction_variable();
                 }
             }
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::Predecrement& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::Predecrement& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_rhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_rhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
                 // Check if the increments are linear and can be combined
-                if( const_value_is_negative( _incr->get_constant( ) ) )
+                if(const_value_is_negative(_incr->get_constant()))
                 {
-                    Nodecl::NodeclBase new_incr = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
-                    Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
-                    const_value_t* c_value = _calc.compute_const_value( c );
-                    *_incr = const_value_to_nodecl( c_value );
-                    _incr_list->insert( new_incr );
+                    NBase new_incr = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                    NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                    const_value_t* c_value = _calc.compute_const_value(c);
+                    *_incr = const_value_to_nodecl(c_value);
+                    _incr_list->insert(new_incr);
                 }
                 else
                 {
-                    undefine_induction_variable( );
+                    undefine_induction_variable();
                 }
             }
         }
     }
 
-    void FalseInductionVariablesVisitor::visit( const Nodecl::Preincrement& n )
+    void FalseInductionVariablesVisitor::visit(const Nodecl::Preincrement& n)
     {
-        if( Nodecl::Utils::nodecl_contains_nodecl( n.get_rhs( ), _iv ) ||
-            Nodecl::Utils::nodecl_contains_nodecl( _iv, n.get_rhs( ) ) )
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
-            if( _n_nested_conditionals > 0 )
+            if(_n_nested_conditionals > 0)
             {
                 // An induction variable may never be modified inside a conditional block
-                undefine_induction_variable( );
+                undefine_induction_variable();
             }
             else
             {
                 // Check if the increments are linear and can be combined
-                if( const_value_is_positive( _incr->get_constant( ) ) )
+                if(const_value_is_positive(_incr->get_constant()))
                 {
-                    Nodecl::NodeclBase new_incr = const_value_to_nodecl( const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
-                    Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
-                    const_value_t* c_value = _calc.compute_const_value( c );
-                    *_incr = const_value_to_nodecl( c_value );
-                    _incr_list->insert( new_incr );
+                    NBase new_incr = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                    NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                    const_value_t* c_value = _calc.compute_const_value(c);
+                    *_incr = const_value_to_nodecl(c_value);
+                    _incr_list->insert(new_incr);
                 }
                 else
                 {
-                    undefine_induction_variable( );
+                    undefine_induction_variable();
                 }
             }
         }

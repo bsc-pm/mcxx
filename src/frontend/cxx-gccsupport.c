@@ -42,6 +42,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-tltype.h"
 #include "cxx-entrylist.h"
+#include "cxx-diagnostic.h"
 
 /*
  * Very specific bits of gcc support should be in this file
@@ -187,8 +188,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'vector_size' only allows one argument",
+            error_printf("%s: error: attribute 'vector_size' only allows one argument\n",
                     ast_location(expression_list));
+            return;
         }
 
         // Evaluate the expression
@@ -222,8 +224,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (expression_list != NULL)
         {
-            running_error("%s: error: attribute 'generic_vector' does not allow arguments",
+            error_printf("%s: error: attribute 'generic_vector' does not allow arguments\n",
                     ast_location(expression_list));
+            return;
         }
 
         gather_info->vector_size = 0;
@@ -241,7 +244,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
     {
         do_not_keep_attribute = 1;
         AST argument = advance_expression_nest(ASTSon1(expression_list));
-        if (ASTType(argument) == AST_SYMBOL)
+        if (ASTKind(argument) == AST_SYMBOL)
         {
             const char *argument_text = ASTText(argument);
             if (strcmp(argument_text, "vector__") == 0)
@@ -260,24 +263,39 @@ void gather_one_gcc_attribute(const char* attribute_name,
             && (strcmp(attribute_name, "aligned") == 0
                 || strcmp(attribute_name, "__aligned__") == 0))
     {
+        // Normalize the name
+        attribute_name = "aligned";
+
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'aligned' only allows one argument",
+            error_printf("%s: error: attribute 'aligned' only allows one argument\n",
                     ast_location(expression_list));
+            do_not_keep_attribute = 1;
         }
-
-        // Evaluate the expression
-        nodecl_t nodecl_dummy;
-        AST argument = ASTSon1(expression_list);
-        if (!check_expression(argument, decl_context, &nodecl_dummy))
+        else
         {
-            running_error("%s: Invalid expression '%s'\n",
-                    ast_location(expression_list),
-                    prettyprint_in_buffer(argument));
+            // Evaluate the expression
+            AST argument = ASTSon1(expression_list);
+            check_expression(argument, decl_context, &nodecl_expression_list);
+            if (nodecl_is_err_expr(nodecl_expression_list))
+            {
+                do_not_keep_attribute = 1;
+            }
+            else
+            {
+                if (!nodecl_expr_is_value_dependent(nodecl_expression_list)
+                        && !nodecl_is_constant(nodecl_expression_list))
+                {
+                    error_printf("%s: error: attribute 'aligned' is not constant\n",
+                            ast_location(expression_list));
+                    do_not_keep_attribute = 1;
+                }
+                else
+                {
+                    nodecl_expression_list = nodecl_make_list_1(nodecl_expression_list);
+                }
+            }
         }
-
-        nodecl_expression_list =
-            nodecl_make_list_1(nodecl_make_text(prettyprint_in_buffer(argument), ast_get_locus(argument)));
     }
     else if (expression_list != NULL
             && (strcmp(attribute_name, "mode") == 0
@@ -286,14 +304,15 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'mode' only allows one argument",
+            error_printf("%s: error: attribute 'mode' only allows one argument\n",
                     ast_location(expression_list));
+            return;
         }
 
         AST argument = advance_expression_nest(ASTSon1(expression_list));
 
         char ignored = 0;
-        if (ASTType(argument) == AST_SYMBOL)
+        if (ASTKind(argument) == AST_SYMBOL)
         {
             const char *size_mode = ASTText(argument);
 
@@ -530,6 +549,19 @@ void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->is_transparent_union = 1;
     }
+    else if (strcmp(attribute_name, "__may_alias__") == 0)
+    {
+        // This is usually defined for MMX and SSE (but not AVX or KNC) vectors
+        if (strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
+                || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
+        {
+            // We have to ignore this attribute in these architectures because
+            // of problems in gcc when we reorder the attribute __may_alias__ respect to vector_size.
+            // We will reemit it when we print a vector of size 8 or 16.
+            if (gather_info->is_vector)
+                do_not_keep_attribute = 1;
+        }
+    }
     // CUDA attributes
     else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "global") == 0)
     {
@@ -570,12 +602,10 @@ void gather_one_gcc_attribute(const char* attribute_name,
     // Save it in the gather_info structure
     if (!do_not_keep_attribute)
     {
-        if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
-        {
-            running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
-        }
+        ERROR_CONDITION(gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
+                "Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
 
-        gather_gcc_attribute_t current_gcc_attribute;
+        gcc_attribute_t current_gcc_attribute;
 
         current_gcc_attribute.attribute_name = uniquestr(attribute_name);
         current_gcc_attribute.expression_list = nodecl_expression_list;
@@ -588,7 +618,7 @@ void gather_gcc_attribute(AST attribute,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(attribute) != AST_GCC_ATTRIBUTE,
+    ERROR_CONDITION(ASTKind(attribute) != AST_GCC_ATTRIBUTE,
             "Invalid node", 0);
     AST iter;
     AST list = ASTSon0(attribute);
@@ -600,7 +630,7 @@ void gather_gcc_attribute(AST attribute,
             AST gcc_attribute_expr = ASTSon1(iter);
 
             AST identif = ASTSon0(gcc_attribute_expr);
-            AST expression_list = ASTSon2(gcc_attribute_expr);
+            AST expression_list = ASTSon1(gcc_attribute_expr);
 
             const char *attribute_name = ASTText(identif);
 
@@ -609,23 +639,6 @@ void gather_gcc_attribute(AST attribute,
 
             gather_one_gcc_attribute(attribute_name, expression_list, gather_info, decl_context);
         }
-    }
-}
-
-void gather_gcc_attribute_list(AST attribute_list, 
-        gather_decl_spec_t *gather_info, 
-        decl_context_t decl_context)
-{
-    // We allow this since we may have removed all the attributes
-    if (attribute_list == NULL)
-        return;
-
-    AST iter;
-    for_each_element(attribute_list, iter)
-    {
-        AST attribute = ASTSon1(iter);
-
-        gather_gcc_attribute(attribute, gather_info, decl_context);
     }
 }
 
@@ -639,52 +652,126 @@ void keep_gcc_attributes_in_symbol(
     {
         char found = 0;
         int j;
-        for (j = 0; j < entry->entity_specs.num_gcc_attributes && !found; j++)
+        for (j = 0; j < symbol_entity_specs_get_num_gcc_attributes(entry) && !found; j++)
         {
-            found = (strcmp(entry->entity_specs.gcc_attributes[j].attribute_name,
+            found = (strcmp(symbol_entity_specs_get_gcc_attributes_num(entry, j).attribute_name,
                         gather_info->gcc_attributes[i].attribute_name) == 0);
         }
 
         if (found)
         {
             // Update with the freshest value 
-            entry->entity_specs.gcc_attributes[j-1].expression_list = gather_info->gcc_attributes[i].expression_list;
+            gcc_attribute_t gcc_attr = symbol_entity_specs_get_gcc_attributes_num(entry, j - 1);
+            gcc_attr.expression_list = gather_info->gcc_attributes[i].expression_list;
+            symbol_entity_specs_set_gcc_attributes_num(entry, j - 1, gcc_attr);
         }
         else
         {
-            entry->entity_specs.num_gcc_attributes++;
-            entry->entity_specs.gcc_attributes = xrealloc(entry->entity_specs.gcc_attributes,
-                    sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
-            entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
+            symbol_entity_specs_add_gcc_attributes(entry,
+                    gather_info->gcc_attributes[i]);
         }
     }
 }
 
 
+void apply_gcc_attribute_to_type(AST a,
+        type_t** type,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    ERROR_CONDITION(ASTKind(a) != AST_GCC_ATTRIBUTE, "Invalid node", 0);
+
+    AST gcc_attribute_list = ASTSon0(a);
+    AST it;
+
+    for_each_element(gcc_attribute_list, it)
+    {
+        AST gcc_attribute_expr = ASTSon1(it);
+
+        AST identif = ASTSon0(gcc_attribute_expr);
+        AST expr_list = ASTSon1(gcc_attribute_expr);
+        const char *attribute_name = ASTText(identif);
+
+        if (attribute_name == NULL)
+            return;
+
+        gcc_attribute_t gcc_attr;
+        gcc_attr.attribute_name = attribute_name;
+        gcc_attr.expression_list = nodecl_null();
+
+        // Normalize this name as the FE uses it elsewhere
+        if (expr_list != NULL
+                && (strcmp(attribute_name, "aligned") == 0
+                    || strcmp(attribute_name, "__aligned__") == 0))
+        {
+            attribute_name = "aligned";
+
+            if (ASTSon0(expr_list) != NULL)
+            {
+                error_printf("%s: error: attribute 'aligned' only allows one argument\n",
+                        ast_location(expr_list));
+            }
+
+            AST expr = ASTSon1(expr_list);
+
+            nodecl_t nodecl_expr = nodecl_null();
+            check_expression(expr, decl_context, &nodecl_expr);
+
+            if (nodecl_is_err_expr(nodecl_expr))
+                continue;
+
+            if (!nodecl_expr_is_value_dependent(nodecl_expr)
+                    && !nodecl_is_constant(nodecl_expr))
+            {
+                error_printf("%s: error: attribute 'aligned' is not constant\n",
+                        ast_location(expr_list));
+            }
+
+            gcc_attr.expression_list = nodecl_make_list_1(nodecl_expr);
+        }
+        else
+        {
+            if (expr_list != NULL)
+            {
+                AST it2;
+                for_each_element(expr_list, it2)
+                {
+                    AST expr = ASTSon1(it2);
+
+                    gcc_attr.expression_list = nodecl_append_to_list(gcc_attr.expression_list,
+                            nodecl_make_text(prettyprint_in_buffer(expr), ast_get_locus(expr)));
+                }
+            }
+        }
+
+        *type = get_variant_type_add_gcc_attribute(*type, gcc_attr);
+    }
+}
+
 /*
  * Type traits of g++
  */
 
-static char eval_type_trait__has_nothrow_assign(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_nothrow_constructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_nothrow_copy(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_assign(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_constructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_copy(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_destructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_virtual_destructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_abstract(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_base_of(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_literal_type(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_standard_layout(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_nothrow_assign(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_nothrow_constructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_nothrow_copy(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_assign(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_constructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_copy(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_destructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_virtual_destructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_abstract(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_base_of(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_literal_type(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_standard_layout(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_final(type_t*, type_t*, decl_context_t, const locus_t*);
 
 /*
    __has_nothrow_assign (type)
@@ -697,14 +784,14 @@ static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t);
    bound, or is a void type. 
 
     */
-static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
     if (is_const_qualified_type(first_type)
             || is_lvalue_reference_type(first_type)
             || is_rvalue_reference_type(first_type))
         return 0;
 
-    if (eval_type_trait__has_trivial_assign(first_type, second_type, decl_context))
+    if (eval_type_trait__has_trivial_assign(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -720,8 +807,8 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (entry->entity_specs.any_exception
-                    || entry->entity_specs.num_exceptions != 0)
+            if (symbol_entity_specs_get_any_exception(entry)
+                    || symbol_entity_specs_get_num_exceptions(entry) != 0)
             {
                 result = 0;
             }
@@ -746,9 +833,9 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
    unknown bound, or is a void type. 
 
 */
-static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__has_trivial_constructor(first_type, second_type, decl_context))
+    if (eval_type_trait__has_trivial_constructor(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -761,8 +848,8 @@ static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t*
             return 0;
         }
 
-        if (default_constructor->entity_specs.any_exception
-                || default_constructor->entity_specs.num_exceptions != 0)
+        if (symbol_entity_specs_get_any_exception(default_constructor)
+                || symbol_entity_specs_get_num_exceptions(default_constructor) != 0)
             return 0;
 
         return 1;
@@ -781,9 +868,9 @@ static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t*
    type. 
 
 */
-static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__has_trivial_copy(first_type, second_type, decl_context))
+    if (eval_type_trait__has_trivial_copy(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -799,8 +886,8 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            if (entry->entity_specs.any_exception
-                    || entry->entity_specs.num_exceptions != 0)
+            if (symbol_entity_specs_get_any_exception(entry)
+                    || symbol_entity_specs_get_num_exceptions(entry) != 0)
                 result = 0;
         }
 
@@ -823,14 +910,14 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
    array type of unknown bound, or is a void type. 
 
 */
-static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
     if (is_const_qualified_type(first_type)
             || is_lvalue_reference_type(first_type)
             || is_rvalue_reference_type(first_type))
         return 0;
 
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -846,7 +933,7 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (!entry->entity_specs.is_trivial)
+            if (!symbol_entity_specs_get_is_trivial(entry))
                 result = 0;
         }
 
@@ -868,9 +955,9 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
     shall be a complete type, an array type of unknown bound, or is a void
     type. 
 */
-static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -882,7 +969,7 @@ static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t*
         if (default_constructor == NULL)
             return 0;
 
-        return default_constructor->entity_specs.is_trivial;
+        return symbol_entity_specs_get_is_trivial(default_constructor);
     }
 
     return 0;
@@ -898,9 +985,9 @@ static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t*
    a void type. 
 
 */
-static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context)
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus)
             || is_rvalue_reference_type(first_type)
             || is_lvalue_reference_type(first_type))
         return 1;
@@ -917,7 +1004,7 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            if (!entry->entity_specs.is_trivial)
+            if (!symbol_entity_specs_get_is_trivial(entry))
                 result = 0;
         }
 
@@ -940,9 +1027,9 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
 
 */
 
-static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -951,7 +1038,7 @@ static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* 
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
 
-        return destructor->entity_specs.is_trivial;
+        return symbol_entity_specs_get_is_trivial(destructor);
     }
 
     return 0;
@@ -964,7 +1051,7 @@ static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* 
     trait is true, else it is false. Requires: type shall be a complete type,
     an array type of unknown bound, or is a void type. 
 */
-static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_class_type(first_type))
     {
@@ -972,7 +1059,7 @@ static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* 
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
 
-        return destructor->entity_specs.is_virtual;
+        return symbol_entity_specs_get_is_virtual(destructor);
     }
 
     return 0;
@@ -987,7 +1074,7 @@ static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* 
 */
 static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_class_type(first_type))
     {
@@ -1010,15 +1097,12 @@ static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER,
    complete type. Diagnostic is produced if this requirement is not met. 
 */
 
-static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus)
 {
     if (is_class_type(base_type)
             && is_class_type(derived_type))
     {
-        type_t* base_class_type = get_actual_class_type(base_type);
-        type_t* derived_class_type = get_actual_class_type(derived_type);
-
-        return class_type_is_base(base_class_type, derived_class_type);
+        return class_type_is_base_instantiating(base_type, derived_type, locus);
     }
     return 0;
 }
@@ -1029,7 +1113,7 @@ static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type,
    If type is a cv class type, and not a union type ([basic.compound]) the the trait is true, else it is false. 
 */
 static char eval_type_trait__is_class(type_t* first_type, type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_class_type(first_type)
         && !is_union_type(first_type);
@@ -1041,7 +1125,7 @@ static char eval_type_trait__is_class(type_t* first_type, type_t* second_type UN
  */
 static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMETER, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     WARNING_MESSAGE("Undocumented type trait '__is_convertible' used", 0);
     return 0;
@@ -1060,9 +1144,9 @@ static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMET
 */
 static char eval_type_trait__is_empty(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context)
+        decl_context_t decl_context, const locus_t* locus)
 {
-    if (!eval_type_trait__is_class(first_type, NULL, decl_context))
+    if (!eval_type_trait__is_class(first_type, NULL, decl_context, locus))
         return 0;
 
     if (is_class_type(first_type))
@@ -1077,7 +1161,7 @@ static char eval_type_trait__is_empty(type_t* first_type,
    If type is a cv enumeration type ([basic.compound]) the the trait is true,
    else it is false. 
 */
-static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_enum_type(first_type));
 }
@@ -1088,7 +1172,7 @@ static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNU
     If type is a literal type ([basic.types]) the trait is true, else it is false.
     Requires: type shall be a complete type, (possibly cv-qualified) void, or an array of unknown bound. 
 */
-static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_literal_type(first_type));
 }
@@ -1102,7 +1186,7 @@ static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_
 */
 static char eval_type_trait__is_pod(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_pod_type(first_type);
 }
@@ -1117,7 +1201,7 @@ static char eval_type_trait__is_pod(type_t* first_type,
 */
 static char eval_type_trait__is_polymorphic(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_class_type(first_type))
     {
@@ -1142,7 +1226,7 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
 */
 static char eval_type_trait__is_standard_layout(type_t* first_type,
         type_t* second_type UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_standard_layout_type(first_type);
 }
@@ -1157,7 +1241,7 @@ static char eval_type_trait__is_standard_layout(type_t* first_type,
 */
 static char eval_type_trait__is_trivial(type_t* first_type,
         type_t* second_type UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_trivial_type(first_type);
 }
@@ -1169,9 +1253,17 @@ static char eval_type_trait__is_trivial(type_t* first_type,
 */
 static char eval_type_trait__is_union(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_union_type(first_type);
+}
+
+static char eval_type_trait__is_final(type_t* first_type, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
+{
+    return is_named_class_type(first_type)
+        && symbol_entity_specs_get_is_final(named_type_get_symbol(first_type));
 }
 
 typedef
@@ -1179,7 +1271,7 @@ struct gxx_type_traits_fun_type_tag
 {
     const char* trait_name;
 
-    char (*trait_calculus)(type_t* first_type, type_t* second_type, decl_context_t decl_context);
+    char (*trait_calculus)(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus);
 } gxx_type_traits_fun_type_t;
 
 gxx_type_traits_fun_type_t type_traits_fun_list[] =
@@ -1204,6 +1296,7 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     { "__is_standard_layout", eval_type_trait__is_standard_layout },
     { "__is_trivial", eval_type_trait__is_trivial },
     { "__is_union", eval_type_trait__is_union },
+    { "__is_final", eval_type_trait__is_final },
     // Sentinel
     {NULL, NULL},
 };
@@ -1224,7 +1317,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
         nodecl_t nodecl_lhs_type = nodecl_make_type(lhs_type, locus);
         nodecl_t nodecl_rhs_type_opt =
             (rhs_type == NULL) ?
-            nodecl_null() : nodecl_make_type(lhs_type, locus);
+            nodecl_null() : nodecl_make_type(rhs_type, locus);
 
         *nodecl_output = nodecl_make_gxx_trait(
                 nodecl_lhs_type,
@@ -1265,7 +1358,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
 
         const_value_t* val = NULL;
 
-        if ((type_traits_fun_list[i].trait_calculus)(lhs_type, rhs_type, decl_context))
+        if ((type_traits_fun_list[i].trait_calculus)(lhs_type, rhs_type, decl_context, locus))
         {
             // true
             val = const_value_get_one(type_get_size(t), 0);
@@ -1316,4 +1409,3 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
             ast_get_locus(expression),
             nodecl_output);
 }
-

@@ -44,6 +44,7 @@ namespace TL
         public:
             ModuleWriter(TL::Symbol module, const std::string domain);
 
+            void builtin_write(unsigned int);
             void builtin_write(int);
             void builtin_write(bool);
             void builtin_write(const std::string& str);
@@ -51,6 +52,7 @@ namespace TL
             void builtin_write(TL::Symbol);
             void builtin_write(TL::Type);
             void builtin_write(Nodecl::NodeclBase);
+            void builtin_write(TL::Scope);
 
             template <typename T>
                 void write(const T& t)
@@ -105,6 +107,9 @@ namespace TL
         };
 
     template <>
+    struct ModuleWriterTrait<unsigned int> : public BuiltinModuleWriterTrait<unsigned int> { };
+        
+    template <>
     struct ModuleWriterTrait<int> : public BuiltinModuleWriterTrait<int> { };
 
     template <>
@@ -121,6 +126,9 @@ namespace TL
 
     template <>
     struct ModuleWriterTrait<Nodecl::NodeclBase> : public BuiltinModuleWriterTrait<Nodecl::NodeclBase> { };
+
+    template <>
+    struct ModuleWriterTrait<TL::Scope> : public BuiltinModuleWriterTrait<TL::Scope> { };
 
     template <typename T, typename Q>
         struct ModuleWriterTrait<std::map<T, Q> >
@@ -167,18 +175,35 @@ namespace TL
             }
         };
 
+    template <>
+        struct ModuleWriterTrait<const locus_t* >
+        {
+            static void write(ModuleWriter& mw, const locus_t* &d)
+            {
+                std::string filename = locus_get_filename(d);
+                unsigned int line = locus_get_line(d);
+                unsigned int column = locus_get_col(d);
+
+                mw.write(filename);
+                mw.write(line);
+                mw.write(column);
+            }
+        };
+
     // Reader
     class LIBTL_CLASS ModuleReader
     {
         public:
             ModuleReader(TL::Symbol module, const std::string& domain);
 
+            void builtin_read(unsigned int&);
             void builtin_read(int&);
             void builtin_read(TL::Symbol&);
             void builtin_read(TL::Type&);
             void builtin_read(std::string& str);
             void builtin_read(bool&);
             void builtin_read(Nodecl::NodeclBase&);
+            void builtin_read(TL::Scope&);
 
             template <typename T>
                 void read(T& t)
@@ -220,6 +245,7 @@ namespace TL
             }
         };
 
+
     template <typename T, typename P = T>
         struct BuiltinModuleReaderTrait
         {
@@ -256,7 +282,7 @@ namespace TL
                     mr.read(t);
                     mr.read(q);
 
-                    table.insert(std::make_pair<T, Q>(t, q));
+                    table.insert(std::make_pair(t, q));
                 }
             }
         };
@@ -283,6 +309,9 @@ namespace TL
         };
 
     template <>
+    struct ModuleReaderTrait<unsigned int> : public BuiltinModuleReaderTrait<unsigned int> { };
+    
+    template <>
     struct ModuleReaderTrait<int> : public BuiltinModuleReaderTrait<int> { };
 
     template <>
@@ -290,7 +319,7 @@ namespace TL
 
     template <>
     struct ModuleReaderTrait<std::string> : public BuiltinModuleReaderTrait<std::string> { };
-    
+
     template <>
     struct ModuleReaderTrait<TL::Symbol> : public BuiltinModuleReaderTrait<TL::Symbol> { };
 
@@ -300,6 +329,25 @@ namespace TL
     template <>
     struct ModuleReaderTrait<Nodecl::NodeclBase> : public BuiltinModuleReaderTrait<Nodecl::NodeclBase> { };
 
+    template <>
+    struct ModuleReaderTrait<TL::Scope> : public BuiltinModuleReaderTrait<TL::Scope> { };
+
+    template <>
+        struct ModuleReaderTrait<const locus_t* >
+        {
+            static void read(ModuleReader& mr, const locus_t* &d)
+            {
+                std::string filename;
+                unsigned int line = 0;
+                unsigned int column = 0;
+
+                mr.read(filename);
+                mr.read(line);
+                mr.read(column);
+
+                d = make_locus(filename.c_str(), line, column);
+            }
+        };
 }
 
 #endif // TL_MODULES_HPP

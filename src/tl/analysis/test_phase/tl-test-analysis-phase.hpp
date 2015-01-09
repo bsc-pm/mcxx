@@ -58,17 +58,35 @@ namespace Analysis {
         std::string _induction_vars_enabled_str;
         bool _induction_vars_enabled;
         void set_induction_vars( const std::string& induction_vars_enabled_str );
+        
+        std::string _task_sync_tune_enabled_str;
+        bool _task_sync_tune_enabled;
+        void set_task_sync_tune( const std::string& task_sync_tune_enabled_str );
+        
+        std::string _tdg_enabled_str;
+        bool _tdg_enabled;
+        void set_tdg( const std::string& tdg_enabled_str );
 
-        std::string _auto_scope_enabled_str;
-        bool _auto_scope_enabled;
-        void set_auto_scope( const std::string& auto_scope_enabled_str );
-
+        std::string _range_analysis_enabled_str;
+        bool _range_analysis_enabled;
+        void set_range_analsysis( const std::string& range_analysis_enabled_str );
+        
+        std::string _cyclomatic_complexity_enabled_str;
+        bool _cyclomatic_complexity_enabled;
+        void set_cyclomatic_complexity( const std::string& cyclomatic_complexity_enabled_str);
+        
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
+        
     public:
         //! Constructor of this phase
         TestAnalysisPhase();
 
         //!Entry point of the phase
         virtual void run(TL::DTO& dto);
+        
+        virtual ~TestAnalysisPhase() {};
     };
 }
 }

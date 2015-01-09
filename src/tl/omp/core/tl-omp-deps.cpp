@@ -40,70 +40,95 @@
 
 namespace TL { namespace OpenMP {
 
-    struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
+    void add_extra_symbols(Nodecl::NodeclBase data_ref,
+            DataSharingEnvironment& ds,
+            ObjectList<Symbol>& extra_symbols)
     {
-        struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
+        struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
         {
-            DataSharingEnvironment& _data_sharing;
-            ExtraDataSharing(DataSharingEnvironment& ds)
-                :_data_sharing(ds) { }
-            void visit(const Nodecl::Symbol& node)
+            struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
             {
-                TL::Symbol sym = node.get_symbol();
-                if (!sym.is_valid()
-                        || !sym.is_variable()
-                        || sym.is_fortran_parameter())
-                    return;
+                DataSharingEnvironment& _data_sharing;
+                ObjectList<Symbol>& _symbols;
 
-                if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
-                        == DS_UNDEFINED)
+                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
+                    :_data_sharing(ds_), _symbols(symbols) { }
+
+                void visit(const Nodecl::Symbol& node)
                 {
-                    // Mark this as an implicit firstprivate
-                    _data_sharing.set_data_sharing(sym, TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT) );
+                    TL::Symbol sym = node.get_symbol();
 
-                    // Do not warn saved expressions, it confuses users
-                    if (!sym.is_saved_expression())
+                    if (!sym.is_valid()
+                            || !sym.is_variable()
+                            || sym.is_fortran_parameter())
+                        return;
+
+                    if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
+                            == DS_UNDEFINED)
                     {
-                        std::cerr << node.get_locus_str() << ": warning: assuming '"
-                            << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+                       _symbols.append(sym);
+                    }
+                }
+
+                void visit(const Nodecl::ClassMemberAccess& node)
+                {
+                    walk(node.get_lhs());
+                    // Do not walk the rhs
+                }
+            };
+
+            ExtraDataSharing _extra_data_sharing;
+
+            DataRefVisitorDep(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
+                : _extra_data_sharing(ds_, symbols) { }
+
+            void visit_pre(const Nodecl::Symbol &node)
+            {
+                if (node.get_type().no_ref().is_array())
+                {
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        _extra_data_sharing.walk(node.get_type().no_ref().array_get_size());
+                    }
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase lb, ub;
+                        node.get_type().no_ref().array_get_bounds(lb, ub);
+
+                        _extra_data_sharing.walk(lb);
+                        _extra_data_sharing.walk(ub);
                     }
                 }
             }
 
-            void visit(const Nodecl::ClassMemberAccess& node)
+            void visit_pre(const Nodecl::Shaping &node)
             {
-                walk(node.get_lhs());
-                // Do not walk the rhs
+                _extra_data_sharing.walk(node.get_shape());
+            }
+
+            void visit_pre(const Nodecl::ArraySubscript &node)
+            {
+                _extra_data_sharing.walk(node.get_subscripts());
+            }
+
+            void visit_pre(const Nodecl::ClassMemberAccess &node)
+            {
+                _extra_data_sharing.walk(node.get_lhs());
             }
         };
 
-        ExtraDataSharing _extra_data_sharing;
-
-        DataRefVisitorDep(DataSharingEnvironment& ds)
-            : _extra_data_sharing(ds) { }
-
-        void visit_pre(const Nodecl::Shaping &node)
-        {
-            _extra_data_sharing.walk(node.get_shape());
-        }
-
-        void visit_pre(const Nodecl::ArraySubscript &node)
-        {
-            _extra_data_sharing.walk(node.get_subscripts());
-        }
-    };
-
-    void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds)
-    {
-        DataRefVisitorDep data_ref_visitor_dep(ds);
+        DataRefVisitorDep data_ref_visitor_dep(ds, extra_symbols);
         data_ref_visitor_dep.walk(data_ref);
     }
 
-    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
-            DataSharingEnvironment& data_sharing, 
-            DependencyDirection dep_attr)
+    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list,
+            DataSharingEnvironment& data_sharing,
+            DependencyDirection dep_attr,
+            DataSharingAttribute default_data_attr,
+            bool in_ompss_mode,
+            const std::string &clause_name,
+            ObjectList<Symbol>& extra_symbols)
     {
-        DataRefVisitorDep data_ref_visitor_dep(data_sharing);
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
@@ -111,9 +136,13 @@ namespace TL { namespace OpenMP {
             DataReference expr(*it);
             if (!expr.is_valid())
             {
-                std::cerr << expr.get_error_log();
-                std::cerr << expr.get_locus_str()
-                    << ": error: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
+                warn_printf("%s",
+                        expr.get_error_log().c_str());
+
+                warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
+                        expr.get_locus_str().c_str(),
+                        expr.prettyprint().c_str());
+
                 continue;
             }
 
@@ -121,69 +150,171 @@ namespace TL { namespace OpenMP {
 
             Symbol sym = expr.get_base_symbol();
 
-            // Note that in general a dependency should be shared
-            //
-            //   inout(x)    x must be shared
-            //
-            // But we allow more general cases. In these cases x, is not going to be shared
-            // and it will be left to the default data sharing
-            //
-            //   inout(*x)             We do not define a specific data sharing for these
-            //   inout(x[10])
-            //   inout(x[1:2])
-            //   inout([10][20] x)
-            //
-            // Note, though, that if the base symbol 'x' is an array, it will always be shared.
-            //
-            if (expr.is<Nodecl::Symbol>()
-                    || sym.get_type().is_array()
-                    || (sym.get_type().is_any_reference()
-                        && sym.get_type().references_to().is_array()))
+            if (!in_ompss_mode)
             {
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                /* In OpenMP mode */
+
+                // Dependences over non-static data members are invalid in OpenMP (OpenMP 4.0 [117:17-18])
+                if (// usual case: a.x, (*this).y, ...
+                    expr.is<Nodecl::ClassMemberAccess>()
+                        // this case only happens when we are inside a template class and we are accessing to a
+                        // non-static data member without specifying explicitly the implicit object ('this'):
+                        //
+                        //  template < typename T>
+                        //  struct C
+                        //  {
+                        //      void foo()
+                        //      {
+                        //          #pragma omp task inout(p)
+                        //              p = 0;
+                        //      }
+                        //      int *p;
+                        //  };
+                        //
+                        // Note: If the class is not dependent Mercurium adds the implicit object, transforming
+                        // the current expression (i.e. a symbol) into a class member access
+                        || (sym.is_variable() && sym.is_member() && !sym.is_static()))
+                {
+                    warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
+                            expr.get_locus_str().c_str(),
+                            expr.prettyprint().c_str());
+
+                    info_printf("%s: info: dependences over non-static data members are not allowed in OpenMP\n",
+                            expr.get_locus_str().c_str());
+
+                    continue;
+                }
+                // We cannot define a dependence over 'this' in OpenMP
+                else if (sym.get_name() == "this")
+                {
+                    warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
+                            expr.get_locus_str().c_str(),
+                            expr.prettyprint().c_str());
+
+                    continue;
+                }
+            }
+
+
+            if((default_data_attr & DS_AUTO) == DS_AUTO)
+            {
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO),
+                        "'default(auto)'");
+            }
+            else if (in_ompss_mode)
+            {
+                // In OmpSs, the storage of a dependence is always SHARED. Note that with this
+                // definition we aren't defining the data-sharings of the variables involved
+                // in that expression.
+                //
+                // About the data-sharings of the variables involved in the dependence expression:
+                // - Fortran: the base symbol of the dependence expression is always SHARED
+                // - C/C++:
+                //  * The base symbol of a trivial dependence (the expression is a symbol) must always be SHARED:
+                //          int x, a[10];
+                //          inout(x) -> shared(x)
+                //          inout(a) -> shared(a)
+                //  * The base symbol of an array expression or a reference to an array must be SHARED too:
+                //          int a[10];
+                //          inout(a[4])   -> shared(a)
+                //          inout(a[1:2]) -> shared(a)
+                //  * The base symbol of a class member access must be shared too:
+                //          struct C { int z; } c;
+                //          in(c.z)       -> shared(c)
+                //  * Otherwise, the data-sharing of the base symbol is FIRSTPRIVATE:
+                //          int* p;
+                //          inout(*p)     -> firstprivate(p)
+                //          inout(p[10])  -> firstprivate(p)
+                //          inout(p[1:2]) -> firstprivate(p)
+                //          inout([10][20] p) -> firstprivate(p)
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                }
+                else if (expr.is<Nodecl::Symbol>())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                }
+                else if (sym.get_type().is_array()
+                        || (sym.get_type().is_any_reference()
+                            && sym.get_type().references_to().is_array()))
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is an array mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
+                }
+                else if (sym.get_type().is_class())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is an object mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
+                }
+                else
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "the variable is a non-array mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
+                }
             }
 
             data_sharing.add_dependence(dep_item);
-
-            data_ref_visitor_dep.walk(expr);
+            add_extra_symbols(expr, data_sharing, extra_symbols);
         }
     }
 
-    void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
+    void Core::get_dependences_info(TL::PragmaCustomLine construct,
+            DataSharingEnvironment& data_sharing,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
     {
-        PragmaCustomClause input_clause = construct.get_clause("in",
-                /* deprecated */ "input");
-        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN);
+        // Ompss clauses
+        PragmaCustomClause input_clause = construct.get_clause("in",/* deprecated */ "input");
+        get_dependences_ompss_info_clause(input_clause, construct, data_sharing, DEP_DIR_IN,
+                default_data_attr, "in", extra_symbols);
 
-        PragmaCustomClause output_clause = construct.get_clause("out",
-                /* deprecated */ "output");
-        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT);
+        PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
+        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing, DEP_DIR_IN_PRIVATE,
+                default_data_attr, "inprivate", extra_symbols);
+
+        PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
+        get_dependences_ompss_info_clause(output_clause, construct, data_sharing, DEP_DIR_OUT,
+                default_data_attr, "out", extra_symbols);
 
         PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
+        get_dependences_ompss_info_clause(inout_clause, construct, data_sharing, DEP_DIR_INOUT,
+                default_data_attr, "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_info_clause(concurrent_clause, data_sharing,
-                DEP_CONCURRENT);
+        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing, DEP_CONCURRENT,
+                default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_info_clause(commutative_clause, data_sharing,
-                DEP_COMMUTATIVE);
+        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing, DEP_COMMUTATIVE,
+                default_data_attr, "commutative", extra_symbols);
 
-        // OpenMP standard proposal
+        // OpenMP standard clauses
         PragmaCustomClause depends = construct.get_clause("depend");
-        get_dependences_info_std_clause(construct, depends, data_sharing);
+        get_dependences_openmp(construct, depends, data_sharing,
+                default_data_attr, extra_symbols);
     }
 
-    static decl_context_t decl_context_map_id(decl_context_t d)
-    {
-        return d;
+    namespace {
+        decl_context_t decl_context_map_id(decl_context_t d)
+        {
+            return d;
+        }
     }
 
-    void Core::get_dependences_info_std_clause(
-            TL::PragmaCustomLine construct,
+    void Core::parse_dependences_openmp_clause(
+            TL::ReferenceScope parsing_scope,
             TL::PragmaCustomClause clause,
-            DataSharingEnvironment& data_sharing)
+            TL::ObjectList<Nodecl::NodeclBase> &in,
+            TL::ObjectList<Nodecl::NodeclBase> &out,
+            TL::ObjectList<Nodecl::NodeclBase> &inout,
+            const locus_t* locus
+            )
     {
         if (!clause.is_defined())
             return;
@@ -208,11 +339,12 @@ namespace TL { namespace OpenMP {
         const int num_matches = 6;
         regmatch_t pmatch[num_matches] = { };
 
-        DependencyDirection dep_attr = DEP_DIR_UNDEFINED;
+        TL::ObjectList<Nodecl::NodeclBase> *dep_set = NULL;
         for (ObjectList<std::string>::iterator it = arguments.begin();
                 it != arguments.end();
                 it++)
         {
+            std::string clause_name;
             int match = regexec(&preg, it->c_str(), num_matches, pmatch, 0);
 
             std::string current_dep_expr = *it;
@@ -229,15 +361,15 @@ namespace TL { namespace OpenMP {
 
                 if (dependency_type == "in")
                 {
-                    dep_attr = DEP_DIR_IN;
+                    dep_set = &in;
                 }
                 else if (dependency_type == "out")
                 {
-                    dep_attr = DEP_DIR_OUT;
+                    dep_set = &out;
                 }
                 else if (dependency_type == "inout")
                 {
-                    dep_attr = DEP_DIR_INOUT;
+                    dep_set = &inout;
                 }
                 else
                 {
@@ -253,28 +385,29 @@ namespace TL { namespace OpenMP {
                 }
             }
             else if (match == REG_NOMATCH)
-                ; // Do nothing
+            {
+                if (dep_set == NULL)
+                {
+                    error_printf("%s: error: skipping item '%s' in 'depend' clause because it lacks dependence-type\n",
+                            locus_to_str(locus),
+                            current_dep_expr.c_str());
+                    continue;
+                }
+            }
             else
             {
                 internal_error("Unexpected result %d from regexec\n", match);
             }
 
-            // FIXME: Only accepting "in:" not "in :"
-            if (dep_attr == DEP_DIR_UNDEFINED)
-            {
-                error_printf("%s: error: skipping item '%s' in 'depend' clause since it does not have any associated dependence-type\n",
-                        clause.get_locus_str().c_str(),
-                        it->c_str());
-                continue;
-            }
             Source src;
+            src << "#line " << clause.get_pragma_line().get_line() << " \"" << clause.get_pragma_line().get_filename() << "\"\n";
             src << current_dep_expr;
 
             // Now, parse a single OpenMP list item and hand it to the usual dependency routines
             Nodecl::NodeclBase expr;
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                expr = src.parse_generic(construct,
+                expr = src.parse_generic(parsing_scope,
                         /* ParseFlags */ Source::DEFAULT,
                         "@OMP-DEPEND-ITEM@",
                         Source::c_cxx_check_expression_adapter,
@@ -282,30 +415,301 @@ namespace TL { namespace OpenMP {
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
-                expr = src.parse_generic(construct,
+                expr = src.parse_generic(parsing_scope,
                         /* ParseFlags */ Source::DEFAULT,
                         "@OMP-DEPEND-ITEM@",
                         Source::fortran_check_expression_adapter,
                         decl_context_map_id);
             }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
 
             // Singleton
-            ObjectList<Nodecl::NodeclBase> expr_list;
-            expr_list.append(expr);
-            add_data_sharings(expr_list, data_sharing, dep_attr);
+            dep_set->append(expr);
         }
 
         regfree(&preg);
     }
 
-    void Core::get_dependences_info_clause(PragmaCustomClause clause,
-           DataSharingEnvironment& data_sharing,
-           DependencyDirection dep_attr)
+    void Core::get_dependences_openmp(
+            TL::PragmaCustomLine construct,
+            TL::PragmaCustomClause clause,
+            DataSharingEnvironment& data_sharing,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
+    {
+            TL::ObjectList<Nodecl::NodeclBase> in, out, inout;
+            parse_dependences_openmp_clause(
+                    construct,
+                    clause,
+                    in,
+                    out,
+                    inout,
+                    construct.get_locus());
+
+            add_data_sharings(in, data_sharing,
+                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)", extra_symbols);
+            add_data_sharings(out, data_sharing,
+                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out:)", extra_symbols);
+            add_data_sharings(inout, data_sharing,
+                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)", extra_symbols);
+    }
+
+    namespace {
+
+        void ompss_multidep_check_range(AST range,
+                decl_context_t decl_context,
+                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                nodecl_t* nodecl_output)
+        {
+            switch (ASTKind(range))
+            {
+                case AST_OMPSS_ITERATOR_RANGE_SECTION: // lower : upper
+                    {
+                        AST lower = ASTSon0(range);
+                        nodecl_t nodecl_lower = nodecl_null();
+
+                        check_expression(lower, decl_context, &nodecl_lower);
+                        if (nodecl_is_err_expr(nodecl_lower))
+                        {
+                            *nodecl_output = nodecl_lower;
+                            return;
+                        }
+
+                        AST upper = ASTSon1(range);
+                        nodecl_t nodecl_upper = nodecl_null();
+
+                        check_expression(upper, decl_context, &nodecl_upper);
+                        if (nodecl_is_err_expr(nodecl_upper))
+                        {
+                            *nodecl_output = nodecl_upper;
+                            return;
+                        }
+
+                        nodecl_t nodecl_stride = nodecl_null();
+                        AST stride = ASTSon2(range);
+                        if (stride != NULL)
+                        {
+                            check_expression(stride, decl_context, &nodecl_stride);
+                            if (nodecl_is_err_expr(nodecl_stride))
+                            {
+                                *nodecl_output = nodecl_stride;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            nodecl_stride = const_value_to_nodecl(const_value_get_signed_int(1));
+                        }
+
+                        *nodecl_output = nodecl_make_range(
+                                nodecl_lower,
+                                nodecl_upper,
+                                nodecl_stride,
+                                get_signed_int_type(),
+                                ast_get_locus(range));
+                        break;
+                    }
+                case AST_OMPSS_ITERATOR_RANGE_SIZE: // lower ; num_elements [C/C++ only]
+                    {
+                        AST lower = ASTSon0(range);
+                        nodecl_t nodecl_lower = nodecl_null();
+
+                        check_expression(lower, decl_context, &nodecl_lower);
+                        if (nodecl_is_err_expr(nodecl_lower))
+                        {
+                            *nodecl_output = nodecl_lower;
+                            return;
+                        }
+
+                        AST size = ASTSon1(range);
+                        nodecl_t nodecl_length = nodecl_null();
+
+                        check_expression(size, decl_context, &nodecl_length);
+                        if (nodecl_is_err_expr(nodecl_length))
+                        {
+                            *nodecl_output = nodecl_length;
+                            return;
+                        }
+
+                        nodecl_t nodecl_stride = nodecl_null();
+                        AST stride = ASTSon2(range);
+                        if (stride != NULL)
+                        {
+                            check_expression(stride, decl_context, &nodecl_stride);
+                            if (nodecl_is_err_expr(nodecl_stride))
+                            {
+                                *nodecl_output = nodecl_stride;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            nodecl_stride = const_value_to_nodecl(const_value_get_signed_int(1));
+                        }
+
+                        nodecl_t nodecl_upper = nodecl_make_minus(
+                                nodecl_make_add(
+                                    nodecl_lower,
+                                    nodecl_length,
+                                    get_signed_int_type(),
+                                    ast_get_locus(range)),
+                                const_value_to_nodecl(const_value_get_signed_int(1)),
+                                get_signed_int_type(),
+                                ast_get_locus(range));
+
+                        *nodecl_output = nodecl_make_range(
+                                nodecl_lower,
+                                nodecl_upper,
+                                nodecl_stride,
+                                get_signed_int_type(),
+                                ast_get_locus(range));
+                        break;
+                    }
+                default:
+                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(ASTKind(range)));
+            }
+        }
+
+        void ompss_multidep_expression(
+                AST a,
+                decl_context_t decl_context,
+                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                nodecl_t* nodecl_output)
+        {
+            if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
+            {
+                AST ompss_iterator = ASTSon1(a);
+                AST identifier = ASTSon0(ompss_iterator);
+                AST range = ASTSon1(ompss_iterator);
+
+                scope_entry_t* new_iterator = new_symbol(decl_context,
+                        decl_context.current_scope,
+                        ASTText(identifier));
+                new_iterator->kind = SK_VARIABLE;
+                new_iterator->type_information = get_signed_int_type();
+                new_iterator->locus = ast_get_locus(ompss_iterator);
+
+                nodecl_t nodecl_range = nodecl_null();
+                ompss_multidep_check_range(range, decl_context, check_expression, &nodecl_range);
+
+                if (nodecl_is_err_expr(nodecl_range))
+                {
+                    *nodecl_output = nodecl_range;
+                    return;
+                }
+
+                nodecl_t nodecl_subexpr = nodecl_null();
+                ompss_multidep_expression(ASTSon0(a), decl_context, check_expression, &nodecl_subexpr);
+
+                if (nodecl_is_err_expr(nodecl_subexpr))
+                {
+                    *nodecl_output = nodecl_subexpr;
+                    return;
+                }
+
+                *nodecl_output = nodecl_make_omp_ss_multi_dependence(nodecl_range,
+                        nodecl_subexpr,
+                        new_iterator,
+                        nodecl_get_type(nodecl_subexpr),
+                        ast_get_locus(a));
+            }
+            else
+            {
+                check_expression(a, decl_context, nodecl_output);
+            }
+        }
+
+        void c_cxx_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        {
+            if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
+            {
+                decl_context_t new_context = new_block_context(decl_context);
+                ompss_multidep_expression(a, new_context,
+                        Source::c_cxx_check_expression_adapter,
+                        nodecl_output);
+            }
+            else
+            {
+                Source::c_cxx_check_expression_adapter(a, decl_context, nodecl_output);
+            }
+        }
+
+        void fortran_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        {
+            if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
+            {
+                decl_context_t new_context = new_block_context(decl_context);
+                ompss_multidep_expression(a, new_context,
+                        Source::fortran_check_expression_adapter,
+                        nodecl_output);
+            }
+            else
+            {
+                Source::fortran_check_expression_adapter(a, decl_context, nodecl_output);
+            }
+        }
+    }
+
+    ObjectList<Nodecl::NodeclBase> Core::parse_dependences_ompss_clause(
+            PragmaCustomClause& clause,
+            TL::ReferenceScope parsing_scope)
+    {
+        ObjectList<Nodecl::NodeclBase> result;
+
+        ObjectList<std::string> arguments = clause.get_tokenized_arguments();
+
+        for (ObjectList<std::string>::iterator it = arguments.begin();
+                it != arguments.end();
+                it++)
+        {
+            Source src;
+            src << "#line " << clause.get_pragma_line().get_line() << " \"" << clause.get_pragma_line().get_filename() << "\"\n";
+            src << *it;
+
+            Nodecl::NodeclBase expr;
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                expr = src.parse_generic(parsing_scope,
+                        /* ParseFlags */ Source::DEFAULT,
+                        "@OMPSS-DEPENDENCY-EXPR@",
+                        c_cxx_ompss_dep_expression,
+                        decl_context_map_id);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                expr = src.parse_generic(parsing_scope,
+                        /* ParseFlags */ Source::DEFAULT,
+                        "@OMPSS-DEPENDENCY-EXPR@",
+                        fortran_ompss_dep_expression,
+                        decl_context_map_id);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            result.append(expr);
+        }
+
+        return result;
+    }
+
+    void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
+            Nodecl::NodeclBase construct,
+            DataSharingEnvironment& data_sharing,
+            DependencyDirection dep_attr,
+            DataSharingAttribute default_data_attr,
+            const std::string& clause_name,
+            ObjectList<Symbol>& extra_symbols)
     {
         if (clause.is_defined())
         {
-            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
-            add_data_sharings(expr_list, data_sharing, dep_attr);
+            ObjectList<Nodecl::NodeclBase> expr_list = parse_dependences_ompss_clause(clause, construct);
+            add_data_sharings(expr_list, data_sharing,
+                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name, extra_symbols);
         }
     }
 

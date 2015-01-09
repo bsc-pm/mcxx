@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Basic mercurium generator
+source @abs_top_builddir@/tests/config/mercurium-libraries
+
+cat <<EOF
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose"
+test_CC="\${MCXX} --profile=hltcc"
+test_CXX="\${MCXX} --profile=hltcxx"
+test_FC="\${MCXX} --profile=hltfc"
+
+if [ "$test_nolink" == "no" -o "$1" = "run" ];
+then
+   unset test_nolink
+else
+   test_nolink=yes
+fi
+
+EOF

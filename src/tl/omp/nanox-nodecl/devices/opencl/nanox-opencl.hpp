@@ -41,7 +41,6 @@ namespace TL
             private:
 
                 bool _opencl_tasks_processed;
-                Nodecl::NodeclBase _root;
 
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
@@ -86,6 +85,11 @@ namespace TL
                 bool allow_mandatory_creation();
 
              virtual bool is_gpu_device() const;
+
+             virtual void generate_outline_events_after(
+                     Source& function_name_instr,
+                     Source& extra_cast,
+                     Source& instrumentation_after);
 
              virtual void phase_cleanup(DTO& data_flow);
         };

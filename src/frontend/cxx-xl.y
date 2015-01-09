@@ -10,4 +10,36 @@ nontype_specifier_without_attribute : XL_BUILTIN_SPEC
 }
 ;
 
+/*!if C99*/
+gcc_extra_bits_init_declarator : unknown_pragma attribute_specifier_seq
+{
+    if (CURRENT_CONFIGURATION->xl_compatibility)
+    {
+        $$ = ast_list_concat(ASTListLeaf($1), $2);
+    }
+    else
+    {
+        warn_printf("%s: warning: ignoring '#pragma %s' after the declarator\n",
+                 ast_location($1),
+                 ast_get_text($1));
+        $$ = $2;
+    }
+}
+| unknown_pragma
+{
+    if (CURRENT_CONFIGURATION->xl_compatibility)
+    {
+        $$ = ASTListLeaf($1);
+    }
+    else
+    {
+        warn_printf("%s: warning: ignoring '#pragma %s' after the declarator\n",
+                 ast_location($1),
+                 ast_get_text($1));
+        $$ = NULL;
+    }
+}
+;
+/*!endif*/
+
 /*!endif*/

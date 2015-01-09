@@ -103,21 +103,6 @@ def print_type_and_name(_type, name):
         else:
             raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
         return print_type_and_name("integer", num_name) + print_type_and_name("pointer(" + type_name + ")", list_name) 
-    elif (_type.startswith("static_array")):
-        (type_name, size) = get_up_to_matching_paren(_type[len("static_array"):]).split(",")
-        field_names = name.split(",")
-        if (len(field_names) == 1):
-           num_name = "num_" + name
-           list_name = name
-        elif (len(field_names) == 2):
-            num_name = field_names[0]
-            list_name = field_names[1]
-        else:
-            raise Exception("Invalid number of fields in static_array name. Only 1 or 2 comma-separated are allowed")
-        type_name = type_name.strip(" \n")
-        size = size.strip(" \n")
-        (t, n, s, k) = print_type_and_name(type_name, list_name)[0]
-        return print_type_and_name("integer", num_name) + [(t, n, s + "[" + size + "]", k)] 
     else:
         raise Exception("Invalid type %s" % (_type))
 
@@ -157,27 +142,146 @@ typedef struct entity_specifiers_tag\n{"""
     print ""
     print "#endif"
 
-def insert_extra_attr_code(_type, name, suffix):
+def print_getters_setters(lines):
+    print """
+#ifndef CXX_ENTITY_SPECIFIERS_OPS_H
+#define CXX_ENTITY_SPECIFIERS_OPS_H
+
+#include <stdbool.h>
+
+// We need string-utils.h for P_LIST_ADD and similar macros
+#include "string_utils.h"
+
+// We need cxx-process.h for ERROR_CONDITION
+#include "cxx-process.h"
+
+// Include this file only from cxx-scope-decls.h and not from anywhere else
+
+"""
+    current_language = "all"
+    decls = []
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[0] == "*":
+          name = name[1:]
+
+      # Atomic types
+      if (_type in ["integer", "bool", "string", "AST", "nodecl", "type", "symbol"]) or _type.startswith("typeof"):
+         decls = print_type_and_name(_type, name)
+         if len(decls) != 1:
+             raise Exception("Expecting one declaration")
+         (typename, name, suffix, k) = decls[0]
+         print "// Single value attribute: '%s' " % (name)
+         print "static inline %s symbol_entity_specs_get_%s(scope_entry_t* s)\n{\n    return s->_entity_specs.%s;\n}" % (typename, name, name)
+         print "static inline void symbol_entity_specs_set_%s(scope_entry_t* s, %s v)\n{\n    s->_entity_specs.%s = v;\n}" % (name, typename, name)
+         print ""
+      # Compound types
+      elif _type.startswith("array"):
+          type_name = get_up_to_matching_paren(_type[len("array"):])
+          field_names = name.split(",")
+          if (len(field_names) == 1):
+             num_name = "num_" + name
+             list_name = name
+          elif (len(field_names) == 2):
+              num_name = field_names[0]
+              list_name = field_names[1]
+          else:
+              raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+
+          decls = print_type_and_name(type_name, "")
+          if len(decls) != 1:
+              raise Exception("Expecting one declaration")
+          (type_name, _name, _suffix, _k) = decls[0]
+
+          # These types cannot be compared in C
+          cannot_be_compared = ["function_parameter_info_t", "gcc_attribute_t"]
+
+          print "// Multiple value attribute: '%s' " % (list_name)
+          if num_name != "num_" + name:
+              print "// Note: The number of values of this attribute is stored in attribute '%s'" % (num_name)
+          
+          print "static inline int symbol_entity_specs_get_%s(scope_entry_t* s)\n{\n    return s->_entity_specs.%s;\n}" % (num_name, num_name)
+          print "static inline %s symbol_entity_specs_get_%s_num(scope_entry_t* s, int i)\n{\n    ERROR_CONDITION(i >= s->_entity_specs.%s,\n        \"Invalid index %%d >= %%d\",\n        i, s->_entity_specs.%s);\n    return s->_entity_specs.%s[i];\n}" % (type_name, list_name, num_name, num_name, list_name)
+          print "static inline void symbol_entity_specs_set_%s_num(scope_entry_t* s, int i, %s v)\n{\n    ERROR_CONDITION(i >= s->_entity_specs.%s,\n        \"Invalid index %%d >= %%d\",\n         i, s->_entity_specs.%s);\n    s->_entity_specs.%s[i] = v;\n}" % (list_name, type_name, num_name, num_name, list_name)
+          print "static inline void symbol_entity_specs_append_%s(scope_entry_t* s, %s item)\n{\n    P_LIST_ADD(s->_entity_specs.%s, s->_entity_specs.%s, item);\n}" % (list_name, type_name, list_name, num_name)
+          if type_name not in cannot_be_compared:
+              print "static inline void symbol_entity_specs_remove_%s(scope_entry_t* s, %s item)\n{\n    P_LIST_REMOVE(s->_entity_specs.%s, s->_entity_specs.%s, item);\n}" % (list_name, type_name, list_name, num_name)
+              print "static inline void symbol_entity_specs_insert_%s(scope_entry_t* s, %s item)\n{\n    P_LIST_ADD_ONCE(s->_entity_specs.%s, s->_entity_specs.%s, item);\n}" % (list_name, type_name, list_name, num_name)
+          print "static inline void symbol_entity_specs_remove_%s_cmp(scope_entry_t* s, %s item,\n        char (*cmp)(%s, %s))\n{\n    P_LIST_REMOVE_FUN(s->_entity_specs.%s, s->_entity_specs.%s, item, cmp);\n}" % (list_name, type_name, type_name, type_name, list_name, num_name)
+          print "static inline void symbol_entity_specs_insert_%s_cmp(scope_entry_t* s, %s item,\n        char (*cmp)(%s, %s))\n{\n    P_LIST_ADD_ONCE_FUN(s->_entity_specs.%s, s->_entity_specs.%s, item, cmp);\n}" % (list_name, type_name, type_name, type_name, list_name, num_name)
+          print "static inline void symbol_entity_specs_add_%s(scope_entry_t* s, %s item)\n{\n    symbol_entity_specs_append_%s(s, item);\n}" % (list_name, type_name, list_name)
+          print "static inline void symbol_entity_specs_reserve_%s(scope_entry_t* s, int num)\n{\n    s->_entity_specs.%s = num;\n    s->_entity_specs.%s = (%s*)xcalloc(num, sizeof (* (s->_entity_specs.%s) ));\n}" % (list_name, num_name, list_name, type_name, list_name)
+          # print "static inline void symbol_entity_specs_clear_%s(scope_entry_t* s)\n{\n    s->_entity_specs.%s = NULL;\n    s->_entity_specs.%s = 0;\n}" % (list_name, list_name, num_name)
+          print "static inline void symbol_entity_specs_free_%s(scope_entry_t* s)\n{\n    s->_entity_specs.%s = 0;\n    xfree(s->_entity_specs.%s);\n    s->_entity_specs.%s = NULL;\n}" % (list_name, num_name, list_name, list_name)
+          print "static inline void symbol_entity_specs_copy_%s_from(scope_entry_t* dest, scope_entry_t* source)\n{\n    symbol_entity_specs_reserve_%s(dest, source->_entity_specs.%s);\n    memcpy(dest->_entity_specs.%s,\n        source->_entity_specs.%s,\n        dest->_entity_specs.%s\n        * (sizeof (*(dest->_entity_specs.%s))));\n} " % (list_name, list_name, num_name, list_name, list_name, num_name, list_name)
+          print ""
+
+    print "static inline void symbol_entity_specs_copy_from(scope_entry_t* dest, scope_entry_t* source)"
+    print "{"
+    print "    dest->_entity_specs = source->_entity_specs;"
+    # Now copy every list
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[0] == "*":
+          name = name[1:]
+      if _type.startswith("array"):
+          type_name = get_up_to_matching_paren(_type[len("array"):])
+          field_names = name.split(",")
+          if (len(field_names) == 1):
+             num_name = "num_" + name
+             list_name = name
+          elif (len(field_names) == 2):
+              num_name = field_names[0]
+              list_name = field_names[1]
+          else:
+              raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+          print "    symbol_entity_specs_copy_%s_from(dest, source);" % (list_name)
+    print "}"
+    print ""
+    print "static inline void symbol_entity_specs_free(scope_entry_t* symbol)"
+    print "{"
+    # Now copy every list
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if name[0] == "*":
+          name = name[1:]
+      if _type.startswith("array"):
+          type_name = get_up_to_matching_paren(_type[len("array"):])
+          field_names = name.split(",")
+          if (len(field_names) == 1):
+             num_name = "num_" + name
+             list_name = name
+          elif (len(field_names) == 2):
+              num_name = field_names[0]
+              list_name = field_names[1]
+          else:
+              raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+          print "    symbol_entity_specs_free_%s(symbol);" % (list_name)
+    print "}"
+
+    print "#endif"
+
+def insert_extra_attr_code(_type, name, getter, getter_extra_args):
     _insert_code = []
     if (_type == "integer") :
-        _insert_code.append("insert_extra_attr_int(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+        _insert_code.append("insert_extra_attr_int(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
     elif (_type == "bool"):
-        _insert_code.append("insert_extra_attr_int(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+        _insert_code.append("insert_extra_attr_int(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
     elif (_type == "string"):
-        _insert_code.append("insert_extra_attr_string(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+        _insert_code.append("insert_extra_attr_string(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
     elif (_type == "AST"):
-        _insert_code.append("insert_extra_attr_ast(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+        _insert_code.append("insert_extra_attr_ast(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
     elif (_type == "nodecl"):
-        _insert_code.append("insert_extra_attr_nodecl(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+        _insert_code.append("insert_extra_attr_nodecl(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
     elif (_type == "type"):
-        _insert_code.append("insert_extra_attr_type(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+        _insert_code.append("insert_extra_attr_type(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
     elif (_type == "symbol"):
-        _insert_code.append("insert_extra_attr_symbol(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
-    elif (_type.startswith("array") or _type.startswith("static_array")):
-        if _type.startswith("array"):
-            type_name = get_up_to_matching_paren(_type[len("array"):])
-        elif _type.startswith("static_array"):
-            type_name = get_up_to_matching_paren(_type[len("static_array"):])
+        _insert_code.append("insert_extra_attr_symbol(handle, sym, \"%s\", %s(sym%s));" % (name, getter, getter_extra_args))
+    elif (_type.startswith("array")):
+        type_name = get_up_to_matching_paren(_type[len("array"):])
         field_names = name.split(",")
         if (len(field_names) == 1):
            num_name = "num_" + name
@@ -187,19 +291,28 @@ def insert_extra_attr_code(_type, name, suffix):
             list_name = field_names[1]
         else:
             raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
-        # _insert_code.append(insert_extra_attr_code("integer", num_name, "")[0])
-        _insert_code.append("{ int i; for (i = 0; i < sym->entity_specs." + num_name + "; i++) {");
-        _insert_code = _insert_code + insert_extra_attr_code(type_name, list_name, "[i]");
+        _insert_code.append("{ int i; for (i = 0; i < symbol_entity_specs_get_%s(sym); i++) {" % (num_name));
+        _insert_code.append(
+                string.join(
+                    insert_extra_attr_code(type_name, list_name, "symbol_entity_specs_get_%s_num" % (list_name), ", i"), "\n")
+                );
         _insert_code.append("} }");
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
-        if type_name == "gather_gcc_attribute_t" :
-            _insert_code.append("insert_extra_gcc_attr(handle, sym, \"" + name + "\", &(sym->entity_specs." + name + suffix + "));")
+        if type_name == "gcc_attribute_t" :
+            _insert_code.append("{");
+            _insert_code.append("gcc_attribute_t gcc_attr = %s(sym%s);" % (getter, getter_extra_args));
+            _insert_code.append("insert_extra_gcc_attr(handle, sym, \"%s\", &gcc_attr);" % (name))
+            _insert_code.append("}")
         elif type_name == "default_argument_info_t*" :
-            _insert_code.append("insert_extra_attr_data(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ", "\
-                    "insert_default_argument_info_ptr);");
+            _insert_code.append("{");
+            _insert_code.append("default_argument_info_t* default_arg = %s(sym%s);" % (getter, getter_extra_args))
+            _insert_code.append("insert_extra_attr_data(handle, sym, \"%s\", default_arg, "\
+                    "insert_default_argument_info_ptr);" % (name));
+            _insert_code.append("}")
         elif type_name == "function_parameter_info_t":
-            _insert_code.append("insert_extra_function_parameter_info(handle, sym, \"" + name + "\", &(sym->entity_specs." + name + suffix + "));")
+            _insert_code.append("function_parameter_info_t function_param = %s(sym%s);" % (getter, getter_extra_args))
+            _insert_code.append("insert_extra_function_parameter_info(handle, sym, \"%s\", &function_param);" % (name))
         else:
             sys.stderr.write("%s:%d: warning: typeof '%s' is not handled\n" % (sys.argv[0], lineno(), type_name))
     else:
@@ -214,8 +327,11 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("memset(&extra_syms, 0, sizeof(extra_syms));")
         result.append("extra_syms.handle = handle;");
         result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_syms, get_extra_syms);")
-        result.append("sym->entity_specs." + num_name + " = extra_syms.num_syms;")
-        result.append("sym->entity_specs." + list_name + " = extra_syms.syms;")
+        result.append("int i;");
+        result.append("for (i = 0; i < extra_syms.num_syms; i++)")
+        result.append("{")
+        result.append("symbol_entity_specs_append_%s(sym, extra_syms.syms[i]);" % (list_name))
+        result.append("}")
         result.append("}")
     elif (_type == "type"):
         result.append("{")
@@ -223,8 +339,11 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("memset(&extra_types, 0, sizeof(extra_types));")
         result.append("extra_types.handle = handle;");
         result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_types, get_extra_types);")
-        result.append("sym->entity_specs." + num_name + " = extra_types.num_types;")
-        result.append("sym->entity_specs." + list_name + " = extra_types.types;")
+        result.append("int i;");
+        result.append("for (i = 0; i < extra_types.num_types; i++)")
+        result.append("{")
+        result.append("symbol_entity_specs_append_%s(sym, extra_types.types[i]);" % (list_name))
+        result.append("}")
         result.append("}")
     elif (_type == "AST"):
         result.append("{")
@@ -232,8 +351,11 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("memset(&extra_trees, 0, sizeof(extra_trees));")
         result.append("extra_trees.handle = handle;");
         result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_trees, get_extra_trees);")
-        result.append("sym->entity_specs." + num_name + " = extra_trees.num_trees;")
-        result.append("sym->entity_specs." + list_name + " = extra_trees.trees;")
+        result.append("int i;");
+        result.append("for (i = 0; i < extra_trees.num_trees; i++)")
+        result.append("{")
+        result.append("symbol_entity_specs_append_%s(sym, extra_trees.trees[i]);" % (list_name))
+        result.append("}")
         result.append("}")
     elif (_type == "nodecl"):
         result.append("{")
@@ -241,12 +363,15 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("memset(&extra_nodecls, 0, sizeof(extra_nodecls));")
         result.append("extra_nodecls.handle = handle;");
         result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_nodecls, get_extra_nodecls);")
-        result.append("sym->entity_specs." + num_name + " = extra_nodecls.num_nodecls;")
-        result.append("sym->entity_specs." + list_name + " = extra_nodecls.nodecls;")
+        result.append("int i;");
+        result.append("for (i = 0; i < extra_nodecls.num_nodecls; i++)")
+        result.append("{")
+        result.append("symbol_entity_specs_append_%s(sym, extra_nodecls.nodecls[i]);" % (list_name))
+        result.append("}")
         result.append("}")
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
-        if type_name == "gather_gcc_attribute_t" :
+        if type_name == "gcc_attribute_t" :
             result.append("{")
             result.append("extra_gcc_attrs_t extra_gcc_attrs;");
             result.append("memset(&extra_gcc_attrs, 0, sizeof(extra_gcc_attrs));");
@@ -284,43 +409,40 @@ def get_load_code(_type, name):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = safe_atoull(values[i]);")
+        result.append("   symbol_entity_specs_set_%s(sym, safe_atoull(values[i]));" % (name));
         result.append("}")
     elif (_type == "string"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = uniquestr(values[i]);")
+        result.append("   symbol_entity_specs_set_%s(sym, uniquestr(values[i]));" % (name));
         result.append("}")
     elif (_type == "AST"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_ast(handle, safe_atoull(values[i]));")
+        result.append("   symbol_entity_specs_set_%s(sym, load_ast(handle, safe_atoull(values[i])));" % (name))
         result.append("}")
     elif (_type == "nodecl"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_nodecl(handle, safe_atoull(values[i]));")
+        result.append("   symbol_entity_specs_set_%s(sym, load_nodecl(handle, safe_atoull(values[i])));" % (name))
         result.append("}")
     elif (_type == "type"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_type(handle, safe_atoull(values[i]));")
+        result.append("   symbol_entity_specs_set_%s(sym, load_type(handle, safe_atoull(values[i])));" % (name))
         result.append("}")
     elif (_type == "symbol"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_symbol(handle, safe_atoull(values[i]));")
+        result.append("   symbol_entity_specs_set_%s(sym, load_symbol(handle, safe_atoull(values[i])));" % (name))
         result.append("}")
-    elif (_type.startswith("array") or _type.startswith("static_array")):
-        if _type.startswith("array"):
-            type_name = get_up_to_matching_paren(_type[len("array"):])
-        elif _type.startswith("static_array"):
-            type_name = get_up_to_matching_paren(_type[len("static_array"):])
+    elif (_type.startswith("array")):
+        type_name = get_up_to_matching_paren(_type[len("array"):])
         field_names = name.split(",")
         if (len(field_names) == 1):
            num_name = "num_" + name
@@ -338,7 +460,7 @@ def get_load_code(_type, name):
             result.append("int i;");
             result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
             result.append("{")
-            result.append("   sym->entity_specs." + name + " = safe_atoull(values[i]);")
+            result.append("   symbol_entity_specs_set_%s(sym, safe_atoull(values[i]));" % (name));
             result.append("}")
         elif type_name == "simplify_function_t":
             result.append("int i;");
@@ -348,14 +470,14 @@ def get_load_code(_type, name):
             result.append("   simplify_function_t fun = fortran_simplify_function_get_ptr(id);" )
             result.append("   ERROR_CONDITION(fun == NULL && id != 0, " \
                 "\"Invalid identifier %d for simplification function.\\nYou may have to rebuild your Fortran modules\", id);")
-            result.append("   sym->entity_specs." + name + " = fortran_simplify_function_get_ptr(safe_atoull(values[i]));")
+            result.append("   symbol_entity_specs_set_%s(sym, fortran_simplify_function_get_ptr(safe_atoull(values[i])));" % (name));
             result.append("}")
         else:
             sys.stderr.write("%s:%d: warning: not handling typeof '%s'\n" % (sys.argv[0], lineno(), type_name))
         pass
     elif (_type == "scope"):
         result.append("// Scope is not stored (yet)");
-        result.append("sym->entity_specs." + name + " = CURRENT_COMPILED_FILE->global_decl_context;")
+        result.append("symbol_entity_specs_set_%s(sym, CURRENT_COMPILED_FILE->global_decl_context;" % (name));
     elif (_type == "bool"):
         # Booleans are handled apart
         pass
@@ -382,45 +504,45 @@ def print_fortran_modules_functions(lines):
       elif (_type == "integer"):
           attr_names.append(name)
           _format.append("%d")
-          sprintf_arguments.append("sym->entity_specs.%s" % (name))
+          sprintf_arguments.append("symbol_entity_specs_get_%s(sym)" % (name))
       elif (_type == "AST"):
           attr_names.append(name)
           _format.append("%llu")
-          _insert_code.append("    insert_ast(handle, sym->entity_specs." + name + ");");
-          sprintf_arguments.append("P2ULL(sym->entity_specs.%s)" % (name))
+          _insert_code.append("    insert_ast(handle, symbol_entity_specs_get_%s(sym));" % (name));
+          sprintf_arguments.append("P2ULL(symbol_entity_specs_get_%s(sym))" % (name))
       elif (_type == "nodecl"):
           attr_names.append(name)
           _format.append("%llu")
-          _insert_code.append("    insert_nodecl(handle, sym->entity_specs." + name + ");");
-          sprintf_arguments.append("P2ULL(nodecl_get_ast(sym->entity_specs.%s))" % (name))
+          _insert_code.append("    insert_nodecl(handle, symbol_entity_specs_get_%s(sym));" % (name));
+          sprintf_arguments.append("P2ULL(nodecl_get_ast(symbol_entity_specs_get_%s(sym)))" % (name))
       elif (_type == "type"):
           attr_names.append(name)
           _format.append("%llu")
-          _insert_code.append("    insert_type(handle, sym->entity_specs." + name + ");");
-          sprintf_arguments.append("P2ULL(sym->entity_specs.%s)" % (name))
+          _insert_code.append("    insert_type(handle, symbol_entity_specs_get_%s(sym));" % (name));
+          sprintf_arguments.append("P2ULL(symbol_entity_specs_get_%s(sym))" % (name))
       elif (_type == "symbol"):
           attr_names.append(name)
           _format.append("%llu")
-          _insert_code.append("    insert_symbol(handle, sym->entity_specs." + name + ");");
-          sprintf_arguments.append("P2ULL(sym->entity_specs.%s)" % (name))
+          _insert_code.append("    insert_symbol(handle, symbol_entity_specs_get_%s(sym));" % (name));
+          sprintf_arguments.append("P2ULL(symbol_entity_specs_get_%s(sym))" % (name))
       elif (_type == "string"):
           attr_names.append(name)
           _format.append("%Q")
-          sprintf_arguments.append("sym->entity_specs.%s" % (name))
+          sprintf_arguments.append("symbol_entity_specs_get_%s(sym)" % (name))
       elif (_type.startswith("typeof")):
             type_name = get_up_to_matching_paren(_type[len("typeof"):]).split(",")[0].strip()
             if type_name == "intent_kind_t" or type_name == "access_specifier_t":
                 attr_names.append(name)
                 _format.append("%d")
-                sprintf_arguments.append("(int)(sym->entity_specs.%s)" % (name))
+                sprintf_arguments.append("(int)symbol_entity_specs_get_%s(sym)" % (name))
             elif type_name == "_size_t":
                 attr_names.append(name)
                 _format.append("%llu")
-                sprintf_arguments.append("(unsigned long long)(sym->entity_specs.%s)" % (name))
+                sprintf_arguments.append("(unsigned long long)symbol_entity_specs_get_%s(sym)" % (name))
             elif type_name == "simplify_function_t":
                 attr_names.append(name);
                 _format.append("%d")
-                sprintf_arguments.append("fortran_simplify_function_get_id(sym->entity_specs.%s)" % (name))
+                sprintf_arguments.append("fortran_simplify_function_get_id(symbol_entity_specs_get_%s(sym))" % (name))
             else:
                 sys.stderr.write("%s:%d: warning: not handling typeof '%s'\n" % (sys.argv[0], lineno(), type_name))
       else:
@@ -444,8 +566,8 @@ def print_fortran_modules_functions(lines):
       (_type,language,name,description) = fields
       if name[0] == "*":
           continue;
-      if (_type.startswith("array") or _type.startswith("static_array")):
-          _extra_attr_code = _extra_attr_code + insert_extra_attr_code(_type, name, "")
+      if (_type.startswith("array")):
+          _extra_attr_code = _extra_attr_code + insert_extra_attr_code(_type, name, "", "")
       else:
            pass
     print "static void insert_extended_attributes(sqlite3* handle, scope_entry_t* sym)"
@@ -484,11 +606,22 @@ def print_fortran_modules_functions(lines):
       if name[1] == "*":
           continue;
       if _type == "bool":
-          print "result.%s = sym->entity_specs.%s;" % (name, name)
+          print "result.%s = symbol_entity_specs_get_%s(sym);" % (name, name)
     print "return result;"
     print "}"
 
-    print "static void unpack_bits(entity_specifiers_t *entity_specs, module_packed_bits_t bitpack)"
+    # print "static void unpack_bits(entity_specifiers_t *_entity_specs, module_packed_bits_t bitpack)"
+    # print "{"
+    # for l in lines:
+    #   fields = l.split("|");
+    #   (_type,language,name,description) = fields
+    #   if name[1] == "*":
+    #       continue;
+    #   if _type == "bool":
+    #       print "_entity_specs->%s = bitpack.%s;" % (name, name)
+    # print "}"
+
+    print "static void unpack_bits(scope_entry_t *sym, module_packed_bits_t bitpack)"
     print "{"
     for l in lines:
       fields = l.split("|");
@@ -496,7 +629,7 @@ def print_fortran_modules_functions(lines):
       if name[1] == "*":
           continue;
       if _type == "bool":
-          print "entity_specs->%s = bitpack.%s;" % (name, name)
+          print "symbol_entity_specs_set_%s(sym, bitpack.%s);" % (name, name)
     print "}"
 
     print "#endif // FORTRAN03_MODULES_BITS_H"
@@ -511,7 +644,10 @@ def print_deep_copy_entity_specs(lines):
     print "#include \"string_utils.h\""
 
     print """
-    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source, decl_context_t decl_context, symbol_map_t* symbol_map)
+    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source,
+             decl_context_t decl_context, symbol_map_t* symbol_map,
+             nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+             symbol_deep_copy_map_t* symbol_deep_copy_map)
     {
     """
     for l in lines:
@@ -524,24 +660,24 @@ def print_deep_copy_entity_specs(lines):
           print "// We do not copy function code!"
           continue
       if _type in ["bool", "integer"]:
-          print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
+          print "symbol_entity_specs_set_%s(dest, symbol_entity_specs_get_%s(source));" % (name, name)
       elif (_type == "scope"):
-          print "dest->entity_specs.%s = decl_context;" % (name)
+          print "symbol_entity_specs_set_%s(dest, decl_context);"
       elif (_type == "nodecl"):
-          print "dest->entity_specs.%s = nodecl_deep_copy(source->entity_specs.%s, decl_context, symbol_map);" % (name, name)
+          print "symbol_entity_specs_set_%s(dest, nodecl_deep_copy_compute_maps(symbol_entity_specs_get_%s(source), decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));" % (name, name)
       elif (_type == "type"):
-          print "dest->entity_specs.%s = type_deep_copy(source->entity_specs.%s, decl_context, symbol_map);" % (name, name)
+          print "symbol_entity_specs_set_%s(dest, type_deep_copy_compute_maps(symbol_entity_specs_get_%s(source), decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));" % (name, name)
       elif (_type == "symbol"):
-          print "dest->entity_specs.%s = symbol_map->map(symbol_map, source->entity_specs.%s);" % (name, name)
+          print "symbol_entity_specs_set_%s(dest, symbol_map->map(symbol_map, symbol_entity_specs_get_%s(source)));" % (name, name)
       elif (_type == "string"):
-          print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
+          print "symbol_entity_specs_set_%s(dest, symbol_entity_specs_get_%s(source));" % (name, name)
       elif (_type.startswith("typeof")):
             type_name = get_up_to_matching_paren(_type[len("typeof"):]).split(",")[0].strip()
             if type_name in ["intent_kind_t", "access_specifier_t", "_size_t", "simplify_function_t"]:
-                print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
+                print "symbol_entity_specs_set_%s(dest, symbol_entity_specs_get_%s(source));" % (name, name)
             else:
                 sys.stderr.write("%s:%d: warning: not handling typeof '%s'\n" % (sys.argv[0], lineno(), type_name))
-      elif _type.startswith("array"):
+      elif (_type.startswith("array")):
           type_name = get_up_to_matching_paren(_type[len("array"):])
           field_names = name.split(",")
           if (len(field_names) == 1):
@@ -555,37 +691,35 @@ def print_deep_copy_entity_specs(lines):
           if type_name.startswith("typeof"):
               type_name = get_up_to_matching_paren(type_name[len("typeof"):]).split(",")[0].strip()
           print "{"
-          print "int i, N = source->entity_specs.%s;" % (num_name)
-          print "dest->entity_specs.%s = NULL;" % (list_name)
-          print "dest->entity_specs.%s = 0;" % (num_name)
+          print "int i, N = symbol_entity_specs_get_%s(source);" % (num_name)
           print "for (i = 0; i < N; i++)"
           print "{"
           if type_name == "symbol":
-              print "scope_entry_t* copied = symbol_map->map(symbol_map, source->entity_specs.%s[i]);" % (list_name)
-              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+              print "scope_entry_t* copied = symbol_map->map(symbol_map, symbol_entity_specs_get_%s_num(source, i));" % (list_name)
+              print "symbol_entity_specs_add_%s(dest, copied);" % (list_name);
           elif type_name == "type":
-              print "type_t* copied = type_deep_copy(source->entity_specs.%s[i], decl_context, symbol_map);" % (list_name)
-              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+              print "type_t* copied = type_deep_copy_compute_maps(symbol_entity_specs_get_%s_num(source, i), decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (list_name)
+              print "symbol_entity_specs_add_%s(dest, copied);" % (list_name);
           elif type_name == "default_argument_info_t*":
-                  print "default_argument_info_t* source_default_arg = source->entity_specs.%s[i];" % (list_name)
+                  print "default_argument_info_t* source_default_arg = symbol_entity_specs_get_%s_num(source, i);" % (list_name)
                   print "default_argument_info_t* copied = NULL;"
                   print "if (source_default_arg != NULL)"
                   print "{"
                   print "  copied = xcalloc(1, sizeof(*copied));"
-                  print "  copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
+                  print "  copied->argument = nodecl_deep_copy_compute_maps(source_default_arg->argument, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
                   print "  copied->context = decl_context;"
                   print "}"
-                  print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
-          elif type_name == "gather_gcc_attribute_t":
-              print "gather_gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
-              print "gather_gcc_attribute_t copied;"
+                  print "symbol_entity_specs_add_%s(dest, copied);" % (list_name)
+          elif type_name == "gcc_attribute_t":
+              print "gcc_attribute_t source_gcc_attr = symbol_entity_specs_get_%s_num(source, i);" % (list_name)
+              print "gcc_attribute_t copied;"
               print "copied.attribute_name = source_gcc_attr.attribute_name;"
-              print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, symbol_map);"
-              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
+              print "copied.expression_list = nodecl_deep_copy_compute_maps(source_gcc_attr.expression_list, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+              print "symbol_entity_specs_add_%s(dest, copied);" % (list_name)
           elif type_name == "function_parameter_info_t":
-              print "function_parameter_info_t param_info = source->entity_specs.%s[i];" % (list_name)
+              print "function_parameter_info_t param_info = symbol_entity_specs_get_%s_num(source, i);" % (list_name)
               print "param_info.function = symbol_map->map(symbol_map, param_info.function);"
-              print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, param_info);" % (list_name, num_name)
+              print "symbol_entity_specs_add_%s(dest, param_info);" % (list_name)
           else:
               sys.stderr.write("%s:%d: warning: not handling type array of type '%s'\n" % (sys.argv[0], lineno(), _type))
           print "}"
@@ -604,6 +738,8 @@ print "/* Do not modify it or you'll get what you deserve */"
 
 if op == "entity_specifiers":
     print_entity_specifiers(lines)
+elif op == "getters_and_setters":
+    print_getters_setters(lines)
 elif op == "fortran_modules":
     print_fortran_modules_functions(lines)
 elif op == "c_deep_copy_entity_specs":

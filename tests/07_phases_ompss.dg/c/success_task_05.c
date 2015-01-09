@@ -31,6 +31,9 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
+
+#if !defined(__ICC) || (__ICC >= 1400)
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -85,3 +88,11 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+#else
+// ICC <14.0 miscompiles VLA address calculations
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+#endif

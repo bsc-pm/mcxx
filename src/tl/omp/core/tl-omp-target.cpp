@@ -29,6 +29,7 @@
 
 #include "tl-omp-target.hpp"
 #include "tl-omp-core.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL
 {
@@ -36,40 +37,62 @@ namespace TL
     {
         void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line,
                 TargetContext& target_ctx,
-                TL::Scope scope)
+                TL::Scope scope,
+                bool is_pragma_task)
         {
+            PragmaCustomClause onto = pragma_line.get_clause("onto");
+            if (onto.is_defined())
+            {
+                target_ctx.onto = onto.get_arguments_as_expressions(scope);
+            }
+
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
             {
-                target_ctx.device_list = device.get_tokenized_arguments();
+                target_ctx.device_list.insert(device.get_tokenized_arguments());
             }
             else
             {
-                // Default is smp
-             std::cerr << pragma_line.get_locus_str() << ": "
-                    << "warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'"
-                    << std::endl;
+                // In #pragma omp target a device is mandatory, for #pragma omp task
+                // add it only if not empty
+                std::string default_device = "smp";
+                bool set_default_device = false;
+                if (!is_pragma_task)
+                {
+                    warn_printf("%s: warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'\n",
+                            pragma_line.get_locus_str().c_str());
+                    set_default_device = true;
+                }
+                else if (target_ctx.device_list.empty())
+                {
+                    set_default_device = true;
+                    //If onto is defined and there is no device, default device is MPI
+                    if (onto.is_defined()) default_device="mpi";
+                }
 
-                target_ctx.device_list.clear();
-                target_ctx.device_list.append("smp");
+                if (set_default_device)
+                {
+                    target_ctx.device_list.clear();
+                    target_ctx.device_list.append(default_device);
+                } 
             }
 
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments_as_expressions(scope);
+                target_ctx.copy_in = parse_dependences_ompss_clause(copy_in, scope);
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments_as_expressions(scope);
+                target_ctx.copy_out = parse_dependences_ompss_clause(copy_out, scope);
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
+                target_ctx.copy_inout = parse_dependences_ompss_clause(copy_inout, scope);
             }
 
             PragmaCustomClause ndrange = pragma_line.get_clause("ndrange");
@@ -87,15 +110,9 @@ namespace TL
                 }
                 else
                 {
-                    std::cerr << pragma_line.get_locus_str()
-                        << ": warning: 'shmem' clause cannot be used without the 'ndrange' clause, skipping" << std::endl;
+                    warn_printf("%s: warning: 'shmem' clause cannot be used without the 'ndrange' clause, skipping\n",
+                            pragma_line.get_locus_str().c_str());
                 }
-            }
-
-            PragmaCustomClause onto = pragma_line.get_clause("onto");
-            if (onto.is_defined())
-            {
-                target_ctx.onto = onto.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause file = pragma_line.get_clause("file");
@@ -104,7 +121,8 @@ namespace TL
                 ObjectList<std::string> file_list = file.get_tokenized_arguments();
                 if (file_list.size() != 1)
                 {
-                    std::cerr << pragma_line.get_locus_str() << ": warning: clause 'file' expects one identifier, skipping" << std::endl;
+                    warn_printf("%s: warning: clause 'file' expects one identifier, skipping\n",
+                            pragma_line.get_locus_str().c_str());
                 }
                 else
                 {
@@ -118,7 +136,8 @@ namespace TL
                 ObjectList<std::string> name_list = name.get_tokenized_arguments();
                 if (name_list.size() != 1)
                 {
-                    std::cerr << pragma_line.get_locus_str() << ": warning: clause 'name' expects one identifier, skipping" << std::endl;
+                    warn_printf("%s: warning: clause 'name' expects one identifier, skipping\n",
+                            pragma_line.get_locus_str().c_str());
                 }
                 else
                 {
@@ -127,10 +146,51 @@ namespace TL
             }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
-            if (copy_deps.is_defined())
+            PragmaCustomClause no_copy_deps = pragma_line.get_clause("no_copy_deps");
+
+            target_ctx.copy_deps = false;
+
+            if (!copy_deps.is_defined()
+                    && !no_copy_deps.is_defined())
+            {
+                if (this->in_ompss_mode()
+                        && this->copy_deps_by_default())
+                {
+                    // Copy deps is true only if there is no copy_in, copy_out
+                    // or copy_inout
+                    if ( !copy_in.is_defined()
+                            && !copy_out.is_defined()
+                            && !copy_inout.is_defined())
+                    {
+                        target_ctx.copy_deps = true;
+
+                        if (!_already_informed_new_ompss_copy_deps)
+                        {
+                            info_printf("%s: info: unless 'no_copy_deps' is specified, "
+                                    "the default in OmpSs is now 'copy_deps'\n",
+                                    pragma_line.get_locus_str().c_str());
+                            info_printf("%s: info: this diagnostic is only shown for the "
+                                    "first task found\n",
+                                    pragma_line.get_locus_str().c_str());
+
+                            _already_informed_new_ompss_copy_deps = true;
+                        }
+                    }
+                }
+            }
+            else if (copy_deps.is_defined())
             {
                 target_ctx.copy_deps = true;
             }
+            else if (no_copy_deps.is_defined())
+            {
+                target_ctx.copy_deps = false;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
 
             PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
@@ -195,20 +255,27 @@ namespace TL
                 }
                 else
                 {
-                    std::cerr << pragma_line.get_locus_str() << ": warning: '"
-                        << "' The argument of the clause 'implements' is not a valid identifier, skipping"
-                        << std::endl;
+                    warn_printf("%s: warning: the argument of the clause 'implements' is not a valid identifier, skipping\n",
+                            pragma_line.get_locus_str().c_str());
                 }
             }
         }
 
+        // #pragma omp target on top of a #pragma omp task outline
         void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
 
             common_target_handler_pre(pragma_line, target_ctx,
-                    ctr.get_context_of_parameters().retrieve_context());
+                    ctr.get_context_of_parameters().retrieve_context(),
+                    /* is_pragma_task */ false);
 
             if (target_ctx.has_implements)
             {
@@ -216,41 +283,48 @@ namespace TL
 
                 if (!function_sym.is_function())
                 {
-                    std::cerr << ctr.get_locus_str() 
-                        << ": warning: '#pragma omp target' with an 'implements' clause must "
-                        "precede a single function declaration or a function definition"
-                        << std::endl;
-                    std::cerr << ctr.get_locus_str() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                    warn_printf("%s: warning: '#pragma omp target' with an 'implements' clause must "
+                        "precede a single function declaration or a function definition\n",
+                        ctr.get_locus_str().c_str());
+                    warn_printf("%s: warning: skipping the whole '#pragma omp target'\n",
+                        ctr.get_locus_str().c_str());
                     return;
                 }
 
                 // Now lookup a FunctionTaskInfo
                 if (!_function_task_set->is_function_task(target_ctx.implements))
                 {
-                    std::cerr << ctr.get_locus_str() << ": warning: '" 
-                        << target_ctx.implements.get_qualified_name()
-                        << "' is not a '#pragma omp task' function, skipping"
-                        << std::endl;
+                    warn_printf("%s: warning: '%s' is not a '#pragma omp task' function, skipping\n",
+                            ctr.get_locus_str().c_str(),
+                            target_ctx.implements.get_qualified_name().c_str());
                 }
                 else
                 {
-                    FunctionTaskInfo& function_task_info = _function_task_set->get_function_task(target_ctx.implements);
-                    ObjectList<FunctionTaskInfo::implementation_pair_t> devices_with_impl = 
-                        function_task_info.get_devices_with_implementation();
+                    // The symbol mentioned in the 'implements' clause is a function task
+                    FunctionTaskInfo& function_task_info =
+                        _function_task_set->get_function_task(target_ctx.implements);
+
+                    TargetInfo &target_info = function_task_info.get_target_info();
+                    TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
 
                     for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                             it != target_ctx.device_list.end();
                             it++)
                     {
                         const char* current_device_lowercase = strtolower(it->c_str());
-                        if (!devices_with_impl.contains(std::make_pair(current_device_lowercase, function_sym)))
+                        TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
+                        // If the current device hasn't an entry in the map
+                        if (it2 == implementation_table.end()
+                                // Or it has but the current symbol is not in the list
+                                ||  !it2->second.contains(function_sym))
                         {
-                            std::cerr << ctr.get_locus_str() <<
-                                ": note: adding function '" << function_sym.get_qualified_name() << "'"
-                                << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
-                                << " for device '" << current_device_lowercase << "'" << std::endl;
+                            info_printf("%s: note: adding function '%s' as the implementation of '%s' for device '%s'\n",
+                                    ctr.get_locus_str().c_str(),
+                                    function_sym.get_qualified_name().c_str(),
+                                    target_ctx.implements.get_qualified_name().c_str(),
+                                    current_device_lowercase);
 
-                            function_task_info.add_device_with_implementation(current_device_lowercase, function_sym);
+                            target_info.add_implementation(current_device_lowercase, function_sym);
                         }
                     }
                 }
@@ -268,21 +342,31 @@ namespace TL
             }
         }
 
+        // #pragma omp target on top of a #pragma omp task inline
         void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
             if (!nested_pragma.is_null()
                     && nested_pragma.is<Nodecl::List>())
             {
                 nested_pragma = nested_pragma.as<Nodecl::List>().front();
+                ERROR_CONDITION(!nested_pragma.is<Nodecl::Context>(), "Invalid node\n", 0);
+                nested_pragma = nested_pragma.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
             }
 
-            if (nested_pragma.is_null() 
+            if (nested_pragma.is_null()
                     || !PragmaUtils::is_pragma_construct("omp", "task", nested_pragma))
             {
-                std::cerr << ctr.get_locus_str()
-                    << ": warning: '#pragma omp target' must precede a '#pragma omp task' in this context" << std::endl;
-                std::cerr << ctr.get_locus_str() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                warn_printf("%s: warning: '#pragma omp target' must precede a '#pragma omp task' in this context\n",
+                        ctr.get_locus_str().c_str());
+                warn_printf("%s: warning: skipping the whole '#pragma omp target'\n",
+                        ctr.get_locus_str().c_str());
                 return;
             }
 
@@ -291,13 +375,17 @@ namespace TL
 
             if (target_ctx.has_implements)
             {
-                std::cerr << ctr.get_locus_str()
-                    << ": warning: '#pragma omp target' cannot have 'implements' clause in this context" << std::endl;
-                std::cerr << ctr.get_locus_str() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                warn_printf("%s: warning: '#pragma omp target' cannot have an 'implements' clause in this context\n",
+                        ctr.get_locus_str().c_str());
+                warn_printf("%s: warning: skipping the whole '#pragma omp target'\n",
+                        ctr.get_locus_str().c_str());
                 return;
             }
 
-            common_target_handler_pre(pragma_line, target_ctx, ctr.retrieve_context());
+            common_target_handler_pre(pragma_line,
+                    target_ctx,
+                    ctr.retrieve_context(),
+                    /* is_pragma_task */ false);
 
             _target_context.push(target_ctx);
         }
@@ -315,7 +403,8 @@ namespace TL
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<Nodecl::NodeclBase>& list,
                 CopyDirection copy_direction,
-                TargetInfo& target_info)
+                TargetInfo& target_info,
+                bool in_ompss_mode)
         {
             TL::ObjectList<CopyItem> items;
 
@@ -328,60 +417,71 @@ namespace TL
                 std::string warning;
                 if (!expr.is_valid())
                 {
-                    std::cerr << expr.get_error_log();
-                    std::cerr << construct.get_locus_str() 
-                        << ": error: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
-                        << std::endl;
+                    // FIXME - Make this more consistent
+                    warn_printf("%s", expr.get_error_log().c_str());
+                    warn_printf("%s: error: '%s' is not a valid copy data-reference, skipping\n",
+                            construct.get_locus_str().c_str(),
+                            expr.prettyprint().c_str());
                     continue;
                 }
 
-                Symbol sym = expr.get_base_symbol();
-                OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
-
-                if (expr.is<Nodecl::Symbol>())
+                // In OmpSs copies we may fix the data-sharing to something more natural
+                if (in_ompss_mode)
                 {
-                    if (data_sharing_attr == DS_UNDEFINED)
+                    Symbol sym = expr.get_base_symbol();
+                    // In OmpSs, the storage of a copy is always SHARED. Note that with this
+                    // definition we aren't defining the data-sharings of the variables involved
+                    // in that expression.
+                    //
+                    // About the data-sharings of the variables involved in the copy expression:
+                    // - Fortran: the base symbol of the copy expression is always SHARED
+                    // - C/C++:
+                    //  * The base symbol of a trivial copy (i.e the expression is a symbol) must always be SHARED:
+                    //          int x, a[10];
+                    //          copy_inout(x) -> shared(x)
+                    //          copy_inout(a) -> shared(a)
+                    //  * The base symbol of an array expression or a reference to an array must be SHARED too:
+                    //          copy_int a[10];
+                    //          copy_inout(a[4])   -> shared(a)
+                    //          copy_inout(a[1:2]) -> shared(a)
+                    //  * The base symbol of a class member access must be shared too:
+                    //          struct C { int z; } c;
+                    //          copy_inout(c.z)       -> shared(c)
+                    //  * Otherwise, the data-sharing of the base symbol is FIRSTPRIVATE:
+                    //          int* p;
+                    //          copy_inout(*p)     -> firstprivate(p)
+                    //          copy_inout(p[10])  -> firstprivate(p)
+                    //          copy_inout(p[1:2]) -> firstprivate(p)
+                    //          copy_inout([10][20] p) -> firstprivate(p)
+                    if (IS_FORTRAN_LANGUAGE)
                     {
-                        std::cerr 
-                            << construct.get_locus_str()
-                            << ": warning: symbol '" << sym.get_name() << "' does not have any data sharing, assuming SHARED" 
-                            << std::endl;
-                        // Make it shared if we know nothing about this entity
-                        data_sharing.set_data_sharing(sym, DS_SHARED);
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
-
-                    if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
+                    else if (expr.is<Nodecl::Symbol>())
                     {
-                        if ((data_sharing_attr & DS_IMPLICIT) != DS_IMPLICIT)
-                        {
-                            // This is an explicit data sharing of a private
-                            // entity, which is being copied, this is wrong
-                            running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
-                                    construct.get_locus_str().c_str(),
-                                    sym.get_name().c_str());
-                        }
-                        else
-                        {
-                            // Otherwise just override the sharing attribute with shared
-                            data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-                        }
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
-                }
-                else
-                {
-                    Type sym_type = sym.get_type();
-                    if (sym_type.is_any_reference())
+                    else if (sym.get_type().is_array()
+                            || (sym.get_type().is_any_reference()
+                                && sym.get_type().references_to().is_array()))
                     {
-                        sym_type = sym_type.references_to();
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is an array mentioned in a non-trivial copy "
+                                "and it did not have an explicit data-sharing");
                     }
-
-                    if (sym_type.is_array())
+                    else if (sym.get_type().is_class())
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is an object mentioned in a non-trivial dependence "
+                                "and it did not have an explicit data-sharing");
                     }
                     else
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                                "the variable is a non-array mentioned in a non-trivial copy "
+                                "and it did not have an explicit data-sharing");
                     }
                 }
 
@@ -421,23 +521,29 @@ namespace TL
                 return;
 
             TargetInfo target_info;
-            target_info.set_target_symbol(construct.get_symbol());
+
+            TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+            ERROR_CONDITION(!enclosing_function.is_valid(), "This symbol is not valid", 0);
+            target_info.set_target_symbol(enclosing_function);
             TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_in,
                     COPY_DIR_IN,
-                    target_info);
+                    target_info,
+                    in_ompss_mode());
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
                     COPY_DIR_OUT,
-                    target_info);
+                    target_info,
+                    in_ompss_mode());
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_inout,
                     COPY_DIR_INOUT,
-                    target_info);
+                    target_info,
+                    in_ompss_mode());
 
             target_info.set_file(target_ctx.file);
             target_info.set_name(target_ctx.name);
@@ -462,22 +568,30 @@ namespace TL
                         it++)
                 {
                     ObjectList<Nodecl::NodeclBase>* p = NULL;
-                    DependencyDirection dir = DependencyDirection(it->get_kind() & DEP_DIR_INOUT);
-                    if (dir == DEP_DIR_IN)
+                    switch (it->get_kind())
                     {
-                        p = &dep_list_in;
-                    }
-                    else if (dir == DEP_DIR_OUT)
-                    {
-                        p = &dep_list_out;
-                    }
-                    else if (dir == DEP_DIR_INOUT)
-                    {
-                        p = &dep_list_inout;
-                    }
-                    else
-                    {
-                        internal_error("Invalid dependency kind", 0);
+                        case DEP_DIR_IN:
+                        case DEP_DIR_IN_PRIVATE:
+                            {
+                                p = &dep_list_in;
+                                break;
+                            }
+                        case DEP_DIR_OUT:
+                            {
+                                p = &dep_list_out;
+                                break;
+                            }
+                        case DEP_DIR_INOUT:
+                        case DEP_CONCURRENT:
+                        case DEP_COMMUTATIVE:
+                            {
+                                p = &dep_list_inout;
+                                break;
+                            }
+                        default:
+                            {
+                                internal_error("Invalid dependency kind", 0);
+                            }
                     }
 
                     p->append(it->get_dependency_expression());
@@ -486,68 +600,62 @@ namespace TL
                 add_copy_items(construct, data_sharing,
                         dep_list_in,
                         COPY_DIR_IN,
-                        target_info);
+                        target_info,
+                        in_ompss_mode());
 
                 add_copy_items(construct, data_sharing,
                         dep_list_out,
                         COPY_DIR_OUT,
-                        target_info);
+                        target_info,
+                        in_ompss_mode());
 
                 add_copy_items(construct, data_sharing,
                         dep_list_inout,
                         COPY_DIR_INOUT,
-                        target_info);
+                        target_info,
+                        in_ompss_mode());
             }
 
-            if (!_allow_shared_without_copies)
+            if (this->in_ompss_mode()
+                    && (target_ctx.copy_deps
+                        || !target_ctx.copy_in.empty()
+                        || !target_ctx.copy_out.empty()
+                        || !target_ctx.copy_inout.empty())
+                    && !_allow_shared_without_copies)
             {
-
                 ObjectList<CopyItem> all_copies;
                 all_copies.append(target_info.get_copy_in());
                 all_copies.append(target_info.get_copy_out());
                 all_copies.append(target_info.get_copy_inout());
 
                 ObjectList<Symbol> all_copied_syms = all_copies
-                    .map(functor(&CopyItem::get_copy_expression))
-                    .map(functor(&DataReference::get_base_symbol));
+                    .map(&CopyItem::get_copy_expression)
+                    .map(&DataReference::get_base_symbol);
 
-                // In devices with disjoint memory, it is forbidden to use a global
-                // variables inside a pragma task without copying it
-                // If there is no copy defined by the user, we will assume the
-                // variable is shared and then we will copy_inout it
+                // In devices with disjoint memory, it may be wrong to use a
+                // global variables inside a pragma task without copying it.
                 ObjectList<Symbol> ds_syms;
                 data_sharing.get_all_symbols(DS_SHARED, ds_syms);
 
-                ObjectList<Nodecl::NodeclBase> shared_to_inout;
                 for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
                         io_it != ds_syms.end(); 
                         io_it++)
                 {
+                    // Ignore 'this'
+                    if (IS_CXX_LANGUAGE
+                            && io_it->get_name() == "this")
+                    {
+                        continue;
+                    }
+
                     if (!all_copied_syms.contains(*io_it))
                     {
-                        // FIXME 
-                        //
-                        // if (construct.get_show_warnings())
-                        // {
-                        std::cerr << construct.get_locus_str() 
-                            << ": warning: symbol '" << io_it->get_qualified_name()
-                            << "' has shared data-sharing but does not have copy directionality. Assuming copy_inout. "
-                            << std::endl;
-                        // }
-
-                        Nodecl::Symbol new_symbol_ref =
-                            Nodecl::Symbol::make(*io_it, construct.get_locus());
-                        new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
-                        shared_to_inout.append(
-                                new_symbol_ref
-                                );
+                        warn_printf("%s: warning: symbol '%s' has shared data-sharing but does not have"
+                                " copy directionality. This may cause problems at run-time\n",
+                                construct.get_locus_str().c_str(),
+                                io_it->get_qualified_name().c_str());
                     }
                 }
-
-                add_copy_items(construct, data_sharing,
-                        shared_to_inout,
-                        COPY_DIR_INOUT,
-                        target_info);
             }
 
             // Store the target information in the current data sharing

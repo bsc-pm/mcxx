@@ -92,7 +92,10 @@ namespace OpenMP
         DS_AUTO = BITMAP(9),
 
         //! States that the data sharing is implicit. Special attribute that makes no difference
-        DS_IMPLICIT = BITMAP(15)
+        DS_IMPLICIT = BITMAP(15),
+
+        //! Reduction data-sharing 
+        DS_SIMD_REDUCTION = BITMAP(16)
     };
 
 #undef BITMAP
@@ -260,7 +263,14 @@ namespace OpenMP
 
     class LIBTL_CLASS TargetInfo
     {
+        public:
+            // Map< device name, implementors >
+            typedef std::map<std::string, ObjectList<Symbol> > implementation_table_t;
+
         private:
+
+            // Note that if you add a new member to this class you may be
+            // interested also in modifying the functions module_{read|write}
             Symbol _target_symbol;
             ObjectList<CopyItem> _copy_in;
             ObjectList<CopyItem> _copy_out;
@@ -275,6 +285,9 @@ namespace OpenMP
             std::string _name;
 
             bool _copy_deps;
+
+            implementation_table_t _implementation_table;
+
         public:
             TargetInfo();
 
@@ -282,7 +295,9 @@ namespace OpenMP
                     Nodecl::Utils::SimpleSymbolMap translation_map,
                     TL::Symbol target_symbol);
 
-            bool can_be_ommitted();
+            TargetInfo instantiate_target_info(
+                    TL::Scope context_of_being_instantiated,
+                    instantiation_symbol_map_t* instantiation_symbol_map);
 
             void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
             void append_to_copy_out(const ObjectList<CopyItem>& copy_items);
@@ -318,6 +333,10 @@ namespace OpenMP
 
             void set_name(std::string name);
             std::string get_name() const;
+
+            implementation_table_t get_implementation_table() const;
+            void add_implementation(std::string device, Symbol sym);
+
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mr);
     };
@@ -327,18 +346,44 @@ namespace OpenMP
     {
         private:
             int *_num_refs;
-            typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
-            map_symbol_data_t  *_map;
+            struct DataSharingAttributeInfo
+            {
+                DataSharingAttribute attr;
+                std::string reason;
+
+                DataSharingAttributeInfo()
+                    : attr(DS_UNDEFINED), reason("(symbol has undefined data-sharing)") { }
+                DataSharingAttributeInfo(DataSharingAttribute a,
+                        const std::string &r)
+                    : attr(a), reason(r) { }
+            };
+
+            typedef TL::ObjectList<Symbol> map_symbol_data_sharing_insertion_t;
+            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_sharing_t;
+            struct map_symbol_data_t
+            {
+                map_symbol_data_sharing_t  m;
+                // We use this to preserve insertion order
+                map_symbol_data_sharing_insertion_t  i;
+
+                DataSharingAttributeInfo &operator[](const TL::Symbol &sym)
+                {
+                    i.insert(sym);
+                    return m[sym];
+                }
+            } *_map;
             DataSharingEnvironment *_enclosing;
 
             ObjectList<ReductionSymbol> _reduction_symbols;
+            ObjectList<ReductionSymbol> _simd_reduction_symbols;
             ObjectList<DependencyItem> _dependency_items;
 
             TargetInfo _target_info;
 
             bool _is_parallel;
 
-            DataSharingAttribute get_internal(Symbol sym);
+            DataSharingAttributeInfo get_internal(Symbol sym);
+            DataSharingAttributeInfo get_data_sharing_info(Symbol sym, bool check_enclosing);
 
             RealTimeInfo _real_time_info;
         public:
@@ -357,23 +402,34 @@ namespace OpenMP
             /*!
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
+                * \param reason String used in data-sharing reports
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr);
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
+                    const std::string& reason);
 
             //! Sets a data sharing attribute of a symbol
             /*!
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
+                * \param reason String used in data-sharing reports
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
+                    const std::string& reason);
 
             //! Adds a reduction symbol
             /*!
                 * Reduction symbols are special, adding them sets their attribute
                 * also their attribute and keeps the extra information stored in the ReductionSymbol
                 */
-            void set_reduction(const ReductionSymbol& reduction_symbol);
+            void set_reduction(const ReductionSymbol& reduction_symbol, const std::string& reason);
+
+            //! Adds a SIMD reduction symbol
+            /*!
+                * Reduction symbols are special, adding them sets their attribute
+                * also their attribute and keeps the extra information stored in the ReductionSymbol
+                */
+            void set_simd_reduction(const ReductionSymbol &reduction_symbol);
 
             //! Gets the data sharing attribute of a symbol
             /*!
@@ -383,13 +439,28 @@ namespace OpenMP
                 */
             DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
 
+            //! Gets the data sharing attribute reason of a symbol
+            /*!
+             * This reason is the string passed to set_data_sharing and typically contains
+             * report information useful to tell why a symbol was set a specific data-sharing
+             * attribute
+             * \param sym The symbol requested its data sharing attribute
+             * \param check_enclosing Checks enclosing data sharings
+             * \return The reason or "(symbol has undefined data-sharing)" if no data-sharing for it was set
+             */
+            std::string get_data_sharing_reason(Symbol sym, bool check_enclosing = true);
+
             //! Returns the enclosing data sharing
             DataSharingEnvironment* get_enclosing();
 
             //! Returns all symbols that match the given data attribute
             void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
 
+            typedef std::pair<Symbol, std::string> DataSharingInfoPair;
+            void get_all_symbols_info(DataSharingAttribute data_attr, ObjectList<DataSharingInfoPair> &symbols);
+
             void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+            void get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
             TargetInfo& get_target_info();
             void set_target_info(const TargetInfo & target_info);
@@ -465,30 +536,28 @@ namespace OpenMP
 
         class LIBTL_CLASS FunctionTaskInfo
         {
-            public:
-                typedef std::multimap<std::string, Symbol> implementation_table_t;
-
             private:
                 Symbol _sym;
 
                 ObjectList<FunctionTaskDependency> _parameters;
-
-                implementation_table_t _implementation_table;
 
                 TargetInfo _target_info;
 
                 RealTimeInfo _real_time_info;
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
-                Nodecl::NodeclBase _final_clause_cond_expr;
 
-                implementation_table_t get_implementation_table() const;
+                Nodecl::NodeclBase _final_clause_cond_expr;
 
                 bool _untied;
 
                 Nodecl::NodeclBase _priority_clause_expr;
 
                 Nodecl::NodeclBase _task_label;
+
+                TL::Scope _parsing_scope;
+
+                const locus_t* _locus;
 
             public:
                 FunctionTaskInfo() : _untied(false) { }
@@ -501,23 +570,16 @@ namespace OpenMP
                         Nodecl::Utils::SimpleSymbolMap& translation_map,
                         TL::Symbol function_sym);
 
+                FunctionTaskInfo instantiate_function_task_info(
+                        TL::Symbol specialized_function,
+                        TL::Scope context_of_being_instantiated,
+                        instantiation_symbol_map_t* instantiation_symbol_map);
+
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 void add_function_task_dependency(const FunctionTaskDependency& dep);
 
                 ObjectList<Symbol> get_involved_parameters() const;
-
-                void add_device(const std::string& device_name);
-
-                void add_device_with_implementation(
-                        const std::string& device_name,
-                        Symbol implementor_symbol);
-
-                ObjectList<std::string> get_all_devices();
-
-                typedef std::pair<std::string, Symbol> implementation_pair_t;
-
-                ObjectList<implementation_pair_t> get_devices_with_implementation() const;
 
                 TargetInfo& get_target_info();
                 void set_target_info(const TargetInfo& target_info);
@@ -541,6 +603,13 @@ namespace OpenMP
                 void set_untied(bool b);
 
                 Symbol get_symbol() const;
+
+                const locus_t* get_locus() const;
+                void set_locus(const locus_t*);
+
+                // The scope we used to parse the clauses
+                void set_parsing_scope(TL::Scope sc);
+                TL::Scope get_parsing_scope() const;
 
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);
@@ -584,8 +653,8 @@ namespace OpenMP
                 Scope global_scope;
                 bool _disable_clause_warnings;
 
-                RefPtr<OpenMP::Info> openmp_info;
-                RefPtr<OpenMP::FunctionTaskSet> function_task_set;
+                std::shared_ptr<OpenMP::Info> openmp_info;
+                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set;
             public:
                 //! Pre entry
                 virtual void pre_run(DTO& data_flow);
@@ -614,13 +683,16 @@ namespace OpenMP
 
                 virtual ~OpenMPPhase() { }
         };
-        
-        // Implemented in tl-omp-deps.cpp
-        void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds);
 
+        // Implemented in tl-omp-deps.cpp
+        void add_extra_symbols(Nodecl::NodeclBase data_ref,
+                DataSharingEnvironment& ds,
+                ObjectList<Symbol>& extra_symbols);
+
+        // Implemented in tl-omp.cpp
+        std::string string_of_data_sharing(DataSharingAttribute data_attr);
     // @}
     }
-    
 }
 
 extern "C"

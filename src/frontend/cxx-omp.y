@@ -10,6 +10,7 @@
 %type<ast> omp_dr_initializer
 
 %type<ast> omp_depend_item
+%type<ast> omp_expression_opt
 
 %type<token_atrib> omp_dr_operator
 %type<ast> omp_dr_identifier
@@ -47,7 +48,7 @@ omp_dr_reduction_id : omp_dr_operator
 }
 ;
 
-omp_dr_identifier : IDENTIFIER
+omp_dr_identifier : identifier_token
 {
     $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -138,15 +139,31 @@ omp_dr_initializer : unqualified_name initializer %merge<ambiguityHandler>
 ;
 /*!endif*/
 
+omp_expression_opt : expression
+{
+    $$ = $1;
+}
+| /* empty */
+{
+    $$ = NULL;
+}
+;
+
 omp_depend_item : id_expression
 {
     $$ = $1;
 }
-| omp_depend_item '[' expression ':' expression ']'
+| omp_depend_item '[' omp_expression_opt ':' omp_expression_opt ']'
 {
     // Note that this is to be interpreted as a [lower:size] (not [lower:upper]),
     // so we create an AST_ARRAY_SECTION_SIZE here
     $$ = ASTMake4(AST_ARRAY_SECTION_SIZE, $1, $3, $5, NULL, ast_get_locus($1), NULL);
+}
+| omp_depend_item '[' expression ']'
+{
+    // Note that this is to be interpreted as a [lower:size] (not [lower:upper]),
+    // so we create an AST_ARRAY_SECTION_SIZE here
+    $$ = ASTMake2(AST_ARRAY_SUBSCRIPT, $1, $3, ast_get_locus($1), NULL);
 }
 ;
 

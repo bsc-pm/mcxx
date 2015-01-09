@@ -85,9 +85,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_fpga_functions);
 
-    TL::Symbol current_function =
-        original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -218,10 +216,10 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     // The unpacked function must not be static and must have external linkage because
     // this function is called from the original source 
-    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+    symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
     if (IS_C_LANGUAGE)
     {
-        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
+        symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
@@ -376,8 +374,12 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
         : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
 
+    bool without_template_args =
+        !current_function.get_type().is_template_specialized_type()
+        || current_function.get_scope().get_template_parameters()->is_explicit_specialization;
+
     TL::Scope function_scope = context.retrieve_context();
-    std::string qualified_name = current_function.get_qualified_name(function_scope);
+    std::string qualified_name = current_function.get_qualified_name(function_scope, without_template_args);
 
     // Restore the original name of the current function
     current_function.set_name(original_name);
@@ -657,9 +659,9 @@ void DeviceFPGA::add_hls_pragmas(
         << std::endl;
 
     //Dig into the tree and find where the function statements are
-    ObjectList<Nodecl::NodeclBase> tchildren = task.children();
+    Nodecl::NodeclBase::Children tchildren = task.children();
     Nodecl::NodeclBase& context = tchildren.front();
-    ObjectList<Nodecl::NodeclBase> cchildren = context.children();
+    Nodecl::NodeclBase::Children cchildren = context.children();
     Nodecl::List list(cchildren.front().get_internal_nodecl());
     Nodecl::List stlist(list.begin()->children().front().get_internal_nodecl());
 

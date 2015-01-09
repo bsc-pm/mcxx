@@ -32,11 +32,37 @@
 
 #include "tl-counters.hpp"
 
+#include "cxx-diagnostic.h"
+
 namespace TL { namespace Intel {
 
         void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
         {
-            TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
+            lower_for(construct, Nodecl::NodeclBase::null(),
+                    Nodecl::NodeclBase::null());
+        }
+
+        void LoweringVisitor::visit(const Nodecl::OpenMP::ForAppendix& construct)
+        {
+            Nodecl::NodeclBase prependix = construct.get_prependix();
+            if (!prependix.is_null())
+                walk(prependix);
+
+            Nodecl::NodeclBase appendix = construct.get_appendix();
+            if (!appendix.is_null())
+                walk(appendix);
+
+            // We cheat a bit in the first parameter
+            lower_for(construct.as<Nodecl::OpenMP::For>(), prependix, appendix);
+        }
+
+        void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
+                const Nodecl::NodeclBase &prependix,
+                const Nodecl::NodeclBase &appendix)
+        {
+            TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
+                    get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+
             ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
             Nodecl::List environment = construct.get_environment().as<Nodecl::List>();
@@ -72,11 +98,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     private_list  // TL::ObjectList<OpenMP::Private>
-                    .map(functor(&Nodecl::OpenMP::Private::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Private::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -85,11 +111,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-                    .map(functor(&Nodecl::OpenMP::Firstprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Firstprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -99,11 +125,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     lastprivate_list  // TL::ObjectList<OpenMP::Lastprivate>
-                    .map(functor(&Nodecl::OpenMP::Lastprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Lastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -113,11 +139,11 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     firstlastprivate_list  // TL::ObjectList<OpenMP::FirstLastprivate>
-                    .map(functor(&Nodecl::OpenMP::FirstLastprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::FirstLastprivate::get_symbols) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(TL::append_two_lists<Nodecl::NodeclBase>) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol) // TL::ObjectList<TL::Symbol>
                     ;
 
                 private_symbols.insert(tmp);
@@ -128,12 +154,13 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     reduction_list // TL::ObjectList<OpenMP::Reduction>
-                    .map(functor(&Nodecl::OpenMP::Reduction::get_reductions)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
-                    .map(functor(&Nodecl::List::to_object_list_as<Nodecl::OpenMP::ReductionItem>)) // TL::ObjectList<TL::ObjectList<Nodecl::OpenMP::ReductionItem> >
-                    .reduction(functor(TL::append_two_lists<Nodecl::OpenMP::ReductionItem>)) // TL::ObjectList<OpenMP::ReductionItem>
-                    .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol)) // TL::ObjectList<Nodecl::NodeclBase>
-                    .map(functor(&Nodecl::NodeclBase::get_symbol)); // TL::ObjectList<TL::Symbol>
+                    .map(&Nodecl::OpenMP::Reduction::get_reductions) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>) // TL::ObjectList<Nodecl::List>
+                    .map(&Nodecl::List::to_object_list_as<Nodecl::OpenMP::ReductionItem>)
+                    // TL::ObjectList<TL::ObjectList<Nodecl::OpenMP::ReductionItem> >
+                    .reduction(TL::append_two_lists<Nodecl::OpenMP::ReductionItem>) // TL::ObjectList<OpenMP::ReductionItem>
+                    .map(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(&Nodecl::NodeclBase::get_symbol); // TL::ObjectList<TL::Symbol>
 
                 private_symbols.insert(tmp);
                 reduction_symbols.insert(tmp);
@@ -191,6 +218,14 @@ namespace TL { namespace Intel {
                         stmt_placeholder.prepend_sibling(init_array_tree);
                     }
                 }
+
+                CXX_LANGUAGE()
+                {
+                    stmt_placeholder.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                /* context */ Nodecl::NodeclBase::null(),
+                                new_private_sym));
+                }
             }
 
             Source type_kind; // 4, 4u, 8, 8u
@@ -226,7 +261,7 @@ namespace TL { namespace Intel {
 
             TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-            Nodecl::NodeclBase loop_body, reduction_code;
+            Nodecl::NodeclBase loop_body, reduction_code, prependix_code, appendix_code, barrier_code;
 
             TL::Source lastprivate_code;
 
@@ -273,6 +308,7 @@ namespace TL { namespace Intel {
                     <<                ", &" << stride
                     <<                ", " << step
                     <<                ", " << chunk_size << ");"
+                    << statement_placeholder(prependix_code)
                     << "for (" << as_symbol(private_induction_var) << " = " << lower << "; "
                     <<            as_symbol(private_induction_var) << "<=" << upper << ";"
                     <<            as_symbol(private_induction_var) << "+=" << step << ")"
@@ -282,7 +318,9 @@ namespace TL { namespace Intel {
                     << lastprivate_code
                     << "__kmpc_for_static_fini(&" << as_symbol(ident_symbol) << ", __kmpc_global_thread_num("
                     <<                  "&" << as_symbol(ident_symbol) << "));"
+                    << statement_placeholder(appendix_code)
                     << statement_placeholder(reduction_code)
+                    << statement_placeholder(barrier_code)
                     ;
 
                 Nodecl::NodeclBase static_loop_tree = static_loop.parse_statement(stmt_placeholder);
@@ -290,26 +328,92 @@ namespace TL { namespace Intel {
             }
             else
             {
-                internal_error("Nonstatic schedules not yet implemented", 0);
+                Source dynamic_loop;
+                Source sched_type, sched_init;
+                sched_type << "_sched_" << (int)private_num;
+                private_num++;
+
+                std::map<std::string, std::string> valid_schedules;
+                valid_schedules.insert(std::make_pair("dynamic", "kmp_sch_dynamic_chunked"));
+                valid_schedules.insert(std::make_pair("guided", "kmp_sch_guided_chunked"));
+                valid_schedules.insert(std::make_pair("auto", "kmp_sch_auto"));
+                valid_schedules.insert(std::make_pair("runtime", "kmp_sch_runtime"));
+
+                if (valid_schedules.find(schedule.get_text()) != valid_schedules.end())
+                {
+                    sched_init
+                        << sched_type << " = " << valid_schedules.find(schedule.get_text())->second << ";"
+                        ;
+                }
+                else
+                {
+                    error_printf("%s: error '%s' is not a valid OpenMP schedule\n",
+                            construct.get_locus_str().c_str(),
+                            schedule.get_text().c_str());
+                }
+
+                dynamic_loop
+                    << "enum sched_type " << sched_type << ";"
+                    << sched_init
+                    << common_initialization
+                    << "__kmpc_dispatch_init_" << type_kind << "(&" << as_symbol(ident_symbol)
+                    <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                    <<                "," << sched_type
+                    <<                "," << lower
+                    <<                "," << upper
+                    <<                "," << step
+                    <<                "," << chunk_size << ");"
+                    << "while (__kmpc_dispatch_next_" << type_kind << "(&" << as_symbol(ident_symbol)
+                    <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                    <<                ",&" << lastiter
+                    <<                ",&" << lower
+                    <<                ",&" << upper
+                    <<                ",&" << step << "))"
+                    << "{"
+                    << statement_placeholder(prependix_code)
+                    <<     "for (" << as_symbol(private_induction_var) << " = " << lower << ";"
+                    <<                as_symbol(private_induction_var) << "<=" << upper << ";"
+                    <<                as_symbol(private_induction_var) << "+=" << step << ")"
+                    <<     "{"
+                    <<         statement_placeholder(loop_body)
+                    <<     "}"
+                    << "}"
+                    << lastprivate_code
+                    << statement_placeholder(appendix_code)
+                    << statement_placeholder(reduction_code)
+                    << statement_placeholder(barrier_code)
+                    ;
+
+                Nodecl::NodeclBase dynamic_loop_tree = dynamic_loop.parse_statement(stmt_placeholder);
+                stmt_placeholder.prepend_sibling(dynamic_loop_tree);
             }
 
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
             if (!reduction_list.empty())
             {
                 TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items = reduction_list
-                    .map(functor(&Nodecl::OpenMP::Reduction::get_reductions))
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>))
-                    .map(functor(&Nodecl::List::to_object_list))
-                    .reduction(functor(&TL::append_two_lists<Nodecl::NodeclBase>))
-                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>));
+                    .map(&Nodecl::OpenMP::Reduction::get_reductions)
+                    .map(&Nodecl::NodeclBase::as<Nodecl::List>)
+                    .map(&Nodecl::List::to_object_list)
+                    .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
+                    .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
 
-                Source nowait;
 
-                Source reduction_src;
                 for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
                         it != reduction_items.end();
                         it++)
                 {
+                    Source nowait;
+
+                    // If this is the last reduction computed and we need a
+                    // barrier, piggyback it in the reduction itself, otherwise
+                    // always do reductions without barrier
+                    if (barrier_at_end.is_null()
+                            || ((it + 1) != reduction_items.end()))
+                    {
+                        nowait << "_nowait";
+                    }
+
                     Nodecl::OpenMP::ReductionItem &current(*it);
 
                     TL::Symbol reductor = current.get_reductor().get_symbol();
@@ -336,6 +440,7 @@ namespace TL { namespace Intel {
                                 Nodecl::Utils::deep_copy(omp_reduction->get_combiner(), construct, combiner_map)
                                 ) << ";";
 
+                    Source reduction_src;
                     reduction_src
                         << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
                         <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
@@ -361,6 +466,36 @@ namespace TL { namespace Intel {
                     Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
                     reduction_code.prepend_sibling(reduction_tree);
                 }
+            }
+
+            if (!prependix.is_null())
+            {
+                Nodecl::NodeclBase lower_node =
+                    lower.parse_expression(stmt_placeholder);
+
+                // Replace IV by IV LB
+                Nodecl::Utils::nodecl_replace_nodecl_by_structure(
+                        prependix, /* haystack */
+                        induction_var.make_nodecl(true), /* needle */
+                        lower_node /* replacement */);
+
+                prependix_code.prepend_sibling(
+                        Nodecl::Utils::deep_copy(prependix, prependix_code, symbol_map));
+            }
+
+            if (!appendix.is_null())
+            {
+                appendix_code.prepend_sibling(
+                        Nodecl::Utils::deep_copy(appendix, appendix_code, symbol_map));
+            }
+
+            // If we have to do a barrier, do it only if the reduction list is empty
+            // otherwise we piggybacked the barrier in the reductions themselves
+            if (!barrier_at_end.is_null() && reduction_list.empty())
+            {
+                barrier_code.prepend_sibling(
+                        emit_barrier(construct)
+                        );
             }
 
             Nodecl::NodeclBase new_statements = Nodecl::Utils::deep_copy(statements,

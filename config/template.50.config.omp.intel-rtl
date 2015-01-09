@@ -1,19 +1,32 @@
 [intel-mcc : intel-omp-base]
 language = C
-options = -std=gnu99 
-options = --vector-flavor=gnu 
-{simd} compiler_options = -flax-vector-conversions
-{ffast-math} compiler_options = -ffast-math
+options = --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+preprocessor_name = @ICC@
+compiler_name = @ICC@
+linker_name = @ICC@
+{simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
+{mmic} preprocessor_options = -mmic
+{mmic} compiler_options = -mmic
+{mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+{avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
+{avx2} linker_options = -march=core-avx2 -mtune=core-avx2
+{avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
+
 
 [intel-mcxx : intel-omp-base]
 language = C++
 {openmp} preprocessor_options = -include new 
-options = --vector-flavor=gnu 
-{simd} compiler_options = -flax-vector-conversions
-preprocessor_name = @G++@
-compiler_name = @G++@
-linker_name = @G++@
-{ffast-math} compiler_options = -ffast-math
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types
+preprocessor_name = @ICPC@
+compiler_name = @ICPC@
+linker_name = @ICPC@
+{simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
+{mmic} preprocessor_options = -mmic
+{mmic} compiler_options = -mmic
+{mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+{avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
+{avx2} linker_options = -march=core-avx2 -mtune=core-avx2
+{avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
 # Not supported yet
 # 

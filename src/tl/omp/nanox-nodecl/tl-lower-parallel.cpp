@@ -68,14 +68,17 @@ namespace TL { namespace Nanox {
 
         Scope  enclosing_scope = construct.retrieve_context();
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
-        OutlineInfo outline_info(environment,function_symbol);
+        OutlineInfo outline_info(*_lowering, environment,function_symbol);
+
+        Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
+            .find_first<Nodecl::OpenMP::TaskLabel>();
 
         // Handle the special object 'this'
         if (IS_CXX_LANGUAGE
                 && !function_symbol.is_static()
                 && function_symbol.is_member())
         {
-            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_this();
             ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
             Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
@@ -86,8 +89,12 @@ namespace TL { namespace Nanox {
 
             argument_outline_data_item.set_is_cxx_this(true);
 
+            // ERROR_CONDITION(argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED,
+            //         "This does not have any data-sharing\n", 0);
+
             // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            if (argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
             argument_outline_data_item.set_base_address_expression(sym_ref);
         }
 
@@ -134,7 +141,7 @@ namespace TL { namespace Nanox {
                 target_info,
                 /* original statements */ statements,
                 /* current task statements */ statements,
-                /* task_label */ Nodecl::NodeclBase::null(),
+                task_label,
                 structure_symbol,
                 called_task_dummy);
 
@@ -183,6 +190,12 @@ namespace TL { namespace Nanox {
         }
 
         // This function replaces the current construct
-        parallel_spawn(outline_info, construct, num_replicas, parallel_environment.if_condition, outline_name, structure_symbol);
+        parallel_spawn(outline_info,
+                construct,
+                num_replicas,
+                parallel_environment.if_condition,
+                outline_name,
+                structure_symbol,
+                task_label);
     }
 } }

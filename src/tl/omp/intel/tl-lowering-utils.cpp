@@ -74,12 +74,13 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
     scope_entry_t* new_ident_sym = ::new_symbol(
             CURRENT_COMPILED_FILE->global_decl_context,
             CURRENT_COMPILED_FILE->global_decl_context.current_scope,
-            new_name.str().c_str());
+            uniquestr(new_name.str().c_str()));
 
     new_ident_sym->kind = SK_VARIABLE;
     new_ident_sym->type_information = ident_t_type.get_internal_type();
-    new_ident_sym->defined = new_ident_sym->entity_specs.is_user_declared = 1;
-    new_ident_sym->entity_specs.is_static = 1;
+    symbol_entity_specs_set_is_user_declared(new_ident_sym, 1);
+    new_ident_sym->defined = 1;
+    symbol_entity_specs_set_is_static(new_ident_sym, 1);
     new_ident_sym->locus = make_locus(filename.c_str(), start_line, /* col */ 0);
 
     Source string_literal;
@@ -103,6 +104,7 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
                     const_value_get_zero(/* bytes */ 4, /* sign */1)),
                 /* psource */
                 string_literal_tree),
+            Nodecl::StructuredValueBracedImplicit::make(new_ident_sym->locus),
             ident_t_type,
             new_ident_sym->locus);
 
@@ -126,11 +128,12 @@ TL::Symbol Intel::new_private_symbol(TL::Symbol original_symbol, TL::Scope priva
     scope_entry_t* new_private_sym = ::new_symbol(
             private_scope.get_decl_context(),
             private_scope.get_decl_context().current_scope,
-            new_name.str().c_str());
+            uniquestr(new_name.str().c_str()));
 
     new_private_sym->kind = original_symbol.get_internal_symbol()->kind;
     new_private_sym->type_information = original_symbol.get_internal_symbol()->type_information;
-    new_private_sym->defined = new_private_sym->entity_specs.is_user_declared = 1;
+    symbol_entity_specs_set_is_user_declared(new_private_sym, 1);
+    new_private_sym->defined = 1;
 
     return new_private_sym;
 }
@@ -160,17 +163,17 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
         scope_entry_t* new_ident_sym = ::new_symbol(
                 CURRENT_COMPILED_FILE->global_decl_context,
                 CURRENT_COMPILED_FILE->global_decl_context.current_scope,
-                new_name.str().c_str());
+                uniquestr(new_name.str().c_str()));
 
         new_ident_sym->kind = SK_VARIABLE;
         new_ident_sym->type_information = kmp_critical_name_type.get_internal_type();
-        new_ident_sym->defined = new_ident_sym->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_ident_sym, 1);
+        new_ident_sym->defined = 1;
         new_ident_sym->locus = location.get_locus();
 
-        gather_gcc_attribute_t common_gcc_attr = { "common", nodecl_null() };
+        gcc_attribute_t common_gcc_attr = { "common", nodecl_null() };
 
-        P_LIST_ADD(new_ident_sym->entity_specs.gcc_attributes,
-                new_ident_sym->entity_specs.num_gcc_attributes,
+        symbol_entity_specs_add_gcc_attributes(new_ident_sym,
                 common_gcc_attr);
 
         lock_map.insert(std::make_pair(name, new_ident_sym));
@@ -181,6 +184,7 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
                         kmp_int32_type,
                         const_value_get_zero(/* bytes */ 4, /* sign */1))
                     ),
+                Nodecl::StructuredValueBracedImplicit::make(new_ident_sym->locus),
                 kmp_critical_name_type,
                 new_ident_sym->locus);
         new_ident_sym->value = value.get_internal_nodecl();
@@ -203,6 +207,39 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location)
 void Intel::cleanup_lock_map()
 {
     lock_map.clear();
+}
+
+static void gather_vla_symbol_type(TL::Type t,
+        TL::ObjectList<TL::Symbol>& extra_symbols)
+{
+    if (!t.is_valid())
+        return;
+
+    if (t.is_array())
+    {
+        gather_vla_symbol_type(t.array_element(), extra_symbols);
+
+        Nodecl::NodeclBase size = t.array_get_size();
+        if (size.is<Nodecl::Symbol>()
+                && size.get_symbol().is_saved_expression())
+        {
+            extra_symbols.insert(size.get_symbol());
+        }
+    }
+    else if (t.is_pointer())
+    {
+        gather_vla_symbol_type(t.points_to(), extra_symbols);
+    }
+    else if (t.is_any_reference())
+    {
+        gather_vla_symbol_type(t.references_to(), extra_symbols);
+    }
+}
+
+void Intel::gather_vla_symbols(TL::Symbol symbol,
+        TL::ObjectList<TL::Symbol>& extra_symbols)
+{
+    gather_vla_symbol_type(symbol.get_type(), extra_symbols);
 }
 
 } // TL

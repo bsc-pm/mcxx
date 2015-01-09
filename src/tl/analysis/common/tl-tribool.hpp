@@ -92,7 +92,7 @@ namespace TL
     };
     
     // And
-    tribool operator&&(const tribool &lhs, const tribool& rhs)
+    inline tribool operator&&(const tribool &lhs, const tribool& rhs)
     {
         if (!lhs.is_unknown() && !rhs.is_unknown())
             return tribool(lhs.is_true() && rhs.is_true());
@@ -103,7 +103,7 @@ namespace TL
     }
 
     // Or
-    tribool operator||(const tribool& lhs, const tribool& rhs)
+    inline tribool operator||(const tribool& lhs, const tribool& rhs)
     {
         if (!lhs.is_unknown() && !rhs.is_unknown())
             return tribool(lhs.is_true() || rhs.is_true());

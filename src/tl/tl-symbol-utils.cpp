@@ -33,6 +33,16 @@
 
 namespace SymbolUtils
 {
+    TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string name)
+    {
+        decl_context_t decl_context = source.get_scope().get_decl_context();
+
+        TL::Symbol dest = TL::Scope(decl_context).new_symbol(name);
+        dest.get_internal_symbol()->kind = SK_FUNCTION;
+        symbol_entity_specs_set_is_user_declared(dest.get_internal_symbol(), 1);
+        return dest;
+    }
+
     TL::Symbol new_function_symbol(
             TL::Symbol function,
             const std::string& name)
@@ -74,6 +84,12 @@ namespace SymbolUtils
 
         decl_context_t decl_context = current_function.get_scope().get_decl_context();
 
+        if (decl_context.template_parameters != NULL
+                && decl_context.template_parameters->is_explicit_specialization)
+        {
+            decl_context.template_parameters = decl_context.template_parameters->enclosing;
+        }
+
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
         decl_context_t function_context;
@@ -98,14 +114,19 @@ namespace SymbolUtils
                 it != parameter_names.end();
                 it++, it_ptypes++, type_it++)
         {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
-            param->entity_specs.is_user_declared = 1;
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
+            symbol_entity_specs_set_is_user_declared(param, 1);
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
 
             param->defined = 1;
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
+            if (type_it->is_restrict())
+            {
+                // Keep restrict
+                param->type_information = get_restrict_qualified_type(param->type_information);
+            }
 
             P_LIST_ADD(parameter_list, num_parameters, param);
 
@@ -117,16 +138,17 @@ namespace SymbolUtils
         type_t *function_type = get_new_function_type(
                 return_type.get_internal_type(),
                 p_types,
-                parameter_types.size());
+                parameter_types.size(), REF_QUALIFIER_NONE);
 
         delete[] p_types;
 
         // Now, we can create the new function symbol
         scope_entry_t* new_function_sym = NULL;
-        if (!current_function.get_type().is_template_specialized_type())
+        if (!current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
-            new_function_sym->entity_specs.is_user_declared = 1;
+            new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
+            symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
@@ -134,7 +156,7 @@ namespace SymbolUtils
         else
         {
             scope_entry_t* new_template_sym = new_symbol(
-                    decl_context, decl_context.current_scope, name.c_str());
+                    decl_context, decl_context.current_scope, uniquestr(name.c_str()));
             new_template_sym->kind = SK_TEMPLATE;
             new_template_sym->locus = make_locus("", 0, 0);
 
@@ -145,6 +167,12 @@ namespace SymbolUtils
                     decl_context, make_locus("", 0, 0));
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+            if (current_function.is_member())
+            {
+                symbol_entity_specs_set_is_member(new_template_sym, 1);
+                symbol_entity_specs_set_class_type(new_template_sym, current_function.get_class_type().get_internal_type());
+            }
 
             // The new function is the primary template specialization
             new_function_sym = named_type_get_symbol(
@@ -157,43 +185,45 @@ namespace SymbolUtils
 
         new_function_sym->related_decl_context = function_context;
 
-        new_function_sym->entity_specs.related_symbols = parameter_list;
-        new_function_sym->entity_specs.num_related_symbols = num_parameters;
-        for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
+        for (int i = 0; i < num_parameters; i++)
         {
+            symbol_entity_specs_add_related_symbols(new_function_sym, parameter_list[i]);
             symbol_set_as_parameter_of_function(
-                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+                    parameter_list[i], new_function_sym,
+                    /* parameter nesting */ 0,
+                    /* parameter position */ i);
         }
+        xfree(parameter_list); parameter_list = NULL;
 
         // Make it static
-        new_function_sym->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(new_function_sym, 1);
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
         {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            symbol_entity_specs_set_is_member(new_function_sym, 1);
+            symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());
 
-            new_function_sym->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
-            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
+            // We make it as a declaration because we do not expect it to be defined inside class
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym), new_function_sym,
+                    /* is_declaration */ 0);
         }
 
         if (current_function.is_inline())
-            new_function_sym->entity_specs.is_inline = 1;
+            symbol_entity_specs_set_is_inline(new_function_sym, 1);
 
-        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
-        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+        // symbol_entity_specs_set_is_defined_inside_class_specifier(new_function_sym,
+        //     symbol_entity_specs_get_is_defined_inside_class_specifier(current_function.get_internal_symbol()));
 
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
             scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-            new_function_sym->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
+            symbol_entity_specs_set_in_module(new_function_sym, module_sym);
+            symbol_entity_specs_add_related_symbols(module_sym,
                     new_function_sym);
-            new_function_sym->entity_specs.is_module_procedure = 1;
+            symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
         }
 
         // Result symbol
@@ -205,15 +235,118 @@ namespace SymbolUtils
             {
                 result_name = new_function_sym->symbol_name;
             }
-            scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, result_name);
+            scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, uniquestr(result_name));
             result_sym->kind = SK_VARIABLE;
             result_sym->type_information = function_type_get_return_type(new_function_sym->type_information);
-            result_sym->entity_specs.is_result_var = 1;
+            symbol_entity_specs_set_is_result_var(result_sym, 1);
 
-            new_function_sym->entity_specs.result_var = result_sym;
+            symbol_entity_specs_set_result_var(new_function_sym, result_sym);
         }
 
         return new_function_sym;
+    }
+
+    TL::Symbol new_function_symbol(
+            TL::Scope sc,
+            const std::string& name,
+            bool has_return,
+            const std::string& return_symbol_name,
+            TL::Type return_type,
+            TL::ObjectList<std::string> parameter_names,
+            TL::ObjectList<TL::Type> parameter_types)
+    {
+        decl_context_t decl_context = sc.get_decl_context();
+
+        if (decl_context.template_parameters != NULL
+                && decl_context.template_parameters->is_explicit_specialization)
+        {
+            decl_context.template_parameters = decl_context.template_parameters->enclosing;
+        }
+
+        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
+        symbol_entity_specs_set_is_user_declared(entry, 1);
+
+        entry->kind = SK_FUNCTION;
+        entry->locus = make_locus("", 0, 0);
+
+        ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
+
+        decl_context_t function_context ;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+        function_context.function_scope->related_entry = entry;
+        function_context.block_scope->related_entry = entry;
+
+        entry->related_decl_context = function_context;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
+
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        TL::ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
+        for (TL::ObjectList<std::string>::iterator it = parameter_names.begin();
+                it != parameter_names.end();
+                it++, it_ptypes++, type_it++)
+        {
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
+            symbol_entity_specs_set_is_user_declared(param, 1);
+            param->kind = SK_VARIABLE;
+            param->locus = make_locus("", 0, 0);
+
+            param->defined = 1;
+
+            symbol_set_as_parameter_of_function(param, entry,
+                    /* nesting */ 0,
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
+
+            param->type_information = get_unqualified_type(type_it->get_internal_type());
+            if (type_it->is_restrict())
+            {
+                // Keep restrict
+                param->type_information = get_restrict_qualified_type(param->type_information);
+            }
+
+            symbol_entity_specs_add_related_symbols(entry, param);
+
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
+            it_ptypes->type_info = get_indirect_type(param);
+        }
+
+        if (has_return)
+        {
+            // Return symbol
+            scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, uniquestr(return_symbol_name.c_str()));
+            symbol_entity_specs_set_is_user_declared(return_sym, 1);
+            return_sym->kind = SK_VARIABLE;
+            return_sym->locus = make_locus("", 0, 0);
+
+            return_sym->defined = 1;
+
+            symbol_entity_specs_set_is_result_var(return_sym, 1);
+
+            return_sym->type_information = get_unqualified_type(return_type.get_internal_type());
+
+            symbol_entity_specs_set_result_var(entry, return_sym);
+        }
+
+        // Type of the function
+        type_t *function_type = get_new_function_type(
+                return_type.get_internal_type(),
+                p_types, parameter_types.size(),
+                REF_QUALIFIER_NONE);
+
+        entry->type_information = function_type;
+
+        delete[] p_types;
+
+        return entry;
     }
 
     void build_empty_body_for_function(
@@ -256,7 +389,8 @@ namespace SymbolUtils
                     make_locus("", 0, 0));
         }
 
-        function_symbol.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
-
+        symbol_entity_specs_set_function_code(
+                function_symbol.get_internal_symbol(),
+                function_code.get_internal_nodecl());
     }
 }

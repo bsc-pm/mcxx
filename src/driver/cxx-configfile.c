@@ -82,10 +82,10 @@ int config_set_language(struct compilation_configuration_tag* config, const char
     {
         config->source_language = SOURCE_LANGUAGE_CXX;
     }
-    else if (strcasecmp(value, "c++1x") == 0)
+    else if (strcasecmp(value, "c++11") == 0)
     {
         config->source_language = SOURCE_LANGUAGE_CXX;
-        config->enable_cxx1x = 1;
+        config->enable_cxx11 = 1;
     }
     else if (strcasecmp(value, "fortran") == 0)
     {
@@ -143,6 +143,7 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
     const char** blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->preprocessor_options, blank_separated_options, num);
+    xfree(blank_separated_options);
 
     return 0;
 }
@@ -159,6 +160,7 @@ int config_set_fortran_preprocessor_options(struct compilation_configuration_tag
     const char** blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->fortran_preprocessor_options, blank_separated_options, num);
+    xfree(blank_separated_options);
 
     return 0;
 }
@@ -187,6 +189,7 @@ int config_set_prescanner_options(struct compilation_configuration_tag* config, 
     const char** blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->prescanner_options, blank_separated_options, num);
+    xfree(blank_separated_options);
 
     return 0;
 }
@@ -205,6 +208,8 @@ int config_set_compiler_options(struct compilation_configuration_tag* config, co
     const char **blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->native_compiler_options, blank_separated_options, num);
+    xfree(blank_separated_options);
+
     return 0;
 }
 
@@ -222,6 +227,8 @@ int config_set_linker_options_pre(struct compilation_configuration_tag* config, 
     const char **blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->linker_options_pre, blank_separated_options, num);
+    xfree(blank_separated_options);
+
     return 0;
 }
 
@@ -232,6 +239,8 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
     const char **blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->linker_options, blank_separated_options, num);
+    xfree(blank_separated_options);
+
     return 0;
 }
 

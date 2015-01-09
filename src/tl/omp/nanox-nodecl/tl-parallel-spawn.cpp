@@ -37,7 +37,8 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase num_replicas,
             Nodecl::NodeclBase if_condition,
             const std::string& outline_name,
-            TL::Symbol structure_symbol)
+            TL::Symbol structure_symbol,
+            Nodecl::NodeclBase task_label)
     {
         Source nanos_create_wd,
         nanos_create_wd_and_run,
@@ -108,12 +109,22 @@ namespace TL { namespace Nanox {
             <<       translation_fun_arg_name << ");"
             ;
 
+        std::string wd_description;
+        if (!task_label.is_null())
+        {
+            wd_description = task_label.get_text();
+        }
+        else
+        {
+            wd_description = current_function.get_name();
+        }
+
         Source const_wd_info;
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
                 /* is_function_task */ false,
-                /* wd_description */ current_function.get_name(),
+                wd_description,
                 outline_info,
                 construct);
 
@@ -143,21 +154,20 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
             fill_dependences_outline_tree;
-        Source fill_outline_arguments,
-               fill_dependences_outline;
+        Source fill_outline_arguments;
 
         Nodecl::NodeclBase fill_immediate_arguments_tree,
             fill_dependences_immediate_tree;
-        Source fill_immediate_arguments,
-               fill_dependences_immediate;
+        Source fill_immediate_arguments;
 
-        Source dependence_type;
+
+        Source dependence_type, dependences_info;
         dependence_type
             << "nanos_data_access_t*";
 
         Source dynamic_wd_info;
         dynamic_wd_info
-            <<   "nanos_wd_dyn_props_t dyn_props;"
+            << "nanos_wd_dyn_props_t dyn_props;"
             << "dyn_props.tie_to = (nanos_thread_t)0;"
             << "dyn_props.priority = 0;"
             ;
@@ -168,6 +178,12 @@ namespace TL { namespace Nanox {
             dynamic_wd_info
                 << "dyn_props.flags.is_final = 0;"
                 ;
+        }
+
+        TL::Source extra_arg_nanos_create_team;
+        if (Nanos::Version::interface_is_at_least("master", 5027))
+        {
+            extra_arg_nanos_create_team << ", &nanos_wd_const_data.base";
         }
 
         Source spawn_code;
@@ -181,9 +197,11 @@ namespace TL { namespace Nanox {
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"
             <<   "err = nanos_create_team(&nanos_team, (nanos_sched_t)0, &nanos_num_threads,"
-            <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
+            <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads"
+            <<              extra_arg_nanos_create_team << ");"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
             <<   dynamic_wd_info
+            <<   dependences_info
             <<   "unsigned int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"
@@ -196,7 +214,6 @@ namespace TL { namespace Nanox {
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<      statement_placeholder(fill_outline_arguments_tree)
-            <<      fill_dependences_outline
             <<      copy_ol_setup
             <<      "err = nanos_submit(nanos_wd_, 0, (" <<  dependence_type << ") 0, (nanos_team_t)0);"
             <<      "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -204,7 +221,6 @@ namespace TL { namespace Nanox {
             <<   "dyn_props.tie_to = nanos_team_threads[0];"
             // This is a placeholder because arguments are filled using the base language (possibly Fortran)
             <<   statement_placeholder(fill_immediate_arguments_tree)
-            <<   fill_dependences_immediate
             <<   copy_imm_setup
             <<   "err = " << nanos_create_wd_and_run
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -216,7 +232,16 @@ namespace TL { namespace Nanox {
         fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
 
         // Fill dependences for outline
-        num_dependences << count_dependences(outline_info);
+        int num_static_dependences, num_dynamic_dependences;
+        count_dependences(outline_info, num_static_dependences, num_dynamic_dependences);
+        if (num_dynamic_dependences != 0)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+        else
+        {
+            num_dependences << num_static_dependences;
+        }
 
         int num_copies = 0;
         fill_copies(construct,
@@ -232,15 +257,7 @@ namespace TL { namespace Nanox {
                 copy_imm_setup,
                 xlate_function_symbol);
 
-        fill_dependences(construct, 
-                outline_info, 
-                /* accessor */ Source("ol_args->"),
-                fill_dependences_outline);
-        fill_dependences(construct, 
-                outline_info, 
-                /* accessor */ Source("imm_args."),
-                fill_dependences_immediate);
-
+        fill_dependences(construct, outline_info, dependences_info);
 
         FORTRAN_LANGUAGE()
         {

@@ -63,7 +63,8 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomClause clause,
             const ObjectList<Symbol>& symbols_in_construct,
             DataSharingEnvironment& data_sharing,
-            ObjectList<ReductionSymbol>& sym_list)
+            ObjectList<ReductionSymbol>& sym_list,
+            ObjectList<Symbol>& extra_symbols)
     {
         if (!clause.is_defined())
             return;
@@ -253,16 +254,27 @@ namespace TL { namespace OpenMP {
 
                 if (reduction != NULL)
                 {
+                    const char* type_name = NULL;
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        type_name = fortran_print_type_str(var_sym.get_type().no_ref().get_internal_type());
+                    }
+                    else
+                    {
+                        type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
+                    }
+
                     ReductionSymbol red_sym(var_sym, var_type, reduction);
                     sym_list.append(red_sym);
-                    if (!Reduction::is_builtin(reduction->get_name()))
-                    {
-                        info_printf("%s: note: reduction of variable '%s' solved to '%s' (reduction declared in '%s')\n",
-                                construct.get_locus_str().c_str(),
-                                var_sym.get_name().c_str(),
-                                reductor_name.c_str(),
-                                reduction->get_locus_str().c_str());
-                    }
+
+                    info_printf("%s: note: reduction of variable '%s' of type '%s' solved to '%s'\n",
+                            construct.get_locus_str().c_str(),
+                            var_sym.get_name().c_str(),
+                            type_name,
+                            reductor_name.c_str());
+                    info_printf("%s: info: reduction declared in '%s'\n",
+                            construct.get_locus_str().c_str(),
+                            reduction->get_locus_str().c_str());
                 }
                 else
                 {
@@ -273,8 +285,9 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        type_name = var_type.get_declaration(var_sym.get_scope(), "").c_str();
+                        type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
                     }
+
                     error_printf("%s: error: no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
                             construct.get_locus_str().c_str(),
                             reductor_name.c_str(),
@@ -282,11 +295,7 @@ namespace TL { namespace OpenMP {
                             type_name);
                 }
 
-                if (_allow_array_reductions
-                        && var_tree.is<Nodecl::Shaping>())
-                {
-                    add_extra_data_sharings(var_tree, data_sharing);
-                }
+                add_extra_symbols(DataReference(var_tree), data_sharing, extra_symbols);
             }
         }
     }
@@ -305,7 +314,7 @@ namespace TL { namespace OpenMP {
         //   - an AST_INIT_DECLARATOR
         //   - an ambiguity including an init-declarator and a at least one expression
 
-        if (ASTType(a) == AST_INIT_DECLARATOR)
+        if (ASTKind(a) == AST_INIT_DECLARATOR)
         {
             AST init_declarator = a;
             AST declarator = ASTSon0(init_declarator);
@@ -314,16 +323,13 @@ namespace TL { namespace OpenMP {
             AST declarator_id_expr = ASTSon0(declarator);
             AST id_expr = ASTSon0(declarator_id_expr);
 
-            scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expr);
+            scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expr, NULL);
 
             if (entry_list == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: unknown '%s' in initializer clause\n",
-                            ast_location(id_expr),
-                            prettyprint_in_buffer(id_expr));
-                }
+                error_printf("%s: error: unknown '%s' in initializer clause\n",
+                        ast_location(id_expr),
+                        prettyprint_in_buffer(id_expr));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
@@ -332,37 +338,37 @@ namespace TL { namespace OpenMP {
             if (strcmp(entry->symbol_name, "omp_priv") != 0
                     || entry->kind != SK_VARIABLE)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid '%s' in initializer clause\n",
-                            ast_location(id_expr),
-                            get_qualified_symbol_name(entry, decl_context));
-                }
+                error_printf("%s: error: invalid '%s' in initializer clause\n",
+                        ast_location(id_expr),
+                        get_qualified_symbol_name(entry, decl_context));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
 
             type_t* declarator_type = entry->type_information;
             char init_check = check_initialization(initializer,
-                    entry->decl_context, 
+                    entry->decl_context,
+                    entry,
                     get_unqualified_type(declarator_type),
-                    nodecl_output);
+                    nodecl_output,
+                    /* is_auto */ 0,
+                    /* is_decltype_auto*/ 0);
             if (!init_check)
             {
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
         }
-        else if (ASTType(a) == AST_AMBIGUITY)
+        else if (ASTKind(a) == AST_AMBIGUITY)
         {
             int i;
             int valid = -1;
             for (i = 0; i < ast_get_num_ambiguities(a); i++)
             {
                 *nodecl_output = nodecl_null();
-                enter_test_expression();
+                diagnostic_context_push_buffered();
                 check_omp_initializer(ast_get_ambiguity(a, i), decl_context, nodecl_output);
-                leave_test_expression();
+                diagnostic_context_pop_and_discard();
                 if (!nodecl_is_err_expr(*nodecl_output))
                 {
                     if (valid < 0)
@@ -414,7 +420,7 @@ namespace TL { namespace OpenMP {
                 build_scope_decl_specifier_seq(current_type,
                         &gather_info,
                         &reduction_type, decl_context,
-                        NULL, &nodecl_out_type);
+                        &nodecl_out_type);
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
@@ -654,7 +660,7 @@ namespace TL { namespace OpenMP {
         scope_entry_t* omp_udr_function = ::new_symbol(
                 sc.get_decl_context(), 
                 sc.get_decl_context().current_scope,
-                ".omp_udr_function");
+                UNIQUESTR_LITERAL(".omp_udr_function"));
         omp_udr_function->kind = SK_FUNCTION;
         omp_udr_function->related_decl_context = sc.get_decl_context();
 
@@ -675,7 +681,7 @@ namespace TL { namespace OpenMP {
             scope_entry_t* omp_sym = ::new_symbol(
                     _expr_scope.get_decl_context(), 
                     _expr_scope.get_decl_context().current_scope,
-                    it->first.c_str());
+                    uniquestr(it->first.c_str()));
 
             omp_sym->kind = SK_VARIABLE;
             omp_sym->do_not_print = 1;
@@ -745,16 +751,17 @@ namespace TL { namespace OpenMP {
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, internal_name.c_str());
+        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {
             new_red = new Reduction(sc, name, t);
 
-            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, internal_name.c_str());
+            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(internal_name.c_str()));
             new_red_sym->kind = SK_OTHER;
 
-            extensible_struct_set_field(new_red_sym->extended_data, "udr_info", new_red);
+            OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
+
             new_red->set_symbol(new_red_sym);
         }
         else
@@ -846,7 +853,7 @@ namespace TL { namespace OpenMP {
                 && !disable_koenig)
         {
             // First do normal lookup
-            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl());
+            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl(), NULL);
 
             // If normal lookup did not find a member, attempt a koenig
             if (entry_list == NULL
@@ -859,12 +866,13 @@ namespace TL { namespace OpenMP {
                 entry_list = koenig_lookup(
                         1, argument_type_list,
                         decl_context,
-                        id_expression.get_internal_nodecl());
+                        id_expression.get_internal_nodecl(),
+                        id_expression.get_locus());
             }
         }
         else
         {
-            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl());
+            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl(), NULL);
         }
 
         if (entry_list != NULL)
@@ -943,7 +951,7 @@ namespace TL { namespace OpenMP {
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        scope_entry_list_t* entry_list = query_name_str(decl_context, internal_name.c_str());
+        scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {
@@ -961,9 +969,7 @@ namespace TL { namespace OpenMP {
     {
         scope_entry_t* red_sym = sym.get_internal_symbol();
 
-        Reduction *red = reinterpret_cast<Reduction*>(
-                extensible_struct_get_field(red_sym->extended_data, "udr_info"));
-
+        Reduction *red = OpenMP::Core::reduction_map_info[red_sym];
         return red;
     }
 

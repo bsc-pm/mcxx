@@ -77,13 +77,26 @@
   the native (backend) compiler.
 */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tl-common.hpp"
 #include <iostream>
 #include <string>
 #include <typeinfo>
 #include "cxx-tltype.h"
-#include "extstruct.h"
-#include "tl-refptr.hpp"
+
+#if !defined(HAVE_CXX11)
+#include <tr1/memory>
+
+namespace std
+{
+    using std::tr1::shared_ptr;
+    using std::tr1::static_pointer_cast;
+}
+
+#endif
 
 namespace TL
 {
@@ -93,109 +106,22 @@ namespace TL
      * It is also used for data passed along the compiler pipeline structure using
      * a TL::DTO object.
      */
-    class LIBTL_CLASS Object 
-    { 
-        private:
-            /*! Internal reference counter when a RefPtr<Object> is used.
-             * Right after the creation of an instance of Object, it will
-             * be 1.
-             */
-            int _refcount;
-        protected:
-            //! Returns a pointer to an internal extended attribute type.
-            virtual tl_type_t* get_extended_attribute(const std::string&) const
-            {
-                return NULL;
-            }
-
-            virtual bool set_extended_attribute(const std::string&, const tl_type_t &data)
-            {
-                // Do nothing
-                return false;
-            }
+    class LIBTL_CLASS Object
+    {
         public:
-            //! Returns a reference to an Object representing the attribute name.
-            /*!
-             * \param name The name of the requested extended struct field.
-             * \return A reference to an Object representing the requested attribute
-             */
-            RefPtr<Object> get_attribute(const std::string& name) const;
-
-            //! Sets attribute name with the value of a referenced object
-            /*!
-             * \param name The name of the defined extended struct field.
-             * \param obj A reference to the value meant to be stored in the extended struct
-             */
-            void set_attribute(const std::string &name, RefPtr<Object> obj);
-
-            //! Sets attribute name with a boolean value
-            /*!
-             * \param name The name of the defined extended struct field.
-             * \param b Boolean value to be stored
-             */
-            void set_attribute(const std::string &name, bool b);
-
-            //! Sets attribute name with an integer value
-            /*!
-             * \param name The name of the defined extended struct field.
-             * \param i Integer value to be stored
-             */
-            void set_attribute(const std::string &name, int i);
-
             //! Default constructor for Object
-            Object()
-                : _refcount(1)
-            {
-            }
-
-            //! Increases a reference to this entity. Required by RefPtr.
-            void obj_reference()
-            {
-                _refcount++;
-            }
-
-            //! Decreases a reference to this entity. Required by RefPtr.
-            void obj_unreference()
-            {
-                _refcount--;
-                if (_refcount == 0)
-                {
-                    delete this;
-                }
-            }
+            Object() { }
 
             //! Destructor of Object
             virtual ~Object() { }
-
-            //! Checks whether this object has an extended structure field.
-            /*!
-             * \param name The name of the attribute.
-             * \return true if the attribute is in the extended struct of this object.
-             */
-            bool has_attribute(const std::string& name) const;
     };
 
     //! Class used when a non existant attribute is requested
     class LIBTL_CLASS Undefined : public Object
     {
-        protected:
-            virtual tl_type_t* get_extended_attribute(const std::string&) const
-            {
-                return NULL;
-            }
         public :
             virtual ~Undefined() { }
     };
-
-    //! Function used by TL::Objects that have an extensible struct
-    LIBTL_EXTERN tl_type_t* default_get_extended_attribute(
-            extensible_struct_t* extensible_struct, 
-            const std::string& name);
-    
-    //! Function used by TL::Objects that have an extensible struct
-    LIBTL_EXTERN bool default_set_extended_attribute(
-            extensible_struct_t* extensible_struct, 
-            const std::string &str, const tl_type_t &data);
 }
 
 #endif // TL_OBJECT_HPP

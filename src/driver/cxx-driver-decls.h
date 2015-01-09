@@ -85,7 +85,7 @@ typedef struct sublanguage_profile_tag
 
 extern sublanguage_profile_t sublanguage_profiles[];
 
-extern char* source_language_names[];
+extern const char* source_language_names[];
 
 // File extensions table
 struct extensions_table_t
@@ -153,12 +153,14 @@ struct debug_flags_list_t
 typedef struct debug_options_tag
 {
     char abort_on_ice;
+    char backtrace_on_ice;
     char print_scope;
     char enable_debug_code;
     char debug_lexer;
     char debug_parser;
-    char print_ast_graphviz;
-    char print_ast_html;
+    char print_nodecl_graphviz;
+    char print_nodecl_html;
+    char print_parse_tree;
     char print_memory_report;
     char print_memory_report_in_bytes;
     char debug_sizeof;
@@ -167,7 +169,15 @@ typedef struct debug_options_tag
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;
+    char print_pcfg_w_context;
+    char print_pcfg_w_analysis;
+    char print_pcfg_full;
+    char print_tdg;
+    char tdg_to_json;
     char do_not_codegen;
+    char show_template_packs;
+    char vectorization_verbose;
+    char stats_string_table;
 } debug_options_t;
 
 typedef struct external_var_tag {
@@ -192,10 +202,18 @@ typedef struct pragma_directive_set_tag
 
 struct compilation_file_process_tag;
 
+typedef
+enum parameter_flag_value_tag
+{
+    PFV_UNDEFINED = 0,
+    PFV_FALSE = 1,
+    PFV_TRUE = 2,
+} parameter_flag_value_t;
+
 typedef struct parameter_flags_tag
 {
     const char *name;
-    char value;
+    parameter_flag_value_t value;
 } parameter_flags_t;
 
 typedef struct compilation_process_tag
@@ -363,7 +381,8 @@ typedef struct compilation_configuration_tag
     // Fortran prescanner
     const char* prescanner_name;
     const char** prescanner_options;
-    int column_width;
+    int input_column_width;
+    int output_column_width;
 
     // Disable Fortran intrinsics
     char disable_intrinsics;
@@ -450,6 +469,9 @@ typedef struct compilation_configuration_tag
     // __int8, __int16, __int32 and __int64
     char enable_ms_builtin_types;
 
+    // Enable Intel C/C++ builtins
+    char enable_intel_builtins;
+
     // Enable special vector types for Intel SSE/AVX
     // struct __m128, struct __m256
     char enable_intel_vector_types;
@@ -477,8 +499,11 @@ typedef struct compilation_configuration_tag
     // If this is not null, this should be a constant expression
     const char *upc_threads;
 
-    // Enable C++1x
-    char enable_cxx1x;
+    // Enable C++11
+    char enable_cxx11;
+
+    // Enable C++14
+    char enable_cxx14;
 
     // Enable CUDA
     char enable_cuda;
@@ -506,6 +531,12 @@ typedef struct compilation_configuration_tag
     // Do not make an extra pass to resolve externall calls to functions in the
     // same file
     char fortran_no_whole_file;
+
+    // Enable IBM XL compatibility
+    char xl_compatibility;
+
+    // Emit line markers in the output files
+    char line_markers;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

@@ -24,11 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-
-#ifndef TL_DATA_ENV_HPP
-#define TL_DATA_ENV_HPP
+#ifndef TL_OUTLINE_INFO_HPP
+#define TL_OUTLINE_INFO_HPP
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
@@ -40,6 +37,7 @@
 
 #include "tl-omp.hpp"
 #include "tl-target-information.hpp"
+#include "tl-nanox-nodecl.hpp"
 
 namespace TL
 {
@@ -77,10 +75,11 @@ namespace TL
                     DEP_IN =   1 << 0,
                     DEP_IN_VALUE =   1 << 1,
                     DEP_IN_ALLOCA =   1 << 2,
-                    DEP_OUT =  1 << 3,
+                    DEP_IN_PRIVATE =   1 << 3,
+                    DEP_OUT =  1 << 4,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 4,
-                    DEP_COMMUTATIVE = 1 << 5
+                    DEP_CONCURRENT = 1 << 5,
+                    DEP_COMMUTATIVE = 1 << 6
                 };
                 struct DependencyItem
                 {
@@ -106,26 +105,6 @@ namespace TL
 
                     CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
                         : expression(expr_), directionality(dir_) { }
-                };
-
-                // The first level of TaskwaitOnNode does not generate taskwaits!
-                struct TaskwaitOnNode
-                {
-                    Nodecl::NodeclBase expression;
-                    TL::ObjectList<TaskwaitOnNode*> depends_on;
-
-                    TaskwaitOnNode(Nodecl::NodeclBase expr_)
-                        : expression(expr_) { }
-
-                    ~TaskwaitOnNode()
-                    {
-                        for (TL::ObjectList<TaskwaitOnNode*>::iterator it = depends_on.begin();
-                                it != depends_on.end();
-                                it++)
-                        {
-                            delete (*it);
-                        }
-                    }
                 };
 
                 enum AllocationPolicyFlags
@@ -172,6 +151,16 @@ namespace TL
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
+                // Code run prior capturing some variable
+                Nodecl::NodeclBase _prepare_capture_code;
+
+                // Descriptor
+                OutlineDataItem* _copy_of_array_descriptor;
+
+                // This is a copy_of_array_descriptor
+                // referring to refers to an ALLOCATABLE array
+                bool _is_copy_of_array_descriptor_allocatable;
+
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
                 // If not null, used to capture a value only under some conditions
@@ -179,8 +168,6 @@ namespace TL
 
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
-
-                TaskwaitOnNode* _taskwait_on_after_wd_creation;
 
                 bool _is_lastprivate;
 
@@ -202,16 +189,12 @@ namespace TL
                     _basic_reduction_function(),
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
+                    _copy_of_array_descriptor(NULL),
+                    _is_copy_of_array_descriptor_allocatable(false),
                     _base_symbol_of_argument(),
-                    _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
                 {
-                }
-
-                ~OutlineDataItem()
-                {
-                    delete _taskwait_on_after_wd_creation;
                 }
 
                 //! Returns the symbol of this item
@@ -282,6 +265,7 @@ namespace TL
 
                 void set_sharing(Sharing s)
                 {
+                    ERROR_CONDITION(_sharing != SHARING_UNDEFINED, "Overwriting data-sharing", 0);
                     _sharing = s;
                 }
 
@@ -370,6 +354,16 @@ namespace TL
                     _shared_symbol_in_outline = sym;
                 }
 
+                void set_prepare_capture_code(Nodecl::NodeclBase prepare_capture_code)
+                {
+                    _prepare_capture_code = prepare_capture_code;
+                }
+
+                Nodecl::NodeclBase get_prepare_capture_code() const
+                {
+                    return _prepare_capture_code;
+                }
+
                 void set_captured_value(Nodecl::NodeclBase captured_value)
                 {
                     _captured_value = captured_value;
@@ -424,16 +418,6 @@ namespace TL
                     return has_input_value;
                 }
 
-                TaskwaitOnNode* get_taskwait_on_after_wd_creation() const
-                {
-                    return _taskwait_on_after_wd_creation;
-                }
-
-                void set_taskwait_on_after_wd_creation(TaskwaitOnNode* taskwait_on)
-                {
-                    _taskwait_on_after_wd_creation = taskwait_on;
-                }
-
                 void set_is_cxx_this(bool b)
                 {
                     _is_cxx_this = b;
@@ -443,39 +427,67 @@ namespace TL
                 {
                     return _is_cxx_this;
                 }
+
+                void set_copy_of_array_descriptor(OutlineDataItem* copy_of_array_descriptor)
+                {
+                    _copy_of_array_descriptor = copy_of_array_descriptor;
+                }
+
+                OutlineDataItem* get_copy_of_array_descriptor() const
+                {
+                    return _copy_of_array_descriptor;
+                }
+
+                bool is_copy_of_array_descriptor_allocatable() const
+                {
+                    return _is_copy_of_array_descriptor_allocatable;
+                }
+
+                void set_is_copy_of_array_descriptor_allocatable(bool b)
+                {
+                    _is_copy_of_array_descriptor_allocatable = b;
+                }
         };
 
-        //Symbold::invalid it's theorically used when the outline has no symbol
-        //i think we use enclosing function symbol in this cases anyways.
+        inline OutlineDataItem::AllocationPolicyFlags operator|(OutlineDataItem::AllocationPolicyFlags a, OutlineDataItem::AllocationPolicyFlags b)
+        {
+            return OutlineDataItem::AllocationPolicyFlags(unsigned(a) | unsigned(b));
+        }
+
+        inline OutlineDataItem::AllocationPolicyFlags operator&(OutlineDataItem::AllocationPolicyFlags a, OutlineDataItem::AllocationPolicyFlags b)
+        {
+            return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
+        }
+
         class OutlineInfo
         {
-
+            private:
+                Nanox::Lowering& _lowering;
             public:
                 typedef std::map<TL::Symbol, TL::Nanox::TargetInformation> implementation_table_t;
                 TL::Symbol _funct_symbol;
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
-
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
                 // Do not copy
-                OutlineInfo(const OutlineInfo&);
-                OutlineInfo& operator=(const OutlineInfo&);
+                // OutlineInfo(const OutlineInfo&);
+                // OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
-
             public:
-
-
-                OutlineInfo();
-                OutlineInfo(Nodecl::NodeclBase environment,
+                OutlineInfo(Nanox::Lowering& lowering);
+                OutlineInfo(Nanox::Lowering& lowering,
+                        Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
+                        std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>());
 
                 ~OutlineInfo();
+
+                void reset_array_counters();
 
                 //! Get new or retrieve existing OutlineDataItem for symbol
                 /*!
@@ -483,7 +495,8 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
-                OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
+
+                void remove_entity(OutlineDataItem&);
 
                 ObjectList<OutlineDataItem*> get_data_items();
 
@@ -500,16 +513,16 @@ namespace TL
                 void set_name(TL::Symbol function_symbol,std::string name);
                 std::string get_name(TL::Symbol function_symbol);
 
-                void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                void append_to_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
-                void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
+                void set_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
+                void set_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
+                void set_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
 
                 /**
                  * Adds implementation, if already exists, it adds device name to that symbol
                  * @param device_name
                  * @param function_symbol
                  */
-                void add_implementation(std::string device_name, TL::Symbol function_symbol);
+                void add_implementation(TL::Symbol function_symbol, std::string device_name);
                 implementation_table_t& get_implementation_table();
 
                 void set_param_arg_map(const Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol=Symbol::invalid());
@@ -521,9 +534,11 @@ namespace TL
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
 
                 // This is needed for VLAs
-                void move_at_end(OutlineDataItem&);
+                void move_at_beginning(OutlineDataItem&);
 
                 bool only_has_smp_or_mpi_implementations() const;
+
+                bool firstprivates_always_by_reference() const;
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
@@ -535,6 +550,8 @@ namespace TL
                 OutlineInfo& _outline_info;
                 Scope _sc;
 
+                void add_shared_common(Symbol sym, TL::Type field_type);
+
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
                     : _outline_info(outline_info), _sc(sc) { }
@@ -543,6 +560,7 @@ namespace TL
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
+                void add_shared_opaque_and_captured_array_descriptor(Symbol sym);
                 void add_shared_with_capture(Symbol sym);
                 void add_shared_alloca(Symbol sym);
                 void add_alloca(Symbol sym, TL::DataReference& data_ref);
@@ -562,11 +580,11 @@ namespace TL
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
 
-                void set_taskwait_on_after_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
-
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+
+                void purge_saved_expressions();
         };
     }
 }
 
-#endif // TL_DATA_ENV_HPP
+#endif // TL_OUTLINE_INFO_HPP

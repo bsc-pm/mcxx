@@ -107,10 +107,16 @@ namespace TL { namespace Nanox {
                         << "sizeof(" << as_type((*it)->get_private_type()) << "));"
                         ;
                 }
-                else
+                else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
                     lastprivate_updates
-                        << "*(" << (*it)->get_symbol().get_name() << "_addr) = " << (*it)->get_symbol().get_name() << ";"
+                        << "*" << (*it)->get_symbol().get_name() << "_addr = " << (*it)->get_symbol().get_name() << ";"
+                        ;
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    lastprivate_updates
+                        << (*it)->get_symbol().get_name() << "_addr = " << (*it)->get_symbol().get_name() << "\n"
                         ;
                 }
                 num_items++;
@@ -121,12 +127,23 @@ namespace TL { namespace Nanox {
 
         if (num_items > 0)
         {
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
             lastprivate_code
                 << "if (" << loop_descriptor_name << ".last)"
                 << "{"
                 <<     lastprivate_updates
                 << "}"
                 ;
+            }
+            else
+            {
+                lastprivate_code
+                    << "IF (" << loop_descriptor_name << "% last) THEN\n"
+                    <<     lastprivate_updates
+                    << "END IF\n"
+                    ;
+            }
         }
 
         return lastprivate_code;

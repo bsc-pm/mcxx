@@ -44,7 +44,7 @@ namespace TL { namespace Nanox {
     {
         TL::Symbol field = class_scope.new_symbol(field_name);
         field.get_internal_symbol()->kind = SK_VARIABLE;
-        field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(field.get_internal_symbol(), 1);
 
         if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
         {
@@ -55,9 +55,9 @@ namespace TL { namespace Nanox {
         }
         field.get_internal_symbol()->type_information = field_type.get_internal_type();
 
-        field.get_internal_symbol()->entity_specs.is_member = 1;
-        field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
-        field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_is_member(field.get_internal_symbol(), 1);
+        symbol_entity_specs_set_class_type(field.get_internal_symbol(), ::get_user_defined_type(new_class_symbol.get_internal_symbol()));
+        symbol_entity_specs_set_access(field.get_internal_symbol(), AS_PUBLIC);
 
         field.get_internal_symbol()->locus = locus;
 
@@ -67,11 +67,13 @@ namespace TL { namespace Nanox {
             if ((allocation_flags & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                     == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
             {
-                field.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                symbol_entity_specs_set_is_allocatable(field.get_internal_symbol(), 1);
             }
         }
 
-        class_type_add_member(new_class_type.get_internal_type(), field.get_internal_symbol());
+        class_type_add_member(new_class_type.get_internal_type(),
+                field.get_internal_symbol(),
+                /* is_definition */ 1);
         return field;
     }
 
@@ -81,8 +83,7 @@ namespace TL { namespace Nanox {
             TL::Symbol new_class_symbol,
             Nodecl::NodeclBase construct)
     {
-        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE
-                || outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_ALLOCA)
+        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_ALLOCA)
         {
             add_field_internal(
                     outline_data_item.get_field_name() + "_storage",
@@ -156,7 +157,8 @@ namespace TL { namespace Nanox {
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
 
-        if (related_symbol.get_type().is_template_specialized_type())
+        if (related_symbol.get_type().is_template_specialized_type()
+                && !related_symbol.get_scope().get_template_parameters()->is_explicit_specialization)
         {
             TL::Symbol new_template_symbol = sc.new_symbol(structure_name);
             new_template_symbol.get_internal_symbol()->kind = SK_TEMPLATE;
@@ -178,7 +180,17 @@ namespace TL { namespace Nanox {
             new_class_type = new_class_symbol.get_type().get_internal_type();
         }
 
-        new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        // This is a nontemplate member of a template class
+        if (related_symbol.is_member()
+                && !related_symbol.get_type().is_template_specialized_type()
+                && TL::Type(get_actual_class_type(
+                    related_symbol.get_class_type().get_internal_type())).is_template_specialized_type()
+                && related_symbol.get_class_type().is_dependent())
+        {
+            set_is_dependent_type(new_class_type, 1);
+        }
+
+        symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
         decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
                 new_class_symbol.get_internal_symbol());
@@ -217,30 +229,34 @@ namespace TL { namespace Nanox {
 
         if (related_symbol.is_member())
         {
-            new_class_symbol.get_internal_symbol()->entity_specs.is_member = 1;
-            new_class_symbol.get_internal_symbol()->entity_specs.class_type 
-                = related_symbol.get_class_type().get_internal_type();
-            new_class_symbol.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_is_member(new_class_symbol.get_internal_symbol(), 1);
+            symbol_entity_specs_set_class_type(new_class_symbol.get_internal_symbol(), related_symbol.get_class_type().get_internal_type());
+            symbol_entity_specs_set_access(new_class_symbol.get_internal_symbol(), AS_PUBLIC);
 
-            new_class_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier = 
-                related_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+            symbol_entity_specs_set_is_defined_inside_class_specifier(new_class_symbol.get_internal_symbol(), symbol_entity_specs_get_is_defined_inside_class_specifier(related_symbol.get_internal_symbol()));
+
+            if (is_dependent_type(related_symbol.get_class_type().get_internal_type()))
+            {
+                set_is_dependent_type(new_class_symbol.get_type().get_internal_type(), 1);
+            }
 
             ::class_type_add_member_before(
                     related_symbol.get_class_type().get_internal_type(), 
                     related_symbol.get_internal_symbol(),
-                    new_class_symbol.get_internal_symbol());
+                    new_class_symbol.get_internal_symbol(),
+                    /* is_definition */
+                    symbol_entity_specs_get_is_defined_inside_class_specifier(new_class_symbol.get_internal_symbol())
+                    );
         }
         else if (related_symbol.is_in_module())
         {
             // Add the newly created argument as a structure
             TL::Symbol module = related_symbol.in_module();
 
-            new_class_symbol.get_internal_symbol()->entity_specs.in_module = module.get_internal_symbol();
-            new_class_symbol.get_internal_symbol()->entity_specs.access = AS_PRIVATE;
+            symbol_entity_specs_set_in_module(new_class_symbol.get_internal_symbol(), module.get_internal_symbol());
+            symbol_entity_specs_set_access(new_class_symbol.get_internal_symbol(), AS_PRIVATE);
 
-            P_LIST_ADD(
-                    module.get_internal_symbol()->entity_specs.related_symbols,
-                    module.get_internal_symbol()->entity_specs.num_related_symbols,
+            symbol_entity_specs_add_related_symbols(module.get_internal_symbol(),
                     new_class_symbol.get_internal_symbol());
         }
 

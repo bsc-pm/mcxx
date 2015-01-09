@@ -35,7 +35,7 @@ test_generator=config/mercurium
 int x[2] __attribute__((aligned (8)));
 
 int f(int a __attribute__((unused)), int b __attribute__((unused))) {}
-int h(int a __attribute__((unused)), int b __attribute__((unused))) __attribute__((pure)) {}
+int h(int a __attribute__((unused)), int b __attribute__((unused))) {}
  
 
 class A
@@ -43,7 +43,7 @@ class A
      public:
          int g(char* ori, char* d) __attribute__((nonnull (1,2)));
  };
- int A::g(char* ori, char* d) __attribute__((nonnull (1,2))) { }
+ int A::g(char* ori, char* d) { }
  
 
  struct T 

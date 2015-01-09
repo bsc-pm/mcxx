@@ -39,7 +39,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024))
     {
-        ERROR_CONDITION(!task_expr.get_parent().is<Nodecl::ExpressionStatement>(), "Unexpected node", 0);
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(task_expr);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+        // We must obtain the expression statement at this point. Do not move this line!
         Nodecl::NodeclBase expr_stmt = task_expr.get_parent();
 
         TL::Source code;
@@ -50,7 +53,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(task_expr.get_sequential_code())
+            <<          as_statement(it->second)
             <<      "}"
             <<      "else"
             <<      "{"

@@ -73,7 +73,7 @@ LIBMF03_EXTERN int fortran_array_type_get_total_number_of_elements(type_t* t);
 
 LIBMF03_EXTERN char fortran_array_has_zero_size(type_t* t);
 
-LIBMF03_EXTERN char fortran_are_conformable_types(type_t* t1, type_t* t2);
+LIBMF03_EXTERN char fortran_type_is_conformable_to(type_t* t1, type_t* t2);
 
 LIBMF03_EXTERN type_t* fortran_get_default_integer_type(void);
 LIBMF03_EXTERN type_t* fortran_get_default_real_type(void);

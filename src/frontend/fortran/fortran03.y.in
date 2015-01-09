@@ -143,25 +143,25 @@ static AST ambig_assignment_statement_function(YYSTYPE x0, YYSTYPE x1)
 static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 {
    AST result = ast_make_ambiguous(x0.ast, x1.ast);
-   ast_set_text(result, uniquestr("ambiguous_io_spec"));
+   ast_set_text(result, "ambiguous_io_spec");
 
    return result;
 }
 
 static void append_statement_to_block(AST block, AST stmt)
 {
-    if (ASTType(block) == AST_EMPTY_STATEMENT)
+    if (ASTKind(block) == AST_EMPTY_STATEMENT)
     {
-        ast_set_type(block, AST_COMPOUND_STATEMENT);
+        ast_set_kind(block, AST_COMPOUND_STATEMENT);
         ast_set_child(block, 0, ASTListLeaf(stmt));
     }
-    else if (ASTType(block) == AST_COMPOUND_STATEMENT)
+    else if (ASTKind(block) == AST_COMPOUND_STATEMENT)
     {
         ast_set_child(block, 0, ast_list_concat(ASTSon0(block), ASTListLeaf(stmt)));
     }
     else
     {
-        internal_error("Invalid tree %s\n", ast_print_node_type(ASTType(block)));
+        internal_error("Invalid tree %s\n", ast_print_node_type(ASTKind(block)));
     }
 }
 
@@ -701,230 +701,231 @@ static const char* safe_asttext(AST a)
 %type<token_atrib> selectcase_toks
 %type<token_atrib> two_slashes
 // Tokens
-%token<token_atrib> TOK_FORMAT "FORMAT"
-%token<token_atrib> TOK_GENERIC "GENERIC"
-%token<token_atrib> TOK_VOLATILE "VOLATILE"
-%token<token_atrib> TOK_EQUIVALENCE "EQUIVALENCE"
-%token<token_atrib> TOK_EOR "EOR"
-%token<token_atrib> TOK_PROTECTED "PROTECTED"
-%token<token_atrib> TOK_PAD "PAD"
-%token<token_atrib> TOK_FILE "FILE"
-%token<token_atrib> TOK_UNFORMATTED "UNFORMATTED"
-%token<token_atrib> TOK_NAMED "NAMED"
-%token<token_atrib> TOK_SUBROUTINE "SUBROUTINE"
-%token<token_atrib> TOK_OPENED "OPENED"
-%token<token_atrib> TOK_DELIM "DELIM"
-%token<token_atrib> TOK_SOURCE "SOURCE"
-%token<token_atrib> TOK_CRITICAL "CRITICAL"
-%token<token_atrib> TOK_ACTION "ACTION"
-%token<token_atrib> TOK_IMPORT "IMPORT"
-%token<token_atrib> TOK_BLOCK "BLOCK"
-%token<token_atrib> TOK_ENUM "ENUM"
-%token<token_atrib> TOK_OVERRIDABLE "OVERRIDABLE"
-%token<token_atrib> TOK_MODULE "MODULE"
-%token<token_atrib> TOK_SIGN "SIGN"
-%token<token_atrib> TOK_EXTENDS "EXTENDS"
-%token<token_atrib> TOK_PASS "PASS"
-%token<token_atrib> TOK_GO "GO"
-%token<token_atrib> TOK_ENTRY "ENTRY"
-%token<token_atrib> TOK_WHERE "WHERE"
-%token<token_atrib> TOK_ENDWHERE "END WHERE"
-%token<token_atrib> TOK_PROCEDURE "PROCEDURE"
-%token<token_atrib> TOK_NAME "NAME"
-%token<token_atrib> TOK_DOUBLE "DOUBLE"
-%token<token_atrib> TOK_CONTAINS "CONTAINS"
-%token<token_atrib> TOK_LOGICAL "LOGICAL"
-%token<token_atrib> TOK_NEWUNIT "NEWUNIT"
-%token<token_atrib> TOK_NULLIFY "NULLIFY"
-%token<token_atrib> TOK_DEFERRED "DEFERRED"
-%token<token_atrib> TOK_ONLY "ONLY"
-%token<token_atrib> TOK_EXIST "EXIST"
-%token<token_atrib> TOK_INTERFACE "INTERFACE"
-%token<token_atrib> TOK_SAVE "SAVE"
-%token<token_atrib> TOK_ADVANCE "ADVANCE"
-%token<token_atrib> TOK_STAT "STAT"
-%token<token_atrib> TOK_RETURN "RETURN"
-%token<token_atrib> TOK_READWRITE "READWRITE"
-%token<token_atrib> TOK_ASSIGNMENT "ASSIGNMENT"
-%token<token_atrib> TOK_ASSIGN "ASSIGN"
-%token<token_atrib> TOK_PRINT "PRINT"
-%token<token_atrib> TOK_IOSTAT "IOSTAT"
-%token<token_atrib> TOK_SYNC "SYNC"
-%token<token_atrib> TOK_COMPLEX "COMPLEX"
-%token<token_atrib> TOK_ASYNCHRONOUS "ASYNCHRONOUS"
-%token<token_atrib> TOK_IMAGES "IMAGES"
-%token<token_atrib> TOK_END "END"
-%token<token_atrib> TOK_FINAL "FINAL"
-%token<token_atrib> TOK_INOUT "INOUT"
-%token<token_atrib> TOK_NEXTREC "NEXTREC"
-%token<token_atrib> TOK_KIND "KIND"
-%token<token_atrib> TOK_COMMON "COMMON"
-%token<token_atrib> TOK_BLANK "BLANK"
-%token<token_atrib> TOK_IOLENGTH "IOLENGTH"
-%token<token_atrib> TOK_INTEGER "INTEGER"
-%token<token_atrib> TOK_DEALLOCATE "DEALLOCATE"
-%token<token_atrib> TOK_FUNCTION "FUNCTION"
-%token<token_atrib> TOK_C "C"
-%token<token_atrib> TOK_OPENCL "OPENCL"
-%token<token_atrib> TOK_ENUMERATOR "ENUMERATOR"
-%token<token_atrib> TOK_RECURSIVE "RECURSIVE"
-%token<token_atrib> TOK_SEQUENCE "SEQUENCE"
-%token<token_atrib> TOK_INQUIRE "INQUIRE"
-%token<token_atrib> TOK_FLUSH "FLUSH"
-%token<token_atrib> TOK_ELSE "ELSE"
-%token<token_atrib> TOK_INTENT "INTENT"
-%token<token_atrib> TOK_EXTERNAL "EXTERNAL"
-%token<token_atrib> TOK_OPERATOR "OPERATOR"
-%token<token_atrib> TOK_OPTIONAL "OPTIONAL"
-%token<token_atrib> TOK_UNIT "UNIT"
-%token<token_atrib> TOK_SIZE "SIZE"
-%token<token_atrib> TOK_NOPASS "NOPASS"
-%token<token_atrib> TOK_TYPE "TYPE"
-%token<token_atrib> TOK_MOLD "MOLD"
-%token<token_atrib> TOK_PRECISION "PRECISION"
-%token<token_atrib> TOK_PENDING "PENDING"
-%token<token_atrib> TOK_CONTINUE "CONTINUE"
-%token<token_atrib> TOK_RESULT "RESULT"
-%token<token_atrib> TOK_REAL "REAL"
-%token<token_atrib> TOK_THEN "THEN"
-%token<token_atrib> TOK_STREAM "STREAM"
-%token<token_atrib> TOK_DO "DO"
-%token<token_atrib> TOK_DEFAULT "DEFAULT"
-%token<token_atrib> TOK_CONTIGUOUS "CONTIGUOUS"
-%token<token_atrib> TOK_STOP "STOP"
-%token<token_atrib> TOK_PAUSE "PAUSE"
-%token<token_atrib> TOK_WHILE "WHILE"
-%token<token_atrib> TOK_PROGRAM "PROGRAM"
-%token<token_atrib> TOK_REC "REC"
-%token<token_atrib> TOK_OPEN "OPEN"
-%token<token_atrib> TOK_CASE "CASE"
-%token<token_atrib> TOK_RECL "RECL"
-%token<token_atrib> TOK_DIMENSION "DIMENSION"
-%token<token_atrib> TOK_ELEMENTAL "ELEMENTAL"
-%token<token_atrib> TOK_FORALL "FORALL"
-%token<token_atrib> TOK_POSITION "POSITION"
-%token<token_atrib> TOK_FMT "FMT"
-%token<token_atrib> TOK_READ "READ"
-%token<token_atrib> TOK_OUT "OUT"
-%token<token_atrib> TOK_LOCK "LOCK"
-%token<token_atrib> TOK_DECIMAL "DECIMAL"
-%token<token_atrib> TOK_SELECT "SELECT"
-%token<token_atrib> TOK_SELECTCASE "SELECTCASE"
-%token<token_atrib> TOK_DIRECT "DIRECT"
-%token<token_atrib> TOK_WRITE "WRITE"
-%token<token_atrib> TOK_CODIMENSION "CODIMENSION"
-%token<token_atrib> TOK_CLOSE "CLOSE"
-%token<token_atrib> TOK_ID "ID"
-%token<token_atrib> TOK_WAIT "WAIT"
-%token<token_atrib> TOK_ALL "ALL"
-%token<token_atrib> TOK_ELSEWHERE "ELSEWHERE"
-%token<token_atrib> TOK_LEN "LEN"
-%token<token_atrib> TOK_IMPURE "IMPURE"
-%token<token_atrib> TOK_EXIT "EXIT"
-%token<token_atrib> TOK_REWIND "REWIND"
-%token<token_atrib> TOK_BACKSPACE "BACKSPACE"
-%token<token_atrib> TOK_NML "NML"
-%token<token_atrib> TOK_INTRINSIC "INTRINSIC"
-%token<token_atrib> TOK_PUBLIC "PUBLIC"
-%token<token_atrib> TOK_ERRMSG "ERRMSG"
-%token<token_atrib> TOK_NAMELIST "NAMELIST"
-%token<token_atrib> TOK_USE "USE"
-%token<token_atrib> TOK_SUBMODULE "SUBMODULE"
-%token<token_atrib> TOK_ERR "ERR"
-%token<token_atrib> TOK_ENCODING "ENCODING"
-%token<token_atrib> TOK_ACQUIRED "ACQUIRED"
-%token<token_atrib> TOK_ABSTRACT "ABSTRACT"
-%token<token_atrib> TOK_CHARACTER "CHARACTER"
-%token<token_atrib> TOK_NUMBER "NUMBER"
-%token<token_atrib> TOK_CONCURRENT "CONCURRENT"
-%token<token_atrib> TOK_ENDFILE "ENDFILE"
-%token<token_atrib> TOK_PARAMETER "PARAMETER"
-%token<token_atrib> TOK_DATA "DATA"
-%token<token_atrib> TOK_POS "POS"
-%token<token_atrib> TOK_PRIVATE "PRIVATE"
-%token<token_atrib> TOK_ROUND "ROUND"
-%token<token_atrib> TOK_TO "TO"
-%token<token_atrib> TOK_SEQUENTIAL "SEQUENTIAL"
-%token<token_atrib> TOK_ALLOCATE "ALLOCATE"
-%token<token_atrib> TOK_TARGET "TARGET"
-%token<token_atrib> TOK_CLASS "CLASS"
-%token<token_atrib> TOK_CYCLE "CYCLE"
-%token<token_atrib> TOK_STATUS "STATUS"
-%token<token_atrib> TOK_IOMSG "IOMSG"
-%token<token_atrib> TOK_FORM "FORM"
-%token<token_atrib> TOK_IS "IS"
-%token<token_atrib> TOK_NONE "NONE"
-%token<token_atrib> TOK_VALUE "VALUE"
-%token<token_atrib> TOK_UNLOCK "UNLOCK"
-%token<token_atrib> TOK_FORMATTED "FORMATTED"
-%token<token_atrib> TOK_IN "IN"
-%token<token_atrib> TOK_IMPLICIT "IMPLICIT"
-%token<token_atrib> TOK_IF "IF"
-%token<token_atrib> TOK_ASSOCIATE "ASSOCIATE"
-%token<token_atrib> TOK_BIND "BIND"
-%token<token_atrib> TOK_ALLOCATABLE "ALLOCATABLE"
-%token<token_atrib> TOK_ACCESS "ACCESS"
-%token<token_atrib> TOK_CALL "CALL"
-%token<token_atrib> TOK_PURE "PURE"
-%token<token_atrib> TOK_MEMORY "MEMORY"
-%token<token_atrib> TOK_POINTER "POINTER"
-%token<token_atrib> TOK_VECTOR "VECTOR"
-%token<token_atrib> TOK_PIXEL "PIXEL"
-%token<token_atrib> TOK_NON_OVERRIDABLE "NON_OVERRIDABLE"
-%token<token_atrib> TOK_NON_INTRINSIC "NON_INTRINSIC"
-%token<token_atrib> TOK_HOLLERITH_CONSTANT "Hollerith constant"
+%token<token_atrib> TOKEN_FORMAT "FORMAT"
+%token<token_atrib> TOKEN_GENERIC "GENERIC"
+%token<token_atrib> TOKEN_VOLATILE "VOLATILE"
+%token<token_atrib> TOKEN_EQUIVALENCE "EQUIVALENCE"
+%token<token_atrib> TOKEN_EOR "EOR"
+%token<token_atrib> TOKEN_PROTECTED "PROTECTED"
+%token<token_atrib> TOKEN_PAD "PAD"
+%token<token_atrib> TOKEN_FILE "FILE"
+%token<token_atrib> TOKEN_UNFORMATTED "UNFORMATTED"
+%token<token_atrib> TOKEN_NAMED "NAMED"
+%token<token_atrib> TOKEN_SUBROUTINE "SUBROUTINE"
+%token<token_atrib> TOKEN_OPENED "OPENED"
+%token<token_atrib> TOKEN_DELIM "DELIM"
+%token<token_atrib> TOKEN_SOURCE "SOURCE"
+%token<token_atrib> TOKEN_CRITICAL "CRITICAL"
+%token<token_atrib> TOKEN_ACTION "ACTION"
+%token<token_atrib> TOKEN_IMPORT "IMPORT"
+%token<token_atrib> TOKEN_BLOCK "BLOCK"
+%token<token_atrib> TOKEN_ENUM "ENUM"
+%token<token_atrib> TOKEN_OVERRIDABLE "OVERRIDABLE"
+%token<token_atrib> TOKEN_MODULE "MODULE"
+%token<token_atrib> TOKEN_SIGN "SIGN"
+%token<token_atrib> TOKEN_EXTENDS "EXTENDS"
+%token<token_atrib> TOKEN_PASS "PASS"
+%token<token_atrib> TOKEN_GO "GO"
+%token<token_atrib> TOKEN_ENTRY "ENTRY"
+%token<token_atrib> TOKEN_WHERE "WHERE"
+%token<token_atrib> TOKEN_ENDWHERE "END WHERE"
+%token<token_atrib> TOKEN_PROCEDURE "PROCEDURE"
+%token<token_atrib> TOKEN_NAME "NAME"
+%token<token_atrib> TOKEN_DOUBLE "DOUBLE"
+%token<token_atrib> TOKEN_CONTAINS "CONTAINS"
+%token<token_atrib> TOKEN_LOGICAL "LOGICAL"
+%token<token_atrib> TOKEN_NEWUNIT "NEWUNIT"
+%token<token_atrib> TOKEN_NULLIFY "NULLIFY"
+%token<token_atrib> TOKEN_DEFERRED "DEFERRED"
+%token<token_atrib> TOKEN_ONLY "ONLY"
+%token<token_atrib> TOKEN_EXIST "EXIST"
+%token<token_atrib> TOKEN_INTERFACE "INTERFACE"
+%token<token_atrib> TOKEN_SAVE "SAVE"
+%token<token_atrib> TOKEN_ADVANCE "ADVANCE"
+%token<token_atrib> TOKEN_STAT "STAT"
+%token<token_atrib> TOKEN_RETURN "RETURN"
+%token<token_atrib> TOKEN_READWRITE "READWRITE"
+%token<token_atrib> TOKEN_ASSIGNMENT "ASSIGNMENT"
+%token<token_atrib> TOKEN_ASSIGN "ASSIGN"
+%token<token_atrib> TOKEN_PRINT "PRINT"
+%token<token_atrib> TOKEN_IOSTAT "IOSTAT"
+%token<token_atrib> TOKEN_SYNC "SYNC"
+%token<token_atrib> TOKEN_COMPLEX "COMPLEX"
+%token<token_atrib> TOKEN_ASYNCHRONOUS "ASYNCHRONOUS"
+%token<token_atrib> TOKEN_IMAGES "IMAGES"
+%token<token_atrib> TOKEN_END "END"
+%token<token_atrib> TOKEN_FINAL "FINAL"
+%token<token_atrib> TOKEN_INOUT "INOUT"
+%token<token_atrib> TOKEN_NEXTREC "NEXTREC"
+%token<token_atrib> TOKEN_KIND "KIND"
+%token<token_atrib> TOKEN_COMMON "COMMON"
+%token<token_atrib> TOKEN_BLANK "BLANK"
+%token<token_atrib> TOKEN_IOLENGTH "IOLENGTH"
+%token<token_atrib> TOKEN_INTEGER "INTEGER"
+%token<token_atrib> TOKEN_DEALLOCATE "DEALLOCATE"
+%token<token_atrib> TOKEN_FUNCTION "FUNCTION"
+%token<token_atrib> TOKEN_C "C"
+%token<token_atrib> TOKEN_OPENCL "OPENCL"
+%token<token_atrib> TOKEN_ENUMERATOR "ENUMERATOR"
+%token<token_atrib> TOKEN_RECURSIVE "RECURSIVE"
+%token<token_atrib> TOKEN_SEQUENCE "SEQUENCE"
+%token<token_atrib> TOKEN_INQUIRE "INQUIRE"
+%token<token_atrib> TOKEN_FLUSH "FLUSH"
+%token<token_atrib> TOKEN_ELSE "ELSE"
+%token<token_atrib> TOKEN_INTENT "INTENT"
+%token<token_atrib> TOKEN_EXTERNAL "EXTERNAL"
+%token<token_atrib> TOKEN_OPERATOR "OPERATOR"
+%token<token_atrib> TOKEN_OPTIONAL "OPTIONAL"
+%token<token_atrib> TOKEN_UNIT "UNIT"
+%token<token_atrib> TOKEN_SIZE "SIZE"
+%token<token_atrib> TOKEN_NOPASS "NOPASS"
+%token<token_atrib> TOKEN_TYPE "TYPE"
+%token<token_atrib> TOKEN_MOLD "MOLD"
+%token<token_atrib> TOKEN_PRECISION "PRECISION"
+%token<token_atrib> TOKEN_PENDING "PENDING"
+%token<token_atrib> TOKEN_CONTINUE "CONTINUE"
+%token<token_atrib> TOKEN_RESULT "RESULT"
+%token<token_atrib> TOKEN_REAL "REAL"
+%token<token_atrib> TOKEN_THEN "THEN"
+%token<token_atrib> TOKEN_STREAM "STREAM"
+%token<token_atrib> TOKEN_DO "DO"
+%token<token_atrib> TOKEN_DEFAULT "DEFAULT"
+%token<token_atrib> TOKEN_CONTIGUOUS "CONTIGUOUS"
+%token<token_atrib> TOKEN_STOP "STOP"
+%token<token_atrib> TOKEN_PAUSE "PAUSE"
+%token<token_atrib> TOKEN_WHILE "WHILE"
+%token<token_atrib> TOKEN_PROGRAM "PROGRAM"
+%token<token_atrib> TOKEN_REC "REC"
+%token<token_atrib> TOKEN_OPEN "OPEN"
+%token<token_atrib> TOKEN_CASE "CASE"
+%token<token_atrib> TOKEN_RECL "RECL"
+%token<token_atrib> TOKEN_DIMENSION "DIMENSION"
+%token<token_atrib> TOKEN_ELEMENTAL "ELEMENTAL"
+%token<token_atrib> TOKEN_FORALL "FORALL"
+%token<token_atrib> TOKEN_POSITION "POSITION"
+%token<token_atrib> TOKEN_FMT "FMT"
+%token<token_atrib> TOKEN_READ "READ"
+%token<token_atrib> TOKEN_OUT "OUT"
+%token<token_atrib> TOKEN_LOCK "LOCK"
+%token<token_atrib> TOKEN_DECIMAL "DECIMAL"
+%token<token_atrib> TOKEN_SELECT "SELECT"
+%token<token_atrib> TOKEN_SELECTCASE "SELECTCASE"
+%token<token_atrib> TOKEN_DIRECT "DIRECT"
+%token<token_atrib> TOKEN_WRITE "WRITE"
+%token<token_atrib> TOKEN_CODIMENSION "CODIMENSION"
+%token<token_atrib> TOKEN_CLOSE "CLOSE"
+%token<token_atrib> TOKEN_ID "ID"
+%token<token_atrib> TOKEN_WAIT "WAIT"
+%token<token_atrib> TOKEN_ALL "ALL"
+%token<token_atrib> TOKEN_ELSEWHERE "ELSEWHERE"
+%token<token_atrib> TOKEN_LEN "LEN"
+%token<token_atrib> TOKEN_IMPURE "IMPURE"
+%token<token_atrib> TOKEN_EXIT "EXIT"
+%token<token_atrib> TOKEN_REWIND "REWIND"
+%token<token_atrib> TOKEN_BACKSPACE "BACKSPACE"
+%token<token_atrib> TOKEN_NML "NML"
+%token<token_atrib> TOKEN_INTRINSIC "INTRINSIC"
+%token<token_atrib> TOKEN_PUBLIC "PUBLIC"
+%token<token_atrib> TOKEN_ERRMSG "ERRMSG"
+%token<token_atrib> TOKEN_NAMELIST "NAMELIST"
+%token<token_atrib> TOKEN_USE "USE"
+%token<token_atrib> TOKEN_SUBMODULE "SUBMODULE"
+%token<token_atrib> TOKEN_ERR "ERR"
+%token<token_atrib> TOKEN_ENCODING "ENCODING"
+%token<token_atrib> TOKEN_ACQUIRED "ACQUIRED"
+%token<token_atrib> TOKEN_ABSTRACT "ABSTRACT"
+%token<token_atrib> TOKEN_CHARACTER "CHARACTER"
+%token<token_atrib> TOKEN_NUMBER "NUMBER"
+%token<token_atrib> TOKEN_CONCURRENT "CONCURRENT"
+%token<token_atrib> TOKEN_ENDFILE "ENDFILE"
+%token<token_atrib> TOKEN_PARAMETER "PARAMETER"
+%token<token_atrib> TOKEN_DATA "DATA"
+%token<token_atrib> TOKEN_POS "POS"
+%token<token_atrib> TOKEN_PRIVATE "PRIVATE"
+%token<token_atrib> TOKEN_ROUND "ROUND"
+%token<token_atrib> TOKEN_TO "TO"
+%token<token_atrib> TOKEN_SEQUENTIAL "SEQUENTIAL"
+%token<token_atrib> TOKEN_ALLOCATE "ALLOCATE"
+%token<token_atrib> TOKEN_TARGET "TARGET"
+%token<token_atrib> TOKEN_CLASS "CLASS"
+%token<token_atrib> TOKEN_CYCLE "CYCLE"
+%token<token_atrib> TOKEN_STATUS "STATUS"
+%token<token_atrib> TOKEN_IOMSG "IOMSG"
+%token<token_atrib> TOKEN_FORM "FORM"
+%token<token_atrib> TOKEN_IS "IS"
+%token<token_atrib> TOKEN_NONE "NONE"
+%token<token_atrib> TOKEN_VALUE "VALUE"
+%token<token_atrib> TOKEN_UNLOCK "UNLOCK"
+%token<token_atrib> TOKEN_FORMATTED "FORMATTED"
+%token<token_atrib> TOKEN_IN "IN"
+%token<token_atrib> TOKEN_IMPLICIT "IMPLICIT"
+%token<token_atrib> TOKEN_IF "IF"
+%token<token_atrib> TOKEN_ASSOCIATE "ASSOCIATE"
+%token<token_atrib> TOKEN_BIND "BIND"
+%token<token_atrib> TOKEN_ALLOCATABLE "ALLOCATABLE"
+%token<token_atrib> TOKEN_ACCESS "ACCESS"
+%token<token_atrib> TOKEN_CALL "CALL"
+%token<token_atrib> TOKEN_CONVERT "CONVERT"
+%token<token_atrib> TOKEN_PURE "PURE"
+%token<token_atrib> TOKEN_MEMORY "MEMORY"
+%token<token_atrib> TOKEN_POINTER "POINTER"
+%token<token_atrib> TOKEN_VECTOR "VECTOR"
+%token<token_atrib> TOKEN_PIXEL "PIXEL"
+%token<token_atrib> TOKEN_NON_OVERRIDABLE "NON_OVERRIDABLE"
+%token<token_atrib> TOKEN_NON_INTRINSIC "NON_INTRINSIC"
+%token<token_atrib> TOKEN_HOLLERITH_CONSTANT "Hollerith constant"
 // Combined keywords
-%token<token_atrib> TOK_ALLSTOP "ALLSTOP"
-%token<token_atrib> TOK_ENDDO "ENDDO"
-%token<token_atrib> TOK_ENDIF "ENDIF"
-%token<token_atrib> TOK_ENDFUNCTION "ENDFUNCTION"
-%token<token_atrib> TOK_BLOCKDATA "BLOCKDATA" 
-%token<token_atrib> TOK_ENDMODULE "ENDMODULE"
-%token<token_atrib> TOK_DOUBLEPRECISION "DOUBLEPRECISION" 
-%token<token_atrib> TOK_ENDINTERFACE "ENDINTERFACE"
-%token<token_atrib> TOK_ELSEIF "ELSEIF" 
-%token<token_atrib> TOK_ENDPROCEDURE "ENDPROCEDURE"
-%token<token_atrib> TOK_ENDPROGRAM "ENDPROGRAM"
-%token<token_atrib> TOK_ENDASSOCIATE "ENDASSOCIATE"
-%token<token_atrib> TOK_ENDSELECT "ENDSELECT"
-%token<token_atrib> TOK_ENDBLOCK "ENDBLOCK"
-%token<token_atrib> TOK_ENDSUBMODULE "ENDSUBMODULE"
-%token<token_atrib> TOK_ENDBLOCKDATA "ENDBLOCKDATA"
-%token<token_atrib> TOK_ENDSUBROUTINE "ENDSUBROUTINE"
-%token<token_atrib> TOK_ENDCRITICAL "ENDCRITICAL"
-%token<token_atrib> TOK_ENDTYPE "ENDTYPE"
-%token<token_atrib> TOK_DOUBLECOMPLEX "DOUBLECOMPLEX"
-%token<token_atrib> TOK_GOTO "GOTO"
+%token<token_atrib> TOKEN_ALLSTOP "ALLSTOP"
+%token<token_atrib> TOKEN_ENDDO "ENDDO"
+%token<token_atrib> TOKEN_ENDIF "ENDIF"
+%token<token_atrib> TOKEN_ENDFUNCTION "ENDFUNCTION"
+%token<token_atrib> TOKEN_BLOCKDATA "BLOCKDATA" 
+%token<token_atrib> TOKEN_ENDMODULE "ENDMODULE"
+%token<token_atrib> TOKEN_DOUBLEPRECISION "DOUBLEPRECISION" 
+%token<token_atrib> TOKEN_ENDINTERFACE "ENDINTERFACE"
+%token<token_atrib> TOKEN_ELSEIF "ELSEIF" 
+%token<token_atrib> TOKEN_ENDPROCEDURE "ENDPROCEDURE"
+%token<token_atrib> TOKEN_ENDPROGRAM "ENDPROGRAM"
+%token<token_atrib> TOKEN_ENDASSOCIATE "ENDASSOCIATE"
+%token<token_atrib> TOKEN_ENDSELECT "ENDSELECT"
+%token<token_atrib> TOKEN_ENDBLOCK "ENDBLOCK"
+%token<token_atrib> TOKEN_ENDSUBMODULE "ENDSUBMODULE"
+%token<token_atrib> TOKEN_ENDBLOCKDATA "ENDBLOCKDATA"
+%token<token_atrib> TOKEN_ENDSUBROUTINE "ENDSUBROUTINE"
+%token<token_atrib> TOKEN_ENDCRITICAL "ENDCRITICAL"
+%token<token_atrib> TOKEN_ENDTYPE "ENDTYPE"
+%token<token_atrib> TOKEN_DOUBLECOMPLEX "DOUBLECOMPLEX"
+%token<token_atrib> TOKEN_GOTO "GOTO"
 %token<token_atrib> '-' 
-%token<token_atrib> TOK_LOGICAL_NOT_EQUIVALENT ".NEQV."
+%token<token_atrib> TOKEN_LOGICAL_NOT_EQUIVALENT ".NEQV."
 %token<token_atrib> '%' 
 %token<token_atrib> '[' 
 %token<token_atrib> ']' 
-%token<token_atrib> TOK_POINTER_ACCESS "=>"
-%token<token_atrib> TOK_GREATER_THAN ">"
+%token<token_atrib> TOKEN_POINTER_ACCESS "=>"
+%token<token_atrib> TOKEN_GREATER_THAN ">"
 %token<token_atrib> ',' 
-%token<token_atrib> TOK_EQUAL "=="
+%token<token_atrib> TOKEN_EQUAL "=="
 %token<token_atrib> '(' 
 %token<token_atrib> '*' 
 %token<token_atrib> '=' 
-%token<token_atrib> TOK_LOGICAL_AND ".AND."
-%token<token_atrib> TOK_LOWER_THAN "<"
-%token<token_atrib> TOK_LOGICAL_NOT ".NOT."
+%token<token_atrib> TOKEN_LOGICAL_AND ".AND."
+%token<token_atrib> TOKEN_LOWER_THAN "<"
+%token<token_atrib> TOKEN_LOGICAL_NOT ".NOT."
 %token<token_atrib> ':' 
-%token<token_atrib> TOK_LOGICAL_EQUIVALENT ".EQV."
-%token<token_atrib> TOK_GREATER_OR_EQUAL_THAN ">="
-%token<token_atrib> TOK_LOGICAL_OR ".OR".
-%token<token_atrib> TOK_LOWER_OR_EQUAL_THAN "<="
-%token<token_atrib> TOK_NOT_EQUAL "/="
+%token<token_atrib> TOKEN_LOGICAL_EQUIVALENT ".EQV."
+%token<token_atrib> TOKEN_GREATER_OR_EQUAL_THAN ">="
+%token<token_atrib> TOKEN_LOGICAL_OR ".OR".
+%token<token_atrib> TOKEN_LOWER_OR_EQUAL_THAN "<="
+%token<token_atrib> TOKEN_NOT_EQUAL "/="
 %token<token_atrib> ')' 
-%token<token_atrib> TOK_RAISE "**"
+%token<token_atrib> TOKEN_RAISE "**"
 %token<token_atrib> '/' 
-%token<token_atrib> TOK_DOUBLE_SLASH "//"
+%token<token_atrib> TOKEN_DOUBLE_SLASH "//"
 %token<token_atrib> '+' 
-%token<token_atrib> TOK_LPARENT_SLASH "(/"
-%token<token_atrib> TOK_SLASH_RPARENT "/)"
-%token<token_atrib> TOK_TRUE ".TRUE."
-%token<token_atrib> TOK_FALSE ".FALSE."
+%token<token_atrib> TOKEN_LPARENT_SLASH "(/"
+%token<token_atrib> TOKEN_SLASH_RPARENT "/)"
+%token<token_atrib> TOKEN_TRUE ".TRUE."
+%token<token_atrib> TOKEN_FALSE ".FALSE."
 %token<token_atrib> DECIMAL_LITERAL "decimal literal"
 %token<token_atrib> FORMAT_SPEC "format-specifier"
 %token<token_atrib> IDENTIFIER "name"
@@ -935,14 +936,14 @@ static const char* safe_asttext(AST a)
 %token<token_atrib> CHAR_LITERAL "character literal"
 %token<token_atrib> HEX_LITERAL "hexadecimal literal"
 %token<token_atrib> USER_DEFINED_OPERATOR "user-defined operator"
-%token<token_atrib> TOK_END_NONBLOCK_DO "end of nonblock do"
-%token<token_atrib> TOK_SHARED_LABEL "shared do label"
+%token<token_atrib> TOKEN_END_NONBLOCK_DO "end of nonblock do"
+%token<token_atrib> TOKEN_SHARED_LABEL "shared do label"
 
 %token<token_atrib> GLOBAL "<global-program-unit>"
 %token<token_atrib> END_GLOBAL "<end-global-program-unit>"
 %token<token_atrib> TYPEDEF "<typedef>"
 
-%token<token_atrib> TOK_IS_VARIABLE "<is-variable-specifier>"
+%token<token_atrib> TOKEN_IS_VARIABLE "<is-variable-specifier>"
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include fortran03-subparse.y*/
@@ -950,6 +951,7 @@ static const char* safe_asttext(AST a)
 /*!include cxx-pragma.y*/
 /*!include cxx-placeholders.y*/
 /*!include fortran03-omp.y*/
+/*!include fortran03-ompss.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %start program
@@ -1060,151 +1062,150 @@ type_spec : intrinsic_type_spec %dprec 2
 }
 ;
 declaration_type_spec : intrinsic_type_spec
-| TOK_TYPE '(' derived_type_spec ')'
+| TOKEN_TYPE '(' derived_type_spec ')'
 {
     $$ = ASTMake1(AST_TYPE_NAME, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_CLASS '(' derived_type_spec ')'
+| TOKEN_CLASS '(' derived_type_spec ')'
 {
     $$ = ASTMake1(AST_CLASS_NAME, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_CLASS '(' '*' ')'
+| TOKEN_CLASS '(' '*' ')'
 {
     $$ = ASTMake1(AST_CLASS_NAME, 
             ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text), 
             make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-intrinsic_type_spec : TOK_INTEGER kind_selector
+intrinsic_type_spec : TOKEN_INTEGER kind_selector
 {
     $$ = ASTMake1(AST_INT_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_INTEGER
+| TOKEN_INTEGER
 {
     $$ = ASTMake1(AST_INT_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_REAL kind_selector
+| TOKEN_REAL kind_selector
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_REAL
+| TOKEN_REAL
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DOUBLE TOK_PRECISION
+| TOKEN_DOUBLE TOKEN_PRECISION
 {
     $$ = ASTLeaf(AST_DOUBLE_TYPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DOUBLEPRECISION
+| TOKEN_DOUBLEPRECISION
 {
     $$ = ASTLeaf(AST_DOUBLE_TYPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_COMPLEX kind_selector
+| TOKEN_COMPLEX kind_selector
 {
     AST element_type = ASTMake1(AST_FLOAT_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
     $$ = ASTMake1(AST_COMPLEX_TYPE, element_type, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_COMPLEX
+| TOKEN_COMPLEX
 {
     AST element_type = ASTMake1(AST_FLOAT_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
     $$ = ASTMake1(AST_COMPLEX_TYPE, element_type, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_CHARACTER char_selector
+| TOKEN_CHARACTER char_selector
 {
     $$ = ASTMake1(AST_CHARACTER_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_CHARACTER
+| TOKEN_CHARACTER
 {
     $$ = ASTMake1(AST_CHARACTER_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_LOGICAL kind_selector
+| TOKEN_LOGICAL kind_selector
 {
     $$ = ASTMake1(AST_BOOL_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_LOGICAL
+| TOKEN_LOGICAL
 {
     $$ = ASTMake1(AST_BOOL_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DOUBLECOMPLEX
+| TOKEN_DOUBLECOMPLEX
 {
     AST element_type = ASTLeaf(AST_DOUBLE_TYPE, make_locus($1.token_file, $1.token_line, 0), NULL);
     $$ = ASTMake1(AST_COMPLEX_TYPE, element_type, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DOUBLE TOK_COMPLEX
+| TOKEN_DOUBLE TOKEN_COMPLEX
 {
     AST element_type = ASTLeaf(AST_DOUBLE_TYPE, make_locus($1.token_file, $1.token_line, 0), NULL);
     $$ = ASTMake1(AST_COMPLEX_TYPE, element_type, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_INTEGER '*' decimal_literal
+| TOKEN_INTEGER '*' decimal_literal
 {
     $$ = ASTMake1(AST_INT_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_REAL '*' decimal_literal
+| TOKEN_REAL '*' decimal_literal
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_COMPLEX '*' decimal_literal
+| TOKEN_COMPLEX '*' decimal_literal
 {
     // A COMPLEX * N is equivalent to COMPLEX(KIND=N/2)
     const char* text = ASTText($3);
     int k = atoi(text);
     k /= 2;
 
-    char c[16] = { 0 };
-    snprintf(c, 15, "%d", k);
-    c[15] = '\0';
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%d", k);
 
     ast_set_text($3, c);
 
     $$ = ASTMake1(AST_COMPLEX_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DOUBLEPRECISION '*' decimal_literal
+| TOKEN_DOUBLEPRECISION '*' decimal_literal
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DOUBLE TOK_PRECISION '*' decimal_literal
+| TOKEN_DOUBLE TOKEN_PRECISION '*' decimal_literal
 {
     $$ = ASTMake1(AST_INT_TYPE, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_LOGICAL '*' decimal_literal
+| TOKEN_LOGICAL '*' decimal_literal
 {
     $$ = ASTMake1(AST_BOOL_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_VECTOR '(' vectorial_type ')'
+| TOKEN_VECTOR '(' vectorial_type ')'
 {
     $$ = ASTMake1(AST_VECTOR_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-vectorial_type : TOK_PIXEL 
+vectorial_type : TOKEN_PIXEL 
 {
     $$ = ASTLeaf(AST_PIXEL_TYPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_INTEGER kind_selector
+| TOKEN_INTEGER kind_selector
 {
     $$ = ASTMake1(AST_INT_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_REAL kind_selector
+| TOKEN_REAL kind_selector
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_INTEGER '*' decimal_literal
+| TOKEN_INTEGER '*' decimal_literal
 {
     $$ = ASTMake1(AST_INT_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_REAL '*' decimal_literal
+| TOKEN_REAL '*' decimal_literal
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_INTEGER
+| TOKEN_INTEGER
 {
     $$ = ASTMake1(AST_INT_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_REAL
+| TOKEN_REAL
 {
     $$ = ASTMake1(AST_FLOAT_TYPE, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-kind_selector : '(' TOK_KIND '=' int_constant_expr ')'
+kind_selector : '(' TOKEN_KIND '=' int_constant_expr ')'
 {
     $$ = $4;
 }
@@ -1256,11 +1257,11 @@ complex_part : int_literal_constant
 | named_constant
 ;
 char_selector : length_selector
-| '(' TOK_LEN '=' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
+| '(' TOKEN_LEN '=' type_param_value ',' TOKEN_KIND '=' int_constant_expr ')'
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, $4, $8, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '(' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
+| '(' type_param_value ',' TOKEN_KIND '=' int_constant_expr ')'
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, $2, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -1268,16 +1269,16 @@ char_selector : length_selector
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '(' TOK_KIND '=' int_constant_expr ',' TOK_LEN '=' type_param_value ')'
+| '(' TOKEN_KIND '=' int_constant_expr ',' TOKEN_LEN '=' type_param_value ')'
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, $8, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '(' TOK_KIND '=' int_constant_expr ')'
+| '(' TOKEN_KIND '=' int_constant_expr ')'
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, NULL, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-length_selector : '(' TOK_LEN '=' type_param_value ')'
+length_selector : '(' TOKEN_LEN '=' type_param_value ')'
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, $4, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -1305,11 +1306,11 @@ char_literal_constant : CHAR_LITERAL
     $$ = ASTLeaf(AST_STRING_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-logical_literal_constant : TOK_TRUE
+logical_literal_constant : TOKEN_TRUE
 {
     $$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_FALSE
+| TOKEN_FALSE
 {
     $$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -1387,38 +1388,38 @@ derived_type_body : type_param_def_stmt_seq private_or_sequence_seq component_pa
 }
 ;
 
-derived_type_stmt : labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name '(' type_param_name_list ')' eos
+derived_type_stmt : labeldef TOKEN_TYPE ',' type_attr_spec_list ':' ':' name '(' type_param_name_list ')' eos
 {
     $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, $4, $7, $9, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_TYPE name '(' type_param_name_list ')' eos
+| labeldef TOKEN_TYPE name '(' type_param_name_list ')' eos
 {
     $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $3, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_TYPE ':' ':' name '(' type_param_name_list ')' eos
+| labeldef TOKEN_TYPE ':' ':' name '(' type_param_name_list ')' eos
 {
     $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, $7, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name eos
+| labeldef TOKEN_TYPE ',' type_attr_spec_list ':' ':' name eos
 {
     $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, $4, $7, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_TYPE ':' ':' name eos
+| labeldef TOKEN_TYPE ':' ':' name eos
 {
     $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_TYPE name eos
+| labeldef TOKEN_TYPE name eos
 {
     $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $3, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-type_attr_spec : TOK_ABSTRACT
+type_attr_spec : TOKEN_ABSTRACT
 {
     $$ = ASTLeaf(AST_ABSTRACT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | access_spec
 | language_binding_spec
-| TOK_EXTENDS '(' name ')'
+| TOKEN_EXTENDS '(' name ')'
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $2.token_text);
 }
@@ -1426,33 +1427,33 @@ type_attr_spec : TOK_ABSTRACT
 private_or_sequence : private_stmt
 | sequence_stmt
 ;
-end_type_stmt : labeldef TOK_END TOK_TYPE name eos
+end_type_stmt : labeldef TOKEN_END TOKEN_TYPE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_TYPE eos
+| labeldef TOKEN_END TOKEN_TYPE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDTYPE name eos
+| labeldef TOKEN_ENDTYPE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDTYPE eos
+| labeldef TOKEN_ENDTYPE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-sequence_stmt : labeldef TOK_SEQUENCE eos
+sequence_stmt : labeldef TOKEN_SEQUENCE eos
 {
     $$ = ASTMake1Label(AST_SEQUENCE_STATEMENT, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-type_param_def_stmt : labeldef TOK_INTEGER kind_selector ',' type_param_attr_spec ':' ':' type_param_decl_list eos
+type_param_def_stmt : labeldef TOKEN_INTEGER kind_selector ',' type_param_attr_spec ':' ':' type_param_decl_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, $3, $5, $8, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_INTEGER ',' type_param_attr_spec ':' ':' type_param_decl_list eos
+| labeldef TOKEN_INTEGER ',' type_param_attr_spec ':' ':' type_param_decl_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, NULL, $4, $7, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -1466,11 +1467,11 @@ type_param_decl : name '=' int_constant_expr
     $$ = ASTMake2(AST_NAMED_PAIR_SPEC, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
-type_param_attr_spec : TOK_KIND
+type_param_attr_spec : TOKEN_KIND
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), strtoupper($1.token_text));
 }
-| TOK_LEN
+| TOKEN_LEN
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), strtoupper($1.token_text));
 }
@@ -1494,23 +1495,23 @@ data_component_def_stmt : labeldef declaration_type_spec ',' component_attr_spec
 }
 ;
 component_attr_spec : access_spec
-| TOK_ALLOCATABLE
+| TOKEN_ALLOCATABLE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_CODIMENSION '[' coarray_spec ']'
+| TOKEN_CODIMENSION '[' coarray_spec ']'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_CONTIGUOUS
+| TOKEN_CONTIGUOUS
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DIMENSION '(' array_spec ')'
+| TOKEN_DIMENSION '(' array_spec ')'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POINTER
+| TOKEN_POINTER
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -1519,28 +1520,28 @@ component_attr_spec : access_spec
 component_decl : entity_decl
 ;
 
-proc_component_def_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
+proc_component_def_stmt : labeldef TOKEN_PROCEDURE '(' proc_interface ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROC_COMPONENT_DEF_STATEMENT, $1, $4, $7, $10, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_PROCEDURE '(' ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
+| labeldef TOKEN_PROCEDURE '(' ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROC_COMPONENT_DEF_STATEMENT, $1, NULL, $6, $9, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-proc_component_attr_spec : TOK_POINTER
+proc_component_attr_spec : TOKEN_POINTER
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_PASS '(' name ')'
+| TOKEN_PASS '(' name ')'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_PASS
+| TOKEN_PASS
 {
     $$ = ASTMake1(AST_ATTR_SPEC, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_NOPASS
+| TOKEN_NOPASS
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -1564,7 +1565,7 @@ type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_s
     $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, NULL, NULL, make_locus("", 0, 0), NULL);
 }
 ;
-private_stmt : labeldef TOK_PRIVATE eos
+private_stmt : labeldef TOKEN_PRIVATE eos
 {
     AST priv_spec = ASTLeaf(AST_ATTR_SPEC, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
     $$ = ASTMake3Label(AST_ACCESS_STATEMENT, $1, priv_spec, NULL, ast_get_locus(priv_spec), NULL);
@@ -1574,65 +1575,65 @@ type_bound_proc_binding : type_bound_procedure_stmt
 | type_bound_generic_stmt
 | final_procedure_stmt
 ;
-type_bound_procedure_stmt : labeldef TOK_PROCEDURE ',' binding_attr_list ':' ':' type_bound_proc_decl_list eos
+type_bound_procedure_stmt : labeldef TOKEN_PROCEDURE ',' binding_attr_list ':' ':' type_bound_proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, $4, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE type_bound_proc_decl_list eos
+| labeldef TOKEN_PROCEDURE type_bound_proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE ':' ':' type_bound_proc_decl_list eos
+| labeldef TOKEN_PROCEDURE ':' ':' type_bound_proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE '(' name ')' ',' binding_attr_list ':' ':' binding_name_list eos
+| labeldef TOKEN_PROCEDURE '(' name ')' ',' binding_attr_list ':' ':' binding_name_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, $4, $7, $10, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-type_bound_proc_decl : name TOK_POINTER_ACCESS name
+type_bound_proc_decl : name TOKEN_POINTER_ACCESS name
 {
     $$ = ASTMake2(AST_RENAME, $1, $3, ast_get_locus($1), NULL);
 }
 | name
 ;
-type_bound_generic_stmt : labeldef TOK_GENERIC ',' access_spec ':' ':' generic_spec TOK_POINTER_ACCESS binding_name_list eos
+type_bound_generic_stmt : labeldef TOKEN_GENERIC ',' access_spec ':' ':' generic_spec TOKEN_POINTER_ACCESS binding_name_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_BOUND_GENERIC_PROCEDURE, $1, $4, $7, $9, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_GENERIC ':' ':' generic_spec TOK_POINTER_ACCESS binding_name_list eos
+| labeldef TOKEN_GENERIC ':' ':' generic_spec TOKEN_POINTER_ACCESS binding_name_list eos
 {
     $$ = ASTMake4Label(AST_TYPE_BOUND_GENERIC_PROCEDURE, $1, NULL, $5, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-binding_attr : TOK_PASS '(' name ')'
+binding_attr : TOKEN_PASS '(' name ')'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PASS
+| TOKEN_PASS
 {
     $$ = ASTMake1(AST_ATTR_SPEC, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NOPASS
+| TOKEN_NOPASS
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NON_OVERRIDABLE
+| TOKEN_NON_OVERRIDABLE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DEFERRED
+| TOKEN_DEFERRED
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | access_spec
 ;
-final_procedure_stmt : labeldef TOK_FINAL ':' ':' final_subroutine_name_list eos
+final_procedure_stmt : labeldef TOKEN_FINAL ':' ':' final_subroutine_name_list eos
 {
     $$ = ASTMake2Label(AST_FINAL_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_FINAL final_subroutine_name_list eos
+| labeldef TOKEN_FINAL final_subroutine_name_list eos
 {
     $$ = ASTMake2Label(AST_FINAL_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -1680,21 +1681,20 @@ enum_def : enum_def_stmt enumerator_def_stmt_seq end_enum_stmt
     $$ = ASTMake3(AST_ENUM_DEF, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-enum_def_stmt : labeldef TOK_ENUM ',' TOK_BIND '(' TOK_C ')' eos
+enum_def_stmt : labeldef TOKEN_ENUM ',' TOKEN_BIND '(' TOKEN_C ')' eos
 {
     // Keep the original case
-    char c[100];
-    snprintf(c, 99, "%s, %s(%s)", $2.token_text, $4.token_text, $6.token_text);
-    c[99] = '\0';
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s, %s(%s)", $2.token_text, $4.token_text, $6.token_text);
 
     $$ = ASTMake1Label(AST_ENUM_DEF_STATEMENT, $1, make_locus($2.token_file, $2.token_line, 0), c);
 }
 ;
-enumerator_def_stmt : labeldef TOK_ENUMERATOR ':' ':' enumerator_list eos
+enumerator_def_stmt : labeldef TOKEN_ENUMERATOR ':' ':' enumerator_list eos
 {
     $$ = ASTMake2Label(AST_ENUMERATOR_DEF, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENUMERATOR enumerator_list eos
+| labeldef TOKEN_ENUMERATOR enumerator_list eos
 {
     $$ = ASTMake2Label(AST_ENUMERATOR_DEF, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -1708,7 +1708,7 @@ enumerator : named_constant '=' int_constant_expr
     $$ = ASTMake2(AST_NAMED_PAIR_SPEC, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
-end_enum_stmt : labeldef TOK_END TOK_ENUM eos
+end_enum_stmt : labeldef TOKEN_END TOKEN_ENUM eos
 {
     $$ = ASTMake1Label(AST_END_STATEMENT, $1, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
@@ -1732,7 +1732,7 @@ hex_constant : HEX_LITERAL
     $$ = ASTLeaf(AST_HEXADECIMAL_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-array_constructor : TOK_LPARENT_SLASH ac_spec TOK_SLASH_RPARENT
+array_constructor : TOKEN_LPARENT_SLASH ac_spec TOKEN_SLASH_RPARENT
 {
     $$ = ASTMake1(AST_ARRAY_CONSTRUCTOR, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -1796,73 +1796,73 @@ typedef_declaration_stmt : labeldef TYPEDEF declaration_type_spec ',' attr_spec_
 }
 ;
 attr_spec : access_spec
-| TOK_ALLOCATABLE
+| TOKEN_ALLOCATABLE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ASYNCHRONOUS
+| TOKEN_ASYNCHRONOUS
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_CODIMENSION '[' coarray_spec ']'
+| TOKEN_CODIMENSION '[' coarray_spec ']'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_CONTIGUOUS
+| TOKEN_CONTIGUOUS
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DIMENSION '(' array_spec ')'
+| TOKEN_DIMENSION '(' array_spec ')'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_EXTERNAL
+| TOKEN_EXTERNAL
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_INTENT '(' intent_spec ')'
+| TOKEN_INTENT '(' intent_spec ')'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_INTRINSIC
+| TOKEN_INTRINSIC
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | language_binding_spec
-| TOK_OPTIONAL
+| TOKEN_OPTIONAL
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PARAMETER
+| TOKEN_PARAMETER
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POINTER
+| TOKEN_POINTER
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PROTECTED
+| TOKEN_PROTECTED
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SAVE
+| TOKEN_SAVE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_TARGET
+| TOKEN_TARGET
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_VALUE
+| TOKEN_VALUE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_VOLATILE
+| TOKEN_VOLATILE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 // Mercurium extension
-| TOK_IS_VARIABLE
+| TOKEN_IS_VARIABLE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -1941,16 +1941,16 @@ initialization : '=' constant_expr
 {
     $$ = $2;
 }
-| TOK_POINTER_ACCESS constant_expr
+| TOKEN_POINTER_ACCESS constant_expr
 {
     $$ = ASTMake1(AST_POINTER_INITIALIZATION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-access_spec : TOK_PUBLIC
+access_spec : TOKEN_PUBLIC
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PRIVATE
+| TOKEN_PRIVATE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -1960,16 +1960,16 @@ proc_language_binding_spec : language_binding_spec
 language_binding_spec : language_binding_spec_c
 | language_binding_spec_opencl
 ;
-language_binding_spec_c : TOK_BIND '(' TOK_C ',' TOK_NAME '=' default_char_constant_expr ')'
+language_binding_spec_c : TOKEN_BIND '(' TOKEN_C ',' TOKEN_NAME '=' default_char_constant_expr ')'
 {
     $$ = ASTMake1(AST_BIND_C_SPEC, $7, make_locus($1.token_file, $1.token_line, 0), "bind");
 }
-| TOK_BIND '(' TOK_C ')'
+| TOKEN_BIND '(' TOKEN_C ')'
 {
     $$ = ASTMake1(AST_BIND_C_SPEC, NULL, make_locus($1.token_file, $1.token_line, 0), "bind");
 }
 ;
-language_binding_spec_opencl : TOK_BIND '(' TOK_OPENCL ',' TOK_NAME '=' default_char_constant_expr ',' TOK_FILE '=' default_char_constant_expr ')'
+language_binding_spec_opencl : TOKEN_BIND '(' TOKEN_OPENCL ',' TOKEN_NAME '=' default_char_constant_expr ',' TOKEN_FILE '=' default_char_constant_expr ')'
 {
     $$ = ASTMake1(AST_BIND_OPENCL_SPEC, $7, make_locus($1.token_file, $1.token_line, 0), "bind");
 }
@@ -2017,19 +2017,19 @@ lower_bound : specification_expr
 ;
 upper_bound : specification_expr
 ;
-intent_spec : TOK_IN
+intent_spec : TOKEN_IN
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_OUT
+| TOKEN_OUT
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_INOUT
+| TOKEN_INOUT
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IN TOK_OUT
+| TOKEN_IN TOKEN_OUT
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), "inout");
 }
@@ -2049,11 +2049,11 @@ access_stmt : labeldef access_spec ':' ':' access_id_list eos
 ;
 access_id : generic_spec
 ;
-allocatable_stmt : labeldef TOK_ALLOCATABLE ':' ':' allocatable_decl_list eos
+allocatable_stmt : labeldef TOKEN_ALLOCATABLE ':' ':' allocatable_decl_list eos
 {
     $$ = ASTMake2Label(AST_ALLOCATABLE_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_ALLOCATABLE allocatable_decl_list eos
+| labeldef TOKEN_ALLOCATABLE allocatable_decl_list eos
 {
     $$ = ASTMake2Label(AST_ALLOCATABLE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2072,11 +2072,11 @@ allocatable_decl : name '(' array_spec ')' '[' coarray_spec ']'
 }
 | name
 ;
-asynchronous_stmt : labeldef TOK_ASYNCHRONOUS ':' ':' object_name_list eos
+asynchronous_stmt : labeldef TOKEN_ASYNCHRONOUS ':' ':' object_name_list eos
 {
     $$ = ASTMake2Label(AST_ASYNCHRONOUS_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_ASYNCHRONOUS object_name_list eos
+| labeldef TOKEN_ASYNCHRONOUS object_name_list eos
 {
     $$ = ASTMake2Label(AST_ASYNCHRONOUS_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2098,11 +2098,11 @@ common_name : '/' name '/'
     $$ = ASTMake1(AST_COMMON_NAME, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-codimension_stmt : labeldef TOK_CODIMENSION ':' ':' codimension_decl_list eos
+codimension_stmt : labeldef TOKEN_CODIMENSION ':' ':' codimension_decl_list eos
 {
     $$ = ASTMake2Label(AST_CODIMENSION_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_CODIMENSION codimension_decl_list eos
+| labeldef TOKEN_CODIMENSION codimension_decl_list eos
 {
     $$ = ASTMake2Label(AST_CODIMENSION_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2112,7 +2112,7 @@ codimension_decl : name '[' coarray_spec ']'
     $$ = ASTMake2(AST_CODIMENSION_DECL, $1, $3, ast_get_locus($1), NULL);
 }
 ;
-data_stmt : labeldef TOK_DATA data_stmt_set_list eos
+data_stmt : labeldef TOKEN_DATA data_stmt_set_list eos
 {
     $$ = ASTMake2Label(AST_DATA_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2161,11 +2161,11 @@ data_stmt_value : data_stmt_constant
     $$ = ASTMake2(AST_MUL, $1, $3, ast_get_locus($1), NULL);
 }
 ;
-dimension_stmt : labeldef TOK_DIMENSION ':' ':' array_name_dim_spec_list eos
+dimension_stmt : labeldef TOKEN_DIMENSION ':' ':' array_name_dim_spec_list eos
 {
     $$ = ASTMake2Label(AST_DIMENSION_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_DIMENSION array_name_dim_spec_list eos
+| labeldef TOKEN_DIMENSION array_name_dim_spec_list eos
 {
     $$ = ASTMake2Label(AST_DIMENSION_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2175,27 +2175,27 @@ array_name_dim_spec : name '(' array_spec ')'
     $$ = ASTMake3(AST_DIMENSION_DECL, $1, $3, NULL, ast_get_locus($1), NULL);
 }
 ;
-intent_stmt : labeldef TOK_INTENT '(' intent_spec ')' ':' ':' dummy_arg_name_list eos
+intent_stmt : labeldef TOKEN_INTENT '(' intent_spec ')' ':' ':' dummy_arg_name_list eos
 {
     AST attr_spec = ASTMake1(AST_ATTR_SPEC, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
     $$ = ASTMake3Label(AST_INTENT_STATEMENT, $1, attr_spec, $8, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_INTENT '(' intent_spec ')' dummy_arg_name_list eos
+| labeldef TOKEN_INTENT '(' intent_spec ')' dummy_arg_name_list eos
 {
     AST attr_spec = ASTMake1(AST_ATTR_SPEC, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
     $$ = ASTMake3Label(AST_INTENT_STATEMENT, $1, attr_spec, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-optional_stmt : labeldef TOK_OPTIONAL ':' ':' dummy_arg_name_list eos
+optional_stmt : labeldef TOKEN_OPTIONAL ':' ':' dummy_arg_name_list eos
 {
     $$ = ASTMake2Label(AST_OPTIONAL_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_OPTIONAL dummy_arg_name_list eos
+| labeldef TOKEN_OPTIONAL dummy_arg_name_list eos
 {
     $$ = ASTMake2Label(AST_OPTIONAL_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-parameter_stmt : labeldef TOK_PARAMETER '(' named_constant_def_list ')' eos
+parameter_stmt : labeldef TOKEN_PARAMETER '(' named_constant_def_list ')' eos
 {
     $$ = ASTMake2Label(AST_PARAMETER_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2205,16 +2205,16 @@ named_constant_def : named_constant '=' constant_expr
     $$ = ASTMake2(AST_NAMED_PAIR_SPEC, $1, $3, ast_get_locus($1), NULL);
 }
 ;
-pointer_stmt : labeldef TOK_POINTER ':' ':' pointer_decl_list eos
+pointer_stmt : labeldef TOKEN_POINTER ':' ':' pointer_decl_list eos
 {
     $$ = ASTMake2Label(AST_POINTER_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_POINTER pointer_decl_list eos
+| labeldef TOKEN_POINTER pointer_decl_list eos
 {
     $$ = ASTMake2Label(AST_POINTER_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-cray_pointer_stmt : labeldef TOK_POINTER cray_pointer_spec_list eos
+cray_pointer_stmt : labeldef TOKEN_POINTER cray_pointer_spec_list eos
 {
     $$ = ASTMake2Label(AST_CRAY_POINTER_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2241,24 +2241,24 @@ pointer_decl : name '(' array_spec ')'
 }
 | name
 ;
-protected_stmt : labeldef TOK_PROTECTED ':' ':' entity_name_list eos
+protected_stmt : labeldef TOKEN_PROTECTED ':' ':' entity_name_list eos
 {
     $$ = ASTMake2Label(AST_PROTECTED_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_PROTECTED entity_name_list eos
+| labeldef TOKEN_PROTECTED entity_name_list eos
 {
     $$ = ASTMake2Label(AST_PROTECTED_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-save_stmt : labeldef TOK_SAVE ':' ':' saved_entity_list eos
+save_stmt : labeldef TOKEN_SAVE ':' ':' saved_entity_list eos
 {
     $$ = ASTMake2Label(AST_SAVE_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_SAVE eos
+| labeldef TOKEN_SAVE eos
 {
     $$ = ASTMake2Label(AST_SAVE_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_SAVE saved_entity_list eos
+| labeldef TOKEN_SAVE saved_entity_list eos
 {
     $$ = ASTMake2Label(AST_SAVE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2266,11 +2266,11 @@ save_stmt : labeldef TOK_SAVE ':' ':' saved_entity_list eos
 saved_entity : name
 | common_name
 ;
-target_stmt : labeldef TOK_TARGET ':' ':' target_decl_list eos
+target_stmt : labeldef TOKEN_TARGET ':' ':' target_decl_list eos
 {
     $$ = ASTMake2Label(AST_TARGET_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_TARGET target_decl_list eos
+| labeldef TOKEN_TARGET target_decl_list eos
 {
     $$ = ASTMake2Label(AST_TARGET_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2289,29 +2289,29 @@ target_decl : name '(' array_spec ')' '[' coarray_spec ']'
 }
 | name
 ;
-value_stmt : labeldef TOK_VALUE ':' ':' dummy_arg_name_list eos
+value_stmt : labeldef TOKEN_VALUE ':' ':' dummy_arg_name_list eos
 {
     $$ = ASTMake2Label(AST_VALUE_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_VALUE dummy_arg_name_list eos
+| labeldef TOKEN_VALUE dummy_arg_name_list eos
 {
     $$ = ASTMake2Label(AST_VALUE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-volatile_stmt : labeldef TOK_VOLATILE ':' ':' object_name_list eos
+volatile_stmt : labeldef TOKEN_VOLATILE ':' ':' object_name_list eos
 {
     $$ = ASTMake2Label(AST_VOLATILE_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_VOLATILE object_name_list eos
+| labeldef TOKEN_VOLATILE object_name_list eos
 {
     $$ = ASTMake2Label(AST_VOLATILE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-implicit_stmt : labeldef TOK_IMPLICIT implicit_spec_list eos
+implicit_stmt : labeldef TOKEN_IMPLICIT implicit_spec_list eos
 {
     $$ = ASTMake2Label(AST_IMPLICIT_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_IMPLICIT TOK_NONE eos
+| labeldef TOKEN_IMPLICIT TOKEN_NONE eos
 {
     $$ = ASTMake2Label(AST_IMPLICIT_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2330,7 +2330,7 @@ letter_spec : name '-' name
     $$ = ASTMake2(AST_LETTER_SPEC, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
-namelist_stmt : labeldef TOK_NAMELIST namelist_item_list eos
+namelist_stmt : labeldef TOKEN_NAMELIST namelist_item_list eos
 {
     $$ = ASTMake2Label(AST_NAMELIST_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2342,7 +2342,7 @@ namelist_item : common_name namelist_group_object_list
 ;
 namelist_group_object : name
 ;
-equivalence_stmt : labeldef TOK_EQUIVALENCE equivalence_set_list eos
+equivalence_stmt : labeldef TOKEN_EQUIVALENCE equivalence_set_list eos
 {
     $$ = ASTMake2Label(AST_EQUIVALENCE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2354,7 +2354,7 @@ equivalence_set : '(' equivalence_object ',' equivalence_object_list ')'
 ;
 equivalence_object : data_ref
 ;
-common_stmt : labeldef TOK_COMMON common_block_item_list eos
+common_stmt : labeldef TOKEN_COMMON common_block_item_list eos
 {
     $$ = ASTMake2Label(AST_COMMON_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2381,7 +2381,7 @@ two_slashes : '/' '/'
 {
 $$ = $1;
 }
-| TOK_DOUBLE_SLASH
+| TOKEN_DOUBLE_SLASH
 ;
 common_block_item : '/' name '/' common_block_object_list
 {
@@ -2506,36 +2506,36 @@ image_selector : '[' cosubscript_list ']'
 ;
 cosubscript : int_expr
 ;
-allocate_stmt : labeldef TOK_ALLOCATE '(' type_spec ':' ':' allocation_list ',' alloc_opt_list ')' eos
+allocate_stmt : labeldef TOKEN_ALLOCATE '(' type_spec ':' ':' allocation_list ',' alloc_opt_list ')' eos
 {
     $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, $4, $7, $9, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_ALLOCATE '(' allocation_list ',' alloc_opt_list ')' eos
+| labeldef TOKEN_ALLOCATE '(' allocation_list ',' alloc_opt_list ')' eos
 {
     $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, NULL, $4, $6, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_ALLOCATE '(' type_spec ':' ':' allocation_list ')' eos
+| labeldef TOKEN_ALLOCATE '(' type_spec ':' ':' allocation_list ')' eos
 {
     $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, $4, $7, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_ALLOCATE '(' allocation_list ')' eos
+| labeldef TOKEN_ALLOCATE '(' allocation_list ')' eos
 {
     $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, NULL, $4, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-alloc_opt : TOK_ERRMSG '=' errmsg_variable
+alloc_opt : TOKEN_ERRMSG '=' errmsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_MOLD '=' source_expr
+| TOKEN_MOLD '=' source_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SOURCE '=' source_expr
+| TOKEN_SOURCE '=' source_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_STAT '=' stat_variable
+| TOKEN_STAT '=' stat_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -2556,27 +2556,27 @@ allocate_object : allocate_object '[' allocate_coarray_spec ']'
 ;
 allocate_coarray_spec : array_spec
 ;
-nullify_stmt : labeldef TOK_NULLIFY '(' pointer_object_list ')' eos
+nullify_stmt : labeldef TOKEN_NULLIFY '(' pointer_object_list ')' eos
 {
     $$ = ASTMake2Label(AST_NULLIFY_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
 pointer_object : data_ref
 ;
-deallocate_stmt : labeldef TOK_DEALLOCATE '(' allocate_object_list ',' dealloc_opt_list ')' eos
+deallocate_stmt : labeldef TOKEN_DEALLOCATE '(' allocate_object_list ',' dealloc_opt_list ')' eos
 {
     $$ = ASTMake3Label(AST_DEALLOCATE_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_DEALLOCATE '(' allocate_object_list ')' eos
+| labeldef TOKEN_DEALLOCATE '(' allocate_object_list ')' eos
 {
     $$ = ASTMake3Label(AST_DEALLOCATE_STATEMENT, $1, $4, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-dealloc_opt : TOK_STAT '=' stat_variable
+dealloc_opt : TOKEN_STAT '=' stat_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERRMSG '=' errmsg_variable
+| TOKEN_ERRMSG '=' errmsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -2659,7 +2659,7 @@ level_2_expr : level_2_expr '+' add_operand
 | unary_add_operand
 | add_operand
 ;
-power_op : TOK_RAISE
+power_op : TOKEN_RAISE
 ;
 mult_op : '*'
 | '/'
@@ -2673,40 +2673,40 @@ level_3_expr : level_3_expr concat_op level_2_expr
 }
 | level_2_expr
 ;
-concat_op : TOK_DOUBLE_SLASH
+concat_op : TOKEN_DOUBLE_SLASH
 ;
-level_4_expr : level_3_expr TOK_EQUAL level_3_expr
+level_4_expr : level_3_expr TOKEN_EQUAL level_3_expr
 {
     $$ = ASTMake2(AST_EQUAL, $1, $3, ast_get_locus($1), NULL);
 }
-| level_3_expr TOK_NOT_EQUAL level_3_expr
+| level_3_expr TOKEN_NOT_EQUAL level_3_expr
 {
     $$ = ASTMake2(AST_DIFFERENT, $1, $3, ast_get_locus($1), NULL);
 }
-| level_3_expr TOK_LOWER_THAN level_3_expr
+| level_3_expr TOKEN_LOWER_THAN level_3_expr
 {
     $$ = ASTMake2(AST_LOWER_THAN, $1, $3, ast_get_locus($1), NULL);
 }
-| level_3_expr TOK_LOWER_OR_EQUAL_THAN level_3_expr
+| level_3_expr TOKEN_LOWER_OR_EQUAL_THAN level_3_expr
 {
     $$ = ASTMake2(AST_LOWER_OR_EQUAL_THAN, $1, $3, ast_get_locus($1), NULL);
 }
-| level_3_expr TOK_GREATER_THAN level_3_expr
+| level_3_expr TOKEN_GREATER_THAN level_3_expr
 {
     $$ = ASTMake2(AST_GREATER_THAN, $1, $3, ast_get_locus($1), NULL);
 }
-| level_3_expr TOK_GREATER_OR_EQUAL_THAN level_3_expr
+| level_3_expr TOKEN_GREATER_OR_EQUAL_THAN level_3_expr
 {
     $$ = ASTMake2(AST_GREATER_OR_EQUAL_THAN, $1, $3, ast_get_locus($1), NULL);
 }
 | level_3_expr
 ;
-rel_op : TOK_EQUAL
-| TOK_NOT_EQUAL
-| TOK_LOWER_THAN
-| TOK_LOWER_OR_EQUAL_THAN
-| TOK_GREATER_THAN
-| TOK_GREATER_OR_EQUAL_THAN
+rel_op : TOKEN_EQUAL
+| TOKEN_NOT_EQUAL
+| TOKEN_LOWER_THAN
+| TOKEN_LOWER_OR_EQUAL_THAN
+| TOKEN_GREATER_THAN
+| TOKEN_GREATER_OR_EQUAL_THAN
 ;
 and_operand : not_op level_4_expr
 {
@@ -2726,24 +2726,24 @@ equiv_operand : equiv_operand or_op or_operand
 }
 | or_operand
 ;
-level_5_expr : level_5_expr TOK_LOGICAL_EQUIVALENT equiv_operand
+level_5_expr : level_5_expr TOKEN_LOGICAL_EQUIVALENT equiv_operand
 {
     $$ = ASTMake2(AST_LOGICAL_EQUAL, $1, $3, ast_get_locus($1), NULL);
 }
-| level_5_expr TOK_LOGICAL_NOT_EQUIVALENT equiv_operand
+| level_5_expr TOKEN_LOGICAL_NOT_EQUIVALENT equiv_operand
 {
     $$ = ASTMake2(AST_LOGICAL_DIFFERENT, $1, $3, ast_get_locus($1), NULL);
 }
 | equiv_operand
 ;
-not_op : TOK_LOGICAL_NOT
+not_op : TOKEN_LOGICAL_NOT
 ;
-and_op : TOK_LOGICAL_AND
+and_op : TOKEN_LOGICAL_AND
 ;
-or_op : TOK_LOGICAL_OR
+or_op : TOKEN_LOGICAL_OR
 ;
-equiv_op : TOK_LOGICAL_EQUIVALENT
-| TOK_LOGICAL_NOT_EQUIVALENT
+equiv_op : TOKEN_LOGICAL_EQUIVALENT
+| TOKEN_LOGICAL_NOT_EQUIVALENT
 ;
 expr : expr user_defined_op level_5_expr
 {
@@ -2777,7 +2777,7 @@ assignment_stmt : labeldef data_ref '=' expr eos
     $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, assig, ast_get_locus(assig), NULL);
 }
 ;
-pointer_assignment_stmt : labeldef data_ref TOK_POINTER_ACCESS proc_target eos
+pointer_assignment_stmt : labeldef data_ref TOKEN_POINTER_ACCESS proc_target eos
 {
     AST assig = ASTMake2(AST_PTR_ASSIGNMENT, $2, $4, ast_get_locus($2), NULL);
     $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, assig, ast_get_locus(assig), NULL);
@@ -2785,7 +2785,7 @@ pointer_assignment_stmt : labeldef data_ref TOK_POINTER_ACCESS proc_target eos
 ;
 proc_target : expr
 ;
-where_stmt : labeldef TOK_WHERE '(' mask_expr ')' where_assignment_stmt
+where_stmt : labeldef TOKEN_WHERE '(' mask_expr ')' where_assignment_stmt
 {
     $$ = ASTMake3Label(AST_WHERE_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2853,11 +2853,11 @@ mask_elsewhere_part : masked_elsewhere_stmt where_body_construct_seq
     $$ = ASTMake2(AST_MASK_ELSEWHERE_PART, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
-where_construct_stmt : labeldef name ':' TOK_WHERE '(' mask_expr ')' eos
+where_construct_stmt : labeldef name ':' TOKEN_WHERE '(' mask_expr ')' eos
 {
     $$ = ASTMake3Label(AST_WHERE_CONSTRUCT_STATEMENT, $1, $2, $6, ast_get_locus($2), NULL);
 }
-| labeldef TOK_WHERE '(' mask_expr ')' eos
+| labeldef TOKEN_WHERE '(' mask_expr ')' eos
 {
     $$ = ASTMake3Label(AST_WHERE_CONSTRUCT_STATEMENT, $1, NULL, $4, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
@@ -2888,20 +2888,20 @@ elsewhere_stmt : labeldef elsewhere_toks name eos
     $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, NULL, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-elsewhere_toks : TOK_ELSE TOK_WHERE
+elsewhere_toks : TOKEN_ELSE TOKEN_WHERE
 {
     $$ = $1;
 }
-| TOK_ELSEWHERE
+| TOKEN_ELSEWHERE
 {
     $$ = $1;
 }
 ;
-endwhere_toks : TOK_END TOK_WHERE
+endwhere_toks : TOKEN_END TOKEN_WHERE
 {
     $$ = $1;
 }
-| TOK_ENDWHERE
+| TOKEN_ENDWHERE
 {
     $$ = $1;
 }
@@ -2929,11 +2929,11 @@ forall_block : forall_body_construct_seq
     $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ast_get_locus($1), NULL);
 }
 ;
-forall_construct_stmt : labeldef name ':' TOK_FORALL forall_header eos
+forall_construct_stmt : labeldef name ':' TOKEN_FORALL forall_header eos
 {
     $$ = ASTMake3Label(AST_FORALL_CONSTRUCT_STATEMENT, $1, $2, $5, make_locus($3.token_file, $3.token_line, 0), $4.token_text);
 }
-| labeldef TOK_FORALL forall_header eos
+| labeldef TOKEN_FORALL forall_header eos
 {
     $$ = ASTMake3Label(AST_FORALL_CONSTRUCT_STATEMENT, $1, NULL, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -2977,16 +2977,16 @@ forall_body_construct : forall_assignment_stmt
 forall_assignment_stmt : assignment_stmt
 | pointer_assignment_stmt
 ;
-end_forall_stmt : labeldef TOK_END TOK_FORALL name eos
+end_forall_stmt : labeldef TOKEN_END TOKEN_FORALL name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_FORALL eos
+| labeldef TOKEN_END TOKEN_FORALL eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
 ;
-forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmt 
+forall_stmt : labeldef TOKEN_FORALL forall_header forall_assignment_stmt 
 {
     $$ = ASTMake3Label(AST_FORALL_STATEMENT, $1, $3, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3032,35 +3032,35 @@ associate_construct : associate_stmt block end_associate_stmt
     $$ = ASTMake3(AST_ASSOCIATE_CONSTRUCT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-associate_stmt : labeldef name ':' TOK_ASSOCIATE '(' association_list ')' eos
+associate_stmt : labeldef name ':' TOKEN_ASSOCIATE '(' association_list ')' eos
 {
     $$ = ASTMake3Label(AST_ASSOCIATE_STATEMENT, $1, $2, $6, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 }
-| labeldef TOK_ASSOCIATE '(' association_list ')' eos
+| labeldef TOKEN_ASSOCIATE '(' association_list ')' eos
 {
     $$ = ASTMake3Label(AST_ASSOCIATE_STATEMENT, $1, NULL, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-association : name TOK_POINTER_ACCESS selector
+association : name TOKEN_POINTER_ACCESS selector
 {
     $$ = ASTMake2(AST_RENAME, $1, $3, ast_get_locus($1), NULL);
 }
 ;
 selector : expr
 ;
-end_associate_stmt : labeldef TOK_END TOK_ASSOCIATE name eos
+end_associate_stmt : labeldef TOKEN_END TOKEN_ASSOCIATE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_ASSOCIATE eos
+| labeldef TOKEN_END TOKEN_ASSOCIATE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDASSOCIATE name eos
+| labeldef TOKEN_ENDASSOCIATE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDASSOCIATE eos
+| labeldef TOKEN_ENDASSOCIATE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3070,20 +3070,20 @@ block_construct : block_stmt block end_block_stmt
     $$ = ASTMake3(AST_BLOCK_CONSTRUCT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-block_stmt : labeldef name ':' TOK_BLOCK eos
+block_stmt : labeldef name ':' TOKEN_BLOCK eos
 {
     $$ = ASTMake2Label(AST_BLOCK_STATEMENT, $1, $2, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 }
-| labeldef TOK_BLOCK eos
+| labeldef TOKEN_BLOCK eos
 {
     $$ = ASTMake2Label(AST_BLOCK_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-end_block_stmt : labeldef TOK_END TOK_BLOCK name eos
+end_block_stmt : labeldef TOKEN_END TOKEN_BLOCK name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_BLOCK eos
+| labeldef TOKEN_END TOKEN_BLOCK eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
@@ -3093,28 +3093,28 @@ critical_construct : critical_stmt block end_critical_stmt
     $$ = ASTMake3(AST_CRITICAL_CONSTRUCT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-critical_stmt : labeldef name ':' TOK_CRITICAL eos
+critical_stmt : labeldef name ':' TOKEN_CRITICAL eos
 {
     $$ = ASTMake2Label(AST_CRITICAL_STATEMENT, $1, $2, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 }
-| labeldef TOK_CRITICAL eos
+| labeldef TOKEN_CRITICAL eos
 {
     $$ = ASTMake2Label(AST_CRITICAL_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
+end_critical_stmt : labeldef TOKEN_END TOKEN_CRITICAL name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_CRITICAL eos
+| labeldef TOKEN_END TOKEN_CRITICAL eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDCRITICAL name eos
+| labeldef TOKEN_ENDCRITICAL name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDCRITICAL eos
+| labeldef TOKEN_ENDCRITICAL eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3122,7 +3122,7 @@ end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
 do_construct : nonlabel_do_stmt block end_do_stmt
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3140,7 +3140,7 @@ nonblock_do_construct : action_term_do_construct
 action_term_do_construct : label_do_stmt block do_term_action_stmt
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3153,17 +3153,17 @@ action_term_do_construct : label_do_stmt block do_term_action_stmt
 ;
 // This token is introduced artificially by the lexer to help the parser grasp
 // the structure, it does not exist anywhere else
-do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmt
+do_term_action_stmt : TOKEN_END_NONBLOCK_DO non_top_level_program_unit_stmt
 {
     $$ = $2;
 }
 // exceptionally we must allow an end do statement behave like a do_term_action_stmt
-| TOK_END_NONBLOCK_DO end_do_stmt
+| TOKEN_END_NONBLOCK_DO end_do_stmt
 {
     // But an end do statement is not any action tecnhically, thus nobody would be expecting
     // a end-statement, just fake a CONTINUE here
     AST end_do_stmt = $2;
-    ERROR_CONDITION(ASTType(end_do_stmt) != AST_LABELED_STATEMENT, "We expect a labeled statement here", 0);
+    ERROR_CONDITION(ASTKind(end_do_stmt) != AST_LABELED_STATEMENT, "We expect a labeled statement here", 0);
 
     $$ = ASTMake2(AST_LABELED_STATEMENT,
             ASTSon0(end_do_stmt), 
@@ -3174,7 +3174,7 @@ do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmt
 outer_shared_do_construct : label_do_stmt block shared_term_do_construct
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3191,7 +3191,7 @@ shared_term_do_construct : outer_shared_do_construct_2
 outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construct
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3205,7 +3205,7 @@ outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construc
 inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 {
     AST do_statement = $1;
-    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    if (ASTKind(do_statement) == AST_LABELED_STATEMENT)
     {
         do_statement = ASTSon1(do_statement);
     }
@@ -3216,59 +3216,59 @@ inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
     $$ = $1;
 }
 ;
-nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
+nonlabel_do_stmt : labeldef name_colon_opt TOKEN_DO loop_control eos
 {
     $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, $4, NULL, NULL, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
-| labeldef name_colon_opt TOK_DO while_loop_control eos
+| labeldef name_colon_opt TOKEN_DO while_loop_control eos
 {
     $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
-| labeldef name_colon_opt TOK_DO concurrent_loop_control eos
+| labeldef name_colon_opt TOKEN_DO concurrent_loop_control eos
 {
     running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
-| labeldef name_colon_opt TOK_DO eos
+| labeldef name_colon_opt TOKEN_DO eos
 {
     AST empty_loop_control = ASTMake4(AST_LOOP_CONTROL, NULL, NULL, NULL, NULL, make_locus($3.token_file, $3.token_line, 0), NULL);
     $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, empty_loop_control, NULL, NULL, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
 ;
-label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
+label_do_stmt : labeldef name_colon_opt TOKEN_DO label loop_control eos
 {
     $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
-| labeldef name_colon_opt TOK_DO label while_loop_control eos
+| labeldef name_colon_opt TOKEN_DO label while_loop_control eos
 {
     $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
-| labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
+| labeldef name_colon_opt TOKEN_DO label concurrent_loop_control eos
 {
     running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
-| labeldef name_colon_opt TOK_DO label eos
+| labeldef name_colon_opt TOKEN_DO label eos
 {
     $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
 ;
-label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_control eos
+label_do_shared_stmt : labeldef name_colon_opt TOKEN_DO do_shared_label loop_control eos
 {
     $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
-| labeldef name_colon_opt TOK_DO do_shared_label while_loop_control eos
+| labeldef name_colon_opt TOKEN_DO do_shared_label while_loop_control eos
 {
     $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
-| labeldef name_colon_opt TOK_DO do_shared_label concurrent_loop_control eos
+| labeldef name_colon_opt TOKEN_DO do_shared_label concurrent_loop_control eos
 {
     running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
-| labeldef name_colon_opt TOK_DO do_shared_label eos
+| labeldef name_colon_opt TOKEN_DO do_shared_label eos
 {
     $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
 }
 ;
-do_shared_label : TOK_SHARED_LABEL
+do_shared_label : TOKEN_SHARED_LABEL
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -3294,48 +3294,48 @@ loop_control : comma_opt do_variable '=' int_expr ',' int_expr comma_int_expr_op
     $$ = ASTMake4(AST_LOOP_CONTROL, $2, $4, $6, $7, ast_get_locus($2), "fortran");
 }
 ;
-while_loop_control : ',' TOK_WHILE '(' logical_expr ')'
+while_loop_control : ',' TOKEN_WHILE '(' logical_expr ')'
 {
     $$ = $4;
 }
-| TOK_WHILE '(' logical_expr ')'
+| TOKEN_WHILE '(' logical_expr ')'
 {
     $$ = $3;
 }
 ;
-concurrent_loop_control : ',' TOK_CONCURRENT forall_header
+concurrent_loop_control : ',' TOKEN_CONCURRENT forall_header
 {
     $$ = $3;
 }
-| TOK_CONCURRENT forall_header
+| TOKEN_CONCURRENT forall_header
 {
     $$ = $2;
 }
 ;
 do_variable : name
 ;
-end_do_stmt : labeldef TOK_END TOK_DO name eos
+end_do_stmt : labeldef TOKEN_END TOKEN_DO name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_DO eos
+| labeldef TOKEN_END TOKEN_DO eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDDO name eos
+| labeldef TOKEN_ENDDO name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDDO eos
+| labeldef TOKEN_ENDDO eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-cycle_stmt : labeldef TOK_CYCLE name eos
+cycle_stmt : labeldef TOKEN_CYCLE name eos
 {
     $$ = ASTMake2Label(AST_CONTINUE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_CYCLE eos
+| labeldef TOKEN_CYCLE eos
 {
     $$ = ASTMake2Label(AST_CONTINUE_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3355,7 +3355,7 @@ name_colon_opt : name ':'
     $$ = NULL;
 }
 ;
-if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block end_if_stmt
+if_construct : labeldef name_colon_opt TOKEN_IF '(' logical_expr ')' TOKEN_THEN eos block end_if_stmt
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, NULL, $10, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
     if ($1 != NULL)
@@ -3364,7 +3364,7 @@ if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos 
     }
     $$ = result;
 }
-| labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
+| labeldef name_colon_opt TOKEN_IF '(' logical_expr ')' TOKEN_THEN eos block labeldef TOKEN_ELSE name_opt eos block end_if_stmt
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $14, $15, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
     if ($1 != NULL)
@@ -3373,7 +3373,7 @@ if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos 
     }
     $$ = result;
 }
-| labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block elseif_seq 
+| labeldef name_colon_opt TOKEN_IF '(' logical_expr ')' TOKEN_THEN eos block elseif_seq 
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $10, NULL, make_locus($3.token_file, $3.token_line, 0), safe_asttext($2));
     if ($1 != NULL)
@@ -3383,13 +3383,13 @@ if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos 
     $$ = result;
 }
 ;
-elseif_toks : TOK_ELSE TOK_IF
+elseif_toks : TOKEN_ELSE TOKEN_IF
 {
     $$ = $1;
 }
-| TOK_ELSEIF
+| TOKEN_ELSEIF
 ;
-elseif_seq : labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos block elseif_seq
+elseif_seq : labeldef elseif_toks '(' logical_expr ')' TOKEN_THEN name_opt eos block elseif_seq
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $9, $10, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
     if ($1 != NULL)
@@ -3398,7 +3398,7 @@ elseif_seq : labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos blo
     }
     $$ = result;
 }
-| labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
+| labeldef elseif_toks '(' logical_expr ')' TOKEN_THEN name_opt eos block labeldef TOKEN_ELSE name_opt eos block end_if_stmt
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $9, $14, $15, make_locus($2.token_file, $2.token_line, 0), NULL);
     if ($1 != NULL)
@@ -3407,7 +3407,7 @@ elseif_seq : labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos blo
     }
     $$ = result;
 }
-| labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos block end_if_stmt
+| labeldef elseif_toks '(' logical_expr ')' TOKEN_THEN name_opt eos block end_if_stmt
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $9, NULL, $10, make_locus($2.token_file, $2.token_line, 0), NULL);
     if ($1 != NULL)
@@ -3417,24 +3417,24 @@ elseif_seq : labeldef elseif_toks '(' logical_expr ')' TOK_THEN name_opt eos blo
     $$ = result;
 }
 ;
-end_if_stmt : labeldef TOK_END TOK_IF name eos
+end_if_stmt : labeldef TOKEN_END TOKEN_IF name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_IF eos
+| labeldef TOKEN_END TOKEN_IF eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDIF name eos
+| labeldef TOKEN_ENDIF name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDIF eos
+| labeldef TOKEN_ENDIF eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmt 
+if_stmt : labeldef TOKEN_IF '(' logical_expr ')' action_stmt 
 {
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $6, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
     if ($1 != NULL)
@@ -3448,7 +3448,7 @@ case_construct : select_case_stmt case_part_seq end_select_stmt
 {
     AST result = $1;
     AST switch_tree = result;
-    if (ASTType(switch_tree) == AST_LABELED_STATEMENT)
+    if (ASTKind(switch_tree) == AST_LABELED_STATEMENT)
     {
         switch_tree = ASTSon1(switch_tree);
     }
@@ -3474,7 +3474,7 @@ case_part : case_stmt block
 
     // Mold the tree to match that of C/C++
     AST case_stmt = returned_tree;
-    if (ASTType(case_stmt) == AST_LABELED_STATEMENT)
+    if (ASTKind(case_stmt) == AST_LABELED_STATEMENT)
     {
         case_stmt = ASTSon1(case_stmt);
     }
@@ -3483,18 +3483,18 @@ case_part : case_stmt block
     ast_list_split_head_tail(block, &head, &tail);
 
     int son = 0;
-    if (ASTType(case_stmt) == AST_CASE_STATEMENT)
+    if (ASTKind(case_stmt) == AST_CASE_STATEMENT)
     {
         son = 1;
     }
-    else if (ASTType(case_stmt) == AST_DEFAULT_STATEMENT)
+    else if (ASTKind(case_stmt) == AST_DEFAULT_STATEMENT)
     {
         son = 0;
     }
     else
     {
         internal_error("Unexpected node '%s'\n", 
-                ast_print_node_type(ASTType(case_stmt)));
+                ast_print_node_type(ASTKind(case_stmt)));
     }
 
     ast_set_child(case_stmt, son, ASTSon1(head));
@@ -3525,17 +3525,17 @@ select_case_stmt : labeldef name ':' selectcase_toks '(' case_expr ')' eos
     $$ = ASTMake4Label(AST_SWITCH_STATEMENT, $1, $4, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-selectcase_toks : TOK_SELECT TOK_CASE
+selectcase_toks : TOKEN_SELECT TOKEN_CASE
 {
     $$ = $1;
 }
-| TOK_SELECTCASE
+| TOKEN_SELECTCASE
 {
     $$ = $1;
 }
 ;
 
-case_stmt : labeldef TOK_CASE case_selector name eos
+case_stmt : labeldef TOKEN_CASE case_selector name eos
 {
     AST case_selector = $3;
     if (ASTText(case_selector) == NULL)
@@ -3548,7 +3548,7 @@ case_stmt : labeldef TOK_CASE case_selector name eos
         ast_free($3);
     }
 }
-| labeldef TOK_CASE case_selector eos
+| labeldef TOKEN_CASE case_selector eos
 {
     AST case_selector = $3;
     if (ASTText(case_selector) == NULL)
@@ -3562,19 +3562,19 @@ case_stmt : labeldef TOK_CASE case_selector name eos
     }
 }
 ;
-end_select_stmt : labeldef TOK_END TOK_SELECT name eos
+end_select_stmt : labeldef TOKEN_END TOKEN_SELECT name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_SELECT eos
+| labeldef TOKEN_END TOKEN_SELECT eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDSELECT name eos
+| labeldef TOKEN_ENDSELECT name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDSELECT eos
+| labeldef TOKEN_ENDSELECT eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3585,7 +3585,7 @@ case_selector : '(' case_value_range_list ')'
 {
     $$ = ASTMake1(AST_CASE_SELECTOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_DEFAULT
+| TOKEN_DEFAULT
 {
     $$ = ASTMake1(AST_CASE_SELECTOR, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -3620,73 +3620,73 @@ type_guard_part : type_guard_stmt block
     $$ = ASTMake2(AST_TYPE_GUARD_PART, $1, $2, ast_get_locus($1), NULL);
 }
 ;
-select_type_stmt : labeldef name ':' TOK_SELECT TOK_TYPE '(' name TOK_POINTER_ACCESS selector ')' eos
+select_type_stmt : labeldef name ':' TOKEN_SELECT TOKEN_TYPE '(' name TOKEN_POINTER_ACCESS selector ')' eos
 {
     $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, $2, $7, $9, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 }
-| labeldef TOK_SELECT TOK_TYPE '(' name TOK_POINTER_ACCESS selector ')' eos
+| labeldef TOKEN_SELECT TOKEN_TYPE '(' name TOKEN_POINTER_ACCESS selector ')' eos
 {
     $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, NULL, $5, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef name ':' TOK_SELECT TOK_TYPE '(' selector ')' eos
+| labeldef name ':' TOKEN_SELECT TOKEN_TYPE '(' selector ')' eos
 {
     $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, $2, NULL, $7, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 }
-| labeldef TOK_SELECT TOK_TYPE '(' selector ')' eos
+| labeldef TOKEN_SELECT TOKEN_TYPE '(' selector ')' eos
 {
     $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, NULL, NULL, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-type_guard_stmt : labeldef TOK_TYPE TOK_IS '(' type_spec ')' name eos
+type_guard_stmt : labeldef TOKEN_TYPE TOKEN_IS '(' type_spec ')' name eos
 {
     $$ = ASTMake3Label(AST_TYPE_IS_STATEMENT, $1, $5, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_TYPE TOK_IS '(' type_spec ')' eos
+| labeldef TOKEN_TYPE TOKEN_IS '(' type_spec ')' eos
 {
     $$ = ASTMake3Label(AST_TYPE_IS_STATEMENT, $1, $5, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_CLASS TOK_IS '(' derived_type_spec ')' name eos
+| labeldef TOKEN_CLASS TOKEN_IS '(' derived_type_spec ')' name eos
 {
     $$ = ASTMake3Label(AST_CLASS_IS_STATEMENT, $1, $5, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_CLASS TOK_IS '(' derived_type_spec ')' eos
+| labeldef TOKEN_CLASS TOKEN_IS '(' derived_type_spec ')' eos
 {
     $$ = ASTMake3Label(AST_CLASS_IS_STATEMENT, $1, $5, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_CLASS TOK_DEFAULT name eos
+| labeldef TOKEN_CLASS TOKEN_DEFAULT name eos
 {
     $$ = ASTMake2Label(AST_CLASS_DEFAULT_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_CLASS TOK_DEFAULT eos
+| labeldef TOKEN_CLASS TOKEN_DEFAULT eos
 {
     $$ = ASTMake2Label(AST_CLASS_DEFAULT_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-end_select_type_stmt : labeldef TOK_END TOK_SELECT name eos
+end_select_type_stmt : labeldef TOKEN_END TOKEN_SELECT name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_SELECT eos
+| labeldef TOKEN_END TOKEN_SELECT eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
 ;
-exit_stmt : labeldef TOK_EXIT name eos
+exit_stmt : labeldef TOKEN_EXIT name eos
 {
     $$ = ASTMake2Label(AST_BREAK_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_EXIT eos
+| labeldef TOKEN_EXIT eos
 {
     $$ = ASTMake2Label(AST_BREAK_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-label_assign_stmt : labeldef TOK_ASSIGN int_literal_constant TOK_TO name eos
+label_assign_stmt : labeldef TOKEN_ASSIGN int_literal_constant TOKEN_TO name eos
 {
     $$ = ASTMake3Label(AST_LABEL_ASSIGN_STATEMENT, $1, $3, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-goto_toks : TOK_GO TOK_TO
-| TOK_GOTO
+goto_toks : TOKEN_GO TOKEN_TO
+| TOKEN_GOTO
 ;
 goto_stmt : labeldef goto_toks label eos
 {
@@ -3715,82 +3715,82 @@ assigned_goto_stmt :  labeldef goto_toks name eos
     $$ = ASTMake3Label(AST_ASSIGNED_GOTO_STATEMENT, $1, $3, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-arithmetic_if_stmt : labeldef TOK_IF '(' numeric_expr ')' label ',' label ',' label eos
+arithmetic_if_stmt : labeldef TOKEN_IF '(' numeric_expr ')' label ',' label ',' label eos
 {
     $$ = ASTMake3Label(AST_ARITHMETIC_IF_STATEMENT, $1, $4, 
             ASTMake3(AST_ARITHMETIC_IF_STATEMENT, $6, $8, $10, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
             make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-continue_stmt : labeldef TOK_CONTINUE eos
+continue_stmt : labeldef TOKEN_CONTINUE eos
 {
     $$ = ASTMake1Label(AST_EMPTY_STATEMENT, $1, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-stop_stmt : labeldef TOK_STOP stop_code eos
+stop_stmt : labeldef TOKEN_STOP stop_code eos
 {
     $$ = ASTMake2Label(AST_STOP_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_STOP eos
+| labeldef TOKEN_STOP eos
 {
     $$ = ASTMake2Label(AST_STOP_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-pause_stmt : labeldef TOK_PAUSE int_expr eos
+pause_stmt : labeldef TOKEN_PAUSE int_expr eos
 {
     $$ = ASTMake2Label(AST_PAUSE_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PAUSE eos
+| labeldef TOKEN_PAUSE eos
 {
     $$ = ASTMake2Label(AST_PAUSE_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-allstop_stmt : labeldef TOK_ALL TOK_STOP stop_code eos
+allstop_stmt : labeldef TOKEN_ALL TOKEN_STOP stop_code eos
 {
     $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ALLSTOP stop_code eos
+| labeldef TOKEN_ALLSTOP stop_code eos
 {
     $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ALL TOK_STOP eos
+| labeldef TOKEN_ALL TOKEN_STOP eos
 {
     $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ALLSTOP eos
+| labeldef TOKEN_ALLSTOP eos
 {
     $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
 stop_code : expr
 ;
-sync_all_stmt : labeldef TOK_SYNC TOK_ALL '(' sync_stat_list ')' eos
+sync_all_stmt : labeldef TOKEN_SYNC TOKEN_ALL '(' sync_stat_list ')' eos
 {
     $$ = ASTMake2Label(AST_SYNC_ALL_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_SYNC TOK_ALL eos
+| labeldef TOKEN_SYNC TOKEN_ALL eos
 {
     $$ = ASTMake2Label(AST_SYNC_ALL_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_SYNC TOK_ALL '(' ')' eos
+| labeldef TOKEN_SYNC TOKEN_ALL '(' ')' eos
 {
     $$ = ASTMake2Label(AST_SYNC_ALL_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-sync_stat : TOK_STAT '=' stat_variable
+sync_stat : TOKEN_STAT '=' stat_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERRMSG '=' errmsg_variable
+| TOKEN_ERRMSG '=' errmsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-sync_images_stmt : labeldef TOK_SYNC TOK_IMAGES '(' image_set ',' sync_stat_list ')' eos
+sync_images_stmt : labeldef TOKEN_SYNC TOKEN_IMAGES '(' image_set ',' sync_stat_list ')' eos
 {
     $$ = ASTMake3Label(AST_SYNC_IMAGES_STATEMENT, $1, $5, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_SYNC TOK_IMAGES '(' image_set ')' eos
+| labeldef TOKEN_SYNC TOKEN_IMAGES '(' image_set ')' eos
 {
     $$ = ASTMake3Label(AST_SYNC_IMAGES_STATEMENT, $1, $5, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3801,39 +3801,39 @@ image_set : int_expr
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-sync_memory_stmt : labeldef TOK_SYNC TOK_MEMORY '(' sync_stat_list ')' eos
+sync_memory_stmt : labeldef TOKEN_SYNC TOKEN_MEMORY '(' sync_stat_list ')' eos
 {
     $$ = ASTMake2Label(AST_SYNC_MEMORY_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_SYNC TOK_MEMORY eos
+| labeldef TOKEN_SYNC TOKEN_MEMORY eos
 {
     $$ = ASTMake2Label(AST_SYNC_MEMORY_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_SYNC TOK_MEMORY '(' ')' eos
+| labeldef TOKEN_SYNC TOKEN_MEMORY '(' ')' eos
 {
     $$ = ASTMake2Label(AST_SYNC_MEMORY_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-lock_stmt : labeldef TOK_LOCK '(' lock_variable ',' lock_stat_list ')' eos
+lock_stmt : labeldef TOKEN_LOCK '(' lock_variable ',' lock_stat_list ')' eos
 {
     $$ = ASTMake3Label(AST_LOCK_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_LOCK '(' lock_variable ')' eos
+| labeldef TOKEN_LOCK '(' lock_variable ')' eos
 {
     $$ = ASTMake3Label(AST_LOCK_STATEMENT, $1, $4, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-lock_stat : TOK_ACQUIRED TOK_LOCK '=' logical_variable
+lock_stat : TOKEN_ACQUIRED TOKEN_LOCK '=' logical_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $4, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | sync_stat
 ;
-unlock_stmt : labeldef TOK_UNLOCK '(' lock_variable ',' sync_stat_list ')' eos
+unlock_stmt : labeldef TOKEN_UNLOCK '(' lock_variable ',' sync_stat_list ')' eos
 {
     $$ = ASTMake3Label(AST_UNLOCK_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_UNLOCK '(' lock_variable ')' eos
+| labeldef TOKEN_UNLOCK '(' lock_variable ')' eos
 {
     $$ = ASTMake3Label(AST_UNLOCK_STATEMENT, $1, $4, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -3848,12 +3848,12 @@ io_unit : file_unit_number
 ;
 file_unit_number : int_expr
 ;
-open_stmt : labeldef TOK_OPEN '(' connect_spec_list ')' eos
+open_stmt : labeldef TOKEN_OPEN '(' connect_spec_list ')' eos
 {
     $$ = ASTMake2Label(AST_OPEN_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-connect_spec : TOK_UNIT '=' file_unit_number
+connect_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -3861,79 +3861,83 @@ connect_spec : TOK_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1,  ast_get_locus($1), "unit");
 }
-| TOK_ACCESS '=' default_char_expr
+| TOKEN_ACCESS '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ACTION '=' default_char_expr
+| TOKEN_ACTION '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ASYNCHRONOUS '=' default_char_expr
+| TOKEN_ASYNCHRONOUS '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_BLANK '=' default_char_expr
+| TOKEN_BLANK '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DECIMAL '=' default_char_expr
+| TOKEN_DECIMAL '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DELIM '=' default_char_expr
+| TOKEN_DELIM '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ENCODING '=' default_char_expr
+| TOKEN_ENCODING '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_FILE '=' file_name_expr
+| TOKEN_FILE '=' file_name_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_FORM '=' default_char_expr
+| TOKEN_FORM '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NEWUNIT '=' int_variable
+| TOKEN_NEWUNIT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PAD '=' default_char_expr
+| TOKEN_PAD '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POSITION '=' default_char_expr
+| TOKEN_POSITION '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_RECL '=' int_expr
+| TOKEN_RECL '=' int_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ROUND '=' default_char_expr
+| TOKEN_ROUND '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SIGN '=' default_char_expr
+| TOKEN_SIGN '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_STATUS '=' default_char_expr
+| TOKEN_STATUS '=' default_char_expr
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_CONVERT '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -3942,12 +3946,12 @@ file_name_expr : default_char_expr
 ;
 iomsg_variable : default_char_variable
 ;
-close_stmt : labeldef TOK_CLOSE '(' close_spec_list ')' eos
+close_stmt : labeldef TOKEN_CLOSE '(' close_spec_list ')' eos
 {
     $$ = ASTMake2Label(AST_CLOSE_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-close_spec : TOK_UNIT '=' file_unit_number
+close_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -3955,32 +3959,32 @@ close_spec : TOK_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1,  ast_get_locus($1), "unit");
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_STATUS '=' default_char_expr
+| TOKEN_STATUS '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-read_stmt : labeldef TOK_READ '(' io_control_spec_list ')' input_output_item_list eos %dprec 2
+read_stmt : labeldef TOKEN_READ '(' io_control_spec_list ')' input_output_item_list eos %dprec 2
 {
     $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_READ '(' io_control_spec_list ')' eos %dprec 2
+| labeldef TOKEN_READ '(' io_control_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_READ format ',' input_output_item_list eos %dprec 1
+| labeldef TOKEN_READ format ',' input_output_item_list eos %dprec 1
 {
     // This is like UNIT=*, FMT=format
 
@@ -3993,7 +3997,7 @@ read_stmt : labeldef TOK_READ '(' io_control_spec_list ')' input_output_item_lis
 
     $$ = ASTMake3Label(AST_READ_STATEMENT, $1, io_control_spec_list, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_READ format eos %dprec 1
+| labeldef TOKEN_READ format eos %dprec 1
 {
     // This is like UNIT=*, FMT=format
 
@@ -4007,101 +4011,101 @@ read_stmt : labeldef TOK_READ '(' io_control_spec_list ')' input_output_item_lis
     $$ = ASTMake3Label(AST_READ_STATEMENT, $1, io_control_spec_list, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-write_stmt : labeldef TOK_WRITE '(' io_control_spec_list ')' input_output_item_list eos
+write_stmt : labeldef TOKEN_WRITE '(' io_control_spec_list ')' input_output_item_list eos
 {
     $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_WRITE '(' io_control_spec_list ')' eos
+| labeldef TOKEN_WRITE '(' io_control_spec_list ')' eos
 {
     $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-print_stmt : labeldef TOK_PRINT format ',' input_output_item_list eos
+print_stmt : labeldef TOKEN_PRINT format ',' input_output_item_list eos
 {
     $$ = ASTMake3Label(AST_PRINT_STATEMENT, $1, $3, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PRINT format eos
+| labeldef TOKEN_PRINT format eos
 {
     $$ = ASTMake3Label(AST_PRINT_STATEMENT, $1, $3, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-io_control_spec : TOK_UNIT '=' io_unit
+io_control_spec : TOKEN_UNIT '=' io_unit
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_FMT '=' format
+| TOKEN_FMT '=' format
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NML '=' name
+| TOKEN_NML '=' name
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ADVANCE '=' default_char_expr
+| TOKEN_ADVANCE '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ASYNCHRONOUS '=' default_char_constant_expr
+| TOKEN_ASYNCHRONOUS '=' default_char_constant_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_BLANK '=' default_char_expr
+| TOKEN_BLANK '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DECIMAL '=' default_char_expr
+| TOKEN_DECIMAL '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DELIM '=' default_char_expr
+| TOKEN_DELIM '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_END '=' label
+| TOKEN_END '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_EOR '=' label
+| TOKEN_EOR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ID '=' id_variable
+| TOKEN_ID '=' id_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PAD '=' default_char_expr
+| TOKEN_PAD '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POS '=' int_expr
+| TOKEN_POS '=' int_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_REC '=' int_expr
+| TOKEN_REC '=' int_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ROUND '=' default_char_expr
+| TOKEN_ROUND '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SIGN '=' default_char_expr
+| TOKEN_SIGN '=' default_char_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SIZE '=' int_variable
+| TOKEN_SIZE '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4129,12 +4133,12 @@ io_implied_do_control : do_variable '=' int_expr ',' int_expr comma_int_expr_opt
     $$ = ASTMake4(AST_IMPLIED_DO_CONTROL, $1, $3, $5, $6, ast_get_locus($1), NULL);
 }
 ;
-wait_stmt : labeldef TOK_WAIT '(' wait_spec_list ')' eos
+wait_stmt : labeldef TOKEN_WAIT '(' wait_spec_list ')' eos
 {
     $$ = ASTMake2Label(AST_WAIT_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-wait_spec : TOK_UNIT '=' file_unit_number
+wait_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4142,63 +4146,63 @@ wait_spec : TOK_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1, ast_get_locus($1), "unit");
 }
-| TOK_END '=' label
+| TOKEN_END '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_EOR '=' label
+| TOKEN_EOR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ID '=' int_expr
+| TOKEN_ID '=' int_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-backspace_stmt : labeldef TOK_BACKSPACE file_unit_number eos %dprec 1
+backspace_stmt : labeldef TOKEN_BACKSPACE file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ast_get_locus($3), "UNIT");
 
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_BACKSPACE '(' position_spec_list ')' eos %dprec 2
+| labeldef TOKEN_BACKSPACE '(' position_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-endfile_stmt : labeldef TOK_ENDFILE file_unit_number eos %dprec 1
+endfile_stmt : labeldef TOKEN_ENDFILE file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ast_get_locus($3), "UNIT");
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDFILE '(' position_spec_list ')' eos %dprec 2
+| labeldef TOKEN_ENDFILE '(' position_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-rewind_stmt : labeldef TOK_REWIND file_unit_number eos %dprec 1
+rewind_stmt : labeldef TOKEN_REWIND file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ast_get_locus($3), "unit");
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_REWIND '(' position_spec_list ')' eos %dprec 2
+| labeldef TOKEN_REWIND '(' position_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-position_spec : TOK_UNIT '=' file_unit_number
+position_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4206,30 +4210,30 @@ position_spec : TOK_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1, ast_get_locus($1), "unit");
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-flush_stmt : labeldef TOK_FLUSH file_unit_number eos %dprec 1
+flush_stmt : labeldef TOKEN_FLUSH file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ast_get_locus($3), "unit");
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_FLUSH '(' flush_spec_list ')' eos %dprec 2
+| labeldef TOKEN_FLUSH '(' flush_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-flush_spec : TOK_UNIT '=' file_unit_number
+flush_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4237,31 +4241,31 @@ flush_spec : TOK_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1, ast_get_locus($1), "unit");
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-inquire_stmt : labeldef TOK_INQUIRE '(' inquire_spec_list ')' eos
+inquire_stmt : labeldef TOKEN_INQUIRE '(' inquire_spec_list ')' eos
 {
     $$ = ASTMake3Label(AST_IO_STATEMENT, $1, $4, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_INQUIRE '(' TOK_IOLENGTH '=' int_variable ')' input_output_item_list eos
+| labeldef TOKEN_INQUIRE '(' TOKEN_IOLENGTH '=' int_variable ')' input_output_item_list eos
 {
     AST iolength = ASTMake1(AST_OPT_VALUE, $6, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 
     $$ = ASTMake3Label(AST_IO_STATEMENT, $1, ASTListLeaf(iolength), $8, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-inquire_spec : TOK_UNIT '=' file_unit_number
+inquire_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4269,149 +4273,153 @@ inquire_spec : TOK_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $1, ast_get_locus($1), "unit");
 }
-| TOK_FILE '=' file_name_expr
+| TOKEN_FILE '=' file_name_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ACCESS '=' default_char_variable
+| TOKEN_ACCESS '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ACTION '=' default_char_variable
+| TOKEN_ACTION '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ASYNCHRONOUS '=' default_char_variable
+| TOKEN_ASYNCHRONOUS '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_BLANK '=' default_char_variable
+| TOKEN_BLANK '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DECIMAL '=' default_char_variable
+| TOKEN_DECIMAL '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DELIM '=' default_char_variable
+| TOKEN_DELIM '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_DIRECT '=' default_char_variable
+| TOKEN_DIRECT '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ENCODING '=' default_char_variable
+| TOKEN_ENCODING '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ERR '=' label
+| TOKEN_ERR '=' label
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_EXIST '=' logical_variable
+| TOKEN_EXIST '=' logical_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_FORM '=' default_char_variable
+| TOKEN_FORM '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_FORMATTED '=' default_char_variable
+| TOKEN_FORMATTED '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ID '=' int_expr
+| TOKEN_ID '=' int_expr
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOMSG '=' iomsg_variable
+| TOKEN_IOMSG '=' iomsg_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IOSTAT '=' int_variable
+| TOKEN_IOSTAT '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NAME '=' default_char_variable
+| TOKEN_NAME '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NAMED '=' logical_variable
+| TOKEN_NAMED '=' logical_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NEXTREC '=' int_variable
+| TOKEN_NEXTREC '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NUMBER '=' int_variable
+| TOKEN_NUMBER '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_OPENED '=' logical_variable
+| TOKEN_OPENED '=' logical_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PAD '=' default_char_variable
+| TOKEN_PAD '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PENDING '=' logical_variable
+| TOKEN_PENDING '=' logical_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POS '=' int_variable
+| TOKEN_POS '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POSITION '=' default_char_variable
+| TOKEN_POSITION '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_READ '=' default_char_variable
+| TOKEN_READ '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_READWRITE '=' default_char_variable
+| TOKEN_READWRITE '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_RECL '=' int_variable
+| TOKEN_RECL '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_ROUND '=' default_char_variable
+| TOKEN_ROUND '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SEQUENTIAL '=' default_char_variable
+| TOKEN_SEQUENTIAL '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SIGN '=' default_char_variable
+| TOKEN_SIGN '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SIZE '=' int_variable
+| TOKEN_SIZE '=' int_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_STREAM '=' default_char_variable
+| TOKEN_STREAM '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_UNFORMATTED '=' default_char_variable
+| TOKEN_UNFORMATTED '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_WRITE '=' default_char_variable
+| TOKEN_WRITE '=' default_char_variable
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_CONVERT '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 // Note the use of label instead of labeldef
-format_stmt : label TOK_FORMAT FORMAT_SPEC eos
+format_stmt : label TOKEN_FORMAT FORMAT_SPEC eos
 {
     $$ = ASTMake3Label(AST_FORMAT_STATEMENT, $1, 
             // We keep the label twice for convenience
@@ -4585,28 +4593,28 @@ program_body : top_level_block internal_subprogram_part
     $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
-program_stmt : labeldef TOK_PROGRAM name eos
+program_stmt : labeldef TOKEN_PROGRAM name eos
 {
     $$ = ASTMake2Label(AST_PROGRAM_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
+end_program_stmt : labeldef TOKEN_END TOKEN_PROGRAM name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END eos
+| labeldef TOKEN_END eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_END TOK_PROGRAM eos
+| labeldef TOKEN_END TOKEN_PROGRAM eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDPROGRAM name eos
+| labeldef TOKEN_ENDPROGRAM name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDPROGRAM eos
+| labeldef TOKEN_ENDPROGRAM eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -4641,35 +4649,35 @@ module : module_stmt opt_statement_seq module_subprogram_part end_module_stmt
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ast_get_locus($1), NULL);
 }
 ;
-module_stmt : labeldef TOK_MODULE name eos
+module_stmt : labeldef TOKEN_MODULE name eos
 {
     $$ = ASTMake3Label(AST_MODULE_STATEMENT, $1, $3, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 // This is a mercurium extension
-| labeldef TOK_MODULE name ',' TOK_INTRINSIC eos
+| labeldef TOKEN_MODULE name ',' TOKEN_INTRINSIC eos
 {
     $$ = ASTMake3Label(AST_MODULE_STATEMENT, $1, $3,
         $$ = ASTLeaf(AST_SYMBOL, make_locus($5.token_file, $5.token_line, 0), $5.token_text),
         make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-end_module_stmt : labeldef TOK_END TOK_MODULE name eos
+end_module_stmt : labeldef TOKEN_END TOKEN_MODULE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END eos
+| labeldef TOKEN_END eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_MODULE eos
+| labeldef TOKEN_END TOKEN_MODULE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDMODULE name eos
+| labeldef TOKEN_ENDMODULE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDMODULE eos
+| labeldef TOKEN_ENDMODULE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -4687,60 +4695,60 @@ module_subprogram : function_subprogram
 | subroutine_subprogram
 | separate_module_subprogram
 ;
-use_stmt : labeldef TOK_USE ',' module_nature ':' ':' name ',' rename_list eos
+use_stmt : labeldef TOKEN_USE ',' module_nature ':' ':' name ',' rename_list eos
 {
     $$ = ASTMake4Label(AST_USE_STATEMENT, $1, $4, $7, $9, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE name ',' rename_list eos
+| labeldef TOKEN_USE name ',' rename_list eos
 {
     $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $3, $5, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ':' ':' name ',' rename_list eos
+| labeldef TOKEN_USE ':' ':' name ',' rename_list eos
 {
     $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $5, $7, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ',' module_nature ':' ':' name eos
+| labeldef TOKEN_USE ',' module_nature ':' ':' name eos
 {
     $$ = ASTMake4Label(AST_USE_STATEMENT, $1, $4, $7, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ':' ':' name eos
+| labeldef TOKEN_USE ':' ':' name eos
 {
     $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $5, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE name eos
+| labeldef TOKEN_USE name eos
 {
     $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $3, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ',' module_nature ':' ':' name ',' TOK_ONLY ':' only_list eos
+| labeldef TOKEN_USE ',' module_nature ':' ':' name ',' TOKEN_ONLY ':' only_list eos
 {
     $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, $4, $7, $11, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE name ',' TOK_ONLY ':' only_list eos
+| labeldef TOKEN_USE name ',' TOKEN_ONLY ':' only_list eos
 {
     $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $3, $7, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ':' ':' name ',' TOK_ONLY ':' only_list eos
+| labeldef TOKEN_USE ':' ':' name ',' TOKEN_ONLY ':' only_list eos
 {
     $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $5, $9, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ',' module_nature ':' ':' name ',' TOK_ONLY ':' eos
+| labeldef TOKEN_USE ',' module_nature ':' ':' name ',' TOKEN_ONLY ':' eos
 {
     $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, $4, $7, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE ':' ':' name ',' TOK_ONLY ':' eos
+| labeldef TOKEN_USE ':' ':' name ',' TOKEN_ONLY ':' eos
 {
     $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $5, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| labeldef TOK_USE name ',' TOK_ONLY ':' eos
+| labeldef TOKEN_USE name ',' TOKEN_ONLY ':' eos
 {
     $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $3, NULL, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
-module_nature : TOK_INTRINSIC
+module_nature : TOKEN_INTRINSIC
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_NON_INTRINSIC
+| TOKEN_NON_INTRINSIC
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4748,41 +4756,41 @@ module_nature : TOK_INTRINSIC
 defined_operator_name : intrinsic_operator_name
 | user_defined_operator_name
 ;
-intrinsic_operator_name : TOK_OPERATOR '(' extended_intrinsic_op ')'
+intrinsic_operator_name : TOKEN_OPERATOR '(' extended_intrinsic_op ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), $3.token_text);
 }
 /* Dumb lexing of OPERATOR (/) because of '(/' */
-| TOK_OPERATOR TOK_LPARENT_SLASH ')'
+| TOKEN_OPERATOR TOKEN_LPARENT_SLASH ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), "/");
 }
 /* Dumb lexing of OPERATOR (/=) because of '(/' */
-| TOK_OPERATOR TOK_LPARENT_SLASH '=' ')'
+| TOKEN_OPERATOR TOKEN_LPARENT_SLASH '=' ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), "/=");
 }
 /* Dumb lexing of OPERATOR (//) because of '(/' and '/)' */
-| TOK_OPERATOR TOK_LPARENT_SLASH TOK_SLASH_RPARENT
+| TOKEN_OPERATOR TOKEN_LPARENT_SLASH TOKEN_SLASH_RPARENT
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), "//");
 }
 /* Dumb lexing of OPERATOR (//) because of '(/' */
-| TOK_OPERATOR TOK_LPARENT_SLASH '/' ')'
+| TOKEN_OPERATOR TOKEN_LPARENT_SLASH '/' ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), "//");
 }
 ;
-user_defined_operator_name : TOK_OPERATOR '(' local_defined_operator ')'
+user_defined_operator_name : TOKEN_OPERATOR '(' local_defined_operator ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), $3.token_text);
 }
 ;
-rename : name TOK_POINTER_ACCESS name
+rename : name TOKEN_POINTER_ACCESS name
 {
     $$ = ASTMake2(AST_RENAME, $1, $3, ast_get_locus($1), NULL);
 }
-| user_defined_operator_name TOK_POINTER_ACCESS user_defined_operator_name
+| user_defined_operator_name TOKEN_POINTER_ACCESS user_defined_operator_name
 {
     $$ = ASTMake2(AST_RENAME, $1, $3, ast_get_locus($1), NULL);
 }
@@ -4805,7 +4813,7 @@ submodule : submodule_stmt opt_statement_seq module_subprogram_part end_submodul
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ast_get_locus($1), NULL);
 }
 ;
-submodule_stmt : labeldef TOK_SUBMODULE '(' parent_identifier ')' name eos
+submodule_stmt : labeldef TOKEN_SUBMODULE '(' parent_identifier ')' name eos
 {
     $$ = ASTMake3Label(AST_SUBMODULE_STATEMENT, $1, $4, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -4816,23 +4824,23 @@ parent_identifier : name ':' name
 }
 | name
 ;
-end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
+end_submodule_stmt : labeldef TOKEN_END TOKEN_SUBMODULE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END eos
+| labeldef TOKEN_END eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_END TOK_SUBMODULE eos
+| labeldef TOKEN_END TOKEN_SUBMODULE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDSUBMODULE name eos
+| labeldef TOKEN_ENDSUBMODULE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDSUBMODULE eos
+| labeldef TOKEN_ENDSUBMODULE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -4842,19 +4850,19 @@ block_data : block_data_stmt non_top_level_program_unit_stmt_seq end_block_data_
     $$ = ASTMake3(AST_BLOCK_DATA_PROGRAM_UNIT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-block_data_stmt : labeldef TOK_BLOCK TOK_DATA name eos
+block_data_stmt : labeldef TOKEN_BLOCK TOKEN_DATA name eos
 {
     $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_BLOCK TOK_DATA eos
+| labeldef TOKEN_BLOCK TOKEN_DATA eos
 {
     $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_BLOCKDATA name eos
+| labeldef TOKEN_BLOCKDATA name eos
 {
     $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_BLOCKDATA eos
+| labeldef TOKEN_BLOCKDATA eos
 {
     $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -4868,11 +4876,11 @@ end_block_data_stmt : labeldef end_block_data_toks name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-end_block_data_toks: TOK_END
-| TOK_ENDBLOCKDATA
-| TOK_ENDBLOCK TOK_DATA
-| TOK_END TOK_BLOCKDATA
-| TOK_END TOK_BLOCK TOK_DATA
+end_block_data_toks: TOKEN_END
+| TOKEN_ENDBLOCKDATA
+| TOKEN_ENDBLOCK TOKEN_DATA
+| TOKEN_END TOKEN_BLOCKDATA
+| TOKEN_END TOKEN_BLOCK TOKEN_DATA
 ;
 interface_block : interface_stmt interface_specification_seq end_interface_stmt
 {
@@ -4886,34 +4894,34 @@ interface_block : interface_stmt interface_specification_seq end_interface_stmt
 interface_specification : interface_body
 | procedure_stmt
 ;
-interface_stmt : labeldef TOK_INTERFACE generic_spec eos
+interface_stmt : labeldef TOKEN_INTERFACE generic_spec eos
 {
     $$ = ASTMake3Label(AST_INTERFACE_STATEMENT, $1, NULL, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_INTERFACE eos
+| labeldef TOKEN_INTERFACE eos
 {
     $$ = ASTMake3Label(AST_INTERFACE_STATEMENT, $1, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ABSTRACT TOK_INTERFACE eos
+| labeldef TOKEN_ABSTRACT TOKEN_INTERFACE eos
 {
     AST abstract = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
     $$ = ASTMake3Label(AST_INTERFACE_STATEMENT, $1, abstract, NULL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
 ;
-end_interface_stmt : labeldef TOK_END TOK_INTERFACE generic_spec eos
+end_interface_stmt : labeldef TOKEN_END TOKEN_INTERFACE generic_spec eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END TOK_INTERFACE eos
+| labeldef TOKEN_END TOKEN_INTERFACE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDINTERFACE generic_spec eos
+| labeldef TOKEN_ENDINTERFACE generic_spec eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDINTERFACE eos
+| labeldef TOKEN_ENDINTERFACE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -4935,98 +4943,98 @@ interface_body : function_stmt interface_program_body end_function_stmt
 }
 ;
 
-procedure_stmt : labeldef TOK_MODULE TOK_PROCEDURE ':' ':' procedure_name_list eos
+procedure_stmt : labeldef TOKEN_MODULE TOKEN_PROCEDURE ':' ':' procedure_name_list eos
 {
-    char c[] = "module procedure";
-    sprintf(c, "%s %s", $2.token_text, $3.token_text);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s %s", $2.token_text, $3.token_text);
 
     $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $6, make_locus($2.token_file, $2.token_line, 0), c);
 }
-| labeldef TOK_PROCEDURE ':' ':' procedure_name_list eos
+| labeldef TOKEN_PROCEDURE ':' ':' procedure_name_list eos
 {
     $$ = ASTMake2Label(AST_PROCEDURE, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_MODULE TOK_PROCEDURE procedure_name_list eos
+| labeldef TOKEN_MODULE TOKEN_PROCEDURE procedure_name_list eos
 {
-    char c[] = "module procedure";
-    sprintf(c, "%s %s", $2.token_text, $3.token_text);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s %s", $2.token_text, $3.token_text);
 
     $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $4, make_locus($2.token_file, $2.token_line, 0), c);
 }
-| labeldef TOK_PROCEDURE procedure_name_list eos
+| labeldef TOKEN_PROCEDURE procedure_name_list eos
 {
     $$ = ASTMake2Label(AST_PROCEDURE, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
 generic_spec : defined_operator_name
-| TOK_ASSIGNMENT '(' '=' ')'
+| TOKEN_ASSIGNMENT '(' '=' ')'
 {
     $$ = ASTLeaf(AST_OPERATOR_NAME, make_locus($1.token_file, $1.token_line, 0), $3.token_text);
 }
 | defined_io_generic_spec
 | name
 ;
-defined_io_generic_spec_fmt : TOK_FORMATTED
+defined_io_generic_spec_fmt : TOKEN_FORMATTED
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_UNFORMATTED
+| TOKEN_UNFORMATTED
 {
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-defined_io_generic_spec : TOK_READ '(' defined_io_generic_spec_fmt ')'
+defined_io_generic_spec : TOKEN_READ '(' defined_io_generic_spec_fmt ')'
 {
     $$ = ASTMake1(AST_IO_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_WRITE '(' defined_io_generic_spec_fmt ')'
+| TOKEN_WRITE '(' defined_io_generic_spec_fmt ')'
 {
     $$ = ASTMake1(AST_IO_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-import_stmt : labeldef TOK_IMPORT ':' ':' import_name_list eos
+import_stmt : labeldef TOKEN_IMPORT ':' ':' import_name_list eos
 {
     $$ = ASTMake2Label(AST_IMPORT_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_IMPORT eos
+| labeldef TOKEN_IMPORT eos
 {
     $$ = ASTMake2Label(AST_IMPORT_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_IMPORT import_name_list eos
+| labeldef TOKEN_IMPORT import_name_list eos
 {
     $$ = ASTMake2Label(AST_IMPORT_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-external_stmt : labeldef TOK_EXTERNAL ':' ':' external_name_list eos
+external_stmt : labeldef TOKEN_EXTERNAL ':' ':' external_name_list eos
 {
     $$ = ASTMake2Label(AST_EXTERNAL_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_EXTERNAL external_name_list eos
+| labeldef TOKEN_EXTERNAL external_name_list eos
 {
     $$ = ASTMake2Label(AST_EXTERNAL_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-procedure_declaration_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
+procedure_declaration_stmt : labeldef TOKEN_PROCEDURE '(' proc_interface ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, $4, $7, $10, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE '(' ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
+| labeldef TOKEN_PROCEDURE '(' ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, NULL, $6, $9, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE '(' proc_interface ')' proc_decl_list eos
+| labeldef TOKEN_PROCEDURE '(' proc_interface ')' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, $4, NULL, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE '(' proc_interface ')' ':' ':' proc_decl_list eos
+| labeldef TOKEN_PROCEDURE '(' proc_interface ')' ':' ':' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, $4, NULL, $8, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE '(' ')' proc_decl_list eos
+| labeldef TOKEN_PROCEDURE '(' ')' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, NULL, NULL, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_PROCEDURE '(' ')' ':' ':' proc_decl_list eos
+| labeldef TOKEN_PROCEDURE '(' ')' ':' ':' proc_decl_list eos
 {
     $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, NULL, NULL, NULL, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -5036,34 +5044,34 @@ proc_interface : name %dprec 1
 ;
 proc_attr_spec : access_spec
 | proc_language_binding_spec
-| TOK_INTENT '(' intent_spec ')'
+| TOKEN_INTENT '(' intent_spec ')'
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_OPTIONAL
+| TOKEN_OPTIONAL
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_POINTER
+| TOKEN_POINTER
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_SAVE
+| TOKEN_SAVE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-proc_decl : name TOK_POINTER_ACCESS data_ref
+proc_decl : name TOKEN_POINTER_ACCESS data_ref
 {
     $$ = ASTMake2(AST_RENAME, $1, $3, ast_get_locus($1), NULL);
 }
 | name
 ;
-intrinsic_stmt : labeldef TOK_INTRINSIC ':' ':' intrinsic_procedure_name_list eos
+intrinsic_stmt : labeldef TOKEN_INTRINSIC ':' ':' intrinsic_procedure_name_list eos
 {
     $$ = ASTMake2Label(AST_INTRINSIC_STATEMENT, $1, $5, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_INTRINSIC intrinsic_procedure_name_list eos
+| labeldef TOKEN_INTRINSIC intrinsic_procedure_name_list eos
 {
     $$ = ASTMake2Label(AST_INTRINSIC_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -5077,12 +5085,12 @@ function_reference : procedure_designator '(' actual_arg_spec_list ')'
     $$ = ASTMake2(AST_FUNCTION_CALL, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
-call_stmt : labeldef TOK_CALL function_reference eos
+call_stmt : labeldef TOKEN_CALL function_reference eos
 {
     ast_set_text($3, "call");
     $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_CALL procedure_designator eos
+| labeldef TOKEN_CALL procedure_designator eos
 {
     AST function_ref = ASTMake2(AST_FUNCTION_CALL, $3, NULL, ast_get_locus($3), "call");
     $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, function_ref, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
@@ -5113,23 +5121,23 @@ prefix_spec : declaration_type_spec
 {
     $$ = ASTMake1(AST_ATTR_SPEC, $1, ast_get_locus($1), "__declaration__");
 }
-| TOK_ELEMENTAL
+| TOKEN_ELEMENTAL
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_IMPURE
+| TOKEN_IMPURE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_MODULE
+| TOKEN_MODULE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_PURE
+| TOKEN_PURE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| TOK_RECURSIVE
+| TOKEN_RECURSIVE
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -5139,11 +5147,11 @@ function_subprogram : function_stmt program_body end_function_stmt
     $$ = ASTMake3(AST_FUNCTION_PROGRAM_UNIT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-function_stmt : labeldef prefix TOK_FUNCTION name function_prototype eos
+function_stmt : labeldef prefix TOKEN_FUNCTION name function_prototype eos
 {
     $$ = ASTMake4Label(AST_FUNCTION_STATEMENT, $1, $2, $4, $5, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_FUNCTION name function_prototype eos
+| labeldef TOKEN_FUNCTION name function_prototype eos
 {
     $$ = ASTMake4Label(AST_FUNCTION_STATEMENT, $1, NULL, $3, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -5165,7 +5173,7 @@ function_prototype : '(' dummy_arg_list ')' suffix
     $$ = ASTMake2(AST_FUNCTION_PROTOTYPE, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-suffix : proc_language_binding_spec TOK_RESULT '(' name ')'
+suffix : proc_language_binding_spec TOKEN_RESULT '(' name ')'
 {
     $$ = ASTMake2(AST_PROCEDURE_SUFFIX, $1, $4, ast_get_locus($1), NULL);
 }
@@ -5173,32 +5181,32 @@ suffix : proc_language_binding_spec TOK_RESULT '(' name ')'
 {
     $$ = ASTMake2(AST_PROCEDURE_SUFFIX, $1, NULL, ast_get_locus($1), NULL);
 }
-| TOK_RESULT '(' name ')' proc_language_binding_spec
+| TOKEN_RESULT '(' name ')' proc_language_binding_spec
 {
     $$ = ASTMake2(AST_PROCEDURE_SUFFIX, $5, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOK_RESULT '(' name ')'
+| TOKEN_RESULT '(' name ')'
 {
     $$ = ASTMake2(AST_PROCEDURE_SUFFIX, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
-end_function_stmt : labeldef TOK_END TOK_FUNCTION name eos
+end_function_stmt : labeldef TOKEN_END TOKEN_FUNCTION name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END eos
+| labeldef TOKEN_END eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_END TOK_FUNCTION eos
+| labeldef TOKEN_END TOKEN_FUNCTION eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDFUNCTION name eos
+| labeldef TOKEN_ENDFUNCTION name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDFUNCTION eos
+| labeldef TOKEN_ENDFUNCTION eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -5208,19 +5216,19 @@ subroutine_subprogram : subroutine_stmt program_body end_subroutine_stmt
     $$ = ASTMake3(AST_SUBROUTINE_PROGRAM_UNIT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-subroutine_stmt : labeldef prefix TOK_SUBROUTINE name function_prototype eos
+subroutine_stmt : labeldef prefix TOKEN_SUBROUTINE name function_prototype eos
 {
     $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, $2, $4, $5, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_SUBROUTINE name function_prototype eos
+| labeldef TOKEN_SUBROUTINE name function_prototype eos
 {
     $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, $4, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef prefix TOK_SUBROUTINE name eos
+| labeldef prefix TOKEN_SUBROUTINE name eos
 {
     $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, $2, $4, NULL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_SUBROUTINE name eos
+| labeldef TOKEN_SUBROUTINE name eos
 {
     $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -5231,23 +5239,23 @@ dummy_arg : name
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-end_subroutine_stmt : labeldef TOK_END TOK_SUBROUTINE name eos
+end_subroutine_stmt : labeldef TOKEN_END TOKEN_SUBROUTINE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END eos
+| labeldef TOKEN_END eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_END TOK_SUBROUTINE eos
+| labeldef TOKEN_END TOKEN_SUBROUTINE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDSUBROUTINE name eos
+| labeldef TOKEN_ENDSUBROUTINE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDSUBROUTINE eos
+| labeldef TOKEN_ENDSUBROUTINE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
@@ -5257,66 +5265,66 @@ separate_module_subprogram : mp_subprogram_stmt program_body end_mp_subprogram_s
     $$ = ASTMake3(AST_MODULE_PROCEDURE_PROGRAM_UNIT, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
-mp_subprogram_stmt : labeldef TOK_MODULE TOK_PROCEDURE name eos
+mp_subprogram_stmt : labeldef TOKEN_MODULE TOKEN_PROCEDURE name eos
 {
-    char c[] = "module procedure";
-    sprintf(c, "%s %s", $2.token_text, $3.token_text);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s %s", $2.token_text, $3.token_text);
 
     $$ = ASTMake2Label(AST_MODULE_PROCEDURE_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), c);
 }
 ;
-end_mp_subprogram_stmt : labeldef TOK_END TOK_PROCEDURE name eos
+end_mp_subprogram_stmt : labeldef TOKEN_END TOKEN_PROCEDURE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 }
-| labeldef TOK_END eos
+| labeldef TOKEN_END eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_END TOK_PROCEDURE eos
+| labeldef TOKEN_END TOKEN_PROCEDURE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $3.token_text);
 }
-| labeldef TOK_ENDPROCEDURE name eos
+| labeldef TOKEN_ENDPROCEDURE name eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENDPROCEDURE eos
+| labeldef TOKEN_ENDPROCEDURE eos
 {
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-entry_stmt : labeldef TOK_ENTRY name '(' dummy_arg_list ')' suffix eos
+entry_stmt : labeldef TOKEN_ENTRY name '(' dummy_arg_list ')' suffix eos
 {
     $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, $5, $7, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENTRY name eos
+| labeldef TOKEN_ENTRY name eos
 {
     $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENTRY name '(' ')' suffix eos
+| labeldef TOKEN_ENTRY name '(' ')' suffix eos
 {
     $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, NULL, $6, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENTRY name '(' dummy_arg_list ')' eos
+| labeldef TOKEN_ENTRY name '(' dummy_arg_list ')' eos
 {
     $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, $5, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_ENTRY name '(' ')' eos
+| labeldef TOKEN_ENTRY name '(' ')' eos
 {
     $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-return_stmt : labeldef TOK_RETURN int_expr eos
+return_stmt : labeldef TOKEN_RETURN int_expr eos
 {
     $$ = ASTMake3Label(AST_RETURN_STATEMENT, $1, NULL, $3, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
-| labeldef TOK_RETURN eos
+| labeldef TOKEN_RETURN eos
 {
     $$ = ASTMake3Label(AST_RETURN_STATEMENT, $1, NULL, NULL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 }
 ;
-contains_stmt : labeldef TOK_CONTAINS eos
+contains_stmt : labeldef TOKEN_CONTAINS eos
 {
     // EMPTY, this statement does nothing but act as a separator
 }
@@ -6080,201 +6088,202 @@ namelist_item_list : namelist_item
   $$ = ASTList($1, $3);
 }
 ;
-hollerith_constant : TOK_HOLLERITH_CONSTANT
+hollerith_constant : TOKEN_HOLLERITH_CONSTANT
 {
     $$ = ASTLeaf(AST_HOLLERITH_CONSTANT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 // Keywords
-keyword : TOK_FORMAT
-| TOK_GENERIC
-| TOK_VOLATILE
-| TOK_EQUIVALENCE
-| TOK_EOR
-| TOK_PROTECTED
-| TOK_PAD
-| TOK_FILE
-| TOK_UNFORMATTED
-| TOK_NAMED
-| TOK_SUBROUTINE
-| TOK_OPENED
-| TOK_DELIM
-| TOK_SOURCE
-| TOK_CRITICAL
-| TOK_ACTION
-| TOK_IMPORT
-| TOK_BLOCK
-| TOK_ENUM
-| TOK_OVERRIDABLE
-| TOK_MODULE
-| TOK_SIGN
-| TOK_EXTENDS
-| TOK_PASS
-| TOK_GO
-| TOK_ENTRY
-| TOK_WHERE
-| TOK_PROCEDURE
-| TOK_NAME
-| TOK_DOUBLE
-| TOK_CONTAINS
-| TOK_LOGICAL
-| TOK_NEWUNIT
-| TOK_NULLIFY
-| TOK_DEFERRED
-| TOK_ONLY
-| TOK_EXIST
-| TOK_INTERFACE
-| TOK_SAVE
-| TOK_ADVANCE
-| TOK_STAT
-| TOK_RETURN
-| TOK_READWRITE
-| TOK_ASSIGN
-| TOK_ASSIGNMENT
-| TOK_PRINT
-| TOK_IOSTAT
-| TOK_SYNC
-| TOK_COMPLEX
-| TOK_ASYNCHRONOUS
-| TOK_IMAGES
-| TOK_END
-| TOK_FINAL
-| TOK_INOUT
-| TOK_NEXTREC
-| TOK_KIND
-| TOK_COMMON
-| TOK_BLANK
-| TOK_IOLENGTH
-| TOK_INTEGER
-| TOK_DEALLOCATE
-| TOK_FUNCTION
-| TOK_C
-| TOK_OPENCL
-| TOK_ENUMERATOR
-| TOK_RECURSIVE
-| TOK_SEQUENCE
-| TOK_INQUIRE
-| TOK_FLUSH
-| TOK_ELSE
-| TOK_INTENT
-| TOK_EXTERNAL
-| TOK_OPERATOR
-| TOK_OPTIONAL
-| TOK_UNIT
-| TOK_SIZE
-| TOK_NOPASS
-| TOK_TYPE
-| TOK_MOLD
-| TOK_PRECISION
-| TOK_PENDING
-| TOK_CONTINUE
-| TOK_RESULT
-| TOK_REAL
-| TOK_THEN
-| TOK_STREAM
-| TOK_DO
-| TOK_DEFAULT
-| TOK_CONTIGUOUS
-| TOK_STOP
-| TOK_WHILE
-| TOK_PROGRAM
-| TOK_REC
-| TOK_OPEN
-| TOK_CASE
-| TOK_RECL
-| TOK_DIMENSION
-| TOK_ELEMENTAL
-| TOK_FORALL
-| TOK_POSITION
-| TOK_FMT
-| TOK_READ
-| TOK_OUT
-| TOK_LOCK
-| TOK_DECIMAL
-| TOK_SELECT
-| TOK_SELECTCASE
-| TOK_DIRECT
-| TOK_WRITE
-| TOK_CODIMENSION
-| TOK_CLOSE
-| TOK_ID
-| TOK_WAIT
-| TOK_ALL
-| TOK_ELSEWHERE
-| TOK_LEN
-| TOK_IMPURE
-| TOK_EXIT
-| TOK_REWIND
-| TOK_BACKSPACE
-| TOK_NML
-| TOK_INTRINSIC
-| TOK_PUBLIC
-| TOK_ERRMSG
-| TOK_NAMELIST
-| TOK_USE
-| TOK_SUBMODULE
-| TOK_ERR
-| TOK_ENCODING
-| TOK_ACQUIRED
-| TOK_ABSTRACT
-| TOK_CHARACTER
-| TOK_NUMBER
-| TOK_CONCURRENT
-| TOK_ENDFILE
-| TOK_PARAMETER
-| TOK_DATA
-| TOK_POS
-| TOK_PRIVATE
-| TOK_ROUND
-| TOK_TO
-| TOK_SEQUENTIAL
-| TOK_ALLOCATE
-| TOK_TARGET
-| TOK_CLASS
-| TOK_CYCLE
-| TOK_STATUS
-| TOK_IOMSG
-| TOK_FORM
-| TOK_IS
-| TOK_NONE
-| TOK_VALUE
-| TOK_UNLOCK
-| TOK_FORMATTED
-| TOK_IN
-| TOK_IMPLICIT
-| TOK_IF
-| TOK_ASSOCIATE
-| TOK_BIND
-| TOK_ALLOCATABLE
-| TOK_ACCESS
-| TOK_CALL
-| TOK_PURE
-| TOK_MEMORY
-| TOK_POINTER
-| TOK_ALLSTOP
-| TOK_ENDIF
-| TOK_ENDFUNCTION
-| TOK_ENDDO
-| TOK_BLOCKDATA 
-| TOK_ENDMODULE
-| TOK_DOUBLEPRECISION 
-| TOK_ENDINTERFACE
-| TOK_ELSEIF 
-| TOK_ENDPROCEDURE
-| TOK_ENDPROGRAM
-| TOK_ENDASSOCIATE
-| TOK_ENDSELECT
-| TOK_ENDBLOCK
-| TOK_ENDSUBMODULE
-| TOK_ENDBLOCKDATA
-| TOK_ENDSUBROUTINE
-| TOK_ENDCRITICAL
-| TOK_ENDTYPE
-| TOK_VECTOR
-| TOK_PAUSE
-| TOK_PIXEL
-| TOK_DOUBLECOMPLEX
-| TOK_GOTO
+keyword : TOKEN_FORMAT
+| TOKEN_GENERIC
+| TOKEN_VOLATILE
+| TOKEN_EQUIVALENCE
+| TOKEN_EOR
+| TOKEN_PROTECTED
+| TOKEN_PAD
+| TOKEN_FILE
+| TOKEN_UNFORMATTED
+| TOKEN_NAMED
+| TOKEN_SUBROUTINE
+| TOKEN_OPENED
+| TOKEN_DELIM
+| TOKEN_SOURCE
+| TOKEN_CRITICAL
+| TOKEN_ACTION
+| TOKEN_IMPORT
+| TOKEN_BLOCK
+| TOKEN_ENUM
+| TOKEN_OVERRIDABLE
+| TOKEN_MODULE
+| TOKEN_SIGN
+| TOKEN_EXTENDS
+| TOKEN_PASS
+| TOKEN_GO
+| TOKEN_ENTRY
+| TOKEN_WHERE
+| TOKEN_PROCEDURE
+| TOKEN_NAME
+| TOKEN_DOUBLE
+| TOKEN_CONTAINS
+| TOKEN_LOGICAL
+| TOKEN_NEWUNIT
+| TOKEN_NULLIFY
+| TOKEN_DEFERRED
+| TOKEN_ONLY
+| TOKEN_EXIST
+| TOKEN_INTERFACE
+| TOKEN_SAVE
+| TOKEN_ADVANCE
+| TOKEN_STAT
+| TOKEN_RETURN
+| TOKEN_READWRITE
+| TOKEN_ASSIGN
+| TOKEN_ASSIGNMENT
+| TOKEN_PRINT
+| TOKEN_IOSTAT
+| TOKEN_SYNC
+| TOKEN_COMPLEX
+| TOKEN_ASYNCHRONOUS
+| TOKEN_IMAGES
+| TOKEN_END
+| TOKEN_FINAL
+| TOKEN_INOUT
+| TOKEN_NEXTREC
+| TOKEN_KIND
+| TOKEN_COMMON
+| TOKEN_BLANK
+| TOKEN_IOLENGTH
+| TOKEN_INTEGER
+| TOKEN_DEALLOCATE
+| TOKEN_FUNCTION
+| TOKEN_C
+| TOKEN_OPENCL
+| TOKEN_ENUMERATOR
+| TOKEN_RECURSIVE
+| TOKEN_SEQUENCE
+| TOKEN_INQUIRE
+| TOKEN_FLUSH
+| TOKEN_ELSE
+| TOKEN_INTENT
+| TOKEN_EXTERNAL
+| TOKEN_OPERATOR
+| TOKEN_OPTIONAL
+| TOKEN_UNIT
+| TOKEN_SIZE
+| TOKEN_NOPASS
+| TOKEN_TYPE
+| TOKEN_MOLD
+| TOKEN_PRECISION
+| TOKEN_PENDING
+| TOKEN_CONTINUE
+| TOKEN_RESULT
+| TOKEN_REAL
+| TOKEN_THEN
+| TOKEN_STREAM
+| TOKEN_DO
+| TOKEN_DEFAULT
+| TOKEN_CONTIGUOUS
+| TOKEN_STOP
+| TOKEN_WHILE
+| TOKEN_PROGRAM
+| TOKEN_REC
+| TOKEN_OPEN
+| TOKEN_CASE
+| TOKEN_RECL
+| TOKEN_DIMENSION
+| TOKEN_ELEMENTAL
+| TOKEN_FORALL
+| TOKEN_POSITION
+| TOKEN_FMT
+| TOKEN_READ
+| TOKEN_OUT
+| TOKEN_LOCK
+| TOKEN_DECIMAL
+| TOKEN_SELECT
+| TOKEN_SELECTCASE
+| TOKEN_DIRECT
+| TOKEN_WRITE
+| TOKEN_CODIMENSION
+| TOKEN_CLOSE
+| TOKEN_ID
+| TOKEN_WAIT
+| TOKEN_ALL
+| TOKEN_ELSEWHERE
+| TOKEN_LEN
+| TOKEN_IMPURE
+| TOKEN_EXIT
+| TOKEN_REWIND
+| TOKEN_BACKSPACE
+| TOKEN_NML
+| TOKEN_INTRINSIC
+| TOKEN_PUBLIC
+| TOKEN_ERRMSG
+| TOKEN_NAMELIST
+| TOKEN_USE
+| TOKEN_SUBMODULE
+| TOKEN_ERR
+| TOKEN_ENCODING
+| TOKEN_ACQUIRED
+| TOKEN_ABSTRACT
+| TOKEN_CHARACTER
+| TOKEN_NUMBER
+| TOKEN_CONCURRENT
+| TOKEN_ENDFILE
+| TOKEN_PARAMETER
+| TOKEN_DATA
+| TOKEN_POS
+| TOKEN_PRIVATE
+| TOKEN_ROUND
+| TOKEN_TO
+| TOKEN_SEQUENTIAL
+| TOKEN_ALLOCATE
+| TOKEN_TARGET
+| TOKEN_CLASS
+| TOKEN_CYCLE
+| TOKEN_STATUS
+| TOKEN_IOMSG
+| TOKEN_FORM
+| TOKEN_IS
+| TOKEN_NONE
+| TOKEN_VALUE
+| TOKEN_UNLOCK
+| TOKEN_FORMATTED
+| TOKEN_IN
+| TOKEN_IMPLICIT
+| TOKEN_IF
+| TOKEN_ASSOCIATE
+| TOKEN_BIND
+| TOKEN_ALLOCATABLE
+| TOKEN_ACCESS
+| TOKEN_CALL
+| TOKEN_CONVERT
+| TOKEN_PURE
+| TOKEN_MEMORY
+| TOKEN_POINTER
+| TOKEN_ALLSTOP
+| TOKEN_ENDIF
+| TOKEN_ENDFUNCTION
+| TOKEN_ENDDO
+| TOKEN_BLOCKDATA 
+| TOKEN_ENDMODULE
+| TOKEN_DOUBLEPRECISION 
+| TOKEN_ENDINTERFACE
+| TOKEN_ELSEIF 
+| TOKEN_ENDPROCEDURE
+| TOKEN_ENDPROGRAM
+| TOKEN_ENDASSOCIATE
+| TOKEN_ENDSELECT
+| TOKEN_ENDBLOCK
+| TOKEN_ENDSUBMODULE
+| TOKEN_ENDBLOCKDATA
+| TOKEN_ENDSUBROUTINE
+| TOKEN_ENDCRITICAL
+| TOKEN_ENDTYPE
+| TOKEN_VECTOR
+| TOKEN_PAUSE
+| TOKEN_PIXEL
+| TOKEN_DOUBLECOMPLEX
+| TOKEN_GOTO
 ;
 
 labeldef : label
@@ -6290,6 +6299,7 @@ labeldef : label
 /*!include cxx-pragma.y*/
 /*!include cxx-placeholders.y*/
 /*!include fortran03-omp.y*/
+/*!include fortran03-ompss.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

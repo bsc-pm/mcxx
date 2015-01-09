@@ -194,7 +194,7 @@ static type_t* build_function_type_2(type_t* ret, type_t* arg1)
     _param_info[0].is_ellipsis = 0; 
     _param_info[0].type_info = arg1;
     _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); 
-    result =  get_new_function_type(ret, _param_info, 1); 
+    result =  get_new_function_type(ret, _param_info, 1, REF_QUALIFIER_NONE); 
 
     return result;
 }
@@ -210,7 +210,7 @@ static type_t* build_function_type_3(type_t* ret, type_t* arg1, type_t* arg2)
     _param_info[1].is_ellipsis = 0; 
     _param_info[1].type_info = arg2;
     _param_info[1].type_info = adjust_type_for_parameter_type(_param_info[1].type_info); 
-    result =  get_new_function_type(ret, _param_info, 2); 
+    result =  get_new_function_type(ret, _param_info, 2, REF_QUALIFIER_NONE); 
     return result;
 }
 
@@ -228,11 +228,11 @@ static type_t* build_function_type_4(type_t* ret, type_t* arg1, type_t* arg2, ty
     _param_info[2].is_ellipsis = 0; 
     _param_info[2].type_info = arg3;
     _param_info[2].type_info = adjust_type_for_parameter_type(_param_info[2].type_info); 
-    result =  get_new_function_type(ret, _param_info, 3); 
+    result =  get_new_function_type(ret, _param_info, 3, REF_QUALIFIER_NONE); 
     return result;
 }
 
-#define _A1(ret) (get_new_function_type(spu_builtin_types[ret], NULL, 0))
+#define _A1(ret) (get_new_function_type(spu_builtin_types[ret], NULL, 0, REF_QUALIFIER_NONE))
 #define _A2(ret, arg1) (build_function_type_2(spu_builtin_types[ret], spu_builtin_types[arg1]))
 #define _A3(ret, arg1, arg2) (build_function_type_3(spu_builtin_types[ret], spu_builtin_types[arg1], spu_builtin_types[arg2]))
 #define _A4(ret, arg1, arg2, arg3) (build_function_type_4(spu_builtin_types[ret], spu_builtin_types[arg1], spu_builtin_types[arg2], spu_builtin_types[arg3]))
@@ -280,7 +280,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
     {
         snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, i);
         name[255] = '\0';
-        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name);
+        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name, NULL);
 
         // Let's assume no more overloads have been defined
         if (entry_list == NULL)
@@ -382,7 +382,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
     { \
         new_spu_builtin->type_information = TYPE; \
     } \
-    new_spu_builtin->entity_specs.is_builtin = 1; \
+    symbol_entity_specs_set_is_builtin(new_spu_builtin, 1); \
     new_spu_builtin->do_not_print = 1; \
 }
 

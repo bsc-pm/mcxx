@@ -49,6 +49,7 @@ def parse_rules(f):
     
     regex_name = re.compile("\[([_A-Za-z][_*A-Za-z0-9]*)\]\s*([-_A-Za-z0-9]+)")
     rule_map = { }
+    rule_map["any"] = []
     for r in rule_set:
         (rule_name, rule_rhs) = r
         if rule_name not in rule_map:
@@ -129,6 +130,37 @@ def parse_rules(f):
                 rule_map[rule_name].append( nodecl_structure )
             else:
                 rule_map[rule_name].append( RuleRef(rhs) )
+
+    for current_rule_name in rule_map:
+        can_be_seq = 1
+        can_be_opt = 1
+        has_to_be_seq = 0
+        has_to_be_opt = 0
+        for rhs in rule_map[current_rule_name]:
+            if rhs.__class__ == NodeclStructure:
+                if has_to_be_seq:
+                    raise Exception("inconsistent RHS: should generate a list, not a single node")
+                if has_to_be_opt:
+                    raise Exception("inconsistent RHS: should generate an optional node, not a single node")
+                can_be_seq = 0
+                can_be_opt = 0
+            elif rhs.__class__ == RuleRef:
+                current_is_seq = rhs.rule_ref.find("-seq") > 0
+                current_is_opt = rhs.rule_ref.find("-opt") > 0
+                if not can_be_seq and current_is_seq:
+                    raise Exception("inconsistent RHS: cannot generate a list")
+                if not can_be_opt and current_is_opt:
+                    raise Exception("inconsistent RHS: cannot generate an optional node")
+                if not current_is_seq and has_to_be_seq:
+                    raise Exception("inconsistent RHS: must generate a list")
+                if not current_is_opt and has_to_be_opt:
+                    raise Exception("inconsistent RHS: must generate an optional node")
+                if current_is_seq:
+                    has_to_be_seq = 1
+                if current_is_opt:
+                    has_to_be_opt = 1
+            else:
+                raise Exception("invalid kind of node")
     return rule_map
 
 
@@ -848,7 +880,6 @@ def generate_nodecl_classes_base(rule_map):
    print "#define TL_NODECL_HPP"
    print ""
    print "#include <string>"
-   print "#include <sstream>"
    print "#include \"tl-nodecl-base.hpp\""
    print "#include \"mem.h\""
    
@@ -957,9 +988,9 @@ def generate_routines_header(rule_map):
    print ""
    print "#include \"cxx-macros.h\""
    print "#include \"cxx-nodecl.h\""
-   print "#include \"cxx-scope-fwd.h\""
    print "#include \"cxx-type-fwd.h\""
    print "#include \"cxx-cexpr-fwd.h\""
+   print "#include \"cxx-scope-decls.h\""
    print "#include \"mem.h\""
    print ""
    print "MCXX_BEGIN_DECLS"
@@ -968,6 +999,7 @@ def generate_routines_header(rule_map):
    for i in range(1, 7):
         params = map(lambda x : "nodecl_t element%d" % (x) , range(0, i))
         print "nodecl_t nodecl_make_list_%d(%s);" % (i, string.join(params, ", "))
+   print "nodecl_t nodecl_make_list_n(int num_items, nodecl_t* items);"
    print ""
    classes = {}
    for rule_name in rule_map:
@@ -1015,6 +1047,13 @@ def generate_routines_impl(rule_map):
         print "{"
         print "  return nodecl_append_to_list(nodecl_make_list_%d(%s), %s);" % (i-1, string.join(args[:-1], ", "), args[-1])
         print "}"
+   print "nodecl_t nodecl_make_list_n(int num_items, nodecl_t* items)"
+   print "{"
+   print "   int i;"
+   print "   nodecl_t result = nodecl_null();"
+   print "   for (i = 0; i < num_items; i++) result = nodecl_append_to_list(result, items[i]);"
+   print "   return result;"
+   print "}"
 
    classes = {}
    for rule_name in rule_map:
@@ -1072,32 +1111,37 @@ def generate_routines_impl(rule_map):
              print " {"
              print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s. Location: %%s\\n\", locus_to_str(location));" % (i, key)
              print " }"
-             print "int i, num_items = 0;"
-             print "nodecl_t* list_items = nodecl_unpack_list(checked_tree, &num_items);"
-             print "for (i = 0; i < num_items; i++)"
+             print "AST list = nodecl_get_ast(checked_tree), it;"
+             print "for_each_element(list, it)"
              print "{"
-             print     "checked_tree = list_items[i];"
-          checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
-          print "if (%s)" % (string.join(checks, "\n&& "))
-          print "{"
-          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), locus_to_str(location));" % (i, key)
-          print "}"
+             print "  checked_tree = _nodecl_wrap(ASTSon1(it));"
+          if first_set :
+              checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
+              print "if (%s)" % (string.join(checks, "\n&& "))
+              print "{"
+              print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), locus_to_str(location));" % (i, key)
+              print "}"
           if subrule_ref.is_seq():
              print "}"
-             print "xfree(list_items);"
           if subrule_ref.is_nullable():
              print "}"
           i = i + 1
           print "}"
 
+       if rhs_rule.needs_text:
+           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s\", locus_to_str(location));"
+           text_value = "text";
+       else:
+           text_value = "NULL"
+
        # Build the node
        print "  nodecl_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
-          print "  result.tree = ASTLeaf(%s, location, NULL);" % (rhs_rule.name_to_underscore())
+          print "  result.tree = ASTLeaf(%s, location, %s);" % (rhs_rule.name_to_underscore(), text_value)
        else:
-          print "  result.tree = ASTMake%d(%s, %s, location, NULL);" % (num_children, rhs_rule.name_to_underscore(), \
-                 string.join(map(lambda x : x + ".tree", param_name_list), ", "));
+          print "  result.tree = ASTMake%d(%s, %s, location, %s);" % (num_children, rhs_rule.name_to_underscore(), \
+                 string.join(map(lambda x : x + ".tree", param_name_list), ", "), text_value);
 
        if rhs_rule.needs_symbol:
            print "  if (symbol == NULL) internal_error(\"Node requires a symbol. Location: %s\", locus_to_str(location));"
@@ -1105,9 +1149,6 @@ def generate_routines_impl(rule_map):
        if rhs_rule.needs_type:
            print "  if (type == NULL) internal_error(\"This node requires a type. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_type(result, type);"
-       if rhs_rule.needs_text:
-           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s\", locus_to_str(location));"
-           print "  nodecl_set_text(result, text);"
        if rhs_rule.needs_cval:
            print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_constant(result, cval);"
@@ -1175,7 +1216,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
     AST tree = nodecl_get_ast(n);
     if (tree == NULL)
         return;
-    switch (ASTType(tree))
+    switch (ASTKind(tree))
     {
         case AST_NODE_LIST: { AST it; for_each_element(tree, it) { AST elem = ASTSon1(it); nodecl_walk(external_visitor, _nodecl_wrap(elem)); } break; }
 """
@@ -1189,7 +1230,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
         print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, n); break; }" % (node[0], node[1], node[1])
     print """
        default:
-           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTType(tree))); }
+           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTKind(tree))); }
     }
 }
 
@@ -1240,6 +1281,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
           {
                   result = nodecl_append_to_list(result, nodecl_shallow_copy(list[i]));
           }
+          xfree(list);
           return result;
           break;
         }
@@ -1258,7 +1300,14 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
-            print "nodecl_t child_%d = nodecl_shallow_copy(nodecl_get_child(n, %d));" % (i, i)
+            (rule_label, rule_ref) = subtree
+            current_rule = RuleRef(rule_ref)
+
+            if current_rule.canonical_rule() != "any":
+                print "nodecl_t child_%d = nodecl_shallow_copy(nodecl_get_child(n, %d));" % (i, i)
+            else:
+                print "nodecl_t child_%d = _nodecl_wrap(ast_copy(nodecl_get_ast(nodecl_get_child(n, %d))));" % (i, i)
+
             factory_arguments.append("child_%d" % (i))
             i = i + 1
 
@@ -1316,7 +1365,11 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
             print "nodecl_set_template_parameters(result, template_parameters);"
 
         if may_have_attr("decl_context"):
-            print "nodecl_set_decl_context(n, decl_context);"
+            print "nodecl_set_decl_context(result, decl_context);"
+
+        # Extra attributes from expressions
+        print "nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(n));"
+        print "nodecl_expr_set_is_type_dependent(result, nodecl_expr_is_type_dependent(n));"
 
         print "       return result;";
         print "       break;"
@@ -1344,33 +1397,45 @@ def generate_c_deep_copy_def(rule_map):
     print """
 extern nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, 
    symbol_map_t* symbol_map,
-   symbol_map_t** synth_symbol_map);
+   symbol_map_t** synth_symbol_map,
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   symbol_deep_copy_map_t* symbol_deep_copy_map);
 extern nodecl_t nodecl_deep_copy_function_code(nodecl_t n, decl_context_t new_decl_context, 
    symbol_map_t* symbol_map,
-   symbol_map_t** synth_symbol_map);
+   symbol_map_t** synth_symbol_map,
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   symbol_deep_copy_map_t* symbol_deep_copy_map);
+
+extern void nodecl_deep_copy_map_add(
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   nodecl_t orig,
+   nodecl_t copied);
 
 nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
    symbol_map_t* symbol_map,
-   symbol_map_t** synth_symbol_map)
+   symbol_map_t** synth_symbol_map,
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   symbol_deep_copy_map_t* symbol_deep_copy_map)
 {
     *synth_symbol_map = symbol_map;
 
     if (nodecl_is_null(n))
         return nodecl_null();
+    nodecl_t result;
     switch (nodecl_get_kind(n))
     {
         case AST_NODE_LIST:
         {
           int num_items = 0;
-          nodecl_t result = nodecl_null();
+          result = nodecl_null();
           nodecl_t* list = nodecl_unpack_list(n, &num_items);
           int i;
           for (i = 0; i < num_items; i++)
           {
                   result = nodecl_append_to_list(result, nodecl_deep_copy_rec(list[i], new_decl_context,
-                          *synth_symbol_map, synth_symbol_map));
+                          *synth_symbol_map, synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));
           }
-          return result;
+          xfree(list);
           break;
         }
 """
@@ -1386,18 +1451,29 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "       {"
 
         if node[0] == "NODECL_CONTEXT":
-            print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
+            print "          result = nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);"
+            print "          return result;"
             print "       }"
             continue
         elif node[0] == "NODECL_FUNCTION_CODE":
-            print "return nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
+            print "          result = nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);"
+            print "          return result;"
             print "       }"
             continue
 
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
-            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map);" % (i, i)
+            (rule_label, rule_ref) = subtree
+            current_rule = RuleRef(rule_ref)
+
+            if current_rule.canonical_rule() != "any":
+                print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (i, i)
+            else:
+                print "nodecl_t child_%d = _nodecl_wrap(ast_copy(nodecl_get_ast(nodecl_get_child(n, %d))));" % (i, i);
+
             factory_arguments.append("child_%d" % (i))
             i = i + 1
 
@@ -1413,7 +1489,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         # FIXME - The type may have to be regenerated as well
         if has_attr("type"):
             print "type_t* type = nodecl_get_type(n);"
-            print "type = type_deep_copy(type, new_decl_context, symbol_map);"
+            print "type = type_deep_copy_compute_maps(type, new_decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
         if needs_attr("type"):
             factory_arguments.append("type")
 
@@ -1440,7 +1516,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "const locus_t* location = nodecl_get_locus(n);"
         factory_arguments.append("location")
 
-        print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
+        print "result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
 
         if may_have_attr("symbol"):
             print "nodecl_set_symbol(result, symbol);"
@@ -1460,14 +1536,16 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         if may_have_attr("decl_context"):
             print "nodecl_set_decl_context(n, decl_context);"
 
-        print "       return result;";
         print "       break;"
         print "       }"
     print """
        default:
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(nodecl_get_kind(n))); }
        }
-       return nodecl_null();
+
+       nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);
+
+       return result;
 }
 """
 

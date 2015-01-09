@@ -64,12 +64,15 @@ struct gather_decl_spec_tag {
     bool inside_class_specifier:1;
 
     // type-specifiers and decl-specifiers
-    bool is_auto:1;
+    bool is_auto_storage:1;
+    bool is_auto_type:1;
+    bool is_decltype_auto:1;
     bool is_register:1;
     bool is_static:1;
     bool is_extern:1;
     bool is_mutable:1;
     bool is_thread:1;
+    bool is_thread_local:1;
     bool is_friend:1;
     bool is_typedef:1;
     bool is_signed:1;
@@ -86,6 +89,10 @@ struct gather_decl_spec_tag {
     bool emit_always:1;
     bool any_exception:1; // Set to 1 if no exception specifier was seen
     bool is_vector:1;
+    bool is_final:1;
+    bool is_hides_member:1;
+    bool is_override:1;
+    bool is_constexpr:1;
 
     // GCC extension
     bool is_transparent_union:1;
@@ -111,9 +118,12 @@ struct gather_decl_spec_tag {
     // Mode type for old GCC vector syntax
     struct type_tag* mode_type;
 
-    // exception-specifiers
+    // dynamic exception-specifiers
     int num_exceptions;
     struct type_tag** exceptions;
+
+    // noexception
+    nodecl_t noexception;
 
     // Vector info
     unsigned int vector_size;
@@ -128,11 +138,11 @@ struct gather_decl_spec_tag {
 
     // Attribute info
     int num_gcc_attributes;
-    gather_gcc_attribute_t* gcc_attributes;
+    gcc_attribute_t* gcc_attributes;
 
     // __declspec info
     int num_ms_attributes;
-    gather_gcc_attribute_t* ms_attributes;
+    gcc_attribute_t* ms_attributes;
 
     // UPC info
     struct
@@ -163,6 +173,12 @@ struct gather_decl_spec_tag {
     } opencl;
 
     access_specifier_t current_access;
+
+    AST gcc_asm_spec;
+
+    // _Pragma("map") inlined in a declarator
+    int num_xl_pragmas;
+    const char** xl_pragmas;
 
 } gather_decl_spec_t;
 

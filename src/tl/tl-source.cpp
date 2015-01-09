@@ -83,7 +83,7 @@ namespace TL
 
             if (last->is_source_text())
             {
-                RefPtr<SourceText> text = RefPtr<SourceText>::cast_dynamic(last);
+                std::shared_ptr<SourceText> text = std::static_pointer_cast<SourceText>(last);
                 text->_source += str;
             }
             else
@@ -111,10 +111,10 @@ namespace TL
         append_text_chunk(ss.str());
         return *this;
     }
-
+    
     Source& Source::operator<<(Source& src)
     {
-        RefPtr<Source> ref_src = RefPtr<Source>(new Source(src));
+        std::shared_ptr<Source> ref_src = std::shared_ptr<Source>(new Source(src));
 
         SourceChunkRef new_src = SourceChunkRef(new SourceRef(ref_src));
 
@@ -122,13 +122,15 @@ namespace TL
         return *this;
     }
 
-    Source& Source::operator<<(RefPtr<Source> src)
+#if 0
+    Source& Source::operator<<(std::shared_ptr<Source> src)
     {
         SourceChunkRef new_src = SourceChunkRef(new SourceRef(src));
 
         append_source_ref(new_src);
         return *this;
     }
+#endif
 
     Source::operator std::string()
     {
@@ -307,7 +309,7 @@ namespace TL
             {
                 append_text_chunk(separator);
             }
-            RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
+            std::shared_ptr<Source> ref_source = std::shared_ptr<Source>(new Source(src));
             append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
         }
 
@@ -336,7 +338,7 @@ namespace TL
         return result;
     }
 
-    std::string line_marker(const std::string& filename, int line)
+    std::string line_marker(const std::string& filename, unsigned int line)
     {
         std::stringstream ss;
 
@@ -357,7 +359,7 @@ namespace TL
     // This is quite inefficient but will do
     std::string Source::format_source(const std::string& src)
     {
-        int line = 1;
+        unsigned int line = 1;
 
         std::stringstream ss;
 
@@ -671,7 +673,7 @@ namespace TL
 
     void Source::fortran_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
-        if (ASTType(a) == AST_COMMON_NAME)
+        if (ASTKind(a) == AST_COMMON_NAME)
         {
             // We allow common names in expressions
             scope_entry_t* entry = ::query_common_name(decl_context, ASTText(ASTSon0(a)),
@@ -779,11 +781,11 @@ namespace TL
         AST abstract_decl = ASTSon1(type_id);
 
         build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                decl_context, /* first_declarator */ NULL, &nodecl_out_type);
+                decl_context, &nodecl_out_type);
 
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &gather_info, type_info,
-                &declarator_type, decl_context, abstract_decl, &nodecl_out_type);
+                &declarator_type, decl_context, &nodecl_out_type);
 
         *nodecl_output = nodecl_make_type(declarator_type, ast_get_locus(type_id));
     }

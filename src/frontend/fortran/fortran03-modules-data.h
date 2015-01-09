@@ -15,7 +15,6 @@ struct fortran_modules_data_tag
     tl_type_t* items;
 };
 
-typedef struct fortran_modules_data_set_tag fortran_modules_data_set_t;
 struct fortran_modules_data_set_tag
 {
     int num_data;

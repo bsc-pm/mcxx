@@ -2,6 +2,7 @@
 [omp-prof-common]
 options = --openmp
 {openmp} preprocessor_options = -D_OPENMP=200805
+{ompss} preprocessor_options = -D_OMPSS=1
 {openmp} compiler_phase = libtlomp-core.so
 {openmp} compiler_phase = libtlomp-profile.so
 

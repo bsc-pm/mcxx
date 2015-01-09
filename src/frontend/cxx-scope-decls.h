@@ -30,26 +30,26 @@
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
+#include <stdbool.h>
 #include "cxx-scope-fwd.h"
 
 #include "cxx-locus.h"
 
 #include "red_black_tree.h"
+#include "dhash_ptr.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-locus.h"
+#include "cxx-instantiation-decls.h"
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
 #include "cxx-type-decls.h"
 #include "cxx-limits.h"
-#include "cxx-nodecl-output.h"
+#include "cxx-nodecl-decls.h"
 
 #include "fortran/fortran03-scope-decls.h"
-
-// Extensible schema
-#include "extstruct.h"
 
 MCXX_BEGIN_DECLS
 
@@ -108,6 +108,8 @@ enum decl_flags_tag
     DF_IGNORE_FRIEND_DECL = BITMAP(10),
     // The queries will not create dependent entities for unqualified names
     DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY = BITMAP(11),
+    // The query is the first unqualified-id of the nested-name-specifier
+    DF_NESTED_NAME_FIRST = BITMAP(12),
 } decl_flags_t;
 
 #undef BITMAP
@@ -139,6 +141,7 @@ struct decl_context_tag
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
 
+    // Fortran IMPLICIT info
     implicit_info_t* implicit_info;
 
     // Scope of the declaration,
@@ -147,32 +150,43 @@ struct decl_context_tag
 };
 
 #define SYMBOL_KIND_TABLE \
-    SYMBOL_KIND(SK_CLASS, "class-name") \
-    SYMBOL_KIND(SK_ENUM, "enum-name") \
-    SYMBOL_KIND(SK_ENUMERATOR, "enumerator-name") \
-    SYMBOL_KIND(SK_FUNCTION, "function-name") \
-    SYMBOL_KIND(SK_LABEL, "label-name") \
-    SYMBOL_KIND(SK_NAMESPACE, "namespace-name") \
-    SYMBOL_KIND(SK_VARIABLE, "data object name") \
-    SYMBOL_KIND(SK_TYPEDEF, "typedef-name") \
-    SYMBOL_KIND(SK_TEMPLATE, "template-name") \
-    SYMBOL_KIND(SK_TEMPLATE_PARAMETER, "nontype template parameter name") \
+    SYMBOL_KIND(SK_CLASS, "class name") \
+    SYMBOL_KIND(SK_ENUM, "enum name") \
+    SYMBOL_KIND(SK_ENUMERATOR, "enumerator name") \
+    SYMBOL_KIND(SK_FUNCTION, "function name") \
+    SYMBOL_KIND(SK_FRIEND_CLASS, "friend class") \
+    SYMBOL_KIND(SK_FRIEND_FUNCTION, "friend function") \
+    SYMBOL_KIND(SK_LABEL, "label name") \
+    SYMBOL_KIND(SK_NAMESPACE, "namespace name") \
+    SYMBOL_KIND(SK_VARIABLE, "object name") \
+    SYMBOL_KIND(SK_VARIABLE_PACK, "object name pack") \
+    SYMBOL_KIND(SK_TYPEDEF, "typedef name") \
+    SYMBOL_KIND(SK_TYPEDEF_PACK, "typedef name pack") \
+    SYMBOL_KIND(SK_TEMPLATE, "template name") \
+    SYMBOL_KIND(SK_TEMPLATE_PACK, "template name pack") \
+    SYMBOL_KIND(SK_TEMPLATE_ALIAS, "alias template") \
+    SYMBOL_KIND(SK_TEMPLATE_NONTYPE_PARAMETER, "nontype template parameter name") \
     SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER, "type template parameter name") \
-    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter") \
+    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter name") \
+    SYMBOL_KIND(SK_TEMPLATE_NONTYPE_PARAMETER_PACK, "nontype template parameter pack name") \
+    SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER_PACK, "type template parameter pack name") \
+    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, "template template parameter pack name") \
     SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
-    SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend function") \
-    SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend class") \
+    SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend class") \
+    SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend function") \
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_USING_TYPENAME, "using typename declared name") \
-    SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
+    SYMBOL_KIND(SK_LAMBDA, "lambda-expression") \
+    SYMBOL_KIND(SK_OTHER, "<<internal symbol>>")
 
 #define SYMBOL_KIND_TABLE_FORTRAN \
     SYMBOL_KIND(SK_COMMON, "COMMON name") \
     SYMBOL_KIND(SK_NAMELIST, "NAMELIST name") \
     SYMBOL_KIND(SK_MODULE, "MODULE name") \
     SYMBOL_KIND(SK_PROGRAM, "PROGRAM name") \
-    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") 
+    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") \
+    SYMBOL_KIND(SK_GENERIC_NAME, "generic name specifier")
 
 enum cxx_symbol_kind
 {
@@ -204,7 +218,11 @@ enum template_parameter_kind
     TPK_UNKNOWN = 0,
     TPK_NONTYPE, // template <int N> <-- 'N'
     TPK_TYPE, // template <class T> <-- 'T'
-    TPK_TEMPLATE // template <template <typename Q> class V > <-- 'V'
+    TPK_TEMPLATE, // template <template <typename Q> class V > <-- 'V'
+    // Pack equivalents (template arguments will never have this kind)
+    TPK_NONTYPE_PACK, // template <int ...N> <-- 'N'
+    TPK_TYPE_PACK, // template <class ...T> <-- 'T'
+    TPK_TEMPLATE_PACK, // template <template <typename Q> class ...V > <-- 'V'
 };
 
 struct template_parameter_value_tag
@@ -218,6 +236,7 @@ struct template_parameter_value_tag
     struct type_tag* type;
 
     // Argument tree. Used only for nontype template parameters
+    // This tree is owned by this structure
     nodecl_t value;
 
     // Template, states that this is a default argument of a template parameter
@@ -244,7 +263,8 @@ struct template_parameter_list_tag
     template_parameter_t** parameters;
     template_parameter_value_t** arguments;
     struct template_parameter_list_tag* enclosing;
-    char is_explicit_specialization;
+    char is_explicit_specialization:1;
+    char is_explicit_instantiation:1;
 };
 
 // Access specifier, saved but not enforced by the compiler
@@ -261,6 +281,7 @@ struct default_argument_info_tag
 {
     nodecl_t argument;
     decl_context_t context;
+    char is_hidden;
 };
 
 // This acts as a map <function> -> information of the parameter
@@ -268,6 +289,9 @@ struct function_parameter_info_tag
 {
     scope_entry_t* function;
 
+    // Nesting in a nested function declarator
+    // (Usually only relevant in C++)
+    int nesting;
     // Position of the parameter
     int position;
 };
@@ -285,6 +309,9 @@ typedef nodecl_t (*simplify_function_t)(scope_entry_t* entry, int num_arguments,
 
 typedef void (*emission_handler_t)(scope_entry_t*, const locus_t* locus);
 
+typedef struct fortran_modules_data_set_tag fortran_modules_data_set_t;
+typedef fortran_modules_data_set_t *pfortran_modules_data_set_t;
+
 // Looking for struct entity_specifiers_tag?
 // Now it is declared in cxx-entity-specs.h in builddir
 #include "cxx-entity-specs.h"
@@ -293,8 +320,14 @@ typedef void (*emission_handler_t)(scope_entry_t*, const locus_t* locus);
 struct scope_entry_tag
 {
     // Kind of this symbol
-    enum cxx_symbol_kind kind;
-    
+    enum cxx_symbol_kind kind:8;
+    // This allows us to enforce the one-definition-rule within a translation unit
+    bool defined:1;
+    // Do not print this symbol (because of recursion, hiding, etc) Used
+    // specially for the injected class-name, where printing it in print scope
+    // routines would create an infinite recursion.
+    bool do_not_print:1;
+
     // Decl context when the symbol was declared it contains the scope where
     // the symbol was registered
     decl_context_t decl_context;
@@ -302,16 +335,13 @@ struct scope_entry_tag
     // The symbol name
     const char* symbol_name;
 
-    // This allows us to enforce the one-definition-rule within a translation unit
-    int defined;
-
     // Type information of this symbol
     struct type_tag* type_information;
 
     // Related decl_context of this symbol. Namespaces in C++ and all program
     // units in Fortran use this field
     decl_context_t related_decl_context;
-    
+
     // Initializations of several kind are saved here
     //  - initialization of const objects
     //  - enumerator values
@@ -320,17 +350,16 @@ struct scope_entry_tag
     // Locus where the symbol was registered
     const locus_t* locus;
 
-    // Do not print this symbol (because of recursion, hiding, etc) Used
-    // specially for the injected class-name, where printing it in print scope
-    // routines would create an infinite recursion.
-    char do_not_print;
-
     // All entity specifiers are in this structure
-    entity_specifiers_t entity_specs;
+    union {
+        // Field for transition to a sealed scope_entry_t
+        DEPRECATED_REASON("use the getters/setters of cxx-entity-specs-ops.h") entity_specifiers_t entity_specs;
 
-    // Extensible information of a symbol
-    extensible_struct_t* extended_data;
-}; 
+        // If you use this field you will be fired.
+        // This is only for functions in cxx-entity-specifiers-ops.h
+        entity_specifiers_t _entity_specs;
+    };
+};
 
 // Scope kind
 enum scope_kind
@@ -350,7 +379,8 @@ struct scope_tag
     enum scope_kind kind;
 
     // Hash of scope_entry_list
-    rb_red_blk_tree *hash;
+    // rb_red_blk_tree *hash;
+    dhash_ptr_t* dhash;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is
@@ -370,6 +400,15 @@ struct scope_tag
 };
 
 typedef const char* (*print_symbol_callback_t)(scope_entry_t*, decl_context_t, void*);
+
+enum { MCXX_MAX_FIELD_PATH = 1 };
+
+typedef
+struct field_path_tag
+{
+    int length;
+    scope_entry_t* path[MCXX_MAX_FIELD_PATH];
+} field_path_t;
 
 MCXX_END_DECLS
 

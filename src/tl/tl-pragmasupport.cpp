@@ -107,16 +107,23 @@ namespace TL
 
     std::string ExpressionTokenizerTrim::trimExp (const std::string &str) 
     {
+        std::string::size_type first = str.find_first_not_of(" \t");
+        std::string::size_type last = str.find_last_not_of(" \t");
 
-        ssize_t first = str.find_first_not_of(" \t");
-        ssize_t last = str.find_last_not_of(" \t");
-
-        return str.substr(first, last - first + 1);
+        if (first == std::string::npos)
+        {
+            // The string is only blanks
+            return std::string();
+        }
+        else
+        {
+            return str.substr(first, last - first + 1);
+        }
     }
 
     // Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
-        : _pragma_handled(pragma_handled)
+        : _pragma_handled(pragma_handled), _ignore_template_functions(false)
     {
     }
 
@@ -127,14 +134,14 @@ namespace TL
 
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
-        Nodecl::NodeclBase node = data_flow["nodecl"];
+        Nodecl::NodeclBase node = *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]);
 
         this->walk(node);
     }
 
     void PragmaCustomCompilerPhase::walk(Nodecl::NodeclBase& node)
     {
-        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher);
+        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher, _ignore_template_functions);
         visitor.walk(node);
     }
 
@@ -209,6 +216,9 @@ namespace TL
                 it != str_list.end();
                 it++)
         {
+            if (it->empty())
+                continue;
+
             Source src;
             src << "#line " << this->get_line() << " \"" << this->get_filename() << "\"\n"
                 << *it;
@@ -315,6 +325,35 @@ namespace TL
     bool PragmaCustomParameter::is_defined() const
     {
         return !this->empty();
+    }
+
+    void PragmaCustomParameter::mark_as_used()
+    {
+        if (is_defined())
+        {
+            this->set_type(TL::Type::get_void_type());
+        }
+    }
+
+    void PragmaCustomParameter::mark_as_unused()
+    {
+        if (is_defined())
+        {
+            this->set_type(TL::Type());
+        }
+    }
+
+    bool PragmaCustomParameter::is_marked_as_used() const
+    {
+        // If not defined it has somehow been "used"
+        if (!is_defined())
+            return true;
+        return this->get_type().is_valid();
+    }
+
+    bool PragmaCustomParameter::is_marked_as_unused() const
+    {
+        return !this->is_marked_as_used();
     }
 
     bool PragmaCustomClause::is_singleton() const
@@ -454,9 +493,9 @@ namespace TL
     ObjectList<std::string> PragmaCustomLine::get_all_clause_names() const
     {
         ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
-        ObjectList<std::string> clauses_strings = 
-            // nodes.map(ThisMemberFunctionConstAdapter<std::string, Nodecl::PragmaCustomClause>(&Nodecl::NodeclBase::get_text));
-            nodes.map(functor<std::string, Nodecl::PragmaCustomClause>(&Nodecl::PragmaCustomClause::get_text));
+
+        ObjectList<std::string> clauses_strings = nodes
+            .map(&Nodecl::NodeclBase::get_text);
 
         return clauses_strings;
     }
@@ -466,8 +505,21 @@ namespace TL
         return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>());
     }
 
+    PragmaCustomParameter PragmaCustomLine::get_parameter_no_mark_used() const
+    {
+        return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>(), (int)0);
+    }
+
     void PragmaCustomLine::diagnostic_unused_clauses() const
     {
+        PragmaCustomParameter param = this->get_parameter_no_mark_used();
+        if (param.is_marked_as_unused())
+        {
+            warn_printf("%s: warning: ignoring parameter '%s' of this pragma\n",
+                    param.get_locus_str().c_str(),
+                    param.get_raw_arguments().c_str());
+        }
+
         ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
         for (ObjectList<Nodecl::PragmaCustomClause>::iterator it = nodes.begin();
                 it != nodes.end();
@@ -504,7 +556,7 @@ namespace TL
         return ReferenceScope(this->Nodecl::PragmaCustomDirective::get_context_of_decl().as<ReferenceScope>());
     }
     
-    bool PragmaUtils::is_pragma_construct(const std::string& prefix, 
+    bool PragmaUtils::is_pragma_construct(const std::string& prefix,
             const std::string& pragma_name,
             Nodecl::NodeclBase n)
     {
@@ -532,6 +584,34 @@ namespace TL
 
         return (current_prefix == prefix
                 && pragma_line.get_text() == pragma_name);
+    }
+
+    bool PragmaUtils::is_pragma_construct(const std::string& prefix,
+            Nodecl::NodeclBase n)
+    {
+        Nodecl::PragmaCustomLine pragma_line;
+        std::string current_prefix;
+        if (n.is<Nodecl::PragmaCustomDirective>())
+        {
+            current_prefix = n.get_text();
+            pragma_line = n.as<Nodecl::PragmaCustomDirective>().get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        }
+        else if (n.is<Nodecl::PragmaCustomStatement>())
+        {
+            current_prefix = n.get_text();
+            pragma_line = n.as<Nodecl::PragmaCustomStatement>().get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        }
+        else if (n.is<Nodecl::PragmaCustomDeclaration>())
+        {
+            current_prefix = n.get_text();
+            pragma_line = n.as<Nodecl::PragmaCustomDeclaration>().get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        }
+        else
+        {
+            return false;
+        }
+
+        return (current_prefix == prefix);
     }
     
     Nodecl::PragmaCustomLine TL::PragmaCustomClause::get_pragma_line() const

@@ -1,4 +1,15 @@
-#!@BASH@
+#!/usr/bin/env bash
+
+if [ "@ANALYSIS_DISABLED@" = "yes" -o -z "@NANOX_INCLUDES@" ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
+fi
 
 source @abs_builddir@/mercurium-libraries
 
@@ -23,6 +34,6 @@ then
 unset test_nolink
 else
     test_nolink=yes
-    fi
+fi
     
 EOF

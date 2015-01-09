@@ -1,32 +1,33 @@
 # nvcc (CUDA)
 [mnvcc : omp-base]
 language = C
-options = --cuda
 preprocessor_name = @NVCC@
-preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
-linker_options = -lnanox-gpu-api
-compiler_phase = libtlnanox-cuda.so
+options = --cuda
+{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{openmp} linker_options = -lnanox-gpu-api
+{openmp} compiler_phase = libtlnanox-cuda.so
 
 [mnvcxx : omp-base]
 language = C++
-options = --cuda
 preprocessor_name = @NVCC@
-preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
-linker_options = -lnanox-gpu-api
-compiler_phase = libtlnanox-cuda.so
+options = --cuda
+{openmp} preprocessor_options = -include new
+{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+{openmp} linker_options = -lnanox-gpu-api
+{openmp} compiler_phase = libtlnanox-cuda.so
 
 [mnvfc : omp-base]
 language = Fortran
-options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @GFORTRAN@
-fortran_preprocessor_options = -cpp -E
-preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @GFORTRAN@
-compiler_options = -frecursive
 linker_name = @GFORTRAN@
-linker_options = -lnanox-gpu-api
-compiler_phase = libtlnanox-cuda.so
+fortran_preprocessor_options = -cpp -E
+options = -I @PKGDATADIR@/fortran/openmp
+{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+compiler_options = -frecursive
+{openmp} linker_options = -lnanox-gpu-api
+{openmp} compiler_phase = libtlnanox-cuda.so

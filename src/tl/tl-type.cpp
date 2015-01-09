@@ -36,6 +36,7 @@
 #include "cxx-scope.h"
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
+#include "cxx-entrylist.h"
 
 #include "fortran03-typeutils.h"
 
@@ -45,6 +46,17 @@
 namespace TL
 {
     Type Type::fix_references()
+    {
+        TL::Type fixed_type = this->fix_references_();
+
+        if (this->is_same_type(fixed_type))
+            // We try hard to preserve types unchanged
+            return *this;
+        else
+            return fixed_type;
+    }
+
+    Type Type::fix_references_()
     {
         if ((IS_C_LANGUAGE && this->is_any_reference())
                 || (IS_CXX_LANGUAGE && this->is_rebindable_reference()))
@@ -78,19 +90,19 @@ namespace TL
                 this->array_get_region_bounds(reg_lb, reg_ub);
                 TL::Scope sc = array_type_get_region_size_expr_context(this->get_internal_type());
 
-                return this->array_element().fix_references().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
+                return this->array_element().fix_references_().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
             }
             else
             {
                 Nodecl::NodeclBase size = this->array_get_size();
                 TL::Scope sc = array_type_get_array_size_expr_context(this->get_internal_type());
 
-                return this->array_element().fix_references().get_array_to(size, sc);
+                return this->array_element().fix_references_().get_array_to(size, sc);
             }
         }
         else if (this->is_pointer())
         {
-            TL::Type fixed = this->points_to().fix_references().get_pointer_to();
+            TL::Type fixed = this->points_to().fix_references_().get_pointer_to();
 
             fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
                     get_cv_qualifier(this->get_internal_type()));
@@ -104,7 +116,8 @@ namespace TL
                 return (*this);
 
             cv_qualifier_t cv_qualif = get_cv_qualifier(this->get_internal_type());
-            TL::Type fixed_result = this->returns().fix_references();
+            ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(this->get_internal_type());
+            TL::Type fixed_result = this->returns().fix_references_();
             bool has_ellipsis = 0;
 
             TL::ObjectList<TL::Type> fixed_parameters = this->parameters(has_ellipsis);
@@ -112,7 +125,7 @@ namespace TL
                     it != fixed_parameters.end();
                     it++)
             {
-                *it = it->fix_references();
+                *it = it->fix_references_();
             }
 
             TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = this->nonadjusted_parameters();
@@ -120,13 +133,14 @@ namespace TL
                     it != nonadjusted_fixed_parameters.end();
                     it++)
             {
-                *it = it->fix_references();
+                *it = it->fix_references_();
             }
 
             TL::Type fixed_function = fixed_result.get_function_returning(
                     fixed_parameters,
                     nonadjusted_fixed_parameters,
-                    has_ellipsis);
+                    has_ellipsis,
+                    ref_qualifier);
 
             fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
 
@@ -222,7 +236,7 @@ namespace TL
         return type_specifier + " :: " + symbol_name + array_specifier;
     }
 
-    Type Type::get_pointer_to()
+    Type Type::get_pointer_to() const
     {
         type_t* work_type = this->_type_info;
 
@@ -238,7 +252,7 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_vector_to(unsigned int vector_size)
+    Type Type::get_vector_to(unsigned int vector_size) const
     {
         type_t* work_type = this->_type_info;
 
@@ -247,7 +261,7 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_vector_of_elements(unsigned int num_elements)
+    Type Type::get_vector_of_elements(unsigned int num_elements) const
     {
         type_t* work_type = this->_type_info;
 
@@ -344,18 +358,10 @@ namespace TL
         return Type(array_to);
     }
 
-    Type Type::get_array_to(const std::string& str)
-    {
-        type_t* result_type = this->_type_info;
-
-        type_t* array_to = get_array_type_str(result_type, uniquestr(str.c_str()));
-
-        return Type(array_to);
-    }
-
     Type Type::get_function_returning(const ObjectList<Type>& type_list,
             const ObjectList<Type>& nonadjusted_type_list,
-            bool has_ellipsis)
+            bool has_ellipsis,
+            ref_qualifier_t reference_qualifier)
     {
         int i;
         parameter_info_t *parameters_list;
@@ -374,33 +380,29 @@ namespace TL
         {
             num_parameters++;
             parameters_list[i].is_ellipsis = 1;
-            parameters_list[i].type_info = NULL;
+            parameters_list[i].type_info = get_ellipsis_type();
             parameters_list[i].nonadjusted_type_info = NULL;
         }
 
-        return (Type(get_new_function_type(_type_info, parameters_list, num_parameters)));
+        return (Type(get_new_function_type(_type_info, parameters_list, num_parameters, reference_qualifier)));
     }
 
-    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis)
+    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis,
+            ref_qualifier_t reference_qualifier)
     {
         ObjectList<Type> nonadjusted_type_list(type_list.size());
 
-        return get_function_returning(type_list, nonadjusted_type_list, has_ellipsis);
+        return get_function_returning(type_list, nonadjusted_type_list, has_ellipsis, reference_qualifier);
+    }
+
+    ref_qualifier_t Type::get_reference_qualifier() const
+    {
+        return ::function_type_get_ref_qualifier(this->_type_info);
     }
 
     bool Type::is_error_type() const
     {
         return ::is_error_type(_type_info);
-    }
-
-    bool Type::operator==(Type t) const
-    {
-        return this->_type_info == t._type_info;
-    }
-
-    bool Type::operator!=(Type t) const
-    {
-        return !(this->operator==(t));
     }
 
     bool Type::operator<(Type t) const
@@ -447,6 +449,11 @@ namespace TL
         return (::is_mask_type(_type_info));
     }
 
+    int Type::get_mask_num_elements() const
+    {
+        return mask_type_get_num_bits(_type_info);
+    }
+
     bool Type::is_generic_vector() const
     {
         return (is_generic_vector_type(_type_info));
@@ -455,6 +462,16 @@ namespace TL
     Type Type::vector_element() const
     {
         return vector_type_get_element_type(_type_info);
+    }
+    
+    bool Type::is_auto() const
+    {
+        return ::is_auto_type(_type_info);
+    }
+
+    bool Type::is_decltype_auto() const
+    {
+        return ::is_decltype_auto_type(_type_info);
     }
 
     int Type::vector_num_elements() const
@@ -512,6 +529,16 @@ namespace TL
     bool Type::is_expression_dependent() const
     {
         return false;
+    }
+
+    bool Type::is_pack() const
+    {
+        return ::is_pack_type(_type_info);
+    }
+
+    TL::Type Type::pack_type_get_packed() const
+    {
+        return ::pack_type_get_packed_type(_type_info);
     }
 
     Type Type::returns() const
@@ -796,9 +823,24 @@ namespace TL
         return Type(::get_mask_type(mask_size));
     }
 
+    Type Type::get_auto_type()
+    {
+        return Type(::get_auto_type());
+    }
+
     bool Type::is_integral_type() const
     {
         return ::is_integral_type(_type_info);
+    }
+
+    bool Type::is_signed_integral() const
+    {
+        return is_signed_integral_type(_type_info);
+    }
+
+    bool Type::is_unsigned_integral() const
+    {
+        return is_unsigned_integral_type(_type_info);
     }
 
     bool Type::is_signed_int() const
@@ -930,6 +972,19 @@ namespace TL
         return get_cv_qualified_type(this->_type_info, CV_NONE);
     }
 
+    Type Type::get_unqualified_type_but_keep_restrict()
+    {
+        // Might return itself if not qualified
+        if (is_restrict_qualified_type(this->_type_info))
+        {
+            return get_cv_qualified_type(this->_type_info, CV_RESTRICT);
+        }
+        else
+        {
+            return get_cv_qualified_type(this->_type_info, CV_NONE);
+        }
+    }
+
     Type Type::get_const_type()
     {
         // Might return itself if already const qualified
@@ -964,7 +1019,7 @@ namespace TL
                 (cv_qualifier_t)(cv | get_cv_qualifier(this->_type_info)));
     }
 
-    Type Type::no_ref()
+    Type Type::no_ref() const
     {
         if (::is_lvalue_reference_type(this->_type_info)
                 || ::is_rvalue_reference_type(this->_type_info))
@@ -1002,8 +1057,10 @@ namespace TL
     ObjectList<Symbol> Type::get_nonstatic_data_members() const
     {
         ObjectList<Symbol> result;
-        Scope::convert_to_vector(class_type_get_nonstatic_data_members(
-                    ::get_actual_class_type(_type_info)), result);
+        scope_entry_list_t* list = class_type_get_nonstatic_data_members(
+                ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
 
         return result;
     }
@@ -1011,8 +1068,10 @@ namespace TL
     ObjectList<Symbol> Type::get_static_data_members() const
     {
         ObjectList<Symbol> result;
-        Scope::convert_to_vector(class_type_get_static_data_members(
-                    ::get_actual_class_type(_type_info)), result);
+        scope_entry_list_t* list = class_type_get_static_data_members(
+                ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
 
         return result;
     }
@@ -1027,8 +1086,31 @@ namespace TL
     ObjectList<Symbol> Type::get_all_members() const
     {
         ObjectList<Symbol> result;
-        Scope::convert_to_vector(class_type_get_members(
-                    ::get_actual_class_type(_type_info)), result);
+        scope_entry_list_t* list = class_type_get_members(
+                    ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
+
+        return result;
+    }
+
+    ObjectList<MemberDeclarationInfo> Type::get_member_declarations() const
+    {
+        TL::ObjectList<MemberDeclarationInfo> result;
+
+        int num_decls = 0;
+
+        member_declaration_info_t* mdi = ::class_type_get_member_declarations(_type_info, &num_decls);
+
+        int i;
+        for (i = 0; i < num_decls; i++)
+        {
+            result.push_back(
+                    MemberDeclarationInfo(mdi[i].entry, mdi[i].is_definition)
+                    );
+        }
+
+        xfree(mdi);
 
         return result;
     }
@@ -1119,6 +1201,11 @@ namespace TL
     bool Type::lacks_prototype() const
     {
         return function_type_get_lacking_prototype(this->_type_info);
+    }
+
+    bool Type::is_trailing_return() const
+    {
+        return function_type_get_has_trailing_return(this->_type_info);
     }
 
     Type Type::basic_type() const
@@ -1234,9 +1321,8 @@ namespace TL
         ObjectList<Symbol> base_symbol_list;
 
         scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, /* include_dependent */ 0);
-        scope_entry_list_t* it = all_bases;
-
-        Scope::convert_to_vector(it, base_symbol_list);
+        Scope::convert_to_vector(all_bases, base_symbol_list);
+        entry_list_free(all_bases);
 
         return base_symbol_list;
     }
@@ -1249,15 +1335,16 @@ namespace TL
         for (int i = 0; i < n; i++)
         {
             scope_entry_t* symbol = NULL;
-            char is_virtual = 0, is_dependent = 0;
+            char is_virtual = 0, is_dependent = 0, is_expansion = 0;
             access_specifier_t as = AS_UNKNOWN;
 
             symbol = class_type_get_base_num(_type_info, i,
                     &is_virtual,
                     &is_dependent,
+                    &is_expansion,
                     &as);
 
-            result.append(BaseInfo(symbol, is_virtual, as));
+            result.append(BaseInfo(symbol, is_virtual, is_dependent, is_expansion, as));
         }
 
         return result;
@@ -1268,11 +1355,22 @@ namespace TL
         ObjectList<Symbol> friend_symbol_list;
 
         scope_entry_list_t* all_friends = class_type_get_friends(_type_info);
-        scope_entry_list_t* it = all_friends;
-
-        Scope::convert_to_vector(it, friend_symbol_list);
+        Scope::convert_to_vector(all_friends, friend_symbol_list);
+        entry_list_free(all_friends);
 
         return friend_symbol_list;
+    }
+
+    ObjectList<Symbol> Type::class_get_inherited_constructors()
+    {
+        ObjectList<Symbol> inherited_constructors_list;
+
+        scope_entry_list_t* inherited_constructors =
+            class_type_get_inherited_constructors(_type_info);
+        Scope::convert_to_vector(inherited_constructors, inherited_constructors_list);
+        entry_list_free(inherited_constructors);
+
+        return inherited_constructors_list;
     }
 
     bool Type::is_pod()
@@ -1307,7 +1405,7 @@ namespace TL
 
     bool TL::Type::is_interoperable() const
     {
-        return ::is_interoperable_variant_type(_type_info);
+        return ::variant_type_is_interoperable(_type_info);
     }
 
     bool Type::is_base_class(Type t) const
@@ -1324,8 +1422,8 @@ namespace TL
     {
         ObjectList<Symbol> result;
         scope_entry_list_t* entry_list = ::unresolved_overloaded_type_get_overload_set(_type_info);
-
         Scope::convert_to_vector(entry_list, result);
+        entry_list_free(entry_list);
 
         return result;
     }
@@ -1379,6 +1477,21 @@ namespace TL
     {
         return ::is_variably_modified_type(_type_info);
     }
+    
+    Type Type::get_size_t_type()
+    {
+        return ::get_size_t_type();
+    }
+
+    Type Type::get_ptrdiff_t_type()
+    {
+        return ::get_ptrdiff_t_type();
+    }
+
+    std::string Type::print_declarator() const
+    {
+        return ::print_declarator(_type_info);
+    }
 
     TemplateArgument::TemplateArgumentKind TemplateArgument::get_kind() const
     {
@@ -1387,11 +1500,15 @@ namespace TL
 
     Nodecl::NodeclBase TemplateArgument::get_value() const
     {
+        ERROR_CONDITION(template_parameter_kind_is_pack(_tpl_param_value->kind),
+                "Do not call this function on template packs", 0);
         return _tpl_param_value->value;
     }
 
     Type TemplateArgument::get_type() const
     {
+        ERROR_CONDITION(template_parameter_kind_is_pack(_tpl_param_value->kind),
+                "Do not call this function on template packs", 0);
         return _tpl_param_value->type;
     }
 
@@ -1452,11 +1569,20 @@ namespace TL
         return _tpl_params->is_explicit_specialization;
     }
 
+    bool TemplateParameters::get_is_explicit_instantiation() const
+    {
+        return _tpl_params->is_explicit_instantiation;
+    }
+
     Type::BaseInfo::BaseInfo(TL::Symbol _base,
             bool _is_virtual,
+            bool _is_dependent,
+            bool _is_expansion,
             access_specifier_t _access_specifier)
         : base(_base),
         is_virtual(_is_virtual),
+        is_dependent(_is_dependent),
+        is_expansion(_is_expansion),
         access_specifier(_access_specifier)
     {
     }

@@ -62,13 +62,13 @@ LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN CHEC
 
 #define internal_error(message, ...) \
 { \
-    debug_message(message, "Internal compiler error."BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
+    debug_message(message, "Internal compiler error." BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
     exit(EXIT_FAILURE); \
 }
 
-LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
+LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...);
 
 #define WARNING_MESSAGE(message, ...) \
 { \
@@ -76,9 +76,9 @@ LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, 
 }
 
 #define ASSERT_MESSAGE(cond, message, ...) \
-{ if (!(cond)) \
+{ if (__builtin_expect(!(cond), 0)) \
     { \
-        debug_message((message), "Assertion failed (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+        debug_message((message), "Assertion failed (" #cond ")" BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \
@@ -86,9 +86,9 @@ LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, 
 }
 
 #define ERROR_CONDITION(cond, message, ...) \
-{ if ((cond)) \
+{ if (__builtin_expect(!!(cond), 0)) \
     { \
-        debug_message((message), "Error condition (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+        debug_message((message), "Error condition (" #cond ")" BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \

@@ -41,6 +41,7 @@
 #include "cxx-driver.h"
 #include "cxx-instantiation.h"
 #include "cxx-entrylist.h"
+#include "cxx-diagnostic.h"
 
 static type_t* determine_most_specialized_template_class(type_t* template_type, 
         type_t** matching_specializations, int num_specializations,
@@ -52,12 +53,7 @@ type_t* solve_class_template(type_t* template_type,
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus)
 {
-    template_parameter_list_t* specialized
-        = template_specialized_type_get_template_arguments(
-                get_actual_class_type(specialized_type));
-
     int i;
-    int num_specializations = template_type_get_num_specializations(template_type);
 
     type_t** matching_set = NULL;
     int num_matching_set = 0;
@@ -65,26 +61,50 @@ type_t* solve_class_template(type_t* template_type,
     template_parameter_list_t **deduction_results = NULL;
     int num_deductions = 0;
 
+    // It may happen that due to side effects we create new specializations
+    // when traversing the existing ones, so first keep the existing ones and
+    // then traverse them
+    int num_specializations = template_type_get_num_specializations(template_type);
+    type_t* specializations[num_specializations + 1];
     for (i = 0; i < num_specializations; i++)
     {
-        type_t* current_specialized_type = 
-            template_type_get_specialization_num(template_type, i);
+        specializations[i] = template_type_get_specialization_num(template_type, i);
+    }
+
+    for (i = 0; i < num_specializations; i++)
+    {
+        type_t* current_specialized_type = specializations[i];
 
         DEBUG_CODE()
         {
             scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
-            fprintf(stderr, "SOLVETEMPLATE: Checking with specialization defined in '%s'\n",
+            fprintf(stderr, "SOLVETEMPLATE: Checking with specialization defined in '%s' (%s)\n",
+                    print_declarator(current_specialized_type),
                     locus_to_str(entry->locus));
         }
 
         // We do not want these for instantiation purposes
-        if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_instantiable)
+        if (!symbol_entity_specs_get_is_instantiable(named_type_get_symbol(current_specialized_type)))
         {
             DEBUG_CODE()
             {
                 scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
                 fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it has been created by the typesystem\n",
-                        print_type_str(current_specialized_type, entry->decl_context),
+                        print_declarator(current_specialized_type),
+                        locus_to_str(entry->locus));
+            }
+            continue;
+        }
+
+        // We do not want aliases for instantiation purposes either
+        if (symbol_entity_specs_get_alias_to(named_type_get_symbol(current_specialized_type)) != NULL)
+        {
+            DEBUG_CODE()
+            {
+                scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it is actually "
+                        "an alias to another specialized type\n",
+                        print_declarator(current_specialized_type),
                         locus_to_str(entry->locus));
             }
             continue;
@@ -96,22 +116,21 @@ type_t* solve_class_template(type_t* template_type,
             continue;
         }
 
-        template_parameter_list_t *arguments = 
-            template_specialized_type_get_template_arguments(
-                    get_actual_class_type(current_specialized_type));
+        // template_parameter_list_t *arguments =
+        //     template_specialized_type_get_template_arguments(
+        //             get_actual_class_type(current_specialized_type));
 
         // It is supposed that this will hold in correct code
-        ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
-            "Template argument lists are not of equal length", 0);
+        // ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
+        //     "Template argument lists are not of equal length", 0);
 
         template_parameter_list_t* current_deduced_template_arguments = NULL;
-
-        if (is_less_or_equal_specialized_template_class(
-                    current_specialized_type,
+        if (class_template_specialization_matches(
                     specialized_type,
+                    current_specialized_type,
                     named_type_get_symbol(current_specialized_type)->decl_context,
-                    &current_deduced_template_arguments,
-                    locus))
+                    locus,
+                    &current_deduced_template_arguments))
         {
             P_LIST_ADD(matching_set, num_matching_set, current_specialized_type);
             P_LIST_ADD(deduction_results, num_deductions, current_deduced_template_arguments);
@@ -120,17 +139,26 @@ type_t* solve_class_template(type_t* template_type,
 
     if (num_matching_set >= 1)
     {
-        type_t* more_specialized = 
+        type_t* more_specialized =
             determine_most_specialized_template_class(template_type, matching_set, 
                 num_matching_set, named_type_get_symbol(specialized_type)->decl_context, 
                 locus);
 
         if (more_specialized == NULL)
+        {
+            xfree(matching_set);
+            for (i = 0; i < num_deductions; i++)
+            {
+                free_template_parameter_list(deduction_results[i]);
+            }
+            xfree(deduction_results);
+
             return NULL;
+        }
 
         if (is_unresolved_overloaded_type(more_specialized))
         {
-            fprintf(stderr, "%s: note: template specialization candidate list\n", locus_to_str(locus));
+            info_printf("%s: note: template specialization candidate list\n", locus_to_str(locus));
 
             scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(more_specialized);
 
@@ -140,16 +168,25 @@ type_t* solve_class_template(type_t* template_type,
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                fprintf(stderr, "%s: note:   %s\n",
+                info_printf("%s: note:   %s\n",
                         locus_to_str(entry->locus),
                         print_type_str(get_user_defined_type(entry), entry->decl_context));
             }
             entry_list_iterator_free(it);
             entry_list_free(entry_list);
 
-            running_error("%s: error: ambiguous template type for '%s'\n", 
+            error_printf("%s: error: ambiguous template type for '%s'\n", 
                     locus_to_str(locus),
                     print_type_str(specialized_type, named_type_get_symbol(specialized_type)->decl_context));
+
+            xfree(matching_set);
+            for (i = 0; i < num_deductions; i++)
+            {
+                free_template_parameter_list(deduction_results[i]);
+            }
+            xfree(deduction_results);
+
+            return NULL;
         }
 
         for (i = 0; i < num_matching_set; i++)
@@ -158,7 +195,14 @@ type_t* solve_class_template(type_t* template_type,
             {
                 *deduced_template_arguments = deduction_results[i];
             }
+            else
+            {
+                free_template_parameter_list(deduction_results[i]);
+            }
         }
+
+        xfree(matching_set);
+        xfree(deduction_results);
 
         return more_specialized;
     }
@@ -177,8 +221,6 @@ static type_t* determine_most_specialized_template_class(
 {
     int current_i = 0;
     type_t* current_most_specialized = matching_specializations[0];
-
-    template_parameter_list_t* deduced_template_arguments = NULL;
 
     DEBUG_CODE()
     {
@@ -209,11 +251,11 @@ static type_t* determine_most_specialized_template_class(
                     i,
                     locus_to_str(current->locus));
         }
-        if (!is_less_or_equal_specialized_template_class(
+        if (is_more_specialized_template_class(
                     matching_specializations[i],
                     current_most_specialized,
                     decl_context,
-                    &deduced_template_arguments, locus))
+                    locus))
         {
             // It is more specialized
             DEBUG_CODE()
@@ -243,11 +285,11 @@ static type_t* determine_most_specialized_template_class(
         if (current_most_specialized == matching_specializations[i])
             continue;
 
-        if (!is_less_or_equal_specialized_template_class(
+        if (is_more_specialized_template_class(
                     matching_specializations[i],
                     current_most_specialized,
                     decl_context,
-                    &deduced_template_arguments, locus))
+                    locus))
         {
             DEBUG_CODE()
             {
@@ -258,7 +300,7 @@ static type_t* determine_most_specialized_template_class(
                         locus_to_str(current->locus),
                         locus_to_str(minimum->locus));
             }
-            
+
             // Return the ambiguity as a list
             scope_entry_list_t* ambiguous_result = 
                 entry_list_new(named_type_get_symbol(current_most_specialized));
@@ -278,11 +320,10 @@ static type_t* determine_most_specialized_template_class(
     return current_most_specialized;
 }
 
-static type_t* extend_function_with_return_type(type_t* funct_type);
-
 static
-type_t* determine_most_specialized_template_function(int num_feasible_templates, 
-        type_t** feasible_templates, 
+type_t* determine_most_specialized_template_function(
+        int num_feasible_templates,
+        type_t** feasible_templates,
         const locus_t* locus)
 {
     if (num_feasible_templates == 0)
@@ -311,24 +352,29 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
         }
 
         char is_conversion = 
-            named_type_get_symbol(feasible_templates[i])->entity_specs.is_conversion;
+            symbol_entity_specs_get_is_conversion(named_type_get_symbol(feasible_templates[i]));
         scope_entry_t* f_sym = named_type_get_symbol(feasible_templates[i]);
-        type_t* f = f_sym->type_information;
+        // type_t* f = f_sym->type_information;
         scope_entry_t* g_sym = named_type_get_symbol(most_specialized);
-        type_t* g = g_sym->type_information;
+        // type_t* g = g_sym->type_information;
 
-        f = extend_function_with_return_type(f);
-        g = extend_function_with_return_type(g);
+        // f = extend_function_with_return_type(f);
+        // g = extend_function_with_return_type(g);
 
-        template_parameter_list_t* deduced_template_arguments = NULL;
-        if (!is_less_or_equal_specialized_template_function(
-                    f,
-                    g,
+        // template_parameter_list_t* deduced_template_arguments = NULL;
+        if (is_more_specialized_template_function(
+                    f_sym,
+                    g_sym,
+                    /* explicit_template_arguments */ NULL,
                     f_sym->decl_context,
-                    &deduced_template_arguments,
-                    /* explicit_template_parameters */ NULL, 
                     locus,
-                    is_conversion))
+                    /* is_overload */ 0, /* num_actual_arguments */ -1,
+                    is_conversion,
+                    /* is_computing_address_of_function */ 0,
+                    /* is_deducing_arguments_from_function_declaration */ 1,
+                    /* is_requiring_exact_match */ 1,
+                    // out
+                    /* deduced_template_arguments */ NULL))
         {
             DEBUG_CODE()
             {
@@ -360,25 +406,30 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                     locus_to_str(named_type_get_symbol(feasible_templates[i])->locus));
         }
 
-        char is_conversion = 
-            named_type_get_symbol(most_specialized)->entity_specs.is_conversion;
+        char is_conversion =
+            symbol_entity_specs_get_is_conversion(named_type_get_symbol(most_specialized));
         scope_entry_t* f_sym = named_type_get_symbol(feasible_templates[i]);
-        type_t* f = f_sym->type_information;
+        // type_t* f = f_sym->type_information;
         scope_entry_t* g_sym = named_type_get_symbol(most_specialized);
-        type_t* g = g_sym->type_information;
+        // type_t* g = g_sym->type_information;
 
-        f = extend_function_with_return_type(f);
-        g = extend_function_with_return_type(g);
+        // f = extend_function_with_return_type(f);
+        // g = extend_function_with_return_type(g);
 
-        template_parameter_list_t* deduced_template_arguments = NULL;
-        if (!is_less_or_equal_specialized_template_function(
-                    f,
-                    g,
+        // template_parameter_list_t* deduced_template_arguments = NULL;
+        if (is_more_specialized_template_function(
+                    f_sym,
+                    g_sym,
+                    /* explicit_template_arguments */ NULL,
                     f_sym->decl_context,
-                    &deduced_template_arguments,
-                    /* explicit_template_parameters */ NULL, 
                     locus,
-                    is_conversion))
+                    /* is_overload */ 0, /* num_actual_arguments */ -1,
+                    is_conversion,
+                    /* is_computing_address_of_function */ 0,
+                    /* is_deducing_arguments_from_function_declaration */ 1,
+                    /* is_ordering_classes */ 0,
+                    // out
+                    /* deduced_template_arguments */ NULL))
         {
             DEBUG_CODE()
             {
@@ -408,75 +459,13 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
     return most_specialized;
 }
 
-static type_t* extend_function_with_return_type(type_t* funct_type)
-{
-    // Some functions do not return anything, they are already extended
-    if (function_type_get_return_type(funct_type) == NULL)
-        return funct_type;
-
-    int num_params = function_type_get_num_parameters(funct_type);
-    parameter_info_t params[num_params + 1];
-    memset(params, 0, sizeof(params));
-
-    char has_ellipsis = function_type_get_has_ellipsis(funct_type);
-
-    if (has_ellipsis)
-        num_params--;
-
-    int i;
-    for (i = 0; i < num_params; i++)
-    {
-        params[i].type_info = function_type_get_parameter_type_num(funct_type, i);
-        params[i].nonadjusted_type_info = function_type_get_nonadjusted_parameter_type_num(funct_type, i);
-    }
-
-    params[i].type_info = function_type_get_return_type(funct_type);
-    params[i].nonadjusted_type_info = function_type_get_return_type(funct_type);
-
-    if (has_ellipsis)
-    {
-        i++;
-        params[i].is_ellipsis = 1;
-
-        num_params = function_type_get_num_parameters(funct_type);
-    }
-
-    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1);
-
-    if (is_template_specialized_type(funct_type))
-    {
-        type_t* template_type = template_specialized_type_get_related_template_type(funct_type);
-        type_t* primary_type = template_type_get_primary_type(template_type);
-
-        type_t* new_template = get_new_template_type(
-                template_type_get_template_parameters(template_type),
-                result_type, 
-                named_type_get_symbol(primary_type)->symbol_name,
-                named_type_get_symbol(primary_type)->decl_context,
-                named_type_get_symbol(primary_type)->locus);
-
-        result_type = named_type_get_symbol(template_type_get_primary_type(new_template))->type_information;
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "SOLVETEMPLATE: Type has been extended from '%s' to '%s'\n", 
-                print_declarator(funct_type),
-                print_declarator(result_type));
-    }
-
-    return result_type;
-}
-
-scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
-        template_parameter_list_t* explicit_template_parameters,
+scope_entry_list_t* solve_template_function_in_declaration(scope_entry_list_t* template_set,
+        template_parameter_list_t* explicit_template_arguments,
         type_t* function_type, const locus_t* locus)
 {
     type_t* feasible_templates[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     template_parameter_list_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
-
-    type_t* extended_function_type = extend_function_with_return_type(function_type);
 
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(template_set);
@@ -494,17 +483,17 @@ scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
         scope_entry_t* primary_symbol = named_type_get_symbol(primary_named_type);
         type_t* primary_type = primary_symbol->type_information;
 
-        type_t* extended_primary_type = extend_function_with_return_type(primary_type);
-
         template_parameter_list_t *feasible_deduction = NULL;
-        if (is_less_or_equal_specialized_template_function(
-                    extended_primary_type,
-                    extended_function_type,
+        if (deduce_template_arguments_from_function_declaration(
+                    primary_type,
+                    function_type,
+                    template_specialized_type_get_template_arguments(primary_type),
+                    template_type_get_template_parameters(entry->type_information),
+                    explicit_template_arguments,
                     primary_symbol->decl_context,
-                    &feasible_deduction,
-                    explicit_template_parameters,
-                    locus, 
-                    primary_symbol->entity_specs.is_conversion))
+                    locus,
+                    // out
+                    &feasible_deduction) == DEDUCTION_OK)
         {
             ERROR_CONDITION(num_feasible_templates >= MCXX_MAX_FEASIBLE_SPECIALIZATIONS,
                     "Too many feasible deductions", 0);
@@ -541,6 +530,10 @@ scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
             selected_deduction = feasible_deductions[i];
             break;
         }
+        else
+        {
+            free_template_parameter_list(feasible_deductions[i]);
+        }
     }
 
     ERROR_CONDITION((selected_deduction == NULL), "Selected deduction cannot be NULL", 0);
@@ -555,6 +548,7 @@ scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
             selected_deduction, 
             primary_template->decl_context, 
             locus);
+    free_template_parameter_list(selected_deduction);
 
     return entry_list_new(named_type_get_symbol(result_specialized));
 }

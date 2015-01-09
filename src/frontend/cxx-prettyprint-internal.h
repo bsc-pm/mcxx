@@ -121,102 +121,19 @@ static void prettyprint_context_copy(prettyprint_context_t* dest,
 static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx);
 
 #define HELPER_PARAMETER \
-    (handlers_list[ASTType(a)].parameter)
+    (handlers_list[ASTKind(a)].parameter)
 
 #define HELPER_PARAMETER_STRING \
-    ((handlers_list[ASTType(a)].parameter != NULL) ? (handlers_list[ASTType(a)].parameter) : "")
+    ((handlers_list[ASTKind(a)].parameter != NULL) ? (handlers_list[ASTKind(a)].parameter) : "")
 
 
-static char* prettyprint_in_buffer_common(AST a, 
+extern const char* prettyprint_in_buffer_common(AST a, 
         void (*pretty_func)(FILE*, AST, prettyprint_context_t* pt_ctx), 
-        prettyprint_context_t *pt_ctx)
-{
-    char *result = NULL;
-#ifdef HAVE_OPEN_MEMSTREAM
-    size_t size = 0;
-
-    FILE* temporal_stream = open_memstream(&result, &size);
-    pretty_func(temporal_stream, a, pt_ctx);
-    fclose(temporal_stream);
-#else
-    FILE* temporal_file = tmpfile();
-
-    pretty_func(temporal_file, a, pt_ctx);
-
-    int bytes_file = ftell(temporal_file) + 20;
-    rewind(temporal_file);
-
-    result = xcalloc(bytes_file, sizeof(char));
-    fread(result, bytes_file, sizeof(char), temporal_file);
-    fclose(temporal_file);
-#endif
-    int c = strlen(result) - 1;
-
-    while (result[c] == '\n')
-    {
-        result[c] = '\0';
-        c--;
-    }
-
-    return result;
-}
-
-static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx, const char* format, va_list args)
-{
-    int result;
-    int size = 512;
-    char* c = xcalloc(size, sizeof(char));
-    va_list va;
-
-    va_copy(va, args);
-    result = vsnprintf(c, size, format, va);
-    va_end(va);
-
-    while (result < 0 || result >= size)
-    {
-        va_copy(va, args);
-        size *= 2;
-        xfree(c);
-        c = xcalloc(size, sizeof(char));
-        result = vsnprintf(c, size, format, va);
-        va_end(va);
-    }
-
-    fprintf(stream, "%s", c);
-
-    if (result > 0)
-    {
-        pt_ctx->last_is_left_angle = (c[result - 1] == '<');
-        pt_ctx->last_is_right_angle = (c[result - 1] == '>');
-
-        char *p = strrchr(c, '\n');
-        if (p == NULL)
-        {
-            pt_ctx->column += strlen(c);
-        }
-        else
-        {
-            pt_ctx->column = (ptrdiff_t)((&c[result-1]) - p);
-        }
-    }
-
-    xfree(c);
-
-    return result;
-}
-
-
-static int token_fprintf(FILE *stream, AST node UNUSED_PARAMETER, prettyprint_context_t* pt_ctx, const char *format, ...)
-{
-    int result = 0;
-    va_list args;
-
-    va_start(args, format);
-    result = character_level_vfprintf(stream, pt_ctx, format, args);
-    va_end(args);
-
-    return result;
-}
+        prettyprint_context_t *pt_ctx);
+extern int character_level_vfprintf(FILE* stream,
+        prettyprint_context_t *pt_ctx,
+        const char* format, va_list args);
+extern int token_fprintf(FILE *stream, AST node UNUSED_PARAMETER, prettyprint_context_t* pt_ctx, const char *format, ...);
 
 
 #endif // CXX_PRETTYPRINT_INTERNAL_H

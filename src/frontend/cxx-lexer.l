@@ -49,7 +49,9 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-lexer.h"
+#include "cxx-diagnostic.h"
 #include "cxx-ast.h"
+#include "cxx-exprtype.h"
 /*!if C99*/
 #include "c99-parser-internal.h"
 /*!endif*/
@@ -90,6 +92,8 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
     { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
+    { "__is_final", GXX_IS_FINAL },
+    { "__underlying_type", GXX_UNDERLYING_TYPE },
     // Sentinel
     { NULL, 0 },
 };
@@ -164,9 +168,9 @@ static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
 
-static int num_new_lines(const char* c)
+static unsigned int num_new_lines(const char* c)
 {
-    int result = 0;
+    unsigned int result = 0;
 
     while (*c)
     {
@@ -192,10 +196,39 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         pragma_directive_kind_t* kind,
         char* original_directive);
 
+static char* inline_pragma_str = NULL;
+
+ /*!if CPLUSPLUS*/
+static int std_attribute_parenthesis_nesting = 0;
+
+static int raw_string_buffer_capacity = 0;
+static int raw_string_buffer_position = 0;
+static char* raw_string_buffer = NULL;
+static const char* raw_string_delimiter = NULL;
+static int raw_string_delimiter_length = 0;
+static int raw_string_delimiter_index = 0;
+
+#define RAW_STRING_APPEND_CHAR(_x) \
+{ \
+    if (raw_string_buffer_position == raw_string_buffer_capacity) \
+    { \
+        if (raw_string_buffer_capacity == 0) \
+          raw_string_buffer_capacity = 4; \
+        else \
+          raw_string_buffer_capacity *= 2; \
+        raw_string_buffer = xrealloc(raw_string_buffer, sizeof(char)*raw_string_buffer_capacity); \
+    } \
+    raw_string_buffer[raw_string_buffer_position] = (_x); \
+    raw_string_buffer_position++; \
+}
+
+ /*!endif*/
+
+static void unput_string(const char* c);
 
 %}
 
-%option noyyalloc noyyrealloc noyyfree
+%option noyyalloc noyyrealloc noyyfree noinput
 
  /* Lexical conventions A.2 */
  /* A.2.1 */
@@ -203,15 +236,41 @@ hexquad         {hexdigit}{hexdigit}{hexdigit}{hexdigit}
  /* A.2.2 */
 uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
  /* A.2.12 */
-nondigit        ([_a-zA-Z]|uchar)
+nondigit        [_a-zA-Z]
  /* A.2.13 */
-digit       [0-9]
+digit_0     [0-9]
+ /*!if CPLUSPLUS*/
+digit       (({digit_0})|({digit_0}[']{digit_0}))
+ /*!endif*/
+ /*!if C99*/
+digit       {digit_0}
+ /*!endif*/
  /* A.2.20 */
 nonzero         [1-9]
  /* A.2.21 */
-octaldigit      [0-7]
+octaldigit_0      [0-7]
+ /*!if CPLUSPLUS*/
+octaldigit     ({octaldigit_0})|({octaldigit_0}[']{octaldigit_0})
+ /*!endif*/
+ /*!if C99*/
+octaldigit     ({octaldigit_0})
+ /*!endif*/
  /* A.2.22 */
-hexdigit        [a-fA-F0-9]
+hexdigit_0        [a-fA-F0-9]
+ /*!if CPLUSPLUS*/
+hexdigit     ({hexdigit_0})|({hexdigit_0}[']{hexdigit_0})
+ /*!endif*/
+ /*!if C99*/
+hexdigit     ({hexdigit_0})
+ /*!endif*/
+bindigit_0   [01]
+ /*!if C99*/
+bindigit     {bindigit_0}
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+bindigit     ({bindigit_0})|({bindigit_0}[']{bindigit_0})
+ /*!endif*/
+
  /* A.2.23 includes GNU extension of long long */
 int_suffix_size ({longsuffix}|{longlongsuffix})
 int_suffix_sign ({unsignedsuffix})
@@ -237,9 +296,14 @@ complexsuffix [ji]
  /* A.2.28 */
 cchar       ([^\\'\n]|{escape_seq}|(\\[']))
 
+universal4 (\\u[0-9a-fA-F]{4})
+universal8 (\\U[0-9a-fA-F]{8})
+
+universal ({universal4}|{universal8})
+
  /* A.2.29 */
  /* \e is a GNU extension */
-escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+))
+escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+)|{universal})
  /* A.2.34 */
 fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
@@ -256,8 +320,12 @@ floatingsuffix  ({floatingsuffix_all}|{floatingsuffix_all}{complexsuffix}|{compl
  /* A.2.40 */
 schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
+dchar [^ ()\n\v\t\r]
+rchar [^)]
+
 idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
+binprefix   0[bB]
 
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
@@ -272,6 +340,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x preprocess
 %x pragma_line
 %x inline_pragma
+%x inline_pragma_after_string
 %x unknown_pragma
 %x gcc_pragma
 %x pragma_custom_directive
@@ -283,6 +352,12 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x verbatim_clauses
 %x verbatim_clauses_args
 
+%x std_attribute
+%x std_attribute_clause
+
+%x raw_string_body
+%x raw_string_potential_suffix
+
 %%
  /* preprocess */
 
@@ -292,6 +367,24 @@ identifier {idnondigit}({idnondigit}|{digit})*
 
 <preprocess>[ ]*pragma[ ]+ {
 	BEGIN(pragma_line);
+}
+
+<pragma_line>mcc[ ]+enable_debug[ ]*\n {
+    // This is only for debugging Mercurium itself
+    extern void _enable_debug(void);
+    _enable_debug();
+    scanning_now.line_number++;
+    // Do not return anything
+    BEGIN(INITIAL);
+}
+
+<pragma_line>mcc[ ]+disable_debug[ ]*\n {
+    // This is only for debugging Mercurium itself
+    extern void _disable_debug(void);
+    _disable_debug();
+    scanning_now.line_number++;
+    // Do not return anything
+    BEGIN(INITIAL);
 }
 
 <pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]* {
@@ -406,7 +499,7 @@ type {
 
 		if (!found)
 		{
-			fprintf(stderr, "%s:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf("%s:%d: warning: unknown '#pragma %s'\n", 
 					scanning_now.current_filename,
 					scanning_now.line_number,
 					yytext);
@@ -470,18 +563,13 @@ type {
 
 [\n] {
 
-    // Degenerate case. Our yytext is now "gcc\n". We do not want the "\n"
-    int len = strlen(yytext);
-    char c[len + 1];
-    strncpy(c, yytext, len);
-    c[len] = '\0';
-    ERROR_CONDITION(c[len - 1] != '\n', "There should be a newline here", 0);
-    c[len-1] = '\0';
+    // Degenerate case. This either '#pragma gcc' probably due to wrong input or a 
+    // removed "#pragma GCC system_header"
 
-	parse_token_text_str(c);
+    // Do not lose track of the line
+    unput('\n');
 
 	BEGIN(INITIAL);
-	return UNKNOWN_PRAGMA;
 }
 
 }
@@ -693,7 +781,7 @@ type {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf("%s:%d: warning: unended custom clause. Skipping.\n",
                 scanning_now.current_filename,
                 scanning_now.line_number);
     }
@@ -711,6 +799,58 @@ type {
 
 }
 
+ /* _Pragma */
+
+"_Pragma"[ \t]*"("[ \t]* {
+        BEGIN(inline_pragma);
+        xfree(inline_pragma_str);
+        inline_pragma_str = NULL;
+}
+
+<inline_pragma>{
+
+\"{schar}*\" {
+    inline_pragma_str = interpret_schar(yytext,
+            make_locus(
+                uniquestr(scanning_now.current_filename),
+                scanning_now.line_number, 0));
+
+    BEGIN(inline_pragma_after_string);
+}
+
+}
+
+<inline_pragma_after_string>{
+[\t ]*")" {
+    if (inline_pragma_str != NULL)
+    {
+        char whole_pragma_line[MCXX_MAX_FILENAME];
+        int s = snprintf(whole_pragma_line,
+                MCXX_MAX_FILENAME - 1,
+                "%s\n# %d \"%s\"\n",
+                inline_pragma_str,
+                scanning_now.line_number,
+                scanning_now.current_filename);
+        if (s == MCXX_MAX_FILENAME - 1)
+        {
+            internal_error("Inline pragma is too long (> %d) at %s:%d",
+                    MCXX_MAX_FILENAME,
+                    scanning_now.current_filename,
+                    scanning_now.line_number);
+        }
+        whole_pragma_line[MCXX_MAX_FILENAME - 1] = '\0';
+
+        unput_string(whole_pragma_line);
+        BEGIN(pragma_line);
+    }
+    else
+    {
+        BEGIN(INITIAL);
+    }
+}
+}
+
+
 <preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n]* {
  const char *p = yytext;
 
@@ -726,7 +866,7 @@ type {
    p++;
 
  // Compute line
- int line_num = 0;
+ unsigned int line_num = 0;
  while (*p != ' ' 
          && *p != '\0' // The filename location is optional
          )
@@ -741,6 +881,8 @@ type {
      }
      p++;
  }
+ // There are no zero lines, so if for some reason we end with a 0 line, fix it to 1
+ line_num = line_num == 0 ? 1 : line_num;
 
    // Update the line number, note that it is line_num - 1 
    // because \n is not handled here, but in another rule
@@ -782,7 +924,7 @@ type {
 	// Jump the blank
 	directive++;
 
-	int line_num = 0;
+	unsigned int line_num = 0;
 	while (*directive != ' ')
 	{
 		if (isdigit(*directive))
@@ -883,7 +1025,7 @@ type {
     {
         if (extern_c_block)
         {
-            fprintf(stderr, "%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf("%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
                     scanning_now.current_filename,
                     scanning_now.line_number);
         }
@@ -939,26 +1081,6 @@ type {
 <preprocess>.       { /* ignore line */  }
 <preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
 
- /* _Pragma */
-"_Pragma" { BEGIN(inline_pragma); pragma_custom_var_list_parentheses = 0; }
-<inline_pragma>{
-"(" {
-    pragma_custom_var_list_parentheses++;
-}
-
-")" {
-    pragma_custom_var_list_parentheses--;
-
-    if (pragma_custom_var_list_parentheses == 0)
-        BEGIN(INITIAL);
-}
-
- /* Ignore it */
-. {
-}
-      
-}
-
  /* C comments ( 6.4.9 ) */
 
  /* // comments. // can be splitted across different lines */
@@ -992,6 +1114,8 @@ type {
  /*!if CPLUSPLUS*/
 "wchar_t"       { parse_token_text(); return TOKEN_WCHAR_T; }
 "bool"          { parse_token_text(); return TOKEN_BOOL; }
+"char16_t"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR16_T; else return IDENTIFIER; }
+"char32_t"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR32_T; else return IDENTIFIER; }
  /*!endif*/
  /*!if C99*/
 "_Bool"          { parse_token_text(); return TOKEN_BOOL; }
@@ -1010,7 +1134,17 @@ type {
 "typedef"       { parse_token_text(); return TYPEDEF; }
 "enum"          { parse_token_text(); return ENUM; } 
 "struct"        { parse_token_text(); return STRUCT; } 
-"auto"          { parse_token_text(); return AUTO; } 
+ /*!if C99*/
+"auto"          { parse_token_text(); return TOKEN_AUTO_STORAGE; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+"auto"          { parse_token_text();
+                  if (IS_CXX11_LANGUAGE)
+                      return TOKEN_AUTO_TYPE;
+                  else
+                      return TOKEN_AUTO_STORAGE;
+                } 
+ /*!endif*/
 "register"      { parse_token_text(); return REGISTER; } 
 "static"        { parse_token_text(); return STATIC; } 
 "extern"        { parse_token_text(); return EXTERN; } 
@@ -1029,8 +1163,11 @@ type {
 "public"        { parse_token_text(); return PUBLIC; } 
 "throw"         { parse_token_text(); return THROW; } 
 "operator"      { parse_token_text(); return OPERATOR; } 
+"operator[ \t\n]+\"\""  { parse_token_text(); return OPERATOR_LITERAL; } 
 "new"           { parse_token_text(); return TOKEN_NEW; } 
+"new"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); return TOKEN_NEW_ARRAY; }
 "delete"        { parse_token_text(); return TOKEN_DELETE; }
+"delete"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); return TOKEN_DELETE_ARRAY; }
 "typename"      { parse_token_text(); return TYPENAME; } 
 "export"        { parse_token_text(); return EXPORT; } 
 "class"         { parse_token_text(); return CLASS; }
@@ -1048,6 +1185,13 @@ type {
 "typeid"        { parse_token_text(); return TYPEID; }
 "try"           { parse_token_text(); return TRY; }
 "catch"         { parse_token_text(); return CATCH; }
+
+"constexpr"     { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CONSTEXPR; else return IDENTIFIER; }
+"thread_local"  { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_THREAD_LOCAL; else return IDENTIFIER; }
+"noexcept"/[ \t\n]*[(] {
+                  parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT; else return IDENTIFIER; }
+"noexcept"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT_ALONE; else return IDENTIFIER; }
+"nullptr"       { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NULLPTR; else return IDENTIFIER; }
  /*!endif*/
 
 "sizeof"        { parse_token_text(); return SIZEOF; }
@@ -1068,6 +1212,12 @@ type {
  /* A.2.41 */
 "false"         { parse_token_text(); return BOOLEAN_LITERAL; }
 "true"          { parse_token_text(); return BOOLEAN_LITERAL; }
+ /*!endif*/
+
+ /*!if CPLUSPLUS*/
+ /* C++2011 keywords that are not reserved words */
+"final"         { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_FINAL; else return IDENTIFIER; }
+"override"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_OVERRIDE; else return IDENTIFIER; }
  /*!endif*/
 
  /*!if CPLUSPLUS*/
@@ -1097,9 +1247,15 @@ type {
 "__builtin_types_compatible_p" { parse_token_text(); return BUILTIN_TYPES_COMPATIBLE_P; }
  /*!endif*/
 "__extension__" { parse_token_text(); return EXTENSION; }
-"__alignof" { parse_token_text(); return ALIGNOF; }
-"__alignof__" { parse_token_text(); return ALIGNOF; }
-"__ALIGNOF__" { parse_token_text(); return ALIGNOF; }
+"__alignof" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+"__alignof__" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+"__ALIGNOF__" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+ /*!if CPLUSPLUS*/
+"alignof" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNOF; else return IDENTIFIER; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+"alignas" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNAS; else return IDENTIFIER; }
+ /*!endif*/
 "__real" { parse_token_text(); return REAL; }
 "__real__" { parse_token_text(); return REAL; }
 "__imag__" { parse_token_text(); return IMAG; }
@@ -1119,8 +1275,8 @@ type {
 "__const" { parse_token_text(); return TOKEN_CONST; }
 "__const__" { parse_token_text(); return TOKEN_CONST; }
 "__declspec" { parse_token_text(); return TOKEN_DECLSPEC; }
-"__attribute" { parse_token_text(); return ATTRIBUTE; }
-"__attribute__" { parse_token_text(); return ATTRIBUTE; }
+"__attribute" { parse_token_text(); return TOKEN_GCC_ATTRIBUTE; }
+"__attribute__" { parse_token_text(); return TOKEN_GCC_ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
 "__inline"        { parse_token_text(); return INLINE; } 
 "__inline__"        { parse_token_text(); return INLINE; } 
@@ -1152,7 +1308,9 @@ type {
 "__is_polymorphic" |
 "__is_standard_layout" |
 "__is_trivial" |
-"__is_union" {
+"__is_union" |
+"__is_final" |
+"__underlying_type" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }
  /*!endif*/
@@ -1230,6 +1388,7 @@ type {
 @NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
 @SYMBOL-LITERAL-REF@ { parse_token_text(); return SYMBOL_LITERAL_REF; }
 @TYPE-LITERAL-REF@ { parse_token_text(); return TYPE_LITERAL_REF; }
+@OMPSS-DEPENDENCY-EXPR@ { parse_token_text(); return SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
@@ -1284,20 +1443,36 @@ type {
 
 @reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 
+@array-subscript-check@ { parse_token_text(); return MCC_ARRAY_SUBSCRIPT_CHECK; }
+@const-value-check@ { parse_token_text(); return MCC_CONST_VALUE_CHECK; }
+
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }
 
  /* A.2.17 */
 {nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+ /*!if CPLUSPLUS*/
+{nonzero}[']({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+ /*!endif*/
 
  /* A.2.18 */
-0*{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+0{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+ /*!if CPLUSPLUS*/
+0[']{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+ /*!endif*/
 
  /* A.2.19 */
 {hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); return HEXADECIMAL_LITERAL; }
 
+{binprefix}{bindigit}+{integersuffix}? { parse_token_text(); return BINARY_LITERAL; }
+
  /* A.2.26 */
+ /*!if CPLUSPLUS*/
+[LUu]?'{cchar}*'        { parse_token_text(); return CHARACTER_LITERAL; }
+ /*!endif*/
+ /*!if C99*/
 L?'{cchar}*'        { parse_token_text(); return CHARACTER_LITERAL; }
+ /*!endif*/
 
  /* A.2.33 */
 {fractconst}{exponent}?{floatingsuffix}?        { parse_token_text();
@@ -1315,8 +1490,216 @@ return FLOATING_LITERAL; }
 }
 
  /* A.2.39 */
+ /*!if C99*/
 L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+((u8)|[uUL])?R["]{dchar}*[(]      {
+    raw_string_buffer_capacity = 0;
+    raw_string_buffer_position = 0;
+    raw_string_buffer = NULL;
 
+    int i;
+    for (i = 0; yytext[i] != '"'; i++)
+    {
+        RAW_STRING_APPEND_CHAR(yytext[i]);
+    }
+    // Initial quote
+    ERROR_CONDITION(yytext[i] != '"', "Invalid token", 0);
+    RAW_STRING_APPEND_CHAR('"'); i++;
+
+    int length = strlen(yytext);
+    char c[length + 1];
+    int j;
+    for (j = 0; yytext[i] != '('; i++, j++)
+    {
+       c[j] = yytext[i];
+    }
+    // Make the delimiter be DELIM" because this eases matching it later
+    c[j] = '"'; j++;
+    c[j] = '\0';
+    raw_string_delimiter = uniquestr(c);
+    raw_string_delimiter_length = strlen(raw_string_delimiter);
+
+    BEGIN(raw_string_body);
+}
+
+<raw_string_body>{
+
+{rchar} {
+   // Note, this does not include the right parenthesis
+   RAW_STRING_APPEND_CHAR(yytext[0]);
+ }
+
+ ")" {
+    BEGIN(raw_string_potential_suffix);
+    raw_string_delimiter_index = 0;
+}
+
+}
+
+<raw_string_potential_suffix>{
+
+{dchar} {
+         if (yytext[0] == raw_string_delimiter[raw_string_delimiter_index])
+         {
+             raw_string_delimiter_index++;
+
+             if (raw_string_delimiter_index == raw_string_delimiter_length)
+             {
+                 // We have matched a full delimiter (including the final quote)
+                 // Add the final quote
+                 RAW_STRING_APPEND_CHAR('"');
+                 RAW_STRING_APPEND_CHAR('\0');
+                 parse_token_text_str(raw_string_buffer);
+
+                 xfree(raw_string_buffer);
+                 raw_string_buffer = NULL;
+
+                 BEGIN(0);
+
+                 return STRING_LITERAL;
+             }
+         }
+         else
+         {
+             // This is not a delimiter, add all the characters seen so far
+             RAW_STRING_APPEND_CHAR(')');
+             int i;
+             for (i = 0; i < raw_string_delimiter_index; i++)
+             {
+                 RAW_STRING_APPEND_CHAR(raw_string_delimiter[i]);
+             }
+             // And the mismatch one
+             RAW_STRING_APPEND_CHAR(yytext[0]);
+             BEGIN(raw_string_body);
+         }
+}
+
+(.)|([\n\r\v\t]) {
+    // This is not a delimiter, add all the characters seen so far
+    RAW_STRING_APPEND_CHAR(')');
+    int i;
+    for (i = 0; i < raw_string_delimiter_index; i++)
+    {
+        RAW_STRING_APPEND_CHAR(raw_string_delimiter[i]);
+    }
+
+    if (yytext[0] != ')')
+    {
+        // And the mismatch one
+        RAW_STRING_APPEND_CHAR(yytext[0]);
+        BEGIN(raw_string_body);
+    }
+    else
+    {
+        raw_string_delimiter_index = 0;
+        // Start again, this is potentially another suffix
+    }
+}
+
+}
+
+ /*!endif*/
+
+ /*!if CPLUSPLUS*/
+
+"["[ \t]*"[" {
+     if (IS_CXX11_LANGUAGE)
+     {
+         parse_token_text();
+         BEGIN(std_attribute);
+         return STD_ATTRIBUTE_START;
+     }
+     else
+     {
+         // In the unlikely case we find this sequence of tokens, reject it
+         REJECT;
+     }
+}
+
+<std_attribute>{
+
+{identifier} { 
+      parse_token_text();
+      BEGIN(std_attribute_clause);
+      std_attribute_parenthesis_nesting = 0;
+      return IDENTIFIER; 
+}
+
+{identifier}[ \t]*::[ \t]*{identifier} {
+
+    // Remove blanks
+    int len = strlen(yytext);
+    char tok[len + 1];
+    int i, j;
+    for (i = 0, j = 0; i < len; i++)
+    {
+        if (yytext[i] == ' ' || yytext[i] == '\t')
+            continue;
+        tok[j] = yytext[i];
+        j++;
+    }
+    tok[j] = '\0';
+
+    parse_token_text_str(tok);
+    BEGIN(std_attribute_clause);
+    std_attribute_parenthesis_nesting = 0;
+    return IDENTIFIER;
+}
+
+"]"[ \t]*"]" {
+    parse_token_text();
+    BEGIN(0);
+    return STD_ATTRIBUTE_END; 
+}
+
+"," { parse_token_text(); return ','; }
+
+[ \t] { /* skip blanks */ }
+
+}
+
+<std_attribute_clause>{
+
+"]"[ \t]*"]" {
+    if (std_attribute_parenthesis_nesting != 0)
+    {
+      REJECT;
+    }
+    else
+    {
+         parse_token_text();
+         BEGIN(0);
+         return STD_ATTRIBUTE_END; 
+    }
+}
+
+"," { parse_token_text(); return ','; }
+"[" { parse_token_text(); return '['; }
+"]" { parse_token_text(); return ']'; }
+"{" { parse_token_text(); return '{'; }
+"}" { parse_token_text(); return '}'; }
+"(" { parse_token_text();
+      std_attribute_parenthesis_nesting++;
+      return '(';
+    }
+")" { parse_token_text();
+      std_attribute_parenthesis_nesting--;
+      if (std_attribute_parenthesis_nesting == 0)
+      {
+          BEGIN(std_attribute);
+      }
+      return ')'; 
+    }
+
+[^\[\]{}()\n]* { parse_token_text(); return STD_ATTRIBUTE_TEXT; }
+
+}
+ /*!endif*/
 
 "["         { parse_token_text(); return '['; }
 "]"         { parse_token_text(); return ']'; }
@@ -1345,7 +1728,6 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 }
  /* There is no '>>' token in C++ but AB1 followed by '>', see below */
  /*!if C99*/
-">>"        { parse_token_text(); return RIGHT; }
 ">>>"       { 
     if (CURRENT_CONFIGURATION->enable_cuda)
     {
@@ -1354,9 +1736,10 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     }
     REJECT;
 }
+">>"        { parse_token_text(); return RIGHT; }
  /*!endif*/
 "<="        { parse_token_text(); return LESS_OR_EQUAL; }
- /* There is no '>=' token in C++ but AB2 followed by '=', see below */
+ /* There is no '>=' token in C++11 but AB2 followed by '=', see below */
  /*!if C99*/
 ">="        { parse_token_text(); return GREATER_OR_EQUAL; }
  /*!endif*/
@@ -1373,7 +1756,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "+="        { parse_token_text(); return ADD_ASSIGN; }
 "-="        { parse_token_text(); return SUB_ASSIGN; }
 "<<="       { parse_token_text(); return LEFT_ASSIGN; }
- /* There is no '>>=' in C++ but AB1 followed by 'AB2' and '=', see below */
+ /* There is no '>>=' in C++11 but AB1 followed by 'AB2' and '=', see below */
  /*!if C99*/
 ">>="       { parse_token_text(); return RIGHT_ASSIGN; }
  /*!endif*/
@@ -1392,6 +1775,44 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "}"         { parse_token_text(); return '}'; } 
 "<"         { parse_token_text(); return '<'; }
  /*!if CPLUSPLUS*/
+ /* In C++2003 these three tokens behave like in C99 
+    REJECT is used to let the input be matched by later rules
+    since flex always prioritize the longer matches
+  */
+>>>         {
+              if (CURRENT_CONFIGURATION->enable_cuda
+                   && IS_CXX03_LANGUAGE)
+              {
+                  parse_token_text();
+                  return CUDA_KERNEL_RIGHT;
+              }
+              REJECT;
+            }
+>>          {
+              if (IS_CXX03_LANGUAGE)
+              {
+                parse_token_text();
+                return RIGHT;
+              }
+              REJECT;
+            }
+>>=         {
+              if (IS_CXX03_LANGUAGE)
+              {
+                parse_token_text();
+                return RIGHT_ASSIGN;
+              }
+              REJECT;
+            }
+>=          {
+              if (IS_CXX03_LANGUAGE)
+              {
+                  parse_token_text();
+                  return GREATER_OR_EQUAL;
+              }
+              REJECT;
+            }
+ /* In C++2011 these three tokens behave different */
 >/>         { parse_token_text(); return AB1; }
 >/=         { parse_token_text(); return AB2; }
 >/[^>=]     { parse_token_text(); return '>'; }
@@ -1417,13 +1838,13 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        fprintf(stderr, "%s:%d: warning: unknown character '%c' (%#x). Ignoring it.\n", 
+        error_printf("%s:%d: error: invalid character '%c' (%#x)\n", 
 				scanning_now.current_filename, scanning_now.line_number,
                 *yytext, *yytext);
     }
     else
     {
-        fprintf(stderr, "%s:%d: warning: unknown character %#x. Ignoring it.\n", 
+        error_printf("%s:%d: error: invalid character %#x\n", 
 				scanning_now.current_filename, scanning_now.line_number,
                 *yytext);
     }
@@ -1470,7 +1891,7 @@ static void parse_token_text_str(const char* c)
 #define TL_SOURCE_STRING mc99_tl_source_string
 /*!endif*/
 
-char* TL_SOURCE_STRING = "(tl-source-string)";
+char* TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {
@@ -1487,7 +1908,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
 
     char c[MCXX_MAX_FILENAME];
-    snprintf(c, MCXX_MAX_FILENAME, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
+    snprintf(c, MCXX_MAX_FILENAME, "%s-%s-%d", TL_SOURCE_STRING, current_filename, num_string);
     c[MCXX_MAX_FILENAME-1] = '\0';
     scanning_now.filename = uniquestr(c);
 
@@ -1606,7 +2027,7 @@ void register_new_directive(compilation_configuration_t* configuration,
             {
                 if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
                 {
-                    fprintf(stderr, "Warning, directive or construct "
+                    warn_printf("Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
                             ", ignoring additional registrations\n",
                             directive, prefix);
@@ -1687,7 +2108,7 @@ static int compute_length_match(const char* lexed_directive,
     char* available = xstrdup(available_directive);
 
     char *next_lexed_info = NULL;
-    char *next_lexed = strtok_r(lexed, " ", &next_lexed_info);
+    char *next_lexed = strtok_r(lexed, " \r", &next_lexed_info);
     char *next_available_info = NULL;
     char *next_available = strtok_r(available, "|", &next_available_info);
 
@@ -1697,7 +2118,7 @@ static int compute_length_match(const char* lexed_directive,
         if (strcmp(next_lexed, next_available) == 0)
         {
             num_matches++;
-            next_lexed = strtok_r(NULL, " ", &next_lexed_info);
+            next_lexed = strtok_r(NULL, " \r", &next_lexed_info);
             next_available = strtok_r(NULL, "|", &next_available_info);
         }
         else
@@ -1870,14 +2291,18 @@ static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* k
             keyword);
 }
 
-// Shut up the compiler
-#ifndef YY_NO_INPUT
-#ifdef __cplusplus
-    UNUSED_PARAMETER static int yyinput (void);
-#else
-    UNUSED_PARAMETER static int input  (void);
-#endif
-#endif
+static void unput_string(const char* c)
+{
+    if (c == NULL)
+        return;
+
+    int N = strlen(c);
+    int i;
+    for (i = N-1; i >= 0; i--)
+    {
+        unput(c[i]);
+    }
+}
 
 /*!if C99*/
 void * mc99alloc (size_t bytes)

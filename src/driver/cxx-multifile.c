@@ -132,7 +132,13 @@ void multifile_extract_extended_info(const char* filename)
 
         // Change to temporal directory
         temporal_file_t temporal_dir = new_temporal_dir();
-        chdir(temporal_dir->name);
+        int r = chdir(temporal_dir->name);
+        if (r < 0)
+        {
+            running_error("Error during chdir to '%s'. %s\n",
+                    temporal_dir->name,
+                    strerror(errno));
+        }
 
         const char* list_arguments[] = {
             "x",
@@ -147,7 +153,13 @@ void multifile_extract_extended_info(const char* filename)
         xfree(full_path);
 
         // Go back to previous directory
-        chdir(current_directory);
+        r = chdir(current_directory);
+        if (r < 0)
+        {
+            running_error("Error during chdir to '%s'. %s\n",
+                    temporal_dir->name,
+                    strerror(errno));
+        }
 
         DIR* archive_dir = opendir(temporal_dir->name);
         // Now scan the temporary directory where we unpacked the archive
@@ -189,6 +201,11 @@ void multifile_extract_extended_info(const char* filename)
 // This routine works both for .a and for .o thanks to objdump
 char multifile_object_has_extended_info(const char* filename)
 {
+    // If the file cannot be accessed by some reason, ignore it
+    // and let the linker fail later
+    if (access(filename, R_OK) != 0)
+        return 0;
+
     temporal_file_t temp = new_temporal_file();
 
     const char* arguments[] =
@@ -202,14 +219,14 @@ char multifile_object_has_extended_info(const char* filename)
     if (execute_program_flags(CURRENT_CONFIGURATION->target_objdump,
                 arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
     {
-        running_error("Error when identifying object file");
+        running_error("Error when identifying object file '%s'", filename);
     }
 
     FILE* stdout_file = fopen(temp->name, "r");
 
     if (stdout_file == NULL)
     {
-        running_error("Error when examining output of 'objdump'");
+        running_error("Error when examining output of 'objdump' of file '%s'", filename);
     }
 
     char line[256];
@@ -218,8 +235,7 @@ char multifile_object_has_extended_info(const char* filename)
 
     while (fgets(line, 255, stdout_file) != NULL)
     {
-        if ((strlen(line) > 1)
-                && line[0] == ' ')
+        if ((strlen(line) > 1))
         {
             const char *q = line;
 
@@ -498,7 +514,7 @@ void multifile_embed_bfd_collective(void **data, const char* output_filename)
 
     if (execute_program(CURRENT_CONFIGURATION->target_objcopy, objcopy_args) != 0)
     {
-        running_error("When creating multifile archive, 'objcopy' failed\n");
+        running_error("When creating multifile archive, 'objcopy' failed, if compiling for MIC, set MIC_TOOLS configure flag correctly\n");
     }
 
     if (CURRENT_CONFIGURATION->verbose)

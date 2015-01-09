@@ -230,9 +230,24 @@ namespace TL
     {
         public:
             PragmaCustomParameter(Nodecl::List node)
-                : PragmaClauseArgList(node) { }
+                : PragmaClauseArgList(node) { mark_as_used(); }
 
             bool is_defined() const;
+
+            //! Marks all the related clause as used. Use this for diagnotics
+            void mark_as_used();
+            //! Removes the "used" mark of all the related clauses. Use this for diagnotics
+            void mark_as_unused();
+            //! States if this clause was marked as "used". Use this for diagnostics
+            bool is_marked_as_used() const;
+            //! States if this clause was not marked as "used". Use this for diagnostics
+            bool is_marked_as_unused() const;
+        private:
+
+            // This is a private constructor only for PragmaCustomLine
+            friend class PragmaCustomLine;
+            PragmaCustomParameter(Nodecl::List node, int)
+                : PragmaClauseArgList(node) { }
     };
 
     class LIBTL_CLASS PragmaCustomLine : public Nodecl::PragmaCustomLine
@@ -279,6 +294,8 @@ namespace TL
 
             private:
                 ObjectList<Nodecl::PragmaCustomClause> get_all_clauses_nodes() const;
+
+                PragmaCustomParameter get_parameter_no_mark_used() const;
     };
     
     // Note that this is TL::PragmaCustomDirective 
@@ -365,12 +382,16 @@ namespace TL
                 }
                 internal_error("Code unreachable", 0);
             }
+
+            bool _ignore_template_functions;
         public:
             PragmaVisitor(const std::string& pragma_handled, 
-                    PragmaMapDispatcher & map_dispatcher)
-                : _pragma_handled(pragma_handled), _map_dispatcher(map_dispatcher) 
+                    PragmaMapDispatcher & map_dispatcher,
+                    bool ignore_template_functions)
+                : _pragma_handled(pragma_handled),
+                _map_dispatcher(map_dispatcher),
+                _ignore_template_functions(ignore_template_functions)
             { }
-
 
             virtual void visit_pre(const Nodecl::PragmaCustomDirective & n)
             {
@@ -405,7 +426,7 @@ namespace TL
                 if (n.get_text() == _pragma_handled)
                 {
                     std::string pragma_name = get_pragma_name(n.get_pragma_line());
-                    
+
                     PragmaMapDispatcher::StatementMap::iterator it = _map_dispatcher.statement.pre.find(pragma_name);
 
                     if (it != _map_dispatcher.statement.pre.end())
@@ -456,6 +477,24 @@ namespace TL
                     }
                 }
             }
+
+            virtual void visit(const Nodecl::FunctionCode& n)
+            {
+                if (IS_CXX_LANGUAGE
+                        && _ignore_template_functions
+                        && n.get_symbol().is_member()
+                        && n.get_symbol().get_class_type().is_dependent())
+                    return;
+
+                this->Nodecl::ExhaustiveVisitor<void>::visit(n);
+            }
+
+            virtual void visit(const Nodecl::TemplateFunctionCode& n)
+            {
+                if (_ignore_template_functions)
+                    return;
+                this->Nodecl::ExhaustiveVisitor<void>::visit(n);
+            }
     };
 
     //! Base class for all compiler phases working on user defined pragma lines
@@ -470,8 +509,12 @@ namespace TL
         private:
             std::string _pragma_handled;
             PragmaMapDispatcher _pragma_map_dispatcher;
+            bool _ignore_template_functions;
         protected:
             PragmaMapDispatcher& dispatcher();
+
+            void set_ignore_template_functions(bool b) { _ignore_template_functions = b; }
+            bool get_ignore_template_functions() const { return _ignore_template_functions; };
         public:
             //! Constructor
             /*!
@@ -526,6 +569,8 @@ namespace TL
     {
         LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
                 const std::string& pragma_name,
+                Nodecl::NodeclBase n);
+        LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
                 Nodecl::NodeclBase n);
     }
 }

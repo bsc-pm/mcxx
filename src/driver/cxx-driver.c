@@ -39,12 +39,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
-#include <malloc.h>
 #include <errno.h>
 #include <unistd.h>
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 #include <signal.h>
+#endif
+
+#ifdef HAVE_MALLINFO
+#include <malloc.h>
 #endif
 
 #include <sys/types.h>
@@ -147,8 +150,8 @@
 "  --Wx:<profile>:<flags>,options\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
-"  --openmp                 Enables OpenMP support\n" \
-"  --no-openmp              Disables OpenMP support (default)\n" \
+"  --openmp                 Enables OpenMP support (default)\n" \
+"  --no-openmp              Disables OpenMP support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -206,17 +209,22 @@
 "                           C/C++: .i, .ii\n"\
 "                           Fortran: .f, .f77, .f90, .f95\n"\
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
+"  --fpp                    An alias for --pp=on\n"\
+"  --fpp=<name>             Preprocessor <name> will be used for\n" \
+"                           preprocessing Fortran source\n" \
 "  --width=<width>          Fortran column width used in the output\n" \
-"                           By default 132\n" \
-"  --free                   Force Fortran free form regardless of\n" \
-"                           extension.\n"\
+"                           By default 132.\n" \
+"  --free                   Assume Fortran free-form input regardless\n" \
+"                           of extension.\n"\
 "                           This is the default for files ending with\n"\
 "                           .f90, .F90, .f95, .F95, .f03 or .F03\n"\
-"  --fixed                  Force Fortran fixed form regardless of\n" \
-"                           extension\n"\
+"  --fixed                  Assume Fortran fixed-form input regardless\n" \
+"                           of extension\n"\
 "                           This is the default for files ending with\n"\
 "                           .f, .F, .f77, .F77\n"\
-"  --fpp                    An alias for --pp=on\n"\
+"  --fixed-form-length=<width>\n"\
+"                           Fortran column width used in\n" \
+"                           fixed-form input. By default 72\n" \
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
@@ -262,6 +270,8 @@
 "                           action will be carried by the driver\n" \
 "  --enable-ms-builtins     Enables __int8, __int16, __int32 and\n" \
 "                           __int64 builtin types\n" \
+"  --enable-intel-builtins\n" \
+"                           Enables some Intel C/C++ builtins\n" \
 "  --enable-intel-vector-types\n" \
 "                           Enables special support for SIMD types\n" \
 "                           __m128, __m256 and __m512 as struct types\n" \
@@ -270,34 +280,14 @@
 "                           support locking at file level. This \n" \
 "                           option is incompatible with parallel\n" \
 "                           compilation\n" \
+"  --xl-compat              Enables compatibility features with\n" \
+"                           IBM XL C/C++/Fortran. This flag may be\n" \
+"                           required when using such compiler.\n" \
+"  --line-markers           Adds line markers to the generated file\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
-"  -v\n" \
-"  -V\n" \
-"  -f<name>\n" \
-"  -m<name>\n" \
-"  -M\n" \
-"  -MM\n" \
-"  -MF <file>\n" \
-"  -MG <file>\n" \
-"  -MP\n" \
-"  -MT <target>\n" \
-"  -MD\n" \
-"  -MMD\n" \
-"  -static\n" \
-"  -shared\n" \
-"  -std=<option>\n" \
-"  -rdynamic\n" \
-"  -export-dynamic\n" \
-"  -w\n" \
-"  -W<option>\n" \
-"  -pthread\n" \
-"  -Xpreprocessor OPTION\n" \
-"  -Xlinker OPTION\n" \
-"  -Xassembler OPTION\n" \
-"  -include FILE\n" \
-"  -S\n" \
+"  -ansi\n" \
 "  -dA\n" \
 "  -dD\n" \
 "  -dH\n" \
@@ -307,6 +297,33 @@
 "  -dv\n" \
 "  -dx\n" \
 "  -dy\n" \
+"  -export-dynamic\n" \
+"  -f<name>\n" \
+"  -include FILE\n" \
+"  -MD\n" \
+"  -MF <file>\n" \
+"  -MG <file>\n" \
+"  -MMD\n" \
+"  -MM\n" \
+"  -M\n" \
+"  -m<name>\n" \
+"  -MP\n" \
+"  -MT <target>\n" \
+"  -pipe\n" \
+"  -pthread\n" \
+"  -rdynamic\n" \
+"  -shared\n" \
+"  -S\n" \
+"  -static\n" \
+"  -static-libgcc\n" \
+"  -std=<option>\n" \
+"  -v\n" \
+"  -V\n" \
+"  -w\n" \
+"  -W<option>\n" \
+"  -Xassembler OPTION\n" \
+"  -Xlinker OPTION\n" \
+"  -Xpreprocessor OPTION\n" \
 "\n" \
 "Parameters above are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
@@ -341,6 +358,7 @@ typedef enum
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_ENABLE_MS_BUILTIN,
+    OPTION_ENABLE_INTEL_BUILTINS,
     OPTION_ENABLE_INTEL_VECTOR_TYPES,
     OPTION_PASS_THROUGH,
     OPTION_DISABLE_SIZEOF,
@@ -357,9 +375,11 @@ typedef enum
     OPTION_ALWAYS_PREPROCESS,
     OPTION_FORTRAN_COLUMN_WIDTH,
     OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FIXED_FORM_LENGTH,
     OPTION_FORTRAN_FREE,
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
+    OPTION_FORTRAN_PREPROCESSOR,
     OPTION_FORTRAN_PRESCANNER,
     OPTION_FORTRAN_DOUBLEPRECISION_KIND,
     OPTION_FORTRAN_INTEGER_KIND,
@@ -377,6 +397,8 @@ typedef enum
     OPTION_NO_WHOLE_FILE,
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DISABLE_FILE_LOCKING,
+    OPTION_XL_COMPATIBILITY,
+    OPTION_LINE_MARKERS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -429,9 +451,10 @@ struct command_line_long_options command_line_long_options[] =
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
-    {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"fpp", CLP_OPTIONAL_ARGUMENT, OPTION_FORTRAN_PREPROCESSOR},
     {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
+    {"fixed-form-length", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_FIXED_FORM_LENGTH},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
@@ -454,13 +477,16 @@ struct command_line_long_options command_line_long_options[] =
     {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
+    {"enable-intel-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_BUILTINS },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
+    {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
+    {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     // sentinel
     {NULL, 0, 0}
 };
 
-char* source_language_names[] =
+const char* source_language_names[] =
 {
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
@@ -520,6 +546,7 @@ static void enable_debug_flag(const char* flag);
 static void help_message(void);
 
 static void print_memory_report(void);
+static void stats_string_table(void);
 
 static int parse_special_parameters(int *should_advance, int argc, 
         const char* argv[], char dry_run);
@@ -613,6 +640,11 @@ int main(int argc, char* argv[])
     if (CURRENT_CONFIGURATION->debug_options.print_memory_report)
     {
         print_memory_report();
+    }
+
+    if (CURRENT_CONFIGURATION->debug_options.stats_string_table)
+    {
+        stats_string_table();
     }
 
     return compilation_process.execution_result;
@@ -790,16 +822,21 @@ int parse_arguments(int argc, const char* argv[],
     char native_verbose = 0; // -v
     char native_version = 0; // -V
 
-    const char **input_files = NULL;
     int num_input_files = 0;
 
     char linker_files_seen = 0;
 
     struct command_line_parameter_t parameter_info;
-    
-    // we need all translation units because the ouput value might be wrong
+
+    // we need to store every translation unit because the ouput file should be
+    // updated after parsing all the arguments
     int num_translation_units = 0;
     translation_unit_t ** list_translation_units = NULL;
+
+    // we need to store every compilation configuration because some flags
+    // should be updated after parsing all the arguments
+    int num_compilation_configs = 0;
+    compilation_configuration_t** list_compilation_configs = NULL;
 
     while (command_line_get_next_parameter(&parameter_index, 
                 &parameter_info,
@@ -876,9 +913,20 @@ int parse_arguments(int argc, const char* argv[],
                 }
                 else
                 {
-                    P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
-
                     struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+                    // Some files (e.g., OpenCL kernels) should be ignored because they don't
+                    // affect to the current compilation. Example:
+                    //
+                    //      oclmfc --ompss -o t1.o t1.c ./OCL/kernel.cl
+                    //
+                    // In this example, the 'kernel.cl' file is not processed, compiled,
+                    // embedded nor linked, it's only used to obtain the path to the kernel.
+                    // If we don't ignore these files the example is invalid
+                    if(!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+                    {
+                        num_input_files++;
+                    }
 
                     compilation_configuration_t* current_configuration = CURRENT_CONFIGURATION;
 
@@ -895,7 +943,9 @@ int parse_arguments(int argc, const char* argv[],
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
                         output_file, current_configuration);
+
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
+                    P_LIST_ADD(list_compilation_configs, num_compilation_configs, current_configuration);
 
                     add_to_linker_command(uniquestr(parameter_info.argument), ptr_tr);
                 }
@@ -913,7 +963,6 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_OPENMP :
                 case OPTION_NO_OPENMP :
                     {
-                        CURRENT_CONFIGURATION->enable_openmp = (parameter_info.value == OPTION_OPENMP);
                         // If 'openmp' is in the parameter flags, set it to true
                         int i;
                         char found = 0;
@@ -922,7 +971,13 @@ int parse_arguments(int argc, const char* argv[],
                             if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
                             {
                                 found = 1;
-                                compilation_process.parameter_flags[i]->value = CURRENT_CONFIGURATION->enable_openmp;
+                                if (from_command_line
+                                        // Still undefined
+                                        || (compilation_process.parameter_flags[i]->value == PFV_UNDEFINED))
+                                {
+                                    compilation_process.parameter_flags[i]->value =
+                                        (parameter_info.value == OPTION_OPENMP) ? PFV_TRUE : PFV_FALSE;
+                                }
                             }
                         }
                         if (!found)
@@ -1248,6 +1303,11 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->enable_ms_builtin_types = 1;
                         break;
                     }
+                case OPTION_ENABLE_INTEL_BUILTINS:
+                    {
+                        CURRENT_CONFIGURATION->enable_intel_builtins = 1;
+                        break;
+                    }
                 case OPTION_ENABLE_INTEL_VECTOR_TYPES:
                     {
                         CURRENT_CONFIGURATION->enable_intel_vector_types = 1;
@@ -1396,7 +1456,12 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
                     {
-                        CURRENT_CONFIGURATION->column_width = atoi(parameter_info.argument);
+                        CURRENT_CONFIGURATION->output_column_width = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_FIXED_FORM_LENGTH:
+                    {
+                        CURRENT_CONFIGURATION->input_column_width = atoi(parameter_info.argument);
                         break;
                     }
                 case OPTION_FORTRAN_FIXED:
@@ -1428,6 +1493,20 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_FORTRAN_PRESCANNER:
                     {
                         CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_PREPROCESSOR:
+                    {
+                        if (parameter_info.argument == NULL)
+                        {
+                            // Behave like --pp=on for compatibility
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        }
+                        else
+                        {
+                            CURRENT_CONFIGURATION->fortran_preprocessor_name = uniquestr(parameter_info.argument);
+                        }
                         break;
                     }
                 case OPTION_FORTRAN_DOUBLEPRECISION_KIND:
@@ -1479,6 +1558,16 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DISABLE_FILE_LOCKING:
                     {
                         CURRENT_CONFIGURATION->disable_locking = 1;
+                        break;
+                    }
+                case OPTION_XL_COMPATIBILITY:
+                    {
+                        CURRENT_CONFIGURATION->xl_compatibility = 1;
+                        break;
+                    }
+                case OPTION_LINE_MARKERS:
+                    {
+                        CURRENT_CONFIGURATION->line_markers = 1;
                         break;
                     }
                 default:
@@ -1575,13 +1664,26 @@ int parse_arguments(int argc, const char* argv[],
         num_input_files = 0;
         output_file = NULL;
     }
-   
-    //put the right output file in all translation units
+
+    // Update the output filename of every translation unit
     int i;
-    for (i = 0; i < num_translation_units; ++i) 
+    for (i = 0; i < num_translation_units; ++i)
     {
         list_translation_units[i]->output_filename = output_file;
     }
+
+    // Update some information of every compilation configuration
+    // (It should be done at this point, see #1886)
+    for (i = 0; i < num_compilation_configs; ++i)
+    {
+        list_compilation_configs[i]->verbose = CURRENT_CONFIGURATION->verbose;
+        list_compilation_configs[i]->do_not_link = CURRENT_CONFIGURATION->do_not_link;
+        list_compilation_configs[i]->do_not_compile = CURRENT_CONFIGURATION->do_not_compile;
+        list_compilation_configs[i]->do_not_prettyprint = CURRENT_CONFIGURATION->do_not_prettyprint;
+    }
+
+    xfree(list_translation_units);
+    xfree(list_compilation_configs);
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
     // then, this output is the overall compilation process output
@@ -1599,6 +1701,12 @@ int parse_arguments(int argc, const char* argv[],
         if (CURRENT_CONFIGURATION->do_not_link)
         {
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_v);
+        }
+        else if (num_input_files == 0)
+        {
+            // Clear linker options as gcc may attempt to link
+            CURRENT_CONFIGURATION->linker_options = NULL;
+            add_to_linker_command(uniquestr(minus_v), NULL);
         }
         else
         {
@@ -1695,11 +1803,11 @@ static int parse_implicit_parameter_flag(int * should_advance, const char *param
                     found = 1;
                     if (!negative_flag)
                     {
-                        parameter_flag->value = 1;
+                        parameter_flag->value = PFV_TRUE;
                     }
                     else
                     {
-                        parameter_flag->value = 0;
+                        parameter_flag->value = PFV_FALSE;
                     }
                 }
             }
@@ -1736,6 +1844,24 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
     switch (argument[1])
     {
         // GCC parameters
+        case 'a':
+            {
+                if (strcmp(argument, "-ansi") == 0)
+                {
+                    if (!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
+                    }
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+
+                break;
+            }
         case 'n' :
             {
                 if (strcmp(argument, "-nostdlib") == 0
@@ -1757,8 +1883,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
-            // IBM XL Compiler Optimization Flags
-        case 'q':
+        case 'q': // IBM XL Compiler Optimization Flags
             {
                 char hide_parameter = 0;
                 if (!dry_run)
@@ -1897,15 +2022,27 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 if ((strlen(argument) > strlen("-std="))
                         && argument[2] == 't'
                         && argument[3] == 'd'
-                        && argument[4] == '=') 
-                { 
-                    if (strcmp(&argument[5], "c++0x") == 0
+                        && argument[4] == '=')
+                {
+                    if ( strcmp(&argument[5], "c++11") == 0
+                            || strcmp(&argument[5], "gnu++11") == 0
+                            // Old flags
+                            || strcmp(&argument[5], "c++0x") == 0
                             || strcmp(&argument[5], "gnu++0x") == 0)
                     {
-                        CURRENT_CONFIGURATION->enable_cxx1x = 1;
+                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
+                    }
+                    else if (strcmp(&argument[5], "c++14") == 0
+                            || strcmp(&argument[5], "gnu++14") == 0
+                            // clang flag
+                            || strcmp(&argument[5], "c++1y") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
+                        CURRENT_CONFIGURATION->enable_cxx14 = 1;
                     }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
+                else if (strcmp(argument, "-static-libgcc") == 0) { }
                 else if (strcmp(argument, "-shared") == 0) { }
                 else
                 {
@@ -1978,6 +2115,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'p':
             {
                 if (strcmp(argument, "-pthread") == 0)
+                {
+                }
+                else if (strcmp(argument, "-pipe") == 0)
                 {
                 }
                 else if ((strcmp(argument, "-print-search-dirs") == 0)
@@ -2152,17 +2292,25 @@ static void enable_debug_flag(const char* flags)
                     flag);
         }
     }
+
+    xfree(flag_list);
+}
+
+void add_to_linker_command_configuration(
+        const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
+{
+    parameter_linker_command_t * ptr_param =
+        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
+
+     ptr_param->argument = str;
+
+    ptr_param->translation_unit = tr_unit;
+    P_LIST_ADD(configuration->linker_command, configuration->num_args_linker_command, ptr_param);
 }
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
 {
-    parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
-    
-     ptr_param->argument = str; 
-    
-    ptr_param->translation_unit = tr_unit;
-    P_LIST_ADD(CURRENT_CONFIGURATION->linker_command, CURRENT_CONFIGURATION->num_args_linker_command, ptr_param);
+    add_to_linker_command_configuration(str, tr_unit, CURRENT_CONFIGURATION);
 }
 
 static void add_to_parameter_list_str(const char*** existing_options, const char* str)
@@ -2287,7 +2435,44 @@ static void parse_subcommand_arguments(const char* arguments)
     p++;
 
     int num_parameters = 0;
-    const char** parameters = comma_separate_values(p, &num_parameters);
+    const char** parameters = NULL;
+    if (*p == '"' || *p == '\'')
+    {
+        char delimiter = *p;
+        // --Wx:profile:n,"literal text"
+        char* literal_text = xstrdup(p + 1);
+        char* q = literal_text;
+        char delim_found = 0;
+        while (*q != '\0')
+        {
+            if (*q == delimiter)
+            {
+                *q = '\0';
+                delim_found = 1;
+                q++;
+                break;
+            }
+            q++;
+        }
+
+        if (delim_found && *q != '\0')
+        {
+            fprintf(stderr, "Warning: Ignoring trailing '%s' in parameter '--W%s'\n",
+                    q, arguments);
+        }
+        else if (!delim_found)
+        {
+            fprintf(stderr, "Warning: Parameter '--W%s' is missing a delimiter\n",
+                    arguments);
+        }
+
+        num_parameters = 1;
+        parameters = (const char**)&literal_text;
+    }
+    else
+    {
+        parameters = comma_separate_values(p, &num_parameters);
+    }
 
     if (prepro_flag)
     {
@@ -2304,14 +2489,11 @@ static void parse_subcommand_arguments(const char* arguments)
                 parameters, num_parameters);
     if (linker_flag)
     {
-        /*add_to_parameter_list(
-                &configuration->linker_options,
-                parameters, num_parameters);*/
         int i;
         for(i = 0; i < num_parameters; ++i)
         {
-            add_to_linker_command(uniquestr(parameters[i]),NULL);
-         }
+            add_to_linker_command_configuration(uniquestr(parameters[i]), NULL, configuration);
+        }
     }
     if (prescanner_flag)
         add_to_parameter_list(
@@ -2362,12 +2544,14 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->linker_name = uniquestr("c++");
     CURRENT_CONFIGURATION->linker_options = NULL;
 
-    CURRENT_CONFIGURATION->column_width = 132;
+    CURRENT_CONFIGURATION->input_column_width = 72;
+    CURRENT_CONFIGURATION->output_column_width = 132;
 
     // Add openmp as an implicitly enabled
     struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
+    new_parameter_flag->value = PFV_UNDEFINED;
 
     P_LIST_ADD(compilation_process.parameter_flags,
             compilation_process.num_parameter_flags,
@@ -2539,7 +2723,6 @@ static void load_configuration(void)
     compilation_process.command_line_configuration = CURRENT_CONFIGURATION;
 }
 
-
 static void commit_configuration(void)
 {
     // For every configuration commit its options depending on flags
@@ -2606,6 +2789,21 @@ static void register_upc_pragmae(compilation_configuration_t* configuration);
 
 static void finalize_committed_configuration(compilation_configuration_t* configuration)
 {
+    char found = 0;
+    int i;
+    for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+    {
+        if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
+        {
+            found = 1;
+            configuration->enable_openmp = (compilation_process.parameter_flags[i]->value == PFV_TRUE);
+        }
+    }
+    if (!found)
+    {
+        internal_error("'openmp' implicit flag was not properly registered", 0);
+    }
+
     // OpenMP support involves omp pragma
     if (configuration->enable_openmp)
     {
@@ -2775,7 +2973,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_prescanning;
-            
+
             timing_start(&timing_prescanning);
             parsed_filename = fortran_prescan_file(translation_unit, parsed_filename, preprocessed);
             timing_end(&timing_prescanning);
@@ -2805,10 +3003,14 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 mcxxdebug = mc99debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
                 mf03_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
                 mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
-               
+
                 // Load codegen if not yet loaded
                 ensure_codegen_is_loaded();
 
+                // Initialize diagnostics
+                diagnostics_reset();
+
+                // Fill the context with initial information
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
                 // * Open file
@@ -2841,6 +3043,13 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // Close file parsed
                 close_scanned_file();
 
+                if (CURRENT_CONFIGURATION->debug_options.print_parse_tree)
+                {
+                    fprintf(stderr, "Printing parse tree in graphviz format\n");
+
+                    ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                }
+
                 // * Prepare DTO
                 initialize_dto(translation_unit);
 
@@ -2852,38 +3061,38 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 // * Check nodecl generated by semantic analysis
                 timing_t timing_check_tree;
-                timing_start(&timing_check_tree);
                 if (CURRENT_CONFIGURATION->verbose)
                 {
                     fprintf(stderr, "Checking integrity of nodecl tree\n");
                 }
                 // This checks links
+                timing_start(&timing_check_tree);
                 if (!ast_check(nodecl_get_ast(translation_unit->nodecl)))
                 {
                     internal_error("Invalid nodecl tree generated by the frontend\n", 0);
                 }
-                // This checks semantics
+                // This checks structure
                 nodecl_check_tree(nodecl_get_ast(translation_unit->nodecl));
+                timing_end(&timing_check_tree);
                 if (CURRENT_CONFIGURATION->verbose)
                 {
                     fprintf(stderr, "Nodecl integrity verified in %.2f seconds\n",
                             timing_elapsed(&timing_check_tree));
                 }
-                timing_end(&timing_check_tree);
 
                 // * TL::run and TL::phase_cleanup
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // * print ast if requested
-                if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
+                if (CURRENT_CONFIGURATION->debug_options.print_nodecl_graphviz)
                 {
-                    fprintf(stderr, "Printing AST in graphviz format\n");
+                    fprintf(stderr, "Printing nodecl tree in graphviz format\n");
 
                     ast_dump_graphviz(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
-                else if (CURRENT_CONFIGURATION->debug_options.print_ast_html)
+                else if (CURRENT_CONFIGURATION->debug_options.print_nodecl_html)
                 {
-                    fprintf(stderr, "Printing AST in HTML format\n");
+                    fprintf(stderr, "Printing nodecl tree in HTML format\n");
                     ast_dump_html(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
 
@@ -2903,6 +3112,25 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             {
                 prettyprinted_filename
                     = codegen_translation_unit(translation_unit, parsed_filename);
+            }
+
+            timing_t timing_free_tree;
+            if (CURRENT_CONFIGURATION->verbose)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Freeing nodecl tree\n");
+                }
+            }
+            timing_start(&timing_free_tree);
+            nodecl_free(translation_unit->nodecl);
+            timing_end(&timing_free_tree);
+            if (CURRENT_CONFIGURATION->verbose)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Nodecl tree freed in %.2f seconds\n", timing_elapsed(&timing_free_tree));
+                }
             }
 
             // * Recursively process secondary translation units
@@ -2972,7 +3200,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             }
         }
 
-        // * Restore CUDA flag 
+        // * Restore CUDA flag
         // FIXME. Is this the best place for this?
         CURRENT_CONFIGURATION->enable_cuda = old_cuda_flag;
 
@@ -3108,8 +3336,6 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
 
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
 {
-    diagnostics_reset();
-
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
@@ -3167,15 +3393,29 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     timing_t timing_check_tree;
     if (CURRENT_CONFIGURATION->verbose)
     {
-        fprintf(stderr, "Checking tree consistency\n");
+        fprintf(stderr, "Checking parse tree consistency\n");
     }
     timing_start(&timing_check_tree);
     check_tree(translation_unit->parsed_tree);
     timing_end(&timing_check_tree);
     if (CURRENT_CONFIGURATION->verbose)
     {
-        fprintf(stderr, "Tree consistency verified in %.2f seconds\n",
+        fprintf(stderr, "Parse tree consistency verified in %.2f seconds\n",
                 timing_elapsed(&timing_check_tree));
+    }
+
+    timing_t timing_free_tree;
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Freeing parse tree\n");
+    }
+    timing_start(&timing_free_tree);
+    ast_free(translation_unit->parsed_tree);
+    translation_unit->parsed_tree = NULL;
+    timing_end(&timing_free_tree);
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Parse tree freed in %.2f seconds\n", timing_elapsed(&timing_free_tree));
     }
 }
 
@@ -3263,11 +3503,11 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        run_codegen_phase(prettyprint_file, translation_unit);
+        run_codegen_phase(prettyprint_file, translation_unit, output_filename);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-        if (CURRENT_CONFIGURATION->column_width != 0)
+        if (CURRENT_CONFIGURATION->output_column_width != 0)
         {
             temporal_file_t raw_prettyprint = new_temporal_file();
             FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
@@ -3275,7 +3515,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            run_codegen_phase(raw_prettyprint_file, translation_unit);
+            run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
 
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
@@ -3283,12 +3523,12 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
+            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->output_column_width);
             fclose(raw_prettyprint_file);
         }
         else
         {
-            run_codegen_phase(prettyprint_file, translation_unit);
+            run_codegen_phase(prettyprint_file, translation_unit, output_filename);
         }
     }
     else
@@ -3630,8 +3870,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     int num_arguments = prescanner_args;
     // -l [optional]
     num_arguments += 1;
-    // -r dir -q input -o output
-    num_arguments += 6;
+    // -r dir -q -w width input -o output
+    num_arguments += 8;
     // NULL
     num_arguments += 1;
 
@@ -3682,16 +3922,25 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = uniquestr("-l");
         i++;
     }
+
     prescanner_options[i] = uniquestr("-r");
     i++;
     prescanner_options[i] = uniquestr(prescanner_include_output->name);
     i++;
+
     prescanner_options[i] = uniquestr("-q");
     i++;
+
+    prescanner_options[i] = uniquestr("-w");
+    i++;
+    uniquestr_sprintf(&prescanner_options[i], "%d", CURRENT_CONFIGURATION->input_column_width);
+    i++;
+
     prescanner_options[i] = uniquestr("-o");
     i++;
     prescanner_options[i] = prescanned_filename;
     i++;
+
     prescanner_options[i] = parsed_filename;
 
     int result_prescan = execute_program(full_path, prescanner_options);
@@ -3948,6 +4197,18 @@ static void embed_files(void)
         {
             compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
             compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
+
+            // If a .o file is introduced by a phase, then it will not have an
+            // output filename because we usually compute these very late in
+            // the linking step and we will end using the same name.
+            extension = get_extension_filename(secondary_compilation_file->translation_unit->input_filename);
+            current_extension = fileextensions_lookup(extension, strlen(extension));
+            if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                    && secondary_compilation_file->translation_unit->output_filename == NULL)
+            {
+                secondary_compilation_file->translation_unit->output_filename =
+                    secondary_compilation_file->translation_unit->input_filename;
+            }
 
             target_options_map_t* target_options = get_target_options(secondary_configuration, CURRENT_CONFIGURATION->configuration_name);
 
@@ -4450,7 +4711,7 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
     if (a == NULL)
         return 1;
 
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         *ambiguous_node = a;
         return 0;
@@ -4531,14 +4792,6 @@ static compilation_configuration_t* get_sublanguage_configuration(
     return fallback_config;
 }
 
-
-// Useful for debugging sessions
-void _enable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
-}
-
-
 #ifdef HAVE_MALLINFO
 static char* power_suffixes[9] = 
 {
@@ -4580,6 +4833,7 @@ static void print_human(char *dest, unsigned long long num_bytes_)
         }
     }
 }
+#endif
 
 static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 1], int breakdown_real[MCXX_MAX_AST_CHILDREN + 1], int *num_nodes)
 {
@@ -4607,18 +4861,22 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
     if (num_real <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown_real[num_real]++;
 }
-#endif
+
+static void stats_string_table(void)
+{
+    uniquestr_stats();
+}
 
 static void print_memory_report(void)
 {
-    char c[256];
-
     fprintf(stderr, "\n");
     fprintf(stderr, "Memory report\n");
     fprintf(stderr, "-------------\n");
     fprintf(stderr, "\n");
 
 #ifdef HAVE_MALLINFO
+    char c[256];
+
     struct mallinfo mallinfo_report = mallinfo();
     print_human(c, mallinfo_report.arena);
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
@@ -4648,82 +4906,16 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 #endif
 
-    unsigned long long accounted_memory = 0;
-    //
-    // -- AST
-
-    accounted_memory += ast_astmake_used_memory();
-    print_human(c, ast_astmake_used_memory());
-    fprintf(stderr, " - Memory used to create AST nodes: %s\n", c);
-
-    accounted_memory += ast_instantiation_used_memory();
-    print_human(c, ast_instantiation_used_memory());
-    fprintf(stderr, " - Memory used to copy AST nodes when instantiating: %s\n", c);
+    fprintf(stderr, "Size of a symbol (bytes): %zd\n",
+            sizeof(scope_entry_t));
+    fprintf(stderr, "Size of entity specifiers (bytes): %zd\n",
+            sizeof(entity_specifiers_t));
+    fprintf(stderr, "Size of a context (bytes): %zd\n",
+            sizeof(decl_context_t));
+    fprintf(stderr, "Size of a type (bytes): %zd\n",
+            get_type_t_size());
 
     // -- AST
-
-    accounted_memory += type_system_used_memory();
-    print_human(c, type_system_used_memory());
-    fprintf(stderr, " - Memory usage due to type system: %s\n", c);
-
-    {
-        fprintf(stderr, " - Type system breakdown:\n");
-        fprintf(stderr, "    - Size of type node (bytes): %zu\n", get_type_t_size());
-        fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
-        fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
-        fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
-        fprintf(stderr, "    - Number of reused function types: %d\n", get_function_type_reused());
-        fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());
-        fprintf(stderr, "    - Number of pointer types: %d\n", get_pointer_type_counter());
-        fprintf(stderr, "    - Number of pointer to member types: %d\n", get_pointer_to_member_type_counter());
-        fprintf(stderr, "    - Number of reference types: %d\n", get_reference_type_counter());
-        fprintf(stderr, "    - Number of template types: %d\n", get_template_type_counter());
-        fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
-        fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
-    }
-
-    accounted_memory += char_trie_used_memory();
-    print_human(c, char_trie_used_memory());
-    fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
-
-    accounted_memory += buildscope_used_memory();
-    print_human(c, buildscope_used_memory());
-    fprintf(stderr, " - Memory usage due to scope building: %s\n", c);
-
-    accounted_memory += symbols_used_memory();
-    print_human(c, symbols_used_memory());
-    fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
-    fprintf(stderr, "    - Size of each symbol (bytes): %zu\n", sizeof(scope_entry_t));
-    fprintf(stderr, "    - Size of entity specifiers (bytes): %zu\n", sizeof(entity_specifiers_t));
-
-    accounted_memory += scope_used_memory();
-    print_human(c, scope_used_memory());
-    fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
-    fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
-    fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
-    fprintf(stderr, "    - Size of a temporary gathering context structure (bytes): %zu\n", sizeof(gather_decl_spec_t));
-
-    accounted_memory += exprtype_used_memory();
-    print_human(c, exprtype_used_memory());
-    fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
-
-    accounted_memory += typeunif_used_memory();
-    print_human(c, typeunif_used_memory());
-    fprintf(stderr, " - Memory usage due to type unification: %s\n", c);
-
-    accounted_memory += typededuc_used_memory();
-    print_human(c, typededuc_used_memory());
-    fprintf(stderr, " - Memory usage due to type deduction: %s\n", c);
-
-    accounted_memory += overload_used_memory();
-    print_human(c, overload_used_memory());
-    fprintf(stderr, " - Memory usage due to overload resolution: %s\n", c);
-
-    fprintf(stderr, "\n");
-
-    print_human(c, accounted_memory);
-    fprintf(stderr, " - Total accounted memory: %s\n", c);
-
     fprintf(stderr, "\n");
     fprintf(stderr, "Abstract Syntax Tree(s) breakdown\n");
     fprintf(stderr, "---------------------------------\n");

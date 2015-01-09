@@ -5,23 +5,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -105,7 +105,7 @@ int main (int argc, char* argv[])
     const int N = 10 * 4;
 
     float* input, *output, *input_sc, *output_sc;
-   
+
     if(posix_memalign((void **) &input, 64, N * sizeof(float)) != 0)
     {
         exit(1);
@@ -122,7 +122,7 @@ int main (int argc, char* argv[])
     {
         exit(1);
     }
- 
+
     int i;
     for (i=0; i<N; i++)
     {
@@ -133,17 +133,18 @@ int main (int argc, char* argv[])
     test_vec(input, output);
     test_sc(input_sc, output_sc);
 
+#define ERROR 0.01
 
     for (i=0; i<N; i++)
     {
-        if(input_sc[i] != input[i])
+        if(fabsf(input_sc[i] - input[i]) > ERROR)
         {
-            printf("ERROR: %f != %f\n", input_sc[i], input[i]);
+            printf("ERROR: input_sc[%d] = %f != input[%d] = %f\n", i, input_sc[i], i, input[i]);
             exit(1);
         }
-        if(output_sc[i] != output[i])
+        if(fabsf(output_sc[i] - output[i]) > ERROR)
         {
-            printf("ERROR: %f != %f\n", output_sc[i], output[i]);
+            printf("ERROR: output_sc[%d] = %f != output[%d] = %f\n", i, output_sc[i], i, output[i]);
             exit(1);
         }
     }

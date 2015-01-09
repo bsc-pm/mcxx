@@ -42,17 +42,23 @@ namespace TL { namespace Nanox {
             virtual void run(DTO& dto);
             virtual void pre_run(DTO& dto);
 
-            Nodecl::List& get_extra_c_code();
+            static Nodecl::List& get_extra_c_code();
 
             bool in_ompss_mode() const;
+            bool nanos_debug_enabled() const;
             bool instrumentation_enabled() const;
             bool final_clause_transformation_disabled() const;
+            bool firstprivates_always_by_reference() const;
 
         private:
-            Nodecl::List _extra_c_code;
+            void load_headers(DTO& dto);
 
+            static Nodecl::List _extra_c_code;
+
+            std::string _ancillary_filename;
             FILE* _ancillary_file;
             FILE* get_ancillary_file();
+            std::string get_ancillary_filename() { return _ancillary_filename; };
 
             std::string _static_weak_symbols_str;
             bool _static_weak_symbols;
@@ -66,9 +72,17 @@ namespace TL { namespace Nanox {
             bool _instrumentation_enabled;
             void set_instrumentation(const std::string& str);
 
+            std::string _nanos_debug_str;
+            bool _nanos_debug_enabled;
+            void set_nanos_debug(const std::string& str);
+
             std::string _final_clause_transformation_str;
             bool _final_clause_transformation_disabled;
             void set_disable_final_clause_transformation(const std::string& str);
+
+            std::string _firstprivates_always_references_str;
+            bool _firstprivates_always_references;
+            void set_firstprivates_always_references(const std::string& str);
 
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);

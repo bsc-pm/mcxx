@@ -130,7 +130,7 @@ static void print_scope_full(scope_t* st, int global_indent)
     print_context_data.scope_set[print_context_data.num_scopes] = st;
     print_context_data.num_scopes++;
 
-    rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
+    dhash_ptr_walk(st->dhash, (dhash_ptr_walk_fn*)print_scope_full_aux, &global_indent);
 
     print_context_data.num_scopes--;
     print_context_data.scope_set[print_context_data.num_scopes] = NULL;
@@ -196,13 +196,13 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
                 print_declarator(entry->type_information));
 
-        if (entry->entity_specs.is_bitfield)
+        if (symbol_entity_specs_get_is_bitfield(entry))
         {
             PRINT_INDENTED_LINE(stderr, global_indent + 1, "Bitfield of size: %s\n", 
-                    codegen_to_str(entry->entity_specs.bitfield_size, nodecl_retrieve_context(entry->entity_specs.bitfield_size)));
+                    codegen_to_str(symbol_entity_specs_get_bitfield_size(entry), nodecl_retrieve_context(symbol_entity_specs_get_bitfield_size(entry))));
         }
     }
-    if (entry->kind == SK_TEMPLATE_PARAMETER
+    if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
@@ -355,20 +355,20 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
             }
             CXX_LANGUAGE()
             {
-                if (entry->entity_specs.is_conversion)
+                if (symbol_entity_specs_get_is_conversion(entry))
                 {
                     PRINT_INDENTED_LINE(stderr, global_indent+1, "Conversion function\n");
                 }
 
                 int i;
-                for (i = 0; i < entry->entity_specs.num_parameters; i++)
+                for (i = 0; i < symbol_entity_specs_get_num_parameters(entry); i++)
                 {
-                    if (entry->entity_specs.default_argument_info[i] != NULL)
+                    if (symbol_entity_specs_get_default_argument_info_num(entry, i) != NULL)
                     {
                         PRINT_INDENTED_LINE(stderr, global_indent + 1, "Default argument for parameter '%d' is '%s' \n", 
                                 i,
-                                codegen_to_str(entry->entity_specs.default_argument_info[i]->argument, 
-                                    nodecl_retrieve_context(entry->entity_specs.default_argument_info[i]->argument)));
+                                codegen_to_str(symbol_entity_specs_get_default_argument_info_num(entry, i)->argument, 
+                                    nodecl_retrieve_context(symbol_entity_specs_get_default_argument_info_num(entry, i)->argument)));
                     }
                 }
             }
@@ -379,44 +379,44 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         }
     }
 
-    if (entry->entity_specs.is_trivial)
+    if (symbol_entity_specs_get_is_trivial(entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is trivial\n");
     }
 
-    if (entry->entity_specs.is_deleted)
+    if (symbol_entity_specs_get_is_deleted(entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is deleted\n");
     }
 
-    if (entry->entity_specs.is_member)
+    if (symbol_entity_specs_get_is_member(entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member of '%s'\n",
-                print_declarator(entry->entity_specs.class_type));
+                print_declarator(symbol_entity_specs_get_class_type(entry)));
         if (entry->kind == SK_VARIABLE
-                && !entry->entity_specs.is_static)
+                && !symbol_entity_specs_get_is_static(entry))
         {
             PRINT_INDENTED_LINE(stderr, global_indent+1, "Offset of nonstatic member (at byte boundary): %zd\n",
-                    entry->entity_specs.field_offset);
-            if (entry->entity_specs.is_bitfield)
+                    symbol_entity_specs_get_field_offset(entry));
+            if (symbol_entity_specs_get_is_bitfield(entry))
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "First bit: %d\n",
-                        entry->entity_specs.bitfield_first);
+                        symbol_entity_specs_get_bitfield_first(entry));
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "Last bit: %d\n",
-                        entry->entity_specs.bitfield_last);
+                        symbol_entity_specs_get_bitfield_last(entry));
             }
         }
     }
 
-    if (entry->entity_specs.is_static)
+    if (symbol_entity_specs_get_is_static(entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is static\n");
     }
-    if (entry->entity_specs.is_conversion)
+    if (symbol_entity_specs_get_is_conversion(entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
-    if (entry->entity_specs.is_friend_declared)
+    if (symbol_entity_specs_get_is_friend_declared(entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is friend-declared symbol\n");
     }
@@ -450,21 +450,18 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
-            || entry->kind == SK_MODULE)
+            || entry->kind == SK_MODULE
+            || entry->kind == SK_GENERIC_NAME)
     {
         print_scope_full_context(entry->related_decl_context, global_indent + 1);
     }
-    if (entry->entity_specs.is_generic_spec)
-    {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is a generic specifier\n");
-    }
-    if (entry->entity_specs.num_related_symbols != 0)
+    if (symbol_entity_specs_get_num_related_symbols(entry) != 0)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Related symbols of this symbol\n");
         int i;
-        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        for (i = 0; i < symbol_entity_specs_get_num_related_symbols(entry); i++)
         {
-            scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
+            scope_entry_t* related_entry = symbol_entity_specs_get_related_symbols_num(entry, i);
             if (related_entry != NULL)
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s\n",

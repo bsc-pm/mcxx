@@ -31,12 +31,14 @@ namespace Codegen
 {
     void CodegenPhase::run(TL::DTO& dto)
     {
-        TL::File output_file = dto["output_file"];
+        TL::File output_file = *std::static_pointer_cast<TL::File>(dto["output_file"]);
         FILE* f = output_file.get_file();
 
-        Nodecl::NodeclBase n = dto["nodecl"];
+        TL::String output_filename_ = *std::static_pointer_cast<TL::String>(dto["output_filename"]);
 
-        this->codegen_top_level(n, f);
+        Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
+
+        this->codegen_top_level(n, f, output_filename_);
     }
     void CodegenPhase::handle_parameter(int n, void* data)
     {}

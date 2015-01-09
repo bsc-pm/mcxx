@@ -66,10 +66,10 @@ omp_dr_typename_list : omp_dr_typename
 omp_dr_operator : '+'
 | '-'
 | '*'
-| TOK_LOGICAL_AND
-| TOK_LOGICAL_OR
-| TOK_LOGICAL_EQUIVALENT
-| TOK_LOGICAL_NOT_EQUIVALENT
+| TOKEN_LOGICAL_AND
+| TOKEN_LOGICAL_OR
+| TOKEN_LOGICAL_EQUIVALENT
+| TOKEN_LOGICAL_NOT_EQUIVALENT
 | USER_DEFINED_OPERATOR
 ;
 
@@ -83,6 +83,11 @@ omp_dr_combiner : name '=' expr
 {
     $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ast_get_locus($1), NULL);
 }
+| function_reference
+{
+    ast_set_text($1, "call");
+    $$ = $1;
+}
 ;
 
 omp_dr_initializer : name '=' expr
@@ -91,6 +96,7 @@ omp_dr_initializer : name '=' expr
 }
 | function_reference
 {
+    ast_set_text($1, "call");
     $$ = $1;
 }
 ;

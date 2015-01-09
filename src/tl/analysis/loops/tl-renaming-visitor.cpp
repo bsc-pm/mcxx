@@ -37,7 +37,7 @@
 namespace TL {
 namespace Analysis {
 
-    RenamingVisitor::RenamingVisitor( std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, int line )
+    RenamingVisitor::RenamingVisitor( std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, unsigned int line )
         : _rename_map( rename_map ), _filename( filename ), _line( line ), _s( NULL ), _computing_limits( false )
     {}
 
@@ -1183,7 +1183,12 @@ namespace Analysis {
     {
         return visit_binary(n);
     }
-
+    
+    RenamingVisitor::Ret RenamingVisitor::visit( const Nodecl::MaskLiteral& n )
+    {
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Minus& n)
     {
         return visit_binary(n);
@@ -1312,7 +1317,7 @@ namespace Analysis {
 
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Sizeof& n)
     {   // No evaluation performed in the sizeof expression, so no renaming needed
-    return ObjectList<Nodecl::NodeclBase>();
+        return ObjectList<Nodecl::NodeclBase>();
     }
 
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::StringLiteral& n)

@@ -48,14 +48,14 @@ namespace Analysis {
         //! when this value is null, the renaming visitor just substitutes a range by its LB or UB, depending on #limit value
         std::map<Symbol, Nodecl::NodeclBase> _rename_map;
         const char* _filename;
-        int _line;
+        unsigned int _line;
 
         //! Value stored to recuperate info about the symbol that matches in a rename process
         Symbol _s;
 
         bool _computing_limits;
 
-        // *** Auxiliar methods *** //
+        // *** Auxiliary methods *** //
 
         nodecl_t create_nodecl_list(ObjectList<Nodecl::NodeclBase> list);
 
@@ -128,6 +128,7 @@ namespace Analysis {
         Ret visit( const Nodecl::LogicalOr& n );
         Ret visit( const Nodecl::LowerOrEqualThan& n );
         Ret visit( const Nodecl::LowerThan& n );
+        Ret visit( const Nodecl::MaskLiteral& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::Mod& n );

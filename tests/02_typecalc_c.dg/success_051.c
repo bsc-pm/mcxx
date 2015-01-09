@@ -301,5 +301,7 @@ int main(int argc, char *argv[])
 {
     void read_eval_do();
     read_eval_do(stdin, stdout);
+    int x;
+    scanf("%d", &x);
     return 0;
 }

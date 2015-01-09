@@ -38,6 +38,7 @@
 
 #include <errno.h>
 #include "cxx-driver-utils.h"
+#include "fortran03-scope.h"
 
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
@@ -55,71 +56,6 @@ bool DeviceCUDA::is_gpu_device() const
     return true;
 }
 
-void DeviceCUDA::update_ndrange_and_shmem_arguments(
-        const TL::Symbol& called_task,
-        const TL::Symbol& unpacked_function,
-        const TargetInformation& target_info,
-        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
-        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
-        // out
-        TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
-        TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args)
-{
-    TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
-    TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
-
-    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
-    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        for (unsigned int i = 0; i < ndrange_args.size(); ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    ndrange_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_ndrange_args.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (unsigned int i = 0; i < shmem_args.size(); ++i)
-        {
-            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
-                    shmem_args[i],
-                    unpacked_function.get_related_scope(),
-                    *called_fun_to_outline_data_map);
-
-            new_shmem_args.append(Nodecl::Utils::deep_copy(
-                        argument,
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-    else
-    {
-        for (unsigned int i = 0; i < ndrange_args.size(); ++i)
-        {
-
-            new_ndrange_args.append(Nodecl::Utils::deep_copy(
-                        ndrange_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-
-        for (unsigned int i = 0; i < shmem_args.size(); ++i)
-        {
-
-            new_shmem_args.append(Nodecl::Utils::deep_copy(
-                        shmem_args[i],
-                        unpacked_function.get_related_scope(),
-                        *outline_data_to_unpacked_fun_map));
-        }
-    }
-}
-
 void DeviceCUDA::generate_ndrange_additional_code(
         const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
         TL::Source& code_ndrange)
@@ -131,9 +67,11 @@ void DeviceCUDA::generate_ndrange_additional_code(
 
     ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
 
+    char is_null_ended = 0;
     bool check_dim = !(new_ndrange_args[num_args_ndrange - 1].is_constant()
             && const_value_is_string(new_ndrange_args[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant(), &is_null_ended),
+                    "noCheckDim") == 0));
 
     ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
 
@@ -296,6 +234,54 @@ class UpdateKernelConfigsVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
+class NanosGetCublasHandleVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    private:
+        bool _found;
+    public:
+        NanosGetCublasHandleVisitor() : _found(false) { }
+
+        void visit(const Nodecl::ObjectInit& node)
+        {
+            if (_found)
+                return;
+
+            TL::Symbol sym = node.get_symbol();
+            if (sym.get_value().is_null())
+                return;
+
+            walk(sym.get_value());
+        }
+
+        void visit(const Nodecl::FunctionCall& node)
+        {
+            if (_found)
+                return;
+
+            TL::Symbol called_symbol = node.get_called().get_symbol();
+            if (called_symbol.is_valid()
+                    && called_symbol.get_name() == "nanos_get_cublas_handle")
+            {
+                _found = true;
+            }
+        }
+
+        bool get_is_nanos_get_cublas_handle()
+        {
+            return _found;
+        }
+};
+
+void DeviceCUDA::is_nanos_get_cublas_handle_present(Nodecl::NodeclBase task_code)
+{
+    if (_is_nanos_get_cublas_handle)
+        return;
+
+    NanosGetCublasHandleVisitor visitor;
+    visitor.walk(task_code);
+    _is_nanos_get_cublas_handle = visitor.get_is_nanos_get_cublas_handle();
+}
+
 void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
 {
     UpdateKernelConfigsVisitor update_kernel_visitor;
@@ -323,9 +309,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
-    TL::Symbol current_function =
-        original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function())
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -336,8 +320,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Update the kernel configurations of every cuda function call of the current task
     Nodecl::NodeclBase task_code =
         (is_function_task) ? called_task.get_function_code() : output_statements;
+
     if (!task_code.is_null())
     {
+        is_nanos_get_cublas_handle_present(task_code);
         update_all_kernel_configurations(task_code);
     }
 
@@ -348,17 +334,32 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         if (_copied_cuda_functions.map(called_task) == called_task)
         {
-            if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE) &&
-                    !called_task.get_function_code().is_null())
+            if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
             {
-                TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
+                if (!called_task.get_function_code().is_null())
+                {
+                    TL::Symbol new_function = SymbolUtils::new_function_symbol_for_deep_copy(
+                            called_task, called_task.get_name() + "_moved");
 
-                _copied_cuda_functions.add_map(called_task, new_function);
+                    _copied_cuda_functions.add_map(called_task, new_function);
 
-                _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                            called_task.get_function_code(),
-                            called_task.get_scope(),
-                            *symbol_map));
+                    _cuda_file_code.append(Nodecl::Utils::deep_copy(
+                                called_task.get_function_code(),
+                                called_task.get_scope(),
+                                *symbol_map));
+                }
+                else
+                {
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        // Best effort: add a declaration for this function task to the intermediate file
+                        _cuda_file_code.append(Nodecl::CxxDecl::make(
+                                    /* optative context */ nodecl_null(),
+                                    called_task,
+                                    original_statements.get_locus()));
+                    }
+
+                }
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
@@ -369,21 +370,18 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
                 new_function_internal->kind = called_task.get_internal_symbol()->kind;
                 new_function_internal->type_information = called_task.get_type().get_internal_type();
-                new_function_internal->entity_specs.is_user_declared = 1;
-                new_function_internal->entity_specs.is_extern = 1;
+                symbol_entity_specs_set_is_user_declared(new_function_internal, 1);
+                symbol_entity_specs_set_is_extern(new_function_internal, 1);
 
                 // if the 'ndrange' clause is defined, the called task is __global__
                 if (target_info.get_ndrange().size() != 0)
                 {
-                    gather_gcc_attribute_t intern_global_attr;
+                    gcc_attribute_t intern_global_attr;
                     intern_global_attr.attribute_name = uniquestr("global");
                     intern_global_attr.expression_list = nodecl_null();
 
-                    new_function_internal->entity_specs.num_gcc_attributes = 1;
-                    new_function_internal->entity_specs.gcc_attributes =
-                        (gather_gcc_attribute_t*) xcalloc(1, sizeof(gather_gcc_attribute_t));
-
-                    memcpy(new_function_internal->entity_specs.gcc_attributes, &intern_global_attr, 1 * sizeof(gather_gcc_attribute_t));
+                    symbol_entity_specs_add_gcc_attributes(new_function_internal,
+                            intern_global_attr);
                 }
 
                 _copied_cuda_functions.add_map(called_task, new_function);
@@ -429,25 +427,26 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (is_function_task
             && target_info.get_ndrange().size() > 0)
     {
-
-        Nodecl::Utils::SimpleSymbolMap param_to_args_map =
-            info._target_info.get_param_arg_map();
-
-        update_ndrange_and_shmem_arguments(called_task, unpacked_function, target_info,
-                &param_to_args_map, symbol_map, new_ndrange_args, new_shmem_args);
+        update_ndrange_and_shmem_expressions(
+                unpacked_function.get_related_scope(),
+                target_info,
+                symbol_map,
+                // Out
+                new_ndrange_args,
+                new_shmem_args);
 
         generate_ndrange_additional_code(new_ndrange_args, ndrange_code);
     }
 
     // The unpacked function must not be static and must have external linkage because
     // It's called from the original source but It's defined in cudacc_filename.cu
-    unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
-    unpacked_function.get_internal_symbol()->entity_specs.is_inline = 0;
+    symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
+    symbol_entity_specs_set_is_inline(unpacked_function.get_internal_symbol(), 0);
     if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
     {
         // The unpacked function is declared in the C/Fortran source but
         // defined in the Cuda file. For this reason, It has C linkage
-        unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
+        symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
@@ -704,7 +703,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions()
+    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions(), _is_nanos_get_cublas_handle(false)
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -794,10 +793,10 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
         if (it->is<Nodecl::FunctionCode>()
                 || it->is<Nodecl::TemplateFunctionCode>())
         {
-            TL::Symbol function = it->get_symbol();
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_moved");
+            TL::Symbol source = it->get_symbol();
+            TL::Symbol dest = SymbolUtils::new_function_symbol_for_deep_copy(source, source.get_name() + "_moved");
 
-            _copied_cuda_functions.add_map(function, new_function);
+            _copied_cuda_functions.add_map(source, dest);
             _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_cuda_functions));
         }
         else
@@ -807,17 +806,55 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
     }
 }
 
+void DeviceCUDA::generate_outline_events_before(
+        Source& function_name_instr,
+        Source& extra_cast,
+        Source& instrumentation_before)
+{
+    if (Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
+    {
+        instrumentation_before << "err = nanos_instrument_raise_gpu_kernel_launch_event();";
+    }
+    else
+    {
+        DeviceProvider::generate_outline_events_before(function_name_instr, extra_cast, instrumentation_before);
+    }
+}
+
+void DeviceCUDA::generate_outline_events_after(
+        Source& function_name_instr,
+        Source& extra_cast,
+        Source& instrumentation_after)
+{
+    if (Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
+    {
+        instrumentation_after << "err = nanos_instrument_close_gpu_kernel_launch_event();";
+    }
+    else
+    {
+        instrumentation_after << "err = nanos_instrument_close_user_fun_event();";
+    }
+}
+
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (_cuda_tasks_processed)
     {
+        create_weak_device_symbol("ompss_uses_cuda",
+                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
+        _cuda_tasks_processed = false;
+    }
+
+    if (_is_nanos_get_cublas_handle)
+    {
+        Nodecl::NodeclBase root = *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]);
         Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";
+        nanox_device_enable_section << "__attribute__((weak)) char gpu_cublas_init = 1;";
 
         if (IS_FORTRAN_LANGUAGE)
             Source::source_language = SourceLanguage::C;
 
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
 
         if (IS_FORTRAN_LANGUAGE)
             Source::source_language = SourceLanguage::Current;
@@ -830,7 +867,6 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         {
             Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
-        _cuda_tasks_processed = false;
     }
 
     if (!_cuda_file_code.is_null())
@@ -868,13 +904,12 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
 
-        bool is_fortan = IS_FORTRAN_LANGUAGE;
-        if (is_fortan)
+        if (IS_FORTRAN_LANGUAGE)
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
 
-        phase->codegen_top_level(_cuda_file_code, ancillary_file);
+        phase->codegen_top_level(_cuda_file_code, ancillary_file, new_filename);
 
-        if (is_fortan)
+        if (IS_FORTRAN_LANGUAGE)
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
         fclose(ancillary_file);
@@ -913,7 +948,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-        phase->codegen_top_level(_extra_c_code, ancillary_file);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
@@ -925,7 +960,6 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
 void DeviceCUDA::pre_run(DTO& dto)
 {
-    _root = dto["nodecl"];
     _cuda_tasks_processed = false;
 }
 

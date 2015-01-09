@@ -52,7 +52,7 @@ struct A
             g();
             a = 3;
             this->b = 3;
-            b++;
+            b = 4;
             c = 5;
         }
     }

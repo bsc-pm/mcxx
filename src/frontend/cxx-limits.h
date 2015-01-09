@@ -34,7 +34,7 @@ enum
 
     // Function limits
     MCXX_MAX_FUNCTION_PARAMETERS = 1024,
-    MCXX_MAX_FUNCTIONS_PER_CLASS = 1024,
+    MCXX_MAX_FUNCTIONS_PER_CLASS = 2048,
     MCXX_MAX_FUNCTION_CALL_ARGUMENTS = 1024,
 
     // Class limits
@@ -63,9 +63,6 @@ enum
 
     // GCC attributes
     MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL = 256,
-
-    // C++ associated scopes during ADL
-    MCXX_MAX_KOENIG_ASSOCIATED_SCOPES = 256,
 
     // C++ associated namespaces during lookup
     MCXX_MAX_ASSOCIATED_NAMESPACES = 256,

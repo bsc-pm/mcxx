@@ -46,7 +46,7 @@ namespace Analysis {
         if ( VERBOSE )
             std::cerr << std::endl << "=== Conditional Costant Propagation Phase ===" << std::endl;
 
-        RefPtr<Nodecl::NodeclBase> ast = RefPtr<Nodecl::NodeclBase>::cast_dynamic( dto["nodecl"] );
+        std::shared_ptr<Nodecl::NodeclBase> ast = std::static_pointer_cast<Nodecl::NodeclBase>( dto["nodecl"] );
         Nodecl::NodeclBase main_func = Utils::find_main_function( *ast );
 
         if ( VERBOSE )

@@ -13,6 +13,14 @@ void symbol_deep_copy(
         decl_context_t new_decl_context,
         symbol_map_t* symbol_map);
 
+void symbol_deep_copy_compute_maps(
+        scope_entry_t* dest,
+        scope_entry_t* source,
+        decl_context_t new_decl_context,
+        symbol_map_t* symbol_map,
+        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+        symbol_deep_copy_map_t* symbol_deep_copy_map);
+
 MCXX_END_DECLS
 
 #endif

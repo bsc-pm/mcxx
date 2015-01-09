@@ -30,13 +30,7 @@
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
-// #include "fortran03-scope.h"
-
-//#include "cuda-aux.hpp"
-//#include "tl-declarationclosure.hpp"
-
-//#include "tl-cuda.hpp"
-//#include "tl-omp-nanox.hpp"
+#include "tl-nanox-ptr.hpp"
 
 #include "cxx-profile.h"
 #include "codegen-phase.hpp"
@@ -45,11 +39,8 @@
 #include "filename.h"
 #include "tl-nodecl-utils-fortran.hpp"
 #include "tl-symbol-utils.hpp"
-//#include "codegen-fortran.hpp"
-
-//#include <iostream>
-//#include <fstream>
-
+#include "tl-nodecl-utils.hpp"
+#include "tl-nodecl-utils-c.hpp"
 #include <errno.h>
 #include "cxx-driver-utils.h"
 
@@ -61,87 +52,17 @@ static std::string get_outline_name(const std::string & name) {
 }
 
 
-
-static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items) {
-    //If there are other non-mpi devices and we modify some data sharing, throw a warning
-//    bool check_for_incompatibility=false;
-//    bool is_incompatible=false;
-//    
-//    OutlineInfo::implementation_table_t implementation_table = outlineInfo.get_implementation_table();
-//    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-//            it != implementation_table.end() && !check_for_incompatibility;
-//            ++it)
-//    {
-//        TargetInformation target_info = it->second;
-//        ObjectList<std::string> devices = target_info.get_device_names();
-//        for (ObjectList<std::string>::iterator it2 = devices.begin();
-//                it2 != devices.end() && !check_for_incompatibility;
-//                ++it2)
-//        {
-//            if (*it2!="mpi" || *it2!="MPI") check_for_incompatibility=true;
-//        }
-//    }
-    if (IS_FORTRAN_LANGUAGE){
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
-        {
-            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
-                continue;
-            }
-             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
-            if ((*it)->get_symbol().is_allocatable()){
-                if ((*it)->get_symbol().is_from_module()){  
-//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
-                    (*it)->get_copies().clear();
-                } else {
-                   //std::cout << (*it)->get_symbol().get_name() << "es privatye\n";
-//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-                    (*it)->get_copies().clear();
-                }
-            } else {
-               if ((*it)->get_symbol().is_from_module()) {
-//                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
-               } else {            
-                    if ((*it)->get_copies().empty()){
-//                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-                    }
-               }
-            }
-        }
-    }
-    
-//    if (is_incompatible) std::cerr << "warning: error in MPI task, do not mix MPI device tasks with other devices (implements or multi-device)"
-//            " in this situation " << std::endl;
-    
-//    std::vector<std::string> probanding;
-//    probanding.push_back("waw");
-//    probanding.push_back("SHARED");
-//    probanding.push_back("SHARED CAPTUR");
-//    probanding.push_back("SHARING_PRIVATE");
-//    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//            it != data_items.end();
-//            it++)
-//    {
-//         std::cout << (*it)->get_symbol().get_name() << " es " << probanding.at((*it)->get_sharing()) << " con copias " << !(*it)->get_copies().empty() << " \n";
-//    }
-////    
-}
-
 void DeviceMPI::generate_additional_mpi_code(
         const TL::ObjectList<OutlineDataItem*>& data_items,
         const TL::Symbol& struct_args,
         const std::string& outline_name,
         TL::Source& code_host,
         TL::Source& code_device_pre,        
-        TL::Source& code_device_post) {
-    
+        TL::Source& code_device_post,
+        const TL::Symbol& curr_function_host,
+        const TL::Symbol& curr_function_dev ) 
+{    
     std::string ompss_get_mpi_type="ompss_get_mpi_type";
-    const std::string& device_outline_name = get_outline_name(outline_name);
 
     TL::Type argument_type = ::get_user_defined_type(struct_args.get_internal_symbol());
     TL::ObjectList<TL::Symbol> parameters_called = argument_type.get_fields();
@@ -156,17 +77,33 @@ void DeviceMPI::generate_additional_mpi_code(
     //Nanox will search the right communicator and rank at runtime (based on the binding)
     TL::ObjectList<std::string> new_dev_info;
     new_dev_info.append("0");
-    new_dev_info.append("-2");
+    new_dev_info.append(UNKOWN_RANKSRCDST);
 
 
-    code_host << "MPI_Status ompss___status; "
-            << "int err; ";
     
-    code_device_pre << struct_args.get_name() << " args;"
-            << "int err; "            
+    Source type_name_host;
+    type_name_host << "(void*)"
+        << "(" << as_type(curr_function_host.get_type().get_pointer_to()) << " )"
+        << curr_function_host.get_qualified_name();
+    code_host << "int offload_err; ";
+    code_host << "int id_func_ompss=ompss_mpi_get_function_index_host(" << type_name_host << ")" << ";";
+    
+    
+    
+    Source type_name_dev;
+    type_name_dev << "(void*)"
+        << "(" << as_type(curr_function_dev.get_type().get_pointer_to()) << " )"
+        << curr_function_dev.get_qualified_name();
+    Source struct_arg_type_name;
+    struct_arg_type_name
+         << ((struct_args.get_type().is_template_specialized_type()
+                     &&  struct_args.get_type().is_dependent()) ? "typename " : "")
+         << struct_args.get_qualified_name();      
+    code_device_pre << struct_arg_type_name.get_source() << " args;"
+            << "int offload_err; "            
             << "MPI_Comm ompss_parent_comp; "            
-            << "err= nanos_mpi_get_parent(&ompss_parent_comp);"
-            << "MPI_Status ompss___status; ";
+            << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);"
+            << "int id_func_ompss=ompss_mpi_get_function_index_dev(" << type_name_dev << ")" << ";";
 
     Source typelist_src, blocklen_src, displ_src;
     //Source parameter_call;
@@ -176,31 +113,12 @@ void DeviceMPI::generate_additional_mpi_code(
     if (num_params>0){
         int count_params=num_params;
         Source struct_mpi_create, host_call, device_call;
-
-
-
-        host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
-        host_call << " err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        host_call << " err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
-        host_call << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
-
-        device_call << " err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
-
         for (int i = 0; i < num_params; ++i) { 
-            //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
             std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
-            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
-                --count_params;
-                continue;
-            }
-            //if (!IS_FORTRAN_LANGUAGE){
-            //    displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
-            //} else {
-            //This seems to work correctly in both "languages"
-            displ_src.append_with_separator("((size_t) ( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
-            //}
+            
+            displ_src.append_with_separator("(( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
             if (parameters_called[i].get_type().is_pointer()) {
-                typelist_src.append_with_separator(ompss_get_mpi_type  + "(\"__mpitype_ompss_unsigned_long_long\")", ",");
+                typelist_src.append_with_separator(ompss_get_mpi_type  + "(mpitype_ompss_unsigned_long_long)", ",");
 
                 blocklen_src.append_with_separator("1", ",");
             } else {
@@ -215,75 +133,43 @@ void DeviceMPI::generate_additional_mpi_code(
 
         }
         
-        struct_mpi_create << "MPI_Datatype ompss___datatype;"
-                "MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
-                "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
-                "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};";
+        struct_mpi_create <<"MPI_Datatype* ompss___datatype;"
+                           "offload_err=nanos_mpi_type_get_struct( id_func_ompss, &ompss___datatype );"
+                           "if ( ompss___datatype == 0 )  "
+                           "{ "
+                               "MPI_Datatype ompss___typelist[" << count_params << "]= {" << typelist_src << "};"
+                               "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
+                               "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};"
+                               "offload_err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, "
+                               "ompss___typelist, &ompss___datatype, id_func_ompss); "
+                           "}";       
 
-        struct_mpi_create << "err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+        host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+
+        //Recv datastruct from parent (rank will be ignored by nanox)
+        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp); ";
+                
         code_host << struct_mpi_create
                 << host_call;
         code_device_pre << struct_mpi_create
                 << device_call;
-    //If there are no parameters, just send the order to start the task and wait for the ending ack
+    //If there are no parameters, just send the order to start the task
     } else {
-        code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
-        code_host << " err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        code_host << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
     }
     
-    if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
-        int counter=0;
-        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
-                    it != data_items.end();
-                    it++)
-        {
-            OutlineDataItem& data_item=(*(*it));
-            TL::ObjectList<OutlineDataItem::CopyItem> copies = data_item.get_copies();
-            TL::Symbol data_sym= data_item.get_symbol();
-
-            //Only serialize when there are no copies and the symbol is serializable
-            if (!copies.empty() && is_serializable(data_sym)){
-                TL::Type ser_type = data_sym.get_type();
-                TL::Symbol sym_serializer = ser_type.get_symbol();
-                if (sym_serializer.get_type().is_pointer_to_class()){
-                    ser_type= sym_serializer.get_type().get_pointer_to();
-                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-                }
-                int input=0;
-                int output=0;
-                for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
-                        copy_it != copies.end();
-                        copy_it++)
-                {
-                    TL::DataReference data_ref(copy_it->expression);
-                    OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
-
-                    Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
-
-                    input += (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-                    output += (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-                }
-
-                //If no input, warning (a serializable object MUST be input)
-                if (input==0){
-                    std::cerr << data_sym.get_locus_str() << ": warning: when serializing an object it must be declared as copy_in, skipping serialization "  << std::endl;
-                } else {
-                    if (output!=0) code_device_pre << "nanos::omemstream " << " " << "outbuff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";   
-                    code_device_pre << "nanos::imemstream " << " " << "buff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";                    
-                    code_device_pre << sym_serializer.get_qualified_name() << " " << "tmp_" << data_sym.get_name() << counter << "(buff_" << data_sym.get_name() << counter << ");";
-                    code_device_pre << "args." << data_sym.get_name() << "=&tmp_" << data_sym.get_name() << counter << ";";
-                    //If there is an output, serialize the object after the task, so when nanox comes back to the device, the buffer is updated
-                    if (output!=0){
-                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(outbuff_" << data_sym.get_name() << counter << ");";
-                    }
-                }
-                ++counter;
-            }
-        }
-    }
-    code_device_post << "int ompss_id_func=" << _currTaskId << ";";
-    code_device_post << "err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
+    
+    //Insert implicit #taskwait noflush after task
+    code_device_post << "nanos_err_t tskwait_err;"
+                     << " nanos_wd_t nanos_wd_ = nanos_current_wd(); "
+                     << " tskwait_err = nanos_wg_wait_completion(nanos_wd_, 1); "
+                     << " if (tskwait_err != NANOS_OK) "
+                     << "  { "
+                     << "    nanos_handle_error(tskwait_err); "
+                     << "  } ";
+    //Send taskEnd to parent (rank will be ignored by nanox)
+    code_device_post << "offload_err= nanos_mpi_send_taskend(&id_func_ompss, 1, 0, ompss_parent_comp);";
 
 
 }
@@ -304,7 +190,6 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map) {
     
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    preprocess_datasharing(data_items);
     
     // Unpack DTO 
     const std::string& device_outline_name = get_outline_name(info._outline_name);
@@ -334,16 +219,14 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     ERROR_CONDITION(called_task.is_valid() && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
 
-    TL::Symbol current_function =
-            original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
-
+    TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
     if (current_function.is_nested_function()) {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
                 original_statements.get_locus_str().c_str());        
     }
 
-    Source unpacked_arguments, private_entities, cleanup_code;
+    Source unpacked_arguments, fortran_allocatable_translation, cleanup_code;
     
     
     ObjectList<std::string> structure_name;
@@ -384,7 +267,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             host_function_body);
     
     // Create the new unpacked function
-    Source dummy_initial_statements, dummy_final_statements;
+    Source initial_statements, final_statements;
     TL::Symbol unpacked_function, forward_function;
     
     if (IS_FORTRAN_LANGUAGE)
@@ -399,8 +282,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 info,
                 // out
                 symbol_map,
-                dummy_initial_statements,
-                dummy_final_statements);
+                initial_statements,
+                final_statements);
     }
     else
     {
@@ -410,14 +293,17 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 info,
                 // out
                 symbol_map,
-                dummy_initial_statements,
-                dummy_final_statements);
+                initial_statements,
+                final_statements);
     }
     
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
     SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
+    
+    // Add the unpacked function to the file
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(info._original_statements,unpacked_function_code);
     
     TL::Scope host_function_scope(host_function_body.retrieve_context());    
     TL::Symbol structure_symbol = host_function_scope.get_symbol_from_name("args");
@@ -438,6 +324,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:
+            case OutlineDataItem::SHARING_ALLOCA:
                 {
                     // Do nothing
                     break;
@@ -447,29 +334,59 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 //If it's firstprivate (sharing capture), copy input and change address to the global/private var
                 if ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope()){
                    std::string symbol_name=(*it)->get_symbol().get_name();
-                   if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE){
-                       if (!(*it)->get_copies().empty())
-                       data_input_global << "err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";  
-                       
-                       data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
+                   if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE && !(*it)->get_symbol().get_type().is_const()){
+                        //Copy value of the captured to the global (aka initialize the global)
+                        data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<",&args." << symbol_name <<",sizeof(" << symbol_name << "));";  
                    }
                 }
             case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                {  
+                {
                     //If is from module(fort)/common (fort)/global (C) and is sharing ca or sharing shared (no sharing capture)
                     //copy address and data
-                    if (!(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
-                            ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){  
+                    if ((*it)->get_symbol().is_allocatable() && (*it)->get_copy_of_array_descriptor()!=NULL){  
+                        if ( !(*it)->get_copies().empty() ) {
+                            std::string symbol_name=(*it)->get_symbol().get_name();
+                            std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
+
+                            data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
+                            //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
+                            //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
+                            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                        info._original_statements.retrieve_context());
+
+                                data_input_global << "offload_err = nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
+                            }
+                        } else {
+
+                            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                                ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                                std::string symbol_name=(*it)->get_symbol().get_name();
+                                TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                            info._original_statements.retrieve_context());
+                                data_input_global << "args." << symbol_name <<"= " << ptr_of_sym.get_name() << "(" << symbol_name <<");";  
+                            } else {                                
+                                std::string symbol_name=(*it)->get_symbol().get_name();
+                                std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
+                                data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
+                            }
+                        }
+                    }
+
+                    //Copy and swap addresses
+                    if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                            ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
                         data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
-                        
+
                         if (!(*it)->get_copies().empty())
-                        data_input_global << "err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
-                        
+                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+
                         data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
 
                         if (!(*it)->get_copies().empty())
-                        data_output_global << "err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
+                        data_output_global << "offload_err = nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
                     }
                     
                     TL::Type param_type = (*it)->get_in_outline_type();
@@ -479,39 +396,61 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     {
                         // Normal shared items are passed by reference from a pointer,
                         // derreference here
-                        if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                        if (
+                                ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
                                 && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                         {
-                            if (!param_type.no_ref().depends_on_nonconstant_values())
+                            if (!((*it)->get_symbol().get_type().depends_on_nonconstant_values()))
                             {
                                 argument << "*(args." << (*it)->get_field_name() << ")";
                             }
                             else
                             {
-                                TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
-                                TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
-
-                                argument << "*(" <</*(" << as_type(cast_type) << ")*/"args." << (*it)->get_field_name() << ")";
+                                C_LANGUAGE()
+                                {
+                                    TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+                                    argument << "*(args." << (*it)->get_field_name() << ")";
+                                }
+                                CXX_LANGUAGE()
+                                {
+                                    // No VLAs in C++ means that we have to pass a void*
+                                    // It will have to be reshaped again in the outline
+                                    argument << "args." << (*it)->get_field_name();
+                                }
                             }
                         }
                         // Any other parameter is bound to the storage of the struct
                         else
                         {
-                            if (!param_type.no_ref().depends_on_nonconstant_values())
+                            if (!((*it)->get_symbol().get_type().depends_on_nonconstant_values()))
                             {
                                 argument << "args." << (*it)->get_field_name();
                             }
                             else
                             {
-                                TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
-                                argument << /*"(" << as_type(cast_type) << ")*/"args." << (*it)->get_field_name();
-                            }
-                        }
+                                C_LANGUAGE()
+                                {
+                                    if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)                                                     == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                                    {
+                                        TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                        TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+                                        argument << "*(args." << (*it)->get_field_name() << ")";
+                                    }
+                                    else
+                                    {
+                                        TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
+                                        argument << "args." << (*it)->get_field_name();
+                                    }
+                                }
 
-                        if (IS_CXX_LANGUAGE
-                                && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                        {
-                            internal_error("Not yet implemented: call the destructor", 0);
+                                CXX_LANGUAGE()
+                                {
+                                    // No VLAs in C++ means that we have to pass a void*
+                                    // It will have to be reshaped again in the outline
+                                    argument << "args." << (*it)->get_field_name();
+                                }
+                            }
                         }
                     }
                     else if (IS_FORTRAN_LANGUAGE)
@@ -526,7 +465,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                                 modules_with_params.insert(std::pair<TL::Symbol,TL::ObjectList<TL::Symbol> >(mod_sym,list));
                             } else {
                                 mod_list->second.append((*it)->get_symbol());                    
-                            }
+                            }                            
                         }
                         argument << "args % " << (*it)->get_field_name();
 
@@ -581,86 +520,126 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             info._outline_name,
             code_host,
             code_device_pre,
-            code_device_post);
-
+            code_device_post,
+            host_function,
+            device_function);
+    
+    Source unpacked_source;
     Source extra_declarations;
+    
+    if (!IS_FORTRAN_LANGUAGE)
+    {
+        unpacked_source
+            << "{";
+    }
+    unpacked_source
+        << extra_declarations
+        << initial_statements
+        << statement_placeholder(outline_placeholder)
+        << final_statements
+        ;
+    if (!IS_FORTRAN_LANGUAGE)
+    {
+        unpacked_source
+            << "}";
+    }
+    
+    
+    //if (IS_FORTRAN_LANGUAGE)
+    //   Source::source_language = SourceLanguage::C;
+    Nodecl::NodeclBase new_unpacked_body =
+            unpacked_source.parse_statement(unpacked_function_body);    
+    //Source::source_language = SourceLanguage::Current;
+    //unpacked_function_body.replace(new_unpacked_body);
+
+
     // Add a declaration of the unpacked function symbol in the original source
      // Fortran may require more symbols
     if (IS_FORTRAN_LANGUAGE)
     {
-          // Insert extra symbols
-            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+        TL::Scope unpacked_function_scope = unpacked_function.get_related_scope();
 
-            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
-                    unpacked_function_scope,
-                    current_function);
-            if (is_function_task)
-            {
-                fun_visitor.insert_extra_symbol(info._called_task);
-            }
-            fun_visitor.insert_extra_symbols(info._task_statements);
+        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
+                unpacked_function_scope,
+                current_function);
+        if (is_function_task)
+        {
+            fun_visitor.insert_extra_symbol(info._called_task);
+        }
+        fun_visitor.insert_extra_symbols(info._task_statements);
 
+        Nodecl::Utils::Fortran::append_used_modules(
+                original_statements.retrieve_context(),
+                unpacked_function_scope);
+
+        if (is_function_task)
+        {
             Nodecl::Utils::Fortran::append_used_modules(
-                    original_statements.retrieve_context(),
+                    info._called_task.get_related_scope(),
                     unpacked_function_scope);
+        }
 
-            if (is_function_task)
+        // Add also used types
+        add_used_types(data_items, unpacked_function.get_related_scope());
+
+        // Now get all the needed internal functions and duplicate them in the outline
+        Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+        internal_functions.walk(info._original_statements);
+
+        duplicate_internal_subprograms(internal_functions.function_codes,
+                unpacked_function_scope,
+                symbol_map,
+                output_statements);
+
+        extra_declarations
+            << "IMPLICIT NONE\n";
+    }
+    else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+        TL::Scope scope_in_outline = outline_placeholder.retrieve_context();
+
+        Nodecl::Utils::C::ExtraDeclsVisitor fun_visitor(symbol_map,
+                scope_in_outline,
+                current_function);
+
+        if (is_function_task
+                && info._called_task.get_scope().is_block_scope()
+                && !info._called_task.is_nested_function())
+        {
+            fun_visitor.insert_extra_symbol(info._called_task);
+        }
+        fun_visitor.insert_extra_symbols(info._task_statements);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            if (!unpacked_function.is_member())
             {
-                Nodecl::Utils::Fortran::append_used_modules(
-                        info._called_task.get_related_scope(),
-                        unpacked_function_scope);
+                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                        /* optative context */ nodecl_null(),
+                        unpacked_function,
+                        original_statements.get_locus());
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
+        }
 
-            // Add also used types
-            add_used_types(data_items, unpacked_function.get_related_scope());
+        if (IS_C_LANGUAGE)
+        {
+            // Now get all the needed nested functions and duplicate them in the outline
+            Nodecl::Utils::C::NestedFunctions nested_functions;
+            nested_functions.walk(info._original_statements);
 
-            // Now get all the needed internal functions and replicate them in the outline
-            Nodecl::Utils::Fortran::InternalFunctions internal_functions;
-            internal_functions.walk(info._original_statements);
-
-            duplicate_internal_subprograms(internal_functions.function_codes,
-                    unpacked_function.get_related_scope(),
+            duplicate_nested_functions(nested_functions.function_codes,
+                    scope_in_outline,
                     symbol_map,
                     output_statements);
-    }
-    else if (IS_CXX_LANGUAGE) {
-       if (!unpacked_function.is_member())
-       {
-            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                    /* optative context */ nodecl_null(),
-                    host_function,
-                    original_statements.get_locus());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
-      }
+        }
     }
     
-    
-
-    Source unpacked_source;
-    
-    unpacked_source
-             << "{"
-            << extra_declarations
-            << private_entities
-            //<< code_host
-            << statement_placeholder(outline_placeholder)
-            << "}";
-    
-    
-    if (IS_FORTRAN_LANGUAGE)
-       Source::source_language = SourceLanguage::C;
-    Nodecl::NodeclBase new_unpacked_body =
-            unpacked_source.parse_statement(unpacked_function_body);    
-    Source::source_language = SourceLanguage::Current;
     unpacked_function_body.replace(new_unpacked_body);
 
-
-    // Add the unpacked function to the file
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
-
     Source host_src,
-           instrument_before,
-           instrument_after;
+           instrument_before_host,
+           instrument_after_host;
 
     
     
@@ -672,15 +651,15 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 host_function_body,
                 info._task_label,
                 original_statements.get_locus(),
-                instrument_before,
-                instrument_after); 
+                instrument_before_host,
+                instrument_after_host); 
     } 
     
     host_src
             << "{"
-            << instrument_before
+            << instrument_before_host
             << code_host
-            << instrument_after;    
+            << instrument_after_host;    
     
     if (!cleanup_code.empty()){
            Nodecl::NodeclBase cleanup_code_tree = cleanup_code.parse_statement(host_function_body);
@@ -761,8 +740,22 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         internal_error("Code unreachable", 0);
     }
     
-    Source device_src;
+    Source device_src, 
+            instrument_before_dev,
+            instrument_after_dev;
     
+    
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                info._called_task,
+                device_function,
+                device_function_body,
+                info._task_label,
+                original_statements.get_locus(),
+                instrument_before_dev,
+                instrument_after_dev); 
+    } 
     
     Nodecl::NodeclBase new_device_body;
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -771,13 +764,16 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 << "{"
                 << code_device_pre
                 << data_input_global
+                << instrument_before_dev
                 << unpacked_function_call
                 << data_output_global
                 << code_device_post
+                << instrument_after_dev
                 << "}"
                 ;
         
        new_device_body = device_src.parse_statement(device_function_body);
+       // std::cout << new_device_body.get_text() << "\n";
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -810,6 +806,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         }
         Nodecl::NodeclBase code_post = code_device_post.parse_statement(device_function_body);
         device_src
+                << fortran_allocatable_translation
                 << unpacked_function_call;
         if (!data_output_global.empty()){        
             data_output_tree = data_output_global.parse_statement(device_function_body);
@@ -840,10 +837,34 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         _extraFortranDecls <<
                "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
                "extern void " << device_outline_name << "_device"  << append << "(void);";
-    }
-    
-    _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
-    _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+        
+       _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
+       _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+       _currTaskId++; 
+    } else {
+        if( current_function.get_type().is_template_specialized_type()
+         && !current_function.get_scope().get_template_parameters()->is_explicit_specialization ){
+            type_t* type=template_specialized_type_get_related_template_type(current_function.get_type().get_internal_type());
+            int n = template_type_get_num_specializations(type);
+            
+            //Emmit pointers to all the specialization for the original function, but in our device/host functions
+            for (int i = 0; i < n; i++)
+            {
+                TL::Type t=template_type_get_specialization_num(type, i);
+                if ( template_type_get_primary_type(type) != t.get_internal_type() ) {              
+                    template_parameter_list_t* arguments_list= template_specialized_type_get_template_arguments(t.get_symbol().get_type().get_internal_type());
+                    std::string templateName(template_arguments_to_str(arguments_list,0,1,current_function.get_scope().get_decl_context()));
+                    _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name(true) + templateName,",");
+                    _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name(true) + templateName,",");    
+                    _currTaskId++; 
+                }
+            }
+        } else {
+           _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
+           _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+           _currTaskId++; 
+        }
+    }  
     
 }
 
@@ -860,31 +881,70 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &fortran_dynamic_init UNUSED_PARAMETER) {
     TargetInformation& target_information = info._target_info;
     const std::string& device_outline_name = get_outline_name(info._outline_name);
-    if (Nanos::Version::interface_is_at_least("master", 5012)) {
+    const std::string& arguments_struct = info._arguments_struct;
+    if (Nanos::Version::interface_is_at_least("master", 5012)) {         
         ObjectList<Nodecl::NodeclBase> onto_clause = target_information.get_onto();
         Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
         
-        //Set rank and comm, 0 and -2 means undefined so
+        //Set rank and comm, -95 and 0 means undefined so
         //runtime can pick any FREE spawned node
         //(user can specify any rank and any comm using onto clause)
-        std::string assignedComm = "0";
-        std::string assignedRank = "-2";
-        if (onto_clause.size() >= 1 && onto_clause.at(0).get_symbol().is_valid() ) {
-            assignedComm = as_symbol(param_to_args_map.map(onto_clause.at(0).get_symbol()));
+        std::string assignedComm = "(MPI_Comm)0";
+        std::string assignedRank = UNKOWN_RANKSRCDST;
+        if (onto_clause.size() >= 1) {
+            const TL::Symbol& called_task = info._called_task;
+            bool is_function_task = called_task.is_valid();
+            if (is_function_task) {
+               Nodecl::NodeclBase base=Nodecl::Utils::deep_copy(onto_clause[0], onto_clause[0], param_to_args_map);
+               assignedComm = as_expression(base);
+            } else {
+               assignedComm = as_expression(onto_clause.at(0));
+            }
         }
-        if (onto_clause.size() >= 2 && onto_clause.at(1).get_symbol().is_valid()) {
-            assignedRank = as_symbol(param_to_args_map.map(onto_clause.at(1).get_symbol()));
+        if (onto_clause.size() >= 2) {
+            const TL::Symbol& called_task = info._called_task;
+            bool is_function_task = called_task.is_valid();
+            if (is_function_task) {
+               Nodecl::NodeclBase base=Nodecl::Utils::deep_copy(onto_clause[1], onto_clause[1], param_to_args_map);
+               assignedRank = as_expression(base);
+            } else {
+               assignedRank = as_expression(onto_clause.at(1));
+            }
         }
         
         if (!IS_FORTRAN_LANGUAGE)
-        {
+        {                  
+            // Extra cast for solving some issues of GCC 4.6.* and lowers (this
+            // issues seem to be fixed in GCC 4.7 =D)
+            std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
+            std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
+            
+            TL::Symbol current_function = info._current_function;
+
+            //FIXME (together with SMP): This is confusing. In a future, we should get the template
+            //arguments of the outline function and print them
+            std::string original_name = current_function.get_name();
+            current_function.set_name(device_outline_name+"_host");
+            Nodecl::NodeclBase code = current_function.get_function_code();
+            Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+                ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+                : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();    
+            bool without_template_args =
+                !current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization;
+            TL::Scope function_scope = context.retrieve_context();
+            std::string qualified_name = current_function.get_qualified_name(function_scope,without_template_args);            
+            // Restore the original name of the current function
+            current_function.set_name(original_name);
+            
+            //Initialize static with 0's and then change its value each time we spawn a task
+            //This struct will be copied by nanox at task creation time, so values will be correct in the runtime
             ancillary_device_description
                 << "static nanos_mpi_args_t "
-                << device_outline_name << "_mpi_args;"
-                << device_outline_name << "_mpi_args.outline = (void(*)(void*))" << device_outline_name << "_host;"
+                << device_outline_name << "_mpi_args = "
+                << "{ ((void(*)(void*))" << "(" << extra_cast << " &" << qualified_name << ")),0,0 };"
                 << device_outline_name << "_mpi_args.assignedComm = " << assignedComm << ";"
                 << device_outline_name << "_mpi_args.assignedRank = " << assignedRank << ";";
-
 
             device_descriptor << "{ &nanos_mpi_factory, &" << device_outline_name << "_mpi_args }";
         }
@@ -905,15 +965,13 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
                 << device_outline_name << "_args.outline = (void(*)(void*))&" << device_outline_name << "_host;"
                 << device_outline_name << "_args.assignedComm = " << assignedComm << ";"
                 << device_outline_name << "_args.assignedRank = " << assignedRank << ";"
-                << "nanos_wd_const_data.devices[0].factory = &nanos_mpi_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;"
+                << "nanos_wd_const_data.devices[0].factory = &nanos_mpi_fortran_factory;"
+                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;" 
                 ;
         }
     } else {
         internal_error("Unsupported Nanos version.", 0);
-    }
-    
-    _currTaskId++;    
+    }   
 }
 
 bool DeviceMPI::remove_function_task_from_original_source() const
@@ -933,7 +991,11 @@ static std::ifstream::pos_type get_filesize(const char* filename)
 {
     std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
     in.seekg(0, std::ifstream::end);
-    return in.tellg(); 
+    std::ifstream::pos_type pos=in.tellg();
+    if (pos==-1) {
+        pos=1;
+    }
+    return pos; 
 }
 
 static unsigned hash_str(const char* s)
@@ -952,19 +1014,6 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     
     std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();        
     original_filename =original_filename.substr(0, original_filename.find("."));
-    Source _mpiDaemonMain;
-    if (IS_FORTRAN_LANGUAGE){
-        _mpiDaemonMain << "int ompss___mpi_daemon_main_() { "
-                       << "   nanos_mpi_initf();	";   
-    } else {
-        _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { ";
-        _mpiDaemonMain << "   nanos_mpi_init(&argc, &argv);	";
-                
-    }
-    _mpiDaemonMain << "    nanos_sync_dev_pointers(ompss_mpi_masks, "<< MASK_TASK_NUMBER << ", ompss_mpi_filenames, ompss_mpi_file_sizes,"
-       << "    ompss_mpi_file_ntasks,ompss_mpi_func_pointers_dev);"
-       << "    return nanos_mpi_worker(ompss_mpi_func_pointers_dev);"
-       << " }"; //END main
 
     Symbol main;
     if (IS_FORTRAN_LANGUAGE){
@@ -979,12 +1028,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
            {
                Nodecl::FunctionCode function_code = current_item.as<Nodecl::FunctionCode>();
                TL::Symbol function_sym = function_code.get_symbol();
-               if (function_sym.get_internal_symbol()->kind==SK_PROGRAM){                   
-                    type_t *function_type = get_new_function_type(
-                            get_void_type(), NULL ,0);
-                    
-                   function_sym.get_internal_symbol()->kind=SK_FUNCTION;
-                   function_sym.get_internal_symbol()->type_information=function_type;
+               if (function_sym.get_internal_symbol()->kind==SK_PROGRAM){               
                    main=function_sym;
                    found=true;
                }
@@ -998,6 +1042,13 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     //This section will be synchronized in "nanos_sync_dev_pointers" nanox call
     //so we have function pointers in the same order in both processes
     if (_mpi_task_processed || main.is_valid()) {
+        
+//        if (main.is_valid()) {
+//        std::string new_filename = "/home/Computational/fsainz/mpiall.o";
+//        std::cout << "adding " << new_filename << "to files\n";
+//        TL::CompilationProcess::add_file(new_filename, "plaincxx");
+//        }
+//        
         Source functions_section;   
         
         //Extern declaration of fortran tasks in C file (needed, until codegen can do them, but it's this is unlikely to happen
@@ -1008,14 +1059,19 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         functions_section << "int (ompss_mpi_masks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_mask\"))) = { "
                 << MASK_TASK_NUMBER
                 << "}; ";
+        
         //Filename hash (so we can know in which order files linked)
+        std::stringstream filenameHash;
+        filenameHash << hash_str(TL::CompilationProcess::get_current_file().get_filename(true).c_str());
         functions_section << "unsigned int(ompss_mpi_filenames[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_names\"))) = { "
-                << hash_str(TL::CompilationProcess::get_current_file().get_filename().c_str())
+                << filenameHash.str()
                 << "}; ";
         
         //File size (so we "ensure" that both files compiled exactly the same code)
+        std::stringstream fileSize;
+        fileSize << get_filesize(TL::CompilationProcess::get_current_file().get_filename(true).c_str()) << _currTaskId;
         functions_section << "unsigned int (ompss_mpi_file_sizes[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_sizes\"))) = { "
-                << get_filesize(TL::CompilationProcess::get_current_file().get_filename().c_str()) << _currTaskId
+                << fileSize.str()
                 << "}; ";
         //Number of tasks in file  (used to ensure that both files had the same number, and also for ordering)
         functions_section << "unsigned int (ompss_mpi_file_ntasks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_mpi_file_n_tasks\"))) = { "
@@ -1029,153 +1085,71 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         functions_section << "void (*ompss_mpi_func_pointers_dev[])() __attribute__((weak)) __attribute__ ((section (\"ompss_func_pointers_dev\"))) = { "
                 << _sectionCodeDevice
                 << "}; ";
-        
+
         if (IS_FORTRAN_LANGUAGE)
            Source::source_language = SourceLanguage::C;
+
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
+
         Source::source_language = SourceLanguage::Current;
-        if (IS_FORTRAN_LANGUAGE){
-           _extra_c_code.prepend(functions_section_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
-        }
-    }
-        
-    
-    if (main.is_valid()) {
-            //Build a new main which calls to the OmpSs daemon or to the user main
-            Source real_main;
-            
-            if (IS_FORTRAN_LANGUAGE){                
-                real_main <<    "PROGRAM ompss_main\n"
-                                "    IMPLICIT NONE\n"
-                                "    INTEGER(4) :: nargs\n"
-                                "    CHARACTER(LEN=24) :: arg\n"
-                                "    INTEGER(4) :: err\n"
-                                "    INTEGER(4), EXTERNAL :: ompss___mpi_daemon_main\n"
-                                "    INTERFACE\n"
-                                "      SUBROUTINE ompss___user_main()\n"
-                                "          IMPLICIT NONE\n"
-                                "      END SUBROUTINE ompss___user_main\n"
-                                "    END INTERFACE\n"
-                                "    nargs = iargc()\n"
-                                "    CALL getarg(nargs, arg)\n"          
-                                "    IF (nargs > 1 .AND. arg == \"" << TAG_MAIN_OMPSS << "\") THEN\n"
-                                "      err = ompss___mpi_daemon_main()\n"
-                                "    ELSE\n"
-                                "      CALL " << main.get_name() << "()\n"
-                                "    END IF\n"
-                                "END PROGRAM ompss_main";                
-            } else {
-                real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
-                        << "int err;"
-                        << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
-                        << "err=ompss___mpi_daemon_main(argc,argv);"
-                        << "return 0;"
-                        << "} else {";
-                
-                if (main.get_type().returns().is_signed_int() || main.get_type().returns().is_unsigned_int()){
-                     real_main << "err= main(argc,argv);"
-                        << "return err;"
-                        << "}}"
-                        ;
-                } else {
-                    real_main << "main(argc,argv);"
-                        << "return 0;"
-                        << "}}"
-                        ;
-                }
-                
-            }
-        
-            if (IS_FORTRAN_LANGUAGE)
-               Source::source_language = SourceLanguage::C;
-            Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
-            Source::source_language = SourceLanguage::Current;
-            Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());    
-            
-            if (IS_FORTRAN_LANGUAGE){
-               _extra_c_code.prepend(newompss_main); 
-               Nodecl::Utils::append_to_top_level_nodecl(new_main); 
-            } else {
-               Nodecl::Utils::append_to_top_level_nodecl(newompss_main); 
-               Nodecl::Utils::append_to_top_level_nodecl(new_main); 
-               main.set_name("ompss___user_main");
-               if (Nanos::Version::interface_is_at_least("copies_api", 1003)){
-                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
-               } else {
-                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");                   
-               }
-            }
-    }
-    
-    if (main.is_valid()){        
-        //This function search for it's index in the pointer arrays
-        //so we can pass it to the device array, we only add it on main
-        Source search_function;
-        //There can't be errors here, sooner or later we'll find the pointer (i hope)
-        //If fortran, append _ so we can link correctly
-        if (IS_FORTRAN_LANGUAGE){
-            search_function << "int ompss_mpi_get_function_index_host_(void* func_pointer){";
-        } else {
-            search_function << "int ompss_mpi_get_function_index_host(void* func_pointer){";          
-        }
-        search_function << "int i=0;"
-                           "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
-                           "return i;"
-                           "}";       
 
         if (IS_FORTRAN_LANGUAGE)
-          Source::source_language = SourceLanguage::C;
-        Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
-        Source::source_language = SourceLanguage::Current;    
-
-        if (IS_FORTRAN_LANGUAGE){
-           _extra_c_code.append(search_function_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
+        {
+           _extra_c_code.prepend(functions_section_tree);
+        } else
+        {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
     }
-    
-    if (_extra_c_code.is_null()) return;
 
-    original_filename = TL::CompilationProcess::get_current_file().get_filename();
-    std::string new_filename = "mpi_aux_nanox_outline_file_" + original_filename  + ".c";
+    if (!_extra_c_code.is_null()){
 
-    FILE* ancillary_file = fopen(new_filename.c_str(), "w");
-    if (ancillary_file == NULL)
-    {
-        running_error("%s: error: cannot open file '%s'. %s\n",
-                original_filename.c_str(),
-                new_filename.c_str(),
-                strerror(errno));
+        original_filename = TL::CompilationProcess::get_current_file().get_filename();
+        std::string new_filename = "mpi_aux_nanox_outline_file_" + original_filename  + ".c";
+
+        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+        if (ancillary_file == NULL)
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+        // Make sure phases are loaded (this is needed for codegen)
+        load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "auxcc");
+
+        ::mark_file_for_cleanup(new_filename.c_str());
+
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+
+
+        fclose(ancillary_file);
+        // Do not forget the clear the code for next files
+        _extra_c_code.get_internal_nodecl() = nodecl_null();
     }
-
-    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
-
-    compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
-    ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
-
-    // Make sure phases are loaded (this is needed for codegen)
-    load_compiler_phases(configuration);
-
-    TL::CompilationProcess::add_file(new_filename, "auxcc");
-
-    ::mark_file_for_cleanup(new_filename.c_str());
-
-    Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-    phase->codegen_top_level(_extra_c_code, ancillary_file);
-
-    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
     
-
-    fclose(ancillary_file);
-    // Do not forget the clear the code for next files
-    _extra_c_code.get_internal_nodecl() = nodecl_null();
+    //Clear sources
+    Source empty_src;
+    _sectionCodeDevice=empty_src;
+    _extraFortranDecls=empty_src;
+    _sectionCodeHost=empty_src;
+    _mpi_task_processed=false;
+    _currTaskId=0;
 }
 
 void DeviceMPI::pre_run(DTO& dto) {
-    _root = dto["nodecl"];
+    _root = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
     _mpi_task_processed = false;
 }
 
@@ -1183,7 +1157,8 @@ void DeviceMPI::run(DTO& dto) {
 }
 
 std::string DeviceMPI::get_ompss_mpi_type(Type type) {
-    std::string result = "ompss_get_mpi_type(\"__mpitype_ompss_";
+    std::string result = "ompss_get_mpi_type(mpitype_ompss_";
+    type=type.basic_type();
     if (type.is_char()) {
         result += "char";
     } else if (type.is_signed_short_int()) {
@@ -1215,7 +1190,7 @@ std::string DeviceMPI::get_ompss_mpi_type(Type type) {
     } else {
         result += "byte";
     }
-    result += "\")";
+    result += ")";
     return result;
 }
 

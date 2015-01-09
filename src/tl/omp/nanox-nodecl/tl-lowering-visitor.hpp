@@ -24,11 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_LOWERING_VISITOR_HPP
+#define TL_LOWERING_VISITOR_HPP
+
 #include "tl-nanox-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-omp-core.hpp" 
+#include "tl-omp-core.hpp"
 
 #include <set>
 #include <stdio.h>
@@ -38,13 +41,18 @@ namespace TL { namespace Nanox {
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
-        LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
+        LoweringVisitor(
+                Lowering* lowering,
+                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set,
+                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map);
+
         ~LoweringVisitor();
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
         virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
         virtual void visit(const Nodecl::OpenMP::Critical& construct);
+        virtual void visit(const Nodecl::ExpressionStatement& expr_stmt);
         virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
         virtual void visit(const Nodecl::OpenMP::For& construct);
         virtual void visit(const Nodecl::OpenMP::Master& construct);
@@ -57,16 +65,21 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
         virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
+        virtual void visit(const Nodecl::OpenMP::Register& construct);
 
     private:
 
         Lowering* _lowering;
-        RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+        std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
         std::map<int, Symbol> _declared_const_wd_type_map;
+
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
+        std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol> _declared_ocl_allocate_functions;
 
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);
@@ -97,8 +110,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& fill_immediate_arguments
                 );
 
-        int count_dependences(OutlineInfo& outline_info);
-        int count_copies(OutlineInfo& outline_info);
+        void count_dependences(OutlineInfo& outline_info, int &num_static_dependences, int &num_dynamic_dependences);
+        void count_copies(OutlineInfo& outline_info, int &num_static_copies, int &num_dynamic_copies);
         int count_copies_dimensions(OutlineInfo& outline_info);
 
         void fill_copies(
@@ -116,17 +129,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_setup,
                 Symbol& xlate_function_symbol);
 
-        void fill_copies_nonregion(
-                Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info,
-                int num_copies,
-                // Source arguments_accessor,
-                // out
-                Source& copy_ol_decl,
-                Source& copy_ol_arg,
-                Source& copy_ol_setup,
-                Source& copy_imm_arg,
-                Source& copy_imm_setup);
+        // void fill_copies_nonregion(
+        //         Nodecl::NodeclBase ctr,
+        //         OutlineInfo& outline_info,
+        //         int num_copies,
+        //         // Source arguments_accessor,
+        //         // out
+        //         Source& copy_ol_decl,
+        //         Source& copy_ol_arg,
+        //         Source& copy_ol_setup,
+        //         Source& copy_imm_arg,
+        //         Source& copy_imm_setup);
+
         void fill_copies_region(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -140,13 +154,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
-        void emit_translation_function_nonregion(
-                Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info,
-                OutlineInfo* parameter_outline_info,
-                TL::Symbol structure_symbol,
-                bool allow_multiple_copies,
-                TL::Symbol& xlate_function_symbol);
+        // void emit_translation_function_nonregion(
+        //         Nodecl::NodeclBase ctr,
+        //         OutlineInfo& outline_info,
+        //         OutlineInfo* parameter_outline_info,
+        //         TL::Symbol structure_symbol,
+        //         bool allow_multiple_copies,
+        //         TL::Symbol& xlate_function_symbol);
 
         void emit_translation_function_region(
                 Nodecl::NodeclBase ctr,
@@ -158,11 +172,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                Source arguments_accessor,
                 bool on_wait,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void handle_dependency_item(
                 Nodecl::NodeclBase ctr,
@@ -176,27 +188,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                Source arguments_accessor,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void fill_dependences_taskwait(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
-                Source& result_src
-                );
-
-        void check_pendant_writes_on_subexpressions(
-                OutlineDataItem::TaskwaitOnNode* c,
-                // out
-                TL::Source& code);
-
-        void generate_mandatory_taskwaits(
-                OutlineInfo& outline_info,
-                // out
-                TL::Source& taskwait_on_after_wd_creation_opt);
+                Source& result_src);
 
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
@@ -239,7 +238,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase num_replicas,
                 Nodecl::NodeclBase if_condition,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                Nodecl::NodeclBase task_label);
 
         Source get_loop_distribution_source_worksharing(
                 const Nodecl::OpenMP::For &construct,
@@ -249,6 +249,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &lastprivate1,
+                Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase &reduction_initialization,
                 Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_worksharing(
@@ -263,6 +265,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase &lastprivate1,
+                Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase& reduction_initialization,
                 Nodecl::NodeclBase& reduction_code);
         void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
@@ -273,7 +277,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::RangeLoopControl& range,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
-                TL::Symbol slicer_descriptor);
+                TL::Symbol slicer_descriptor,
+                Nodecl::NodeclBase task_label);
 
         Source get_loop_distribution_source_slicer(
                 const Nodecl::OpenMP::For &construct,
@@ -283,6 +288,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &lastprivate1,
+                Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase &reduction_initialization,
                 Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_slicer(
@@ -297,6 +304,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase& lastprivate1,
+                Nodecl::NodeclBase& lastprivate2,
                 Nodecl::NodeclBase& reduction_initialization,
                 Nodecl::NodeclBase& reduction_code);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);
@@ -307,7 +316,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::RangeLoopControl& range,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
-                TL::Symbol slicer_descriptor);
+                TL::Symbol slicer_descriptor,
+                Nodecl::NodeclBase task_label);
 
         static bool there_are_reductions(OutlineInfo& outline_info);
 
@@ -338,9 +348,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source update_lastprivates(OutlineInfo& outline_info, const std::string& loop_descriptor_name);
 
-        Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
-        Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
-        Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
+        Symbol get_function_modify_array_descriptor(
+                std::string name,
+                TL::Type field_type,
+                TL::Scope original_scope);
+
 
         void add_field(OutlineDataItem& outline_data_item, 
                 TL::Type new_class_type,
@@ -400,6 +412,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         Nodecl::NodeclBase fill_adapter_function(
+                const Nodecl::OpenMP::TaskCall& construct,
                 TL::Symbol adapter_function,
                 TL::Symbol called_function,
                 Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -411,6 +424,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
+
+
+        void generate_final_stmts(Nodecl::NodeclBase stmts);
+
 };
 
 } }
+#endif // TL_LOWERING_VISITOR_HPP

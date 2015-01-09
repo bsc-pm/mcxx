@@ -43,19 +43,19 @@ struct scope_entry_list_node_tag
 
 struct scope_entry_list_tag
 {
-    unsigned short num_items_list;
+    int num_items_list;
     scope_entry_list_node_t* next;
 };
 
 static scope_entry_list_node_t* entry_list_node_allocate(void)
 {
-    return counted_xcalloc(1, sizeof(scope_entry_list_node_t), &_bytes_entry_lists);
+    return xcalloc(1, sizeof(scope_entry_list_node_t));
 }
 
 static scope_entry_list_t* entry_list_allocate(void)
 {
     scope_entry_list_t* new_entry_list =
-        counted_xcalloc(1, sizeof(scope_entry_list_t), &_bytes_entry_lists);
+        xcalloc(1, sizeof(scope_entry_list_t));
 
     new_entry_list->next = entry_list_node_allocate();
 
@@ -269,7 +269,8 @@ scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list,
     return list;
 }
 
-static char entry_list_add_before_rec(scope_entry_list_node_t* list,
+static char entry_list_add_before_rec(
+        scope_entry_list_node_t* list,
         scope_entry_t* position,
         scope_entry_t* entry)
 {
@@ -383,7 +384,7 @@ struct scope_entry_list_iterator_tag
 
 static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
 {
-    return counted_xcalloc(1, sizeof(scope_entry_list_iterator_t), &_bytes_entry_lists);
+    return xcalloc(1, sizeof(scope_entry_list_iterator_t));
 }
 
 scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list)
@@ -604,7 +605,7 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
 void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
 {
     int size = entry_list_size(list);
-    *array = counted_xcalloc(size, sizeof(scope_entry_t*), &_bytes_entry_lists);
+    *array = xcalloc(size, sizeof(scope_entry_t*));
 
     *num_items = 0;
     scope_entry_list_iterator_t* it = NULL;
@@ -613,6 +614,7 @@ void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array
         (*array)[*num_items] = entry_list_iterator_current(it);
         (*num_items)++;
     }
+    entry_list_iterator_free(it);
 }
 
 scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** list)
@@ -628,5 +630,29 @@ scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** 
     {
         result = entry_list_add(result, list[ind]);
     }
+    return result;
+}
+
+scope_entry_list_t* entry_list_concat(const scope_entry_list_t* a, const scope_entry_list_t* b)
+{
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(a);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        result = entry_list_add(result, entry_list_iterator_current(it));
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(b);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        result = entry_list_add(result, entry_list_iterator_current(it));
+    }
+    entry_list_iterator_free(it);
+
     return result;
 }

@@ -30,6 +30,7 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-symbol.hpp"
@@ -40,7 +41,7 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
-    class LIBTL_CLASS InductionVariableAnalysis : public Nodecl::ExhaustiveVisitor<void> {
+    class LIBTL_CLASS InductionVariableAnalysis {
     private:
 
         // Variables for Induction Variables analysis
@@ -61,33 +62,28 @@ namespace Analysis {
         bool is_there_unique_definition_in_loop( Nodecl::NodeclBase iv_st, Node* iv_node, Node* loop );
         bool is_there_definition_in_loop_(Nodecl::NodeclBase iv_st, Node* iv_node, Node* current, Node* loop );
 
-        /*!This method checks whether a potential IV is a real IV within a loop
+        /*!This method returns true when a potential IV is a real IV within a loop
          * This means that no other modifications of the variable make it not be an IV and
          * also that the variable is not private in case it is within a parallel or simd region
          * The method might recompute the increment of the IV in case it is necessary
          * @return True, when the variable ends up being a real Induction Variable
          */
-        bool check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+        bool check_potential_induction_variable( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                                  ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                 Nodecl::NodeclBase stmt, Node* loop );
+                                                 const Nodecl::NodeclBase& stmt, Node* loop );
 
-        /*! This method looks for an induction variable in the body of a loop and 
-         * checks that either it is not modified or, in case it is modified, the modification does not cause
-         * the variable is not an induction variable. The increment is modified when statements within the loop
-         * modify the variable but it is still an IV
+        /*!This method returns true when a potential induction variable is decided not to be an IV
+         * because it is modified in different positions inside the loop causing the variable not to 
+         * fulfill the restrictions of an induction variable
          */
-        bool check_undesired_modifications( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+        bool check_undesired_modifications( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                             ObjectList<Nodecl::NodeclBase>& incr_list,
-                                            Nodecl::NodeclBase stmt, Node* node, Node* loop );
-        
-        bool check_private_status( Nodecl::NodeclBase iv, Node* loop );
+                                            const Nodecl::NodeclBase& stmt, Node* node, Node* loop );
 
-        /*!Deletes those induction variables included in the list during a previous traverse through the loop control
-         * that are redefined within the loop
-         * \param node Node in the graph we are analysing
-         * \param loop_node Outer loop node where is contained the node we are checking
+        /*!This method returns true when a potential induction variable is always accessing the same memory location.
+         * With this we avoid considering as induction variables expressions like: a[b[x]]
          */
-        void delete_false_induction_vars( Node* node, Node* loop_node );
+        bool check_constant_memory_access( const Nodecl::NodeclBase& iv, Node* loop );
 
     public:
 
@@ -137,7 +133,7 @@ namespace Analysis {
         // Members convenient during visiting
         int _n_nested_conditionals;     /*!< Number of conditionals that contains the statement currently parsed */
 
-        Nodecl::Calculator _calc;
+        Optimizations::Calculator _calc;
 
         //! Resets the class members as if the partially computed IV was never an Induction Variable
         void undefine_induction_variable( );

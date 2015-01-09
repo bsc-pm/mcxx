@@ -43,21 +43,21 @@ namespace TL
 	{
 		ObjectList<std::string>::iterator it_type = _type.begin();
 		ObjectList<std::string>::iterator it_val = _value.begin();
-		for(ObjectList<std::string>::iterator it_var = _variable.begin();
-				it_var != _variable.end(), it_val != _value.end();
+		for (ObjectList<std::string>::iterator it_var = _variable.begin();
+				it_var != _variable.end() && it_val != _value.end();
 				it_var++, it_type++, it_val++)
 		{
 			if (*it_type=="bool")
             {
-                dto.set_object(*it_var, RefPtr<Bool>(new Bool(atoi((*it_val).c_str()))));
+                dto.set_object(*it_var, std::shared_ptr<Bool>(new Bool(atoi((*it_val).c_str()))));
             }
 			else if (*it_type=="int")
             {
-                dto.set_object(*it_var, RefPtr<Integer>(new Integer(atoi((*it_val).c_str()))));
+                dto.set_object(*it_var, std::shared_ptr<Integer>(new Integer(atoi((*it_val).c_str()))));
             }
 			else if (*it_type=="string")
             {
-                dto.set_object(*it_var, RefPtr<String>(new String(*it_val)));
+                dto.set_object(*it_var, std::shared_ptr<String>(new String(*it_val)));
             }
 		}
 	}

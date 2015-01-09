@@ -49,9 +49,10 @@ class A
     template< typename _T>
         struct B<_T, true>
         {
+            typedef _T T;
         };
 
-    B<_Key> var;
+    typename B<_Key>::T var;
 
 };
 

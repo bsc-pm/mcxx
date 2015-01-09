@@ -35,7 +35,7 @@ static int inside_interface = 0;
 
 %}
 
-%option noyyalloc noyyrealloc noyyfree
+%option noyyalloc noyyrealloc noyyfree noinput nounput
 
 INTEGER integer
 REAL real
@@ -147,227 +147,227 @@ THEN then
 %%
 
 ^{PROGRAM} {
-	return (ST_PROGRAM);
+    return (ST_PROGRAM);
 }
 
 ^({PURE}|{RECURSIVE}|{ELEMENTAL})*{SUBROUTINE}{IDENTIFIER}("("(({IDENTIFIER},)*{IDENTIFIER})?")")? {
-	return (ST_SUBROUTINE);
+    return (ST_SUBROUTINE);
 }
 
 ^.*{FUNCTION}{IDENTIFIER}"("(({IDENTIFIER},)*{IDENTIFIER})?")"{RESULT}"("{IDENTIFIER}")" {
-	return (ST_FUNCTION);
+    return (ST_FUNCTION);
 }
 
 ^.*{FUNCTION}{IDENTIFIER}"("(({IDENTIFIER},)*{IDENTIFIER})?")" {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{REAL}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{INTEGER}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{LOGICAL}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{COMPLEX}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{DOUBLECOMPLEX}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{DOUBLEPRECISION}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{CHARACTER}.*{FUNCTION}{IDENTIFIER} {
-	return (ST_DUBIOUS_FUNCTION);
+    return (ST_DUBIOUS_FUNCTION);
 }
 
 ^{REAL}([*][0-9]+)? {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{INTEGER}([*][0-9]+)? {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{LOGICAL}([*][0-9]+)? {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{COMPLEX}([*][0-9]+)? {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{DOUBLECOMPLEX} {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{DOUBLEPRECISION}([*][0-9]+)? {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{CHARACTER}([*][0-9]+)? {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{DERIVED_TYPE} {
-	return (ST_TYPESPEC);
+    return (ST_TYPESPEC);
 }
 
 ^{TYPE} {
-	// This is a derived type declaration not a 
-	// TYPE(mytype)
-	return (ST_TYPEDECL);
+    // This is a derived type declaration not a 
+    // TYPE(mytype)
+    return (ST_TYPEDECL);
 }
 
 
 ^{MODULE}{PROCEDURE} {
-	if (inside_interface)
-	{
-		return (ST_MODULE_PROCEDURE);
-	}
-	else
-	{
-		// We fall back to usual MODULEidentifier
-		REJECT;
-	}
+    if (inside_interface)
+    {
+        return (ST_MODULE_PROCEDURE);
+    }
+    else
+    {
+        // We fall back to usual MODULEidentifier
+        REJECT;
+    }
 }
 
 ^{MODULE} {
-	return (ST_MODULE);
+    return (ST_MODULE);
 }
 
 ^{INTERFACE} {
-	inside_interface = 1;
-	return (ST_INTERFACE);
+    inside_interface = 1;
+    return (ST_INTERFACE);
 }
 
 ^{BLOCK} {
-	return (ST_BLOCK);
+    return (ST_BLOCK);
 }
 
 ^{BLOCKDATA} {
-	return (ST_BLOCKDATA);
+    return (ST_BLOCKDATA);
 }
 
 ^{USE} {
-	return (ST_USE);
+    return (ST_USE);
 }
 
 ^{IMPLICIT} {
-	return (ST_IMPLICIT);
+    return (ST_IMPLICIT);
 }
 
 ^{PARAMETER} {
-	return (ST_PARAMETER);
+    return (ST_PARAMETER);
 }
 
 ^{ENTRY} {
-	return (ST_ENTRY);
+    return (ST_ENTRY);
 }
 
 ^{ACCESS} {
-	return (ST_ACCESS);
+    return (ST_ACCESS);
 }
 
 ^{ALLOCATABLE} {
-	return (ST_ALLOCATABLE);
+    return (ST_ALLOCATABLE);
 }
 
 ^{COMMON} {
-	return (ST_COMMON);
+    return (ST_COMMON);
 }
 
 ^{DATA} {
-	return (ST_DATA);
+    return (ST_DATA);
 }
 
 ^{DIMENSION} {
-	return (ST_DIMENSION);
+    return (ST_DIMENSION);
 }
 
 ^{EXTERNAL} {
-	return (ST_EXTERNAL);
+    return (ST_EXTERNAL);
 }
 
 ^{INTRINSIC} {
-	return (ST_INTRINSIC);
+    return (ST_INTRINSIC);
 }
 
 ^{OPTIONAL} {
-	return (ST_OPTIONAL);
+    return (ST_OPTIONAL);
 }
 
 ^{POINTER} {
-	return (ST_POINTER);
+    return (ST_POINTER);
 }
 
 ^{VALUE} {
-	return (ST_VALUE);
+    return (ST_VALUE);
 }
 
 ^{VOLATILE} {
-	return (ST_VOLATILE);
+    return (ST_VOLATILE);
 }
 
 ^{SAVE} {
-	return (ST_SAVE);
+    return (ST_SAVE);
 }
 
 ^{TARGET} {
-	return (ST_TARGET);
+    return (ST_TARGET);
 }
 
 ^({IDENTIFIER}:)?{DO}[0-9]+ {
-	return (ST_LABELED_DO);
+    return (ST_LABELED_DO);
 }
 
 ^({IDENTIFIER}:)?{DO} {
-	return (ST_DO);
+    return (ST_DO);
 }
 
 ^{BACKSPACE} {
-	return (ST_BACKSPACE);
+    return (ST_BACKSPACE);
 }
 
 ^{CALL} {
-	return (ST_CALL);
+    return (ST_CALL);
 }
 
 ^{CYCLE} {
-	return (ST_CYCLE);
+    return (ST_CYCLE);
 }
 
 ^{ENDFILE} {
-	return (ST_ENDFILE);
+    return (ST_ENDFILE);
 }
 
 ^{EXIT} {
-	return (ST_EXIT);
+    return (ST_EXIT);
 }
 
 ^{GOTO} {
-	return (ST_GOTO);
+    return (ST_GOTO);
 }
 
 ^{INQUIRE} {
-	return (ST_INQUIRE);
+    return (ST_INQUIRE);
 }
 
 ^{NULLIFY} {
-	return (ST_NULLIFY);
+    return (ST_NULLIFY);
 }
 
 ^{PRINT} {
-	return (ST_PRINT);
+    return (ST_PRINT);
 }
 
 ^{PRIVATE} {
@@ -379,201 +379,201 @@ THEN then
 }
 
 ^{RETURN} {
-	return (ST_RETURN);
+    return (ST_RETURN);
 }
 
 ^{REWIND} {
-	return (ST_REWIND);
+    return (ST_REWIND);
 }
 
 ^{STOP} {
-	return (ST_STOP);
+    return (ST_STOP);
 }
 
 ^{PAUSE} {
-	return (ST_PAUSE);
+    return (ST_PAUSE);
 }
 
 ^{INTENT} {
-	return (ST_INTENT);
+    return (ST_INTENT);
 }
 
 ^{NAMELIST} {
-	return (ST_NAMELIST);
+    return (ST_NAMELIST);
 }
 
 ^{EQUIVALENCE} {
-	return (ST_EQUIVALENCE);
+    return (ST_EQUIVALENCE);
 }
 
 ^({IDENTIFIER}:)?{FORALL} {
-	return (ST_FORALL);
+    return (ST_FORALL);
 }
 
 ^({IDENTIFIER}:)?{IF}"(".+")"{THEN} {
-	return (ST_IF);
+    return (ST_IF);
 }
 
 ^{IF}"(".+")"[0-9]+,[0-9]+,[0-9]+ {
-	return (ST_ARITHMETIC_IF);
+    return (ST_ARITHMETIC_IF);
 }
 
 ^{IF} {
-	return (ST_IF_STMT);
+    return (ST_IF_STMT);
 }
 
 ^{ELSEIF} {
-	return (ST_ELSEIF);
+    return (ST_ELSEIF);
 }
 
 ^{ELSE} {
-	return (ST_ELSE);
+    return (ST_ELSE);
 }
 
 ^{FORMAT} {
-	return (ST_FORMAT);
+    return (ST_FORMAT);
 }
 
 
 ^({IDENTIFIER}:)?{SELECTCASE} {
-	return (ST_SELECTCASE);
+    return (ST_SELECTCASE);
 }
 
 ^{CASE} {
-	return (ST_CASE);
+    return (ST_CASE);
 }
 
 ^({IDENTIFIER}:)?{WHERE} {
-	return (ST_WHERE);
+    return (ST_WHERE);
 }
 
 ^{ALLOCATE} {
-	return (ST_ALLOCATE);
+    return (ST_ALLOCATE);
 }
 
 ^{ASSIGN} {
-	return (ST_LABEL_ASSIGN);
+    return (ST_LABEL_ASSIGN);
 }
 
 ^{CONTINUE} {
-	return (ST_CONTINUE);
+    return (ST_CONTINUE);
 }
 
 ^{CONTAINS} {
-	return (ST_CONTAINS);
+    return (ST_CONTAINS);
 }
 
 ^{DEALLOCATE} {
-	return (ST_DEALLOCATE);
+    return (ST_DEALLOCATE);
 }
 
 ^{OPEN} {
-	return (ST_OPEN);
+    return (ST_OPEN);
 }
 
 ^{CLOSE} {
-	return (ST_CLOSE);
+    return (ST_CLOSE);
 }
 
 ^{READ} {
-	return (ST_READ);
+    return (ST_READ);
 }
 
 ^{WRITE} {
-	return (ST_WRITE);
+    return (ST_WRITE);
 }
 
 ^{END}({FORALL}|{IF}|{MODULE}|{INTERFACE}|{SUBROUTINE}|{TYPE}|{FUNCTION}|{PROGRAM}|{DO}|{BLOCKDATA}|{SELECT}|{WHERE})? {
-	return (ST_END);
+    return (ST_END);
 }
 
 ^{INCLUDE} {
-	return (DC_INCLUDE);
+    return (DC_INCLUDE);
 }
 
 <PREFIX_SPEC>{PURE}|{RECURSIVE}|{ELEMENTAL} {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{REAL}([*][0-9]+)? {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{INTEGER}([*][0-9]+)? {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{LOGICAL}([*][0-9]+)? {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{DOUBLECOMPLEX} {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{COMPLEX}([*][0-9]+)? {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{DOUBLEPRECISION}([*][0-9]+)? {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{CHARACTER}([*][0-9]+)? {
-	return (KW_PREFIX);
+    return (KW_PREFIX);
 }
 
 <PREFIX_SPEC>{FUNCTION} {
-	return (KW_FUNCTION);
+    return (KW_FUNCTION);
 }
 
 <PREFIX_SPEC>{SUBROUTINE} {
-	return (KW_SUBROUTINE);
+    return (KW_SUBROUTINE);
 }
 
 <PREFIX_SPEC>. {
-	return (KW_OTHER);
+    return (KW_OTHER);
 }
 
 <END_APPENDINGS>{END} {
-	return (KW_END);
+    return (KW_END);
 }
 
 
 <END_APPENDINGS>{FORALL}|{IF}|{MODULE}|{SUBROUTINE}|{TYPE}|{FUNCTION}|{PROGRAM}|{DO}|{BLOCKDATA}|{SELECT}|{WHERE} {
-	return (KW_END_APPEND);
+    return (KW_END_APPEND);
 }
 
 <END_APPENDINGS>{INTERFACE} {
-	inside_interface = 0;
-	return (KW_END_APPEND);
+    inside_interface = 0;
+    return (KW_END_APPEND);
 }
 
 <END_APPENDINGS>[!].* {
-	return (KW_END_COMMENT);
+    return (KW_END_COMMENT);
 }
 
 <MODULE_PROC>{MODULE} {
-	return (KW_MODULE_PROC);
+    return (KW_MODULE_PROC);
 }
 
 <MODULE_PROC>{PROCEDURE} {
-	return (KW_MODULE_PROC);
+    return (KW_MODULE_PROC);
 }
 
 <OMP_DIRECTIVE>(parallel(do|sections|workshare)?)|(do)|(single)|(atomic)|(sections)|(section)|(workshare)|(master)|(critical)|(barrier)|(flush)|(ordered) {
-	BEGIN(OMP_CLAUSE);
-	return (KW_OMP_DIRECTIVE);
+    BEGIN(OMP_CLAUSE);
+    return (KW_OMP_DIRECTIVE);
 }
 
 <OMP_DIRECTIVE>threadprivate[(][^)]+[)] {
-	BEGIN(OMP_CLAUSE);
-	return (KW_OMP_DIRECTIVE);
+    BEGIN(OMP_CLAUSE);
+    return (KW_OMP_DIRECTIVE);
 }
 
 <OMP_DIRECTIVE>end {
-	// Note we do not jump to OMP_CLAUSE because we are still waiting the real directive
-	return (KW_OMP_DIRECTIVE);
+    // Note we do not jump to OMP_CLAUSE because we are still waiting the real directive
+    return (KW_OMP_DIRECTIVE);
 }
 
 <OMP_DIRECTIVE>.+ {
@@ -584,81 +584,71 @@ THEN then
 
  /* These are special */
 <OMP_CLAUSE>(ordered|nowait|presend)/.* {
-	return (KW_OMP_CLAUSE);
+    return (KW_OMP_CLAUSE);
 }
 
 <OMP_CLAUSE>[[:alpha:]_][[:alnum:]_]*/[(] {
-	BEGIN(OMP_EXPR);
-	return (KW_OMP_CLAUSE_EXPR);
+    BEGIN(OMP_EXPR);
+    return (KW_OMP_CLAUSE_EXPR);
 }
 
 <OMP_CLAUSE>[(][^)]+[)] {
-	return (KW_OMP_CLAUSE);
+    return (KW_OMP_CLAUSE);
 }
 
  /* <OMP_CLAUSE>((reduction)|(copyin)|(groups)|(shared)|((last|first|copy)?private))?[(][^)]+[)] {
-	return (KW_OMP_CLAUSE);
+    return (KW_OMP_CLAUSE);
 }
 
 <OMP_CLAUSE>default[(](private|shared|none)[)] {
-	return (KW_OMP_CLAUSE);
+    return (KW_OMP_CLAUSE);
 }
 
 <OMP_CLAUSE>schedule[(](static|dynamic|guided|runtime)[)] {
-	return (KW_OMP_CLAUSE);
+    return (KW_OMP_CLAUSE);
 }
 
 
 <OMP_CLAUSE>(num_threads|if) {
-	BEGIN(OMP_EXPR);
-	return (KW_OMP_CLAUSE_EXPR);
+    BEGIN(OMP_EXPR);
+    return (KW_OMP_CLAUSE_EXPR);
 }
 
 */
 
 <OMP_CLAUSE>[,] {
-	// Eat these as they are not necessary
+    // Eat these as they are not necessary
 }
 
 
 <OMP_EXPR>["]([^"\n]|(["]["]))*["] {
-	return (KW_OMP_EXPR_TOK);
+    return (KW_OMP_EXPR_TOK);
 }
 
 <OMP_EXPR>[']([^'\n]|(['][']))*['] {
-	return (KW_OMP_EXPR_TOK);
+    return (KW_OMP_EXPR_TOK);
 }
 
 <OMP_EXPR>. {
-	return (KW_OMP_EXPR_TOK);
+    return (KW_OMP_EXPR_TOK);
 }
 
 <*>. {
-	return 0;
+    return 0;
 }
 
 %%
 
 // ^.* {
-// 	fprintf(stderr, "UNCLASSIFIABLE STATEMENT \n'%s'\n", yytext);
-// 	exit(EXIT_FAILURE);
+//  fprintf(stderr, "UNCLASSIFIABLE STATEMENT \n'%s'\n", yytext);
+//  exit(EXIT_FAILURE);
 // }
 
 // Needed
 int yywrap()
 {
-	return 1;
+    return 1;
 }
-
-UNUSED_PARAMETER static void yyunput (int c, register char * yy_bp );
-
-#ifndef YY_NO_INPUT
-#ifdef __cplusplus
-    UNUSED_PARAMETER static int yyinput (void);
-#else
-    UNUSED_PARAMETER static int input  (void);
-#endif
-#endif
 
 void * prescanneralloc (size_t bytes)
 {

@@ -127,6 +127,7 @@ namespace Codegen
             void visit(const Nodecl::FortranUse& node);
             void visit(const Nodecl::FortranUseOnly& node);
             void visit(const Nodecl::FieldDesignator& node);
+            void visit(const Nodecl::IndexDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);
             void visit(const Nodecl::PragmaCustomDeclaration& node);
@@ -144,6 +145,10 @@ namespace Codegen
             void visit(const Nodecl::DivAssignment & node);
             void visit(const Nodecl::AddAssignment & node);
             void visit(const Nodecl::MinusAssignment & node);
+
+            void emit_explicit_use_statement(TL::Symbol &module,
+                    Nodecl::List items,
+                    bool is_only);
 
             void visit(const Nodecl::CxxDepNameSimple& node);
 
@@ -272,6 +277,10 @@ namespace Codegen
             typedef std::set<std::string> name_set_t;
             std::vector<name_set_t> _name_set_stack;
 
+            // We have to remember explicit uses because of a bug in gfortran
+            typedef std::set<std::pair<std::string, std::pair<std::string, std::string> > > explicit_use_t;
+            std::vector<explicit_use_t> _explicit_use_stack;
+
             // Given a symbol, its rename, if any. When _name_set detects
             // that a name has already been used in this scoping unit
             // a rename for it is computed, and then kep here
@@ -324,7 +333,20 @@ namespace Codegen
             void codegen_blockdata_footer(TL::Symbol);
 
             void codegen_comma_separated_list(Nodecl::NodeclBase);
-            void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
+
+            void codegen_array_subscripts(TL::Symbol array_symbol, Nodecl::NodeclBase node);
+            void codegen_single_array_subscript(
+                    Nodecl::NodeclBase node,
+                    TL::Symbol array_symbol,
+                    int dim);
+            bool subscript_expresses_whole_dimension(Nodecl::NodeclBase node,
+                    TL::Symbol array_symbol,
+                    int dim);
+            bool calls_to_xbound_for_array_symbol_dim(
+                    Nodecl::NodeclBase range_item,
+                    TL::Symbol array_symbol,
+                    const std::string &function_name,
+                    int dim);
 
             void codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
                     TL::Symbol called_symbol,
@@ -412,6 +434,15 @@ namespace Codegen
             void remove_rename(TL::Symbol sym);
             void clear_renames();
 
+            bool explicit_use_has_already_been_emitted(
+                    const std::string& module_name,
+                    const std::string& name,
+                    const std::string& rename_name);
+            void set_explicit_use_has_already_been_emitted(
+                    const std::string& module_name,
+                    const std::string& name,
+                    const std::string& rename_name);
+
             void emit_ptr_loc_C();
 
             void push_declaration_status();
@@ -436,10 +467,10 @@ namespace Codegen
 
             void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
 
-            void emit_floating_constant(const_value_t* value, TL::Type t);
+            void emit_floating_constant(const_value_t* value);
             void emit_integer_constant(const_value_t* value, TL::Type t);
 
-            void emit_only_list(Nodecl::List only_items);
+            void emit_only_list(const std::string& module_name, Nodecl::List only_items);
 
             std::string _emit_fun_loc_str;
             bool _emit_fun_loc;
@@ -448,6 +479,10 @@ namespace Codegen
             std::string _deduce_use_statements_str;
             bool _deduce_use_statements;
             void set_deduce_use_statements(const std::string& str);
+
+            std::string _emit_full_array_subscripts_str;
+            bool _emit_full_array_subscripts;
+            void set_emit_full_array_subscripts(const std::string& str);
     };
 }
 

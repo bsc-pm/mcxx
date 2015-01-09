@@ -32,6 +32,7 @@ test_generator=config/mercurium-serial-simd
 
 #include <stdio.h>
 
+
 int main()
 {
     int i;
@@ -40,16 +41,17 @@ int main()
     int d = 0;
     float e = 0.0f;
     float f = 0.0f;
+    int N = 104;
 
 #pragma omp simd reduction(+:s,t) 
-    for(i=0; i<100; i++)
+    for(i=0; i<N; i++)
     {
         s += (i+1);
         f += (i+1.0f);
     }
 
 #pragma omp simd reduction(-:d, e) 
-    for(i=0; i<100; i++)
+    for(i=0; i<N; i++)
     {
         d -= (i+1);
         e -= (i+1.0f);
@@ -57,8 +59,8 @@ int main()
 
     printf("%d %f %d %f\n", s, f, d, e);
 
-    if ((s != 5050) || (f != 5050.0f)
-            || (d != -5050) || (e != -5050.0f))
+    if ((s != 5460) || (f != 5460.0f)
+            || (d != -5460) || (e != -5460.0f))
         return 1;
 
     return 0;

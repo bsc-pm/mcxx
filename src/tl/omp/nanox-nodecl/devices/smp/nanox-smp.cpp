@@ -72,8 +72,7 @@ namespace TL { namespace Nanox {
 
         output_statements = task_statements;
 
-        TL::Symbol current_function =
-            original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
+        TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
         if (current_function.is_nested_function())
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -159,9 +158,31 @@ namespace TL { namespace Nanox {
             }
             fun_visitor.insert_extra_symbols(task_statements);
 
+            if (current_function.is_in_module())
+            {
+                TL::Symbol in_module = current_function.in_module();
+                Nodecl::Utils::Fortran::append_used_modules(
+                        original_statements.retrieve_context(),
+                        in_module.get_related_scope());
+            }
+
             Nodecl::Utils::Fortran::append_used_modules(
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
+
+            if (current_function.is_nested_function())
+            {
+                TL::Symbol enclosing_function = current_function.get_scope().get_related_symbol();
+
+                ERROR_CONDITION(!enclosing_function.is_valid()
+                        || !(enclosing_function.is_function()
+                            || enclosing_function.is_fortran_main_program()),
+                        "Invalid enclosing symbol of nested function", 0);
+
+                Nodecl::Utils::Fortran::append_used_modules(
+                        enclosing_function.get_related_scope(),
+                        unpacked_function_scope);
+            }
 
             if (is_function_task)
             {
@@ -175,7 +196,7 @@ namespace TL { namespace Nanox {
 
             // Now get all the needed internal functions and duplicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
-            internal_functions.walk(info._original_statements);
+            internal_functions.walk(task_statements);
 
             duplicate_internal_subprograms(internal_functions.function_codes,
                     unpacked_function_scope,
@@ -249,6 +270,8 @@ namespace TL { namespace Nanox {
                 outline_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
 
+        TL::Source extra_code_begin, extra_code_end;
+
         // Prepare arguments for the call to the unpack (or forward in Fortran)
         TL::Scope outline_function_scope(outline_function_body.retrieve_context());
         TL::Symbol structure_symbol = outline_function_scope.get_symbol_from_name("args");
@@ -279,6 +302,83 @@ namespace TL { namespace Nanox {
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
 
+                        bool is_input_private = false;
+                        Nodecl::NodeclBase expr;
+                        {
+                            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+                            for (TL::ObjectList<OutlineDataItem::DependencyItem>::iterator it2 = deps.begin();
+                                    it2 != deps.end() && !is_input_private;
+                                    it2++)
+                            {
+                                if (it2->directionality == OutlineDataItem::DEP_IN_PRIVATE)
+                                  {
+                                    is_input_private = true;
+                                    expr = it2->expression;
+                                  }
+                            }
+                        }
+
+                        if (is_input_private)
+                        {
+                            TL::Type ptr_type = param_type;
+                            if (param_type.is_any_reference())
+                                ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+
+                            TL::Type  cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+
+                            std::string name_private_copy =  "mcc_private_copy_" + (*it)->get_field_name();
+                            std::string name_private_copy_bool =  "mcc_private_copy_" + (*it)->get_field_name() + "_free";
+
+                            TL::DataReference data_ref(expr);
+                            extra_code_begin
+                                << as_type(TL::Type::get_bool_type()) << name_private_copy_bool << ";"
+                                << ptr_type.get_declaration(outline_function_scope, name_private_copy)  << ";"
+                                << "{"
+                                <<      "nanos_err_t err;"
+                                <<      "if ((" << as_expression(data_ref.get_sizeof()) << ") > 4096)"
+                                <<      "{"
+                                <<          name_private_copy_bool << " =  1;"
+                                <<          "err = nanos_malloc("
+                                <<              "(void**) (&" << name_private_copy  << "), "
+                                <<              as_expression(data_ref.get_sizeof()) << ", "
+                                <<              "\"" << original_statements.get_filename() << "\", "
+                                <<              original_statements.get_line() << ");"
+                                <<          "if (err != NANOS_OK) nanos_handle_error (err);"
+                                <<      "}"
+                                <<      "else"
+                                <<      "{"
+                                <<          name_private_copy_bool << " =  0;"
+                                <<          name_private_copy << " = "
+                                <<              "(" << as_type(cast_type) << ") __builtin_alloca(" << as_expression(data_ref.get_sizeof()) << ");"
+                                <<      "}"
+                                <<      "err = nanos_memcpy("
+                                <<         name_private_copy << ", "
+                                <<         "(" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ", "
+                                <<         as_expression(data_ref.get_sizeof()) << ");"
+                                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+
+                                <<  "}"
+                                ;
+
+                            extra_code_end
+                                << "if (" << name_private_copy_bool << ")"
+                                <<  "{"
+                                <<      "nanos_err_t err = nanos_free(" << name_private_copy << ");"
+                                <<  "}"
+                                ;
+
+                            Source argument;
+                            if (param_type.is_any_reference())
+                            {
+                                argument << "*";
+                            }
+                            argument << name_private_copy;
+                            unpacked_arguments.append_with_separator(argument, ", ");
+                            break;
+
+                        }
+
+
                         Source argument;
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                         {
@@ -288,29 +388,56 @@ namespace TL { namespace Nanox {
                                  ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
-                                if (!param_type.no_ref().depends_on_nonconstant_values())
+                                if (!((*it)->get_symbol().get_type().depends_on_nonconstant_values()))
                                 {
                                     argument << "*(args." << (*it)->get_field_name() << ")";
                                 }
                                 else
                                 {
-                                    TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
-                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
-
-                                    argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                    C_LANGUAGE()
+                                    {
+                                        TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                        TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+                                        argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                    }
+                                    CXX_LANGUAGE()
+                                    {
+                                        // No VLAs in C++ means that we have to pass a void*
+                                        // It will have to be reshaped again in the outline
+                                        argument << "args." << (*it)->get_field_name();
+                                    }
                                 }
                             }
                             // Any other parameter is bound to the storage of the struct
                             else
                             {
-                                if (!param_type.no_ref().depends_on_nonconstant_values())
+                                if (!((*it)->get_symbol().get_type().depends_on_nonconstant_values()))
                                 {
                                     argument << "args." << (*it)->get_field_name();
                                 }
                                 else
                                 {
-                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
-                                    argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                    C_LANGUAGE()
+                                    {
+                                        if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)                                                     == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                                        {
+                                            TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                            TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+                                            argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                        }
+                                        else
+                                        {
+                                            TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
+                                            argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                        }
+                                    }
+
+                                    CXX_LANGUAGE()
+                                    {
+                                        // No VLAs in C++ means that we have to pass a void*
+                                        // It will have to be reshaped again in the outline
+                                        argument << "args." << (*it)->get_field_name();
+                                    }
                                 }
                             }
                         }
@@ -359,6 +486,17 @@ namespace TL { namespace Nanox {
             }
         }
 
+
+        if (!extra_code_begin.empty())
+        {
+            extra_code_begin
+                << "{"
+                <<      "nanos_err_t err = nanos_dependence_release_all();"
+                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+                << "}"
+                ;
+        }
+
         Source outline_src,
                instrument_before,
                instrument_after;
@@ -380,7 +518,9 @@ namespace TL { namespace Nanox {
             outline_src
                 << "{"
                 <<      instrument_before
+                <<      extra_code_begin
                 <<      unpacked_function_call
+                <<      extra_code_end
                 <<      instrument_after
                 <<      cleanup_code
                 << "}"
@@ -490,8 +630,12 @@ namespace TL { namespace Nanox {
             ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
             : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
 
+        bool without_template_args =
+            !current_function.get_type().is_template_specialized_type()
+            || current_function.get_scope().get_template_parameters()->is_explicit_specialization;
+
         TL::Scope function_scope = context.retrieve_context();
-        std::string qualified_name = current_function.get_qualified_name(function_scope);
+        std::string qualified_name = current_function.get_qualified_name(function_scope, without_template_args);
 
         // Restore the original name of the current function
         current_function.set_name(original_name);
@@ -505,7 +649,7 @@ namespace TL { namespace Nanox {
 
             ancillary_device_description
                 << "static nanos_smp_args_t " << outline_name << "_args = {"
-                << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
+                << ".outline = ((void(*)(void*)) " << "(" << extra_cast << " &" << qualified_name << "))"
                 << "};"
                 ;
             device_descriptor
@@ -576,7 +720,7 @@ namespace TL { namespace Nanox {
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-        phase->codegen_top_level(_extra_c_code, ancillary_file);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 

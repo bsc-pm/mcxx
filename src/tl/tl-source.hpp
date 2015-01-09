@@ -37,9 +37,10 @@
 #include "tl-type-fwd.hpp"
 #include "tl-nodecl-fwd.hpp"
 #include "tl-scope.hpp"
-#include "tl-refptr.hpp"
 
 #include <string>
+
+#include <memory>
 
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
@@ -103,13 +104,16 @@ namespace TL
             friend class Source;
     };
 
+
     //! A chunk that references another Source
     class LIBTL_CLASS SourceRef : public SourceChunk
     {
-        private:
-            RefPtr<Source> _src;
         public:
-            SourceRef(RefPtr<Source> src)
+            typedef std::shared_ptr<Source> SourceSharedPtr;
+        private:
+            SourceSharedPtr _src;
+        public:
+            SourceRef(SourceSharedPtr src)
                 : _src(src)
             {
             }
@@ -122,9 +126,9 @@ namespace TL
             friend class Source;
     };
 
-    typedef RefPtr<SourceChunk> SourceChunkRef;
+    typedef std::shared_ptr<SourceChunk> SourceChunkRef;
 
-    typedef RefPtr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
+    typedef std::shared_ptr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
 
     struct SourceLanguage
     {
@@ -188,7 +192,7 @@ namespace TL
         L _l;
     };
 
-    struct ReferenceScope
+    class ReferenceScope
     {
         private:
             Scope _scope;
@@ -247,7 +251,6 @@ namespace TL
              * Creates an empty source
              */
             Source()
-                : _chunk_list(0)
             {
                 _chunk_list = chunk_list_ref_t(new ObjectList<SourceChunkRef>());
             }
@@ -261,33 +264,9 @@ namespace TL
              * Creates a source after a string.
              */
             Source(const std::string& str)
-                : _chunk_list(0)
             {
                 _chunk_list = chunk_list_ref_t(new ObjectList<SourceChunkRef>());
                 _chunk_list->push_back(SourceChunkRef(new SourceText(str)));
-            }
-
-            Source(RefPtr<Object> obj)
-                : _chunk_list(0)
-            {
-                RefPtr<Source> cast = RefPtr<Source>::cast_dynamic(obj);
-
-                if (cast.get_pointer() == NULL)
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Source" << std::endl;
-                    }
-                    else
-                    {
-                        _chunk_list = chunk_list_ref_t(new ObjectList<SourceChunkRef>());
-                    }
-                }
-                else
-                {
-                    // Share the list
-                    _chunk_list = cast->_chunk_list;
-                }
             }
 
             //! Copy-constructor
@@ -302,7 +281,7 @@ namespace TL
             {
                 return true;
             }
-            
+
             //! Returns the textual information held by this Source
             /*!
              * Referenced Source objects in this one are recursively called
@@ -314,7 +293,7 @@ namespace TL
 
             //! This is a convenience function that calls get_source
             operator std::string();
-            
+
             //! Convenience function to build lists with separators
             /*!
              * If the original source is empty, no separator will be added.
@@ -338,9 +317,6 @@ namespace TL
              * \param n This integer is: converted into decimal base and appended as a string
              */
             Source& operator<<(int n);
-
-            //! Appends a reference to Source
-            Source& operator<<(RefPtr<Source>);
 
             //! Parsing at global level
             /*
@@ -447,7 +423,7 @@ namespace TL
      * \a filename Can be an empty string
      * \a line Line
      */
-    LIBTL_EXTERN std::string line_marker(const std::string& filename, int line);
+    LIBTL_EXTERN std::string line_marker(const std::string& filename, unsigned int line);
 
     //! Convenience function to convert a list into a string
     /*!
@@ -457,7 +433,7 @@ namespace TL
      * \return A single string with the result of \a to_str applied to all elements of \a t separated with \a separator
      */
     template <class T>
-    std::string to_string(const ObjectList<T>& t, Functor<std::string, T>& to_str, const std::string& separator = "")
+    std::string to_string(const ObjectList<T>& t, std::function<std::string(T)>& to_str, const std::string& separator = "")
     {
         std::string result;
 

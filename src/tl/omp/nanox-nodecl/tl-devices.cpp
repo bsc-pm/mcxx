@@ -95,7 +95,7 @@ namespace TL { namespace Nanox {
         register_parameter("instrument",
                 "Enables instrumentation of the device provider if set to '1'",
                 _enable_instrumentation_str,
-                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+                "0").connect(std::bind(&DeviceProvider::set_instrumentation, this, std::placeholders::_1));
     }
 
     void DeviceProvider::get_instrumentation_code(
@@ -107,10 +107,17 @@ namespace TL { namespace Nanox {
             Source& instrumentation_before,
             Source& instrumentation_after)
     {
-        if (Nanos::Version::interface_is_at_least("master", 5019))
+        if (Nanos::Version::interface_is_at_least("master", 5019)
+                || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
-            Source extended_descr, extra_cast, instrument_before_c,
+            Source val, extended_descr, extra_cast, instrument_before_c,
             instrument_after_c, function_name_instr;
+
+            // In some cases, the outline_function name is the same for two different tasks.
+            // For this reason we add also the filename and the line
+            val << outline_function.get_name()
+                << "@" << locus_get_filename(locus)
+                << "@" << locus_get_line(locus);
 
             std::string function_name;
             if (task_label.is_null())
@@ -144,8 +151,9 @@ namespace TL { namespace Nanox {
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
             extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
 
+
             // GCC complains if you convert a pointer to an integer of different
-            // size. Since we target a unsigned long long, in architectures of 32
+            // size. Since we target an unsigned long long, in architectures of 32
             // bits we first cast to an unsigned int
             if (CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer == 4)
             {
@@ -165,31 +173,20 @@ namespace TL { namespace Nanox {
                 << "{"
                 <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
-                <<               " \"user-funct-location\", \"" << outline_function.get_name() << "\", \"" << extended_descr << "\", 0);"
+                <<    "err = nanos_instrument_register_value_with_val("
+                <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
+                <<          "\"user-funct-location\","
+                <<          "\"" << val << "\","
+                <<          "\"" << extended_descr << "\","
+                <<          /* abort_when_registered */ "0);"
+
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
-                << "nanos_event_t event;"
-                << "event.type = NANOS_BURST_START;"
-                << "event.key = nanos_instr_uf_location_key;"
-                << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-                << "err = nanos_instrument_events(1, &event);"
                 ;
 
-            if (is_gpu_device())
-            {
-                instrument_after_c << "err = nanos_instrument_close_user_fun_event();";
-            }
-            else
-            {
-                instrument_after_c
-                    << "event.type = NANOS_BURST_END;"
-                    << "event.key = nanos_instr_uf_location_key;"
-                    << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-                    << "err = nanos_instrument_events(1, &event);"
-                    ;
-            }
+            generate_outline_events_before(function_name_instr, extra_cast, instrument_before_c);
+            generate_outline_events_after(function_name_instr, extra_cast, instrument_after_c);
 
             if (IS_FORTRAN_LANGUAGE)
                 Source::source_language = SourceLanguage::C;
@@ -206,6 +203,57 @@ namespace TL { namespace Nanox {
         else
         {
             internal_error("Unsupported nanox version for instrumentation", 0);
+        }
+    }
+
+    void DeviceProvider::generate_outline_events_before(
+            Source& function_name_instr,
+            Source& extra_cast,
+            Source& instrumentation_before)
+    {
+        instrumentation_before
+            << "nanos_event_t event;"
+            << "event.type = NANOS_BURST_START;"
+            << "event.key = nanos_instr_uf_location_key;"
+            << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+            << "err = nanos_instrument_events(1, &event);"
+            ;
+    }
+
+    void DeviceProvider::generate_outline_events_after(
+            Source& function_name_instr,
+            Source& extra_cast,
+            Source& instrumentation_after)
+    {
+        instrumentation_after
+            << "event.type = NANOS_BURST_END;"
+            << "event.key = nanos_instr_uf_location_key;"
+            << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+            << "err = nanos_instrument_events(1, &event);"
+            ;
+    }
+
+    void DeviceProvider::create_weak_device_symbol(
+            const std::string& symbol_name,
+            Nodecl::NodeclBase root)
+    {
+        Source nanox_device_enable_section;
+        nanox_device_enable_section << "__attribute__((weak)) char " << symbol_name << " = 1;";
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
+
+        Source::source_language = SourceLanguage::Current;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            _extra_c_code.prepend(functions_section_tree);
+        }
+        else
+        {
+            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
     }
 
@@ -238,7 +286,7 @@ namespace TL { namespace Nanox {
 
         // Pointer to the real unpack function
         scope_entry_t* ptr_to_outline = ::new_symbol(function_context, function_context.current_scope,
-                "outline_ptr");
+                UNIQUESTR_LITERAL("outline_ptr"));
         ptr_to_outline->kind = SK_VARIABLE;
         ptr_to_outline->type_information = fortran_choose_int_type_from_kind(CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
         parameter_symbols.append(ptr_to_outline);
@@ -268,6 +316,7 @@ namespace TL { namespace Nanox {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         break;
                     }
@@ -277,7 +326,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                name.c_str());
+                                uniquestr(name.c_str()));
                         private_sym->kind = SK_VARIABLE;
                         if ((*it)->get_field_type().is_pointer()
                                 && (*it)->get_field_type().points_to().is_void())
@@ -294,11 +343,14 @@ namespace TL { namespace Nanox {
                                 .get_lvalue_reference_to()
                                 .get_internal_type();
                         }
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-                        private_sym->entity_specs.is_allocatable = 
-                            (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE) 
-                             == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
+
+                        symbol_entity_specs_set_is_allocatable(private_sym,
+                                (((*it)->get_allocation_policy()
+                                  & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                                 == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE));
 
                         parameter_symbols.append(private_sym);
                         break;
@@ -311,25 +363,26 @@ namespace TL { namespace Nanox {
         }
 
         // Now everything is set to register the function
-        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
-        new_function_sym->entity_specs.is_user_declared = 1;
+        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
+        symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
         new_function_sym->kind = SK_FUNCTION;
         new_function_sym->locus = make_locus("", 0, 0);
 
         // Make it static
-        new_function_sym->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(new_function_sym, 1);
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
         {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            symbol_entity_specs_set_is_member(new_function_sym, 1);
+            symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());
 
-            new_function_sym->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
-            ::class_type_add_member(new_function_sym->entity_specs.class_type,
-                    new_function_sym);
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
+                    new_function_sym,
+                    /* is_definition */ 0);
         }
 
         function_context.function_scope->related_entry = new_function_sym;
@@ -346,11 +399,11 @@ namespace TL { namespace Nanox {
         {
             scope_entry_t* param = it->get_internal_symbol();
 
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
 
-            P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
-                    new_function_sym->entity_specs.num_related_symbols,
-                    param);
+            symbol_entity_specs_add_related_symbols(new_function_sym, param);
 
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
@@ -362,8 +415,8 @@ namespace TL { namespace Nanox {
 
         type_t *function_type = get_new_function_type(
                 get_void_type(),
-                p_types,
-                parameter_symbols.size());
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
 
         new_function_sym->type_information = function_type;
 
@@ -466,6 +519,7 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         TL::ObjectList<TL::Symbol> parameter_symbols,
             private_symbols,
+            vla_private_symbols,
             reduction_private_symbols,
             reduction_vector_symbols;
 
@@ -486,7 +540,6 @@ namespace TL { namespace Nanox {
                     && (*it)->get_is_cxx_this())
                 continue;
 
-            bool already_mapped = false;
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_ALLOCA:
@@ -496,25 +549,30 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        scope_entry_t* private_sym = ::new_symbol(function_context,
+                                function_context.current_scope,
+                                uniquestr(name.c_str()));
+
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
 
                         if (sym.is_valid())
                         {
                             symbol_map->add_map(sym, private_sym);
 
                             // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+                            symbol_entity_specs_set_is_allocatable(private_sym,
+                                    (!sym.is_member() && sym.is_allocatable()));
 
                             // Cray pointeers are handled a bit special
                             if (sym.is_cray_pointee())
                             {
-                                private_sym->entity_specs.is_cray_pointee = 1;
+                                symbol_entity_specs_set_is_cray_pointee(private_sym, 1);
 
                                 // We cannot set the right cray_pointer symbol yet because It's possible that has not been created
-                                private_sym->entity_specs.cray_pointer = sym.get_cray_pointer().get_internal_symbol();
+                                symbol_entity_specs_set_cray_pointer(private_sym, sym.get_cray_pointer().get_internal_symbol());
 
                                 cray_pointee_list.append(private_sym);
                             }
@@ -543,37 +601,145 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                name.c_str());
+                                uniquestr(name.c_str()));
 
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
-
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
 
                         if (sym.is_valid())
                         {
-                            private_sym->entity_specs.is_optional = sym.is_optional();
-                            private_sym->entity_specs.is_allocatable =
-                                !sym.is_member() && sym.is_allocatable();
-                            if (!already_mapped)
-                            {
-                                symbol_map->add_map(sym, private_sym);
-                            }
+                            symbol_entity_specs_set_is_optional(private_sym, sym.is_optional());
+                            symbol_entity_specs_set_is_allocatable(private_sym,
+                                (!sym.is_member() && sym.is_allocatable())
+                                || (*it)->is_copy_of_array_descriptor_allocatable());
+
+                            symbol_map->add_map(sym, private_sym);
                         }
 
-                        private_sym->entity_specs.is_allocatable =
-                            sym.is_allocatable() ||
-                            (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
-                             == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                        symbol_entity_specs_set_is_allocatable(private_sym,
+                                symbol_entity_specs_get_is_allocatable(private_sym) ||
+                                (((*it)->get_allocation_policy()
+                                  & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                                 == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE));
 
                         parameter_symbols.append(private_sym);
 
+                        scope_entry_t* vla_private_sym = NULL;
                         if (IS_CXX_LANGUAGE
-                                && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                                && (*it)->get_symbol().get_type().depends_on_nonconstant_values())
                         {
-                            TL::Type t = (*it)->get_symbol().get_type().no_ref().get_unqualified_type();
-                            ERROR_CONDITION(!t.is_named_class(), "This should be a named class type", 0);
-                            final_statements << as_symbol(private_sym) << ".~" << t.get_symbol().get_name() << "();";
+                            // Shape VLA
+                            vla_private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                    uniquestr(("vla_p_" + name).c_str()));
+
+                            vla_private_sym->kind = SK_VARIABLE;
+                            vla_private_sym->type_information = (*it)->get_symbol().get_type().no_ref().get_internal_type();
+                            if (is_array_type(vla_private_sym->type_information))
+                            {
+                                vla_private_sym->type_information = get_pointer_type(array_type_get_element_type(vla_private_sym->type_information));
+                            }
+                            symbol_entity_specs_set_is_user_declared(vla_private_sym, 1);
+                            vla_private_sym->defined = 1;
+
+                            initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                        vla_private_sym));
+
+                            TL::Type updated_vla_type = type_deep_copy(vla_private_sym->type_information,
+                                function_context,
+                                symbol_map->get_symbol_map());
+
+                            initial_statements << as_statement(
+                                    Nodecl::ExpressionStatement::make(
+                                        Nodecl::Assignment::make(
+                                            TL::Symbol(vla_private_sym).make_nodecl(true),
+                                            Nodecl::Cast::make(
+                                                TL::Symbol(private_sym).make_nodecl(true), updated_vla_type, "C"),
+                                            lvalue_ref(updated_vla_type.get_internal_type()))));
+
+                            symbol_map->add_map(sym, vla_private_sym);
+                        }
+
+                        if (IS_CXX_LANGUAGE
+                                && ((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY) == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                        {
+                            if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                            {
+                                ERROR_CONDITION(vla_private_sym == NULL, "This should be a VLA", 0);
+
+                                TL::Type base_type = (*it)->get_symbol().get_type();
+                                TL::Type updated_vla_type = type_deep_copy((*it)->get_symbol().get_type().no_ref().get_internal_type(),
+                                        function_context,
+                                        symbol_map->get_symbol_map());
+                                updated_vla_type = updated_vla_type.no_ref().get_pointer_to();
+
+                                while (base_type.is_array())
+                                    base_type = base_type.array_element();
+
+                                TL::Type class_type = base_type.get_unqualified_type();
+                                ERROR_CONDITION(!class_type.is_named_class(), "This should be a named class type (%s)",
+                                        print_declarator(class_type.get_internal_type()));
+
+                                base_type = base_type.get_unqualified_type().get_pointer_to();
+
+                                final_statements
+                                    << "{"
+                                    <<    as_type(updated_vla_type) << "__orig = (" << as_type(updated_vla_type) << ")"
+                                    <<               as_symbol(private_sym) << ";"
+                                    <<    as_type(base_type) << "__dest = (" << as_type(base_type) << ")"
+                                    <<            as_symbol(vla_private_sym) << ";"
+                                    <<    "while (__dest < (" << as_type(base_type) << ")(__orig+1))"
+                                    <<    "{"
+                                    <<    "(*__dest).~" << class_type.advance_over_typedefs().get_symbol().get_name() << "();"
+                                    <<    "__dest++;"
+                                    <<    "}"
+                                    << "}"
+                                    ;
+                            }
+                            else
+                            {
+                                TL::Type class_type = (*it)->get_symbol().get_type().no_ref().get_unqualified_type();
+                                if (class_type.is_dependent())
+                                {
+                                    final_statements
+                                        << "{"
+                                        <<    "typedef " << as_type(class_type) << " DepType;"
+                                        <<    as_symbol(private_sym) << ".~DepType();"
+                                        << "}"
+                                        ;
+                                }
+                                else if (class_type.is_array())
+                                {
+                                    TL::Type base_type = (*it)->get_symbol().get_type().no_ref();
+
+                                    while (base_type.is_array())
+                                        base_type = base_type.array_element();
+
+                                    base_type = base_type.get_unqualified_type().get_pointer_to();
+                                    ERROR_CONDITION(!base_type.points_to().is_named_class(), "This should be a named class type (%s)",
+                                            print_declarator(base_type.points_to().get_internal_type()));
+
+                                    final_statements
+                                        << "{"
+                                        <<     as_type(base_type) << "__dest = (" << as_type(base_type) << ")"
+                                        <<           as_symbol(private_sym) << ";"
+                                        <<     "while (__dest < (" << as_type(base_type) << ")(&" << as_symbol(private_sym) << "+1))"
+                                        <<     "{"
+                                        <<     "(*__dest).~"
+                                        <<          base_type.points_to().advance_over_typedefs().get_symbol().get_name()
+                                        <<      "();"
+                                        <<     "__dest++;"
+                                        <<     "}"
+                                        << "}"
+                                        ;
+                                }
+                                else if (class_type.is_named_class())
+                                {
+                                    final_statements << as_symbol(private_sym)
+                                        << ".~" << class_type.advance_over_typedefs().get_symbol().get_name() << "();";
+                                }
+                            }
                         }
                         break;
                     }
@@ -582,15 +748,18 @@ namespace TL { namespace Nanox {
                         // Original reduced variable. Passed as we pass shared parameters
                         TL::Type param_type = (*it)->get_in_outline_type();
                         scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
-                                (*it)->get_field_name().c_str());
+                                uniquestr((*it)->get_field_name().c_str()));
                         shared_reduction_sym->kind = SK_VARIABLE;
                         shared_reduction_sym->type_information = param_type.get_internal_type();
-                        shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(shared_reduction_sym, 1);
+                        shared_reduction_sym->defined = 1;
                         parameter_symbols.append(shared_reduction_sym);
 
-                        shared_reduction_sym->entity_specs.is_allocatable = sym.is_valid()
-                            && !sym.is_member()
-                            && sym.is_allocatable();
+                        symbol_entity_specs_set_is_allocatable(shared_reduction_sym,
+                                (sym.is_valid()
+                                    && !sym.is_member()
+                                    && sym.is_allocatable())
+                                || (*it)->is_copy_of_array_descriptor_allocatable());
 
                         (*it)->reduction_set_shared_symbol_in_outline(shared_reduction_sym);
 
@@ -618,11 +787,11 @@ namespace TL { namespace Nanox {
                         }
 
                         scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
-                                ("rdv_" + name).c_str());
+                                uniquestr(("rdv_" + name).c_str()));
                         private_reduction_vector_sym->kind = SK_VARIABLE;
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
-                        private_reduction_vector_sym->defined
-                            = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_reduction_vector_sym, 1);
+                        private_reduction_vector_sym->defined = 1;
 
                         reduction_vector_symbols.append(private_reduction_vector_sym);
 
@@ -634,10 +803,11 @@ namespace TL { namespace Nanox {
 
                         // Local variable (rdp stands for reduction private)
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                ("rdp_" + name).c_str());
+                                uniquestr(("rdp_" + name).c_str()));
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
-                        private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(private_sym, 1);
+                        private_sym->defined = 1;
 
                         reduction_private_symbols.append(private_sym);
 
@@ -649,9 +819,11 @@ namespace TL { namespace Nanox {
 
                         if (sym.is_valid())
                         {
-                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+                            symbol_entity_specs_set_is_allocatable(private_sym,
+                                    (!sym.is_member() && sym.is_allocatable())
+                                    || (*it)->is_copy_of_array_descriptor_allocatable());
 
-                            if (private_sym->entity_specs.is_allocatable)
+                            if (symbol_entity_specs_get_is_allocatable(private_sym))
                             {
                                 initial_statements << emit_allocate_statement(private_sym, is_allocated_index,
                                         lower_bound_index, upper_bound_index);
@@ -721,9 +893,17 @@ namespace TL { namespace Nanox {
 
                         break;
                     }
+                case OutlineDataItem::SHARING_UNDEFINED:
+                    {
+                        internal_error("Undefined data sharing kind for symbol %s",
+                                (*it)->get_symbol().get_name().c_str());
+                        break;
+                    }
                 default:
                     {
-                        internal_error("Unexpected data sharing kind", 0);
+                        internal_error("Unexpected data sharing kind = %d for symbol %s",
+                                (*it)->get_sharing(),
+                                (*it)->get_symbol().get_name().c_str());
                     }
             }
         }
@@ -737,9 +917,116 @@ namespace TL { namespace Nanox {
             {
                 TL::Symbol cray_pointee = *it_cray_pointee;
                 TL::Symbol updated_cray_pointer =  symbol_map->map(cray_pointee.get_cray_pointer());
-                cray_pointee.get_internal_symbol()->entity_specs.cray_pointer = updated_cray_pointer.get_internal_symbol();
+                symbol_entity_specs_set_cray_pointer(cray_pointee.get_internal_symbol(), updated_cray_pointer.get_internal_symbol());
             }
         }
+
+        struct GatherUnmappedSavedExpressions
+        {
+            decl_context_t &function_context;
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map;
+
+            GatherUnmappedSavedExpressions(decl_context_t &fc,
+                    Nodecl::Utils::SimpleSymbolMap*& sm)
+                : function_context(fc), symbol_map(sm) { }
+
+            void new_private_saved_expression(TL::Symbol sym)
+            {
+                Nodecl::NodeclBase v = sym.get_value();
+                v = Nodecl::Utils::deep_copy(v,
+                        Scope(function_context),
+                        *symbol_map);
+
+                scope_entry_t* private_sym = ::new_symbol(
+                        function_context,
+                        function_context.current_scope,
+                        uniquestr(sym.get_name().c_str()));
+
+                private_sym->kind = SK_VARIABLE;
+                private_sym->type_information = sym.get_type().get_internal_type();
+                private_sym->value = v.get_internal_nodecl();
+                symbol_entity_specs_set_is_saved_expression(private_sym, 1);
+
+                symbol_map->add_map(sym, private_sym);
+            }
+
+            void new_private_saved_expression_if_needed(TL::Symbol sym)
+            {
+                if (symbol_map->map(sym) == sym)
+                {
+                    new_private_saved_expression(sym);
+                }
+            }
+
+            void gather_unmmaped(TL::Type t)
+            {
+                if (!t.is_valid())
+                    return;
+
+                if (t.is_array())
+                {
+                    gather_unmmaped(t.array_element());
+
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase lower, upper;
+
+                        t.array_get_bounds(lower, upper);
+
+                        if (!lower.is_null()
+                                && lower.is<Nodecl::Symbol>()
+                                && lower.get_symbol().is_saved_expression())
+                        {
+                            new_private_saved_expression_if_needed(lower.get_symbol());
+                        }
+
+                        if (!upper.is_null()
+                                && upper.is<Nodecl::Symbol>()
+                                && upper.get_symbol().is_saved_expression())
+                        {
+                            new_private_saved_expression_if_needed(upper.get_symbol());
+                        }
+                    }
+                    else if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase size;
+                        size = t.array_get_size();
+
+                        if (size.is<Nodecl::Symbol>()
+                                && size.get_symbol().is_saved_expression())
+                        {
+                            new_private_saved_expression_if_needed(size.get_symbol());
+                        }
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+                }
+                else if (t.is_pointer())
+                {
+                    gather_unmmaped(t.points_to());
+                }
+                else if (t.is_any_reference())
+                {
+                    gather_unmmaped(t.references_to());
+                }
+            }
+
+            void gather(TL::ObjectList<TL::Symbol>& symbols)
+            {
+                for (TL::ObjectList<TL::Symbol>::iterator it2 = symbols.begin();
+                        it2 != symbols.end();
+                        it2++)
+                {
+                    gather_unmmaped(it2->get_type());
+                }
+            }
+        };
+
+        GatherUnmappedSavedExpressions gather_unmmaped(function_context, symbol_map);
+        gather_unmmaped.gather(parameter_symbols);
 
         struct UpdateTypesVLA
         {
@@ -771,6 +1058,9 @@ namespace TL { namespace Nanox {
         // Update types of privates (this is needed by VLAs)
         update_vla.update(private_symbols);
 
+        // VLAs in C++
+        update_vla.update(vla_private_symbols);
+
         // Update types of reduction symbols (this is needed by VLAs)
         update_vla.update(reduction_private_symbols);
         update_vla.update(reduction_vector_symbols);
@@ -787,17 +1077,33 @@ namespace TL { namespace Nanox {
 
             // FIXME - We should do all the remaining lvalue adjustments
             it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
+            if (is_restrict_qualified_type(it2->get_internal_symbol()->type_information))
+            {
+                it_ptypes->type_info = get_restrict_qualified_type(it_ptypes->type_info);
+            }
         }
 
-        type_t *function_type = get_new_function_type(get_void_type(), p_types, parameter_symbols.size());
+        type_t *function_type = get_new_function_type(get_void_type(),
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
         delete[] p_types;
 
         // Now everything is set to register the function
         scope_entry_t* new_function_sym = NULL;
-        if (!current_function.get_type().is_template_specialized_type())
+        if (!current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
-            new_function_sym->entity_specs.is_user_declared = 1;
+            decl_context_t new_decl_context = decl_context;
+            if (current_function.get_scope().get_template_parameters() != NULL
+                && current_function.get_scope().get_template_parameters()->is_explicit_specialization)
+            {
+                new_decl_context.template_parameters = new_decl_context.template_parameters->enclosing;
+            }
+
+            new_function_sym = new_symbol(new_decl_context,
+                    new_decl_context.current_scope,
+                    uniquestr(function_name.c_str()));
+            symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
@@ -805,7 +1111,7 @@ namespace TL { namespace Nanox {
         else
         {
             scope_entry_t* new_template_sym =
-                new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+                new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
             new_template_sym->kind = SK_TEMPLATE;
             new_template_sym->locus = make_locus("", 0, 0);
 
@@ -817,6 +1123,12 @@ namespace TL { namespace Nanox {
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
+            if (current_function.is_member())
+            {
+                symbol_entity_specs_set_is_member(new_template_sym, 1);
+                symbol_entity_specs_set_class_type(new_template_sym, current_function.get_class_type().get_internal_type());
+            }
+
             // The new function is the primary template specialization
             new_function_sym = named_type_get_symbol(
                     template_type_get_primary_type(
@@ -824,14 +1136,14 @@ namespace TL { namespace Nanox {
         }
 
         // Make it static
-        new_function_sym->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(new_function_sym, 1);
 
         if (IS_CXX_LANGUAGE
                 && !is_function_task
                 && current_function.is_member()
                 && !current_function.is_static())
         {
-            new_function_sym->entity_specs.is_static = 0;
+            symbol_entity_specs_set_is_static(new_function_sym, 0);
         }
 
         // Finally, we update the parameters of the new function symbol
@@ -840,20 +1152,24 @@ namespace TL { namespace Nanox {
                 it2++, it_ptypes++)
         {
             scope_entry_t* param = it2->get_internal_symbol();
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
-            P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
+            symbol_entity_specs_add_related_symbols(new_function_sym,
+                    param);
         }
 
         // Make it member if the enclosing function is member
         if (current_function.is_member())
         {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            symbol_entity_specs_set_is_member(new_function_sym, 1);
+            symbol_entity_specs_set_class_type(new_function_sym, current_function.get_class_type().get_internal_type());
 
-            new_function_sym->entity_specs.access = AS_PUBLIC;
+            symbol_entity_specs_set_access(new_function_sym, AS_PUBLIC);
 
-            ::class_type_add_member(new_function_sym->entity_specs.class_type,
-                    new_function_sym);
+            ::class_type_add_member(symbol_entity_specs_get_class_type(new_function_sym),
+                    new_function_sym,
+                    /* is_definition */ 0);
         }
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -864,20 +1180,18 @@ namespace TL { namespace Nanox {
         }
 
         if (current_function.is_inline())
-            new_function_sym->entity_specs.is_inline = 1;
+            symbol_entity_specs_set_is_inline(new_function_sym, 1);
 
-        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
-        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+        // symbol_entity_specs_get_is_defined_inside_class_specifier(new_function_sym) =
+        //     symbol_entity_specs_get_is_defined_inside_class_specifier(current_function.get_internal_symbol());
 
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
             scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-            new_function_sym->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
+            symbol_entity_specs_set_in_module(new_function_sym, module_sym);
+            symbol_entity_specs_add_related_symbols(module_sym,
                     new_function_sym);
-            new_function_sym->entity_specs.is_module_procedure = 1;
+            symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
         }
 
         function_context.function_scope->related_entry = new_function_sym;
@@ -1080,25 +1394,46 @@ namespace TL { namespace Nanox {
         // Do nothing
         else return t;
     }
-    
-    
-    bool DeviceProvider::is_serializable(TL::Symbol& sym){
-        bool serializable=false;
-        TL::Type ser_type = sym.get_type();
-        //If the object is a class, generate everything so nanox can it
-        if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
-                TL::Symbol sym_serializer = ser_type.get_symbol();
-                if (sym_serializer.get_type().is_pointer_to_class()){
-                    ser_type= sym_serializer.get_type().get_pointer_to();
-                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-                }
-                ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
-                ObjectList<TL::Symbol>::iterator ser_it;
-                for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !serializable; ++ser_it){
-                    if (ser_it->get_name()=="serialize") serializable=true;
-                }    
+
+    static void update_expressions(
+            TL::ObjectList<Nodecl::NodeclBase> exprs,
+            const TL::Scope& related_scope,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            // Out
+            TL::ObjectList<Nodecl::NodeclBase>&updated_exprs)
+    {
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = exprs.begin();
+                it != exprs.end();
+                ++it)
+        {
+            Nodecl::NodeclBase current_expr = *it;
+            updated_exprs.append(
+                    Nodecl::Utils::deep_copy(
+                        current_expr,
+                        related_scope,
+                        *symbol_map));
         }
-        return serializable;
+    }
+
+    void DeviceProvider::update_ndrange_and_shmem_expressions(
+            const TL::Scope& related_scope,
+            const TargetInformation& target_info,
+            Nodecl::Utils::SimpleSymbolMap* symbol_map,
+            // out
+            TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_exprs,
+            TL::ObjectList<Nodecl::NodeclBase>& new_shmem_exprs)
+    {
+        update_expressions(
+                target_info.get_ndrange(),
+                related_scope,
+                symbol_map,
+                new_ndrange_exprs);
+
+        update_expressions(
+                target_info.get_shmem(),
+                related_scope,
+                symbol_map,
+                new_shmem_exprs);
     }
 
 } }
@@ -1110,6 +1445,21 @@ namespace TL
         namespace {
 
             std::set<TL::Type> _used_types;
+
+            bool in_the_same_module(TL::Scope sc, TL::Symbol module)
+            {
+                scope_t* current_scope = sc.get_decl_context().current_scope;
+
+                while (current_scope != NULL)
+                {
+                    if (current_scope->related_entry == module.get_internal_symbol())
+                        return 1;
+
+                    current_scope = current_scope->contained_in;
+                }
+
+                return 0;
+            }
 
             void add_used_types_rec(TL::Type t, TL::Scope sc)
             {
@@ -1125,6 +1475,11 @@ namespace TL
                     if (t.get_symbol().is_from_module())
                     {
                         Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    }
+                    else if (t.get_symbol().is_in_module()
+                            && !in_the_same_module(sc, t.get_symbol().in_module()))
+                    {
+                        Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().in_module(), sc);
                     }
                     else
                     {

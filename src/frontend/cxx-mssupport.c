@@ -48,7 +48,7 @@ static void gather_ms_declspec_item(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_MS_DECLSPEC_ITEM, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_MS_DECLSPEC_ITEM, "Invalid node", 0);
 
     const char* declspec_name = ASTText(a);
     ERROR_CONDITION(declspec_name == NULL, "Invalide node", 0);
@@ -79,7 +79,7 @@ static void gather_ms_declspec_item(AST a,
             ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
                     "Too many __declspecs in this symbol", 0);
 
-            gather_gcc_attribute_t new_ms_attribute;
+            gcc_attribute_t new_ms_attribute;
             new_ms_attribute.attribute_name = declspec_name;
             new_ms_attribute.expression_list =
                 nodecl_make_list_1(nodecl_align_expr);
@@ -100,7 +100,7 @@ static void gather_ms_declspec_item(AST a,
             ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
                     "Too many __declspecs in this symbol", 0);
 
-            gather_gcc_attribute_t new_ms_attribute;
+            gcc_attribute_t new_ms_attribute;
             new_ms_attribute.attribute_name = declspec_name;
             new_ms_attribute.expression_list = nodecl_null();
 
@@ -116,7 +116,7 @@ void gather_ms_declspec(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_MS_DECLSPEC, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_MS_DECLSPEC, "Invalid node", 0);
     AST list = ASTSon0(a), it = NULL;
 
     for_each_element(list, it)
@@ -129,7 +129,7 @@ void gather_ms_declspec_list(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Node must be a list", 0);
+    ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Node must be a list", 0);
 
     AST list = a, it = NULL;
     for_each_element(list, it)
@@ -149,26 +149,29 @@ void keep_ms_declspecs_in_symbol(
     {
         char found = 0;
         int j;
-        for (j = 0; j < entry->entity_specs.num_ms_attributes && !found; j++)
+        for (j = 0; j < symbol_entity_specs_get_num_ms_attributes(entry) && !found; j++)
         {
-            found = (strcmp(entry->entity_specs.ms_attributes[j].attribute_name,
+            found = (strcmp(symbol_entity_specs_get_ms_attributes_num(entry, j).attribute_name,
                         gather_info->ms_attributes[i].attribute_name) == 0);
         }
 
         if (found)
         {
-            // Update with the freshest value
-            entry->entity_specs.ms_attributes[j-1].expression_list
-                = gather_info->ms_attributes[i].expression_list;
+            // Update with the freshest value 
+            gcc_attribute_t ms_attr = symbol_entity_specs_get_ms_attributes_num(entry, j - 1);
+            ms_attr.expression_list = gather_info->ms_attributes[i].expression_list;
+            symbol_entity_specs_set_ms_attributes_num(entry, j - 1, ms_attr);
         }
         else
         {
-            entry->entity_specs.num_ms_attributes++;
-
-            entry->entity_specs.ms_attributes = xrealloc(entry->entity_specs.ms_attributes,
-                    sizeof(*entry->entity_specs.ms_attributes) * entry->entity_specs.num_ms_attributes);
-            entry->entity_specs.ms_attributes[entry->entity_specs.num_ms_attributes - 1] =
-                gather_info->ms_attributes[i];
+            symbol_entity_specs_add_ms_attributes(entry,
+                    gather_info->ms_attributes[i]);
         }
     }
+}
+
+void apply_ms_attribute_to_type(AST a UNUSED_PARAMETER,
+        type_t** type UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
 }

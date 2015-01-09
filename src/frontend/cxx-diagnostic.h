@@ -31,6 +31,9 @@
 
 MCXX_BEGIN_DECLS
 
+struct diagnostic_context_tag;
+typedef struct diagnostic_context_tag diagnostic_context_t;
+
 void diagnostics_reset(void);
 int diagnostics_get_error_count(void);
 int diagnostics_get_warn_count(void);
@@ -38,6 +41,34 @@ int diagnostics_get_warn_count(void);
 void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
 void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
 void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
+
+void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINTF(2,3);
+
+// Change diagnosting context
+
+diagnostic_context_t* diagnostic_context_get_current(void);
+
+void diagnostic_context_push(diagnostic_context_t*);
+void diagnostic_context_pop(void);
+
+void diagnostic_context_commit(diagnostic_context_t*);
+void diagnostic_context_discard(diagnostic_context_t*);
+
+diagnostic_context_t* diagnostic_context_new_buffered(void);
+
+diagnostic_context_t* diagnostic_context_push_buffered(void);
+void diagnostic_context_pop_and_discard(void);
+void diagnostic_context_pop_and_commit(void);
+
+typedef struct header_message_fun_tag header_message_fun_t;
+struct header_message_fun_tag
+{
+    const char* (*message_fun)(void*);
+    void *data;
+};
+
+diagnostic_context_t* diagnostic_context_new_instantiation(header_message_fun_t);
+diagnostic_context_t* diagnostic_context_push_instantiation(header_message_fun_t);
 
 MCXX_END_DECLS
 

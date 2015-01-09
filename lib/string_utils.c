@@ -30,7 +30,6 @@
 #include "uniquestr.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -52,6 +51,84 @@ const char* strappend(const char* orig, const char* appended)
 const char* strprepend(const char* orig, const char* prepended)
 {
     return strappend(prepended, orig);
+}
+
+const char *strconcat_n(unsigned int n, const char** c)
+{
+    if (n == 0)
+        return NULL;
+    if (n == 1)
+        return c[0];
+
+    if (n == 2)
+        return strappend(c[0], c[1]);
+
+    unsigned int size = 0;
+    unsigned int i;
+    for (i = 0; i < n; i++)
+    {
+        if (c[i] != NULL)
+            size += strlen(c[i]);
+    }
+
+    if (size == 0)
+        return NULL;
+
+    char result[size + 1];
+    result[0] = '\0';
+
+    for (i = 0; i < n; i++)
+    {
+        if (c[i] != NULL)
+        {
+            strcat(result, c[i]);
+        }
+    }
+    result[size - 1] = '\0';
+
+    return uniquestr(result);
+}
+
+struct strbuilder_tag
+{
+    char* str;
+    unsigned int capacity;
+    unsigned int position;
+};
+
+strbuilder_t* strbuilder_new(void)
+{
+    strbuilder_t* strb = xcalloc(1, sizeof(*strb));
+
+    strb->capacity = 8;
+    strb->str = xmalloc(sizeof(*strb->str)* strb->capacity);
+    strb->str[0] = '\0';
+
+    return strb;
+}
+
+const char* strbuilder_str(strbuilder_t* strb)
+{
+    return strb->str;
+}
+
+void strbuilder_append(strbuilder_t* strb, const char* str)
+{
+    unsigned int len = strlen(str);
+    while ((strb->position + len) >= strb->capacity)
+    {
+        strb->capacity *= 2;
+        strb->str = xrealloc(strb->str, strb->capacity * sizeof(*strb->str));
+    }
+
+    strcat(strb->str, str);
+    strb->position += len;
+}
+
+void strbuilder_free(strbuilder_t* strb)
+{
+    xfree(strb->str);
+    xfree(strb);
 }
 
 const char* get_unique_name(void)
@@ -186,7 +263,7 @@ unsigned char contain_prefix_number(const char* c)
 }
 
 // merge sort functions 
-void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
+static void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
     const char ** aux_list = NULL;
     int i, j, k, middle, min, res, num_str;
@@ -250,9 +327,11 @@ void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned ch
             list[k] = str;
         }
     }
+
+    xfree(aux_list);
 }
 
-void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
+static void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
     if(ind_upper - ind_lower > 0)
     {
@@ -267,11 +346,11 @@ void  merge_sort_list_str(const char** list, int size,unsigned char ascending_or
    private_merge_sort_str(list, 0, size-1, ascending_order);
 }
 
-static int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
+int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
 {
     int result;
     int size = 512;
-    char* c = xcalloc(size, sizeof(char));
+    char* c = xmalloc(size * sizeof(char));
     va_list va;
 
     va_copy(va, args);
@@ -282,8 +361,7 @@ static int uniquestr_vsprintf(const char** out_str, const char* format, va_list 
     {
         va_copy(va, args);
         size *= 2;
-        xfree(c);
-        c = xcalloc(size, sizeof(char));
+        c = xrealloc(c, size * sizeof(char));
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }

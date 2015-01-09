@@ -54,6 +54,7 @@ OMP_CONSTRUCT("ordered", ordered, true)
 OMP_DIRECTIVE("declare|reduction", declare_reduction, true)
 
 OMP_CONSTRUCT_NOEND("target", target, true)
+OMP_DIRECTIVE("register", register, true)
 
 OMP_CONSTRUCT_NOEND("parallel|do", parallel_do, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT_NOEND("do", do, IS_FORTRAN_LANGUAGE)
@@ -63,3 +64,4 @@ OMP_CONSTRUCT("workshare", workshare, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT("simd", simd, true)
 OMP_CONSTRUCT("simd|for", simd_for, true)
 OMP_CONSTRUCT("parallel|simd|for", parallel_simd_for, true)
+OMP_CONSTRUCT("simd|parallel", simd_parallel, true)

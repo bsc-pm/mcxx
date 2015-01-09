@@ -70,6 +70,9 @@ LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_int(cvalue_uint_t va
 LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long_int(cvalue_uint_t value);
 LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long_int(cvalue_uint_t value);
 
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_short_int(cvalue_uint_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_short_int(cvalue_uint_t value);
+
 LIBMCXX_EXTERN const_value_t* const_value_get_zero(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_one(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_minus_one(int num_bytes, char sign);
@@ -99,15 +102,28 @@ LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold);
 
 LIBMCXX_EXTERN int const_value_cast_to_signed_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned int const_value_cast_to_unsigned_int(const_value_t* val);
+
+LIBMCXX_EXTERN long int const_value_cast_to_signed_long_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned long int const_value_cast_to_unsigned_long_int(const_value_t* val);
+
+LIBMCXX_EXTERN long long int const_value_cast_to_signed_long_long_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned long long int const_value_cast_to_unsigned_long_long_int(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t* value);
 
+LIBMCXX_EXTERN cvalue_int_t const_value_cast_to_cvalue_int(const_value_t* value);
+LIBMCXX_EXTERN cvalue_uint_t const_value_cast_to_cvalue_uint(const_value_t* value);
+
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl(const_value_t* v);
+LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_cached(const_value_t* v);
 
 // This function uses the basic type for elemental types (both for integer or floating)
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
+        type_t* basic_type);
+LIBMCXX_EXTERN nodecl_t const_value_to_nodecl_with_basic_type_cached(const_value_t* v, 
         type_t* basic_type);
 
 LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type(const_value_t* val);
@@ -175,13 +191,28 @@ LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_va
 LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
 LIBMCXX_EXTERN const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride);
 
-LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
-LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_vector_from_scalar(int num_elements, const_value_t* value);
+LIBMCXX_EXTERN const_value_t* const_value_make_array_from_scalar(int num_elements, const_value_t* value);
+
+// If you want to create a null ended string with this one you will have to
+// explicitly pass the null value as the last element (i.e. num_elements > 1)
 LIBMCXX_EXTERN const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements);
 
-LIBMCXX_EXTERN void const_value_string_unpack_to_int(const_value_t* v, int**, int*);
-LIBMCXX_EXTERN const char *const_value_string_unpack_to_string(const_value_t* v);
+// This constants are not null-ended (these are for Fortran mainly)
+LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
 
+// This constants are null-ended (these are for C/C++)
+// Do not count the null in num_elems (i.e. an empty string literal will have num_elems == 0)
+LIBMCXX_EXTERN const_value_t* const_value_make_string_null_ended(const char* literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_wstring_null_ended(int * literal, int num_elems);
+
+// These functions never return the trailing null, instead they set
+// is_null_ended if the last value is a zero.
+LIBMCXX_EXTERN void const_value_string_unpack_to_int(const_value_t* v, int**, int*, char* is_null_ended);
+LIBMCXX_EXTERN const char *const_value_string_unpack_to_string(const_value_t* v, char* is_null_ended);
+
+// Note that this function will NOT ignore any null at the end of v1 and v2
 LIBMCXX_EXTERN const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2);
 
 LIBMCXX_EXTERN const_value_t* const_value_complex_get_real_part(const_value_t* value);
@@ -190,6 +221,7 @@ LIBMCXX_EXTERN const_value_t* const_value_complex_get_imag_part(const_value_t* v
 LIBMCXX_EXTERN int const_value_get_num_elements(const_value_t* value);
 LIBMCXX_EXTERN const_value_t* const_value_get_element_num(const_value_t* value, int num);
 
+LIBMCXX_EXTERN const_value_t* const_value_convert_to_type(const_value_t* const_value, type_t* dst_type);
 LIBMCXX_EXTERN const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elements);
 LIBMCXX_EXTERN const_value_t* const_value_convert_to_array(const_value_t* value, int num_elements);
 
@@ -210,6 +242,8 @@ LIBMCXX_EXTERN char const_value_is_mask(const_value_t* v);
 LIBMCXX_EXTERN unsigned int const_value_mask_get_num_bits(const_value_t* v);
 LIBMCXX_EXTERN cvalue_uint_t const_value_mask_get_value(const_value_t* v);
 
+LIBMCXX_EXTERN const_value_t* const_value_get_unknown(void);
+LIBMCXX_EXTERN char const_value_is_unknown(const_value_t* v);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \
@@ -248,6 +282,9 @@ LIBMCXX_EXTERN const_value_t* const_value_sqrt(const_value_t* val);
 // Fortran module support
 LIBMCXX_EXTERN size_t const_value_get_raw_data_size(void);
 LIBMCXX_EXTERN const_value_t* const_value_build_from_raw_data(const char*);
+
+// Debugging
+LIBMCXX_EXTERN const char* const_value_to_str(const_value_t*);
 
 MCXX_END_DECLS
 

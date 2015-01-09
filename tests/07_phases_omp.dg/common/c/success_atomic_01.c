@@ -33,6 +33,7 @@ test_generator=config/mercurium-omp
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "omp.h"
 
 #define NUM_ITERS 1000

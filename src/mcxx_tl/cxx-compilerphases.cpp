@@ -48,7 +48,6 @@
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
 #include "tl-objectlist.hpp"
-#include "tl-refptr.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl.hpp"
 #include "codegen-phase.hpp"
@@ -182,7 +181,7 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation", 
+                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -194,7 +193,7 @@ namespace TL
 
                     if (there_were_errors)
                     {
-                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation", 
+                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -238,6 +237,25 @@ namespace TL
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "COMPILERPHASES: Phase cleanup of phase '%s' finished\n",
+                                phase->get_phase_name().c_str());
+                    }
+                }
+
+                // Run cleanup after the whole pipeline has been run
+                for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                        it != compiler_phases_list.end();
+                        it++)
+                {
+                    TL::CompilerPhase* phase = (*it);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "COMPILERPHASES: Running phase cleanup of phase '%s' at end of pipeline\n",
+                                phase->get_phase_name().c_str());
+                    }
+                    phase->phase_cleanup_end_of_pipeline(dto);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "COMPILERPHASES: Phase cleanup of phase '%s' at end of pipeline finished\n",
                                 phase->get_phase_name().c_str());
                     }
                 }
@@ -673,7 +691,7 @@ extern "C"
         }
 
         translation_unit->nodecl = nodecl_make_top_level(nodecl_null(), make_locus(translation_unit->input_filename, 0, 0));
-        TL::RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
+        std::shared_ptr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
         dto.set_object("nodecl", top_level_nodecl);
     }
 
@@ -696,15 +714,19 @@ extern "C"
         TL::CompilerPhaseRunner::start_compiler_phase_execution(config, translation_unit);
     }
 
-    void run_codegen_phase(FILE *out_file, translation_unit_t* translation_unit)
+    void run_codegen_phase(FILE *out_file, translation_unit_t* translation_unit,
+            const char* output_filename)
     {
         TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
         TL::DTO& dto = *_dto;
 
         TL::CompilerPhase* codegen_phase = reinterpret_cast<TL::CompilerPhase*>(CURRENT_CONFIGURATION->codegen_phase);
 
-        TL::RefPtr<TL::File> output_file(new TL::File(out_file));
+        std::shared_ptr<TL::File> output_file(new TL::File(out_file));
         dto.set_object("output_file", output_file);
+
+        std::shared_ptr<TL::String> output_filename_p(new TL::String(output_filename));
+        dto.set_object("output_filename", output_filename_p);
 
         codegen_phase->run(dto);
     }

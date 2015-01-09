@@ -28,11 +28,18 @@
 
 namespace TL { namespace Nanox {
 
-    LoweringVisitor::LoweringVisitor(Lowering* lowering,RefPtr<OpenMP::FunctionTaskSet> function_task_set)
-        : _lowering(lowering), _function_task_set(function_task_set)
+    LoweringVisitor::LoweringVisitor(
+            Lowering* lowering,
+            std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set,
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map)
+            : _lowering(lowering),
+              _function_task_set(function_task_set),
+              _final_stmts_map(final_stmts_map)
     {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
     }
+
+    LoweringVisitor::~LoweringVisitor() { }
 
     // We redefine the visitor of Nodecl::FunctionCode because  we need to
     // visit first the internal functions and later the statements
@@ -61,7 +68,4 @@ namespace TL { namespace Nanox {
             }
         }
     }
-
-    LoweringVisitor::~LoweringVisitor() { }
-
 } }

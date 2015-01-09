@@ -41,6 +41,16 @@ tl_type_t tl_bool(char c)
     return result;
 }
 
+tl_type_t tl_unsigned_integer(unsigned int i)
+{
+    tl_type_t result;
+    
+    result.kind = TL_UNSIGNED_INTEGER;
+    result.data._unsigned_integer = i;
+    
+    return result;
+}
+
 tl_type_t tl_integer(int i)
 {
     tl_type_t result;
@@ -96,6 +106,15 @@ tl_type_t tl_nodecl(nodecl_t n)
     tl_type_t result;
     result.kind = TL_NODECL;
     result.data._nodecl = n;
+
+    return result;
+}
+
+tl_type_t tl_decl_context(decl_context_t decl_context)
+{
+    tl_type_t result;
+    result.kind = TL_DECL_CONTEXT;
+    result.data._decl_context = decl_context;
 
     return result;
 }

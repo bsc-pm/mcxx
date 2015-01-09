@@ -57,8 +57,6 @@
 #include "cxx-limits.h"
 #include "cxx-nodecl-output.h"
 
-#define CVAL_HASH_SIZE (37)
-
 /*
 IMPORTANT: incompatible changes to enum const_value_kind_tag requires
 increasing the value of CURRENT_MODULE_VERSION in fortran03-modules.c.
@@ -83,6 +81,7 @@ typedef enum const_value_kind_tag
     CVK_STRING,
     CVK_RANGE,
     CVK_MASK,
+    CVK_UNKNOWN, // something constant but without logical value
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -138,20 +137,32 @@ struct const_value_hash_bucket_tag
     struct const_value_hash_bucket_tag *next;
 } const_value_hash_bucket_t;
 
+enum { CVAL_HASH_SIZE = 37 };
+
 typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
-static const_value_hash_t _hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
+static const_value_hash_t _int_hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
 
 const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {
     ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
 
-    int bucket_index = value % CVAL_HASH_SIZE;
+    if (!sign
+            && (num_bytes < (int)sizeof(value)))
+    {
+        // Make sure higher bits are set to zero if this value is unsigned
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
+        mask >>= (8 * num_bytes);
+        mask <<= (8 * num_bytes);
+        value &= ~mask;
+    }
+
+    unsigned int bucket_index = value % CVAL_HASH_SIZE;
 
     int pool = 2 * num_bytes + !!sign;
 
-    const_value_hash_bucket_t* bucket = _hash_pool[pool][bucket_index];
+    const_value_hash_bucket_t* bucket = _int_hash_pool[pool][bucket_index];
 
     while (bucket != NULL)
     {
@@ -165,16 +176,16 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     if (bucket == NULL)
     {
         bucket = xcalloc(1, sizeof(*bucket));
-        
+
         bucket->constant_value = xcalloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->kind = CVK_INTEGER;
         bucket->constant_value->value.i = value;
         bucket->constant_value->num_bytes = num_bytes;
         bucket->constant_value->sign = sign;
 
-        bucket->next = _hash_pool[pool][bucket_index];
+        bucket->next = _int_hash_pool[pool][bucket_index];
 
-        _hash_pool[pool][bucket_index] = bucket;
+        _int_hash_pool[pool][bucket_index] = bucket;
     }
 
     return bucket->constant_value;
@@ -198,48 +209,179 @@ const_value_t* const_value_get_unsigned_##type ( cvalue_uint_t value ) \
     
 
 GET_INTEGER(int)
+GET_INTEGER(short_int)
 GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 
+enum {
+    FLOAT_HASH = 0,
+    DOUBLE_HASH,
+    LONG_DOUBLE_HASH,
+#ifdef HAVE_QUADMATH_H
+    FLOAT128_HASH,
+#endif
+    NUM_FLOATING_HASHES
+};
+
+static const_value_hash_t _floating_hash_pool[NUM_FLOATING_HASHES] = { { (const_value_hash_bucket_t*)0 } };
+
 const_value_t* const_value_get_float(float f)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_FLOAT;
-    v->value.f = f;
-    v->sign = 1;
+    union { 
+        float f;
+        uint32_t x;
+    } r = { f };
 
-    return v;
+    unsigned int bucket_index = r.x % CVAL_HASH_SIZE;
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[FLOAT_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.f == f)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_FLOAT;
+        v->value.f = f;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[FLOAT_HASH][bucket_index];
+        _floating_hash_pool[FLOAT_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 
 const_value_t* const_value_get_double(double d)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_DOUBLE;
-    v->value.d = d;
-    v->sign = 1;
+    union {
+        double d;
+        uint64_t x;
+    } r = { d };
 
-    return v;
+    unsigned int bucket_index = r.x % CVAL_HASH_SIZE;
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[DOUBLE_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.d == d)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_DOUBLE;
+        v->value.d = d;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[DOUBLE_HASH][bucket_index];
+        _floating_hash_pool[DOUBLE_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 
 const_value_t* const_value_get_long_double(long double ld)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_LONG_DOUBLE;
-    v->value.ld = ld;
-    v->sign = 1;
+    union {
+        long double ld;
+        unsigned char x[sizeof(long double)];
+    } r = { ld };
 
-    return v;
+    unsigned int bucket_index = 0;
+    unsigned int i;
+    for (i = 0; i < sizeof(long double); i++)
+    {
+        bucket_index += (((unsigned int)r.x[i]) << i);
+    }
+    bucket_index %= CVAL_HASH_SIZE;
+
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.ld == ld)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_LONG_DOUBLE;
+        v->value.ld = ld;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index];
+        _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 
 #ifdef HAVE_QUADMATH_H
-const_value_t* const_value_get_float128(__float128 ld)
+const_value_t* const_value_get_float128(__float128 f128)
 {
-    const_value_t* v = xcalloc(1, sizeof(*v));
-    v->kind = CVK_FLOAT128;
-    v->value.f128 = ld;
-    v->sign = 1;
+    union {
+        __float128 f128;
+        unsigned char x[sizeof(__float128)];
+    } r = { f128 };
 
-    return v;
+    unsigned int bucket_index = 0;
+    unsigned int i;
+    for (i = 0; i < sizeof(__float128); i++)
+    {
+        bucket_index += (((unsigned int)r.x[i]) << i);
+    }
+    bucket_index %= CVAL_HASH_SIZE;
+
+    const_value_hash_bucket_t* bucket = _floating_hash_pool[FLOAT128_HASH][bucket_index];
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value.f128 == f128)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = xcalloc(1, sizeof(*bucket));
+
+        const_value_t* v = xcalloc(1, sizeof(*v));
+        v->kind = CVK_FLOAT128;
+        v->value.f128 = f128;
+        v->sign = 1;
+
+        bucket->constant_value = v;
+        bucket->next = _floating_hash_pool[FLOAT128_HASH][bucket_index];
+        _floating_hash_pool[FLOAT128_HASH][bucket_index] = bucket;
+    }
+
+    return bucket->constant_value;
 }
 #endif
 
@@ -259,6 +401,23 @@ case _bytes:  \
         break; \
     }
 
+#ifdef HAVE_INT128
+#define CAST_TO_INT128(_field) \
+case 128: \
+    { \
+        if (sign) \
+        { \
+            return const_value_get_integer((signed __int128)val->value._field, 16, 1); \
+        } \
+        else \
+        { \
+            return const_value_get_integer((unsigned __int128)val->value._field, 16, 0); \
+        } \
+        break; \
+    }
+#else
+#define CAST_TO_INT128(_field)
+#endif
 
 #define CAST_FLOAT_POINT_TO_INT(_field) \
 { \
@@ -269,8 +428,72 @@ case _bytes:  \
         CAST_TO_INTX(16, _field) \
         CAST_TO_INTX(32, _field) \
         CAST_TO_INTX(64, _field) \
+        CAST_TO_INT128(_field) \
         default: { internal_error("Cannot perform conversion of floating point to integer of %d bytes\n", bytes); } \
     } \
+}
+
+#define IS_MULTIVALUE(x) \
+    (x == CVK_COMPLEX \
+    || x == CVK_ARRAY \
+    || x == CVK_STRUCT \
+    || x == CVK_VECTOR \
+    || x == CVK_STRING \
+    || x == CVK_RANGE)
+
+#define CASE_MULTIVALUE \
+    case CVK_COMPLEX: \
+    case CVK_ARRAY: \
+    case CVK_STRUCT: \
+    case CVK_VECTOR: \
+    case CVK_STRING: \
+    case CVK_RANGE
+
+static int multival_get_num_elements(const_value_t* v)
+{
+    return v->value.m->num_elements;
+}
+
+static const_value_t* multival_get_element_num(const_value_t* v, int element)
+{
+    ERROR_CONDITION(element >= v->value.m->num_elements, "Invalid index %d in a multi-value constant with up to %d components", 
+            element, v->value.m->num_elements);
+    return v->value.m->elements[element];
+}
+
+static const_value_t* make_multival(int num_elements, const_value_t **elements)
+{
+    const_value_t* result = xcalloc(1, sizeof(*result));
+
+    result->value.m = xcalloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
+    result->value.m->num_elements = num_elements;
+
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        ERROR_CONDITION(elements[i] == NULL, "Invalid NULL constant in component %d of multi-value constant", i);
+
+        result->value.m->elements[i] = elements[i];
+    }
+
+    return result;
+}
+
+static const_value_t* map_cast_to_bytes_to_structured_value(const_value_t* m1, int bytes, char sign)
+{
+    ERROR_CONDITION(!IS_MULTIVALUE(m1->kind), "The value is not a multiple-value constant", 0);
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = const_value_cast_to_bytes(multival_get_element_num(m1, i), bytes, sign);
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
 }
 
 const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign)
@@ -293,48 +516,13 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
             CAST_FLOAT_POINT_TO_INT(f128);
             break;
 #endif
+        CASE_MULTIVALUE :
+            return map_cast_to_bytes_to_structured_value(val, bytes, sign);
+            break;
         OTHER_KIND;
     }
     return NULL;
 }
-
-static const_value_t* make_multival(int num_elements, const_value_t **elements)
-{
-    const_value_t* result = xcalloc(1, sizeof(*result));
-
-    result->value.m = xcalloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
-    result->value.m->num_elements = num_elements;
-
-    int i;
-    for (i = 0; i < num_elements; i++)
-    {
-        ERROR_CONDITION(elements[i] == NULL, "Invalid NULL constant in component %d of multi-value constant", i);
-
-        result->value.m->elements[i] = elements[i];
-    }
-
-    return result;
-}
-
-static const_value_t* multival_get_element_num(const_value_t* v, int element)
-{
-    ERROR_CONDITION(element >= v->value.m->num_elements, "Invalid index %d in a multi-value constant with up to %d components", 
-            element, v->value.m->num_elements);
-    return v->value.m->elements[element];
-}
-
-static int multival_get_num_elements(const_value_t* v)
-{
-    return v->value.m->num_elements;
-}
-
-#define IS_MULTIVALUE(x) \
-    (x == CVK_COMPLEX \
-    || x == CVK_ARRAY \
-    || x == CVK_STRUCT \
-    || x == CVK_VECTOR \
-    || x == CVK_STRING \
-    || x == CVK_RANGE)
 
 // Use this to apply a unary function to a multival
 static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
@@ -511,6 +699,19 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
 
 char const_value_is_nonzero(const_value_t* v)
 {
+    if (IS_MULTIVALUE(v->kind))
+    {
+        int num_elements = v->value.m->num_elements;
+        int i;
+        for (i=0; i<num_elements; i++)
+        {
+            if (const_value_is_nonzero(v->value.m->elements[i]))
+                return 1;
+        }
+
+        return 0;
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:
@@ -544,6 +745,19 @@ char const_value_is_zero(const_value_t* v)
 
 char const_value_is_one(const_value_t* v)
 {
+    if (IS_MULTIVALUE(v->kind))
+    {
+        int num_elements = v->value.m->num_elements;
+        int i;
+        for (i=0; i<num_elements; i++)
+        {
+            if (!const_value_is_one(v->value.m->elements[i]))
+                return 0;
+        }
+
+        return 1;
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:
@@ -595,17 +809,16 @@ char const_value_is_minus_one(const_value_t* v)
         OTHER_KIND;
     }
 
-    return 0;   
+    return 0;
 }
 
 char const_value_is_positive(const_value_t* v)
 {
-    
     switch (v->kind)
     {
         case CVK_INTEGER:
             if (!v->sign)
-                return 1;
+                return v->value.i > 0;
             else
                 return v->value.si > 0;
         case CVK_FLOAT:
@@ -618,15 +831,50 @@ char const_value_is_positive(const_value_t* v)
         case CVK_FLOAT128:
             return v->value.f128 > 0.0Q;
 #endif
-        OTHER_KIND;        
+        OTHER_KIND;
     }
 
-    return 0;    
+    return 0;
 }
 
 char const_value_is_negative(const_value_t* v)
 {
-    return !const_value_is_positive(v);
+    switch (v->kind)
+    {
+        case CVK_INTEGER:
+            // An unsigned is never negative
+            if (!v->sign)
+                return 0;
+            else
+                return v->value.si < 0;
+        case CVK_FLOAT:
+            return v->value.f < 0.0f;
+        case CVK_DOUBLE:
+            return v->value.d < 0.0;
+        case CVK_LONG_DOUBLE:
+            return v->value.ld < 0.0L;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return v->value.f128 < 0.0Q;
+#endif
+        OTHER_KIND;
+    }
+
+    return 0;
+}
+
+cvalue_int_t const_value_cast_to_cvalue_int(const_value_t* value)
+{
+    return (cvalue_int_t)const_value_cast_to_cvalue_uint(value);
+}
+
+cvalue_uint_t const_value_cast_to_cvalue_uint(const_value_t* value)
+{
+#ifdef HAVE_INT128
+    return const_value_cast_to_16(value);
+#else
+    return const_value_cast_to_8(value);
+#endif
 }
 
 uint64_t const_value_cast_to_8(const_value_t* val)
@@ -731,25 +979,38 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     }
 }
 
-int const_value_cast_to_signed_int(const_value_t* val)
-{
-    switch (val->kind)
-    {
-        case CVK_INTEGER:
-            return val->value.i;
-        case CVK_FLOAT:
-            return val->value.f;
-        case CVK_DOUBLE:
-            return val->value.d;
-        case CVK_LONG_DOUBLE:
-            return val->value.ld;
-#ifdef HAVE_QUADMATH_H
-        case CVK_FLOAT128:
+#ifdef HAVE_QUADMATH_H 
+#define CONST_VALUE_CAST_FROM_FLOAT_128 \
+        case CVK_FLOAT128: \
             return val->value.f128;
+#else
+#define CONST_VALUE_CAST_FROM_FLOAT_128
 #endif
-        OTHER_KIND;
-    }
+
+#define CONST_VALUE_CAST_TO_TYPE(type, typename) \
+type const_value_cast_to_##typename(const_value_t* val) \
+{ \
+    switch (val->kind) \
+    { \
+        case CVK_INTEGER: \
+            return val->value.i; \
+        case CVK_FLOAT: \
+            return val->value.f; \
+        case CVK_DOUBLE: \
+            return val->value.d; \
+        case CVK_LONG_DOUBLE: \
+            return val->value.ld; \
+        CONST_VALUE_CAST_FROM_FLOAT_128 \
+        OTHER_KIND; \
+    } \
 }
+
+CONST_VALUE_CAST_TO_TYPE(int, signed_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned int, unsigned_int)
+CONST_VALUE_CAST_TO_TYPE(long int, signed_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long int, unsigned_long_int)
+CONST_VALUE_CAST_TO_TYPE(long long int, signed_long_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long long int, unsigned_long_long_int)
 
 #ifdef HAVE_QUADMATH_H
   #define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE || kind == CVK_FLOAT128)
@@ -1002,16 +1263,99 @@ type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_valu
     return get_minimal_integer_for_value_at_least_signed_int(val->sign, val->value.i);
 }
 
-nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
-        type_t* basic_type)
+static dhash_ptr_t *_const_value_nodecl_cache = NULL;
+
+typedef
+struct const_value_hash_item_tag
 {
+    nodecl_t n;
+    type_t* basic_type;
+} const_value_hash_item_t;
+
+typedef
+struct const_value_hash_item_set_tag
+{
+    int num_items;
+    const_value_hash_item_t** items;
+} const_value_hash_item_set_t;
+
+static inline nodecl_t cache_const(const_value_t* v, type_t* basic_type, nodecl_t n, char cached)
+{
+    if (cached)
+    {
+        const_value_hash_item_set_t* cached_result =
+            (const_value_hash_item_set_t*)dhash_ptr_query(_const_value_nodecl_cache, (const char*)v);
+
+        if (cached_result == NULL)
+        {
+            cached_result = xcalloc(1, sizeof(*cached_result));
+            dhash_ptr_insert(_const_value_nodecl_cache, (const char*)v, cached_result);
+        }
+
+        const_value_hash_item_t* cached_item = xcalloc(1, sizeof(*cached_item));
+        cached_item->n = n;
+        cached_item->basic_type = basic_type;
+
+        cached_result->num_items++;
+        cached_result->items = xrealloc(
+                cached_result->items,
+                cached_result->num_items * sizeof(*cached_result->items));
+        cached_result->items[cached_result->num_items - 1] = cached_item;
+    }
+
+    return n;
+}
+
+nodecl_t const_value_to_nodecl_(const_value_t* v,
+        type_t* basic_type,
+        char cached)
+{
+    if (cached)
+    {
+        if (_const_value_nodecl_cache == NULL)
+        {
+            _const_value_nodecl_cache = dhash_ptr_new(5);
+        }
+        else
+        {
+            const_value_hash_item_set_t* cached_result =
+                (const_value_hash_item_set_t*)dhash_ptr_query(_const_value_nodecl_cache, (const char*)v);
+            if (cached_result != NULL)
+            {
+                int i;
+                for (i = 0; i < cached_result->num_items; i++)
+                {
+                    if (cached_result->items[i]->basic_type == basic_type
+                            || (cached_result->items[i]->basic_type != NULL
+                                && basic_type != NULL
+                                && equivalent_types(cached_result->items[i]->basic_type, basic_type)))
+                    {
+                        return cached_result->items[i]->n;
+                    }
+                }
+            }
+        }
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:
             {
                 // Zero is special
                 if (basic_type == NULL && v->value.i == 0)
-                    return nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0));
+                {
+                    type_t* t = basic_type;
+                    if (t == NULL)
+                        t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
+
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_make_integer_literal(
+                                get_zero_type(t),
+                                v, make_locus("", 0, 0)),
+                            cached);
+                }
 
                 type_t* t = basic_type;
                 if (t == NULL)
@@ -1021,11 +1365,39 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
 
                 if (is_bool_type(t))
                 {
-                    return nodecl_make_boolean_literal(t, v, make_locus("", 0, 0));
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_make_boolean_literal(t, v, make_locus("", 0, 0)),
+                            cached);
                 }
                 else
                 {
-                    return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
+                    if (const_value_is_zero(v)
+                            || const_value_is_positive(v))
+                    {
+                        return cache_const(
+                                v,
+                                basic_type,
+                                nodecl_make_integer_literal(t, v, make_locus("", 0, 0)),
+                                cached);
+                    }
+                    else
+                    {
+                        // We do not want to directly represent a negative
+                        // integer literal in nodecl, so use a negated value
+                        // instead
+                        nodecl_t nodecl_result = nodecl_make_neg(
+                                nodecl_make_integer_literal(t, const_value_neg(v), make_locus("", 0, 0)),
+                                t, make_locus("", 0, 0));
+                        nodecl_set_constant(nodecl_result, v);
+
+                        return cache_const(
+                                v,
+                                basic_type,
+                                nodecl_result,
+                                cached);
+                    }
                 }
                 break;
             }
@@ -1036,18 +1408,45 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 type_t* t = basic_type;
                 if (t == NULL)
                     t = get_suitable_floating_type(v);
-                return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
+                if (const_value_is_zero(v)
+                        || const_value_is_positive(v))
+                {
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_make_floating_literal(t, v, make_locus("", 0, 0)),
+                            cached);
+                }
+                else
+                {
+                    // We cannot directly represent a negative floating literal in nodecl,
+                    // so use a negated value instead
+                    nodecl_t nodecl_result = nodecl_make_neg(
+                            nodecl_make_floating_literal(t, const_value_neg(v), make_locus("", 0, 0)),
+                            t, make_locus("", 0, 0));
+                    nodecl_set_constant(nodecl_result, v);
+
+                    return cache_const(
+                            v,
+                            basic_type,
+                            nodecl_result,
+                            cached);
+                }
                 break;
             }
         case CVK_STRING:
             {
-                return nodecl_make_string_literal(
+                return cache_const(
+                        v,
+                        basic_type,
+                        nodecl_make_string_literal(
                         get_array_type_bounds(
                             get_char_type(),
                             nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), make_locus("", 0, 0)),
                             nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), make_locus("", 0, 0)),
                             CURRENT_COMPILED_FILE->global_decl_context),
-                        v, make_locus("", 0, 0));
+                        v, make_locus("", 0, 0)),
+                        cached);
                 break;
             }
         case CVK_ARRAY:
@@ -1056,7 +1455,7 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 int i;
                 for (i = 0; i < v->value.m->num_elements; i++)
                 {
-                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_type(v->value.m->elements[i], basic_type));
+                    list = nodecl_append_to_list(list, const_value_to_nodecl_(v->value.m->elements[i], basic_type, cached));
                 }
 
                 // Get the type from the first element
@@ -1074,18 +1473,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                         CURRENT_COMPILED_FILE->global_decl_context);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
-                return result;
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         case CVK_STRUCT:
             {
                 nodecl_t list = nodecl_null();
 
-                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(basic_type);
+                type_t* t = v->value.m->struct_type;
+
+                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(t);
 
                 int i;
                 scope_entry_list_iterator_t* it_member = NULL;
@@ -1096,21 +1499,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                     scope_entry_t* member = entry_list_iterator_current(it_member);
 
                     list = nodecl_append_to_list(list,
-                            const_value_to_nodecl_with_basic_type(v->value.m->elements[i],
-                                member->type_information));
+                            const_value_to_nodecl_(v->value.m->elements[i],
+                                member->type_information,
+                                cached));
                 }
                 entry_list_iterator_free(it_member);
 
                 entry_list_free(data_members);
 
-                type_t* t = v->value.m->struct_type;
-
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
-                return result;
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         case CVK_COMPLEX:
@@ -1135,7 +1539,67 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 t = get_complex_type(t);
                 nodecl_t result = nodecl_make_complex_literal(t, v, make_locus("", 0, 0));
 
-                return result;
+                return cache_const(v, basic_type, result, cached);
+                break;
+            }
+        case CVK_VECTOR:
+            {
+                ERROR_CONDITION(v->value.m->num_elements == 0, "Zero length vector constant", 0);
+
+                char promote_from_scalar = 1;
+
+                // Check if all values are the same so we can use a vector promotion instead
+                int i;
+                for (i = 1; i < v->value.m->num_elements && promote_from_scalar; i++)
+                {
+                    promote_from_scalar =
+                        const_value_is_nonzero(
+                                const_value_eq(
+                                    v->value.m->elements[i-1],
+                                    v->value.m->elements[i]));
+                }
+
+                nodecl_t result = nodecl_null();
+                if (promote_from_scalar)
+                {
+                    nodecl_t scalar_node = const_value_to_nodecl_(
+                            v->value.m->elements[0],
+                            basic_type,
+                            cached);
+                    type_t* vector_type = get_vector_type_by_elements(
+                            nodecl_get_type(scalar_node),
+                            v->value.m->num_elements);
+
+                    result = nodecl_make_vector_promotion(
+                            scalar_node,
+                            /* mask */ nodecl_null(),
+                            vector_type,
+                            make_locus("", 0, 0));
+                }
+                else
+                {
+                    nodecl_t list = nodecl_null();
+                    for (i = 0; i < v->value.m->num_elements; i++)
+                    {
+                        list = nodecl_append_to_list(list,
+                                const_value_to_nodecl_(v->value.m->elements[i],
+                                    basic_type,
+                                    cached));
+                    }
+
+                    type_t* vector_type = get_vector_type_by_elements(
+                            nodecl_get_type(nodecl_list_head(list)),
+                            v->value.m->num_elements);
+
+                    result = nodecl_make_vector_literal(list,
+                            /* mask */ nodecl_null(),
+                            vector_type,
+                            make_locus("", 0, 0));
+                }
+
+                nodecl_set_constant(result, v);
+
+                return cache_const(v, basic_type, result, cached);
                 break;
             }
         default:
@@ -1147,9 +1611,26 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
     }
 }
 
+nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
+        type_t* basic_type)
+{
+    return const_value_to_nodecl_(v, basic_type, /* cached */ 0);
+}
+
+nodecl_t const_value_to_nodecl_with_basic_type_cached(const_value_t* v, 
+        type_t* basic_type)
+{
+    return const_value_to_nodecl_(v, basic_type, /* cached */ 1);
+}
+
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
-    return const_value_to_nodecl_with_basic_type(v, /* basic_type */ NULL);
+    return const_value_to_nodecl_(v, /* basic_type */ NULL, /* cached */ 0);
+}
+
+nodecl_t const_value_to_nodecl_cached(const_value_t* v)
+{
+    return const_value_to_nodecl_(v, /* basic_type */ NULL, /* cached */ 1);
 }
 
 char const_value_is_integer(const_value_t* v)
@@ -1430,6 +1911,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
     }
 
     if (is_unsigned_char_type(t)
+            || is_unsigned_byte_type(t)
             || is_unsigned_short_int_type(t)
             || is_unsigned_long_int_type(t)
             || is_unsigned_long_long_int_type(t)
@@ -1438,6 +1920,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
         return const_value_get_zero(type_get_size(t), /* sign */ 0);
     }
     else if (is_signed_char_type(t)
+            || is_signed_byte_type(t)
             || is_signed_short_int_type(t)
             || is_signed_long_int_type(t)
             || is_signed_long_long_int_type(t)
@@ -1563,6 +2046,39 @@ const_value_t* const_value_make_vector(int num_elements, const_value_t **element
     return result;
 }
 
+static const_value_t* const_value_make_multival_from_scalar(
+        int num_elements, 
+        const_value_t* value,
+        const_value_t* (*const_value_make)(int num_elements, const_value_t** elements)
+        )
+{
+    ERROR_CONDITION(value == NULL, "Invalid constant", 0);
+    const_value_t** value_set = xcalloc(num_elements, sizeof(*value_set));
+
+    for (int i = 0; i < num_elements; i++)
+    {
+        value_set[i] = value;
+    }
+
+    const_value_t* result = const_value_make(num_elements, value_set);
+
+    xfree(value_set);
+
+    return result;
+}
+
+const_value_t* const_value_make_vector_from_scalar(int num_elements, const_value_t* value)
+{
+    return const_value_make_multival_from_scalar(num_elements, value,
+            const_value_make_vector);
+}
+
+const_value_t* const_value_make_array_from_scalar(int num_elements, const_value_t* value)
+{
+    return const_value_make_multival_from_scalar(num_elements, value,
+            const_value_make_array);
+}
+
 const_value_t* const_value_make_struct(int num_elements, const_value_t **elements, type_t* struct_type)
 {
     const_value_t* result = make_multival(num_elements, elements);
@@ -1586,7 +2102,7 @@ const_value_t* const_value_make_string_from_values(int num_elements, const_value
     return result;
 }
 
-const_value_t* const_value_make_string(const char* literal, int num_elements)
+static const_value_t* const_value_make_string_internal(const char* literal, int num_elements, char add_null)
 {
     const_value_t* elements[num_elements + 1];
     memset(elements, 0, sizeof(elements));
@@ -1595,11 +2111,28 @@ const_value_t* const_value_make_string(const char* literal, int num_elements)
     {
         elements[i] = const_value_get_integer(literal[i], 1, 0);
     }
+    if (add_null)
+    {
+        elements[num_elements] = const_value_get_integer(0, 1, 0);
+        num_elements++;
+    }
 
     return const_value_make_string_from_values(num_elements, elements);
 }
 
-const_value_t* const_value_make_wstring(int* literal, int num_elements)
+const_value_t* const_value_make_string_null_ended(const char* literal, int num_elements)
+{
+    return const_value_make_string_internal(literal, num_elements, /* add_null */ 1);
+}
+
+const_value_t* const_value_make_string(const char* literal, int num_elements)
+{
+    return const_value_make_string_internal(literal, num_elements, /* add_null */ 0);
+}
+
+static const_value_t* const_value_make_wstring_internal(int* literal,
+        int num_elements,
+        char add_null)
 {
     const_value_t* elements[num_elements + 1];
     memset(elements, 0, sizeof(elements));
@@ -1608,8 +2141,23 @@ const_value_t* const_value_make_wstring(int* literal, int num_elements)
     {
         elements[i] = const_value_get_integer(literal[i], 4, 0);
     }
+    if (add_null)
+    {
+        elements[num_elements] = const_value_get_integer(0, 1, 0);
+        num_elements++;
+    }
 
     return const_value_make_string_from_values(num_elements, elements);
+}
+
+const_value_t* const_value_make_wstring(int* literal, int num_elements)
+{
+    return const_value_make_wstring_internal(literal, num_elements, /* add_null */ 0);
+}
+
+const_value_t* const_value_make_wstring_null_ended(int * literal, int num_elements)
+{
+    return const_value_make_wstring_internal(literal, num_elements, /* add_null */ 1);
 }
 
 const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part)
@@ -1684,6 +2232,42 @@ const_value_t* const_value_get_element_num(const_value_t* value, int num)
 {
     ERROR_CONDITION(!IS_MULTIVALUE(value->kind), "This is not a multiple-value constant", 0);
     return multival_get_element_num(value, num);
+}
+
+const_value_t* const_value_convert_to_type(
+        const_value_t* const_value, type_t* dst_type)
+{
+    const_value_t* result = const_value;
+
+    type_t* scalar_dst_type;
+
+    if(is_vector_type(dst_type))
+        scalar_dst_type = vector_type_get_element_type(dst_type);
+    else
+        scalar_dst_type = dst_type;
+
+
+    if(const_value != NULL)
+    {
+        if (is_float_type(scalar_dst_type))
+            result = const_value_cast_to_float_value(const_value);
+        else if (is_double_type(scalar_dst_type))
+            result = const_value_cast_to_double_value(const_value);
+        else if (is_integral_type(scalar_dst_type))
+        {
+            result = const_value_cast_to_bytes(
+                    const_value, type_get_size(scalar_dst_type),
+                    is_signed_integral_type(scalar_dst_type));
+        }
+        else
+        {
+            internal_error("Unsupported conversion to %s",
+                    print_type_str(scalar_dst_type,
+                        CURRENT_COMPILED_FILE->global_decl_context));
+        }
+    }
+
+    return result;
 }
 
 const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elems)
@@ -1805,6 +2389,30 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
        return const_value_get_integer(value, bytes, sign); \
     } \
     return NULL; \
+}
+
+const_value_t* const_value_bitshl(const_value_t* v1, const_value_t* v2)
+{
+    ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0);
+    if ((v1->kind == CVK_INTEGER)
+            && (v2->kind == CVK_INTEGER))
+    {
+       int bytes = 0; char sign = 0;
+       common_bytes(v1, v2, &bytes, &sign);
+       cvalue_uint_t value = 0;
+       if (sign)
+       {
+           // It is undefined behaviour to SHL a negative lhs (assuming a valid
+           // rhs), so we have to make sure it looks like a positive number
+           (*((cvalue_int_t*)&value)) = v1->value.i << v2->value.si;
+       }
+       else
+       {
+           value = v1->value.i << v2->value.i;
+       }
+       return const_value_get_integer(value, bytes, sign);
+    }
+    return NULL;
 }
 
 #ifdef HAVE_QUADMATH_H
@@ -2610,7 +3218,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     } \
     BOTH_ARE_FLOAT_SECOND_FLOAT128_FUN(a, b, _func)
 
-#define BINOP_FUN_REL(_opname, _binop) \
+#define BINOP_FUN_REL(_opname, _binop, _reduce_multival) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 { \
     ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
@@ -2675,7 +3283,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
             && IS_MULTIVALUE(v2->kind) \
             && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
     { \
-        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+        return _reduce_multival( const_value_##_opname, v1, v2); \
     } \
     else if (IS_MULTIVALUE(v1->kind)) \
     { \
@@ -2688,7 +3296,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     internal_error("Code unreachable", 0); \
 }
 
-#define BINOP_FUN_CALL_REL(_opname, _func) \
+#define BINOP_FUN_CALL_REL(_opname, _func, _reduce_multival) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 { \
     ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
@@ -2751,10 +3359,9 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
         return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
     } \
     else if (IS_MULTIVALUE(v1->kind) \
-            && IS_MULTIVALUE(v2->kind) \
-            && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
+            && IS_MULTIVALUE(v2->kind)) \
     { \
-        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+        return _reduce_multival ( const_value_##_opname, v1, v2 ); \
     } \
     else if (IS_MULTIVALUE(v1->kind)) \
     { \
@@ -2781,24 +3388,49 @@ static const_value_t* complex_eq(const_value_t*, const_value_t*);
 static const_value_t* complex_neq(const_value_t*, const_value_t*);
 static const_value_t* arith_powz(const_value_t*, const_value_t*);
 
+static const_value_t* reduce_lexicographic_lt(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_lexicographic_lte(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_lexicographic_gt(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_lexicographic_gte(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_equal_values_and_length(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_different_values_or_length(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+
 BINOP_FUN(add, +)
 BINOP_FUN(sub, -)
 BINOP_FUN(mul, *)
 BINOP_FUN(div, /)
 BINOP_FUN_I(mod, %)
 BINOP_FUN_I(shr, >>)
-BINOP_FUN_I(bitshl, <<)
+// BINOP_FUN_I(bitshl, <<)
 BINOP_FUN_I(bitand, &)
 BINOP_FUN_I(bitor, |)
 BINOP_FUN_I(bitxor, ^)
 BINOP_FUN(and, &&)
 BINOP_FUN(or, ||)
-BINOP_FUN_REL(lt, <)
-BINOP_FUN_REL(lte, <=)
-BINOP_FUN_REL(gt, >)
-BINOP_FUN_REL(gte, >=)
-BINOP_FUN_REL(eq, ==)
-BINOP_FUN_REL(neq, !=)
+BINOP_FUN_REL(lt, <, reduce_lexicographic_lt)
+BINOP_FUN_REL(lte, <=, reduce_lexicographic_lte)
+BINOP_FUN_REL(gt, >, reduce_lexicographic_gt)
+BINOP_FUN_REL(gte, >=, reduce_lexicographic_gte)
+BINOP_FUN_REL(eq, ==, reduce_equal_values_and_length)
+BINOP_FUN_REL(neq, !=, reduce_different_values_or_length)
 
 static cvalue_uint_t arith_powu(cvalue_uint_t a, cvalue_uint_t b)
 {
@@ -2864,6 +3496,16 @@ static long double arith_powq(__float128 a, __float128 b)
 
 BINOP_FUN_CALL(pow, arith_pow)
 
+#ifndef HAVE_QUADMATH_H
+#define UNOP_FUN_FLOAT128(_unop)
+#else
+#define UNOP_FUN_FLOAT128(_unop) \
+    else if (v1->kind == CVK_FLOAT128) \
+    { \
+        return const_value_get_float128(_unop v1->value.f128); \
+    }
+#endif
+
 #define UNOP_FUN(_opname, _unop) \
 const_value_t* const_value_##_opname(const_value_t* v1) \
 { \
@@ -2893,6 +3535,58 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     { \
         return const_value_get_long_double(_unop v1->value.ld); \
     } \
+    UNOP_FUN_FLOAT128(_unop) \
+    else if (IS_MULTIVALUE(v1->kind)) \
+    { \
+        return map_unary_to_structured_value(const_value_##_opname, v1); \
+    } \
+    return NULL; \
+}
+
+#ifndef HAVE_QUADMATH_H
+#define UNOP_FUN_I_OR_F_FLOAT128(_unop)
+#else
+#define UNOP_FUN_I_OR_F_FLOAT128(_unop) \
+    else if (v1->kind == CVK_FLOAT128) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.f128); \
+    }
+#endif
+
+#define UNOP_FUN_I_OR_F(_opname, _unop) \
+const_value_t* const_value_##_opname(const_value_t* v1) \
+{ \
+    ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
+    if (v1->kind == CVK_INTEGER) \
+    { \
+        cvalue_uint_t value = 0; \
+        if (v1->sign) \
+        { \
+            value = _unop v1->value.si; \
+        } \
+        else \
+        { \
+            value = _unop v1->value.i; \
+        } \
+        return const_value_get_integer(value, v1->num_bytes, v1->sign); \
+    } \
+    else if (v1->kind == CVK_FLOAT) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.f); \
+    } \
+    else if (v1->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.d); \
+    } \
+    else if (v1->kind == CVK_LONG_DOUBLE) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.ld); \
+    } \
+    UNOP_FUN_I_OR_F_FLOAT128(_unop) \
+    else if (IS_MULTIVALUE(v1->kind)) \
+    { \
+        return map_unary_to_structured_value(const_value_##_opname, v1); \
+    } \
     return NULL; \
 }
 
@@ -2913,13 +3607,17 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
         } \
         return const_value_get_integer(value, v1->num_bytes, v1->sign); \
     } \
+    else if (IS_MULTIVALUE(v1->kind)) \
+    { \
+        return map_unary_to_structured_value(const_value_##_opname, v1); \
+    } \
     return NULL; \
 }
 
 UNOP_FUN(plus, +)
 UNOP_FUN(neg, -)
 UNOP_FUN_I(bitnot, ~)
-UNOP_FUN_I(not, !)
+UNOP_FUN_I_OR_F(not, !)
 
 #define MEANINGLESS_IN_COMPLEX(name) \
 static const_value_t* name(const_value_t* v1 UNUSED_PARAMETER, const_value_t* v2 UNUSED_PARAMETER) \
@@ -3028,6 +3726,108 @@ static const_value_kind_t get_common_complex_kind(const_value_t *v1, const_value
         return kind2;
 }
 
+#ifndef HAVE_CPOWF
+#define cpowf fallback_cpowf
+static float complex fallback_cpowf (float complex X, float complex Y)
+{
+	float complex Res;
+	float i;
+	float r = hypot (__real__ X, __imag__ X);
+	if (r == 0.0f)
+	{
+		__real__ Res = __imag__ Res = 0.0;
+	}
+	else
+	{
+		float rho;
+		float theta;
+		i = cargf (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0f)
+			/* This gives slightly more accurate results in these cases. */
+			rho = powf (r, __real__ Y);
+		else
+		{
+			r = logf (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = expf (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cosf (theta);
+		__imag__ Res = rho * sinf (theta);
+	}
+	return Res;
+} 
+#endif
+
+#ifndef HAVE_CPOW
+#define cpow fallback_cpow
+static double complex fallback_cpow (double complex X, double complex Y)
+{
+	double complex Res;
+	double i;
+	double r = hypot (__real__ X, __imag__ X);
+	if (r == 0.0)
+	{
+		__real__ Res = __imag__ Res = 0.0;
+	}
+	else
+	{
+		double rho;
+		double theta;
+		i = carg (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0)
+			/* This gives slightly more accurate results in these cases. */
+			rho = pow (r, __real__ Y);
+		else
+		{
+			r = log (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = exp (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cos (theta);
+		__imag__ Res = rho * sin (theta);
+	}
+	return Res;
+} 
+#endif
+
+#ifndef HAVE_CPOWL
+#define cpowl fallback_cpowl
+static long double complex fallback_cpowl (long double complex X, long double complex Y)
+{
+	long double complex Res;
+	long double i;
+	long double r = hypotl (__real__ X, __imag__ X);
+	if (r == 0.0L)
+	{
+		__real__ Res = __imag__ Res = 0.0L;
+	}
+	else
+	{
+		long double rho;
+		long double theta;
+		i = cargl (X);
+		theta = i * __real__ Y;
+		if (__imag__ Y == 0.0L)
+			/* This gives slightly more accurate results in these cases. */
+			rho = powl (r, __real__ Y);
+		else
+		{
+			r = logl (r);
+			/* rearrangement of cexp(X * clog(Y)) */
+			theta += r * __imag__ Y;
+			rho = expl (r * __real__ Y - i * __imag__ Y);
+		}
+		__real__ Res = rho * cosl (theta);
+		__imag__ Res = rho * sinl (theta);
+	}
+	return Res;
+} 
+#endif
+
 static const_value_t* arith_powz(const_value_t* v1, const_value_t* v2)
 {
     switch (get_common_complex_kind(v1, v2))
@@ -3070,13 +3870,23 @@ static const_value_t* arith_powz(const_value_t* v1, const_value_t* v2)
     }
 }
 
-void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_elements)
+void const_value_string_unpack_to_int(const_value_t* v,
+        int **values, int *num_elements,
+        char *is_null_ended)
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
     int *result = xcalloc(const_value_get_num_elements(v), sizeof(*result));
 
     int i, nels = const_value_get_num_elements(v);
+
+    if (nels > 0
+            && const_value_is_zero(v->value.m->elements[nels-1]))
+    {
+        *is_null_ended = 1;
+        nels--;
+    }
+
     for (i = 0; i < nels; i++)
     {
         result[i] = const_value_cast_to_4(v->value.m->elements[i]);
@@ -3086,10 +3896,10 @@ void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_e
     *values = result;
 }
 
-const char *const_value_string_unpack_to_string(const_value_t* v)
+const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_ended)
 {
     int *values = NULL, num_elements = 0;
-    const_value_string_unpack_to_int(v, &values, &num_elements);
+    const_value_string_unpack_to_int(v, &values, &num_elements, is_null_ended);
 
     char str[num_elements + 1];
     int i;
@@ -3098,6 +3908,8 @@ const char *const_value_string_unpack_to_string(const_value_t* v)
         str[i] = (char)values[i];
     }
     str[num_elements] = '\0';
+
+    xfree(values);
 
     return uniquestr(str);
 }
@@ -3250,4 +4062,462 @@ const_value_t* const_value_build_from_raw_data(const char* raw_buffer)
     memcpy(result, raw_buffer, sizeof(const_value_t));
 
     return result;
+}
+
+static const_value_t* reduce_lexicographic_lt(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] < rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] < rhs[i])
+            // rhs[i] < lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] < rhs[i])
+            // !(rhs[i] < lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs < n_rhs);
+}
+
+static const_value_t* reduce_lexicographic_gt(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] > rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] > rhs[i])
+            // rhs[i] > lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] > rhs[i])
+            // !(rhs[i] > lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs > n_rhs);
+}
+
+static const_value_t* reduce_lexicographic_lte(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] < rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] < rhs[i])
+            // rhs[i] < lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] < rhs[i])
+            // !(rhs[i] < lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs <= n_rhs);
+}
+
+static const_value_t* reduce_lexicographic_gte(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] > rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] > rhs[i])
+            // rhs[i] > lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] > rhs[i])
+            // !(rhs[i] > lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs >= n_rhs);
+}
+
+static const_value_t* reduce_equal_values_and_length(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    if (n_lhs != n_rhs)
+        return const_value_get_signed_int(0);
+
+    int i;
+    for (i = 0; i < n_lhs; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                         const_value_get_element_num(rhs, i) )))
+            return const_value_get_signed_int(0);
+    }
+
+    return const_value_get_signed_int(1);
+}
+
+static const_value_t* reduce_different_values_or_length(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    if (n_lhs != n_rhs)
+        return const_value_get_signed_int(1);
+
+    int i;
+    for (i = 0; i < n_lhs; i++)
+    {
+        if (const_value_is_nonzero(
+                    fun( const_value_get_element_num(lhs, i),
+                         const_value_get_element_num(rhs, i) )))
+            return const_value_get_signed_int(1);
+    }
+
+    return const_value_get_signed_int(0);
+}
+
+#ifdef HAVE_INT128
+#define MAX_DIGITS 41
+static char digits[] = "0123456789";
+
+// AFAIK there is no library support for int128
+const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
+{
+    // No number will have more than 40 decimal digits
+    char result[MAX_DIGITS];
+    int len = 0;
+
+    if (i == 0)
+    {
+        result[len] = '0';
+        len++;
+    }
+    else
+    {
+        while (i > 0)
+        {
+            result[len] = digits[i % 10];
+            len++;
+            i /= 10;
+        }
+
+        if (neg)
+        {
+            result[len] = '-';
+            len++;
+        }
+
+        // Now reverse the string
+        int begin, end;
+        for (begin = 0, end = len - 1;
+             begin < (len / 2);
+             begin++, end--)
+        {
+            char t = result[begin];
+            result[begin] = result[end];
+            result[end] = t;
+        }
+
+    }
+
+    ERROR_CONDITION(len >= MAX_DIGITS, "Too many digits", 0);
+    result[len] = '\0';
+
+    return uniquestr(result);
+}
+
+const char* signed_int128_to_str(signed __int128 i)
+{
+    if (i < 0)
+    {
+        return unsigned_int128_to_str(-i, 1);
+    }
+    else
+    {
+        return unsigned_int128_to_str(i, 0);
+    }
+}
+#endif
+
+const char* const_value_to_str(const_value_t* cval)
+{
+    const char* result = NULL;
+    switch (cval->kind)
+    {
+        case CVK_INTEGER:
+            {
+#ifdef HAVE_INT128
+                if (cval->sign)
+                {
+                    uniquestr_sprintf(&result, "(int%d_t)%s",
+                            cval->num_bytes * 8, signed_int128_to_str(cval->value.si));
+                }
+                else
+                {
+                    uniquestr_sprintf(&result, "(uint%d_t)%s",
+                        cval->num_bytes * 8, unsigned_int128_to_str(cval->value.i, 0));
+                }
+#else
+                if (cval->sign)
+                {
+                    uniquestr_sprintf(&result, "(int%d_t)%lld",
+                        cval->num_bytes * 8, cval->value.si);
+                }
+                else
+                {
+                    uniquestr_sprintf(&result, "(uint%d_t)%llu",
+                        cval->num_bytes * 8, cval->value.i);
+                }
+#endif
+                break;
+            }
+        case CVK_FLOAT:
+            {
+                uniquestr_sprintf(&result, "(float)%f", cval->value.f);
+                break;
+            }
+        case CVK_DOUBLE:
+            {
+                uniquestr_sprintf(&result, "(double)%f", cval->value.d);
+                break;
+            }
+        case CVK_LONG_DOUBLE:
+            {
+                uniquestr_sprintf(&result, "(long double)%Lf", cval->value.ld);
+                break;
+            }
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            {
+                char c[256];
+                quadmath_snprintf (c, 256, "(float128)%Q", cval->value.f128);
+                c[255] = '\0';
+                result = uniquestr(c);
+                break;
+            }
+#endif
+        case CVK_ARRAY:
+            {
+                result = "{array: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_VECTOR:
+            {
+                result = "{vector: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_STRUCT:
+            {
+                uniquestr_sprintf(&result, "{struct:%s: [",
+                        cval->value.m->struct_type != NULL ?
+                        named_type_get_symbol(cval->value.m->struct_type)->symbol_name
+                        : "<<unknown-struct>>");
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_STRING:
+            {
+                result = "{string: [";
+
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_RANGE:
+            {
+                result = "{range: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_COMPLEX:
+            {
+                result = "{complex: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_MASK:
+            {
+                uniquestr_sprintf(&result, "{mask%d: %llx}",
+                        cval->num_bytes,
+                        (unsigned long long)cval->value.i);
+                break;
+            }
+        case CVK_UNKNOWN:
+            {
+                return "{unknown}";
+            }
+        default:
+            internal_error("Unexpected constant kind %d", cval->kind);
+            break;
+    }
+
+    return result;
+}
+
+static const_value_t unknown_value = { .kind = CVK_UNKNOWN };
+
+const_value_t* const_value_get_unknown(void)
+{
+    return &unknown_value;
+}
+
+char const_value_is_unknown(const_value_t* cval)
+{
+    return cval != NULL && cval->kind == CVK_UNKNOWN;
 }

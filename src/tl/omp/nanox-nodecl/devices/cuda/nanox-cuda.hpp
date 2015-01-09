@@ -43,16 +43,16 @@ namespace TL
                 Nodecl::List _cuda_file_code;
                 Nodecl::Utils::SimpleSymbolMap _copied_cuda_functions;
 
-                bool _cuda_tasks_processed;
-                Nodecl::NodeclBase _root;
+                bool _cuda_tasks_processed,
+                     // Used to initialize CUBLAS automatically on runtime
+                     _is_nanos_get_cublas_handle;
 
+                void is_nanos_get_cublas_handle_present(Nodecl::NodeclBase task_code);
                 void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 
                 void update_ndrange_and_shmem_arguments(
-                        const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
                         const TargetInformation& target_info,
-                        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
                         Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
                         // out
                         TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
@@ -98,6 +98,16 @@ namespace TL
                 bool allow_mandatory_creation();
 
                 virtual bool is_gpu_device() const;
+
+                virtual void generate_outline_events_before(
+                        Source& function_name_instr,
+                        Source& extra_cast,
+                        Source& instrumentation_before);
+
+                virtual void generate_outline_events_after(
+                        Source& function_name_instr,
+                        Source& extra_cast,
+                        Source& instrumentation_after);
 
                 virtual void phase_cleanup(DTO& data_flow);
         };

@@ -33,6 +33,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "cxx-ast.h"
@@ -43,316 +44,78 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 
-// We need this to fix nodes
-#include "cxx-tltype.h"
+#include "cxx-nodecl-decls.h"
 
-// Definition of the type
-struct AST_tag
+/**
+  Checks that nodes are really doubly-linked.
+
+  We used to have the usual recursive traversal here
+  but some big trees feature very deep recursion
+  which caused stack overflows.
+ */
+char ast_check(const_AST root)
 {
-    // Node type (1024 different node types)
-    node_t node_type:10; 
+    int stack_capacity = 1024;
+    int stack_length = 1;
+    const_AST *stack = xmalloc(stack_capacity * sizeof(*stack));
 
-    // This is a bitmap for the sons
-    unsigned int bitmap_sons:MCXX_MAX_AST_CHILDREN;
+    stack[0] = root;
 
-    // Number of ambiguities of this node
-    int num_ambig;
+#define PUSH_BACK(child) \
+{ \
+    if (stack_length == stack_capacity) \
+    { \
+        stack_capacity *= 2; \
+        stack = xrealloc(stack, stack_capacity * sizeof(*stack)); \
+    } \
+    stack_length++; \
+    stack[stack_length - 1] = (child); \
+}
 
-    // Parent node
-    struct AST_tag* parent; 
-
-    // Node locus
-    const locus_t* locus;
-
-    // Textual information linked to the node
-    // normally the symbol or the literal
-    const char* text; 
-
-    union
+    char ok = 1;
+    while (stack_length > 0 && ok)
     {
-        // The children of this tree (except for AST_AMBIGUITY)
-        struct AST_tag** children;
-        // When type == AST_AMBIGUITY, all intepretations are here
-        struct AST_tag** ambig;
-    };
+        const_AST node = stack[stack_length - 1];
+        stack_length--;
 
-    // Extensible information (created lazily)
-    extensible_struct_t* extended_data;
-};
-
-static int count_bitmap(unsigned int bitmap)
-{
-    int i;
-    int s = 0;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        s += bitmap & 1;
-        bitmap = bitmap >> 1;
-    }
-
-    return s;
-}
-
-static int bitmap_to_index(unsigned int bitmap, int num)
-{
-    ERROR_CONDITION(((1 << num) & bitmap) == 0,
-            "Invalid bitmap!", 0);
-
-    int i;
-    int s = 0;
-    for (i = 0; i < num; i++)
-    {
-        s += bitmap & 1;
-        bitmap = bitmap >> 1;
-    }
-
-    return s;
-}
-
-
-static int ast_son_num_to_son_index(const_AST a, int num_son)
-{
-    return bitmap_to_index(a->bitmap_sons, num_son);
-}
-
-static char ast_has_son(const_AST a, int son)
-{
-    return (((1 << son) & a->bitmap_sons) != 0);
-}
-
-static long long unsigned int _bytes_due_to_astmake = 0;
-static long long unsigned int _bytes_due_to_instantiation = 0;
-
-long long unsigned int ast_astmake_used_memory(void)
-{
-    return _bytes_due_to_astmake;
-}
-
-long long unsigned int ast_instantiation_used_memory(void)
-{
-    return _bytes_due_to_instantiation;
-}
-
-AST ast_make(node_t type, int num_children UNUSED_PARAMETER, 
-        AST child0, AST child1, AST child2, AST child3, 
-        const locus_t* location, const char *text)
-{
-    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
-
-    result->parent = NULL;
-
-    result->node_type = type;
-
-    result->locus = location;
-
-#define ADD_SON(n) \
-    ast_set_child(result, n, child##n);
-
-    ADD_SON(0);
-    ADD_SON(1);
-    ADD_SON(2);
-    ADD_SON(3);
-#undef ADD_SON
-
-    result->text = NULL;
-    if (text != NULL)
-    {
-        result->text = uniquestr(text);
-    }
-
-    return result;
-}
-
-AST ast_get_parent(const_AST a)
-{
-    return a->parent;
-}
-
-unsigned int ast_get_line(const_AST a)
-{
-    return locus_get_line(a->locus);
-}
-
-const char* ast_get_text(const_AST a)
-{
-    return a->text;
-}
-
-node_t ast_get_type(const_AST a)
-{
-    return a->node_type;
-}
-
-void ast_set_text(AST a, const char* str)
-{
-    a->text = uniquestr(str);
-}
-
-void ast_set_type(AST a, node_t node_type)
-{
-    a->node_type = node_type;
-}
-
-AST ast_get_child(const_AST a, int num_child)
-{
-    if (ast_has_son(a, num_child))
-    {
-        return a->children[ast_son_num_to_son_index(a, num_child)];
-    }
-    else
-    {
-        return NULL;
-    }
-}
-
-void ast_set_parent(AST a, AST parent)
-{
-    a->parent = parent;
-}
-
-// This function works both for shrinking or widening
-static void ast_reallocate_children(AST a, int num_child, AST new_child)
-{
-    // Reallocate childrens
-    // Save the old children array
-    AST* old_children = a->children;
-    // And the old children bitmap
-    unsigned int old_bitmap = a->bitmap_sons;
-
-    // Enable or disable this new son depending on it being null
-    if (new_child != NULL)
-    {
-        a->bitmap_sons = (a->bitmap_sons | (1 << num_child));
-    }
-    else
-    {
-        a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
-    }
-
-    a->children = counted_xcalloc(sizeof(*a->children), 
-            (count_bitmap(a->bitmap_sons)), 
-            &_bytes_due_to_astmake);
-
-    // Now for every old son, update the new children
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        // Note that when shrinking the node ast_has_son
-        // will always return false for num_child.
-        if (ast_has_son(a, i))
+        int i;
+        if (ast_get_kind(node) != AST_AMBIGUITY)
         {
-            if (i == num_child)
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN && ok; i++)
             {
-                // The new son
-                a->children[ast_son_num_to_son_index(a, i)] = new_child;
+                AST c = ast_get_child(node, i);
+                if (c != NULL)
+                {
+                    if (ast_get_parent(c) != node)
+                    {
+                        AST wrong_parent = ast_get_parent(c);
+                        fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
+                                i, ast_location(node), ast_print_node_type(ast_get_kind(node)), node,
+                                wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
+                                wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_kind(wrong_parent)),
+                                wrong_parent);
+                        ok = 0;
+                    }
+                    else
+                    {
+                        PUSH_BACK(c);
+                    }
+                }
             }
-            else
-            {
-                // Old sons that are updated their position
-                a->children[ast_son_num_to_son_index(a, i)] = 
-                    old_children[bitmap_to_index(old_bitmap, i)];
-            }
-        }
-    }
-
-    // Now xfree the old children (if any)
-    if (old_children != NULL)
-        xfree(old_children);
-
-    // Count this free
-    _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
-}
-
-void ast_set_child_but_parent(AST a, int num_child, AST new_child)
-{
-    if (new_child == NULL)
-    {
-        if (ast_has_son(a, num_child))
-        {
-            // Shrink the node if we have it
-            ast_reallocate_children(a, num_child, new_child);
-        }
-    }
-    else
-    {
-        if (ast_has_son(a, num_child))
-        {
-            a->children[ast_son_num_to_son_index(a, num_child)] = new_child;
         }
         else
         {
-            // This will widen the node
-            ast_reallocate_children(a, num_child, new_child);
-        }
-    }
-}
-
-void ast_set_child(AST a, int num_child, AST new_child)
-{
-    ast_set_child_but_parent(a, num_child, new_child);
-    if (new_child != NULL)
-    {
-        new_child->parent = a;
-    }
-}
-
-int ast_num_children(const_AST a)
-{
-    // We return the maximum
-    int max = 0;
-    int i;
-    unsigned int bitmap = a->bitmap_sons;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if ((1 << i) & bitmap)
-        {
-            max = i + 1;
-        }
-    }
-
-    return max;
-}
-
-/**
-  Checks that double-linked nodes are
- */
-char ast_check(const_AST node)
-{
-    char check = 1;
-    if (node != NULL)
-    {
-        int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-        {
-            if (ast_get_child(node, i) != NULL)
-            {
-                if (ast_get_parent(ast_get_child(node, i)) != node)
-                {
-                    check = 0;
-                    AST wrong_parent = ast_get_parent(ast_get_child(node, i));
-                    fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
-                            i, ast_location(node), ast_print_node_type(ast_get_type(node)), node,
-                            wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
-                            wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_type(wrong_parent)),
-                            wrong_parent);
-                            
-                }
-                else
-                {
-                    check &= ast_check(ast_get_child(node, i));
-                }
-            }
-        }
-
-        if (ast_get_type(node) == AST_AMBIGUITY)
-        {
             for (i = 0; i < node->num_ambig; i++)
             {
-                check &= ast_check(node->ambig[i]);
+                AST c = node->ambig[i];
+                PUSH_BACK(c);
             }
         }
     }
-    return check;
+
+    xfree(stack);
+
+    return ok;
 }
 
 static void ast_copy_one_node(AST dest, AST orig)
@@ -370,364 +133,54 @@ AST ast_duplicate_one_node(AST orig)
     return dest;
 }
 
-static char ast_is_parent_rec(const_AST parent, const_AST current)
-{
-    if (current == NULL)
-        return 0;
-
-    if (parent == current)
-        return 1;
-    else
-    {
-        return ast_is_parent_rec(parent, ASTParent(current));
-    }
-}
-
-static char ast_is_parent(const_AST parent, const_AST a)
-{
-    return ast_is_parent_rec(parent, a);
-}
-
-// This function returns the number of son of current tree, -1 if node does not have parent
-static int ast_get_number_of_son(const_AST a)
-{
-    if (ASTParent(a) == NULL)
-        return -1;
-
-    const_AST parent = ASTParent(a);
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if (ASTChild(parent, i) == a)
-            return i;
-    }
-    internal_error("invalid chaining of trees", 0);
-}
-
-static void ast_fix_one_ast_field_rec(
-        AST new, 
-        const_AST orig, 
-        const char *field_name, 
-        // AST pointed_tree,
-        /* Recursion info */
-        const_AST current,
-        int path_length,
-        int *path)
-{
-
-    if (current == orig)
-    {
-        // Now retrace all the path using 'new' as the source
-        int i;
-        AST iter = new;
-        // Note that since we built the list backwards, we have to traverse it
-        // backwards
-        for (i = path_length - 1; i >= 0; i--)
-        {
-            iter = ASTChild(iter, path[i]);
-            if (iter == NULL)
-                internal_error("unreachable code", 0);
-        }
-
-        // Now update node 'new' with 'iter'
-        // Note that we are not using ast_set_link_to_child since field_name is
-        // already mangled here
-        ast_set_field(new, field_name, iter);
-    }
-    else if (current == NULL)
-    {
-        internal_error("unreachable code", 0);
-    }
-    else
-    {
-        // New path length
-        int new_path_length = path_length + 1;
-
-        // Compute new path (note, path is backwards built)
-        int new_path[new_path_length];
-
-        // !!! We rely on memcpy not doing anything when size copied is 0
-        memcpy(new_path, path, path_length * sizeof(new_path[0]));
-
-        new_path[new_path_length - 1] = ast_get_number_of_son(current);
-
-        // New current node
-        AST new_current = ASTParent(current);
-
-        ast_fix_one_ast_field_rec(
-                new,
-                orig,
-                field_name,
-                // Recursion info
-                new_current,
-                new_path_length,
-                new_path);
-    }
-}
-
-static void ast_fix_one_ast_field(
-        AST new, 
-        const_AST orig, 
-        const char *field_name, 
-        const_AST pointed_tree)
-{
-    ast_fix_one_ast_field_rec(
-            new,
-            orig,
-            field_name,
-            pointed_tree,
-            0,
-            NULL);
-}
-
-// Note that fixing must be performed later
-static void ast_copy_extended_data(AST new, const_AST orig)
-{
-    if (orig->extended_data == NULL)
-    {
-        new->extended_data = NULL;
-        return;
-    }
-
-    extensible_struct_init(&(new->extended_data));
-
-    int num_fields = 0;
-    const char ** keys = NULL;
-    void ** values = NULL;
-
-    extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
-
-    int i;
-    for (i = 0; i < num_fields; i++)
-    {
-        const char *field_name = keys[i];
-        void *data = values[i];
-        ast_set_field(new, field_name, data);
-    }
-
-    xfree(keys);
-    xfree(values);
-}
-
-// Use this to fix extended data pointing to other ASTs
-static void ast_fix_extended_data(AST new, const_AST orig)
-{
-    if (orig->extended_data == NULL)
-        return;
-
-    // First get all TL_AST in 'orig' that point to its childrens
-    int num_fields = 0;
-    const char ** keys = NULL;
-    void ** values = NULL;
-
-    extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
-
-    typedef struct tl_data_index_tag
-    {
-        const char* field_name;
-        AST ast;
-    } tl_data_index_t;
-
-    tl_data_index_t tl_data_index[num_fields];
-    memset(tl_data_index, 0, sizeof(tl_data_index));
-    int num_ast_fields = 0;
-
-    int i;
-    for (i = 0; i < num_fields; i++)
-    {
-        const char* field_name = keys[i];
-        void *data = values[i];
-
-        if (ast_field_name_is_link_to_child(field_name))
-        {
-            AST tree = (AST)data;
-            if (ast_is_parent(/* potential parent */ orig, /* node */ tree))
-            {
-                tl_data_index[num_ast_fields].field_name = field_name;
-                tl_data_index[num_ast_fields].ast = tree;
-                num_ast_fields++;
-            }
-        }
-    }
-
-    // num_ast_fields contains the number of fixable trees
-    for (i = 0; i < num_ast_fields; i++)
-    {
-        ast_fix_one_ast_field(new, orig, tl_data_index[i].field_name, tl_data_index[i].ast);
-    }
-
-    xfree(keys);
-    xfree(values);
-}
-
 AST ast_copy(const_AST a)
 {
     if (a == NULL)
         return NULL;
 
-    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    AST result = xcalloc(1, sizeof(*result));
 
     ast_copy_one_node(result, (AST)a);
 
     int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        ast_set_child(result, i, ast_copy(ast_get_child(a, i)));
-    }
-
-    // Duplicate ambiguous trees too
-    if (a->node_type == AST_AMBIGUITY && 
-            (a->num_ambig > 0))
+    if (a->node_type == AST_AMBIGUITY
+            && a->num_ambig > 0)
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
+        result->ambig = xcalloc(a->num_ambig, sizeof(*(result->ambig)));
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
         }
     }
+    else
+    {
+        result->bitmap_sons = a->bitmap_sons;
+        int num_children = ast_count_bitmap(result->bitmap_sons);
+
+        result->children = xcalloc(num_children, sizeof(*(result->children)));
+
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            AST c = ast_copy(ast_get_child(a, i));
+            if (c != NULL)
+                ast_set_child(result, i, c);
+        }
+    }
 
     if (a->text != NULL)
     {
-        result->text = uniquestr(a->text);
+        result->text = a->text;
     }
 
     result->parent = NULL;
-
-    // Adjust TL_AST extended fields stored in a with the proper son
-    ast_copy_extended_data(result, a);
-    ast_fix_extended_data(result, a);
-
-    return result;
-}
-
-void ast_clear_extended_data(AST a)
-{
-    if (a != NULL)
-    {
-        a->extended_data = NULL;
-        int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-        {
-            ast_clear_extended_data(ast_get_child(a, i));
-        }
-    }
-}
-
-AST ast_copy_clearing_extended_data(const_AST a)
-{
-    AST result = ast_copy(a);
-    ast_clear_extended_data(result);
 
     return result;
 }
 
 AST ast_copy_for_instantiation(const_AST a)
 {
-    if (a == NULL)
-        return NULL;
-
-    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_instantiation);
-
-    ast_copy_one_node(result, (AST)a);
-
-    // Children are special and will be properly copied by ast_set_child
-    result->children = NULL;
-
-    // Clear extended data since we will want to recheck this code
-    result->extended_data = NULL;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        ast_set_child(result, i, ast_copy_for_instantiation(ast_get_child(a, i)));
-    }
-
-    // Duplicate ambiguous trees too
-    if (ASTType(a) == AST_AMBIGUITY && 
-            (a->num_ambig > 0))
-    {
-        result->num_ambig = a->num_ambig;
-        result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_instantiation);
-        for (i = 0; i < a->num_ambig; i++)
-        {
-            result->ambig[i] = ast_copy_for_instantiation(a->ambig[i]);
-        }
-    }
-
-    if (a->text != NULL)
-    {
-        result->text = uniquestr(a->text);
-    }
-
-    result->parent = NULL;
-
-    ast_fix_extended_data(result, a);
-
-    return result;
-}
-
-AST ast_list_leaf(AST a)
-{
-    ERROR_CONDITION(a == NULL, "Invalid tree", 0);
-    AST result = ast_make(AST_NODE_LIST, 2, NULL, a, NULL, NULL, 
-            ast_get_locus(a), ast_get_text(a));
-
-    return result;
-}
-
-AST ast_list(AST list, AST last_elem)
-{
-    ERROR_CONDITION(last_elem == NULL, "Invalid tree", 0);
-    const char* filename = NULL;
-    if (list != NULL)
-    {
-        filename = ast_get_filename(list);
-    }
-    else
-    {
-        filename = ast_get_filename(last_elem);
-    }
-
-    AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            make_locus(filename, ast_get_line(last_elem), 0), ast_get_text(last_elem));
-
-    return a;
-}
-
-AST ast_list_head(AST list)
-{
-    if (list == NULL)
-        return NULL;
-
-    if (ASTType(list) != AST_NODE_LIST)
-        return NULL;
-
-    AST iter;
-    for_each_element(list, iter)
-    {
-        return iter;
-    }
-
-    return NULL;
-}
-
-AST ast_list_concat(AST before, AST after)
-{
-    if (before == NULL)
-        return after;
-    if (after == NULL)
-        return before;
-
-    if (ASTType(before) != AST_NODE_LIST
-            || ASTType(after) != AST_NODE_LIST)
-        return NULL;
-
-    AST head_after = ast_list_head(after);
-
-    ast_set_child(head_after, 0, before);
-    return after;
+    return ast_copy(a);
 }
 
 void ast_list_split_head_tail(AST list, AST *head, AST* tail)
@@ -755,23 +208,6 @@ void ast_list_split_head_tail(AST list, AST *head, AST* tail)
     *head = first;
 }
 
-const char* ast_node_type_name(node_t n)
-{
-    return ast_node_names[n];
-}
-
-int ast_num_of_given_child(const_AST parent, const_AST child)
-{
-    int i;
-    for (i = 0; i < 4; i++)
-    {
-        if (ast_get_child(parent, i) == child)
-            return i;
-    }
-
-    return -1;
-}
-
 char ast_equal_node (const_AST ast1, const_AST ast2)
 {
     if (ast1 == ast2)
@@ -779,7 +215,7 @@ char ast_equal_node (const_AST ast1, const_AST ast2)
     if (!ast1 || !ast2)
         return 0;
 
-    if (ast_get_type(ast1) != ast_get_type(ast2))
+    if (ast_get_kind(ast1) != ast_get_kind(ast2))
         return 0;
     if (ast_num_children(ast1) != ast_num_children(ast2))
         return 0;
@@ -813,256 +249,3 @@ char ast_equal (const_AST ast1, const_AST ast2)
     return 1;
 }
 
-const char* ast_location(const_AST a)
-{
-    return locus_to_str(a->locus);
-}
-
-// Trees are copied
-AST ast_make_ambiguous(AST son0, AST son1)
-{
-    if (ASTType(son0) == AST_AMBIGUITY)
-    {
-        if (ASTType(son1) == AST_AMBIGUITY)
-        {
-            int original_son0 = son0->num_ambig;
-
-            son0->num_ambig += son1->num_ambig;
-            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-
-            int i;
-            for (i = 0; i < son1->num_ambig; i++)
-            {
-                son0->ambig[original_son0 + i] = son1->ambig[i];
-            }
-
-            return son0;
-        }
-        else
-        {
-            son0->num_ambig++;
-            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-            son0->ambig[son0->num_ambig-1] = ast_copy(son1);
-
-            return son0;
-        }
-    }
-    else if (ASTType(son1) == AST_AMBIGUITY)
-    {
-        son1->num_ambig++;
-        son1->ambig = (AST*) xrealloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
-        son1->ambig[son1->num_ambig-1] = ast_copy(son0);
-
-        return son1;
-    }
-    else
-    {
-        AST result = ASTLeaf(AST_AMBIGUITY, make_locus("", 0, 0), NULL);
-
-        result->num_ambig = 2;
-        result->ambig = counted_xcalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
-        result->ambig[0] = ast_copy(son0);
-        result->ambig[1] = ast_copy(son1);
-        result->locus = son0->locus;
-
-        return result;
-    }
-}
-
-int ast_get_num_ambiguities(const_AST a)
-{
-    return a->num_ambig;
-}
-
-AST ast_get_ambiguity(const_AST a, int num)
-{
-    return a->ambig[num];
-}
-
-static void ast_set_ambiguity(AST a, int num, AST child)
-{
-    a->ambig[num] = child;
-}
-
-void ast_replace(AST dest, const_AST src)
-{
-    *dest = *src;
-}
-
-void ast_free(AST a)
-{
-    if (a != NULL)
-    {
-        if (ast_get_type(a) == AST_AMBIGUITY)
-        {
-            int i;
-            for (i = 0; i < ast_get_num_ambiguities(a); i++)
-            {
-                ast_free(ast_get_ambiguity(a, i));
-            }
-        }
-        else
-        {
-            int i;
-            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-            {
-                ast_free(ast_get_child(a, i));
-            }
-        }
-
-        // This will uncover dangling references
-        xfree(a->children);
-        _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
-        memset(a, 0, sizeof(*a));
-        xfree(a);
-
-        _bytes_due_to_astmake -= sizeof(*a);
-    }
-}
-
-void ast_replace_with_ambiguity(AST a, int n)
-{
-    if (n >= ast_get_num_ambiguities(a))
-    {
-        internal_error("There is no such option (%d) in this ambiguous node (options = %d)", n, ast_get_num_ambiguities(a));
-    }
-    else if (n < 0)
-    {
-        internal_error("Invalid node number (%d)", n);
-    }
-
-    AST parent = ASTParent(a);
-    // int num_children = get_children_num(parent, a);
-
-    // if (num_children < 0)
-    // {
-    //  internal_error("Children not found in the parent!\n", 0);
-    // }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (%s) using %p\n", 
-                ast_print_node_type(ASTType(ast_get_ambiguity(a, n))), a, ast_location(ast_get_ambiguity(a, n)), 
-                ast_get_ambiguity(a, n));
-    }
-
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
-    {
-        if (i != n)
-        {
-            ast_free(ast_get_ambiguity(a, i));
-            ast_set_ambiguity(a, i, NULL);
-        }
-    }
-    
-    if (!ASTCheck(a))
-    {
-        internal_error("*** INCONSISTENT TREE DETECTED IN ABOUT TO BE DISAMBIGUATED TREE %p ***\n", a);
-    }
-
-    // This will work, trust me :)
-    ast_replace(a, ast_get_ambiguity(a, n));
-
-    // Correctly relink to the parent
-    ast_set_parent(a, parent);
-
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if (ASTChild(a, i) != NULL)
-        {
-            AST child = ASTChild(a, i);
-
-            ast_set_parent(child, a);
-        }
-    }
-
-    if (!ASTCheck(a))
-    {
-        internal_error("*** INCONSISTENT TREE DETECTED IN DISAMBIGUATED TREE %p ***\n", a);
-    }
-}
-
-const locus_t* ast_get_locus(const_AST a)
-{
-    return a->locus;
-}
-
-void ast_set_locus(AST a, const locus_t* locus)
-{
-    a->locus = locus;
-}
-
-const char *ast_get_filename(const_AST a)
-{
-    return locus_get_filename(a->locus);
-}
-
-int ast_node_size(void)
-{
-    return sizeof(struct AST_tag);
-}
-
-static void ast_init_extensible_struct(AST a)
-{
-    if (a->extended_data == NULL)
-    {
-        extensible_struct_init(&(a->extended_data));
-    }
-}
-
-void ast_set_field(AST a, const char* name, void *data)
-{
-    ast_init_extensible_struct(a);
-    extensible_struct_set_field(a->extended_data, name, data);
-}
-
-void* ast_get_field(AST a, const char* name)
-{
-    if (a->extended_data == NULL)
-        return NULL;
-
-    void *p = extensible_struct_get_field(a->extended_data, name);
-    return p;
-}
-
-extensible_struct_t* ast_get_extensible_struct(AST a)
-{
-    return a->extended_data;
-}
-
-extensible_struct_t* ast_get_initalized_extensible_struct(AST a)
-{
-    ast_init_extensible_struct(a);
-    return a->extended_data;
-}
-
-static const char* ast_fields_prefix = ".ast_";
-
-char ast_field_name_is_link_to_child(const char* name)
-{
-    return (strlen(name) > strlen(ast_fields_prefix))
-        && (strncmp(name, ast_fields_prefix, strlen(ast_fields_prefix)) == 0);
-}
-
-static const char* mangle_name_for_ast_field(const char* name)
-{
-    int num_chars = strlen(name) + strlen(ast_fields_prefix);
-    char mangled_name[num_chars + 1];
-    memset(mangled_name, 0, sizeof(mangled_name));
-    snprintf(mangled_name, num_chars, "%s%s", ast_fields_prefix, name);
-
-    return uniquestr(mangled_name);
-}
-
-// Set a link to a (possibly indirect) child
-void ast_set_link_to_child(AST a, const char* name, AST child)
-{
-    ast_set_field(a, mangle_name_for_ast_field(name), child);
-}
-
-// Get child node
-AST ast_get_link_to_child(AST a, const char* name)
-{
-    return ast_get_field(a, mangle_name_for_ast_field(name));
-}

@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -35,6 +35,7 @@
 #include "tl-devices.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "fortran03-typeutils.h"
 #include "fortran03-scope.h"
@@ -118,8 +119,8 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -144,7 +145,7 @@ static TL::Type rewrite_type_in_outline(TL::Type t, const param_sym_to_arg_sym_t
     }
     else if (t.is_pointer())
     {
-        return (rewrite_type_in_outline(t.points_to(), map)).get_pointer_to();
+        return (rewrite_type_in_outline(t.points_to(), map)).get_pointer_to().get_as_qualified_as(t);
     }
     else if (t.is_array())
     {
@@ -220,8 +221,8 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -241,8 +242,8 @@ static Nodecl::NodeclBase rewrite_expression_in_terms_of_arguments(Nodecl::Nodec
     if (node.is_null())
         return node;
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -322,13 +323,13 @@ static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
             it != deps.end();
             it++)
     {
-//         If the current outline data item has a parameter with an input value
-//         dependence, this parameter must be involved in another clause
-//         because the SHARING_SHARED_WITH_CAPTURE outline data items are not
-//         handled here (this kind of outline data item only has an input value
-//         dependence).
-//         The value of this parameter is needed during the task instantiation
-//         and, for this reason, the input value dependence is not added.
+        // If the current outline data item has a parameter with an input value
+        // dependence, this parameter must be involved in another clause
+        // because the SHARING_SHARED_WITH_CAPTURE outline data items are not
+        // handled here (this kind of outline data item only has an input value
+        // dependence).
+        // The value of this parameter is needed during the task instantiation
+        // and, for this reason, the input value dependence is not added.
         if (it->directionality == OutlineDataItem::DEP_IN_VALUE)
             continue;
 
@@ -398,7 +399,7 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
             const char* vla_name = NULL;
             uniquestr_sprintf(&vla_name, "mcc_vla_%d", get_vla_counter());
 
-            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, vla_name);
+            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, uniquestr(vla_name));
             new_vla_dim->kind = SK_VARIABLE;
             new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
             new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
@@ -408,8 +409,8 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
 
             // It's not user declared code, but we must generate it.
             // For this reason, we do this trick
-            new_vla_dim->entity_specs.is_user_declared = 1;
-            new_vla_dim->entity_specs.is_saved_expression = 1;
+            symbol_entity_specs_set_is_user_declared(new_vla_dim, 1);
+            symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
             stmt_initializations << as_statement(Nodecl::ObjectInit::make(new_vla_dim));
             symbol_map.add_map(old_vla_dim, new_vla_dim);
@@ -440,97 +441,55 @@ namespace InputValueUtils
             TL::Scope new_block_context_sc,
             Nodecl::NodeclBase expr,
             Nodecl::NodeclBase update_expr,
-            OutlineDataItem::TaskwaitOnNode* enclosing_lvalue,
             TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >& toplevel_lvalue_subexpressions,
             TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
     {
         if (expr.is_null())
             return;
 
-        bool traverse_expression = true;
-
         TL::Symbol new_symbol = TL::Symbol::invalid();
         if (expr.get_type().is_lvalue_reference())
         {
-            if (enclosing_lvalue == NULL)
+            // The expression is a top level lvalue
+            // Is it repeated?
+            bool create_new_outline_data_item = true;
+            for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
+                    it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
+                    it++)
             {
-                // The expression is a top level lvalue
-                // Is it repeated?
-                bool create_new_outline_data_item = true;
-                for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-                        it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
-                        it++)
+                create_new_outline_data_item = !Nodecl::Utils::structurally_equal_nodecls(it->first, expr);
+                if (!create_new_outline_data_item)
                 {
-                    create_new_outline_data_item = !Nodecl::Utils::equal_nodecls(it->first, expr);
-                    if (!create_new_outline_data_item)
-                    {
-                        new_symbol = it->second;
-                    }
-                }
-
-                traverse_expression = create_new_outline_data_item;
-
-                if (create_new_outline_data_item)
-                {
-                    Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-                    // Create a new variable
-                    std::stringstream ss;
-                    ss << "mcc_arg_" << (int)arg_counter;
-                    new_symbol = new_block_context_sc.new_symbol(ss.str());
-                    arg_counter++;
-
-                    // FIXME - Wrap this sort of things
-                    new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                    new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
-                    new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-                    outline_register_entities.add_shared_with_capture(new_symbol);
-
-                    OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(expr);
-                    outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
-                    enclosing_lvalue = new_dependence;
-
-                    // Update the set of visited toplevel lvalue subexpressions
-                    toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
+                    new_symbol = it->second;
                 }
             }
-            else
+
+            if (create_new_outline_data_item)
             {
-                bool generate_new_dependence = true;
+                Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
 
-                if (expr.get_type().no_ref().is_array())
-                {
-                    generate_new_dependence = false;
-                }
-                else
-                {
-                    // If the expression is in the nontoplevel_lvalue_subexpressions set then It is repeated!
-                    // We should not create a new TaskwaitOnNode
-                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nontoplevel_lvalue_subexpressions.begin();
-                            it != nontoplevel_lvalue_subexpressions.end() && generate_new_dependence;
-                            it++)
-                    {
-                        generate_new_dependence = !Nodecl::Utils::equal_nodecls(*it, expr);
-                    }
+                // Create a new variable
+                std::stringstream ss;
+                ss << "mcc_arg_" << (int)arg_counter;
+                new_symbol = new_block_context_sc.new_symbol(ss.str());
+                arg_counter++;
 
-                    traverse_expression = generate_new_dependence;
-                }
+                // FIXME - Wrap this sort of things
+                new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
+                symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
+                new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
+                        expr.shallow_copy(),
+                        expr.get_type().no_ref().get_pointer_to(),
+                        expr.get_locus()).get_internal_nodecl();
 
-                if (generate_new_dependence)
-                {
-                    // New dependence for the enclosing lvalue
-                    OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(expr);
-                    enclosing_lvalue->depends_on.append(new_dependence);
-                    enclosing_lvalue = new_dependence;
+                outline_register_entities.add_shared_with_capture(new_symbol);
 
-                    // Update the set of visited nontoplevel lvalue subexpressions
-                    nontoplevel_lvalue_subexpressions.append(expr);
-                }
+                // Update the set of visited toplevel lvalue subexpressions
+                toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
             }
         }
-
-        if (traverse_expression)
+        else
         {
             if (expr.is<Nodecl::List>())
             {
@@ -543,15 +502,14 @@ namespace InputValueUtils
                             new_block_context_sc,
                             l_expr[i],
                             l_update_expr[i],
-                            enclosing_lvalue,
                             toplevel_lvalue_subexpressions,
                             nontoplevel_lvalue_subexpressions);
                 }
             }
             else
             {
-                TL::ObjectList<Nodecl::NodeclBase> expr_children = expr.children();
-                TL::ObjectList<Nodecl::NodeclBase> update_expr_children = update_expr.children();
+                Nodecl::NodeclBase::Children expr_children = expr.children();
+                Nodecl::NodeclBase::Children update_expr_children = update_expr.children();
                 for (unsigned int i = 0; i < expr_children.size(); ++i)
                 {
                     generate_dependences_of_expression(
@@ -559,7 +517,6 @@ namespace InputValueUtils
                             new_block_context_sc,
                             expr_children[i],
                             update_expr_children[i],
-                            enclosing_lvalue,
                             toplevel_lvalue_subexpressions,
                             nontoplevel_lvalue_subexpressions);
                 }
@@ -591,7 +548,6 @@ namespace InputValueUtils
                 new_block_context_sc,
                 expr,
                 update_expr,
-                /* enclosing lvalue */ NULL,
                 toplevel_lvalue_subexpressions,
                 nontoplevel_lvalue_subexpressions);
 
@@ -610,64 +566,6 @@ namespace InputValueUtils
             }
         }
         return update_expr;
-    }
-
-    static bool any_dependence_depends_on_this_input_value_parameter(
-            const TL::ObjectList<OutlineDataItem*>& data_items,
-            const TaskEnvironmentVisitor& task_environment,
-            OutlineDataItem* current_item)
-    {
-        bool depended_by_other_dep = false;
-        TL::Symbol parameter = current_item->get_symbol();
-
-        if (!task_environment.priority.is_null())
-        {
-            TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.priority);
-            if (dep_expr_syms.contains(parameter))
-            {
-                std::cerr
-                    << task_environment.priority.get_locus_str()
-                    << ": warning: the argument of the 'priority' clause depends on an input value dependence, "
-                    << "It's value may be wrong computed"
-                    << std::endl;
-            }
-        }
-
-        if (!task_environment.if_condition.is_null())
-        {
-            TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.if_condition);
-            if (dep_expr_syms.contains(parameter))
-            {
-                std::cerr
-                    << task_environment.if_condition.get_locus_str()
-                    << ": warning: the argument of the 'if' clause depends on an input value dependence, "
-                    << "It's value may be wrong computed"
-                    << std::endl;
-            }
-        }
-
-        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
-                it != data_items.end() && !depended_by_other_dep;
-                it++)
-        {
-            bool is_current_item = current_item == *it;
-
-            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
-            for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
-                    dep_it != deps.end() && !depended_by_other_dep;
-                    dep_it++)
-            {
-
-                if (is_current_item
-                        && dep_it->directionality == OutlineDataItem::DEP_IN_VALUE)
-                    continue;
-
-                TL::DataReference dep_expr(dep_it->expression);
-                TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
-                depended_by_other_dep = dep_expr_syms.contains(parameter);
-            }
-        }
-        return depended_by_other_dep;
     }
 }
 
@@ -735,7 +633,7 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
             // FIXME - Wrap this sort of things
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_symbol.get_internal_symbol()->type_information = arg_copy.get_type().no_ref().get_internal_type();
-            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
             //param_sym_to_arg_sym[parameter] = new_symbol;
             new_symbol.get_internal_symbol()->value = arg_copy.get_internal_nodecl();
 
@@ -757,7 +655,42 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
     return new_expresssions;
 }
 
-static void copy_target_info_from_params_to_args(
+static void update_target_info_fortran(OutlineInfo& outline_info)
+{
+        const OutlineInfo::implementation_table_t& implementation_table = outline_info.get_implementation_table();
+        for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
+                it != implementation_table.end();
+                ++it)
+        {
+            TL::Symbol implementor = it->first;
+            TL::Nanox::TargetInformation target_info = it->second;
+            Nodecl::Utils::SimpleSymbolMap& param_to_arg = target_info.get_param_arg_map();
+
+            TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args;
+            TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = ndrange_args.begin();
+                    it2 != ndrange_args.end();
+                    it2++)
+            {
+                Nodecl::NodeclBase arg = Nodecl::Utils::deep_copy(*it2, *it2, param_to_arg);
+                new_ndrange_args.append(arg);
+            }
+
+            TL::ObjectList<Nodecl::NodeclBase> new_shmem_args;
+            TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = shmem_args.begin();
+                    it2 != shmem_args.end();
+                    it2++)
+            {
+                new_shmem_args.append(Nodecl::Utils::deep_copy(*it2, *it2, param_to_arg));
+            }
+
+            outline_info.set_ndrange(implementor, new_ndrange_args);
+            outline_info.set_shmem(implementor, new_shmem_args);
+        }
+}
+
+static void copy_target_info_from_params_to_args_c(
         const OutlineInfo::implementation_table_t& implementation_table,
         const sym_to_argument_expr_t& param_to_arg_expr,
         OutlineInfo& arguments_outline_info,
@@ -770,12 +703,30 @@ static void copy_target_info_from_params_to_args(
             it != implementation_table.end();
             ++it)
     {
+        TL::Symbol implementor = it->first;
         TL::Nanox::TargetInformation target_info = it->second;
+
+        // Create a new param_to_arg_expr map for every implementation
+        TL::ObjectList<TL::Symbol> impl_parameters = implementor.get_function_parameters();
+        sym_to_argument_expr_t impl_param_to_arg_expr;
+        for (sym_to_argument_expr_t::const_iterator it2 = param_to_arg_expr.begin();
+                it2 != param_to_arg_expr.end();
+                ++it2)
+        {
+            TL::Symbol current_param = it2->first;
+            Nodecl::NodeclBase current_argum = it2->second;
+
+            ERROR_CONDITION(!current_param.is_parameter(), "Unreachable code", 0);
+
+            int param_pos = current_param.get_parameter_position();
+            TL::Symbol impl_current_param = impl_parameters[param_pos];
+            impl_param_to_arg_expr[impl_current_param] = current_argum;
+        }
 
         ObjectList<Nodecl::NodeclBase> new_ndrange_args =
             capture_the_values_of_these_expressions(
                     target_info.get_ndrange(),
-                    param_to_arg_expr,
+                    impl_param_to_arg_expr,
                     "ndrange",
                     arguments_outline_info,
                     outline_register_entities,
@@ -785,7 +736,7 @@ static void copy_target_info_from_params_to_args(
         ObjectList<Nodecl::NodeclBase> new_shmem_args =
             capture_the_values_of_these_expressions(
                     target_info.get_shmem(),
-                    param_to_arg_expr,
+                    impl_param_to_arg_expr,
                     "shmem",
                     arguments_outline_info,
                     outline_register_entities,
@@ -797,11 +748,59 @@ static void copy_target_info_from_params_to_args(
                 it2 != devices.end();
                 ++it2)
         {
-            arguments_outline_info.add_implementation(*it2, it->first);
-            arguments_outline_info.append_to_ndrange(it->first, new_ndrange_args);
-            arguments_outline_info.append_to_shmem(it->first, new_shmem_args);
-            arguments_outline_info.append_to_onto(it->first, target_info.get_onto());
-            arguments_outline_info.set_file(it->first, target_info.get_file());
+            std::string device_name = *it2;
+            arguments_outline_info.add_implementation(implementor, device_name);
+            arguments_outline_info.set_ndrange(implementor, new_ndrange_args);
+            arguments_outline_info.set_shmem(implementor, new_shmem_args);
+            arguments_outline_info.set_onto(implementor, target_info.get_onto());
+            arguments_outline_info.set_file(implementor, target_info.get_file());
+        }
+    }
+}
+
+static void create_new_param_to_args_map_for_every_implementation(
+        OutlineInfo& outline_info,
+        TL::Symbol called_symbol,
+        Nodecl::Utils::SimpleSymbolMap& param_to_args_map)
+{
+    // For every existant implementation we should create a new map and store
+    // it in the target information associated to this implementation. This
+    // information will be used in the device code, for translate some clauses
+    // (e. g.  ndrange clause)
+
+    OutlineInfo::implementation_table_t
+        args_implementation_table = outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it)
+    {
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_symbol)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+            }
+            outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            outline_info.set_param_arg_map(param_to_args_map, current_implementor);
         }
     }
 }
@@ -816,19 +815,27 @@ void LoweringVisitor::visit_task_call_c(
 
     TL::Symbol called_sym = function_call.get_called().get_symbol();
 
-    std::cerr << construct.get_locus_str() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
-
-    // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
 
-    OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
+    Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+        = parameters_environment.as<Nodecl::List>()
+        .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+    ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
+    std::cerr << construct.get_locus_str()
+        << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
+    std::cerr << function_parsing_context.get_locus_str()
+        << ": note: task function declared here"
+        << std::endl;
+
+    // Get parameters outline info
+    OutlineInfo parameters_outline_info(*_lowering, parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
-    OutlineInfo arguments_outline_info;
-
+    OutlineInfo arguments_outline_info(*_lowering);
 
     Scope sc = construct.retrieve_context();
     Scope new_block_context_sc = new_block_context(sc.get_decl_context());
@@ -842,8 +849,6 @@ void LoweringVisitor::visit_task_call_c(
     param_sym_to_arg_sym_t param_sym_to_arg_sym;
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
-
-
 
     // Make sure we allocate the argument size
     TL::ObjectList<Nodecl::NodeclBase> new_arguments(arguments.size());
@@ -860,7 +865,10 @@ void LoweringVisitor::visit_task_call_c(
             && called_sym.is_member())
     {
         Nodecl::NodeclBase class_object = *(arguments.begin());
-        TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
+
+        TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
+
+        TL::Symbol this_symbol = parse_scope.get_symbol_this();
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
         seen_parameters.insert(this_symbol);
@@ -873,7 +881,7 @@ void LoweringVisitor::visit_task_call_c(
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
-        new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
         sym_ref.set_type(this_symbol.get_type());
@@ -920,7 +928,7 @@ void LoweringVisitor::visit_task_call_c(
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                lift_pointer<OutlineDataItem>(outline_data_item_get_parameter_position),
                 parameter.get_parameter_position_in(called_sym));
 
         ERROR_CONDITION(found.empty(), "%s: error: cannot find parameter '%s' in OutlineInfo",
@@ -936,28 +944,7 @@ void LoweringVisitor::visit_task_call_c(
 
         seen_parameters.insert(parameter);
 
-        bool depended_by_other_dep = false;
-        bool has_input_value_dep = current_item->has_an_input_value_dependence();
-        if (has_input_value_dep)
-        {
-            // The current parameter has an input value dependence. If this
-            // parameter appears in an other clause we need Its value
-            // during the creation of the task because It will be used to
-            // calculate this other dependence.
-            //
-            // Example:
-            //
-            //      #pragma omp task in(n) inout([n] v)
-            //      void foo(int n, int* v) { ... }
-            //
-            // We need the value of 'n' to calculate the inout dependence over the array 'v'.
-            depended_by_other_dep =
-                InputValueUtils::any_dependence_depends_on_this_input_value_parameter(data_items,
-                        task_environment, current_item);
-        }
-
-        if (has_input_value_dep
-                && !depended_by_other_dep)
+        if (current_item->has_an_input_value_dependence())
         {
             Nodecl::NodeclBase new_updated_argument = InputValueUtils::handle_input_value_dependence(
                     outline_register_entities,
@@ -983,7 +970,7 @@ void LoweringVisitor::visit_task_call_c(
             // FIXME - Wrap this sort of things
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_symbol.get_internal_symbol()->type_information = parameter.get_type().get_internal_type();
-            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
             param_sym_to_arg_sym[parameter] = new_symbol;
 
             if (new_symbol.get_type().depends_on_nonconstant_values())
@@ -1041,37 +1028,11 @@ void LoweringVisitor::visit_task_call_c(
             {
                 outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
             }
-
-            if (depended_by_other_dep)
-            {
-                // The current parameter has an input value dependence and It appears in another clause
-
-                //This code is a bit tricky
-                Nodecl::NodeclBase dummy_expr = Nodecl::Utils::deep_copy(argument, new_block_context_sc);
-                TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
-                TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
-
-                OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(argument);
-                outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
-
-                InputValueUtils::generate_dependences_of_expression(outline_register_entities,
-                        new_block_context_sc,
-                        argument,
-                        dummy_expr,
-                        /* enclosing lvalue */ new_dependence,
-                        toplevel_lvalue_subexpressions,
-                        nontoplevel_lvalue_subexpressions);
-
-                // The new_symbol variable cannot be initialized at this point
-                // because It may have input value dependences!
-                new_symbol.get_internal_symbol()->value = nodecl_null();
-            }
-
             param_to_args_map.add_map(parameter, new_symbol);
         }
     }
 
-    copy_target_info_from_params_to_args(
+    copy_target_info_from_params_to_args_c(
             parameters_outline_info.get_implementation_table(),
             param_to_arg_expr,
             arguments_outline_info,
@@ -1079,43 +1040,10 @@ void LoweringVisitor::visit_task_call_c(
             new_block_context_sc,
             initializations_src);
 
-    // For every existant implementation we should create a new map and store it in their target information
-    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
-    OutlineInfo::implementation_table_t args_implementation_table =
-        arguments_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
-            it != args_implementation_table.end();
-            ++it)
-    {
-        TL::Symbol current_implementor = it->first;
-        if (current_implementor != called_sym)
-        {
-            // We need to create a new map
-            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
-            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
-
-            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
-            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
-                    it2 != simple_symbol_map->end();
-                    ++it2)
-            {
-                TL::Symbol param = it2->first;
-                TL::Symbol argum = it2->second;
-
-                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
-
-                int param_pos = param.get_parameter_position();
-                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
-            }
-            arguments_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
-        }
-        else
-        {
-            // We don't need to create a new map! We should use the
-            // 'param_to_args_map' map created in the previous loop
-            arguments_outline_info.set_param_arg_map(param_to_args_map, current_implementor);
-        }
-    }
+    create_new_param_to_args_map_for_every_implementation(
+            arguments_outline_info,
+            called_sym,
+            param_to_args_map);
 
     // Register extra variables that might not be parameters of the function
     // task but are in context
@@ -1134,6 +1062,7 @@ void LoweringVisitor::visit_task_call_c(
         outline_register_entities.add_copy_of_outline_data_item(**it);
     }
 
+    outline_register_entities.purge_saved_expressions();
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
@@ -1185,31 +1114,13 @@ void LoweringVisitor::visit_task_call_c(
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(new_arguments);
 
-    Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
-    Nodecl::NodeclBase function_form = nodecl_null();
-    Symbol called_symbol = called.get_symbol();
-
-    if (IS_CXX_LANGUAGE
-            && !called_symbol.is_valid()
-            && called_symbol.get_type().is_template_specialized_type())
-    {
-        // FIXME - Could this ever happen?
-        function_form =
-            Nodecl::CxxFunctionFormTemplateId::make(
-                    function_call.get_locus());
-
-        TemplateParameters template_args =
-            called.get_template_parameters();
-        function_form.set_template_parameters(template_args);
-    }
-
     Nodecl::NodeclBase expr_statement =
         Nodecl::ExpressionStatement::make(
                 Nodecl::FunctionCall::make(
-                    called,
+                    function_call.get_called().shallow_copy(),
                     nodecl_arg_list,
                     function_call.get_alternate_name().shallow_copy(),
-                    function_form,
+                    function_call.get_function_form().shallow_copy(),
                     Type::get_void_type(),
                     function_call.get_locus()),
                 function_call.get_locus());
@@ -1227,10 +1138,13 @@ void LoweringVisitor::visit_task_call_c(
             && arguments_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase expr_direct_call_to_function =
-            Nodecl::ExpressionStatement::make(
-                    function_call.shallow_copy(),
-                    function_call.get_locus());
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+         Nodecl::NodeclBase expr_direct_call_to_function =
+             Nodecl::ExpressionStatement::make(
+                     it->second,
+                     it->second.get_locus());
 
         TL::Source code;
         code
@@ -1295,7 +1209,7 @@ void LoweringVisitor::visit_task_call_c(
     emit_async_common(
             new_construct,
             function_symbol,
-            called_symbol,
+            called_sym,
             statements,
             updated_priority,
             updated_if_condition,
@@ -1360,7 +1274,7 @@ static void handle_save_expressions(decl_context_t function_context,
                 new_save_expression->kind = SK_VARIABLE;
                 new_save_expression->type_information = orig_save_expression->type_information;
 
-                new_save_expression->entity_specs.is_saved_expression = 1;
+                symbol_entity_specs_set_is_saved_expression(new_save_expression, 1);
 
                 new_save_expression->value = nodecl_deep_copy(orig_save_expression->value,
                         function_context,
@@ -1377,6 +1291,7 @@ static void handle_save_expressions(decl_context_t function_context,
 }
 
 static TL::Symbol new_function_symbol_adapter(
+        Nodecl::NodeclBase construct,
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
@@ -1406,11 +1321,18 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
+        new_parameter_symbol->locus = construct.get_locus();
+
+        // Do not forget the ALLOCATABLE attributes
+        symbol_entity_specs_set_is_allocatable(new_parameter_symbol,
+                symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
+
         parameters_of_new_function.append(new_parameter_symbol);
+
         symbol_map.add_map(*it, new_parameter_symbol);
     }
 
-    // Free symbols
+    // Free variables
     for (TL::ObjectList<TL::Symbol>::const_iterator it = free_vars.begin();
             it != free_vars.end();
             it++)
@@ -1444,7 +1366,7 @@ static TL::Symbol new_function_symbol_adapter(
 
     // Now everything is set to register the function
     scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
-    new_function_sym->entity_specs.is_user_declared = 1;
+    symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
     new_function_sym->kind = SK_FUNCTION;
     new_function_sym->locus = make_locus("", 0, 0);
@@ -1463,11 +1385,11 @@ static TL::Symbol new_function_symbol_adapter(
     {
         scope_entry_t* param = it->get_internal_symbol();
 
-        symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+        symbol_set_as_parameter_of_function(param, new_function_sym,
+                /* nesting */ 0,
+                /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
 
-        P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
-                new_function_sym->entity_specs.num_related_symbols,
-                param);
+        symbol_entity_specs_add_related_symbols(new_function_sym, param);
 
         it_ptypes->is_ellipsis = 0;
         it_ptypes->nonadjusted_type_info = NULL;
@@ -1476,8 +1398,8 @@ static TL::Symbol new_function_symbol_adapter(
 
     type_t *function_type = get_new_function_type(
             get_void_type(),
-            p_types,
-            parameters_of_new_function.size());
+            p_types, parameters_of_new_function.size(),
+            REF_QUALIFIER_NONE);
 
     new_function_sym->type_information = function_type;
 
@@ -1497,16 +1419,16 @@ static TL::Symbol new_function_symbol_adapter(
     Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
     insert_used_symbols.walk(current_function.get_function_code());
 
-    // If the current function is a module, make this new function a sibling of it
+    // If the current function is in a module, make this new function a sibling of it
     if (current_function.is_in_module()
             && current_function.is_module_procedure())
     {
-        new_function_sym->entity_specs.in_module = current_function.in_module().get_internal_symbol();
-        new_function_sym->entity_specs.access = AS_PRIVATE;
-        new_function_sym->entity_specs.is_module_procedure = 1;
+        symbol_entity_specs_set_in_module(new_function_sym, current_function.in_module().get_internal_symbol());
+        symbol_entity_specs_set_access(new_function_sym, AS_PRIVATE);
+        symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
 
-        P_LIST_ADD(new_function_sym->entity_specs.in_module->entity_specs.related_symbols,
-                new_function_sym->entity_specs.in_module->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(
+                symbol_entity_specs_get_in_module(new_function_sym),
                 new_function_sym);
     }
 
@@ -1516,6 +1438,7 @@ static TL::Symbol new_function_symbol_adapter(
 }
 
 Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
+        const Nodecl::OpenMP::TaskCall& construct,
         TL::Symbol adapter_function,
         TL::Symbol called_function,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -1623,13 +1546,25 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
+    OutlineInfo dummy_outline_info(*_lowering, new_environment, called_function, _function_task_set);
 
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024)
             && dummy_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+        // We must update the arguments of the final expression because
+        // it's not expressed in terms of the adapter function
+        it->second.as<Nodecl::FunctionCall>().set_arguments(argument_seq.shallow_copy());
+
+         Nodecl::NodeclBase expr_direct_call_to_function =
+             Nodecl::ExpressionStatement::make(
+                     it->second,
+                     it->second.get_locus());
+
         TL::Source code;
         code
             << "{"
@@ -1638,7 +1573,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(call_to_original.shallow_copy())
+            <<          as_statement(expr_direct_call_to_function)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -1679,7 +1614,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
                 /* initializers */ Nodecl::NodeclBase::null(),
                 adapter_function);
 
-    adapter_function.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
+    symbol_entity_specs_set_function_code(adapter_function.get_internal_symbol(), function_code.get_internal_nodecl());
 
     return function_code;
 }
@@ -1728,8 +1663,18 @@ void LoweringVisitor::visit_task_call_fortran(
         return;
     }
 
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
+
+    Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+        = parameters_environment.as<Nodecl::List>()
+        .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+    ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
     std::cerr << construct.get_locus_str()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
+    std::cerr << function_parsing_context.get_locus_str()
+        << ": note: task function declared here"
+        << std::endl;
 
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
@@ -1747,6 +1692,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
+            construct,
             current_function,
             called_task_function,
             ss.str(),
@@ -1754,17 +1700,11 @@ void LoweringVisitor::visit_task_call_fortran(
             *symbol_map,
             save_expressions);
 
-    if (called_task_function.is_from_module())
-    {
-        // If the symbol comes from a module, the environment
-        // will use the original symbol of the module
-        symbol_map->add_map(called_task_function.get_alias_to(), adapter_function);
-    }
-
     // Get parameters outline info
-    Nodecl::NodeclBase parameters_environment = construct.get_environment();
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
-    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
+    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(
+            construct,
+            adapter_function,
             called_task_function,
             symbol_map,
             function_call,
@@ -1782,7 +1722,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
+    OutlineInfo new_outline_info(*_lowering, new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
@@ -1794,12 +1734,11 @@ void LoweringVisitor::visit_task_call_fortran(
             it != parameters.end();
             ++it)
     {
-
         TL::Symbol parameter = *it;
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                lift_pointer<OutlineDataItem>(outline_data_item_get_parameter_position),
                 parameter.get_parameter_position_in(called_task_function));
 
         if (found.empty())
@@ -1813,43 +1752,12 @@ void LoweringVisitor::visit_task_call_fortran(
         params_to_data_items_map.add_map(parameter, outline_data_item_sym);
     }
 
-    // For every existant implementation we should create a new map and store it in their target information
-    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
-    OutlineInfo::implementation_table_t args_implementation_table =
-        new_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
-            it != args_implementation_table.end();
-            ++it)
-    {
-        TL::Symbol current_implementor = it->first;
-        if (current_implementor != called_task_function)
-        {
-            // We need to create a new map
-            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
-            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+    create_new_param_to_args_map_for_every_implementation(
+            new_outline_info,
+            called_task_function,
+            params_to_data_items_map);
 
-            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = params_to_data_items_map.get_simple_symbol_map();
-            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
-                    it2 != simple_symbol_map->end();
-                    ++it2)
-            {
-                TL::Symbol param = it2->first;
-                TL::Symbol argum = it2->second;
-
-                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
-
-                int param_pos = param.get_parameter_position();
-                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
-            }
-            new_outline_info.set_param_arg_map(*implementor_params_to_args_map, current_implementor);
-        }
-        else
-        {
-            // We don't need to create a new map! We should use the
-            // 'param_to_args_map' map created in the previous loop
-            new_outline_info.set_param_arg_map(params_to_data_items_map, current_implementor);
-        }
-    }
+    update_target_info_fortran(new_outline_info);
 
     emit_async_common(
             new_task_construct,

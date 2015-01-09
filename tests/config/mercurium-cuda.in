@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-if [ -z "@NANOX_INCLUDES@" -o "@gpu_valid@" = no ];
+if [ -z "@NANOX_INCLUDES@" -o "@cuda_valid@" = no ];
 then
 
 cat <<EOF

@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+# We cannot detect AVX2 at the moment
+cat <<EOF
+test_ignore=yes
+EOF
+exit
+
+if [ "@MIC_COMPILATION@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
+fi
+
+if [ -n "@ICC@" -a -n "@NANOX_INCLUDES@" ];
+then
+cat <<EOF
+
+IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} nanox_imcc"
+test_CC_nanox_imcc="\${IMCC}"
+
+if [ "$1" = "svml" ];
+then
+test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose  --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+else
+test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+fi
+
+test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib"
+EOF
+
+
+if [ "@MIC_TESTING@" != "no" ];
+then
+
+cat <<EOF
+runner="runner_sde"
+
+exec_versions="1thread"
+
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+EOF
+
+fi
+
+fi
+
+
+if [ ! -z "@ICC@" -a ! -z "@INTEL_OMP_LIB@" ];
+then
+cat <<EOF
+
+INTEL_RTL="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=intel-mcc --config-dir=@abs_top_builddir@/config --verbose"
+compile_versions="\${compile_versions} intel_rtl"
+test_CC_intel_rtl="\${INTEL_RTL}"
+
+if [ "$1" = "svml" ];
+then
+test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose  --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL}"
+else
+test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL}"
+fi
+
+test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"
+EOF
+
+if [ "@MIC_TESTING@" != "no" -a ! -z "@INTEL_OMP_LIB@" ];
+then
+
+cat <<EOF
+runner="runner_sde"
+
+exec_versions="1thread"
+
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+EOF
+
+fi
+
+fi

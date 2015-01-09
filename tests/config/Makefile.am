@@ -32,3 +32,4 @@ CLEANFILES+=libraries-libtool.cache
 BUILT_SOURCES=bets
 
 CLEANFILES+=bets
+

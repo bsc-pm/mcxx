@@ -33,24 +33,4 @@
 #include "tl-common.hpp"
 #include "tl-functor.hpp"
 
-namespace TL
-{
-    //! \addtogroup Functors
-    //! @{
-
-    //! Base class for Predicates
-    /*!
-     * A predicate is a functor returning bool given a value of type T
-     */
-    template <class T>
-    class Predicate : public Functor<bool, T>
-    {
-        public:
-            Predicate() { }
-            ~Predicate() { }
-    };
-    
-    //! @}
-}
-
 #endif

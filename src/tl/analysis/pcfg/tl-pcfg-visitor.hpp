@@ -30,7 +30,6 @@
 #include <stack>
 
 #include "tl-extensible-graph.hpp"
-#include "tl-nodecl-visitor.hpp"
 #include "tl-node.hpp"
 #include "tl-pcfg-utils.hpp"
 
@@ -41,11 +40,12 @@ namespace Analysis {
     class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
     {
     private:
+        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
 
-        PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
-
+        std::map<Symbol, Nodecl::NodeclBase> _asserted_funcs;  /*!< Map relating function symbols with 
+                                                                    its related pragma analysis_check assert directive, if exists */
 
         //! This method creates a list with the nodes in an specific subgraph
         /*!
@@ -88,7 +88,7 @@ namespace Analysis {
         // ********************************** Visiting methods ********************************** //
 
         //! This method implements teh visitor for any kind of barrier: BarrierAtEnd, BarrierFull
-        Ret visit_barrier( );
+        Ret visit_barrier( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for binary nodecls
         /*!
@@ -112,7 +112,7 @@ namespace Analysis {
          * \param n Nodecl containing the Case or the Default Statement
          * \return The graph node created while the Statement has been parsed
          */
-        Ret visit_case_or_default( const Nodecl::NodeclBase& case_stmt, const Nodecl::NodeclBase& case_val );
+        Ret visit_case_or_default( const Nodecl::NodeclBase& case_stmt, const Nodecl::List& case_val );
 
         //! This method implements the visitor for a ConditionalExpression and a VectorConditionalExpression
         /*!
@@ -134,7 +134,7 @@ namespace Analysis {
         /*!
          * The nodes wrapped in this visitor method are:
          *   BooleanLiteral, ComplexLiteral, EmptyStatement, FloatingLiteral,
-         *   IntegerLiteral, StringLiteral, Symbol, Type
+         *   IntegerLiteral, StringLiteral, MaskLiteral, Symbol, Type
          * \param n The nodecl
          */
         Ret visit_literal_node( const Nodecl::NodeclBase& n );
@@ -144,9 +144,6 @@ namespace Analysis {
 
         //! This method implements the visitor for taskwait on dependences
         Ret visit_taskwait_on( const Nodecl::OpenMP::WaitOnDependences& n );
-
-        //! This method implements the visitor for taskwait on dependences
-        Ret visit_taskwait( const Nodecl::OpenMP::WaitOnDependences& n );
 
         //! This method implements the visitor for unary nodecls
         /*!
@@ -163,7 +160,7 @@ namespace Analysis {
                 const Nodecl::NodeclBase& cond,
                 const Nodecl::NodeclBase& next );
         
-        //! This method implements the visitor for VectorFunctionCall and MaskedVectorFunctionCall
+        //! This method implements the visitor for VectorFunctionCall 
         template <typename T>
         ObjectList<Node*> visit_vector_function_call( const T& n );
         
@@ -173,7 +170,7 @@ namespace Analysis {
         
         //! This method implements the visitor for vector memory accesses 
         /*!
-         * The nodes wrapped in this visitor method are: VectorGather and MaskedVectorGather
+         * The nodes wrapped in this visitor method are: VectorGather
          * \param n nodecl
          * \param mem_access_type Char indicating the type of access: 
          *                        '1' => load, '2' => gather, 
@@ -210,8 +207,11 @@ namespace Analysis {
 
         /*!Generates one PCFG per each function of an AST
          * \param n AST containing the code used to generate the PCFG
+         * \param asserted_funcs Map containing the relation between functions and assert pragmas
+         *                       This parameter is used when calling this function from the Singleton interface
          */
-        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
+        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n, 
+                const std::map<Symbol, Nodecl::NodeclBase>& asserted_funcs = (std::map<Symbol, Nodecl::NodeclBase>( )) );
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 
@@ -242,16 +242,27 @@ namespace Analysis {
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::Alignof& n );
         Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::AutoScope::Firstprivate& n );
+        Ret visit( const Nodecl::Analysis::AutoScope::Private& n );
+        Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
+        Ret visit( const Nodecl::Analysis::Correctness::AutoStorage& n );
+        Ret visit( const Nodecl::Analysis::Correctness::Dead& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentFp& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentIn& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentInPointed& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOut& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOutPointed& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentP& n );
+        Ret visit( const Nodecl::Analysis::Correctness::Race& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );
-        Ret visit( const Nodecl::Analysis::InductionVarExpr& n );
         Ret visit( const Nodecl::Analysis::InductionVariable& n );
         Ret visit( const Nodecl::Analysis::LiveIn& n );
         Ret visit( const Nodecl::Analysis::LiveOut& n );
-        Ret visit( const Nodecl::Analysis::ReachDefExpr& n );
         Ret visit( const Nodecl::Analysis::ReachingDefinitionIn& n );
         Ret visit( const Nodecl::Analysis::ReachingDefinitionOut& n );
         Ret visit( const Nodecl::Analysis::UpperExposed& n );
+        Ret visit( const Nodecl::Analysis::Undefined& n );
         Ret visit( const Nodecl::ArithmeticShr& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );
@@ -308,6 +319,7 @@ namespace Analysis {
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
         Ret visit( const Nodecl::IfElseStatement& n );
+        Ret visit( const Nodecl::IndexDesignator& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
         Ret visit( const Nodecl::LabeledStatement& n );
         Ret visit( const Nodecl::LogicalAnd& n );
@@ -317,26 +329,7 @@ namespace Analysis {
         Ret visit( const Nodecl::RangeLoopControl& n );
         Ret visit( const Nodecl::LowerOrEqualThan& n );
         Ret visit( const Nodecl::LowerThan& n );
-        Ret visit( const Nodecl::MaskedVectorAdd& n );
-        Ret visit( const Nodecl::MaskedVectorAssignment& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseAnd& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseNot& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseOr& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseXor& n );
-        Ret visit( const Nodecl::MaskedVectorConversion& n );
-        Ret visit( const Nodecl::MaskedVectorDiv& n );
-        Ret visit( const Nodecl::MaskedVectorFabs& n );
-        Ret visit( const Nodecl::MaskedVectorFunctionCall& n );
-        Ret visit( const Nodecl::MaskedVectorGather& n );
-        Ret visit( const Nodecl::MaskedVectorLoad& n );
-        Ret visit( const Nodecl::MaskedVectorMinus& n );
-        Ret visit( const Nodecl::MaskedVectorMul& n );
-        Ret visit( const Nodecl::MaskedVectorNeg& n );
-        Ret visit( const Nodecl::MaskedVectorReductionAdd& n );
-        Ret visit( const Nodecl::MaskedVectorReductionMinus& n );
-        Ret visit( const Nodecl::MaskedVectorReductionMul& n );
-        Ret visit( const Nodecl::MaskedVectorScatter& n );
-        Ret visit( const Nodecl::MaskedVectorStore& n );
+        Ret visit( const Nodecl::MaskLiteral& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::Mod& n );
@@ -348,13 +341,17 @@ namespace Analysis {
         Ret visit( const Nodecl::ObjectInit& n );
         Ret visit( const Nodecl::Offset& n );
         Ret visit( const Nodecl::Offsetof& n );
+        Ret visit( const Nodecl::OpenMP::Aligned& n );
         Ret visit( const Nodecl::OpenMP::Atomic& n );
         Ret visit( const Nodecl::OpenMP::Auto& n );
         Ret visit( const Nodecl::OpenMP::BarrierAtEnd& n );
         Ret visit( const Nodecl::OpenMP::BarrierFull& n );
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
+        Ret visit( const Nodecl::OpenMP::Overlap& n );
         Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
+        Ret visit( const Nodecl::OpenMP::Commutative& n );
+        Ret visit( const Nodecl::OpenMP::Concurrent& n );
         Ret visit( const Nodecl::OpenMP::CopyIn& n );
         Ret visit( const Nodecl::OpenMP::CopyInout& n );
         Ret visit( const Nodecl::OpenMP::CopyOut& n );
@@ -364,18 +361,22 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::DepInValue& n );
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
-        Ret visit( const Nodecl::OpenMP::Commutative& n );
-        Ret visit( const Nodecl::OpenMP::Concurrent& n );
+        Ret visit( const Nodecl::OpenMP::Final& n );
         Ret visit( const Nodecl::OpenMP::Firstprivate& n );
-        Ret visit( const Nodecl::OpenMP::Lastprivate& n );
         Ret visit( const Nodecl::OpenMP::FirstLastprivate& n );
         Ret visit( const Nodecl::OpenMP::FlushAtEntry& n );
         Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
+        Ret visit( const Nodecl::OpenMP::ForAppendix& n );
+        Ret visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n );
         Ret visit( const Nodecl::OpenMP::If& n );
-        Ret visit( const Nodecl::OpenMP::Final& n );
+        Ret visit( const Nodecl::OpenMP::Lastprivate& n );
+        Ret visit( const Nodecl::OpenMP::Linear& n );
+        Ret visit( const Nodecl::OpenMP::Mask& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
+        Ret visit( const Nodecl::OpenMP::NoMask& n );
+        Ret visit( const Nodecl::OpenMP::Nontemporal& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
@@ -386,32 +387,37 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Section& n );
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
+        Ret visit( const Nodecl::OpenMP::SharedAndAlloca& n );
         Ret visit( const Nodecl::OpenMP::Simd& n );
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
+        Ret visit( const Nodecl::OpenMP::SimdParallel& n );
+        Ret visit( const Nodecl::OpenMP::SimdReduction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
-        Ret visit( const Nodecl::OpenMP::Workshare& n );
+        Ret visit( const Nodecl::OpenMP::Suitable& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
         Ret visit( const Nodecl::OpenMP::TaskCall& n );
         Ret visit( const Nodecl::OpenMP::TaskExpression& n );
+        Ret visit( const Nodecl::OpenMP::TaskLabel& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
+        Ret visit( const Nodecl::OpenMP::Uniform& n );
+        Ret visit( const Nodecl::OpenMP::Unroll& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
-        Ret visit( const Nodecl::OpenMP::VectorDevice& n );
         Ret visit( const Nodecl::OpenMP::VectorLengthFor& n );
-        Ret visit( const Nodecl::OpenMP::VectorMask& n );
-        Ret visit( const Nodecl::OpenMP::VectorNoMask& n );
-        Ret visit( const Nodecl::OpenMP::VectorSuitable& n );
         Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
-        Ret visit( const Nodecl::PragmaCustomStatement& n );
+        Ret visit( const Nodecl::PragmaContext& n );
+//         Ret visit( const Nodecl::PragmaCustomClause& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );
+        Ret visit( const Nodecl::PragmaCustomStatement& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
@@ -430,16 +436,17 @@ namespace Analysis {
         Ret visit( const Nodecl::TryBlock& n );
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );
-        Ret visit( const Nodecl::UnalignedMaskedVectorLoad& n );
-        Ret visit( const Nodecl::UnalignedMaskedVectorStore& n );
-        Ret visit( const Nodecl::UnalignedVectorLoad& n );
-        Ret visit( const Nodecl::UnalignedVectorStore& n );
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
+        Ret visit( const Nodecl::VectorAlignRight& n );
         Ret visit( const Nodecl::VectorAssignment& n );
         Ret visit( const Nodecl::VectorBitwiseAnd& n );
         Ret visit( const Nodecl::VectorBitwiseNot& n );
         Ret visit( const Nodecl::VectorBitwiseOr& n );
+        Ret visit( const Nodecl::VectorBitwiseShl& n );
+        Ret visit( const Nodecl::VectorBitwiseShlI& n );
+        Ret visit( const Nodecl::VectorBitwiseShr& n );
+        Ret visit( const Nodecl::VectorBitwiseShrI& n );
         Ret visit( const Nodecl::VectorBitwiseXor& n );
         Ret visit( const Nodecl::VectorConditionalExpression& n );
         Ret visit( const Nodecl::VectorConversion& n );
@@ -447,6 +454,8 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorDiv& n );
         Ret visit( const Nodecl::VectorEqual& n );
         Ret visit( const Nodecl::VectorFabs& n );
+        Ret visit( const Nodecl::VectorFmadd& n );
+        Ret visit( const Nodecl::VectorFmminus& n );
         Ret visit( const Nodecl::VectorFunctionCall& n );
         Ret visit( const Nodecl::VectorGather& n );
         Ret visit( const Nodecl::VectorGreaterOrEqualThan& n );
@@ -462,18 +471,23 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorMaskAnd1Not& n );
         Ret visit( const Nodecl::VectorMaskAnd2Not& n );
         Ret visit( const Nodecl::VectorMaskAssignment& n );
+        Ret visit( const Nodecl::VectorMaskConversion& n );
         Ret visit( const Nodecl::VectorMaskNot& n );
         Ret visit( const Nodecl::VectorMaskOr& n );
         Ret visit( const Nodecl::VectorMaskXor& n );
         Ret visit( const Nodecl::VectorMinus& n );
+        Ret visit( const Nodecl::VectorMod& n );
         Ret visit( const Nodecl::VectorMul& n );
         Ret visit( const Nodecl::VectorNeg& n );
         Ret visit( const Nodecl::VectorPromotion& n );
-        Ret visit( const Nodecl::VectorScatter& n );
-        Ret visit( const Nodecl::VectorStore& n );
         Ret visit( const Nodecl::VectorReductionAdd& n );
         Ret visit( const Nodecl::VectorReductionMinus& n );
         Ret visit( const Nodecl::VectorReductionMul& n );
+        Ret visit( const Nodecl::VectorRsqrt& n );
+        Ret visit( const Nodecl::VectorScatter& n );
+        Ret visit( const Nodecl::VectorSincos& n );
+        Ret visit( const Nodecl::VectorSqrt& n );
+        Ret visit( const Nodecl::VectorStore& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
         Ret visit( const Nodecl::DefaultArgument& n );
         Ret visit( const Nodecl::FortranActualArgument& n );

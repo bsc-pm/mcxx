@@ -43,10 +43,12 @@ namespace TL { namespace Nanox {
             TL::Symbol slicer_descriptor,
             Nodecl::NodeclBase &placeholder1,
             Nodecl::NodeclBase &placeholder2,
+            Nodecl::NodeclBase &lastprivate1,
+            Nodecl::NodeclBase &lastprivate2,
             Nodecl::NodeclBase &reduction_initialization,
             Nodecl::NodeclBase &reduction_code)
     {
-        Source for_code, lastprivate_code, barrier_code;
+        Source for_code, barrier_code;
         Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
 
         TL::Symbol ind_var = range.get_induction_variable().get_symbol();
@@ -55,10 +57,17 @@ namespace TL { namespace Nanox {
         OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
         outline_info_register.add_private(ind_var);
 
+        Nodecl::NodeclBase loop = construct.get_loop();
+        ERROR_CONDITION(!loop.is<Nodecl::Context>(), "Invalid node", 0);
+        loop = loop.as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0];
+        ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), "Invalid node", 0);
+
         Source loop_name;
-        if (!construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().is_null())
         {
-            loop_name << " [ " << as_symbol(construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+            if (!loop.as<Nodecl::ForStatement>().get_loop_name().is_null())
+            {
+                loop_name << " [ " << as_symbol(loop.as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+            }
         }
 
         if (range.get_step().is_constant())
@@ -99,7 +108,7 @@ namespace TL { namespace Nanox {
                 ;
 
             for_code
-                << lastprivate_code
+                << statement_placeholder(lastprivate1)
                 << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 << "}"
                 ;
@@ -119,7 +128,7 @@ namespace TL { namespace Nanox {
                 <<       "{"
                 <<       statement_placeholder(placeholder1)
                 <<       "}"
-                <<       lastprivate_code
+                <<       statement_placeholder(lastprivate1)
                 <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 <<   "}"
                 << "}"
@@ -134,7 +143,7 @@ namespace TL { namespace Nanox {
                 <<       "{"
                 <<          statement_placeholder(placeholder2)
                 <<       "}"
-                <<       lastprivate_code
+                <<       statement_placeholder(lastprivate2)
                 <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 <<   "}"
                 << "}"
@@ -230,8 +239,6 @@ namespace TL { namespace Nanox {
             reduction_code_src << statement_placeholder(reduction_code);
         }
 
-        lastprivate_code << update_lastprivates(outline_info, "nanos_item_loop");
-
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
             barrier_code
@@ -253,11 +260,15 @@ namespace TL { namespace Nanox {
            Nodecl::NodeclBase& outline_placeholder1,
            // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
            Nodecl::NodeclBase& outline_placeholder2,
+           Nodecl::NodeclBase& lastprivate1,
+           Nodecl::NodeclBase& lastprivate2,
            Nodecl::NodeclBase& reduction_initialization,
            Nodecl::NodeclBase& reduction_code)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
+        Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
+            .find_first<Nodecl::OpenMP::TaskLabel>();
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -284,7 +295,7 @@ namespace TL { namespace Nanox {
         CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info,
                 /* original task statements */ statements,
                 /* current task statements */ statements,
-                /* task_label */ Nodecl::NodeclBase::null(),
+                task_label,
                 structure_symbol,
                 called_task_dummy);
 
@@ -353,6 +364,19 @@ namespace TL { namespace Nanox {
                 outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements_filtered, outline_placeholder2, label_symbol_map2));
             }
 
+            // Lastprivate
+            Source update_lastprivates_src = update_lastprivates(outline_info, "nanos_item_loop");
+            if (!update_lastprivates_src.empty())
+            {
+                Nodecl::NodeclBase lastprivates_tree = update_lastprivates_src.parse_statement(lastprivate1);
+                lastprivate1.replace(lastprivates_tree);
+                if (!lastprivate2.is_null())
+                {
+                    lastprivates_tree = update_lastprivates_src.parse_statement(lastprivate2);
+                    lastprivate2.replace(lastprivates_tree);
+                }
+            }
+
             if (there_are_reductions(outline_info))
             {
                 reduction_initialization_code(outline_info, reduction_initialization, construct);
@@ -366,12 +390,20 @@ namespace TL { namespace Nanox {
             delete symbol_map;
         }
 
-        loop_spawn_worksharing(outline_info, construct, distribute_environment, range, outline_name, structure_symbol, slicer_descriptor);
+        loop_spawn_worksharing(outline_info, construct,
+                distribute_environment,
+                range,
+                outline_name,
+                structure_symbol,
+                slicer_descriptor,
+                task_label);
     }
 
     void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct)
     {
-        TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
+        TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
+                get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+
         ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
         Nodecl::RangeLoopControl range =
@@ -389,9 +421,6 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase statements = for_statement.get_statement();
 
         walk(statements);
-
-        // Get the new statements
-        statements = for_statement.get_statement();
 
         // Slicer descriptor
         TL::Symbol nanos_ws_desc_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
@@ -412,20 +441,20 @@ namespace TL { namespace Nanox {
         TL::Symbol slicer_descriptor(slicer_descriptor_internal);
         slicer_descriptor.get_internal_symbol()->symbol_name = ::uniquestr(ss.str().c_str());
         slicer_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
-        slicer_descriptor.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(slicer_descriptor.get_internal_symbol(), 1);
         slicer_descriptor.get_internal_symbol()->type_information = nanos_ws_desc_type.get_internal_type();
 
         Nodecl::NodeclBase environment = construct.get_environment();
         Scope  enclosing_scope = construct.retrieve_context();
         TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
-        OutlineInfo outline_info(environment, enclosing_function);
+        OutlineInfo outline_info(*_lowering, environment, enclosing_function);
 
         // Handle the special object 'this'
         if (IS_CXX_LANGUAGE
                 && !enclosing_function.is_static()
                 && enclosing_function.is_member())
         {
-            TL::Symbol this_symbol = enclosing_scope.get_symbol_from_name("this");
+            TL::Symbol this_symbol = enclosing_scope.get_symbol_this();
             ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
             Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
@@ -438,11 +467,14 @@ namespace TL { namespace Nanox {
             argument_outline_data_item.set_is_cxx_this(true);
 
             // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            if (argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
             argument_outline_data_item.set_base_address_expression(sym_ref);
         }
 
-        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2, reduction_initialization, reduction_code;
+        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2,
+            lastprivate1, lastprivate2,
+            reduction_initialization, reduction_code;
         Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,
                 distribute_environment,
                 range,
@@ -450,6 +482,8 @@ namespace TL { namespace Nanox {
                 slicer_descriptor,
                 outline_placeholder1,
                 outline_placeholder2,
+                lastprivate1,
+                lastprivate2,
                 reduction_initialization,
                 reduction_code);
 
@@ -461,6 +495,8 @@ namespace TL { namespace Nanox {
                 outline_distribute_loop_source,
                 outline_placeholder1,
                 outline_placeholder2,
+                lastprivate1,
+                lastprivate2,
                 reduction_initialization,
                 reduction_code);
     }

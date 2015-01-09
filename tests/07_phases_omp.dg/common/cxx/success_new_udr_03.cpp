@@ -32,6 +32,7 @@ test_generator=config/mercurium-omp
 </testinfo>
 */
 #include <stdlib.h>
+#include <stdio.h>
 #include "omp.h"
 
 namespace A {

@@ -26,35 +26,38 @@
 
 SUBDIRS = config .
 
-NULL=
-
-ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
-
 END=
-CLEANFILES=
+DISTCLEANFILES=
 
-CLEANFILES+=test.log test.log.xml
+DISTCLEANFILES+=test.log test.log.xml
 
-# Replacements are defined in this makefile
-include ../config/Makefile.replace
-
-prepare-check: ./config/bets
+prepare-check: ./config/bets wipe-modules
 	chmod +x config/bets
 	chmod +x config/mercurium-libraries
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
 	chmod +x config/mercurium-nanox
+	chmod +x config/mercurium-hlt
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ompss
 	chmod +x config/mercurium-serial-simd
 	chmod +x config/mercurium-parallel-simd
+	chmod +x config/mercurium-serial-simd-avx2
+	chmod +x config/mercurium-parallel-simd-avx2
 	chmod +x config/mercurium-serial-simd-mic
 	chmod +x config/mercurium-parallel-simd-mic
+	chmod +x config/mercurium-serial-simd-avx2
+	chmod +x config/mercurium-parallel-simd-avx2
 	chmod +x config/mercurium-cuda
 	chmod +x config/mercurium-opencl
 	chmod +x config/mercurium-run
 	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
+	chmod +x */mercurium-cxx11
+	chmod +x */mercurium-cxx14
+
+wipe-modules:
+	rm -f *.mod
 
 BETS_DIRS=$(srcdir)
 
@@ -63,6 +66,7 @@ BETS_OPTIONS="-only-fails"
 do-check : prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .
+	export MALLOC_CHECK_=2; \
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 preserve-check-log:
@@ -87,6 +91,8 @@ CORE_DIRS=\
 		$(BETS_DIRS)/01_parser.dg \
 		$(BETS_DIRS)/02_typecalc_c.dg \
 		$(BETS_DIRS)/02_typecalc_cxx.dg \
+		$(BETS_DIRS)/02_typecalc_cxx11.dg \
+		$(BETS_DIRS)/02_typecalc_cxx14.dg \
 		$(BETS_DIRS)/03_extensions_c.dg \
 		$(BETS_DIRS)/03_extensions_cxx.dg \
 		$(BETS_DIRS)/04_compat_cxx0x.dg \
@@ -96,34 +102,49 @@ CORE_DIRS=\
 		$(BETS_DIRS)/05_torture_cxx_1.dg \
 		$(BETS_DIRS)/05_torture_cxx_2.dg \
 		$(BETS_DIRS)/06_run_cxx.dg \
+		$(BETS_DIRS)/07_phases_hlt.dg \
 		$(END)
 
 OMP_DIRS= \
         $(BETS_DIRS)/07_phases_omp.dg \
-        $(BETS_DIRS)/07_phases_ompss.dg \
+        $(OMPSS_DIRS) \
         $(END)
-        
+
+OMPSS_DIRS=\
+        $(BETS_DIRS)/07_phases_ompss.dg \
+		$(END)
+
 ANALYSIS_DIRS=\
 	$(BETS_DIRS)/07_phases_analysis.dg \
 	$(END)
 
 fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(FORTRAN_DIRS)
 
 core-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS)
 
 core-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
 
 omp-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
 
+ompss-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMPSS_DIRS)
+
 analysis-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(ANALYSIS_DIRS)
 		
@@ -145,3 +166,4 @@ clean-local:
 	rm -f mfc_*.f90 mfc_*.f90.c mfc_*.f90.o
 	rm -f aux_*.f90.c aux_*.f90.o
 	rm -f *.mod
+

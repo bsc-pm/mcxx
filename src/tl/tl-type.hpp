@@ -108,6 +108,29 @@ namespace TL
             TemplateParameters get_enclosing_parameters() const;
 
             bool get_is_explicit_specialization() const;
+            bool get_is_explicit_instantiation() const;
+    };
+
+    struct LIBTL_CLASS MemberDeclarationInfo
+    {
+        private:
+            TL::Symbol _entry;
+            bool _is_definition;
+        public:
+            MemberDeclarationInfo(TL::Symbol entry, bool is_definition)
+                : _entry(entry), _is_definition(is_definition)
+            {
+            }
+
+            TL::Symbol get_symbol() const
+            {
+                return _entry;
+            }
+
+            bool get_is_definition() const
+            {
+                return _is_definition;
+            }
     };
 
     //! This class wraps a type in the compiler type system
@@ -120,15 +143,7 @@ namespace TL
                 return NULL;
             }
 
-            static std::string get_type_name_str(type_t* type, const std::string& symbol_name);
-            static void get_type_name_str_internal(type_t* type_info,
-                    const std::string &symbol_name, std::string& left, std::string& right);
-            static std::string get_cv_qualifier_str(type_t* type_info);
-            static std::string get_simple_type_name_str_internal(type_t* simple_type);
-            static std::string get_simple_type_name_str(type_t* simple_type);
-            static bool declarator_needs_parentheses(type_t* type_info);
-            static std::string get_declaration_str_internal(type_t* type_info,
-                    const std::string& symbol_name, const std::string& initializer, bool semicolon);
+            Type fix_references_();
         public:
 
             enum TypeDeclFlags
@@ -177,25 +192,6 @@ namespace TL
                 return false;
             }
 
-            //! Constructs a Symbol after a reference to Object
-            Type(RefPtr<Object> obj)
-            {
-                RefPtr<Type> pint = RefPtr<Type>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_type_info = pint->_type_info;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Type" << std::endl;
-                    }
-                    this->_type_info = NULL;
-                }
-            }
-
-
             virtual ~Type()
             {
             }
@@ -238,19 +234,19 @@ namespace TL
             ObjectList<Symbol> enum_get_enumerators();
 
             //! Returns a pointer to the current type
-            Type get_pointer_to();
+            Type get_pointer_to() const;
 
             //! Returns a vector to the current type
             /*!
              * \param vector_size The size of the vector in bytes.
              */
-            Type get_vector_to(unsigned int vector_size);
+            Type get_vector_to(unsigned int vector_size) const;
 
             //! Returns a vector to the current type
             /*!
              * \param num_elements The number of scalar elements of the vector
              */
-            Type get_vector_of_elements(unsigned int num_elements);
+            Type get_vector_of_elements(unsigned int num_elements) const;
        
             //! Returns a generic vector to the current type
             Type get_generic_vector_to();
@@ -268,14 +264,6 @@ namespace TL
              * wildcard sized arrays
              */
             Type get_array_to();
-
-            //! Convenience function that returns an array type built after a dimension string
-            /*!
-              The frontend never creates this kind of array types. They exist
-              to ease array type creation in TL. They should be only used for
-              types that are going to be prettyprinted.
-              */
-            Type get_array_to(const std::string& str);
 
             //! Returns a ranged array to the current type
             /*!
@@ -318,30 +306,39 @@ namespace TL
             /*!
              * \param type_list List of parameter types of the function.
              * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \param reference_qualifier Sets the ref-qualifier of the function. This is for C++2011
              */
-            Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
+            Type get_function_returning(const ObjectList<Type>& type_list,
+                    bool has_ellipsis = false,
+                    ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
+
+            //! Returns the reference qualifier
+            /*!
+             * This is only meaningful in C++2011
+             */
+            ref_qualifier_t get_reference_qualifier() const;
 
             //! Returns a function to the current list of parameter types
             /*!
              * \param type_list List of parameter types of the function.
              * \param nonadjusted_type_list List of nonadjusted parameter types of the function
              * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \param reference_qualifier Sets the ref-qualifier of the function. This is for C++2011
              */
             Type get_function_returning(const ObjectList<Type>& type_list,
                     const ObjectList<Type>& nonadjusted_type_list,
-                    bool has_ellipsis = false);
+                    bool has_ellipsis = false,
+                    ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
 
             //! If the type is a reference, it returns the referenced tye
             /*!
              * This function is a no-op in C and Fortran
              */
-            Type no_ref();
+            Type no_ref() const;
 
             //! Returns the alignment of the type
             int get_alignment_of();
 
-            bool operator==(Type t) const;
-            bool operator!=(Type t) const;
             Type& operator=(Type t);
             bool operator<(Type t) const;
 
@@ -352,6 +349,10 @@ namespace TL
              * 'wchar_t'. In C, it also includes enum types.
              */
             bool is_integral_type() const;
+            //! States whether this type is a signed integral type
+            bool is_signed_integral() const;
+            //! States whether this type is a unsigned integral type
+            bool is_unsigned_integral() const;
             //! States whether this type is 'int' or 'signed int'
             bool is_signed_int() const;
             //! States whether this type is 'unsigned int'
@@ -459,10 +460,14 @@ namespace TL
             {
                 TL::Symbol base;
                 bool is_virtual;
+                bool is_dependent;
+                bool is_expansion;
                 access_specifier_t access_specifier;
 
                 BaseInfo(TL::Symbol _base,
                         bool _is_virtual,
+                        bool _is_dependent,
+                        bool _is_expansioexpansion,
                         access_specifier_t _access_specifier);
             };
 
@@ -470,6 +475,9 @@ namespace TL
 
             //! Returns the friends of this class
             ObjectList<Symbol> class_get_friends();
+
+            //! Returns the list of classes the constructors of which are inherited
+            ObjectList<Symbol> class_get_inherited_constructors();
 
             //! States whether current type type is a function-type
             bool is_function() const;
@@ -507,11 +515,14 @@ namespace TL
              */
             ObjectList<Type> nonadjusted_parameters(bool &has_ellipsis) const;
 
-            //! For a function type it states whether it has been declared with prototype
+            //! For a function type in C99, it states whether it has been declared with prototype
             /*!
              * This is only meaningful in C because in C++ all functions have prototype
              */
             bool lacks_prototype() const;
+
+            //! For a function type in C++2011, it states whether it has been declared with a trailing return
+            bool is_trailing_return() const;
 
             //! States whether current type is a pointer type
             bool is_pointer() const;
@@ -598,10 +609,18 @@ namespace TL
             bool is_vector() const;
             //! States whether current type is a mask-type
             bool is_mask() const;
+            //! Returns the size of a mask type
+            int get_mask_num_elements() const;
             //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type
             Type vector_element() const;
+
+            // ! States whether the current type is auto
+            bool is_auto() const;
+
+            // ! States whether the current type is decltype(auto)
+            bool is_decltype_auto() const;
 
             //! Returns the number of elements of a vector-type
             int vector_num_elements() const;
@@ -659,6 +678,12 @@ namespace TL
              */
             bool is_expression_dependent() const;
 
+            //! States whether the current type is a pack
+            bool is_pack() const;
+
+            //! Returns the packed type of an pack type
+            TL::Type pack_type_get_packed() const;
+
             //! States whether the current type is incomplete
             bool is_incomplete() const;
 
@@ -707,6 +732,9 @@ namespace TL
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_members() const;
 
+            //! Returns (all) the data member declarations
+            ObjectList<MemberDeclarationInfo> get_member_declarations() const;
+
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
 
@@ -728,6 +756,9 @@ namespace TL
             Type get_volatile_type();
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
+
+            //! Returns the unqualified type of current type but keeps restrict
+            Type get_unqualified_type_but_keep_restrict();
 
             //! Qualifies current type with the qualifier of t
             Type get_as_qualified_as(TL::Type t);
@@ -866,6 +897,25 @@ namespace TL
 
             //! Convenience function that returns a wrapped vector mask
             static Type get_mask_type(unsigned int mask_size);
+
+            //! Concenience function that returns an 'auto' type specifier
+            static Type get_auto_type();
+            
+            //! Integer type of size_t 
+            /*!
+             * This type is the underlying integer type of a size_t, since it
+             * may change depending on the architecture
+             */
+            static Type get_size_t_type();
+            
+            //! Integer type of ptrdiff_t 
+            /*!
+             * This type is the underlying integer type of a ptrdiff_t, since it
+             * may change depending on the architecture
+             */
+            static Type get_ptrdiff_t_type();
+
+            std::string print_declarator() const;
     };
 
     //! @}

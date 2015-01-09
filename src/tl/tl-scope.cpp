@@ -35,6 +35,7 @@
 #include "cxx-entrylist.h"
 #include "uniquestr.h"
 #include "cxx-koenig.h"
+#include "cxx-exprtype.h"
 
 namespace TL
 {
@@ -77,7 +78,19 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        scope_entry_list_t* entry_list = query_name_str(_decl_context, const_cast<char*>(str.c_str()));
+        scope_entry_list_t* entry_list = query_name_str(_decl_context, uniquestr(str.c_str()), NULL);
+
+        convert_to_vector(entry_list, result);
+
+        entry_list_free(entry_list);
+
+        return result;
+    }
+
+    ObjectList<Symbol> Scope::get_symbols_from_name_in_scope(const std::string& str) const
+    {
+        ObjectList<Symbol> result;
+        scope_entry_list_t* entry_list = query_in_scope_str(_decl_context, uniquestr(str.c_str()), NULL);
 
         convert_to_vector(entry_list, result);
 
@@ -94,6 +107,21 @@ namespace TL
         get_head(list, result);
 
         return result;
+    }
+
+    Symbol Scope::get_symbol_from_name_in_scope(const std::string& str) const
+    {
+        ObjectList<Symbol> list = this->get_symbols_from_name_in_scope(str);
+
+        Symbol result(NULL);
+        get_head(list, result);
+
+        return result;
+    }
+
+    Scope Scope::get_global_scope() 
+    {
+        return CURRENT_COMPILED_FILE->global_decl_context;
     }
 
     Scope Scope::temporal_scope() const
@@ -165,7 +193,7 @@ namespace TL
         ObjectList<Symbol> result;
 
         walk_scope_data_t walk_data(result, include_hidden);
-        rb_tree_walk(_decl_context.current_scope->hash, walk_scope, &walk_data);
+        dhash_ptr_walk(_decl_context.current_scope->dhash, (dhash_ptr_walk_fn*)walk_scope, &walk_data);
 
         return result;
     }
@@ -175,7 +203,7 @@ namespace TL
         scope_entry_t* sym_res = NULL;
         if (reuse_symbol)
         {
-            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
+            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, uniquestr(artificial_name.c_str()), NULL);
 
             if (sym_res_list != NULL)
             {
@@ -227,5 +255,10 @@ namespace TL
     template_parameter_list_t* Scope::get_template_parameters() const
     {
        return _decl_context.template_parameters;
+    }
+
+    Symbol Scope::get_symbol_this() const
+    {
+        return resolve_symbol_this(_decl_context);
     }
 }

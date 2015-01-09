@@ -32,10 +32,10 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
-#include "tl-refptr.hpp"
 #include "cxx-nodecl.h"
 #include "cxx-utils.h"
 #include <cstdlib>
+#include <tr1/array>
 
 namespace Nodecl {
 
@@ -69,16 +69,20 @@ namespace Nodecl {
             std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
             void set_text(const std::string& str) { nodecl_set_text(_n, uniquestr(str.c_str())); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
-            int get_line() const { return nodecl_get_line(_n); }
+            unsigned int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus_str() const { return ::nodecl_locus_to_str(_n); }
             const locus_t* get_locus() const { return ::nodecl_get_locus(_n); }
+            void set_locus(const locus_t*l ) { nodecl_set_locus(_n, l); }
             const nodecl_t& get_internal_nodecl() const { return _n; }
             nodecl_t& get_internal_nodecl() { return _n; }
-            TL::ObjectList<NodeclBase> children() const {
-                TL::ObjectList<NodeclBase> result;
+
+            typedef std::tr1::array<NodeclBase, MCXX_MAX_AST_CHILDREN> Children;
+
+            Children children() const {
+                Children result;
                 for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
                 {
-                    result.push_back(nodecl_get_child(_n, i));
+                    result[i] = nodecl_get_child(_n, i);
                 }
                 return result;
             }
@@ -108,6 +112,14 @@ namespace Nodecl {
                 }
             }
 
+            void set_constant(const_value_t* cval)
+            {
+                ::nodecl_set_constant(get_internal_nodecl(), cval);
+            }
+
+            // Convenience function to skip conversion nodes
+            Nodecl::NodeclBase no_conv() const;
+            
             // Prettyprint
             std::string prettyprint() const;
 
@@ -123,10 +135,6 @@ namespace Nodecl {
             bool operator==(const NodeclBase& n) const { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
             bool operator!=(const NodeclBase& n) const { return nodecl_get_ast(this->_n) != nodecl_get_ast(n._n); }
 
-
-            // Convenience
-            NodeclBase(TL::RefPtr<TL::Object>);
-
             // Basic replacement
             //
             // See Utils::replace
@@ -140,13 +148,9 @@ namespace Nodecl {
             void append_sibling(Nodecl::NodeclBase items) const;
             void prepend_sibling(Nodecl::NodeclBase items) const;
 
-            // Works like replace but handles lists.
-            DEPRECATED void integrate(Nodecl::NodeclBase new_node) const;
-
             // This sets this Nodecls as childs of the current node
-            void rechild(const TL::ObjectList<NodeclBase>& new_childs)
+            void rechild(const Children &new_childs)
             {
-                ERROR_CONDITION(new_childs.size() != ::MCXX_MAX_AST_CHILDREN, "Invalid list of children", 0);
                 for (int i = 0; i < ::MCXX_MAX_AST_CHILDREN; i++)
                 {
                     nodecl_set_child(_n, i, new_childs[i].get_internal_nodecl());
@@ -678,11 +682,17 @@ namespace Nodecl {
         private:
             void push_back_(Nodecl::NodeclBase n)
             {
+                // A null node is conceptually the empty list
+                if (n.is_null())
+                    return;
                 insert(this->end(), n);
             }
 
             void push_front_(Nodecl::NodeclBase n)
             {
+                // A null node is conceptually the empty list
+                if (n.is_null())
+                    return;
                 insert(this->begin(), n);
             }
         public:
@@ -729,6 +739,9 @@ namespace Nodecl {
             {
                 nodecl_t parent = nodecl_get_parent(it._current);
 
+                nodecl_t prev = nodecl_get_child(it._current, 0);
+                bool is_first = nodecl_is_null(prev);
+
                 if (!nodecl_is_null(parent))
                 {
                     bool is_last = (it == this->last());
@@ -753,13 +766,29 @@ namespace Nodecl {
                     }
                     else
                     {
-                        // We removed the last, then we should return end
+                        // Make sure the Nodecl::List now represents the "empty" list
+                        if (is_first)
+                        {
+                            // The list became empty
+                            this->operator=(Nodecl::List());
+                        }
+                        // We removed the last, return end
                         return this->end();
                     }
                 }
                 else
                 {
-                    internal_error("Impossible to remove a list without parent", 0);
+                    if (is_first)
+                    {
+                        // The list became empty
+                        this->operator=(Nodecl::List());
+                    }
+                    else
+                    {
+                        nodecl_set_child(it._current, 0, nodecl_get_child(prev, 0));
+                        nodecl_set_child(it._current, 1, nodecl_get_child(prev, 1));
+                    }
+                    return this->end();
                 }
             }
 

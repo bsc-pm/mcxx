@@ -49,6 +49,28 @@ LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
 LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
 
+LIBMCXX_EXTERN scope_entry_t* get_m128_typedef(void);
+LIBMCXX_EXTERN scope_entry_t* get_m128d_typedef(void);
+LIBMCXX_EXTERN scope_entry_t* get_m128i_typedef(void);
+
+LIBMCXX_EXTERN scope_entry_t* get_m256_typedef(void);
+LIBMCXX_EXTERN scope_entry_t* get_m256d_typedef(void);
+LIBMCXX_EXTERN scope_entry_t* get_m256i_typedef(void);
+
+LIBMCXX_EXTERN scope_entry_t* get_m512_typedef(void);
+LIBMCXX_EXTERN scope_entry_t* get_m512d_typedef(void);
+LIBMCXX_EXTERN scope_entry_t* get_m512i_typedef(void);
+
+LIBMCXX_EXTERN char is_intel_vector_struct_type(type_t* t, int *size);
+
+LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest);
+LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest);
+
+LIBMCXX_EXTERN type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type);
+LIBMCXX_EXTERN type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type);
+
+LIBMCXX_EXTERN void prepend_intel_vector_typedefs(nodecl_t* nodecl_output);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCBUILTINS_H

@@ -25,7 +25,7 @@ SUBROUTINE G(X, I, J, N)
             INTEGER, INTENT(IN) :: X(N,N)
         END SUBROUTINE F
     END INTERFACE
-    !$OMP TASK IN(N) INOUT(X(1:N, 1:N))
+    !$OMP TASK INOUT(X(1:N, 1:N)) FIRSTPRIVATE(N)
     CALL F( X(I,J),  N)
     !$OMP END TASK
 

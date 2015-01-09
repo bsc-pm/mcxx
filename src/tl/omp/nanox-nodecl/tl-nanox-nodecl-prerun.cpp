@@ -42,11 +42,14 @@ namespace TL { namespace Nanox {
 void Lowering::pre_run(DTO& dto)
 {
     std::cerr << "Nanos++ prerun" << std::endl;
+}
 
+void Lowering::load_headers(DTO& dto)
+{
     if (!IS_FORTRAN_LANGUAGE)
         return;
 
-    Nodecl::NodeclBase top_level = dto["nodecl"];
+    Nodecl::NodeclBase top_level = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
     const char** old_preprocessor_options = CURRENT_CONFIGURATION->preprocessor_options;
 

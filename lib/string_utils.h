@@ -31,6 +31,7 @@
 #define STRING_UTILS_H
 
 #include "libutils-common.h"
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +39,16 @@ extern "C" {
 
 LIBUTILS_EXTERN const char* strappend(const char* orig, const char* appended);
 LIBUTILS_EXTERN const char* strprepend(const char* orig, const char* prepended);
+
+// This is more efficient than a sequence of strappend
+LIBUTILS_EXTERN const char *strconcat_n(unsigned int n, const char** c);
+
+// For scenarios where a sequence of strappend is inefficient
+typedef struct strbuilder_tag strbuilder_t;
+LIBUTILS_EXTERN strbuilder_t* strbuilder_new(void);
+LIBUTILS_EXTERN const char* strbuilder_str(strbuilder_t* strb);
+LIBUTILS_EXTERN void strbuilder_append(strbuilder_t*, const char*);
+LIBUTILS_EXTERN void strbuilder_free(strbuilder_t*);
 
 // States whether the string is blank
 LIBUTILS_EXTERN char is_blank_string(const char* c);
@@ -73,6 +84,7 @@ LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned c
 
 // Like asprintf but returning a uniquestr
 LIBUTILS_EXTERN CHECK_PRINTF_STR int uniquestr_sprintf(const char** out_str, const char* format, ...);
+LIBUTILS_EXTERN int uniquestr_vsprintf(const char** out_str, const char* format, va_list args);
 
 LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
 
@@ -141,6 +153,25 @@ do { \
     for (_i = 0; (_i < (size)) && !_found; _i++) \
     { \
         _found = ((list)[_i] == (elem)); \
+    } \
+    if (_found) \
+    {\
+        for (; (_i < (size)); _i++) \
+        { \
+            ((list)[_i -1]) = ((list)[_i]); \
+        } \
+        (size)--; \
+        (list) = (__typeof__(list))xrealloc((list), sizeof(*(list))*(size)); \
+    }\
+} while (0)
+
+#define P_LIST_REMOVE_FUN(list, size, elem, fun) \
+do { \
+    int _i; \
+    char _found = 0; \
+    for (_i = 0; (_i < (size)) && !_found; _i++) \
+    { \
+        _found = (fun)((list)[_i], (elem)); \
     } \
     if (_found) \
     {\

@@ -29,6 +29,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <execinfo.h>
+
+#include <unistd.h>
 
 #include "cxx-process.h"
 #include "cxx-utils.h"
@@ -39,6 +42,9 @@
 
 // Compilation options
 compilation_process_t compilation_process;
+
+#define BACKTRACE_SIZE 1024
+static void *backtrace_buffer[BACKTRACE_SIZE];
 
 translation_unit_t* add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
@@ -89,14 +95,7 @@ translation_unit_t* add_new_file_to_compilation_process(
     return translation_unit;
 }
 
-unsigned long long int _bytes_dynamic_lists = 0;
-
-unsigned long long dynamic_lists_used_memory(void)
-{
-    return _bytes_dynamic_lists;
-}
-
-void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
+void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...)
 {
     va_list ap;
     char* sanitized_message = xstrdup(message);
@@ -115,7 +114,19 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     char *long_message = NULL;
 
     va_start(ap, function_name);
-    vasprintf(&long_message, sanitized_message, ap);
+    int ret = vasprintf(&long_message, sanitized_message, ap);
+    if (ret < 0)
+    {
+        // Desperate message
+        const char *oom_message = "allocation failure in vasprintf\n";
+        int r = write(fileno(stderr), oom_message, strlen(oom_message));
+        if (r < 0)
+        {
+            // Drama. Resort to perror and hope for the best
+            perror("write");
+        }
+        abort();
+    }
 
     char* kind_copy = xstrdup(kind);
 
@@ -127,13 +138,13 @@ void debug_message(const char* message, const char* kind, const char* source_fil
             && (end = strchr(start, '\n')) != NULL)
     {
         *end = '\0';
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
         start = end + 1;
     }
 
     if (*start != '\0')
     {
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
     }
 
     start = long_message;
@@ -142,18 +153,29 @@ void debug_message(const char* message, const char* kind, const char* source_fil
             && (end = strchr(start, '\n')) != NULL)
     {
         *end = '\0';
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
         start = end + 1;
     }
 
     if (*start != '\0')
     {
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
     }
 
     xfree(kind_copy);
     xfree(sanitized_message);
     xfree(long_message);
+
+#if defined(HAVE_BACKTRACE) && defined(HAVE_BACKTRACE_SYMBOLS_FD)
+    if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
+    {
+        int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
+
+        /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)
+           would produce similar output to the following: */
+        backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
+    }
+#endif
 }
 
 void running_error(const char* message, ...)
@@ -178,10 +200,31 @@ void running_error(const char* message, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 
+    if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
+    {
+        int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
+
+        /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)
+           would produce similar output to the following: */
+        backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
+    }
+
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
+
 
     xfree(sanitized_message);
 
     exit(EXIT_FAILURE);
+}
+
+// Useful for debugging sessions
+extern void _enable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
+}
+
+extern void _disable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
 }
