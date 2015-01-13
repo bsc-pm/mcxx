@@ -7654,6 +7654,15 @@ static void cxx_compute_name_from_entry_list(
     }
     else if (entry->kind == SK_VARIABLE_PACK)
     {
+        if (!get_is_inside_pack_expansion())
+        {
+            error_printf("%s: error: function parameter pack '%s' does not appear inside a pack expansion\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    entry->symbol_name);
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+            return;
+        }
+
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
 
         ERROR_CONDITION(!is_pack_type(entry->type_information),
@@ -7681,9 +7690,10 @@ char is_cxx_special_identifier(nodecl_t nodecl_name, nodecl_t* nodecl_output)
 
     if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
-        const char* text = nodecl_get_text(nodecl_name);
+        const char *null_literal = UNIQUESTR_LITERAL("__null");
+        const char *text = nodecl_get_text(nodecl_name);
         // __null is a special item in g++
-        if (strcmp(text, "__null") == 0)
+        if (null_literal == text)
         {
             type_t* t = get_variant_type_zero((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
 
@@ -7858,7 +7868,8 @@ static const_value_t* compute_subconstant_of_array_subscript(
     }
 
     const_value_t* cval = nodecl_get_constant(subscripted);
-    ERROR_CONDITION(!const_value_is_array(cval),
+    ERROR_CONDITION(!const_value_is_array(cval)
+            && !const_value_is_string(cval),
             "Invalid constant value '%s'", const_value_to_str(cval));
 
     for (i = 0; i < num_subscripts; i++)
@@ -11759,6 +11770,7 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
         }
 
         if (symbol_entity_specs_get_num_parameters(function_with_defaults) > 0
+                && num_arguments < symbol_entity_specs_get_num_parameters(function_with_defaults)
                 && symbol_entity_specs_get_default_argument_info_num(function_with_defaults, num_arguments) != NULL)
         {
             // Sanity check
@@ -14928,7 +14940,13 @@ static void check_initializer_clause_pack_expansion(AST expression, decl_context
     AST expanded_expr = ASTSon0(expression);
 
     nodecl_t nodecl_expander = nodecl_null();
+
+    char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+    set_is_inside_pack_expansion(1);
+
     check_expression_impl_(expanded_expr, decl_context, &nodecl_expander);
+
+    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
 
     if (nodecl_is_err_expr(nodecl_expander))
     {
@@ -17239,8 +17257,36 @@ char is_narrowing_conversion_type(type_t* orig_type,
             // We assume all bits are significative and remove the leading and
             // trailing bits (since v != 0)
             unsigned int num_significative_bits = sizeof(cvalue_uint_t)*8;
+
+#ifdef HAVE_INT128
+            // We need to do this using two unsigned long long
+            {
+                unsigned long long low = v;
+                unsigned long long upp = v >> 64ULL;
+
+                // Redundant but repeated for clarity
+                ERROR_CONDITION(low == 0 && upp == 0, "Invalid value", 0);
+
+                if (upp == 0)
+                {
+                    num_significative_bits -= __builtin_clzll(low) + 64;
+                    num_significative_bits -= __builtin_ctzll(low);
+                }
+                else if (low == 0) // upp != 0
+                {
+                    num_significative_bits -= __builtin_clzll(upp);
+                    num_significative_bits -= __builtin_ctzll(upp) + 64;
+                }
+                else // low != 0 && upp != 0
+                {
+                    num_significative_bits -= __builtin_clzll(upp);
+                    num_significative_bits -= __builtin_ctzll(low);
+                }
+            }
+#else
             num_significative_bits -= __builtin_clzll(v);
             num_significative_bits -= __builtin_ctzll(v);
+#endif
 
             const floating_type_info_t* finfo = floating_type_get_info(dest_type);
 
@@ -21020,8 +21066,9 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
 
     ERROR_CONDITION((length < 0), "Invalid length computed", 0);
 
-    *nodecl_output = const_value_to_nodecl(
-            const_value_get_integer(length, type_get_size(get_size_t_type()), 0));
+    *nodecl_output = const_value_to_nodecl_with_basic_type(
+            const_value_get_integer(length, type_get_size(get_size_t_type()), /* signed */ 0),
+            /* make sure is a size_t */ get_size_t_type());
 }
 
 static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -26441,6 +26488,10 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
     for (i = 0; i < num_items; i++)
     {
         nodecl_t expr = instantiate_expr_walk(v, list[i]);
+
+        // We allow this case for empty pack expansions
+        if (nodecl_is_null(expr))
+            continue;
 
         if (nodecl_is_err_expr(expr))
         {

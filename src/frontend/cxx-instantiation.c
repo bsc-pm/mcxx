@@ -717,29 +717,130 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     if (is_error_type(new_member->type_information))
                         return;
 
+                    // Note that at this point the related entries of the new member are
+                    // the same as the original member.
+                    //
+                    // With C++11, the number of related entries of the new member may
+                    // differ from the original one, so it's important to create a new
+                    // list of symbols at this point.
+                    //
+                    // (this code has been copied from cxx-instantiation.c)
+                    {
+                        // 1. Remove the default argument info from the new member
+                        symbol_entity_specs_free_default_argument_info(new_member);
+
+                        // 2. Reserve enough space to store the default argument info of the new member
+                        int total_num_parameters =
+                            function_type_get_num_parameters(new_member->type_information);
+                        symbol_entity_specs_reserve_default_argument_info(new_member, total_num_parameters);
+
+                        // 3. Create new parameters for the new function
+
+                        // 3.1 This new parameters are going to be declared in a
+                        //     prototype scope (as if it was a declaration)
+                        decl_context_t new_decl_context =
+                            new_prototype_context(context_of_being_instantiated);
+
+                        int num_ori_param, num_new_param = 0;
+                        for (num_ori_param = 0;
+                                num_ori_param < symbol_entity_specs_get_num_related_symbols(member_of_template);
+                                num_ori_param++)
+                        {
+                            scope_entry_t* ori_param =
+                                symbol_entity_specs_get_related_symbols_num(member_of_template, num_ori_param);
+
+                            scope_entry_t* new_param = new_symbol(new_decl_context,
+                                    new_decl_context.current_scope,
+                                    ori_param->symbol_name);
+
+                            new_param->kind = ori_param->kind;
+                            new_param->type_information =
+                                update_type_for_instantiation(
+                                        ori_param->type_information,
+                                        context_of_being_instantiated,
+                                        member_of_template->locus,
+                                        instantiation_symbol_map,
+                                        /* pack */ -1);
+
+                            // WARNING - This is a usual source of issues
+                            symbol_entity_specs_copy_from(new_param, ori_param);
+                            symbol_entity_specs_free_function_parameter_info(new_param);
+
+                            if (ori_param->kind == SK_VARIABLE)
+                            {
+                                new_param->value = instantiate_expression(ori_param->value,
+                                        new_decl_context,
+                                        instantiation_symbol_map,
+                                        /* pack_index */ -1);
+
+                                symbol_entity_specs_add_related_symbols(new_member, new_param);
+                                symbol_set_as_parameter_of_function(new_param,
+                                        new_member,
+                                        /* nesting */ 0, /* position */ num_new_param);
+
+                                symbol_entity_specs_set_default_argument_info_num(
+                                        new_member,
+                                        num_new_param,
+                                        symbol_entity_specs_get_default_argument_info_num(
+                                            member_of_template,
+                                            num_ori_param));
+
+                                default_argument_info_t* current_default_arg =
+                                    symbol_entity_specs_get_default_argument_info_num(new_member, num_new_param);
+                                if (current_default_arg != NULL
+                                        && CURRENT_CONFIGURATION->explicit_instantiation)
+                                {
+                                    current_default_arg->is_hidden = 1;
+                                }
+
+                                num_new_param++;
+                            }
+                            else if (ori_param->kind == SK_VARIABLE_PACK)
+                            {
+                                int num_types = sequence_of_types_get_num_types(new_param->type_information);
+
+                                nodecl_t nodecl_sym_list = nodecl_null();
+
+                                int num_sub_parameter;
+                                for (num_sub_parameter = 0; num_sub_parameter < num_types; num_sub_parameter++)
+                                {
+                                    type_t* t = sequence_of_types_get_type_num(new_param->type_information,
+                                            num_sub_parameter);
+
+                                    const char* c = NULL;
+                                    uniquestr_sprintf(
+                                            &c, "_%s__%d",
+                                            ori_param->symbol_name,
+                                            num_sub_parameter);
+
+                                    scope_entry_t* new_sub_parameter = new_symbol(new_decl_context,
+                                            new_decl_context.current_scope,
+                                            c);
+
+                                    new_sub_parameter->kind = SK_VARIABLE;
+                                    new_sub_parameter->type_information = t;
+
+                                    // WARNING - This is a usual source of issues
+                                    symbol_entity_specs_copy_from(new_sub_parameter, ori_param);
+                                    symbol_entity_specs_free_function_parameter_info(new_sub_parameter);
+
+                                    symbol_entity_specs_add_related_symbols(new_member, new_sub_parameter);
+
+                                    symbol_set_as_parameter_of_function(new_sub_parameter,
+                                            new_member,
+                                            /* nesting */ 0, /* position */ num_new_param);
+                                    num_new_param++;
+                                }
+
+                                new_param->value = nodecl_sym_list;
+                            }
+                        }
+                    }
+
                     new_member->defined = 0;
                     symbol_entity_specs_set_function_code(new_member, nodecl_null());
                     symbol_entity_specs_set_is_instantiable(new_member, 1);
                     symbol_entity_specs_set_emission_template(new_member, member_of_template);
-
-                    // Hide all the default arguments (this is for codegen)
-                    int i;
-                    for (i = 0; i < symbol_entity_specs_get_num_parameters(new_member); i++)
-                    {
-                        if (symbol_entity_specs_get_default_argument_info_num(new_member, i) != NULL)
-                        {
-                            default_argument_info_t* p = symbol_entity_specs_get_default_argument_info_num(new_member, i);
-                            default_argument_info_t* default_arg = xcalloc(1, sizeof(*p));
-                            *default_arg = *p;
-
-                            if (CURRENT_CONFIGURATION->explicit_instantiation)
-                            {
-                                default_arg->is_hidden = 1;
-                            }
-
-                            symbol_entity_specs_set_default_argument_info_num(new_member, i, default_arg);
-                        }
-                    }
 
                     if (!nodecl_is_null(symbol_entity_specs_get_noexception(new_member)))
                     {
@@ -767,7 +868,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member = instantiate_template_type_member(template_type,
                             context_of_being_instantiated,
                             member_of_template,
-                            being_instantiated, 
+                            being_instantiated,
                             /* is_class */ 0,
                             locus,
                             instantiation_symbol_map);

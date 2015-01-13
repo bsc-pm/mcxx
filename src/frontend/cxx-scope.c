@@ -4447,11 +4447,20 @@ static int choose_type_template_argument(
         void* info UNUSED_PARAMETER)
 {
     // Prioritize template-type arguments
-    return either_type(
+    int i = either_type(
             current,
             previous,
             AST_TEMPLATE_EXPRESSION_ARGUMENT,
             AST_TEMPLATE_TYPE_ARGUMENT);
+    if (i != 0)
+        return i;
+
+    i = either_type(
+            current,
+            previous,
+            AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK,
+            AST_TEMPLATE_TYPE_ARGUMENT_PACK);
+    return i;
 }
 
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
@@ -4459,13 +4468,6 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         dhash_ptr_t* disambig_hash,
         int position)
 {
-    char is_expansion = 0;
-    if (ASTKind(template_parameter) == AST_TEMPLATE_ARGUMENT_PACK_EXPANSION)
-    {
-        template_parameter = ASTSon0(template_parameter);
-        is_expansion = 1;
-    }
-
     if (ASTKind(template_parameter) == AST_AMBIGUITY)
     {
         template_argument_info_t targ_info = {
@@ -4484,7 +4486,14 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
     switch (ASTKind(template_parameter))
     {
         case AST_TEMPLATE_EXPRESSION_ARGUMENT :
+        case AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK :
             {
+                char is_expansion = 0;
+                if (ASTKind(template_parameter) == AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK)
+                {
+                    is_expansion = 1;
+                }
+
                 template_parameter_value_t* t_argument =
                     xcalloc(1, sizeof(*t_argument));
 
@@ -4518,13 +4527,26 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 break;
             }
         case AST_TEMPLATE_TYPE_ARGUMENT :
+        case AST_TEMPLATE_TYPE_ARGUMENT_PACK :
             {
+                char is_expansion = 0;
+                if (ASTKind(template_parameter) == AST_TEMPLATE_TYPE_ARGUMENT_PACK)
+                {
+                    is_expansion = 1;
+                }
+
                 template_parameter_value_t* t_argument = 
                     xcalloc(1, sizeof(*t_argument));
 
                 AST type_template_parameter = ASTSon0(template_parameter);
                 AST type_specifier_seq = ASTSon0(type_template_parameter);
                 AST abstract_decl = ASTSon1(type_template_parameter);
+
+                char keep_is_inside_pack_expansion = get_is_inside_pack_expansion();
+                if (is_expansion)
+                {
+                    set_is_inside_pack_expansion(1);
+                }
 
                 // A type_specifier_seq is essentially a subset of a
                 // declarator_specifier_seq so we can reuse existing functions
@@ -4539,6 +4561,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(type_info))
                 {
+                    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                     xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
@@ -4552,10 +4575,21 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(declarator_type))
                 {
+                    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                     xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
+                    return NULL;
+                }
+
+                if (get_is_inside_pack_expansion()
+                        && !keep_is_inside_pack_expansion
+                        && type_does_not_contain_any_template_parameter_pack(declarator_type,
+                            ast_get_locus(template_parameter)))
+                {
+                    set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
+                    xfree(t_argument);
                     return NULL;
                 }
 
@@ -4566,6 +4600,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     if (abstract_decl != NULL)
                     {
+                        set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                         xfree(t_argument);
                         error_printf("%s: error: invalid template-argument number %d\n",
                                 ast_location(template_parameter),
@@ -4579,6 +4614,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                     t_argument->kind = TPK_TYPE;
                 }
 
+                set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
                 if (is_expansion)
                 {
                     declarator_type = get_pack_type(declarator_type);
@@ -6660,6 +6696,15 @@ scope_entry_list_t* query_nodecl_template_id(
         }
 
         scope_entry_t* template_symbol = entry_advance_aliases(entry_list_head(entry_list));
+
+        if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
+                && !get_is_inside_pack_expansion())
+        {
+            error_printf("%s: error: template template parameter pack '%s' not inside a pack expansion\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    template_symbol->symbol_name);
+            return NULL;
+        }
 
         if (template_symbol->kind == SK_DEPENDENT_ENTITY)
         {

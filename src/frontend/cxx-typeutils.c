@@ -10476,6 +10476,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         result = "<braced-initializer-list-type>";
     }
+    else if (is_ellipsis_type(type_info))
+    {
+        result = "<ellipsis-type>";
+    }
     else
     {
         result = get_cv_qualifier_string(type_info);
@@ -12413,14 +12417,18 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
     //
     // We remember whether the original was a string because we will lose this
     // information when we drop the array type
-    char is_string_literal = is_string_literal_type(orig);
+    char is_string_literal = 0;
+
     if (is_array_type(no_ref(orig)))
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: Applying array-to-pointer conversion\n");
         }
+        is_string_literal = array_type_is_string_literal(no_ref(orig));
+
         (*result).conv[0] = SCI_ARRAY_TO_POINTER;
+
         orig = get_pointer_type(array_type_get_element_type(no_ref(orig)));
     }
     else if (is_function_type(no_ref(orig)))
@@ -13392,6 +13400,8 @@ extern inline type_t* get_ellipsis_type(void)
     {
         _ellipsis_type = new_empty_type();
         _ellipsis_type->kind = TK_ELLIPSIS;
+
+        _ellipsis_type->unqualified_type = _ellipsis_type;
     }
 
     return _ellipsis_type;
@@ -15000,6 +15010,10 @@ static type_t* get_foundation_type(type_t* t)
         return t;
     }
     else if (is_gxx_underlying_type(t))
+    {
+        return t;
+    }
+    else if (is_ellipsis_type(t))
     {
         return t;
     }

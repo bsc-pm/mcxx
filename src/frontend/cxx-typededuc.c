@@ -4304,7 +4304,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
         finish_deduced_template_arguments(
             type_template_parameters,
             deduction_result,
-            decl_context,
+            named_type_get_symbol(specialized_named_type)->decl_context,
             locus,
             /* inout */ deduced_template_arguments);
     if (deduction_finish_result == DEDUCTION_FAILURE)
