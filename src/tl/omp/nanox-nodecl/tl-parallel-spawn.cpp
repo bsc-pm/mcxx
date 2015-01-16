@@ -149,7 +149,8 @@ namespace TL { namespace Nanox {
 
         if (!if_condition.is_null())
         {
-            if_condition_code_opt << "if (!" << as_expression(if_condition) << ")  nanos_num_threads = 1;";
+            // Do not remove the extra parenthesis (#2281)
+            if_condition_code_opt << "if (!(" << as_expression(if_condition) << "))  nanos_num_threads = 1;";
         }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
