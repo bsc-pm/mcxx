@@ -186,7 +186,7 @@ namespace TL
 
     bool Symbol::is_saved_expression() const
     {
-        return this->_symbol->entity_specs.is_saved_expression;
+        return symbol_entity_specs_get_is_saved_expression(this->_symbol);
     }
 
     bool Symbol::is_label() const
@@ -221,18 +221,18 @@ namespace TL
 
     bool Symbol::is_module_procedure() const
     {
-        return (this->_symbol->entity_specs.is_module_procedure);
+        return (symbol_entity_specs_get_is_module_procedure(this->_symbol));
     }
 
     bool Symbol::is_nested_function() const
     {
-        return (this->_symbol->entity_specs.is_nested_function);
+        return (symbol_entity_specs_get_is_nested_function(this->_symbol));
     }
 
     bool Symbol::is_statement_function_statement() const
     {
         return (this->_symbol->kind == SK_FUNCTION
-                && this->_symbol->entity_specs.is_stmt_function);
+                && symbol_entity_specs_get_is_stmt_function(this->_symbol));
     }
 
     bool Symbol::is_template_function_name() const
@@ -243,17 +243,17 @@ namespace TL
 
     bool Symbol::is_anonymous_union() const
     {
-        return this->_symbol->entity_specs.is_anonymous_union;
+        return symbol_entity_specs_get_is_anonymous_union(this->_symbol);
     }
 
     bool Symbol::is_member_of_anonymous_union() const
     {
-        return this->_symbol->entity_specs.is_member_of_anonymous;
+        return symbol_entity_specs_get_is_member_of_anonymous(this->_symbol);
     }
 
     bool Symbol::is_injected_class_name() const
     {
-        return this->_symbol->entity_specs.is_injected_class_name;
+        return symbol_entity_specs_get_is_injected_class_name(this->_symbol);
     }
 
     bool Symbol::is_fortran_main_program() const
@@ -275,22 +275,22 @@ namespace TL
 
     bool Symbol::is_in_module() const
     {
-        return (this->_symbol->entity_specs.in_module != NULL);
+        return (symbol_entity_specs_get_in_module(this->_symbol) != NULL);
     }
 
     Symbol Symbol::in_module() const
     {
-        return this->_symbol->entity_specs.in_module;
+        return symbol_entity_specs_get_in_module(this->_symbol);
     }
 
     bool Symbol::is_from_module() const
     {
-        return (this->_symbol->entity_specs.from_module != NULL);
+        return (symbol_entity_specs_get_from_module(this->_symbol) != NULL);
     }
 
     Symbol Symbol::from_module() const
     {
-        return this->_symbol->entity_specs.from_module;
+        return symbol_entity_specs_get_from_module(this->_symbol);
     }
 
     Symbol Symbol::aliased_from_module() const
@@ -300,17 +300,17 @@ namespace TL
 
     Symbol Symbol::get_used_modules() const
     {
-        return this->_symbol->entity_specs.used_modules;
+        return symbol_entity_specs_get_used_modules(this->_symbol);
     }
 
     Symbol Symbol::get_alias_to() const
     {
-        return this->_symbol->entity_specs.alias_to;
+        return symbol_entity_specs_get_alias_to(this->_symbol);
     }
 
     bool Symbol::has_alias_to() const
     {
-        return (this->_symbol->entity_specs.alias_to != NULL);
+        return (symbol_entity_specs_get_alias_to(this->_symbol) != NULL);
     }
 
     bool Symbol::is_fortran_blockdata() const
@@ -330,7 +330,7 @@ namespace TL
 
     bool Symbol::is_template_parameter() const
     {
-        return _symbol->entity_specs.is_template_parameter;
+        return symbol_entity_specs_get_is_template_parameter(_symbol);
     }
 
     bool Symbol::is_class() const
@@ -375,7 +375,7 @@ namespace TL
 
     bool Symbol::is_member() const
     {
-        return _symbol->entity_specs.is_member;
+        return symbol_entity_specs_get_is_member(_symbol);
     }
 
     bool Symbol::is_artificial() const
@@ -385,12 +385,12 @@ namespace TL
 
     Type Symbol::get_class_type() const
     {
-        return Type(_symbol->entity_specs.class_type);
+        return Type(symbol_entity_specs_get_class_type(_symbol));
     }
 
     access_specifier_t Symbol::get_access_specifier()
     {
-        return _symbol->entity_specs.access;
+        return symbol_entity_specs_get_access(_symbol);
     }
 
     bool Symbol::is_parameter() const
@@ -403,7 +403,7 @@ namespace TL
 
     bool Symbol::is_parameter_of_a_function() const
     {
-        return (_symbol->entity_specs.num_function_parameter_info != 0);
+        return (symbol_entity_specs_get_num_function_parameter_info(_symbol) != 0);
     }
 
     int Symbol::get_parameter_position() const
@@ -423,67 +423,72 @@ namespace TL
 
     bool Symbol::is_static() const
     {
-        return (_symbol->entity_specs.is_static);
+        return (symbol_entity_specs_get_is_static(_symbol));
     }
 
     bool Symbol::is_register() const
     {
-        return (_symbol->entity_specs.is_register);
+        return (symbol_entity_specs_get_is_register(_symbol));
     }
 
     bool Symbol::is_thread() const
     {
-        return (_symbol->entity_specs.is_thread);
+        return (symbol_entity_specs_get_is_thread(_symbol));
     }
 
     bool Symbol::is_thread_local() const
     {
-        return (_symbol->entity_specs.is_thread_local);
+        return (symbol_entity_specs_get_is_thread_local(_symbol));
     }
 
     bool Symbol::is_final() const
     {
-        return (_symbol->entity_specs.is_final);
+        return (symbol_entity_specs_get_is_final(_symbol));
     }
 
     bool Symbol::is_explicit_override() const
     {
-        return (_symbol->entity_specs.is_override);
+        return (symbol_entity_specs_get_is_override(_symbol));
     }
 
     bool Symbol::is_deleted() const
     {
-        return (_symbol->entity_specs.is_deleted);
+        return (symbol_entity_specs_get_is_deleted(_symbol));
     }
 
     bool Symbol::is_defaulted() const
     {
-        return (_symbol->entity_specs.is_defaulted);
+        return (symbol_entity_specs_get_is_defaulted(_symbol));
     }
 
     bool Symbol::is_hides_member() const
     {
-        return (_symbol->entity_specs.is_hides_member);
+        return (symbol_entity_specs_get_is_hides_member(_symbol));
     }
 
     bool Symbol::is_bitfield() const
     {
-        return (_symbol->entity_specs.is_bitfield);
+        return (symbol_entity_specs_get_is_bitfield(_symbol));
+    }
+
+    bool Symbol::is_unnamed_bitfield() const
+    {
+        return (symbol_entity_specs_get_is_unnamed_bitfield(_symbol));
     }
 
     Nodecl::NodeclBase Symbol::get_bitfield_size() const
     {
-        return _symbol->entity_specs.bitfield_size;
+        return symbol_entity_specs_get_bitfield_size(_symbol);
     }
 
     int Symbol::get_bitfield_offset() const
     {
-        return _symbol->entity_specs.bitfield_offset;
+        return symbol_entity_specs_get_bitfield_offset(_symbol);
     }
 
     bool Symbol::is_user_declared() const
     {
-        return _symbol->entity_specs.is_user_declared;
+        return symbol_entity_specs_get_is_user_declared(_symbol);
     }
 
     // FIXME : This only holds if the 'extern' qualifier was given
@@ -492,91 +497,91 @@ namespace TL
     // till this gets fixed
     bool Symbol::is_extern() const
     {
-        return (_symbol->entity_specs.is_extern);
+        return (symbol_entity_specs_get_is_extern(_symbol));
     }
 
     bool Symbol::is_mutable() const
     {
-        return (_symbol->entity_specs.is_mutable);
+        return (symbol_entity_specs_get_is_mutable(_symbol));
     }
 
     // States is a exported template (unused at all)
     bool Symbol::is_exported_template() const
     {
-        return (_symbol->entity_specs.is_export);
+        return (symbol_entity_specs_get_is_export(_symbol));
     }
 
     // Inlined function
     bool Symbol::is_inline() const
     {
-        return (_symbol->entity_specs.is_inline);
+        return (symbol_entity_specs_get_is_inline(_symbol));
     }
 
     bool Symbol::is_constexpr() const
     {
-        return (_symbol->entity_specs.is_constexpr);
+        return (symbol_entity_specs_get_is_constexpr(_symbol));
     }
 
     // Virtual function
     bool Symbol::is_virtual() const
     {
-        return (_symbol->entity_specs.is_virtual);
+        return (symbol_entity_specs_get_is_virtual(_symbol));
     }
 
     bool Symbol::is_pure() const
     {
-        return (_symbol->entity_specs.is_pure);
+        return (symbol_entity_specs_get_is_pure(_symbol));
     }
 
     bool Symbol::is_conversion_function() const
     {
-        return (_symbol->entity_specs.is_conversion);
+        return (symbol_entity_specs_get_is_conversion(_symbol));
     }
 
     bool Symbol::is_destructor() const
     {
-        return (_symbol->entity_specs.is_destructor);
+        return (symbol_entity_specs_get_is_destructor(_symbol));
     }
 
     // Is a constructor
     bool Symbol::is_constructor() const
     {
-        return (_symbol->entity_specs.is_constructor);
+        return (symbol_entity_specs_get_is_constructor(_symbol));
     }
 
     // Is an explicit constructor
     bool Symbol::is_explicit_constructor() const
     {
-        return (_symbol->entity_specs.is_explicit);
+        return (symbol_entity_specs_get_is_explicit(_symbol));
     }
 
     bool Symbol::is_explicit_class() const
     {
-        return (_symbol->entity_specs.is_explicit);
+        return (symbol_entity_specs_get_is_explicit(_symbol));
     }
 
     bool Symbol::is_friend_declared() const
     {
-        return (_symbol->entity_specs.is_friend_declared);
+        return (symbol_entity_specs_get_is_friend_declared(_symbol));
     }
 
     bool Symbol::is_entry() const
     {
-        return (_symbol->entity_specs.is_entry);
+        return (symbol_entity_specs_get_is_entry(_symbol));
     }
 
     bool Symbol::function_throws_any_exception() const
     {
-        return (_symbol->entity_specs.any_exception);
+        return (symbol_entity_specs_get_any_exception(_symbol));
     }
 
     ObjectList<TL::Type> Symbol::get_thrown_exceptions() const
     {
         ObjectList<TL::Type> result;
 
-        for (int i = 0; i < _symbol->entity_specs.num_exceptions; i++)
+        for (int i = 0; i < symbol_entity_specs_get_num_exceptions(_symbol); i++)
         {
-            result.append(_symbol->entity_specs.exceptions[i]);
+            result.append(symbol_entity_specs_get_exceptions_num(_symbol, i));
         }
 
         return result;
@@ -584,7 +589,7 @@ namespace TL
 
     Nodecl::NodeclBase Symbol::function_noexcept() const
     {
-        return _symbol->entity_specs.noexception;
+        return symbol_entity_specs_get_noexception(_symbol);
     }
 
     bool Symbol::has_initialization() const
@@ -654,7 +659,7 @@ namespace TL
     bool Symbol::is_builtin() const
     {
         // Despite the name this applies to variables too
-        return _symbol->entity_specs.is_builtin;
+        return symbol_entity_specs_get_is_builtin(_symbol);
     }
 
     bool Symbol::is_intrinsic() const
@@ -669,7 +674,7 @@ namespace TL
 
     Nodecl::NodeclBase Symbol::get_asm_specification() const
     {
-        return _symbol->entity_specs.asm_specification;
+        return symbol_entity_specs_get_asm_specification(_symbol);
     }
 
     bool Symbol::is_defined() const
@@ -679,7 +684,7 @@ namespace TL
 
     bool Symbol::is_defined_inside_class() const
     {
-        return _symbol->entity_specs.is_defined_inside_class_specifier;
+        return symbol_entity_specs_get_is_defined_inside_class_specifier(_symbol);
     }
 
     bool Symbol::not_to_be_printed() const
@@ -719,107 +724,106 @@ namespace TL
 
     bool Symbol::is_allocatable() const
     {
-        return _symbol->entity_specs.is_allocatable;
+        return symbol_entity_specs_get_is_allocatable(_symbol);
     }
 
     bool Symbol::is_in_common() const
     {
-        return _symbol->entity_specs.is_in_common;
+        return symbol_entity_specs_get_is_in_common(_symbol);
     }
 
     Symbol Symbol::in_common() const
     {
-        return _symbol->entity_specs.in_common;
+        return symbol_entity_specs_get_in_common(_symbol);
     }
 
     bool Symbol::is_in_namelist() const
     {
-        return _symbol->entity_specs.is_in_namelist;
+        return symbol_entity_specs_get_is_in_namelist(_symbol);
     }
 
     bool Symbol::is_optional() const
     {
-        return _symbol->entity_specs.is_optional;
+        return symbol_entity_specs_get_is_optional(_symbol);
     }
 
     bool Symbol::is_contiguous() const
     {
-        return _symbol->entity_specs.is_contiguous;
+        return symbol_entity_specs_get_is_contiguous(_symbol);
     }
 
     bool Symbol::is_saved_program_unit() const
     {
-        return _symbol->entity_specs.is_saved_program_unit;
+        return symbol_entity_specs_get_is_saved_program_unit(_symbol);
     }
 
     bool Symbol::is_target() const
     {
-        return _symbol->entity_specs.is_target;
+        return symbol_entity_specs_get_is_target(_symbol);
     }
 
     bool Symbol::is_elemental() const
     {
-        return _symbol->entity_specs.is_elemental;
+        return symbol_entity_specs_get_is_elemental(_symbol);
     }
 
     bool Symbol::is_recursive() const
     {
-        return _symbol->entity_specs.is_recursive;
+        return symbol_entity_specs_get_is_recursive(_symbol);
     }
 
     bool Symbol::is_result_variable() const
     {
         return (this->_symbol->kind == SK_VARIABLE
-                && this->_symbol->entity_specs.is_result_var);
+                && symbol_entity_specs_get_is_result_var(this->_symbol));
     }
 
     Symbol Symbol::get_result_variable() const
     {
-        return this->_symbol->entity_specs.result_var;
+        return symbol_entity_specs_get_result_var(this->_symbol);
     }
 
     bool Symbol::is_generic_specifier() const
     {
-        return _symbol->entity_specs.is_generic_spec;
+        return _symbol->kind == SK_GENERIC_NAME;
     }
 
     bool Symbol::has_nondefault_linkage() const
     {
-        return (_symbol->entity_specs.linkage_spec != NULL)
-            && !std::string(_symbol->entity_specs.linkage_spec).empty();
+        return (symbol_entity_specs_get_linkage_spec(_symbol) != NULL)
+            && !std::string(symbol_entity_specs_get_linkage_spec(_symbol)).empty();
     }
 
     //! Returns the linkage identifier or empty if is the default
     std::string Symbol::get_linkage() const
     {
-        return std::string(_symbol->entity_specs.linkage_spec);
+        return std::string(symbol_entity_specs_get_linkage_spec(_symbol));
     }
 
     int Symbol::get_num_related_symbols() const
     {
-        return _symbol->entity_specs.num_related_symbols;
+        return symbol_entity_specs_get_num_related_symbols(_symbol);
     }
 
     ObjectList<Symbol> Symbol::get_related_symbols() const
     {
         ObjectList<Symbol> result;
-        for (int i = 0; i < _symbol->entity_specs.num_related_symbols; i++)
+        for (int i = 0; i < symbol_entity_specs_get_num_related_symbols(_symbol); i++)
         {
-            result.append(_symbol->entity_specs.related_symbols[i]);
+            result.append(symbol_entity_specs_get_related_symbols_num(_symbol, i));
         }
         return result;
     }
 
     void Symbol::set_related_symbols(ObjectList<Symbol> related_symbol_list) const
     {
-        _symbol->entity_specs.num_related_symbols = 0;
+        symbol_entity_specs_free_related_symbols(_symbol);
 
         for (ObjectList<Symbol>::iterator it = related_symbol_list.begin();
                 it != related_symbol_list.end();
                 it++)
         {
-            P_LIST_ADD(_symbol->entity_specs.related_symbols, 
-                    _symbol->entity_specs.num_related_symbols,
+            symbol_entity_specs_add_related_symbols(_symbol,
                     it->get_internal_symbol());
         }
     }
@@ -829,9 +833,9 @@ namespace TL
         ObjectList<Symbol> result;
         if ( is_function( ) )
         {
-            for (int i = 0; i < _symbol->entity_specs.num_related_symbols; i++)
+            for (int i = 0; i < symbol_entity_specs_get_num_related_symbols(_symbol); i++)
             {
-                result.append(_symbol->entity_specs.related_symbols[i]);
+                result.append(symbol_entity_specs_get_related_symbols_num(_symbol, i));
             }
         }
         return result;
@@ -839,35 +843,35 @@ namespace TL
 
     bool Symbol::has_gcc_attributes() const
     {
-        return (_symbol->entity_specs.num_gcc_attributes > 0);
+        return (symbol_entity_specs_get_num_gcc_attributes(_symbol) > 0);
     }
 
     bool Symbol::has_gcc_extension() const
     {
-        return _symbol->entity_specs.gcc_extension;
+        return symbol_entity_specs_get_gcc_extension(_symbol);
     }
 
     ObjectList<GCCAttribute> Symbol::get_gcc_attributes() const
     {
         ObjectList<GCCAttribute> result;
-        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
+        for (int i = 0; i < symbol_entity_specs_get_num_gcc_attributes(_symbol); i++)
         {
-            result.append(_symbol->entity_specs.gcc_attributes[i]);
+            result.append(symbol_entity_specs_get_gcc_attributes_num(_symbol, i));
         }
         return result;
     }
 
     bool Symbol::has_ms_attributes() const
     {
-        return (_symbol->entity_specs.num_ms_attributes > 0);
+        return (symbol_entity_specs_get_num_ms_attributes(_symbol) > 0);
     }
 
     ObjectList<MSAttribute> Symbol::get_ms_attributes() const
     {
         ObjectList<MSAttribute> result;
-        for (int i = 0; i < _symbol->entity_specs.num_ms_attributes; i++)
+        for (int i = 0; i < symbol_entity_specs_get_num_ms_attributes(_symbol); i++)
         {
-            result.append(_symbol->entity_specs.ms_attributes[i]);
+            result.append(symbol_entity_specs_get_ms_attributes_num(_symbol, i));
         }
         return result;
     }
@@ -928,82 +932,74 @@ namespace TL
 
     intent_kind_t Symbol::get_intent_kind() const
     {
-        return _symbol->entity_specs.intent_kind;
+        return symbol_entity_specs_get_intent_kind(_symbol);
     }
 
     bool Symbol::is_cray_pointee() const
     {
-        return _symbol->entity_specs.is_cray_pointee;
+        return symbol_entity_specs_get_is_cray_pointee(_symbol);
     }
 
     Symbol Symbol::get_cray_pointer() const
     {
-        return _symbol->entity_specs.cray_pointer;
+        return symbol_entity_specs_get_cray_pointer(_symbol);
     }
 
     int Symbol::get_offset() const
     {
-        return _symbol->entity_specs.field_offset;
+        return symbol_entity_specs_get_field_offset(_symbol);
     }
 
     int Symbol::get_bitfield_first() const
     {
-        return _symbol->entity_specs.bitfield_first;
+        return symbol_entity_specs_get_bitfield_first(_symbol);
     }
 
     int Symbol::get_bitfield_last() const
     {
-        return _symbol->entity_specs.bitfield_last;
+        return symbol_entity_specs_get_bitfield_last(_symbol);
     }
 
     bool Symbol::has_default_argument_num(int i) const
     {
-        return (_symbol->entity_specs.default_argument_info != NULL
-                && i < _symbol->entity_specs.num_parameters
-                && _symbol->entity_specs.default_argument_info[i] != NULL
-                && !nodecl_is_null(_symbol->entity_specs.default_argument_info[i]->argument));
+        return (i < symbol_entity_specs_get_num_parameters(_symbol)
+                && symbol_entity_specs_get_default_argument_info_num(_symbol, i) != NULL
+                && !nodecl_is_null(symbol_entity_specs_get_default_argument_info_num(_symbol, i)->argument));
     }
 
     bool Symbol::has_hidden_default_argument_num(int i) const
     {
         return this->has_default_argument_num(i)
-            && _symbol->entity_specs.default_argument_info[i]->is_hidden;
+            && symbol_entity_specs_get_default_argument_info_num(_symbol, i)->is_hidden;
     }
 
     Nodecl::NodeclBase Symbol::get_default_argument_num(int i) const
     {
-        return _symbol->entity_specs.default_argument_info[i]->argument;
+        return symbol_entity_specs_get_default_argument_info_num(_symbol, i)->argument;
     }
 
 
     Nodecl::NodeclBase Symbol::get_function_code() const
     {
-        return _symbol->entity_specs.function_code;
+        return symbol_entity_specs_get_function_code(_symbol);
     }
 
     bool Symbol::is_bind_c() const
     {
-        Nodecl::NodeclBase n( _symbol->entity_specs.bind_info );
+        Nodecl::NodeclBase n( symbol_entity_specs_get_bind_info(_symbol) );
         return !n.is_null()
             && n.is<Nodecl::FortranBindC>();
     }
 
     Nodecl::NodeclBase Symbol::get_bind_c_name() const
     {
-        Nodecl::FortranBindC n ( _symbol->entity_specs.bind_info );
+        Nodecl::FortranBindC n ( symbol_entity_specs_get_bind_info(_symbol) );
 
         return n.get_name();
     }
 
     std::string Symbol::get_from_module_name() const
     {
-        return _symbol->entity_specs.from_module_name;
-    }
-
-    bool Symbol::is_unnamed()
-    {
-        return (_symbol->kind == SK_CLASS
-                || _symbol->kind == SK_ENUM)
-            && _symbol->entity_specs.is_unnamed;
+        return symbol_entity_specs_get_from_module_name(_symbol);
     }
 }

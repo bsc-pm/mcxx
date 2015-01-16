@@ -66,6 +66,7 @@ struct gather_decl_spec_tag {
     // type-specifiers and decl-specifiers
     bool is_auto_storage:1;
     bool is_auto_type:1;
+    bool is_decltype_auto:1;
     bool is_register:1;
     bool is_static:1;
     bool is_extern:1;
@@ -88,7 +89,6 @@ struct gather_decl_spec_tag {
     bool emit_always:1;
     bool any_exception:1; // Set to 1 if no exception specifier was seen
     bool is_vector:1;
-    bool is_template_pack:1;
     bool is_final:1;
     bool is_hides_member:1;
     bool is_override:1;
@@ -175,6 +175,10 @@ struct gather_decl_spec_tag {
     access_specifier_t current_access;
 
     AST gcc_asm_spec;
+
+    // _Pragma("map") inlined in a declarator
+    int num_xl_pragmas;
+    const char** xl_pragmas;
 
 } gather_decl_spec_t;
 

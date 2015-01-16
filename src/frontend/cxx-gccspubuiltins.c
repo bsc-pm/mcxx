@@ -382,7 +382,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
     { \
         new_spu_builtin->type_information = TYPE; \
     } \
-    new_spu_builtin->entity_specs.is_builtin = 1; \
+    symbol_entity_specs_set_is_builtin(new_spu_builtin, 1); \
     new_spu_builtin->do_not_print = 1; \
 }
 

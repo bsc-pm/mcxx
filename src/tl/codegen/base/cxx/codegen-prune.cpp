@@ -35,7 +35,7 @@ namespace Codegen
             if (_used_symbols.find(it->get_symbol()) == _used_symbols.end())
             {
                 scope_entry_t* entry = it->get_symbol().get_internal_symbol();
-                entry->entity_specs.is_user_declared = 0;
+                symbol_entity_specs_set_is_user_declared(entry, 0);
                 Nodecl::Utils::remove_from_enclosing_list(*it);
             }
         }

@@ -80,19 +80,19 @@ namespace TL
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments_as_expressions(scope);
+                target_ctx.copy_in = parse_dependences_ompss_clause(copy_in, scope);
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments_as_expressions(scope);
+                target_ctx.copy_out = parse_dependences_ompss_clause(copy_out, scope);
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
+                target_ctx.copy_inout = parse_dependences_ompss_clause(copy_inout, scope);
             }
 
             PragmaCustomClause ndrange = pragma_line.get_clause("ndrange");
@@ -264,6 +264,12 @@ namespace TL
         // #pragma omp target on top of a #pragma omp task outline
         void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
 
@@ -339,11 +345,19 @@ namespace TL
         // #pragma omp target on top of a #pragma omp task inline
         void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
             if (!nested_pragma.is_null()
                     && nested_pragma.is<Nodecl::List>())
             {
                 nested_pragma = nested_pragma.as<Nodecl::List>().front();
+                ERROR_CONDITION(!nested_pragma.is<Nodecl::Context>(), "Invalid node\n", 0);
+                nested_pragma = nested_pragma.as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front();
             }
 
             if (nested_pragma.is_null()
@@ -419,17 +433,20 @@ namespace TL
                     // definition we aren't defining the data-sharings of the variables involved
                     // in that expression.
                     //
-                    // About the data-sharings of the variables involved in the dependence expression:
-                    // - Fortran: the base symbol of the dependence expression is always SHARED
+                    // About the data-sharings of the variables involved in the copy expression:
+                    // - Fortran: the base symbol of the copy expression is always SHARED
                     // - C/C++:
-                    //  * Trivial dependences must always be SHARED:
+                    //  * The base symbol of a trivial copy (i.e the expression is a symbol) must always be SHARED:
                     //          int x, a[10];
                     //          copy_inout(x) -> shared(x)
                     //          copy_inout(a) -> shared(a)
-                    //  * Arrays and references to arrays must be SHARED too:
+                    //  * The base symbol of an array expression or a reference to an array must be SHARED too:
                     //          copy_int a[10];
                     //          copy_inout(a[4])   -> shared(a)
                     //          copy_inout(a[1:2]) -> shared(a)
+                    //  * The base symbol of a class member access must be shared too:
+                    //          struct C { int z; } c;
+                    //          copy_inout(c.z)       -> shared(c)
                     //  * Otherwise, the data-sharing of the base symbol is FIRSTPRIVATE:
                     //          int* p;
                     //          copy_inout(*p)     -> firstprivate(p)
@@ -452,6 +469,12 @@ namespace TL
                     {
                         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
                                 "the variable is an array mentioned in a non-trivial copy "
+                                "and it did not have an explicit data-sharing");
+                    }
+                    else if (sym.get_type().is_class())
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is an object mentioned in a non-trivial dependence "
                                 "and it did not have an explicit data-sharing");
                     }
                     else
@@ -606,8 +629,8 @@ namespace TL
                 all_copies.append(target_info.get_copy_inout());
 
                 ObjectList<Symbol> all_copied_syms = all_copies
-                    .map(functor(&CopyItem::get_copy_expression))
-                    .map(functor(&DataReference::get_base_symbol));
+                    .map(&CopyItem::get_copy_expression)
+                    .map(&DataReference::get_base_symbol);
 
                 // In devices with disjoint memory, it may be wrong to use a
                 // global variables inside a pragma task without copying it.
@@ -631,10 +654,6 @@ namespace TL
                                 " copy directionality. This may cause problems at run-time\n",
                                 construct.get_locus_str().c_str(),
                                 io_it->get_qualified_name().c_str());
-
-                        Nodecl::Symbol new_symbol_ref =
-                            Nodecl::Symbol::make(*io_it, construct.get_locus());
-                        new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
                     }
                 }
             }

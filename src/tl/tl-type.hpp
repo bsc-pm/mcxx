@@ -192,24 +192,6 @@ namespace TL
                 return false;
             }
 
-            //! Constructs a Symbol after a reference to Object
-            Type(RefPtr<Object> obj)
-            {
-                RefPtr<Type> pint = RefPtr<Type>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_type_info = pint->_type_info;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Type" << std::endl;
-                    }
-                    this->_type_info = NULL;
-                }
-            }
-
             virtual ~Type()
             {
             }
@@ -352,13 +334,11 @@ namespace TL
             /*!
              * This function is a no-op in C and Fortran
              */
-            Type no_ref();
+            Type no_ref() const;
 
             //! Returns the alignment of the type
             int get_alignment_of();
 
-            bool operator==(Type t) const;
-            bool operator!=(Type t) const;
             Type& operator=(Type t);
             bool operator<(Type t) const;
 
@@ -638,6 +618,9 @@ namespace TL
 
             // ! States whether the current type is auto
             bool is_auto() const;
+
+            // ! States whether the current type is decltype(auto)
+            bool is_decltype_auto() const;
 
             //! Returns the number of elements of a vector-type
             int vector_num_elements() const;

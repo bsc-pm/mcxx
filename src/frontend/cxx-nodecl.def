@@ -68,10 +68,7 @@ statement : statement-but-object-init
           | context
           | function-code
 
-context : NODECL_CONTEXT([in_context] in_context) context
-
-in_context : statement-seq-opt
-           | expression
+context : NODECL_CONTEXT([in_context] statement-seq-opt) context
 
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
@@ -138,6 +135,7 @@ literal : NODECL_INTEGER_LITERAL() type const-value
 string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
 vector-flags: NODECL_ALIGNED_FLAG()
+    | NODECL_ALIGNMENT_INFO() const-value
     | NODECL_EVICT_FLAG()
     | NODECL_RELAXED_FLAG()
     | NODECL_NONTEMPORAL_FLAG()
@@ -148,8 +146,8 @@ expression : literal
            | context
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
-           | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
+           | range-expression
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
@@ -245,17 +243,19 @@ expression : literal
 # This one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
+range-expression : NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
+
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
 
 structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
-      | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
-      | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
-      | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
+  | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
+  | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
+  | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
-          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
-          | expression
-          | fortran-implied-do
+      | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
+      | expression
+      | fortran-implied-do
 
 fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [items]initializer-item-seq)
 
@@ -307,19 +307,18 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_IMAG_PART([rhs]expression) type const-value-opt
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
-                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
-                  | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
-                  | NODECL_VALUE_INITIALIZATION() symbol
+                  | NODECL_VALUE_INITIALIZATION() symbol type
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
                   | cxx-pack
 
 # Used for C++11 lambdas
-explicit-capture: NODECL_CAPTURE_COPY() symbol
-                | NODECL_CAPTURE_REFERENCE() symbol
+explicit-capture: NODECL_CXX_CAPTURE_COPY([init] expression-opt) symbol
+                | NODECL_CXX_CAPTURE_REFERENCE([init] expression-opt) symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 
@@ -340,13 +339,15 @@ cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
 # will not be able to get rid of them until we instantiate template functions
 cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_DEF([context] context-opt) symbol
-         | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_USING_NAMESPACE([context] context) symbol
-         | NODECL_CXX_USING_DECL([context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DEF([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DECL([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_USING_NAMESPACE([context] context, [used_name]cxx-dependent-name) symbol
+         | NODECL_CXX_USING_DECL([context] context, [used_name]cxx-dependent-name) symbol
          # Used only in weird cases where parsing must be delayed in the frontend itself
          # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()
+# experimental
+         | NODECL_CXX_IMPLICIT_INSTANTIATION() symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
@@ -361,7 +362,7 @@ cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
     | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type
     | NODECL_CXX_EQUAL_INITIALIZER([init]expression) type
-    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
+    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt) type
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
     | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression)
@@ -393,6 +394,8 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
 # noexcept(expr)
     | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
+# [dependent] C+11 lambdas
+    | NODECL_CXX_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt
@@ -495,6 +498,7 @@ text : NODECL_TEXT() text
 
 parallel-statements : parallel-execution
                     | synchronization
+                    | data-coordination
 
 parallel-execution : task-construct
                    | taskyield-construct
@@ -531,6 +535,7 @@ target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [sym
 
 expression : task-call
             | task-expression
+            | ompss-multi-dep
 
 top-level: target-declaration
 
@@ -572,7 +577,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [overlap_factor] expression-opt)
+                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [min_group_loads] expression, [max_group_registers] expression, [max_groups] expression)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
@@ -597,7 +602,7 @@ parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-
 
 # for
 omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
-              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [appendix]statement-seq)
+              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
 
 # workshare (Fortran only)
 workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)
@@ -623,7 +628,11 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
+data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
+
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
+
+ompss-multi-dep : NODECL_OMP_SS*MULTI_DEPENDENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
 
 ##############################
 # SIMD                       #
@@ -667,29 +676,29 @@ expression : constraint_expression
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
 
-induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression, [upper] expression, [stride] expression)
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression-seq, [upper] expression-seq, [stride] expression)
 
-analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
-                          | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)
-                          | NODECL_ANALYSIS*UNDEFINED([undefined_exprs] expression-seq)
-                          | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq)
-                          | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq)
-                          | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq)
-                          | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq)
-                          | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq)
-                          | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq)
-                          | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
-                          | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
-                          | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq)
+analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*UNDEFINED([undefined_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq-opt)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq-opt)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq-opt)
+                          | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq-opt)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq-opt)
+                          | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq-opt)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
 

@@ -405,16 +405,6 @@ namespace TL
         return ::is_error_type(_type_info);
     }
 
-    bool Type::operator==(Type t) const
-    {
-        return this->_type_info == t._type_info;
-    }
-
-    bool Type::operator!=(Type t) const
-    {
-        return !(this->operator==(t));
-    }
-
     bool Type::operator<(Type t) const
     {
         return this->_type_info < t._type_info;
@@ -477,6 +467,11 @@ namespace TL
     bool Type::is_auto() const
     {
         return ::is_auto_type(_type_info);
+    }
+
+    bool Type::is_decltype_auto() const
+    {
+        return ::is_decltype_auto_type(_type_info);
     }
 
     int Type::vector_num_elements() const
@@ -1024,7 +1019,7 @@ namespace TL
                 (cv_qualifier_t)(cv | get_cv_qualifier(this->_type_info)));
     }
 
-    Type Type::no_ref()
+    Type Type::no_ref() const
     {
         if (::is_lvalue_reference_type(this->_type_info)
                 || ::is_rvalue_reference_type(this->_type_info))

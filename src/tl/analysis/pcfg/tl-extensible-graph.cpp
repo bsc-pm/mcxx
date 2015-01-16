@@ -35,7 +35,7 @@ namespace Analysis {
     ExtensibleGraph::ExtensibleGraph(std::string name, const NBase& nodecl, PCFGVisitUtils* utils)
         : _name(name), _graph(NULL), _utils(utils),
           _nodecl(nodecl), _sc(nodecl.retrieve_context()),
-          _global_vars(), _function_sym(NULL), _pointer_to_size_map(), nodes_m(),
+          _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
           _concurrent_tasks(), _last_sync(), _next_sync(),
           _cluster_to_entry_map()
@@ -158,13 +158,15 @@ namespace Analysis {
             internal_error("Wrong list size while connecting a list of nodes as children of "
                             "other node (children '%d', edge types '%d', edge labels '%d')\n",
                            children.size(), actual_etypes.size(), actual_elabels.size());
-    }
+        }
 
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         ObjectList<Node*>::const_iterator it = children.begin();
-        for(; it != children.end(), itt != actual_etypes.end(), itl != actual_elabels.end();
-             ++it, ++itt, ++itl)
+        for(; it != children.end()
+                && itt != actual_etypes.end()
+                && itl != actual_elabels.end();
+            ++it, ++itt, ++itl)
         {
             connect_nodes(parent, *it, *itt, *itl);
         }
@@ -193,7 +195,9 @@ namespace Analysis {
         ObjectList<Node*>::const_iterator it = parents.begin();
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
-        for(; it != parents.end(), itt != actual_etypes.end(), itl != actual_elabels.end();
+        for(; it != parents.end()
+                && itt != actual_etypes.end()
+                && itl != actual_elabels.end();
              ++it, ++itt, ++itl)
         {
             connect_nodes(*it, child, *itt, *itl, is_task_edge, is_back_edge);
@@ -284,63 +288,6 @@ namespace Analysis {
     {
         clear_unnecessary_nodes();
         concat_sequential_nodes();
-    }
-    
-    void ExtensibleGraph::remove_unnecessary_connections_rec(Node* n)
-    {
-        if(!n->is_visited_extgraph())
-        {
-            n->set_visited_extgraph(true);
-            
-            ObjectList<Node*> children = n->get_children();
-            if(n->is_graph_node())
-            {   // Only graph nodes may be unnecessarily connected 
-                
-                // First try recursively in the inner nodes
-                remove_unnecessary_connections_rec(n->get_graph_entry_node());
-                
-                // Second check whether the current graph node has to be unconnected
-                Node* exit = n->get_graph_exit_node();
-                if(exit->get_entry_edges().empty())
-                {   // If the exit of the graph node has no parent, 
-                    // then the graph node should not have any children
-                    std::queue<Node*> nodes_to_disconnect;
-                    nodes_to_disconnect.push(n);
-                    while(!nodes_to_disconnect.empty())
-                    {
-                        Node* n_ = nodes_to_disconnect.front();
-                        nodes_to_disconnect.pop();
-                        
-                        ObjectList<Node*> tmp = n_->get_children();
-                        for(ObjectList<Node*>::iterator it = tmp.begin(); it != tmp.end(); ++it)
-                        {
-                            disconnect_nodes(n_, *it);
-                            if((*it)->get_entry_edges().empty() && !(*it)->is_graph_node())
-                            {   // We have removed the only parent that this node had => keep removing unconnected node
-                                // But do not disconnect graph nodes, because they may have unexpected inner connections
-                                // We do not delete the nodes because they may be structurally necessary (i.e.: the exit node of a graph node)
-                                if((*it)->is_exit_node())
-                                    nodes_to_disconnect.push((*it)->get_outer_node());
-                                else
-                                    nodes_to_disconnect.push(*it);
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Get again the children, because we may have deleted some of them
-            children = n->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                remove_unnecessary_connections_rec(*it);
-        }
-    }
-    
-    void ExtensibleGraph::remove_unnecessary_connections()
-    {
-        Node* entry = _graph->get_graph_entry_node();
-        remove_unnecessary_connections_rec(entry);
-        clear_visits_extgraph(entry);
     }
 
     void ExtensibleGraph::concat_sequential_nodes()
@@ -639,103 +586,139 @@ namespace Analysis {
         return false;
     }
 
-    void ExtensibleGraph::clear_visits(Node* current)
+    void ExtensibleGraph::clear_visits(Node* n)
     {
-        if(current->is_visited())
+        if (n->is_visited())
         {
-            current->set_visited(false);
+            n->set_visited(false);
 
-            if(current->is_graph_node())
-                clear_visits(current->get_graph_entry_node());
+            if (n->is_graph_node())
+                clear_visits(n->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
-                                                                        : current->get_children();
-            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            if (n->is_exit_node())
+            {
+                n = n->get_outer_node();
+                if (!n->get_graph_entry_node()->is_visited())
+                    n->set_visited(false);  // Be sure we do not miss any node
+                                            // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& children = n->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits(*it);
         }
     }
 
-    void ExtensibleGraph::clear_visits_aux(Node* current)
+    void ExtensibleGraph::clear_visits_aux(Node* n)
     {
-        if(current->is_visited_aux())
+        if (n->is_visited_aux())
         {
-            current->set_visited_aux(false);
+            n->set_visited_aux(false);
 
-            if(current->is_graph_node())
-                clear_visits_aux(current->get_graph_entry_node());
+            if (n->is_graph_node())
+                clear_visits_aux(n->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
-                                                                        : current->get_children();
-            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            if (n->is_exit_node())
+            {
+                n = n->get_outer_node();
+                if (!n->get_graph_entry_node()->is_visited_aux())
+                    n->set_visited_aux(false);  // Be sure we do not miss any node
+                                                // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& children = n->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_aux(*it);
         }
     }
 
-    void ExtensibleGraph::clear_visits_extgraph(Node* current)
+    void ExtensibleGraph::clear_visits_extgraph(Node* n)
     {
-        if(current->is_visited_extgraph())
+        if (n->is_visited_extgraph())
         {
-            current->set_visited_extgraph(false);
+            n->set_visited_extgraph(false);
 
-            if(current->is_graph_node())
-                clear_visits_extgraph(current->get_graph_entry_node());
+            if (n->is_graph_node())
+                clear_visits_extgraph(n->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
-                                                                        : current->get_children();
-            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            if (n->is_exit_node())
+            {
+                n = n->get_outer_node();
+                if (!n->get_graph_entry_node()->is_visited_extgraph())
+                    n->set_visited_extgraph(false);     // Be sure we do not miss any node
+                                                        // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& children = n->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_extgraph(*it);
         }
     }
 
-    void ExtensibleGraph::clear_visits_extgraph_aux(Node* current)
+    void ExtensibleGraph::clear_visits_extgraph_aux(Node* n)
     {
-        if(current->is_visited_extgraph_aux())
+        if (n->is_visited_extgraph_aux())
         {
-            current->set_visited_extgraph_aux(false);
+            n->set_visited_extgraph_aux(false);
 
-            if(current->is_graph_node())
-                clear_visits_extgraph_aux(current->get_graph_entry_node());
+            if (n->is_graph_node())
+                clear_visits_extgraph_aux(n->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
-                                                                        : current->get_children();
-            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            if (n->is_exit_node())
+            {
+                n = n->get_outer_node();
+                if (!n->get_graph_entry_node()->is_visited_extgraph_aux())
+                    n->set_visited_extgraph_aux(false);     // Be sure we do not miss any node
+                                                            // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& children = n->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_extgraph_aux(*it);
         }
     }
 
-    void ExtensibleGraph::clear_visits_in_level(Node* current, Node* outer_node)
+    void ExtensibleGraph::clear_visits_in_level(Node* n, Node* outer_node)
     {
-        if(current->is_visited() &&
-            (current->node_is_enclosed_by(outer_node) || 
-              current->is_omp_task_node() || current->is_omp_virtual_tasksync()))
+        if (n->is_visited()
+            && (n->node_is_enclosed_by(outer_node)
+                || n->is_omp_task_node()
+                || n->is_omp_virtual_tasksync()))
         {
-            current->set_visited(false);
+            n->set_visited(false);
 
-            if(current->is_graph_node())
+            if(n->is_graph_node())
             {
-                Node* new_outer = (current->is_omp_task_node() ? current : outer_node);
-                clear_visits_in_level(current->get_graph_entry_node(), new_outer);
+                Node* new_outer = (n->is_omp_task_node() ? n : outer_node);
+                clear_visits_in_level(n->get_graph_entry_node(), new_outer);
             }
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
-                                                                        : current->get_children();
+            if (n->is_exit_node())
+            {
+                n = n->get_outer_node();
+                if(n->node_is_enclosed_by(outer_node)
+                    || n->is_omp_task_node()
+                    || n->is_omp_virtual_tasksync())
+                {
+                    n->set_visited(false);  // Be sure we do not miss any node
+                                            // in case we clean up from the middle of the graph
+                }
+            }
+            const ObjectList<Node*>& children = n->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_in_level(*it, outer_node);
         }
     }
 
-    void ExtensibleGraph::clear_visits_in_level_no_nest(Node* current, Node* outer_node)
+    void ExtensibleGraph::clear_visits_in_level_no_nest(Node* n, Node* outer_node)
     {
-        if(current->is_visited() &&
-            (current->node_is_enclosed_by(outer_node) ||
-            current->is_omp_task_node() || current->is_omp_virtual_tasksync()))
+        if (n->is_visited()
+            && (n->node_is_enclosed_by(outer_node)
+                || n->is_omp_task_node()
+                || n->is_omp_virtual_tasksync()))
         {
-            current->set_visited(false);
+            n->set_visited(false);
             
-            if(current->is_exit_node())
+            if(n->is_exit_node())
                 return;
             
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = n->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             {
                 clear_visits_in_level_no_nest(*it, outer_node);
@@ -743,55 +726,93 @@ namespace Analysis {
         }
     }
     
-    void ExtensibleGraph::clear_visits_aux_in_level(Node* current, Node* outer_node)
+    void ExtensibleGraph::clear_visits_aux_in_level(Node* n, Node* outer_node)
     {
-        if(current->is_visited_aux() &&
-            (current->node_is_enclosed_by(outer_node) || current->is_omp_task_node()))
+        if (n->is_visited_aux()
+            && (n->node_is_enclosed_by(outer_node)
+                || n->is_omp_task_node()))
         {
-            current->set_visited_aux(false);
+            n->set_visited_aux(false);
 
-            if(current->is_graph_node())
+            if(n->is_graph_node())
             {
-                Node* new_outer = (current->is_omp_task_node() ? current : outer_node);
-                clear_visits_aux_in_level(current->get_graph_entry_node(), new_outer);
+                Node* new_outer = (n->is_omp_task_node() ? n : outer_node);
+                clear_visits_aux_in_level(n->get_graph_entry_node(), new_outer);
             }
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
-                                                                        : current->get_children();
+            if (n->is_exit_node())
+            {
+                n = n->get_outer_node();
+                if (n->node_is_enclosed_by(outer_node) || n->is_omp_task_node())
+                    n->set_visited_extgraph_aux(false);     // Be sure we do not miss any node
+                                                            // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& children = n->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_aux_in_level(*it, outer_node);
         }
     }
 
-    static void clear_visits_backwards_rec(Node* current)
+    static void clear_visits_backwards_in_level_rec(Node* n, Node* sc)
     {
-        if(current->is_visited())
+        if (n->is_visited())
         {
-            current->set_visited(false);
+            n->set_visited(false);
+            if (n->is_graph_node())
+                clear_visits_backwards_in_level_rec(n->get_graph_exit_node(), sc);
 
-            if(current->is_graph_node())
-                clear_visits_backwards_rec(current->get_graph_exit_node());
-
-            const ObjectList<Node*>& parents = (current->is_entry_node() ? current->get_outer_node()->get_parents()
-                                                                         : current->get_parents());
-            for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_rec(*it);
+            if (n->is_entry_node())
+            {
+                // If the parents of the outer node have still one child that must be clean up
+                // within the scope of the cleaning, then do not keep cleaning this path
+                // because we will still visit the outer from that child
+                bool all_cleaned = true;
+                const ObjectList<Node*>& children = n->get_outer_node()->get_children();
+                for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
+                        all_cleaned = false;
+                }
+                if (all_cleaned)
+                    n = n->get_outer_node();
+                n->set_visited(false);  // Be sure we do not miss any node
+                                        // in case we clean up from the middle of the graph
+            }
+            const ObjectList<Node*>& parents = n->get_parents();
+            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_in_level_rec(*it, sc);
         }
     }
 
-    void ExtensibleGraph::clear_visits_backwards(Node* current)
+    void ExtensibleGraph::clear_visits_backwards_in_level(Node* n, Node* sc)
     {
-        if(current->is_graph_node())
+        if(n->is_graph_node())
         {
-            current->set_visited(false);
-            const ObjectList<Node*>& parents = current->get_parents();
+            n->set_visited(false);
+            const ObjectList<Node*>& parents = n->get_parents();
             for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_rec(*it);
+                clear_visits_backwards_in_level_rec(*it, n);
         }
         else
         {
-            clear_visits_backwards_rec(current);
+            clear_visits_backwards_in_level_rec(n, sc);
         }
+    }
+
+    void ExtensibleGraph::clear_visits_backwards(Node* n)
+    {
+        if (n->is_visited())
+        {
+            n->set_visited(false);
+            
+            if (n->is_graph_node())
+                clear_visits_backwards(n->get_graph_exit_node());
+
+            const ObjectList<Node*>& parents = n->get_parents();
+            for (ObjectList<Node*>::const_iterator it = parents.begin();
+                    it != parents.end(); ++it)
+                clear_visits_backwards(*it);
+        }       
     }
 
     std::string ExtensibleGraph::get_name() const
@@ -809,12 +830,12 @@ namespace Analysis {
         return _sc;
     }
 
-    GlobalVarsSet ExtensibleGraph::get_global_variables() const
+    NodeclSet ExtensibleGraph::get_global_variables() const
     {
         return _global_vars;
     }
 
-    void ExtensibleGraph::set_global_vars(const GlobalVarsSet& global_vars)
+    void ExtensibleGraph::set_global_vars(const NodeclSet& global_vars)
     {
         _global_vars.insert(global_vars.begin(), global_vars.end());
     }
@@ -822,6 +843,16 @@ namespace Analysis {
     Symbol ExtensibleGraph::get_function_symbol() const
     {
         return _function_sym;
+    }
+
+    Node* ExtensibleGraph::get_post_sync() const
+    {
+        return _post_sync;
+    }
+
+    void ExtensibleGraph::set_post_sync(Node* post_sync)
+    {
+        _post_sync = post_sync;
     }
 
     void ExtensibleGraph::set_pointer_n_elems(const NBase& s, const NBase& size)
@@ -873,11 +904,10 @@ namespace Analysis {
             ObjectList<Symbol> params;
 
             scope_entry_t* function_header = _function_sym.get_internal_symbol();
-            int num_params = function_header->entity_specs.num_related_symbols;
-            scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+            int num_params = symbol_entity_specs_get_num_related_symbols(function_header);
             for(int i=0; i<num_params; ++i)
             {
-                Symbol s(related_symbols[i]);
+                Symbol s(symbol_entity_specs_get_related_symbols_num(function_header, i));
                 params.append(s);
             }
 
@@ -1373,6 +1403,27 @@ namespace Analysis {
         return task;
     }
     
+    bool ExtensibleGraph::task_synchronizes_in_post_sync(Node* task)
+    {
+        std::set<Node*> visited;
+        ObjectList<Node*> children = task->get_children();
+        while (!children.empty())
+        {
+            Node* n = children.back();
+            children.pop_back();
+
+            if(visited.find(n) != visited.end())
+                continue;
+            visited.insert(n);
+
+            if (n->is_omp_virtual_tasksync())
+                return true;
+
+            children.append(n->get_children());
+        }
+        return false;
+    }
+
     bool ExtensibleGraph::is_first_statement_node(Node* node)
     {
         // Get first node in code with statements

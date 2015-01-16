@@ -35,6 +35,7 @@
 #include "tl-devices.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 #include "tl-lower-task-common.hpp"
 #include "fortran03-typeutils.h"
 #include "fortran03-scope.h"
@@ -118,8 +119,8 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -220,8 +221,8 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -241,8 +242,8 @@ static Nodecl::NodeclBase rewrite_expression_in_terms_of_arguments(Nodecl::Nodec
     if (node.is_null())
         return node;
 
-    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    Nodecl::NodeclBase::Children children = node.children();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -408,8 +409,8 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
 
             // It's not user declared code, but we must generate it.
             // For this reason, we do this trick
-            new_vla_dim->entity_specs.is_user_declared = 1;
-            new_vla_dim->entity_specs.is_saved_expression = 1;
+            symbol_entity_specs_set_is_user_declared(new_vla_dim, 1);
+            symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
             stmt_initializations << as_statement(Nodecl::ObjectInit::make(new_vla_dim));
             symbol_map.add_map(old_vla_dim, new_vla_dim);
@@ -476,7 +477,7 @@ namespace InputValueUtils
                 // FIXME - Wrap this sort of things
                 new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
                 new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
-                new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
                 new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
                         expr.shallow_copy(),
                         expr.get_type().no_ref().get_pointer_to(),
@@ -507,8 +508,8 @@ namespace InputValueUtils
             }
             else
             {
-                TL::ObjectList<Nodecl::NodeclBase> expr_children = expr.children();
-                TL::ObjectList<Nodecl::NodeclBase> update_expr_children = update_expr.children();
+                Nodecl::NodeclBase::Children expr_children = expr.children();
+                Nodecl::NodeclBase::Children update_expr_children = update_expr.children();
                 for (unsigned int i = 0; i < expr_children.size(); ++i)
                 {
                     generate_dependences_of_expression(
@@ -632,7 +633,7 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
             // FIXME - Wrap this sort of things
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_symbol.get_internal_symbol()->type_information = arg_copy.get_type().no_ref().get_internal_type();
-            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
             //param_sym_to_arg_sym[parameter] = new_symbol;
             new_symbol.get_internal_symbol()->value = arg_copy.get_internal_nodecl();
 
@@ -654,7 +655,42 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
     return new_expresssions;
 }
 
-static void copy_target_info_from_params_to_args(
+static void update_target_info_fortran(OutlineInfo& outline_info)
+{
+        const OutlineInfo::implementation_table_t& implementation_table = outline_info.get_implementation_table();
+        for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
+                it != implementation_table.end();
+                ++it)
+        {
+            TL::Symbol implementor = it->first;
+            TL::Nanox::TargetInformation target_info = it->second;
+            Nodecl::Utils::SimpleSymbolMap& param_to_arg = target_info.get_param_arg_map();
+
+            TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args;
+            TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = ndrange_args.begin();
+                    it2 != ndrange_args.end();
+                    it2++)
+            {
+                Nodecl::NodeclBase arg = Nodecl::Utils::deep_copy(*it2, *it2, param_to_arg);
+                new_ndrange_args.append(arg);
+            }
+
+            TL::ObjectList<Nodecl::NodeclBase> new_shmem_args;
+            TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = shmem_args.begin();
+                    it2 != shmem_args.end();
+                    it2++)
+            {
+                new_shmem_args.append(Nodecl::Utils::deep_copy(*it2, *it2, param_to_arg));
+            }
+
+            outline_info.set_ndrange(implementor, new_ndrange_args);
+            outline_info.set_shmem(implementor, new_shmem_args);
+        }
+}
+
+static void copy_target_info_from_params_to_args_c(
         const OutlineInfo::implementation_table_t& implementation_table,
         const sym_to_argument_expr_t& param_to_arg_expr,
         OutlineInfo& arguments_outline_info,
@@ -714,9 +750,9 @@ static void copy_target_info_from_params_to_args(
         {
             std::string device_name = *it2;
             arguments_outline_info.add_implementation(implementor, device_name);
-            arguments_outline_info.append_to_ndrange(implementor, new_ndrange_args);
-            arguments_outline_info.append_to_shmem(implementor, new_shmem_args);
-            arguments_outline_info.append_to_onto(implementor, target_info.get_onto());
+            arguments_outline_info.set_ndrange(implementor, new_ndrange_args);
+            arguments_outline_info.set_shmem(implementor, new_shmem_args);
+            arguments_outline_info.set_onto(implementor, target_info.get_onto());
             arguments_outline_info.set_file(implementor, target_info.get_file());
         }
     }
@@ -793,13 +829,13 @@ void LoweringVisitor::visit_task_call_c(
         << std::endl;
 
     // Get parameters outline info
-    OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
+    OutlineInfo parameters_outline_info(*_lowering, parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
 
     // Fill arguments outline info using parameters
-    OutlineInfo arguments_outline_info;
+    OutlineInfo arguments_outline_info(*_lowering);
 
     Scope sc = construct.retrieve_context();
     Scope new_block_context_sc = new_block_context(sc.get_decl_context());
@@ -832,7 +868,7 @@ void LoweringVisitor::visit_task_call_c(
 
         TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
 
-        TL::Symbol this_symbol = parse_scope.get_symbol_from_name("this");
+        TL::Symbol this_symbol = parse_scope.get_symbol_this();
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
         seen_parameters.insert(this_symbol);
@@ -845,7 +881,7 @@ void LoweringVisitor::visit_task_call_c(
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = this_symbol.get_type().get_internal_type();
-        new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(this_symbol);
         sym_ref.set_type(this_symbol.get_type());
@@ -892,7 +928,7 @@ void LoweringVisitor::visit_task_call_c(
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                lift_pointer<OutlineDataItem>(outline_data_item_get_parameter_position),
                 parameter.get_parameter_position_in(called_sym));
 
         ERROR_CONDITION(found.empty(), "%s: error: cannot find parameter '%s' in OutlineInfo",
@@ -934,7 +970,7 @@ void LoweringVisitor::visit_task_call_c(
             // FIXME - Wrap this sort of things
             new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_symbol.get_internal_symbol()->type_information = parameter.get_type().get_internal_type();
-            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
             param_sym_to_arg_sym[parameter] = new_symbol;
 
             if (new_symbol.get_type().depends_on_nonconstant_values())
@@ -996,7 +1032,7 @@ void LoweringVisitor::visit_task_call_c(
         }
     }
 
-    copy_target_info_from_params_to_args(
+    copy_target_info_from_params_to_args_c(
             parameters_outline_info.get_implementation_table(),
             param_to_arg_expr,
             arguments_outline_info,
@@ -1025,6 +1061,8 @@ void LoweringVisitor::visit_task_call_c(
 
         outline_register_entities.add_copy_of_outline_data_item(**it);
     }
+
+    outline_register_entities.purge_saved_expressions();
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
@@ -1100,10 +1138,13 @@ void LoweringVisitor::visit_task_call_c(
             && arguments_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase expr_direct_call_to_function =
-            Nodecl::ExpressionStatement::make(
-                    function_call.shallow_copy(),
-                    function_call.get_locus());
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+         Nodecl::NodeclBase expr_direct_call_to_function =
+             Nodecl::ExpressionStatement::make(
+                     it->second,
+                     it->second.get_locus());
 
         TL::Source code;
         code
@@ -1233,7 +1274,7 @@ static void handle_save_expressions(decl_context_t function_context,
                 new_save_expression->kind = SK_VARIABLE;
                 new_save_expression->type_information = orig_save_expression->type_information;
 
-                new_save_expression->entity_specs.is_saved_expression = 1;
+                symbol_entity_specs_set_is_saved_expression(new_save_expression, 1);
 
                 new_save_expression->value = nodecl_deep_copy(orig_save_expression->value,
                         function_context,
@@ -1250,6 +1291,7 @@ static void handle_save_expressions(decl_context_t function_context,
 }
 
 static TL::Symbol new_function_symbol_adapter(
+        Nodecl::NodeclBase construct,
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
@@ -1279,14 +1321,18 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
+        new_parameter_symbol->locus = construct.get_locus();
+
         // Do not forget the ALLOCATABLE attributes
-        new_parameter_symbol->entity_specs.is_allocatable = it->get_internal_symbol()->entity_specs.is_allocatable;
+        symbol_entity_specs_set_is_allocatable(new_parameter_symbol,
+                symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
 
         parameters_of_new_function.append(new_parameter_symbol);
+
         symbol_map.add_map(*it, new_parameter_symbol);
     }
 
-    // Free symbols
+    // Free variables
     for (TL::ObjectList<TL::Symbol>::const_iterator it = free_vars.begin();
             it != free_vars.end();
             it++)
@@ -1320,7 +1366,7 @@ static TL::Symbol new_function_symbol_adapter(
 
     // Now everything is set to register the function
     scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
-    new_function_sym->entity_specs.is_user_declared = 1;
+    symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
     new_function_sym->kind = SK_FUNCTION;
     new_function_sym->locus = make_locus("", 0, 0);
@@ -1341,11 +1387,9 @@ static TL::Symbol new_function_symbol_adapter(
 
         symbol_set_as_parameter_of_function(param, new_function_sym,
                 /* nesting */ 0,
-                /* position */ new_function_sym->entity_specs.num_related_symbols);
+                /* position */ symbol_entity_specs_get_num_related_symbols(new_function_sym));
 
-        P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
-                new_function_sym->entity_specs.num_related_symbols,
-                param);
+        symbol_entity_specs_add_related_symbols(new_function_sym, param);
 
         it_ptypes->is_ellipsis = 0;
         it_ptypes->nonadjusted_type_info = NULL;
@@ -1375,16 +1419,16 @@ static TL::Symbol new_function_symbol_adapter(
     Nodecl::Utils::Fortran::InsertUsedSymbols insert_used_symbols(new_function_sym->related_decl_context);
     insert_used_symbols.walk(current_function.get_function_code());
 
-    // If the current function is a module, make this new function a sibling of it
+    // If the current function is in a module, make this new function a sibling of it
     if (current_function.is_in_module()
             && current_function.is_module_procedure())
     {
-        new_function_sym->entity_specs.in_module = current_function.in_module().get_internal_symbol();
-        new_function_sym->entity_specs.access = AS_PRIVATE;
-        new_function_sym->entity_specs.is_module_procedure = 1;
+        symbol_entity_specs_set_in_module(new_function_sym, current_function.in_module().get_internal_symbol());
+        symbol_entity_specs_set_access(new_function_sym, AS_PRIVATE);
+        symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
 
-        P_LIST_ADD(new_function_sym->entity_specs.in_module->entity_specs.related_symbols,
-                new_function_sym->entity_specs.in_module->entity_specs.num_related_symbols,
+        symbol_entity_specs_add_related_symbols(
+                symbol_entity_specs_get_in_module(new_function_sym),
                 new_function_sym);
     }
 
@@ -1394,6 +1438,7 @@ static TL::Symbol new_function_symbol_adapter(
 }
 
 Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
+        const Nodecl::OpenMP::TaskCall& construct,
         TL::Symbol adapter_function,
         TL::Symbol called_function,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -1501,13 +1546,25 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
+    OutlineInfo dummy_outline_info(*_lowering, new_environment, called_function, _function_task_set);
 
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024)
             && dummy_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
+        ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
+
+        // We must update the arguments of the final expression because
+        // it's not expressed in terms of the adapter function
+        it->second.as<Nodecl::FunctionCall>().set_arguments(argument_seq.shallow_copy());
+
+         Nodecl::NodeclBase expr_direct_call_to_function =
+             Nodecl::ExpressionStatement::make(
+                     it->second,
+                     it->second.get_locus());
+
         TL::Source code;
         code
             << "{"
@@ -1516,7 +1573,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(call_to_original.shallow_copy())
+            <<          as_statement(expr_direct_call_to_function)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -1557,7 +1614,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
                 /* initializers */ Nodecl::NodeclBase::null(),
                 adapter_function);
 
-    adapter_function.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
+    symbol_entity_specs_set_function_code(adapter_function.get_internal_symbol(), function_code.get_internal_nodecl());
 
     return function_code;
 }
@@ -1635,6 +1692,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
+            construct,
             current_function,
             called_task_function,
             ss.str(),
@@ -1642,16 +1700,11 @@ void LoweringVisitor::visit_task_call_fortran(
             *symbol_map,
             save_expressions);
 
-    if (called_task_function.is_from_module())
-    {
-        // If the symbol comes from a module, the environment
-        // will use the original symbol of the module
-        symbol_map->add_map(called_task_function.get_alias_to(), adapter_function);
-    }
-
     // Get parameters outline info
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
-    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
+    Nodecl::NodeclBase adapter_function_code = fill_adapter_function(
+            construct,
+            adapter_function,
             called_task_function,
             symbol_map,
             function_call,
@@ -1669,7 +1722,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
-    OutlineInfo new_outline_info(new_environment, called_task_function, _function_task_set);
+    OutlineInfo new_outline_info(*_lowering, new_environment, called_task_function, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
@@ -1685,7 +1738,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
-                lift_pointer(functor(outline_data_item_get_parameter_position)),
+                lift_pointer<OutlineDataItem>(outline_data_item_get_parameter_position),
                 parameter.get_parameter_position_in(called_task_function));
 
         if (found.empty())
@@ -1703,6 +1756,8 @@ void LoweringVisitor::visit_task_call_fortran(
             new_outline_info,
             called_task_function,
             params_to_data_items_map);
+
+    update_target_info_fortran(new_outline_info);
 
     emit_async_common(
             new_task_construct,

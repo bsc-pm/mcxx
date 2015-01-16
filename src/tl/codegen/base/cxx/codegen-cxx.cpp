@@ -124,8 +124,8 @@ TL::Scope CxxBase::get_current_scope() const
     PREFIX_UNARY_EXPRESSION(LogicalNot, "!") \
     PREFIX_UNARY_EXPRESSION(BitwiseNot, "~") \
     PREFIX_UNARY_EXPRESSION(Dereference, "*") \
-    PREFIX_UNARY_EXPRESSION(Preincrement, "++") \
-    PREFIX_UNARY_EXPRESSION(Predecrement, "--") \
+    PREFIX_UNARY_EXPRESSION(Preincrement, " ++") \
+    PREFIX_UNARY_EXPRESSION(Predecrement, " --") \
     PREFIX_UNARY_EXPRESSION(Delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(DeleteArray, "delete[] ") \
     PREFIX_UNARY_EXPRESSION(RealPart, "__real__ ") \
@@ -1314,23 +1314,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
     Nodecl::NodeclBase field = node.get_field();
     Nodecl::NodeclBase next = node.get_next();
 
-    if (IS_CXX_LANGUAGE)
+    if (!(field.get_symbol().get_type().is_named_class()
+                && field.get_symbol().get_type().get_symbol().is_anonymous_union()))
     {
-        *(file) << start_inline_comment();
-    }
+        if (IS_CXX_LANGUAGE)
+        {
+            *(file) << start_inline_comment();
+        }
 
-    *(file) << ".";
-    walk(field);
+        *(file) << ".";
+        walk(field);
 
-    if (!next.is<Nodecl::FieldDesignator>()
-            && !next.is<Nodecl::IndexDesignator>())
-    {
-        *(file) << " = ";
-    }
+        if (!next.is<Nodecl::FieldDesignator>()
+                && !next.is<Nodecl::IndexDesignator>())
+        {
+            *(file) << " = ";
+        }
 
-    if (IS_CXX_LANGUAGE)
-    {
-        *(file) << end_inline_comment();
+        if (IS_CXX_LANGUAGE)
+        {
+            *(file) << end_inline_comment();
+        }
     }
 
     walk(next);
@@ -2927,7 +2931,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     walk(next);
 }
 
-void CxxBase::visit(const Nodecl::Lambda& node)
+void CxxBase::visit(const Nodecl::CxxLambda& node)
 {
     (*file) << "[";
 
@@ -2946,7 +2950,7 @@ void CxxBase::visit(const Nodecl::Lambda& node)
             continue;
         }
 
-        if (it->is<Nodecl::CaptureReference>())
+        if (it->is<Nodecl::CxxCaptureReference>())
         {
                 (*file) << "&";
         }
@@ -3238,13 +3242,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
         *(file) << entry.get_name();
     }
 
-    TL::Type type = entry.get_type();
-    if (entry.is_class())
-    {
-        type = entry.get_user_defined_type();
-    }
-
-    if (nodecl_calls_to_constructor(init_expr, type))
+    if (nodecl_calls_to_constructor(init_expr))
     {
         // Ignore top level constructor
         *(file) << "(";
@@ -3328,7 +3326,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     {
         *(file) << "(";
         // A a; we cannot emmit it as A a(); since this would declare a function () returning A
-        if (nodecl_calls_to_constructor(initializer, init_real_type))
+        if (nodecl_calls_to_constructor(initializer))
         {
             Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(initializer);
 
@@ -3533,7 +3531,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PseudoDestructorName& node)
 {
     Nodecl::NodeclBase lhs = node.get_accessed();
-    Nodecl::NodeclBase rhs = node.get_destructor_name();
+
+    TL::Type t = lhs.get_type().no_ref();
+    ERROR_CONDITION(!t.is_class(), "Invalid pseudo destructor name", 0);
+
+    TL::Symbol destructor = class_type_get_destructor(t.get_internal_type());
+    ERROR_CONDITION(!destructor.is_valid(), "Invalid class", 0);
 
     char needs_parentheses = operand_has_lower_priority(node, lhs);
     if (needs_parentheses)
@@ -3546,7 +3549,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PseudoDestructorName& node)
         *(file) << ")";
     }
     *(file) << ".";
-    walk(rhs);
+    *file << this->get_qualified_name(destructor);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
@@ -4427,6 +4430,29 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxImplicitInstantiation& node)
+{
+    *file << start_inline_comment();
+    *file << "Instantiation of ";
+    TL::Symbol sym = node.get_symbol();
+    if (sym.is_class())
+    {
+       *file << "class template";
+    }
+    else if (sym.is_function())
+    {
+       *file << "template function";
+    }
+    else
+    {
+        *file << "<<unexpected-symbol-kind>>";
+    }
+    *file << " '";
+    *file << this->get_qualified_name(node.get_symbol());
+    *file << "'";
+    *file << end_inline_comment() << "\n";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
@@ -4523,6 +4549,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
 {
     if (sym.is_class())
     {
+        indent();
         std::string class_key;
         switch (sym.get_type().class_type_get_class_kind())
         {
@@ -4552,6 +4579,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
     else if (sym.is_function())
     {
+        indent();
         decl_context_t decl_context = context.retrieve_context().get_decl_context();
         move_to_namespace(decl_context.namespace_scope->related_entry);
 
@@ -4581,6 +4609,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
     else if (sym.is_variable())
     {
+        indent();
         // This should be a nonstatic member
         if (is_extern)
             *(file) << "extern ";
@@ -4600,7 +4629,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     }
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiationDef& node)
 {
     TL::Symbol sym = node.get_symbol();
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
@@ -4612,7 +4641,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
     codegen_explicit_instantiation(sym, declarator_name, context);
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiationDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
@@ -5717,7 +5746,8 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                     }
                 }
             }
-            else
+            else if (symbol.get_type().is_dependent()
+                        || !CURRENT_CONFIGURATION->explicit_instantiation)
             {
                 if (!defined_inside_class)
                 {
@@ -6819,7 +6849,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     *(file) << " = ";
                     walk(init);
                 }
-                else if (nodecl_is_zero_args_call_to_constructor(init, symbol.get_type()))
+                else if (nodecl_is_zero_args_call_to_constructor(init))
                 {
                     // A a; we cannot emmit it as A a(); since this would declare a function () returning A
                     (*file) << " = ";
@@ -6828,7 +6858,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                 else
                 {
                     *(file) << "(";
-                    if (nodecl_calls_to_constructor(init, symbol.get_type()))
+                    if (nodecl_calls_to_constructor(init))
                     {
                         Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
 
@@ -6840,7 +6870,8 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // [extra blanks added for clarity in the example above]
                         walk_initializer_list(constructor_args, ", ");
                     }
-                    else if (nodecl_is_parenthesized_explicit_type_conversion(init))
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init)
+                            || nodecl_calls_to_constructor_indirectly(init))
                     {
                         // Same reason above
                         *file << "(";
@@ -6862,6 +6893,10 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
 std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& symbol)
 {
+    // Unnamed bitfields do not have a visible name
+    if (symbol.is_unnamed_bitfield())
+        return "";
+
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
@@ -7957,7 +7992,7 @@ bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
             || sym.is_dependent_friend_class())
         return friends.contains(sym);
     else
-        return friends.map(functor(&TL::Symbol::get_alias_to)).contains(sym);
+        return friends.map(&TL::Symbol::get_alias_to).contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
@@ -7992,8 +8027,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
     }
     else
     {
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -8468,7 +8503,7 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
         }
 
         std::string gcc_attributes = "";
-        if (namespace_nesting_to[i]->entity_specs.num_gcc_attributes > 0)
+        if (symbol_entity_specs_get_num_gcc_attributes(namespace_nesting_to[i]) > 0)
         {
             gcc_attributes =
                 " " + gcc_attributes_to_str(namespace_nesting_to[i]);
@@ -8723,8 +8758,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
         case NODECL_COMPOUND_EXPRESSION:
-        case NODECL_LAMBDA:
 
+        case NODECL_CXX_LAMBDA:
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_NAME_CONVERSION:
         case NODECL_CXX_DEP_NAME_NESTED:
@@ -9053,6 +9088,16 @@ bool CxxBase::nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBas
         && node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is<Nodecl::CxxParenthesizedInitializer>();
 }
 
+bool CxxBase::nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase node)
+{
+    return nodecl_calls_to_constructor(node)
+        || (node.is<Nodecl::FunctionCall>()
+                && node.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormImplicit>()
+                && !node.as<Nodecl::FunctionCall>().get_arguments().is_null()
+                && nodecl_calls_to_constructor_indirectly(
+                    node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0]));
+}
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
@@ -9062,7 +9107,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
     return node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
 }
 
-bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
@@ -9077,11 +9122,11 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
     return 0;
 }
 
-bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
 
-    return (nodecl_calls_to_constructor(node, t)
+    return (nodecl_calls_to_constructor(node)
             && nodecl_calls_to_constructor_get_arguments(node).empty());
 }
 
@@ -9414,9 +9459,9 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 {
     *file << ast_print_node_type(n.get_kind()) << "(";
-    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+    Nodecl::NodeclBase::Children children = n.children();
     int i = 0;
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+    for (Nodecl::NodeclBase::Children::iterator it = children.begin();
             it != children.end();
             it++)
     {
@@ -9464,7 +9509,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             && ((sym->kind == SK_CLASS
                     && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM)
-            && !sym->entity_specs.is_member)
+            && !symbol_entity_specs_get_is_member(sym))
     {
         result = sym->symbol_name;
 
@@ -9755,19 +9800,19 @@ CxxBase::CxxBase()
     register_parameter("emit_saved_variables_as_unused",
             "Emits saved-expression variables as __attribute__((unused))",
             _emit_saved_variables_as_unused_str,
-            "0").connect(functor(&CxxBase::set_emit_saved_variables_as_unused, *this));
+            "0").connect(std::bind(&CxxBase::set_emit_saved_variables_as_unused, this, std::placeholders::_1));
 
     _prune_saved_variables = true;
     register_parameter("prune_saved_variables",
             "Disables removal of unused saved-expression variables. If you need to enable this, please report a ticket",
             _prune_saved_variables_str,
-            "1").connect(functor(&CxxBase::set_prune_saved_variables, *this));
+            "1").connect(std::bind(&CxxBase::set_prune_saved_variables, this, std::placeholders::_1));
 
     _use_old_method_for_class_definitions = false;
     register_parameter("old_method_for_class_definitions",
             "Uses an old method to emit class definitions. If you need to enable this, please report a ticket",
             _use_old_method_for_class_definitions_str,
-            "1").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
+            "0").connect(std::bind(&CxxBase::set_old_method_for_class_definitions, this, std::placeholders::_1));
 }
 
 void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)

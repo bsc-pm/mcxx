@@ -907,8 +907,7 @@ namespace Analysis {
     
     // ************************** END class for task synchronizations **************************** //
     // ******************************************************************************************* //
-    
-    typedef std::set<NBase, Nodecl::Utils::Nodecl_structural_less> GlobalVarsSet;
+
 }
 }
 

@@ -1,4 +1,4 @@
-#!@BASH@
+#!/usr/bin/env bash
 
 # Unmaintained tests
 cat <<EOF
@@ -45,7 +45,7 @@ test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --
 
 fi
 
-test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_mercurium="@abs_top_builddir@/lib/perish.o"
 
 EOF
 
@@ -66,7 +66,7 @@ else
 test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 fi
-test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib -lperish"
+test_LDFLAGS_nanox_imcc="@abs_top_builddir@/lib/perish.o"
 EOF
 
 fi

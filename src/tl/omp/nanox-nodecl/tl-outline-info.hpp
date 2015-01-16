@@ -24,11 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
-
-#ifndef TL_DATA_ENV_HPP
-#define TL_DATA_ENV_HPP
+#ifndef TL_OUTLINE_INFO_HPP
+#define TL_OUTLINE_INFO_HPP
 
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
@@ -40,6 +37,7 @@
 
 #include "tl-omp.hpp"
 #include "tl-target-information.hpp"
+#include "tl-nanox-nodecl.hpp"
 
 namespace TL
 {
@@ -463,18 +461,17 @@ namespace TL
             return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
         }
 
-        //Symbol::invalid it's theorically used when the outline has no symbol
-        //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo
         {
-
+            private:
+                Nanox::Lowering& _lowering;
             public:
                 typedef std::map<TL::Symbol, TL::Nanox::TargetInformation> implementation_table_t;
                 TL::Symbol _funct_symbol;
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
@@ -483,14 +480,12 @@ namespace TL
                 // OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
-
             public:
-
-
-                OutlineInfo();
-                OutlineInfo(Nodecl::NodeclBase environment,
+                OutlineInfo(Nanox::Lowering& lowering);
+                OutlineInfo(Nanox::Lowering& lowering,
+                        Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
+                        std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>());
 
                 ~OutlineInfo();
 
@@ -502,6 +497,8 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
+
+                void remove_entity(OutlineDataItem&);
 
                 ObjectList<OutlineDataItem*> get_data_items();
 
@@ -518,9 +515,9 @@ namespace TL
                 void set_name(TL::Symbol function_symbol,std::string name);
                 std::string get_name(TL::Symbol function_symbol);
 
-                void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                void append_to_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
-                void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
+                void set_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
+                void set_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
+                void set_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
 
                 /**
                  * Adds implementation, if already exists, it adds device name to that symbol
@@ -539,9 +536,11 @@ namespace TL
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
 
                 // This is needed for VLAs
-                void move_at_end(OutlineDataItem&);
+                void move_at_beginning(OutlineDataItem&);
 
                 bool only_has_smp_or_mpi_implementations() const;
+
+                bool firstprivates_always_by_reference() const;
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
@@ -584,8 +583,10 @@ namespace TL
                         Nodecl::NodeclBase &conditional_bound);
 
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+
+                void purge_saved_expressions();
         };
     }
 }
 
-#endif // TL_DATA_ENV_HPP
+#endif // TL_OUTLINE_INFO_HPP

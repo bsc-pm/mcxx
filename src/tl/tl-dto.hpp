@@ -35,7 +35,8 @@
 #include <map>
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
-#include "tl-refptr.hpp"
+
+#include <memory>
 
 //! TL classes for compiler phases
 namespace TL
@@ -45,10 +46,10 @@ namespace TL
      * This class implements in some way the pattern Data Transfer Object, hence the name,
      * to pass data in a generic way among objects.
      */
-    class LIBTL_CLASS DTO 
+    class LIBTL_CLASS DTO
     {
         private:
-            typedef std::map<std::string, RefPtr<Object> > DTO_inner;
+            typedef std::map<std::string, std::shared_ptr<Object> > DTO_inner;
             //! Inner representation of the data transfer object
             DTO_inner _dto;
         public :
@@ -60,12 +61,12 @@ namespace TL
              * previously registered in the DTO using
              * set_object.
              */
-            RefPtr<Object> operator[](const std::string& str)
+            std::shared_ptr<Object> operator[](const std::string& str)
             {
                 DTO_inner::iterator it = _dto.find(str);
                 if (it == _dto.end())
                 {
-                    return RefPtr<Undefined>(new Undefined);
+                    return std::shared_ptr<Undefined>(new Undefined);
                 }
                 else
                 {
@@ -79,7 +80,7 @@ namespace TL
              * \param str The key name used to retrieve later this object
              * \param obj The object stored under the name \a str
              */
-            void set_object(const std::string& str, RefPtr<Object> obj)
+            void set_object(const std::string& str, std::shared_ptr<Object> obj)
             {
                 _dto[str] = obj;
             }
@@ -107,7 +108,7 @@ namespace TL
              * previously registered in the DTO using
              * set_object.
              */
-            void set_value(const std::string& str, RefPtr<Object> obj)
+            void set_value(const std::string& str, std::shared_ptr<Object> obj)
 			{
 				DTO_inner::iterator it = _dto.find(str);
 				if (it != _dto.end())

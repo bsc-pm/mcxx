@@ -72,8 +72,7 @@ namespace TL { namespace Nanox {
 
         output_statements = task_statements;
 
-        TL::Symbol current_function =
-            original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
+        TL::Symbol current_function = original_statements.retrieve_context().get_related_symbol();
         if (current_function.is_nested_function())
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -171,6 +170,20 @@ namespace TL { namespace Nanox {
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
 
+            if (current_function.is_nested_function())
+            {
+                TL::Symbol enclosing_function = current_function.get_scope().get_related_symbol();
+
+                ERROR_CONDITION(!enclosing_function.is_valid()
+                        || !(enclosing_function.is_function()
+                            || enclosing_function.is_fortran_main_program()),
+                        "Invalid enclosing symbol of nested function", 0);
+
+                Nodecl::Utils::Fortran::append_used_modules(
+                        enclosing_function.get_related_scope(),
+                        unpacked_function_scope);
+            }
+
             if (is_function_task)
             {
                 Nodecl::Utils::Fortran::append_used_modules(
@@ -184,7 +197,6 @@ namespace TL { namespace Nanox {
             // Now get all the needed internal functions and duplicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
             internal_functions.walk(task_statements);
-
 
             duplicate_internal_subprograms(internal_functions.function_codes,
                     unpacked_function_scope,

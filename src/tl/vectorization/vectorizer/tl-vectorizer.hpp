@@ -33,8 +33,8 @@
 #include "tl-nodecl-base.hpp"
 
 #include "tl-vectorization-common.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-function-versioning.hpp"
-#include "tl-vectorizer-overlap.hpp"
 
 namespace TL
 {
@@ -45,6 +45,7 @@ namespace TL
             private:
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
+                static VectorizationAnalysisInterface* _vectorizer_analysis;
 
 //                static VectorizationAnalysisInterface *_analysis_info;
 
@@ -77,11 +78,19 @@ namespace TL
                 void vectorize_parallel(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment);
                 void opt_overlapped_accesses(Nodecl::NodeclBase& statements,
-                        VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment,
+                        const bool is_simd_for,
+                        const bool is_epilog,
+                        Nodecl::List& init_stmts);
 
                 void process_epilog(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
                         Nodecl::NodeclBase& net_epilog_node,
+                        int epilog_iterations,
+                        bool only_epilog,
+                        bool is_parallel_loop);
+                void clean_up_epilog(Nodecl::NodeclBase& net_epilog_node,
+                        VectorizerEnvironment& environment,
                         int epilog_iterations,
                         bool only_epilog,
                         bool is_parallel_loop);
@@ -119,6 +128,11 @@ namespace TL
                 void enable_fast_math();
 
                 friend class VectorizerVisitorExpression;
+                friend class VectorizerVisitorStatement;
+                friend class VectorizerVisitorLocalSymbol;
+                friend class VectorizerLoopInfo;
+                friend class VectorizerVisitorLoopCond;
+                friend class VectorizerVisitorLoopEpilog;
         };
    }
 }

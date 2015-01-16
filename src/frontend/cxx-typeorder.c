@@ -49,7 +49,7 @@ static type_t* extend_function_with_implicit_parameter(scope_entry_t* member_fun
     if (has_ellipsis)
         num_parameters--;
 
-    param_info[0].type_info = member_function->entity_specs.class_type;
+    param_info[0].type_info = symbol_entity_specs_get_class_type(member_function);
     param_info[0].type_info = get_cv_qualified_type(
             param_info[0].type_info,
             get_cv_qualifier(member_function->type_information));
@@ -94,10 +94,10 @@ static char all_used_parameters_have_values_expr(nodecl_t n,
         int i;
         for (i = 0; i < updated_template_parameters->num_parameters; i++)
         {
-            if ((updated_template_parameters->parameters[i]->entry->entity_specs.template_parameter_nesting ==
-                        param->entity_specs.template_parameter_nesting)
-                    && (updated_template_parameters->parameters[i]->entry->entity_specs.template_parameter_position ==
-                        param->entity_specs.template_parameter_position))
+            if ((symbol_entity_specs_get_template_parameter_nesting(updated_template_parameters->parameters[i]->entry) ==
+                        symbol_entity_specs_get_template_parameter_nesting(param))
+                    && (symbol_entity_specs_get_template_parameter_position(updated_template_parameters->parameters[i]->entry) ==
+                        symbol_entity_specs_get_template_parameter_position(param)))
             {
                 return (updated_template_parameters->arguments[i] != NULL);
             }
@@ -176,10 +176,10 @@ static char all_used_parameters_have_values(type_t* t,
         int i;
         for (i = 0; i < updated_template_parameters->num_parameters; i++)
         {
-            if ((updated_template_parameters->parameters[i]->entry->entity_specs.template_parameter_nesting ==
-                        param->entity_specs.template_parameter_nesting)
-                    && (updated_template_parameters->parameters[i]->entry->entity_specs.template_parameter_position ==
-                        param->entity_specs.template_parameter_position))
+            if ((symbol_entity_specs_get_template_parameter_nesting(updated_template_parameters->parameters[i]->entry) ==
+                        symbol_entity_specs_get_template_parameter_nesting(param))
+                    && (symbol_entity_specs_get_template_parameter_position(updated_template_parameters->parameters[i]->entry) ==
+                        symbol_entity_specs_get_template_parameter_position(param)))
             {
                 return (updated_template_parameters->arguments[i] != NULL);
             }
@@ -320,11 +320,11 @@ static void transform_type_for_ordering(
         type_t** transformed_type_t2)
 {
     char is_nonstatic_member1 = 
-        function1->entity_specs.is_member
-        && !function1->entity_specs.is_static;
+        symbol_entity_specs_get_is_member(function1)
+        && !symbol_entity_specs_get_is_static(function1);
     char is_nonstatic_member2 = 
-        function2->entity_specs.is_member
-        && !function2->entity_specs.is_static;
+        symbol_entity_specs_get_is_member(function2)
+        && !symbol_entity_specs_get_is_static(function2);
 
     if (is_nonstatic_member1 == is_nonstatic_member2)
     {
@@ -1153,6 +1153,9 @@ static char compare_template_classes(
 
     xfree(fake_template_name_2);
     xfree(fake_template_name_1);
+
+    free_template_parameter_list(template_parameters1);
+    free_template_parameter_list(template_parameters2);
 
     free_temporary_template_type(fake_template_type_2);
     free_temporary_template_type(fake_template_type_1);

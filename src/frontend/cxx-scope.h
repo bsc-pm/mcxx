@@ -41,6 +41,8 @@
 
 MCXX_BEGIN_DECLS
 
+#include "cxx-entity-specs-ops.h"
+
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
 LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
@@ -93,9 +95,9 @@ LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(
 // There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
 // and nested_name == NULL
 LIBMCXX_EXTERN scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 
-        struct AST_tag* global_op, 
-        struct AST_tag* nested_name, 
-        struct AST_tag* unqualified_name,
+        AST global_op, 
+        AST nested_name, 
+        AST unqualified_name,
         field_path_t* field_path,
         decl_flags_t decl_flags);
 #define query_nested_name(_decl_context, _global_op, _nested_name, _unqualified_name, _field_path) \
@@ -108,13 +110,13 @@ LIBMCXX_EXTERN scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_
     query_in_scope_str_flags(_decl_context, _name, _field_path, DF_NONE)
 
 LIBMCXX_EXTERN scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
-        struct AST_tag* unqualified_name, field_path_t* field_path, decl_flags_t decl_flags);
+        AST unqualified_name, field_path_t* field_path, decl_flags_t decl_flags);
 #define query_in_scope(_decl_context, _unqualified_name, _field_path) \
     query_in_scope_flags(_decl_context, _unqualified_name, _field_path, DF_NONE)
 
 // Convenience function
 LIBMCXX_EXTERN scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
-        struct AST_tag* id_expression,
+        AST id_expression,
         field_path_t* field_path,
         decl_flags_t decl_flags);
 #define query_id_expression(_decl_context, _id_expression, _field_path) \
@@ -178,9 +180,6 @@ LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index);
-
-LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
-LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 
 // Template parameter names
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
@@ -318,10 +317,10 @@ LIBMCXX_EXTERN int get_length_of_pack_expansion_from_type(type_t* pack_type,
         const locus_t* locus);
 
 LIBMCXX_EXTERN nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry);
-LIBMCXX_EXTERN gcc_attribute_t* symbol_get_gcc_attribute(scope_entry_t* entry, const char* name);
+LIBMCXX_EXTERN char symbol_has_gcc_attribute(scope_entry_t* entry, const char* name, gcc_attribute_t* gcc_attr);
+LIBMCXX_EXTERN void symbol_update_gcc_attribute(scope_entry_t* entry, const char* name, gcc_attribute_t gcc_attr);
 
 LIBMCXX_EXTERN scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol);
-
 
 MCXX_END_DECLS
 

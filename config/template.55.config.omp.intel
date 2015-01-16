@@ -4,7 +4,7 @@ language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99 
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types -std=gnu99 
 {simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
@@ -27,7 +27,7 @@ language = C++
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-builtins --enable-ms-builtins --enable-intel-vector-types
 {simd, mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
@@ -57,7 +57,7 @@ linker_options =
 
 [imfc : omp-base]
 language = Fortran
-options = --do-not-wrap-modules --fortran-array-descriptor=ifort --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = --do-not-wrap-modules --fortran-array-descriptor=ifort --enable-intel-builtins --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
 options = -I @PKGDATADIR@/fortran/openmp
 fortran_preprocessor_name = @IFORT@
 fortran_preprocessor_options = -P

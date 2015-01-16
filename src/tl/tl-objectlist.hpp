@@ -26,9 +26,12 @@
 
 
 
-
 #ifndef TL_OBJECTLIST_HPP
 #define TL_OBJECTLIST_HPP
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include "tl-common.hpp"
 #include <vector>
@@ -39,6 +42,15 @@
 #include "tl-functor.hpp"
 #include "tl-predicate.hpp"
 #include <signal.h>
+
+#if !defined(HAVE_CXX11)
+#include <tr1/type_traits>
+namespace std {
+    using std::tr1::is_void;
+}
+#else
+#include <type_traits>
+#endif
 
 namespace TL
 {
@@ -54,9 +66,9 @@ template <class T>
 class ObjectList : public std::vector<T>, public TL::Object
 {
     private:
-        template <class Q>
-        void reduction_helper(Q &result, typename ObjectList<T>::const_iterator it,
-                const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter) const
+        template <class F>
+        void reduction_helper(T &result, typename ObjectList<T>::const_iterator it,
+                F red_func, const T& neuter) const
         {
             if (it == this->end())
             {
@@ -67,8 +79,7 @@ class ObjectList : public std::vector<T>, public TL::Object
                 const T &t = *it;
                 reduction_helper(result, it + 1, red_func, neuter);
 
-                std::pair<T, Q> arg(t, result);
-                result = red_func(arg);
+                result = red_func(t, result);
             }
         }
 
@@ -112,7 +123,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \param p A Predicate over elements of type T
          * \return A new list of elements of type T that satisfy predicate \a p
          */
-        ObjectList<T> filter(const Predicate<T>& p) const
+        ObjectList<T> filter(const std::function<bool(T)>& p) const
         {
             ObjectList<T> result;
             for (typename ObjectList<T>::const_iterator it = this->begin();
@@ -134,15 +145,33 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \param f A Functor of elements of type T returning elements of type S
          * \return A new list of elements of type S
          */
-        template <class S>
-        ObjectList<S> map(const Functor<S, T>& f) const
+#if defined(HAVE_CXX11)
+        template <class F,
+                 class S = typename std::result_of<F(T)>::type,
+                 class IsNotVoid = typename std::enable_if<!std::is_void<S>::value>::type >
+        ObjectList<S>
+#else
+        template <class F>
+        ObjectList<
+            typename __gnu_cxx::__enable_if<
+                !std::is_void<typename std::tr1::result_of<F(T)>::type>::value,
+                typename std::tr1::result_of<F(T)>::type
+                >::__type
+            >
+#endif
+        map(F f) const
         {
+#if !defined(HAVE_CXX11)
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+            std::function<S(T)> m = f;
+
             ObjectList<S> result;
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                S s(f(*it));
+                S s(m(*it));
                 result.push_back(s);
             }
 
@@ -153,13 +182,30 @@ class ObjectList : public std::vector<T>, public TL::Object
         /*!
          * \param f A Functor of elements of type T returning void
          */
-        void map(const Functor<void, T>& f) const
+#if defined(HAVE_CXX11)
+        template <class F,
+                 class S = typename std::result_of<F(T)>::type,
+                 class IsVoid = typename std::enable_if<std::is_void<S>::value>::type >
+        void
+#else
+        template <class F>
+        typename __gnu_cxx::__enable_if<
+            std::is_void<typename std::tr1::result_of<F(T)>::type>::value,
+            void
+            >::__type
+#endif
+        map(F f) const
         {
+#if !defined(HAVE_CXX11)
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+            std::function<S(T)> m = f;
+
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                f(*it);
+                m(*it);
             }
         }
 
@@ -169,8 +215,15 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \param f A Functor of elements of type T returning elements of type S
          * \return A new list of elements of type S
          */
-        template <class S>
-        ObjectList<S> map_filter(const Predicate<T>& p, const Functor<S, T>& f) const
+#if defined(HAVE_CXX11)
+        template <class F,
+                  class S = typename std::result_of<F(T)>::type >
+        ObjectList<S>
+#else
+        template <class F>
+        ObjectList<typename std::tr1::result_of<F(T)>::type>
+#endif
+        map_filter(const std::function<bool(T)>& p, F f) const
         {
             return (this->filter(p)).map(f);
         }
@@ -181,10 +234,10 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \param neuter Neuter element of type Q
          * \return An element of type Q with all the reduced values of the list
          */
-        template <class Q>
-        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter = Q()) const
+        template <class F>
+        T reduction(F red_func, const T& neuter = T()) const
         {
-            Q result;
+            T result;
             reduction_helper(result, this->begin(), red_func, neuter);
 
             return result;
@@ -266,10 +319,10 @@ class ObjectList : public std::vector<T>, public TL::Object
          * cannot be compared directly but by means of another type S.
          * Functor \a f gets an S value after a T value.
          */
-        template <class S>
-        ObjectList<T>& insert(const T& t, const Functor<S, T>& f)
+        template <class F>
+        ObjectList<T>& insert(const T& t, F f)
         {
-            if (!contains(t, f))
+            if (!contains<F>(t, f))
             {
                 this->push_back(t);
             }
@@ -288,8 +341,8 @@ class ObjectList : public std::vector<T>, public TL::Object
          * Elements of \a t are not readded if they yield a value S
          * already present in the current list.
          */
-        template <class S>
-        ObjectList<T>& insert(const ObjectList<T>& t, const Functor<S, T>& f)
+        template <class F>
+        ObjectList<T>& insert(const ObjectList<T>& t, F f)
         {
             for (typename ObjectList<T>::const_iterator it = t.begin();
                     it != t.end();
@@ -299,7 +352,7 @@ class ObjectList : public std::vector<T>, public TL::Object
             }
             return *this;
         }
-        
+
         //! States whether an element is already in the list
         /*!
          * \param t Element checked
@@ -323,14 +376,21 @@ class ObjectList : public std::vector<T>, public TL::Object
          * with 'operator=='. Functor \a f is used to get a value of S given
          * a value of T
          */
-        template <class S>
-        bool contains(const T& t, const Functor<S, T>& f) const
+        template <class F>
+        bool contains(const T& t, F f) const
         {
+#if defined(HAVE_CXX11)
+            typedef typename std::result_of<F(T)>::type S;
+#else
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+            std::function<S(T)> m = f;
+
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                if (f(*it) == f(t))
+                if (m(*it) == m(t))
                 {
                     return true;
                 }
@@ -348,20 +408,32 @@ class ObjectList : public std::vector<T>, public TL::Object
          * with 'operator=='. Functor \a f is used to get a value of S given
          * a value of T
          */
-        template <class S>
-        bool contains(const Functor<S, T>& f, const S& s) const
+#if 0
+#if defined(HAVE_CXX11)
+        template <class F, class S = typename std::result_of<F(T)>::type >
+        bool contains(F f, const S& s) const
+#else
+        template <class F>
+        bool contains(F f, const typename std::result_of<F(T)>::type& s) const
+#endif
         {
+#if !defined(HAVE_CXX11)
+            typedef typename std::result_of<F(T)>::type S;
+#endif
+            std::function<S(T)> m = f;
+
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                if (f(*it) == s)
+                if (m(*it) == s)
                 {
                     return true;
                 }
             }
             return false;
         }
+#endif
 
         //! Returns a list of elements that match a given one
         /*!
@@ -419,16 +491,26 @@ class ObjectList : public std::vector<T>, public TL::Object
          *
          * This function requires type S to be comparable with 'operator=='
          */
-        template <class S>
-        ObjectList<T> not_find(const Functor<S, T>& f, const S& s) const
+#if defined(HAVE_CXX11)
+        template <class F,
+                 class S = typename std::result_of<F(T)>::type >
+        ObjectList<T> not_find(F f, const S& s) const
+#else
+        template <class F>
+        ObjectList<T> not_find(F f, const typename std::tr1::result_of<F(T)>::type& s) const
+#endif
         {
+#if !defined(HAVE_CXX11)
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+            std::function<S(T)> m = f;
             ObjectList<T> result;
 
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                if (!(f(*it) == s))
+                if (!(m(*it) == s))
                 {
                     result.append(*it);
                 }
@@ -446,16 +528,26 @@ class ObjectList : public std::vector<T>, public TL::Object
          *
          * This function requires type S to be comparable with 'operator=='
          */
-        template <class S>
-        ObjectList<T> find(const Functor<S, T>& f, const S& s) const
+#if defined(HAVE_CXX11)
+        template <class F,
+                  class S = typename std::result_of<F(T)> :: type >
+        ObjectList<T> find(F f, const S& s) const
+#else
+        template <class F>
+        ObjectList<T> find(F f, const typename std::tr1::result_of<F(T)>::type& s) const
+#endif
         {
+#if !defined(HAVE_CXX11)
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+            std::function<S(T)> m = f;
             ObjectList<T> result;
 
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                if (f(*it) == s)
+                if (m(*it) == s)
                 {
                     result.append(*it);
                 }
@@ -463,7 +555,7 @@ class ObjectList : public std::vector<T>, public TL::Object
 
             return result;
         }
-        
+
         //! Returns a list of elements that do not match a comparable value
         /*!
          * \param t A value of type T
@@ -474,16 +566,23 @@ class ObjectList : public std::vector<T>, public TL::Object
          *
          * This function requires type S to be comparable with 'operator=='
          */
-        template <class S>
-        ObjectList<T> not_find(const T& t, const Functor<S, T>& f) const
+        template <class F>
+        ObjectList<T> not_find(const T& t, F f) const
         {
+#if defined(HAVE_CXX11)
+            typedef typename std::result_of<F(T)>::type S;
+#else
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+
+            std::function<S(T)> m = f;
             ObjectList<T> result;
 
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                if (!(f(*it) == f(t)))
+                if (!(m(*it) == m(t)))
                 {
                     result.append(*it);
                 }
@@ -502,16 +601,24 @@ class ObjectList : public std::vector<T>, public TL::Object
          *
          * This function requires type S to be comparable with 'operator=='
          */
-        template <class S>
-        ObjectList<T> find(const T& t, const Functor<S, T>& f) const
+        template <class F>
+        ObjectList<T> find(const T& t, F f) const
         {
+#if defined(HAVE_CXX11)
+            typedef typename std::result_of<F(T)>::type S;
+#else
+            typedef typename std::tr1::result_of<F(T)>::type S;
+#endif
+
+            std::function<S(T)> m = f;
+
             ObjectList<T> result;
 
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
-                if (f(*it) == f(t))
+                if (m(*it) == m(t))
                 {
                     result.append(*it);
                 }
@@ -555,11 +662,11 @@ std::string concat_strings(const ObjectList<_T>& string_list, const std::string&
 
 // Used for reductions that flatten lists of lists
 template <typename T>
-ObjectList<T> append_two_lists(const std::pair<ObjectList<T>, ObjectList<T> >& p)
+ObjectList<T> append_two_lists(const ObjectList<T> &a, const ObjectList<T>& b)
 {
     ObjectList<T> result;
-    result.append(p.first);
-    result.append(p.second);
+    result.append(a);
+    result.append(b);
 
     return result;
 }

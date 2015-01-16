@@ -39,12 +39,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
-#include <malloc.h>
 #include <errno.h>
 #include <unistd.h>
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 #include <signal.h>
+#endif
+
+#ifdef HAVE_MALLINFO
+#include <malloc.h>
 #endif
 
 #include <sys/types.h>
@@ -543,6 +546,7 @@ static void enable_debug_flag(const char* flag);
 static void help_message(void);
 
 static void print_memory_report(void);
+static void stats_string_table(void);
 
 static int parse_special_parameters(int *should_advance, int argc, 
         const char* argv[], char dry_run);
@@ -636,6 +640,11 @@ int main(int argc, char* argv[])
     if (CURRENT_CONFIGURATION->debug_options.print_memory_report)
     {
         print_memory_report();
+    }
+
+    if (CURRENT_CONFIGURATION->debug_options.stats_string_table)
+    {
+        stats_string_table();
     }
 
     return compilation_process.execution_result;
@@ -1699,6 +1708,10 @@ int parse_arguments(int argc, const char* argv[],
             CURRENT_CONFIGURATION->linker_options = NULL;
             add_to_linker_command(uniquestr(minus_v), NULL);
         }
+        else
+        {
+            add_to_linker_command(uniquestr(minus_v), NULL);
+        }
     }
 
     if (native_version)
@@ -2010,7 +2023,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[2] == 't'
                         && argument[3] == 'd'
                         && argument[4] == '=')
-                { 
+                {
                     if ( strcmp(&argument[5], "c++11") == 0
                             || strcmp(&argument[5], "gnu++11") == 0
                             // Old flags
@@ -2018,6 +2031,14 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                             || strcmp(&argument[5], "gnu++0x") == 0)
                     {
                         CURRENT_CONFIGURATION->enable_cxx11 = 1;
+                    }
+                    else if (strcmp(&argument[5], "c++14") == 0
+                            || strcmp(&argument[5], "gnu++14") == 0
+                            // clang flag
+                            || strcmp(&argument[5], "c++1y") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
+                        CURRENT_CONFIGURATION->enable_cxx14 = 1;
                     }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
@@ -2271,17 +2292,25 @@ static void enable_debug_flag(const char* flags)
                     flag);
         }
     }
+
+    xfree(flag_list);
+}
+
+void add_to_linker_command_configuration(
+        const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
+{
+    parameter_linker_command_t * ptr_param =
+        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
+
+     ptr_param->argument = str;
+
+    ptr_param->translation_unit = tr_unit;
+    P_LIST_ADD(configuration->linker_command, configuration->num_args_linker_command, ptr_param);
 }
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
 {
-    parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
-    
-     ptr_param->argument = str; 
-    
-    ptr_param->translation_unit = tr_unit;
-    P_LIST_ADD(CURRENT_CONFIGURATION->linker_command, CURRENT_CONFIGURATION->num_args_linker_command, ptr_param);
+    add_to_linker_command_configuration(str, tr_unit, CURRENT_CONFIGURATION);
 }
 
 static void add_to_parameter_list_str(const char*** existing_options, const char* str)
@@ -2460,14 +2489,11 @@ static void parse_subcommand_arguments(const char* arguments)
                 parameters, num_parameters);
     if (linker_flag)
     {
-        /*add_to_parameter_list(
-                &configuration->linker_options,
-                parameters, num_parameters);*/
         int i;
         for(i = 0; i < num_parameters; ++i)
         {
-            add_to_linker_command(uniquestr(parameters[i]),NULL);
-         }
+            add_to_linker_command_configuration(uniquestr(parameters[i]), NULL, configuration);
+        }
     }
     if (prescanner_flag)
         add_to_parameter_list(
@@ -4685,7 +4711,7 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
     if (a == NULL)
         return 1;
 
-    if (ASTType(a) == AST_AMBIGUITY)
+    if (ASTKind(a) == AST_AMBIGUITY)
     {
         *ambiguous_node = a;
         return 0;
@@ -4766,19 +4792,6 @@ static compilation_configuration_t* get_sublanguage_configuration(
     return fallback_config;
 }
 
-
-// Useful for debugging sessions
-extern void _enable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
-}
-
-extern void _disable_debug(void)
-{
-    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
-}
-
-
 #ifdef HAVE_MALLINFO
 static char* power_suffixes[9] = 
 {
@@ -4820,6 +4833,7 @@ static void print_human(char *dest, unsigned long long num_bytes_)
         }
     }
 }
+#endif
 
 static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 1], int breakdown_real[MCXX_MAX_AST_CHILDREN + 1], int *num_nodes)
 {
@@ -4847,18 +4861,22 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
     if (num_real <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown_real[num_real]++;
 }
-#endif
+
+static void stats_string_table(void)
+{
+    uniquestr_stats();
+}
 
 static void print_memory_report(void)
 {
-    char c[256];
-
     fprintf(stderr, "\n");
     fprintf(stderr, "Memory report\n");
     fprintf(stderr, "-------------\n");
     fprintf(stderr, "\n");
 
 #ifdef HAVE_MALLINFO
+    char c[256];
+
     struct mallinfo mallinfo_report = mallinfo();
     print_human(c, mallinfo_report.arena);
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
@@ -4888,79 +4906,16 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 #endif
 
-    unsigned long long accounted_memory = 0;
-    //
-    // -- AST
-
-    accounted_memory += ast_astmake_used_memory();
-    print_human(c, ast_astmake_used_memory());
-    fprintf(stderr, " - Memory used to create AST nodes: %s\n", c);
-
-    accounted_memory += ast_instantiation_used_memory();
-    print_human(c, ast_instantiation_used_memory());
-    fprintf(stderr, " - Memory used to copy AST nodes when instantiating: %s\n", c);
+    fprintf(stderr, "Size of a symbol (bytes): %zd\n",
+            sizeof(scope_entry_t));
+    fprintf(stderr, "Size of entity specifiers (bytes): %zd\n",
+            sizeof(entity_specifiers_t));
+    fprintf(stderr, "Size of a context (bytes): %zd\n",
+            sizeof(decl_context_t));
+    fprintf(stderr, "Size of a type (bytes): %zd\n",
+            get_type_t_size());
 
     // -- AST
-
-    accounted_memory += type_system_used_memory();
-    print_human(c, type_system_used_memory());
-    fprintf(stderr, " - Memory usage due to type system: %s\n", c);
-
-    {
-        fprintf(stderr, " - Type system breakdown:\n");
-        fprintf(stderr, "    - Size of type node (bytes): %zu\n", get_type_t_size());
-        fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
-        fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
-        fprintf(stderr, "    - Number of requested function types: %d\n", get_function_type_requested());
-        fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
-        fprintf(stderr, "    - Number of reused function types: %d\n", get_function_type_reused());
-        fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());
-        fprintf(stderr, "    - Number of pointer types: %d\n", get_pointer_type_counter());
-        fprintf(stderr, "    - Number of pointer to member types: %d\n", get_pointer_to_member_type_counter());
-        fprintf(stderr, "    - Number of reference types: %d\n", get_reference_type_counter());
-        fprintf(stderr, "    - Number of template types: %d\n", get_template_type_counter());
-        fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
-        fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
-    }
-
-    accounted_memory += char_trie_used_memory();
-    print_human(c, char_trie_used_memory());
-    fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
-
-    accounted_memory += buildscope_used_memory();
-    print_human(c, buildscope_used_memory());
-    fprintf(stderr, " - Memory usage due to scope building: %s\n", c);
-
-    accounted_memory += symbols_used_memory();
-    print_human(c, symbols_used_memory());
-    fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
-    fprintf(stderr, "    - Size of each symbol (bytes): %zu\n", sizeof(scope_entry_t));
-    fprintf(stderr, "    - Size of entity specifiers (bytes): %zu\n", sizeof(entity_specifiers_t));
-
-    accounted_memory += scope_used_memory();
-    print_human(c, scope_used_memory());
-    fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
-    fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
-    fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
-    fprintf(stderr, "    - Size of a temporary gathering context structure (bytes): %zu\n", sizeof(gather_decl_spec_t));
-
-    accounted_memory += exprtype_used_memory();
-    print_human(c, exprtype_used_memory());
-    fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
-
-    accounted_memory += typededuc_used_memory();
-    print_human(c, typededuc_used_memory());
-    fprintf(stderr, " - Memory usage due to type deduction: %s\n", c);
-
-    accounted_memory += overload_used_memory();
-    print_human(c, overload_used_memory());
-    fprintf(stderr, " - Memory usage due to overload resolution: %s\n", c);
-
-    fprintf(stderr, "\n");
-
-    print_human(c, accounted_memory);
-    fprintf(stderr, " - Total accounted memory: %s\n", c);
-
     fprintf(stderr, "\n");
     fprintf(stderr, "Abstract Syntax Tree(s) breakdown\n");
     fprintf(stderr, "---------------------------------\n");

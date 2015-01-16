@@ -1107,12 +1107,6 @@ DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_LOCK_RELEASE_OVERLOAD, BT_FN_SYNC_LOCK_RELEA
 // DEF_PRIMITIVE_TYPE(BT_LAST, get_void_type())
 DEF_FUNCTION_TYPE_0(0, BT_VOID)
 
-static default_argument_info_t** empty_default_argument_info(int num_parameters)
-{
-    // FIXME - Not counted!
-    return xcalloc(sizeof(default_argument_info_t*), num_parameters);
-}
-
 #define  DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
                    FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT, COND, EXPAND) \
   { \
@@ -1121,15 +1115,14 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
       scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, uniquestr(NAME)); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
-      new_builtin->entity_specs.is_builtin = 1; \
+      symbol_entity_specs_set_is_builtin(new_builtin, 1); \
       new_builtin->do_not_print = 1; \
       new_builtin->locus = make_locus("(builtin-function)", 0, 0); \
       if (is_function_type(new_builtin->type_information)) \
       { \
-      new_builtin->entity_specs.num_parameters = function_type_get_num_parameters(new_builtin->type_information); \
-      new_builtin->entity_specs.default_argument_info = empty_default_argument_info(new_builtin->entity_specs.num_parameters); \
+          symbol_entity_specs_reserve_default_argument_info(new_builtin, symbol_entity_specs_get_num_parameters(new_builtin)); \
       } \
-      new_builtin->entity_specs.simplify_function = EXPAND; \
+      symbol_entity_specs_set_simplify_function(new_builtin, EXPAND); \
       /* DEBUG_CODE() */ \
       /* { */ \
       /*     fprintf(stderr, "GCC-BUILTIN: Registered gcc-builtin '%s' with type '%s'\n", NAME, */ \
@@ -1453,9 +1446,24 @@ SIMPLIFY_BUILTIN_FUN1(exp2f, float, float);
 SIMPLIFY_BUILTIN_FUN1(exp2, double, double);
 SIMPLIFY_BUILTIN_FUN1(exp2l, long_double, long_double);
 
+#ifdef HAVE__BUILTIN_EXP10F
 SIMPLIFY_BUILTIN_FUN1(exp10f, float, float);
+#else
+#define simplify_exp10f NO_EXPAND_FUN
+#endif
+
+#ifdef HAVE___BUILTIN_EXP10
 SIMPLIFY_BUILTIN_FUN1(exp10, double, double);
+#else
+#define simplify_exp10 NO_EXPAND_FUN
+#endif
+
+#ifdef HAVE__BUILTIN_EXP10L
 SIMPLIFY_BUILTIN_FUN1(exp10l, long_double, long_double);
+#else
+#define simplify_exp10l NO_EXPAND_FUN
+#endif
+
 
 SIMPLIFY_BUILTIN_FUN1(expm1f, float, float);
 SIMPLIFY_BUILTIN_FUN1(expm1, double, double);
@@ -1521,9 +1529,21 @@ SIMPLIFY_BUILTIN_FUN2(nextafterf, float, float, float);
 SIMPLIFY_BUILTIN_FUN2(nextafter, double, double, double);
 SIMPLIFY_BUILTIN_FUN2(nextafterl, long_double, long_double, long_double);
 
+#ifdef HAVE__BUILTIN_NEXTTOWARDF
 SIMPLIFY_BUILTIN_FUN2(nexttowardf, float, float, long_double);
+#else
+#define simplify_nexttowardf NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_NEXTTOWARD
 SIMPLIFY_BUILTIN_FUN2(nexttoward, double, double, long_double);
+#else
+#define simplify_nexttoward NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_NEXTTOWARDL
 SIMPLIFY_BUILTIN_FUN2(nexttowardl, long_double, long_double, long_double);
+#else
+#define simplify_nexttowardl NO_EXPAND_FUN
+#endif
 
 SIMPLIFY_BUILTIN_FUN1(popcount, signed_int, unsigned_int);
 SIMPLIFY_BUILTIN_FUN1(popcountl, signed_int, unsigned_long_int);
@@ -1557,10 +1577,10 @@ SIMPLIFY_BUILTIN_FUN1(truncf, float, float);
 SIMPLIFY_BUILTIN_FUN1(trunc, double, double);
 SIMPLIFY_BUILTIN_FUN1(truncl, long_double, long_double);
 
+#ifdef HAVE__BUILTIN_FPCLASSIFY
 static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     // GCC 4.3 does not implement '__builtin_fpclassify'
-#if ((__GNUC__ > 4) || (( __GNUC__ == 4) && __GNUC_MINOR__ > 3))
     if (num_arguments == 6
             && nodecl_is_constant(arguments[0])
             && nodecl_is_constant(arguments[1])
@@ -1597,11 +1617,17 @@ static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int n
                             const_value_cast_to_long_double(v))));
         }
     }
-#endif
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
 
+#ifdef HAVE__BUILTIN_NAN
 static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1617,7 +1643,14 @@ static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
+#ifdef HAVE__BUILTIN_NANF
 static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1633,7 +1666,14 @@ static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
+#ifdef HAVE__BUILTIN_NANL
 static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1649,6 +1689,12 @@ static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
 static nodecl_t simplify_nans(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
@@ -1701,6 +1747,7 @@ static nodecl_t simplify_nansl(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 SIMPLIFY_BUILTIN_FUN1(signbitf, signed_int, float);
 SIMPLIFY_BUILTIN_FUN1(signbitl, signed_int, long_double);
 
+#ifdef HAVE__BUILTIN_SIGNBIT
 static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
     if (num_arguments == 1
@@ -1734,6 +1781,12 @@ static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_
 
     return nodecl_null();
 }
+#else
+static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
+{
+    return nodecl_null();
+}
+#endif
 
 #define SIMPLIFY_GENERIC_FLOAT_TEST1(builtin_name) \
 static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
@@ -1775,14 +1828,30 @@ static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, i
 SIMPLIFY_GENERIC_FLOAT_TEST1(isfinite)
 
 SIMPLIFY_GENERIC_FLOAT_TEST1(isnan)
+#ifdef HAVE__BUILTIN_ISNANF
 SIMPLIFY_BUILTIN_FUN1(isnanf, signed_int, float);
+#else
+#define simplify_isnanf NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_ISNANL
 SIMPLIFY_BUILTIN_FUN1(isnanl, signed_int, long_double);
+#else
+#define simplify_isnanl NO_EXPAND_FUN
+#endif
 
 SIMPLIFY_GENERIC_FLOAT_TEST1(isnormal)
 
 SIMPLIFY_GENERIC_FLOAT_TEST1(isinf)
+#ifdef HAVE__BUILTIN_ISINFF
 SIMPLIFY_BUILTIN_FUN1(isinff, signed_int, float);
+#else
+#define simplify_isinff NO_EXPAND_FUN
+#endif
+#ifdef HAVE__BUILTIN_ISINFF
 SIMPLIFY_BUILTIN_FUN1(isinfl, signed_int, long_double);
+#else
+#define simplify_isinfl NO_EXPAND_FUN
+#endif
 
 #define SIMPLIFY_GENERIC_FLOAT_TEST2(builtin_name) \
 static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
@@ -1910,12 +1979,9 @@ SIMPLIFY_GENERIC_FLOAT_TEST2(islessequal)
 SIMPLIFY_GENERIC_FLOAT_TEST2(islessgreater)
 SIMPLIFY_GENERIC_FLOAT_TEST2(isunordered)
 
-static void sign_in_sse_builtins(decl_context_t global_context);
-static void sign_in_intel_builtins(decl_context_t global_context);
 
-void gcc_sign_in_builtins(decl_context_t global_context)
+static void gcc_sign_in_builtins_0(decl_context_t global_context)
 {
-
 /* Category: math builtins.  */
 DEF_LIB_BUILTIN        (BUILT_IN_ACOS, "acos", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_acos)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_ACOSF, "acosf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_acosf)
@@ -2243,7 +2309,10 @@ DEF_C99_BUILTIN        (BUILT_IN_CTANH, "ctanh", BT_FN_COMPLEX_DOUBLE_COMPLEX_DO
 DEF_C99_BUILTIN        (BUILT_IN_CTANHF, "ctanhf", BT_FN_COMPLEX_FLOAT_COMPLEX_FLOAT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_CTANHL, "ctanhl", BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_CTANL, "ctanl", BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
+}
 
+static void gcc_sign_in_builtins_1(decl_context_t global_context)
+{
 /* Category: string/memory builtins.  */
 /* bcmp, bcopy and bzero have traditionally accepted NULL pointers
    when the length parameter is zero, so don't apply attribute "nonnull".  */
@@ -2364,6 +2433,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_CTZ, "ctz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_
 DEF_GCC_BUILTIN        (BUILT_IN_CTZIMAX, "ctzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZL, "ctzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctzl)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZLL, "ctzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctzll)
+DEF_GCC_BUILTIN        (BUILT_IN_CLZS, "ctzs", BT_FN_INT_UINT16, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DCGETTEXT, "dcgettext", BT_FN_STRING_CONST_STRING_CONST_STRING_INT, ATTR_FORMAT_ARG_2, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DGETTEXT, "dgettext", BT_FN_STRING_CONST_STRING_CONST_STRING, ATTR_FORMAT_ARG_2, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_DWARF_CFA, "dwarf_cfa", BT_FN_PTR, ATTR_NULL, NO_EXPAND_FUN)
@@ -2489,7 +2559,10 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_VPRINTF_CHK, "__vprintf_chk", BT_FN_INT_INT_CON
 /* Profiling hooks.  */
 DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_ENTER, "profile_func_enter", NO_EXPAND_FUN)
 DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit", NO_EXPAND_FUN)
+}
 
+static void gcc_sign_in_builtins_2(decl_context_t global_context)
+{
 /* TLS emulation.  */
 //
 // Not supported in Mercurium: need to know the function for _tls and the register
@@ -3146,12 +3219,23 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_THREAD_FENCE,
 DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 		  "__atomic_signal_fence",
 		  BT_FN_VOID_INT, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+}
 
-// Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
-sign_in_sse_builtins(global_context);
+static void sign_in_sse_builtins(decl_context_t global_context);
+static void sign_in_intel_builtins(decl_context_t global_context);
+void gcc_sign_in_builtins(decl_context_t global_context)
+{
+    // We split these functions to avoid -fvar-tracking to run
+    // out of memory, causing a massive slowdown in optimized builds
+    gcc_sign_in_builtins_0(global_context);
+    gcc_sign_in_builtins_1(global_context);
+    gcc_sign_in_builtins_2(global_context);
 
-// Intel builtins
-sign_in_intel_builtins(global_context);
+    // Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
+    sign_in_sse_builtins(global_context);
+
+    // Intel builtins
+    sign_in_intel_builtins(global_context);
 }
 
 static type_t* replace_generic_0_with_type(type_t* t, type_t* replacement)
@@ -3324,7 +3408,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             return_symbol->type_information = deduced_function_type;
 
             return_symbol->do_not_print = 1;
-            return_symbol->entity_specs.is_builtin = 1;
+            symbol_entity_specs_set_is_builtin(return_symbol, 1);
 
             return return_symbol;
         }
@@ -3438,7 +3522,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
                 sym->kind = SK_TYPEDEF;
                 sym->type_information = *(vector_names[i].field);
                 sym->defined = 1;
-                sym->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(sym, 1);
 
                 *(vector_names[i].typedef_name) = sym;
             }
@@ -3454,7 +3538,8 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
         }
     }
 
-#include "cxx-gccbuiltins-sse.h"
+    // Intel architecture gcc builtins
+#include "cxx-gccbuiltins-ia32.h"
 }
 
 void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)
@@ -3558,8 +3643,7 @@ type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type)
     else if (equivalent_types(vector_type, get_m512d_struct_type()))
         return get_vector_type(get_double_type(), 64);
 
-    else
-        return NULL;
+    return NULL;
 }
 
 type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type)

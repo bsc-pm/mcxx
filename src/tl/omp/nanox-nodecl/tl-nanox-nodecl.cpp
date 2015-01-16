@@ -25,7 +25,9 @@
 --------------------------------------------------------------------*/
 
 #include "tl-nanox-nodecl.hpp"
+#include "tl-nanos.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-final-stmts-generator.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "codegen-phase.hpp"
@@ -41,7 +43,9 @@ namespace TL { namespace Nanox {
         _static_weak_symbols(false),
         _ompss_mode(false),
         _instrumentation_enabled(false),
-        _final_clause_transformation_disabled(false)
+        _nanos_debug_enabled(false),
+        _final_clause_transformation_disabled(false),
+        _firstprivates_always_references(false)
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");
@@ -54,24 +58,32 @@ namespace TL { namespace Nanox {
         register_parameter("weaks_as_statics",
                 "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
                 _static_weak_symbols_str,
-                "0").connect(functor(&Lowering::set_weaks_as_statics, *this));
+                "0").connect(std::bind(&Lowering::set_weaks_as_statics, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
-                "0").connect(functor(&Lowering::set_ompss_mode, *this));
+                "0").connect(std::bind(&Lowering::set_ompss_mode, this, std::placeholders::_1));
 
         register_parameter("instrument", 
                 "Enables Nanos++ instrumentation", 
                 _instrumentation_str,
-                "0").connect(functor(&Lowering::set_instrumentation, *this));
+                "0").connect(std::bind(&Lowering::set_instrumentation, this, std::placeholders::_1));
 
+        register_parameter("nanos-debug", 
+                "Enables Nanos++ debugging features", 
+                _nanos_debug_str,
+                "0").connect(std::bind(&Lowering::set_nanos_debug, this, std::placeholders::_1));
 
         register_parameter("disable_final_clause_transformation",
                 "Disables the OpenMP/OmpSs transformation of the 'final' clause",
                 _final_clause_transformation_str,
-                "0").connect(functor(&Lowering::set_disable_final_clause_transformation, *this));
+                "0").connect(std::bind(&Lowering::set_disable_final_clause_transformation, this, std::placeholders::_1));
 
+        register_parameter("firstprivates_always_references",
+                "For C/C++, passes firstprivates always by reference",
+                _firstprivates_always_references_str,
+                "0").connect(std::bind(&Lowering::set_firstprivates_always_references, this, std::placeholders::_1));
     }
 
     void Lowering::run(DTO& dto)
@@ -86,8 +98,17 @@ namespace TL { namespace Nanox {
 
         this->load_headers(dto);
 
-        Nodecl::NodeclBase n = dto["nodecl"];
-        LoweringVisitor lowering_visitor(this,RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]));
+        Nodecl::NodeclBase n = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
+
+        FinalStmtsGenerator final_generator;
+        // If the final clause transformation is disabled we shouldn't generate the final stmts
+        if (!_final_clause_transformation_disabled)
+            final_generator.walk(n);
+
+        LoweringVisitor lowering_visitor(
+                this,
+                std::static_pointer_cast<OpenMP::FunctionTaskSet>(dto["openmp_task_info"]),
+                final_generator.get_final_stmts());
         lowering_visitor.walk(n);
 
         finalize_phase(n);
@@ -113,9 +134,24 @@ namespace TL { namespace Nanox {
         parse_boolean_option("instrument", str, _instrumentation_enabled, "Assuming false.");
     }
 
+    void Lowering::set_nanos_debug(const std::string& str)
+    {
+        parse_boolean_option("nanos-debug", str, _nanos_debug_enabled, "Assuming false.");
+    }
+
     void Lowering::set_disable_final_clause_transformation(const std::string& str)
     {
         parse_boolean_option("disable_final_clause_transformation", str, _final_clause_transformation_disabled, "Assuming false.");
+    }
+
+    void Lowering::set_firstprivates_always_references(const std::string& str)
+    {
+        parse_boolean_option("firstprivates_always_references", str, _firstprivates_always_references, "Assuming false.");
+    }
+
+    bool Lowering::nanos_debug_enabled() const
+    {
+        return _nanos_debug_enabled;
     }
 
     bool Lowering::instrumentation_enabled() const
@@ -133,8 +169,17 @@ namespace TL { namespace Nanox {
         return _final_clause_transformation_disabled;
     }
 
+    bool Lowering::firstprivates_always_by_reference() const
+    {
+        return _firstprivates_always_references;
+    }
+
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
     {
+        if (Nanos::Version::interface_is_at_least("master", 5028))
+            // Do nothing
+            return;
+
         Source src;
         if (!_static_weak_symbols)
         {

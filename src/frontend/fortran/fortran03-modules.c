@@ -53,6 +53,8 @@
  #error Q cannot be defined here
 #endif
 
+enum { CURRENT_MODULE_VERSION = 14 };
+
 // Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
 // #define DEBUG_SQLITE3_MPRINTF 1
 
@@ -82,29 +84,29 @@ static const char* full_name_of_symbol(scope_entry_t* entry)
     }
 
     const char* result = NULL;
-    if (entry->entity_specs.in_module)
+    if (symbol_entity_specs_get_in_module(entry))
     {
-        if (entry->entity_specs.from_module != NULL)
+        if (symbol_entity_specs_get_from_module(entry) != NULL)
         {
             uniquestr_sprintf(&result, "%s.%s -> %s", 
-                    entry->entity_specs.in_module->symbol_name,
+                    symbol_entity_specs_get_in_module(entry)->symbol_name,
                     entry->symbol_name,
-                    full_name_of_symbol(entry->entity_specs.alias_to));
+                    full_name_of_symbol(symbol_entity_specs_get_alias_to(entry)));
         }
         else
         {
             uniquestr_sprintf(&result, "%s.%s", 
-                    entry->entity_specs.in_module->symbol_name,
+                    symbol_entity_specs_get_in_module(entry)->symbol_name,
                     entry->symbol_name);
         }
     }
     else
     {
-        if (entry->entity_specs.from_module != NULL)
+        if (symbol_entity_specs_get_from_module(entry) != NULL)
         {
             uniquestr_sprintf(&result, "%s -> %s", 
                     entry->symbol_name,
-                    full_name_of_symbol(entry->entity_specs.alias_to));
+                    full_name_of_symbol(symbol_entity_specs_get_alias_to(entry)));
         }
         else
         {
@@ -416,8 +418,6 @@ static void load_storage(sqlite3** handle, const char* filename)
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
-enum { CURRENT_MODULE_VERSION = 12 };
-
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
     DEBUG_CODE()
@@ -497,7 +497,7 @@ void load_module_info(const char* module_name, scope_entry_t** module)
     if (module != NULL
             && wrap_filename != NULL)
     {
-        if (!(*module)->entity_specs.is_builtin)
+        if (!symbol_entity_specs_get_is_builtin((*module)))
         {
             P_LIST_ADD(CURRENT_COMPILED_FILE->module_files_to_hide,
                     CURRENT_COMPILED_FILE->num_module_files_to_hide,
@@ -511,7 +511,7 @@ static void create_storage(sqlite3** handle, scope_entry_t* module)
 {
     const char* filename = NULL;
     driver_fortran_register_module(module->symbol_name, &filename, 
-            /* is_intrinsic */ module->entity_specs.is_builtin);
+            /* is_intrinsic */ symbol_entity_specs_get_is_builtin(module));
 
     DEBUG_CODE()
     {
@@ -1226,7 +1226,7 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
 
     // 1
     sqlite3_bind_int64(_insert_ast_stmt, 1, P2ULL(a));
-    sqlite3_bind_int64(_insert_ast_stmt, 2, get_oid_from_string_table(handle, ast_print_node_type(ast_get_type(a))));
+    sqlite3_bind_int64(_insert_ast_stmt, 2, get_oid_from_string_table(handle, ast_print_node_type(ast_get_kind(a))));
     sqlite3_bind_int64(_insert_ast_stmt, 3, get_oid_from_string_table(handle, ast_get_filename(a)));
     sqlite3_bind_int  (_insert_ast_stmt, 4, ast_get_line(a));
     sqlite3_bind_int64(_insert_ast_stmt, 5, get_oid_from_string_table(handle, ast_get_text(a)));
@@ -1595,26 +1595,34 @@ static int get_extra_gcc_attrs(void *datum,
     const char* attr_name = attr_value;
     const char* tree = q+1;
 
-    p->symbol->entity_specs.num_gcc_attributes++;
-    ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
-            "Too many gcc attributes", 0);
-    p->symbol->entity_specs.gcc_attributes = xcalloc(p->symbol->entity_specs.num_gcc_attributes, 
-            sizeof(*p->symbol->entity_specs.gcc_attributes));
-    p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
-    p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
+    gcc_attribute_t gcc_attr;
+    memset(&gcc_attr, 0, sizeof(gcc_attr));
+
+    gcc_attr.attribute_name = uniquestr(attr_name);
+    gcc_attr.expression_list = 
         _nodecl_wrap(load_ast(p->handle, safe_atoull(tree)));
+
+    symbol_entity_specs_add_gcc_attributes(p->symbol, gcc_attr);
 
     xfree(attr_value);
 
     return 0;
 }
 
-static int get_extra_function_parameter_info(void *datum, 
+typedef
+struct extra_function_parameter_info_tag
+{
+    sqlite3* handle;
+    function_parameter_info_t *pf;
+} extra_function_parameter_info_t;
+
+static int get_extra_function_parameter_info_only(
+        void *datum, 
         int ncols UNUSED_PARAMETER,
         char **values, 
         char **names UNUSED_PARAMETER)
 {
-    extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
+    extra_function_parameter_info_t* p = (extra_function_parameter_info_t*)datum;
 
     char *attr_value = xstrdup(values[0]);
 
@@ -1633,18 +1641,29 @@ static int get_extra_function_parameter_info(void *datum,
 
     scope_entry_t* function_symbol = load_symbol(p->handle, function_id);
 
-    function_parameter_info_t parameter_info;
-    parameter_info.function = function_symbol;
-    parameter_info.nesting = 0;
-    parameter_info.position = position;
-
-    P_LIST_ADD(
-            p->symbol->entity_specs.function_parameter_info,
-            p->symbol->entity_specs.num_function_parameter_info,
-            parameter_info);
+    p->pf->function = function_symbol;
+    p->pf->nesting = 0;
+    p->pf->position = position;
 
     xfree(attr_value);
 
+    return 0;
+}
+
+static int get_extra_function_parameter_info(void *datum, 
+        int ncols,
+        char **values, 
+        char **names)
+{
+    function_parameter_info_t parameter_info;
+    memset(&parameter_info, 0, sizeof(parameter_info));
+
+    extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
+    extra_function_parameter_info_t ef = { p->handle, &parameter_info };
+
+    get_extra_function_parameter_info_only(&ef, ncols, values, names);
+
+    symbol_entity_specs_add_function_parameter_info(p->symbol, parameter_info);
     return 0;
 }
 
@@ -1660,7 +1679,8 @@ static int get_extra_default_argument_info(void *datum,
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
     d->argument = _nodecl_wrap(load_ast(p->handle, safe_atoull(values[0])));
 
-    P_LIST_ADD(p->symbol->entity_specs.default_argument_info, p->symbol->entity_specs.num_parameters, d);
+    symbol_entity_specs_add_default_argument_info(p->symbol,
+        d);
 
     return 0;
 }
@@ -1944,8 +1964,8 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 
     // fprintf(stderr, "-> INSERTING SYMBOL -> %p %s%s%s\n",
     //         symbol,
-    //         symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
-    //         symbol->entity_specs.in_module != NULL ? "." : "",
+    //         symbol_entity_specs_get_in_module(symbol) != NULL ? symbol_entity_specs_get_in_module(symbol)->symbol_name : "",
+    //         symbol_entity_specs_get_in_module(symbol) != NULL ? "." : "",
     //         symbol->symbol_name
     //         );
 
@@ -1958,15 +1978,15 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     else
     {
         // fprintf(stderr, "INSERTING EXTRA DATA OF SYMBOL -> '%s%s%s'\n",
-        //     symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
-        //     symbol->entity_specs.in_module != NULL ? "." : "",
+        //     symbol_entity_specs_get_in_module(symbol) != NULL ? symbol_entity_specs_get_in_module(symbol)->symbol_name : "",
+        //     symbol_entity_specs_get_in_module(symbol) != NULL ? "." : "",
         //     symbol->symbol_name);
         insert_extended_attributes(handle, symbol);
     }
 
     // fprintf(stderr, "<- END INSERTING SYMBOL -> %s%s%s\n",
-    //         symbol->entity_specs.in_module != NULL ? symbol->entity_specs.in_module->symbol_name : "",
-    //         symbol->entity_specs.in_module != NULL ? "." : "",
+    //         symbol_entity_specs_get_in_module(symbol) != NULL ? symbol_entity_specs_get_in_module(symbol)->symbol_name : "",
+    //         symbol_entity_specs_get_in_module(symbol) != NULL ? "." : "",
     //         symbol->symbol_name
     //         );
 
@@ -2008,10 +2028,8 @@ static int get_symbol(void *datum,
     (*result) = NULL;
 
     // We need to load the bits for the early checks in the loaded symbol
+    // see below
     module_packed_bits_t packed_bits = module_packed_bits_from_hexstr(bitfield_pack_str);
-    entity_specifiers_t entity_specs;
-    memset(&entity_specs, 0, sizeof(entity_specs));
-    unpack_bits(&entity_specs, packed_bits);
 
     // Early checks to use already loaded symbols
     if (symbol_kind == SK_MODULE)
@@ -2025,12 +2043,12 @@ static int get_symbol(void *datum,
             (*result) = module_symbol;
             insert_map_ptr(handle, oid, (*result));
 
-            // If this is not the module being loaded, use the cached symbol
-            // otherwise, load it now
             if (oid != module_oid_being_loaded)
             {
+                // If this is not the module being loaded, use the cached symbol
                 return 0;
             }
+            // otherwise continue loading it
         }
         else
         {
@@ -2058,23 +2076,13 @@ static int get_symbol(void *datum,
 
         if (in_module != NULL)
         {
-            for (i = 0; i < in_module->entity_specs.num_related_symbols; i++)
+            for (i = 0; i < symbol_entity_specs_get_num_related_symbols(in_module); i++)
             {
-                scope_entry_t* member = in_module->entity_specs.related_symbols[i];
+                scope_entry_t* member = symbol_entity_specs_get_related_symbols_num(in_module, i);
                 if (strcasecmp(member->symbol_name, name) == 0
                         && member->kind == (enum cxx_symbol_kind)symbol_kind
-                        && member->entity_specs.from_module == from_module
-                        && member->entity_specs.alias_to == alias_to
-                        // Generic specifiers can have the same name as a
-                        // specific interface in the same module. Unfortunately
-                        // they have the same kind too, so they are virtually
-                        // indistinguishable except for the fact that one is a
-                        // generic specifier and the other is not.
-                        //
-                        // This extra check is weird but is necessary for the
-                        // unusual cases when the specific interface is somehow
-                        // loaded before its generic specifier.
-                        && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec)
+                        && symbol_entity_specs_get_from_module(member) == from_module
+                        && symbol_entity_specs_get_alias_to(member) == alias_to)
                 {
                     (*result) = member;
                     insert_map_ptr(handle, oid, (*result));
@@ -2084,6 +2092,33 @@ static int get_symbol(void *datum,
             // fprintf(stderr, "SYMBOL %lld '%s.%s' IS NOT ALREADY LOADED IN ITS MODULE\n", 
             //         oid,
             //         in_module->symbol_name, name);
+        }
+    }
+
+    {
+        function_parameter_info_t function_parameter_info;
+        memset(&function_parameter_info, 0, sizeof(function_parameter_info));
+
+        extra_function_parameter_info_t ef = { handle, &function_parameter_info };
+        get_extended_attribute(handle, oid, "function_parameter_info",
+                &ef, get_extra_function_parameter_info_only);
+        if (function_parameter_info.function != NULL
+                && symbol_entity_specs_get_in_module(function_parameter_info.function))
+        {
+            // If this is a dummy argument, reuse the existing symbol if any
+            if (function_parameter_info.position < symbol_entity_specs_get_num_related_symbols(
+                        function_parameter_info.function))
+            {
+                scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(
+                        function_parameter_info.function,
+                        function_parameter_info.position);
+
+                ERROR_CONDITION(param == NULL, "This cannot be NULL", 0);
+
+                (*result) = param;
+                insert_map_ptr(handle, oid, *result);
+                return 0;
+            }
         }
     }
 
@@ -2109,9 +2144,8 @@ static int get_symbol(void *datum,
     //             P2ULL(sym));
     // }
 
-    // Unpack bits again (we cannot directly write entity specs because we
-    // would be overwriting non-bits as well)
-    unpack_bits(&(*result)->entity_specs, packed_bits);
+    // Unpack bits into the symbol
+    unpack_bits(*result, packed_bits);
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 
     (*result)->type_information = load_type(handle, type_oid);
@@ -2178,10 +2212,7 @@ static int get_symbol(void *datum,
             //         in_module->symbol_name,
             //         (*result)->symbol_name);
 
-            P_LIST_ADD_ONCE(
-                    in_module->entity_specs.related_symbols,
-                    in_module->entity_specs.num_related_symbols,
-                    (*result));
+            symbol_entity_specs_add_related_symbols(in_module, *result);
         }
     }
 
@@ -3171,11 +3202,11 @@ static int get_module_extra_name(void *data,
 
     sqlite3_free(query);
 
-    fortran_modules_data_set_t* extra_info_attr = p->module->entity_specs.module_extra_info;
+    fortran_modules_data_set_t* extra_info_attr = symbol_entity_specs_get_module_extra_info(p->module);
     if (extra_info_attr == NULL)
     {
         extra_info_attr = xcalloc(1, sizeof(*extra_info_attr));
-        p->module->entity_specs.module_extra_info = extra_info_attr;
+        symbol_entity_specs_set_module_extra_info(p->module, extra_info_attr);
     }
 
     P_LIST_ADD(extra_info_attr->data, extra_info_attr->num_data, module_data);
@@ -3207,7 +3238,7 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
     const char* filename = NULL;
 
     driver_fortran_register_module(module_name, &filename, 
-            /* is_intrinsic */ module->entity_specs.is_builtin);
+            /* is_intrinsic */ symbol_entity_specs_get_is_builtin(module));
     load_storage(&handle, filename);
 
     prepare_statements(handle);

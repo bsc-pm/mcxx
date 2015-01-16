@@ -83,7 +83,17 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
                 outline_info,
                 dependences);
 
-        int num_dependences = count_dependences(outline_info);
+        int num_dependences;
+        int num_static_dependences, num_dynamic_dependences;
+        count_dependences(outline_info, num_static_dependences, num_dynamic_dependences);
+        if (num_dynamic_dependences != 0)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+        else
+        {
+            num_dependences = num_static_dependences;
+        }
 
         src << "{"
             <<     dependences
@@ -112,7 +122,7 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 {
-    OutlineInfo outline_info(Nodecl::NodeclBase::null());
+    OutlineInfo outline_info(*_lowering, Nodecl::NodeclBase::null());
     TaskWaitVisitor taskwait_info;
     taskwait_info.walk(construct.get_environment());
 
@@ -122,7 +132,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskwaitShallow& construct)
 void LoweringVisitor::visit(const Nodecl::OpenMP::WaitOnDependences& construct)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
-    OutlineInfo outline_info(environment);
+    OutlineInfo outline_info(*_lowering, environment);
 
     TaskWaitVisitor taskwait_info;
     taskwait_info.walk(construct.get_environment());

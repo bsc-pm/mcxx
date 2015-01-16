@@ -268,6 +268,9 @@ namespace OpenMP
             typedef std::map<std::string, ObjectList<Symbol> > implementation_table_t;
 
         private:
+
+            // Note that if you add a new member to this class you may be
+            // interested also in modifying the functions module_{read|write}
             Symbol _target_symbol;
             ObjectList<CopyItem> _copy_in;
             ObjectList<CopyItem> _copy_out;
@@ -355,8 +358,20 @@ namespace OpenMP
                     : attr(a), reason(r) { }
             };
 
-            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_t;
-            map_symbol_data_t  *_map;
+            typedef TL::ObjectList<Symbol> map_symbol_data_sharing_insertion_t;
+            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_sharing_t;
+            struct map_symbol_data_t
+            {
+                map_symbol_data_sharing_t  m;
+                // We use this to preserve insertion order
+                map_symbol_data_sharing_insertion_t  i;
+
+                DataSharingAttributeInfo &operator[](const TL::Symbol &sym)
+                {
+                    i.insert(sym);
+                    return m[sym];
+                }
+            } *_map;
             DataSharingEnvironment *_enclosing;
 
             ObjectList<ReductionSymbol> _reduction_symbols;
@@ -638,8 +653,8 @@ namespace OpenMP
                 Scope global_scope;
                 bool _disable_clause_warnings;
 
-                RefPtr<OpenMP::Info> openmp_info;
-                RefPtr<OpenMP::FunctionTaskSet> function_task_set;
+                std::shared_ptr<OpenMP::Info> openmp_info;
+                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set;
             public:
                 //! Pre entry
                 virtual void pre_run(DTO& data_flow);

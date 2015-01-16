@@ -31,7 +31,7 @@
 #include "tl-vectorizer-environment-fwd.hpp"
 
 #include "tl-vectorization-common.hpp"
-#include "tl-vectorizer-overlap.hpp"
+#include "tl-nodecl-base.hpp"
 
 namespace TL
 {
@@ -45,14 +45,14 @@ namespace Vectorization
             const bool _support_masking;
             const unsigned int _mask_size;
             const bool _fast_math;
-            const map_tl_sym_int_t& _aligned_symbols_map;
-            const map_tl_sym_int_t& _linear_symbols_map;
-            const objlist_tlsymbol_t& _uniform_symbols_list;
+            const map_tlsym_int_t& _aligned_symbols_map;
+            const map_tlsym_int_t& _linear_symbols_map;
+            const objlist_tlsym_t& _uniform_symbols_list;
             const objlist_nodecl_t& _suitable_exprs_list;
-            const nontmp_expr_map_t& _nontemporal_exprs_map;
-            const map_tl_sym_int_t& _overlap_symbols_map;
+            const map_tlsym_objlist_t& _nontemporal_exprs_map;
+            const map_tlsym_objlist_int_t& _overlap_symbols_map;
 
-            const objlist_tlsymbol_t* _reduction_list;
+            const objlist_tlsym_t* _reduction_list;
             std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
 
             TL::Type _target_type;
@@ -73,13 +73,13 @@ namespace Vectorization
                     const unsigned int mask_size,
                     const bool fast_math,
                     const TL::Type& target_type,
-                    const map_tl_sym_int_t& aligned_symbol_map,
-                    const map_tl_sym_int_t& linear_symbol_map,
-                    const objlist_tlsymbol_t& uniform_expr_list,
+                    const map_tlsym_int_t& aligned_symbol_map,
+                    const map_tlsym_int_t& linear_symbol_map,
+                    const objlist_tlsym_t& uniform_expr_list,
                     const objlist_nodecl_t& suitable_expr_list,
-                    const nontmp_expr_map_t& nontemporal_expr_map,
-                    const map_tl_sym_int_t& overlap_symbols_map,
-                    const objlist_tlsymbol_t* reduction_list,
+                    const map_tlsym_objlist_t& nontemporal_expr_map,
+                    const map_tlsym_objlist_int_t& overlap_symbols_map,
+                    const objlist_tlsym_t* reduction_list,
                     std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
             ~VectorizerEnvironment();

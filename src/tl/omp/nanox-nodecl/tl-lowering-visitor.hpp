@@ -24,6 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_LOWERING_VISITOR_HPP
+#define TL_LOWERING_VISITOR_HPP
+
 #include "tl-nanox-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
@@ -38,7 +41,11 @@ namespace TL { namespace Nanox {
 class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 {
     public:
-        LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
+        LoweringVisitor(
+                Lowering* lowering,
+                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set,
+                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map);
+
         ~LoweringVisitor();
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
@@ -60,6 +67,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
         virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
+        virtual void visit(const Nodecl::OpenMP::Register& construct);
 
 
         // This typedef should be public because It's used by some local functions
@@ -68,12 +76,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
 
         Lowering* _lowering;
-        RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+        std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
 
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
         std::map<int, Symbol> _declared_const_wd_type_map;
 
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _final_stmts_map;
         std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol> _declared_ocl_allocate_functions;
 
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
@@ -111,8 +120,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& fill_immediate_arguments
                 );
 
-        int count_dependences(OutlineInfo& outline_info);
-        int count_copies(OutlineInfo& outline_info);
+        void count_dependences(OutlineInfo& outline_info, int &num_static_dependences, int &num_dynamic_dependences);
+        void count_copies(OutlineInfo& outline_info, int &num_static_copies, int &num_dynamic_copies);
         int count_copies_dimensions(OutlineInfo& outline_info);
 
         void fill_copies(
@@ -130,17 +139,18 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_setup,
                 Symbol& xlate_function_symbol);
 
-        void fill_copies_nonregion(
-                Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info,
-                int num_copies,
-                // Source arguments_accessor,
-                // out
-                Source& copy_ol_decl,
-                Source& copy_ol_arg,
-                Source& copy_ol_setup,
-                Source& copy_imm_arg,
-                Source& copy_imm_setup);
+        // void fill_copies_nonregion(
+        //         Nodecl::NodeclBase ctr,
+        //         OutlineInfo& outline_info,
+        //         int num_copies,
+        //         // Source arguments_accessor,
+        //         // out
+        //         Source& copy_ol_decl,
+        //         Source& copy_ol_arg,
+        //         Source& copy_ol_setup,
+        //         Source& copy_imm_arg,
+        //         Source& copy_imm_setup);
+
         void fill_copies_region(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -154,13 +164,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_imm_arg,
                 Source& copy_imm_setup);
 
-        void emit_translation_function_nonregion(
-                Nodecl::NodeclBase ctr,
-                OutlineInfo& outline_info,
-                OutlineInfo* parameter_outline_info,
-                TL::Symbol structure_symbol,
-                bool allow_multiple_copies,
-                TL::Symbol& xlate_function_symbol);
+        // void emit_translation_function_nonregion(
+        //         Nodecl::NodeclBase ctr,
+        //         OutlineInfo& outline_info,
+        //         OutlineInfo* parameter_outline_info,
+        //         TL::Symbol structure_symbol,
+        //         bool allow_multiple_copies,
+        //         TL::Symbol& xlate_function_symbol);
 
         void emit_translation_function_region(
                 Nodecl::NodeclBase ctr,
@@ -422,6 +432,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         Nodecl::NodeclBase fill_adapter_function(
+                const Nodecl::OpenMP::TaskCall& construct,
                 TL::Symbol adapter_function,
                 TL::Symbol called_function,
                 Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -433,6 +444,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
+
+
+        void generate_final_stmts(Nodecl::NodeclBase stmts);
+
 };
 
 } }
+#endif // TL_LOWERING_VISITOR_HPP

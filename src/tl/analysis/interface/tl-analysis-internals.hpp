@@ -47,7 +47,10 @@ namespace Analysis {
     /*
      *  QUERIES
      */
-    
+    int get_assume_aligned_attribute_internal(
+            Node* const stmt_node,
+            const Nodecl::Symbol& n);
+
     bool is_uniform_internal(Node* const scope_node, Node* const stmt_node,
             const Nodecl::NodeclBase& n, ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());
@@ -57,7 +60,7 @@ namespace Analysis {
             const Nodecl::NodeclBase& n);
     Utils::InductionVarList get_linear_variables_internal(
             Node* const scope_node);
-    NBase get_linear_variable_lower_bound_internal(
+    NodeclSet get_linear_variable_lower_bound_internal(
             Node* const scope_node,
             const Nodecl::NodeclBase& n);
     NBase get_linear_variable_increment_internal(
@@ -66,13 +69,13 @@ namespace Analysis {
     
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
-            const GlobalVarsSet& global_variables);
+            const NodeclSet& global_variables);
  
     // IVS
     bool is_iv_internal(Node* const scope_node, const Nodecl::NodeclBase& n);
     bool is_non_reduction_basic_iv_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
-    Nodecl::NodeclBase get_iv_lower_bound_internal(Node* const scope_node,
+    NodeclSet get_iv_lower_bound_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
     Nodecl::NodeclBase get_iv_increment_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);

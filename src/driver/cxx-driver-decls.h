@@ -177,6 +177,7 @@ typedef struct debug_options_tag
     char do_not_codegen;
     char show_template_packs;
     char vectorization_verbose;
+    char stats_string_table;
 } debug_options_t;
 
 typedef struct external_var_tag {
@@ -498,8 +499,11 @@ typedef struct compilation_configuration_tag
     // If this is not null, this should be a constant expression
     const char *upc_threads;
 
-    // Enable C++1x
+    // Enable C++11
     char enable_cxx11;
+
+    // Enable C++14
+    char enable_cxx14;
 
     // Enable CUDA
     char enable_cuda;

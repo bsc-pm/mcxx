@@ -115,7 +115,7 @@ namespace Vectorization
         if (init_next_need_vectorization || condition_needs_vectorization)
         {
             Nodecl::ForStatement epilog = 
-                VectorizationAnalysisInterface::_vectorizer_analysis->
+                Vectorizer::_vectorizer_analysis->
                 deep_copy(n, n).as<Nodecl::ForStatement>();
 
             bool only_epilog = !Utils::is_all_one_mask(
@@ -148,7 +148,7 @@ namespace Vectorization
             // EPILOG condition: while((mask != 0) do
             //
             Nodecl::NodeclBase epilog_loop_postcondition =
-                VectorizationAnalysisInterface::_vectorizer_analysis->
+                Vectorizer::_vectorizer_analysis->
                 deep_copy(epilog_loop_control.get_cond(),
                         epilog_loop_control.get_cond());
 
@@ -168,11 +168,11 @@ namespace Vectorization
             // Main loop condition: while((mask == 0xFFFF) != 0) do
             //
             Nodecl::NodeclBase main_loop_precondition = 
-                VectorizationAnalysisInterface::_vectorizer_analysis->
+                Vectorizer::_vectorizer_analysis->
                 deep_copy(main_loop_control.get_cond(),
                         main_loop_control.get_cond());
             Nodecl::NodeclBase main_loop_postcondition =
-                VectorizationAnalysisInterface::_vectorizer_analysis->
+                Vectorizer::_vectorizer_analysis->
                 deep_copy(main_loop_control.get_cond(),
                         main_loop_control.get_cond());
 
@@ -324,8 +324,7 @@ namespace Vectorization
 
         // Non-constant comparison. Vectorize them with masks
         if(!(condition.is_constant() ||
-                VectorizationAnalysisInterface::
-                _vectorizer_analysis->is_uniform(
+                Vectorizer::_vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, condition, condition)))
         {
             Utils::MaskCheckCostEstimation mask_check_cost_visitor;
@@ -634,7 +633,7 @@ namespace Vectorization
             _environment._function_return = Nodecl::Utils::get_enclosing_function(n).
                 get_function_code().retrieve_context().new_symbol("__function_return");
             _environment._function_return.get_internal_symbol()->kind = SK_VARIABLE;
-            _environment._function_return.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(_environment._function_return.get_internal_symbol(), 1);
 
             TL::Type return_type = return_value.get_type();
             if(return_type.is_any_reference())
@@ -757,7 +756,7 @@ namespace Vectorization
     {
         Nodecl::NodeclBase mask = _environment._mask_list.back();
 
-        if (VectorizationAnalysisInterface::_vectorizer_analysis->is_uniform(
+        if (Vectorizer::_vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, n, n))
         {
             VECTORIZATION_DEBUG()
@@ -791,6 +790,11 @@ namespace Vectorization
     {
         running_error("Vectorizer: Target loop contains a 'continue' statement. Unsupported.");
     }
+
+    void VectorizerVisitorStatement::visit(const Nodecl::UnknownPragma& n)
+    {
+    }
+
 
     /*
        Nodecl::NodeclBase VectorizerVisitorStatement::process_return_inside(Nodecl::NodeclBase current_mask_nodecl)

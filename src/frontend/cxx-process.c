@@ -95,13 +95,6 @@ translation_unit_t* add_new_file_to_compilation_process(
     return translation_unit;
 }
 
-unsigned long long int _bytes_dynamic_lists = 0;
-
-unsigned long long dynamic_lists_used_memory(void)
-{
-    return _bytes_dynamic_lists;
-}
-
 void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...)
 {
     va_list ap;
@@ -126,7 +119,12 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     {
         // Desperate message
         const char *oom_message = "allocation failure in vasprintf\n";
-        write(fileno(stderr), oom_message, strlen(oom_message));
+        int r = write(fileno(stderr), oom_message, strlen(oom_message));
+        if (r < 0)
+        {
+            // Drama. Resort to perror and hope for the best
+            perror("write");
+        }
         abort();
     }
 
@@ -168,6 +166,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     xfree(sanitized_message);
     xfree(long_message);
 
+#if defined(HAVE_BACKTRACE) && defined(HAVE_BACKTRACE_SYMBOLS_FD)
     if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
     {
         int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
@@ -176,6 +175,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
            would produce similar output to the following: */
         backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
     }
+#endif
 }
 
 void running_error(const char* message, ...)
@@ -216,4 +216,15 @@ void running_error(const char* message, ...)
     xfree(sanitized_message);
 
     exit(EXIT_FAILURE);
+}
+
+// Useful for debugging sessions
+extern void _enable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
+}
+
+extern void _disable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
 }

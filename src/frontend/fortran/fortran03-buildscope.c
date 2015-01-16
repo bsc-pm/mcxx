@@ -256,7 +256,7 @@ scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_contex
 {
     ERROR_CONDITION(decl_context.current_scope->related_entry == NULL, "No related symbol in the current scope!", 0);
 
-    if (decl_context.current_scope->related_entry->entity_specs.used_modules == NULL)
+    if (symbol_entity_specs_get_used_modules(decl_context.current_scope->related_entry) == NULL)
     {
         decl_context_t function_context = decl_context;
         function_context.current_scope = function_context.function_scope;
@@ -267,9 +267,9 @@ scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_contex
                 UNIQUESTR_LITERAL(".used_modules"));
         new_sym->kind = SK_OTHER;
 
-        decl_context.current_scope->related_entry->entity_specs.used_modules = new_sym;
+        symbol_entity_specs_set_used_modules(decl_context.current_scope->related_entry, new_sym);
     }
-    return decl_context.current_scope->related_entry->entity_specs.used_modules;
+    return symbol_entity_specs_get_used_modules(decl_context.current_scope->related_entry);
 }
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
@@ -311,9 +311,7 @@ void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
 
-    P_LIST_ADD_ONCE(unknown_info->entity_specs.related_symbols,
-            unknown_info->entity_specs.num_related_symbols,
-            entry);
+    symbol_entity_specs_add_related_symbols(unknown_info, entry);
 }
 
 void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
@@ -322,9 +320,7 @@ void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
     if (unknown_info == NULL)
         return;
 
-    P_LIST_REMOVE(unknown_info->entity_specs.related_symbols,
-            unknown_info->entity_specs.num_related_symbols,
-            entry);
+    symbol_entity_specs_remove_related_symbols(unknown_info, entry);
 }
 
 static void check_untyped_symbols(decl_context_t decl_context)
@@ -334,9 +330,9 @@ static void check_untyped_symbols(decl_context_t decl_context)
         return;
 
     int i;
-    for (i = 0; i < unknown_info->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(unknown_info); i++)
     {
-        scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
+        scope_entry_t* entry = symbol_entity_specs_get_related_symbols_num(unknown_info, i);
         ERROR_CONDITION(entry->type_information == NULL, "A symbol here should have a void type, not NULL", 0);
 
         if (!fortran_basic_type_is_implicit_none(entry->type_information))
@@ -356,9 +352,7 @@ static void check_untyped_symbols(decl_context_t decl_context)
                 entry->symbol_name);
     }
 
-    xfree(unknown_info->entity_specs.related_symbols);
-    unknown_info->entity_specs.related_symbols = NULL;
-    unknown_info->entity_specs.num_related_symbols = 0;
+    symbol_entity_specs_free_related_symbols(unknown_info);
 }
 
 static void update_untyped_symbols(decl_context_t decl_context)
@@ -367,17 +361,17 @@ static void update_untyped_symbols(decl_context_t decl_context)
     if (unknown_info == NULL)
         return;
 
-    scope_entry_t* new_untyped[1 + unknown_info->entity_specs.num_related_symbols];
+    scope_entry_t* new_untyped[1 + symbol_entity_specs_get_num_related_symbols(unknown_info)];
     int num_new_untyped = 0;
 
     int i;
-    for (i = 0; i < unknown_info->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(unknown_info); i++)
     {
-        scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
+        scope_entry_t* entry = symbol_entity_specs_get_related_symbols_num(unknown_info, i);
 
         ERROR_CONDITION(entry->type_information == NULL, "Invalid type for unknown entity '%s'\n", entry->symbol_name);
 
-        ERROR_CONDITION(!entry->entity_specs.is_implicit_basic_type, 
+        ERROR_CONDITION(!symbol_entity_specs_get_is_implicit_basic_type(entry), 
                 "Only those symbols without an explicit type declaration can appear here", 0);
 
         type_t* implicit_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
@@ -413,8 +407,8 @@ static void update_untyped_symbols(decl_context_t decl_context)
 static void add_not_fully_defined_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t * not_fully_defined = get_or_create_not_fully_defined_symbol_info(decl_context);
-    P_LIST_ADD_ONCE(not_fully_defined->entity_specs.related_symbols,
-            not_fully_defined->entity_specs.num_related_symbols,
+    symbol_entity_specs_add_related_symbols(
+            not_fully_defined,
             entry);
 }
 
@@ -424,8 +418,8 @@ static void remove_not_fully_defined_symbol(decl_context_t decl_context, scope_e
     if (not_fully_defined == NULL)
         return;
 
-    P_LIST_REMOVE(not_fully_defined->entity_specs.related_symbols,
-            not_fully_defined->entity_specs.num_related_symbols,
+    symbol_entity_specs_remove_related_symbols(
+            not_fully_defined,
             entry);
 }
 
@@ -436,9 +430,9 @@ static void check_not_fully_defined_symbols(decl_context_t decl_context)
         return;
 
     int i;
-    for (i = 0; i < not_fully_defined->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(not_fully_defined); i++)
     {
-        scope_entry_t* entry = not_fully_defined->entity_specs.related_symbols[i];
+        scope_entry_t* entry = symbol_entity_specs_get_related_symbols_num(not_fully_defined, i);
 
         if (entry->kind == SK_COMMON)
         {
@@ -447,7 +441,7 @@ static void check_not_fully_defined_symbols(decl_context_t decl_context)
                     entry->symbol_name + strlen(".common."));
         }
         else if (entry->kind == SK_FUNCTION
-                && entry->entity_specs.is_module_procedure)
+                && symbol_entity_specs_get_is_module_procedure(entry))
         {
             error_printf("%s: error: MODULE PROCEDURE '%s' does not exist\n",
                     locus_to_str(entry->locus),
@@ -471,8 +465,8 @@ static void check_not_fully_defined_symbols(decl_context_t decl_context)
 void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t * unknown_kind = get_or_create_unknown_kind_symbol_info(decl_context);
-    P_LIST_ADD_ONCE(unknown_kind->entity_specs.related_symbols,
-            unknown_kind->entity_specs.num_related_symbols,
+    symbol_entity_specs_insert_related_symbols(
+            unknown_kind,
             entry);
 }
 
@@ -503,14 +497,12 @@ void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entr
             remove_unknown_kind_symbol(decl_context.current_scope->contained_in->related_entry->related_decl_context, entry);
         }
     }
-    
+
     scope_entry_t * unknown_kind = get_unknown_kind_symbol_info(decl_context);
     if (unknown_kind == NULL)
         return;
-    
-    P_LIST_REMOVE(unknown_kind->entity_specs.related_symbols,
-            unknown_kind->entity_specs.num_related_symbols,
-            entry);
+
+    symbol_entity_specs_remove_related_symbols(unknown_kind, entry);
 }
 
 void review_unknown_kind_symbol(decl_context_t decl_context)
@@ -520,9 +512,9 @@ void review_unknown_kind_symbol(decl_context_t decl_context)
         return;
     
     int i;
-    for (i = 0; i < unknown_kind->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(unknown_kind); i++)
     {
-        scope_entry_t* entry = unknown_kind->entity_specs.related_symbols[i];
+        scope_entry_t* entry = symbol_entity_specs_get_related_symbols_num(unknown_kind, i);
         if (entry->kind == SK_UNDEFINED)
         {
             entry->kind = SK_VARIABLE;
@@ -535,17 +527,13 @@ void review_unknown_kind_symbol(decl_context_t decl_context)
         }
     }
 
-    xfree(unknown_kind->entity_specs.related_symbols);
-    unknown_kind->entity_specs.related_symbols = NULL;
-    unknown_kind->entity_specs.num_related_symbols = 0;
+    symbol_entity_specs_free_related_symbols(unknown_kind);
 }
 
 static void add_intent_declared_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t * intent_declared = get_or_create_intent_declared_symbol_info(decl_context);
-    P_LIST_ADD_ONCE(intent_declared->entity_specs.related_symbols,
-            intent_declared->entity_specs.num_related_symbols,
-            entry);
+    symbol_entity_specs_insert_related_symbols(intent_declared, entry);
 }
 
 static void remove_intent_declared_symbol(decl_context_t decl_context, scope_entry_t* entry)
@@ -554,9 +542,7 @@ static void remove_intent_declared_symbol(decl_context_t decl_context, scope_ent
     if (intent_declared == NULL)
         return;
 
-    P_LIST_REMOVE(intent_declared->entity_specs.related_symbols,
-            intent_declared->entity_specs.num_related_symbols,
-            entry);
+    symbol_entity_specs_remove_related_symbols(intent_declared, entry);
 
 }
 static void check_intent_declared_symbols(decl_context_t decl_context)
@@ -566,23 +552,23 @@ static void check_intent_declared_symbols(decl_context_t decl_context)
         return;
 
     int i;
-    for (i = 0; i < intent_declared->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(intent_declared); i++)
     {
-        scope_entry_t* entry = intent_declared->entity_specs.related_symbols[i];
-         if (!symbol_is_parameter_of_function(entry,
-                     decl_context.current_scope->related_entry))
-         {
-             error_printf("%s: error: entity '%s' is not a dummy argument\n",
-                     locus_to_str(entry->locus),
-                     entry->symbol_name);
-         }
-         else
-         {
-             // The symbol 'entry' is a parameter. Did we forget to remove it from this set?
-             internal_error("Unexpected symbol in intent declared symbol set %s '%s'",
-                     symbol_kind_name(entry),
-                     entry->symbol_name);
-         }
+        scope_entry_t* entry = symbol_entity_specs_get_related_symbols_num(intent_declared, i);
+        if (!symbol_is_parameter_of_function(entry,
+                    decl_context.current_scope->related_entry))
+        {
+            error_printf("%s: error: entity '%s' is not a dummy argument\n",
+                    locus_to_str(entry->locus),
+                    entry->symbol_name);
+        }
+        else
+        {
+            // The symbol 'entry' is a parameter. Did we forget to remove it from this set?
+            internal_error("Unexpected symbol in intent declared symbol set %s '%s'",
+                    symbol_kind_name(entry),
+                    entry->symbol_name);
+        }
     }
 }
 static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_context, 
@@ -601,7 +587,7 @@ static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_contex
 
     add_untyped_symbol(decl_context, result);
 
-    result->entity_specs.is_implicit_basic_type = 1;
+    symbol_entity_specs_set_is_implicit_basic_type(result, 1);
     result->locus = ast_get_locus(location);
 
     if (decl_context.current_scope->related_entry != NULL
@@ -609,12 +595,8 @@ static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_contex
                 || decl_context.current_scope->related_entry->kind == SK_BLOCKDATA))
     {
         scope_entry_t* module = decl_context.current_scope->related_entry;
-
-        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                module->entity_specs.num_related_symbols,
-                result);
-
-        result->entity_specs.in_module = module;
+        symbol_entity_specs_insert_related_symbols(module, result);
+        symbol_entity_specs_set_in_module(result, module);
     }
     return result;
 }
@@ -675,7 +657,7 @@ static void build_scope_program_unit_internal(AST program_unit,
 {
     scope_entry_t* _program_unit_symbol = NULL;
 
-    switch (ASTType(program_unit))
+    switch (ASTKind(program_unit))
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
@@ -727,7 +709,7 @@ static void build_scope_program_unit_internal(AST program_unit,
 
                     nodecl_t nodecl_nested_pragma = nodecl_null();
                     // Double nesting of pragmas
-                    if (ASTType(nested_program_unit) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+                    if (ASTKind(nested_program_unit) == AST_PRAGMA_CUSTOM_CONSTRUCT)
                     {
                         int num_items = 0;
                         nodecl_t* list = nodecl_unpack_list(*nodecl_output, &num_items);
@@ -762,7 +744,7 @@ static void build_scope_program_unit_internal(AST program_unit,
             }
         default:
             {
-                internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(program_unit)));
+                internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTKind(program_unit)));
             }
     }
 
@@ -796,16 +778,16 @@ static void solve_delayed_function_type_spec(decl_context_t decl_context)
     // Update the type of the function name
     current_function->type_information = fortran_update_basic_type_with_type(current_function->type_information,
             function_type_spec);
-    current_function->entity_specs.is_implicit_basic_type = 0;
+    symbol_entity_specs_set_is_implicit_basic_type(current_function, 0);
     remove_untyped_symbol(decl_context, current_function);
 
     // Update the result name as well
-    scope_entry_t* result_name = current_function->entity_specs.result_var;
+    scope_entry_t* result_name = symbol_entity_specs_get_result_var(current_function);
     if (result_name != NULL)
     {
         result_name->type_information = fortran_update_basic_type_with_type(result_name->type_information,
                 function_type_spec);
-        result_name->entity_specs.is_implicit_basic_type = 0;
+        symbol_entity_specs_set_is_implicit_basic_type(result_name, 0);
         remove_untyped_symbol(decl_context, result_name);
     }
 }
@@ -855,7 +837,7 @@ static void build_scope_main_program_unit(AST program_unit,
     program_sym->kind = SK_PROGRAM;
     program_sym->locus = ast_get_locus(program_unit);
 
-    program_sym->entity_specs.is_global_hidden = 1;
+    symbol_entity_specs_set_is_global_hidden(program_sym, 1);
     
     remove_unknown_kind_symbol(decl_context, program_sym);
 
@@ -900,7 +882,7 @@ static void build_scope_main_program_unit(AST program_unit,
                 program_sym,
                 ast_get_locus(program_unit));
 
-    program_sym->entity_specs.function_code = function_code;
+    symbol_entity_specs_set_function_code(program_sym, function_code);
 
     *nodecl_output = nodecl_make_list_1(function_code);
 }
@@ -932,7 +914,7 @@ static char inside_interface(AST a)
     if (a == NULL)
         return 0;
 
-    if (ASTType(a) == AST_INTERFACE_BLOCK)
+    if (ASTKind(a) == AST_INTERFACE_BLOCK)
         return 1;
     else
         return inside_interface(ASTParent(a));
@@ -991,15 +973,15 @@ static void build_scope_function_program_unit(AST program_unit,
         nodecl_body = nodecl_concat_lists(nodecl_body, nodecl_internal_subprograms);
     }
 
-    int i, num_params = new_entry->entity_specs.num_related_symbols;
+    int i, num_params = symbol_entity_specs_get_num_related_symbols(new_entry);
     for (i = 0; i < num_params; i++)
     {
         // This happens because nobody uses these dummies (or
         // result) symbols and their undefined state remains
         // Fix them to be plain variables
-        if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
+        if (symbol_entity_specs_get_related_symbols_num(new_entry, i)->kind == SK_UNDEFINED)
         {
-            new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+            symbol_entity_specs_get_related_symbols_num(new_entry, i)->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(program_unit_context, new_entry);
         }
     }
@@ -1013,7 +995,7 @@ static void build_scope_function_program_unit(AST program_unit,
             new_entry,
             ast_get_locus(program_unit));
 
-    new_entry->entity_specs.function_code = function_code;
+    symbol_entity_specs_set_function_code(new_entry, function_code);
 
     *nodecl_output = nodecl_make_list_1(function_code);
 }
@@ -1074,7 +1056,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     *program_unit_symbol = new_entry;
 
     // It is void but it is not implicit
-    new_entry->entity_specs.is_implicit_basic_type = 0;
+    symbol_entity_specs_set_is_implicit_basic_type(new_entry, 0);
 
     *program_unit_symbol = new_entry;
 
@@ -1104,15 +1086,15 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         nodecl_body = nodecl_concat_lists(nodecl_body, nodecl_internal_subprograms);
     }
 
-    int i, num_params = new_entry->entity_specs.num_related_symbols;
+    int i, num_params = symbol_entity_specs_get_num_related_symbols(new_entry);
     for (i = 0; i < num_params; i++)
     {
         // This happens because nobody uses these dummies (or
         // result) symbols and their undefined state remains
         // Fix them to be plain variables
-        if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
+        if (symbol_entity_specs_get_related_symbols_num(new_entry, i)->kind == SK_UNDEFINED)
         {
-            new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+            symbol_entity_specs_get_related_symbols_num(new_entry, i)->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(program_unit_context, new_entry);
         }
     }
@@ -1129,7 +1111,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
 
     if (!inside_interface(program_unit))
     {
-        new_entry->entity_specs.function_code = function_code;
+        symbol_entity_specs_set_function_code(new_entry, function_code);
     }
     *nodecl_output = nodecl_make_list_1(function_code);
 }
@@ -1157,13 +1139,13 @@ static void build_scope_module_program_unit(AST program_unit,
     new_entry->kind = SK_MODULE;
 
     if (new_entry->decl_context.current_scope == decl_context.global_scope)
-        new_entry->entity_specs.is_global_hidden = 1;
+        symbol_entity_specs_set_is_global_hidden(new_entry, 1);
 
     if (module_nature != NULL)
     {
         if (strcasecmp(ASTText(module_nature), "intrinsic") == 0)
         {
-            new_entry->entity_specs.is_builtin = 1;
+            symbol_entity_specs_set_is_builtin(new_entry, 1);
         }
         else
         {
@@ -1216,25 +1198,28 @@ static void build_scope_module_program_unit(AST program_unit,
     *nodecl_output = nodecl_concat_lists(nodecl_body, *nodecl_output);
 
     // Now adjust attributes of symbols
-    int i, num_symbols = new_entry->entity_specs.num_related_symbols;
+    int i, num_symbols = symbol_entity_specs_get_num_related_symbols(new_entry);
     for (i = 0; i < num_symbols; i++)
     {
         // This happens because nobody uses these module entities
         // symbols and their undefined state remains
         // Fix them to be plain variables
-        if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
+        if (symbol_entity_specs_get_related_symbols_num(new_entry, i)->kind == SK_UNDEFINED)
         {
-            new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+            symbol_entity_specs_get_related_symbols_num(new_entry, i)->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(program_unit_context, new_entry);
         }
 
         // Fix their access
-        if (new_entry->entity_specs.related_symbols[i]->entity_specs.access == AS_UNKNOWN)
+        if (symbol_entity_specs_get_access(
+                    symbol_entity_specs_get_related_symbols_num(new_entry, i)) == AS_UNKNOWN)
         {
-            if (new_entry->entity_specs.access == AS_PRIVATE)
-                new_entry->entity_specs.related_symbols[i]->entity_specs.access = AS_PRIVATE;
+            if (symbol_entity_specs_get_access(new_entry) == AS_PRIVATE)
+                symbol_entity_specs_set_access(
+                        symbol_entity_specs_get_related_symbols_num(new_entry, i), AS_PRIVATE);
             else
-                new_entry->entity_specs.related_symbols[i]->entity_specs.access = AS_PUBLIC;
+                symbol_entity_specs_set_access(
+                        symbol_entity_specs_get_related_symbols_num(new_entry, i), AS_PUBLIC);
         }
     }
 
@@ -1278,7 +1263,7 @@ static void build_scope_block_data_program_unit(AST program_unit,
     program_sym->locus = ast_get_locus(program_unit);
 
     if (program_sym->decl_context.current_scope == decl_context.global_scope)
-        program_sym->entity_specs.is_global_hidden = 1;
+        symbol_entity_specs_set_is_global_hidden(program_sym, 1);
     
     remove_unknown_kind_symbol(decl_context, program_sym);
     
@@ -1345,7 +1330,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
     type_t* result = NULL;
 
     if (is_pointer_component
-            && ASTType(a) == AST_TYPE_NAME)
+            && ASTKind(a) == AST_TYPE_NAME)
     {
         result = get_derived_type_name(ASTSon0(a), decl_context);
 
@@ -1377,7 +1362,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
 static nodecl_t check_bind_c(AST bind_c_spec,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(bind_c_spec) != AST_BIND_C_SPEC, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(bind_c_spec) != AST_BIND_C_SPEC, "Invalid node", 0);
 
     AST bind_name_expr = ASTSon0(bind_c_spec);
     if (bind_name_expr == NULL)
@@ -1406,7 +1391,7 @@ static nodecl_t check_bind_c(AST bind_c_spec,
 static nodecl_t check_bind_opencl(AST bind_c_spec,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(bind_c_spec) != AST_BIND_OPENCL_SPEC, "Invalid node", 0);
+    ERROR_CONDITION(ASTKind(bind_c_spec) != AST_BIND_OPENCL_SPEC, "Invalid node", 0);
 
     AST bind_name_expr = ASTSon0(bind_c_spec);
     if (bind_name_expr == NULL)
@@ -1456,15 +1441,15 @@ static nodecl_t check_bind_opencl(AST bind_c_spec,
 
 static void check_bind_spec(scope_entry_t* entry, AST bind_spec, decl_context_t decl_context)
 {
-    if (ASTType(bind_spec) == AST_BIND_C_SPEC)
+    if (ASTKind(bind_spec) == AST_BIND_C_SPEC)
     {
-        entry->entity_specs.bind_info = check_bind_c(bind_spec, decl_context);
+        symbol_entity_specs_set_bind_info(entry, check_bind_c(bind_spec, decl_context));
     }
-    else if (ASTType(bind_spec) == AST_BIND_OPENCL_SPEC
+    else if (ASTKind(bind_spec) == AST_BIND_OPENCL_SPEC
             // FIXME - Add a flag to enable opencl binding
             /* && opencl_is_enabled */)
     {
-        entry->entity_specs.bind_info = check_bind_opencl(bind_spec, decl_context);
+        symbol_entity_specs_set_bind_info(entry, check_bind_opencl(bind_spec, decl_context));
     }
     else
     {
@@ -1498,7 +1483,7 @@ static scope_entry_t* new_procedure_symbol(
             // We found something declared in another scope, ignore it
             entry = NULL;
         }
-        else if (entry->entity_specs.is_generic_spec)
+        else if (entry->kind == SK_GENERIC_NAME)
         {
             // This is a generic specifier named like this symbol and in the
             // same scope, ignore it
@@ -1512,10 +1497,10 @@ static scope_entry_t* new_procedure_symbol(
                     // If not defined it can only be a parameter of the current procedure
                     // being given an interface
                     || (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
-                        && !entry->entity_specs.is_module_procedure
+                        && !symbol_entity_specs_get_is_module_procedure(entry)
                         // Or a symbol we said something about it in the specification part of a module
                         && !(entry->kind == SK_UNDEFINED
-                            && entry->entity_specs.in_module != NULL)))
+                            && symbol_entity_specs_get_in_module(entry) != NULL)))
             {
                 error_printf("%s: error: redeclaration of entity '%s'\n",
                         ast_location(name),
@@ -1535,11 +1520,11 @@ static scope_entry_t* new_procedure_symbol(
 
     entry->kind = SK_FUNCTION;
     entry->locus = ast_get_locus(name);
-    entry->entity_specs.is_implicit_basic_type = 1;
+    symbol_entity_specs_set_is_implicit_basic_type(entry, 1);
     entry->defined = 1;
 
     if (entry->decl_context.current_scope == decl_context.global_scope)
-        entry->entity_specs.is_global_hidden = 1;
+        symbol_entity_specs_set_is_global_hidden(entry, 1);
 
     remove_unknown_kind_symbol(decl_context, entry);
 
@@ -1551,7 +1536,7 @@ static scope_entry_t* new_procedure_symbol(
     else
     {
         // Not an implicit basic type anymore
-        entry->entity_specs.is_implicit_basic_type = 0;
+        symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     }
 
     if (prefix != NULL)
@@ -1560,7 +1545,7 @@ static scope_entry_t* new_procedure_symbol(
         for_each_element(prefix, it)
         {
             AST prefix_spec = ASTSon1(it);
-            ERROR_CONDITION(ASTType(prefix_spec) != AST_ATTR_SPEC, "Invalid tree", 0);
+            ERROR_CONDITION(ASTKind(prefix_spec) != AST_ATTR_SPEC, "Invalid tree", 0);
 
             const char* prefix_spec_str = ASTText(prefix_spec);
 
@@ -1579,15 +1564,15 @@ static scope_entry_t* new_procedure_symbol(
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
             {
-                entry->entity_specs.is_elemental = 1;
+                symbol_entity_specs_set_is_elemental(entry, 1);
             }
             else if (strcasecmp(prefix_spec_str, "pure") == 0)
             {
-                entry->entity_specs.is_pure = 1;
+                symbol_entity_specs_set_is_pure(entry, 1);
             }
             else if (strcasecmp(prefix_spec_str, "recursive") == 0)
             {
-                entry->entity_specs.is_recursive = 1;
+                symbol_entity_specs_set_is_recursive(entry, 1);
             }
             else if ((strcasecmp(prefix_spec_str, "impure") == 0)
                     || (strcasecmp(prefix_spec_str, "module") == 0))
@@ -1599,13 +1584,13 @@ static scope_entry_t* new_procedure_symbol(
             else
             {
                 internal_error("Invalid tree kind '%s' with spec '%s'\n", 
-                        ast_print_node_type(ASTType(prefix_spec)),
+                        ast_print_node_type(ASTKind(prefix_spec)),
                         ASTText(prefix_spec));
             }
         }
 
-        if (entry->entity_specs.is_elemental
-                && entry->entity_specs.is_recursive)
+        if (symbol_entity_specs_get_is_elemental(entry)
+                && symbol_entity_specs_get_is_recursive(entry))
         {
             error_printf("%s: error: RECURSIVE and ELEMENTAL cannot be specified at the same time\n",
                     ast_location(prefix));
@@ -1663,11 +1648,9 @@ static scope_entry_t* new_procedure_symbol(
 
             symbol_set_as_parameter_of_function(dummy_arg, entry,
                     /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    dummy_arg);
+            symbol_entity_specs_add_related_symbols(entry, dummy_arg);
 
             num_dummy_arguments++;
         }
@@ -1695,9 +1678,9 @@ static scope_entry_t* new_procedure_symbol(
 
             result_sym->kind = SK_VARIABLE;
             result_sym->locus = ast_get_locus(result);
-            result_sym->entity_specs.is_result_var = 1;
+            symbol_entity_specs_set_is_result_var(result_sym, 1);
 
-            result_sym->entity_specs.is_implicit_basic_type = 1;
+            symbol_entity_specs_set_is_implicit_basic_type(result_sym, 1);
 
             remove_unknown_kind_symbol(program_unit_context, result_sym);
 
@@ -1705,7 +1688,7 @@ static scope_entry_t* new_procedure_symbol(
 
             return_type = get_indirect_type(result_sym);
 
-            entry->entity_specs.result_var = result_sym;
+            symbol_entity_specs_set_result_var(entry, result_sym);
 
             if (strcasecmp(ASTText(result), entry->symbol_name) == 0)
             {
@@ -1727,16 +1710,16 @@ static scope_entry_t* new_procedure_symbol(
         result_sym = new_symbol(program_unit_context, program_unit_context.current_scope, entry->symbol_name);
         result_sym->kind = SK_VARIABLE;
         result_sym->locus = entry->locus;
-        result_sym->entity_specs.is_result_var = 1;
+        symbol_entity_specs_set_is_result_var(result_sym, 1);
 
         result_sym->type_information = return_type;
-        result_sym->entity_specs.is_implicit_basic_type = 1;
+        symbol_entity_specs_set_is_implicit_basic_type(result_sym, 1);
 
         add_untyped_symbol(program_unit_context, result_sym);
 
         return_type = get_indirect_type(result_sym);
 
-        entry->entity_specs.result_var = result_sym;
+        symbol_entity_specs_set_result_var(entry, result_sym);
     }
     else if (!is_function)
     {
@@ -1760,14 +1743,14 @@ static scope_entry_t* new_procedure_symbol(
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(entry->entity_specs.related_symbols[i]);
+        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
             REF_QUALIFIER_NONE);
     entry->type_information = function_type;
 
-    entry->entity_specs.is_implicit_basic_type = 0;
+    symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     entry->related_decl_context = program_unit_context;
 
     if (program_unit_context.current_scope->contained_in != NULL)
@@ -1779,11 +1762,9 @@ static scope_entry_t* new_procedure_symbol(
             if (enclosing_symbol->kind == SK_MODULE)
             {
                 // If we are enclosed by a module, we are a module procedure
-                entry->entity_specs.in_module = enclosing_symbol;
+                symbol_entity_specs_set_in_module(entry, enclosing_symbol);
 
-                P_LIST_ADD_ONCE(enclosing_symbol->entity_specs.related_symbols,
-                        enclosing_symbol->entity_specs.num_related_symbols,
-                        entry);
+                symbol_entity_specs_add_related_symbols(enclosing_symbol, entry);
             }
         }
     }
@@ -1797,7 +1778,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 {
     char is_function = !is_void_type(function_type_get_return_type(principal_procedure->type_information));
 
-    if (principal_procedure->entity_specs.is_nested_function)
+    if (symbol_entity_specs_get_is_nested_function(principal_procedure))
     {
          error_printf("%s: error: internal subprograms cannot have an alternate ENTRY\n",
                  ast_location(name));
@@ -1814,10 +1795,10 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 || ( 
                     // If not defined it can only be an advanced declaration of
                     // a module procedure found in an INTERFACE at module level
-                    !existing_name->entity_specs.is_module_procedure
+                    !symbol_entity_specs_get_is_module_procedure(existing_name)
                     // Or a symbol we said something about it in the specification part of a module
                     && !(existing_name->kind == SK_UNDEFINED
-                        && existing_name->entity_specs.in_module != NULL)))
+                        && symbol_entity_specs_get_in_module(existing_name) != NULL)))
         {
             error_printf("%s: error: redeclaration of entity '%s'\n", 
                     ast_location(name), 
@@ -1825,7 +1806,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             return NULL;
         }
         // It can't be redefined anymore
-        if (existing_name->entity_specs.is_module_procedure)
+        if (symbol_entity_specs_get_is_module_procedure(existing_name))
         {
             remove_not_fully_defined_symbol(existing_name->decl_context, existing_name);
         }
@@ -1843,19 +1824,19 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
     entry->kind = SK_FUNCTION;
     entry->locus = ast_get_locus(name);
-    entry->entity_specs.is_entry = 1;
-    entry->entity_specs.is_implicit_basic_type = 1;
+    symbol_entity_specs_set_is_entry(entry, 1);
+    symbol_entity_specs_set_is_implicit_basic_type(entry, 1);
     entry->defined = 1;
     remove_unknown_kind_symbol(decl_context, entry);
 
     if (principal_procedure->decl_context.current_scope == principal_procedure->decl_context.global_scope)
     {
-        entry->entity_specs.is_global_hidden = 1;
+        symbol_entity_specs_set_is_global_hidden(entry, 1);
     }
 
-    entry->entity_specs.is_recursive = principal_procedure->entity_specs.is_recursive;
-    entry->entity_specs.is_pure = principal_procedure->entity_specs.is_pure;
-    entry->entity_specs.is_elemental = principal_procedure->entity_specs.is_elemental;
+    symbol_entity_specs_set_is_recursive(entry, symbol_entity_specs_get_is_recursive(principal_procedure));
+    symbol_entity_specs_set_is_pure(entry, symbol_entity_specs_get_is_pure(principal_procedure));
+    symbol_entity_specs_set_is_elemental(entry, symbol_entity_specs_get_is_elemental(principal_procedure));
     
     type_t* return_type = get_void_type();
     if (is_function)
@@ -1864,7 +1845,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
         if (existing_name != NULL)
         {
             return_type = existing_name->type_information;
-            entry->entity_specs.is_implicit_basic_type = 0;
+            symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
         }
         else
         {
@@ -1874,7 +1855,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     else
     {
         // Not an implicit basic type anymore
-        entry->entity_specs.is_implicit_basic_type = 0;
+        symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     }
 
     int num_dummy_arguments = 0;
@@ -1931,11 +1912,9 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
             symbol_set_as_parameter_of_function(dummy_arg, entry,
                     /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    dummy_arg);
+            symbol_entity_specs_add_related_symbols(entry, dummy_arg);
 
             num_dummy_arguments++;
         }
@@ -1964,11 +1943,11 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
             result_sym->kind = SK_VARIABLE;
             result_sym->locus = ast_get_locus(result);
-            result_sym->entity_specs.is_result_var = 1;
+            symbol_entity_specs_set_is_result_var(result_sym, 1);
 
             remove_unknown_kind_symbol(decl_context, result_sym);
 
-            if (result_sym->entity_specs.is_implicit_basic_type)
+            if (symbol_entity_specs_get_is_implicit_basic_type(result_sym))
             {
                 // If the symbol does not have any type, use the computed return type so far
                 // (otherwise its type is the one we want!)
@@ -1977,7 +1956,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
             return_type = get_indirect_type(result_sym);
 
-            entry->entity_specs.result_var = result_sym;
+            symbol_entity_specs_set_result_var(entry, result_sym);
 
             if (strcasecmp(entry->symbol_name, result_sym->symbol_name) == 0)
             {
@@ -2000,11 +1979,11 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         result_sym->kind = SK_VARIABLE;
         result_sym->locus = entry->locus;
-        result_sym->entity_specs.is_result_var = 1;
+        symbol_entity_specs_set_is_result_var(result_sym, 1);
 
         remove_unknown_kind_symbol(decl_context, result_sym);
 
-        if (result_sym->entity_specs.is_implicit_basic_type)
+        if (symbol_entity_specs_get_is_implicit_basic_type(result_sym))
         {
             // If the symbol does not have any type, use the computed return type so far
             // (otherwise its type is the one we want!)
@@ -2013,7 +1992,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         return_type = get_indirect_type(result_sym);
 
-        entry->entity_specs.result_var = result_sym;
+        symbol_entity_specs_set_result_var(entry, result_sym);
     }
     else if (!is_function)
     {
@@ -2036,26 +2015,24 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(entry->entity_specs.related_symbols[i]);
+        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
             REF_QUALIFIER_NONE);
     entry->type_information = function_type;
 
-    entry->entity_specs.is_implicit_basic_type = 0;
+    symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     entry->related_decl_context = decl_context;
    
-    if (principal_procedure->entity_specs.is_module_procedure)
+    if (symbol_entity_specs_get_is_module_procedure(principal_procedure))
     {
-        scope_entry_t * sym_module = principal_procedure->entity_specs.in_module;
+        scope_entry_t * sym_module = symbol_entity_specs_get_in_module(principal_procedure);
 
-        entry->entity_specs.is_module_procedure = 1;
+        symbol_entity_specs_set_is_module_procedure(entry, 1);
         
-        entry->entity_specs.in_module = sym_module;
-        P_LIST_ADD_ONCE(sym_module->entity_specs.related_symbols,
-                sym_module->entity_specs.num_related_symbols,
-                entry);
+        symbol_entity_specs_set_in_module(entry, sym_module);
+        symbol_entity_specs_add_related_symbols(sym_module, entry);
     }
 
     return entry;
@@ -2080,16 +2057,16 @@ static void build_scope_program_unit_body_declarations(
 
             // Exceptionally we run this one first otherwise it is not possible to
             // tell whether this is an executable or non-executable statement
-            if (ASTType(stmt) == AST_AMBIGUITY)
+            if (ASTKind(stmt) == AST_AMBIGUITY)
             {
                 build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 1);
             }
 
             // If the current statement is not a USE we have to solve
             if (delayed_function_type_spec != NULL
-                    && ASTType(stmt) != AST_USE_STATEMENT
-                    && ASTType(stmt) != AST_USE_ONLY_STATEMENT
-                    && ASTType(stmt) != AST_IMPORT_STATEMENT)
+                    && ASTKind(stmt) != AST_USE_STATEMENT
+                    && ASTKind(stmt) != AST_USE_ONLY_STATEMENT
+                    && ASTKind(stmt) != AST_IMPORT_STATEMENT)
             {
                 solve_delayed_function_type_spec(decl_context);
             }
@@ -2137,7 +2114,7 @@ static void build_scope_program_unit_body_executable(
 
             // Exceptionally we run this one first otherwise it is not possible to
             // tell whether this is an executable or non-executable statement
-            if (ASTType(stmt) == AST_AMBIGUITY)
+            if (ASTKind(stmt) == AST_AMBIGUITY)
             {
                 build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 0);
             }
@@ -2162,7 +2139,7 @@ static void build_scope_program_unit_body_executable(
 
     // Add a labeled CONTINUE for GOTO's to END
     if (end_statement != NULL
-            && (ASTType(end_statement) == AST_LABELED_STATEMENT))
+            && (ASTKind(end_statement) == AST_LABELED_STATEMENT))
     {
         AST label = ASTSon0(end_statement);
 
@@ -2213,7 +2190,7 @@ static scope_entry_t* build_scope_internal_subprogram(
     decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
 
     scope_entry_t* new_entry = NULL;
-    switch (ASTType(subprogram))
+    switch (ASTKind(subprogram))
     {
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
@@ -2262,12 +2239,12 @@ static scope_entry_t* build_scope_internal_subprogram(
             }
         default:
             {
-                internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTType(subprogram)));
+                internal_error("Unexpected node of kind %s\n", ast_print_node_type(ASTKind(subprogram)));
             }
     }
 
-    if ((ASTType(subprogram) == AST_SUBROUTINE_PROGRAM_UNIT
-                || ASTType(subprogram) == AST_FUNCTION_PROGRAM_UNIT)
+    if ((ASTKind(subprogram) == AST_SUBROUTINE_PROGRAM_UNIT
+                || ASTKind(subprogram) == AST_FUNCTION_PROGRAM_UNIT)
             && (new_entry != NULL))
     {
         AST program_body = ASTSon1(subprogram);
@@ -2291,12 +2268,12 @@ static scope_entry_t* build_scope_internal_subprogram(
         if (enclosing_sym != NULL
                 && enclosing_sym->kind == SK_MODULE)
         {
-            new_entry->entity_specs.is_module_procedure = 1;
+            symbol_entity_specs_set_is_module_procedure(new_entry, 1);
             remove_not_fully_defined_symbol(decl_context, new_entry);
         }
         else
         {
-            new_entry->entity_specs.is_nested_function = 1;
+            symbol_entity_specs_set_is_nested_function(new_entry, 1);
         }
 
         build_scope_program_unit_body_declarations(
@@ -2403,15 +2380,15 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
             }
 
             scope_entry_t* function_symbol = internal_subprograms_info[i].symbol;
-            int num_params = function_symbol->entity_specs.num_related_symbols;
+            int num_params = symbol_entity_specs_get_num_related_symbols(function_symbol);
             for (j = 0; j < num_params; j++)
             {
                 // This happens because nobody uses these dummies (or
                 // result) symbols and their undefined state remains
                 // Fix them to be plain variables
-                if (function_symbol->entity_specs.related_symbols[j]->kind == SK_UNDEFINED)
+                if (symbol_entity_specs_get_related_symbols_num(function_symbol, j)->kind == SK_UNDEFINED)
                 {
-                    function_symbol->entity_specs.related_symbols[j]->kind = SK_VARIABLE;
+                    symbol_entity_specs_get_related_symbols_num(function_symbol, j)->kind = SK_VARIABLE;
                     remove_unknown_kind_symbol(decl_context, function_symbol);
                 }
             }
@@ -2438,7 +2415,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                         internal_subprograms_info[i].symbol,
                         internal_subprograms_info[i].locus);
 
-            internal_subprograms_info[i].symbol->entity_specs.function_code = function_code;
+            symbol_entity_specs_set_function_code(internal_subprograms_info[i].symbol, function_code);
             internal_subprograms_info[i].nodecl_output = function_code;
         }
         i++;
@@ -2683,7 +2660,7 @@ static char statement_get_kind(AST statement)
 {
     init_statement_array();
 
-    build_scope_statement_handler_t key = { .ast_kind = ASTType(statement) };
+    build_scope_statement_handler_t key = { .ast_kind = ASTKind(statement) };
     build_scope_statement_handler_t *handler = NULL;
 
     handler = (build_scope_statement_handler_t*)bsearch(&key, build_scope_statement_function, 
@@ -2692,7 +2669,7 @@ static char statement_get_kind(AST statement)
             build_scope_statement_function_compare);
 
     ERROR_CONDITION(handler == NULL 
-            || handler->statement_kind == NULL, "Invalid tree kind %s", ast_print_node_type(ASTType(statement)));
+            || handler->statement_kind == NULL, "Invalid tree kind %s", ast_print_node_type(ASTKind(statement)));
 
     return (handler->statement_kind)(statement);
 }
@@ -2723,7 +2700,7 @@ void fortran_build_scope_statement(AST statement, decl_context_t decl_context, n
         fprintf(stderr, "=== [%s] Statement ===\n", ast_location(statement));
     }
 
-    build_scope_statement_handler_t key = { .ast_kind = ASTType(statement) };
+    build_scope_statement_handler_t key = { .ast_kind = ASTKind(statement) };
     build_scope_statement_handler_t *handler = NULL;
 
     handler = (build_scope_statement_handler_t*)bsearch(&key, build_scope_statement_function, 
@@ -2733,7 +2710,7 @@ void fortran_build_scope_statement(AST statement, decl_context_t decl_context, n
     if (handler == NULL 
             || handler->handler == NULL)
     {
-        running_error("%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTType(statement)));
+        running_error("%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTKind(statement)));
     }
     else
     {
@@ -2758,7 +2735,7 @@ static void fortran_build_scope_statement_inside_block_context(
 
 const char* get_name_of_generic_spec(AST generic_spec)
 {
-    switch (ASTType(generic_spec))
+    switch (ASTKind(generic_spec))
     {
         case AST_SYMBOL:
             {
@@ -2776,7 +2753,7 @@ const char* get_name_of_generic_spec(AST generic_spec)
         default:
             {
                 internal_error("%s: Invalid generic spec '%s'", 
-                        ast_location(generic_spec), ast_print_node_type(ASTType(generic_spec)));
+                        ast_location(generic_spec), ast_print_node_type(ASTKind(generic_spec)));
             }
     }
     return NULL;
@@ -2795,14 +2772,14 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
 
     if (nodecl_is_constant(*nodecl_output))
     {
-        scope_entry_t* symbol = nodecl_get_symbol(*nodecl_output);
+        scope_entry_t* symbol = fortran_data_ref_get_symbol(*nodecl_output);
         if (symbol != NULL)
         {
             // This is a kludgy way to detect that this type will have to be
             // emitted as interoperable
-            if (symbol->entity_specs.from_module != NULL
-                    && symbol->entity_specs.from_module->entity_specs.is_builtin
-                    && strcasecmp(symbol->entity_specs.from_module->symbol_name, "iso_c_binding") == 0)
+            if (symbol_entity_specs_get_from_module(symbol) != NULL
+                    && symbol_entity_specs_get_is_builtin(symbol_entity_specs_get_from_module(symbol))
+                    && strcasecmp(symbol_entity_specs_get_from_module(symbol)->symbol_name, "iso_c_binding") == 0)
             {
                 *interoperable = 1;
             }
@@ -2821,13 +2798,14 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
 static type_t* choose_type_from_kind_function(nodecl_t expr, 
         type_t* (*kind_function)(int kind),
         int kind_size,
-        int default_kind_size)
+        int default_kind_size,
+        const char* type_name)
 {
     type_t* result = kind_function(kind_size);
 
     if (result == NULL)
     {
-        error_printf("%s: error: KIND=%d not supported\n", nodecl_locus_to_str(expr), kind_size);
+        error_printf("%s: error: %s(KIND=%d) not supported\n", nodecl_locus_to_str(expr), type_name, kind_size);
 
         result = kind_function(default_kind_size);
         // Desperate attempt
@@ -2845,22 +2823,38 @@ static type_t* choose_type_from_kind_function(nodecl_t expr,
 // This is why they are external
 type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_int_type_from_kind, kind_size, fortran_get_default_integer_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_int_type_from_kind,
+            kind_size,
+            fortran_get_default_integer_type_kind(),
+            "INTEGER");
 }
 
 type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_float_type_from_kind, kind_size, fortran_get_default_real_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_float_type_from_kind,
+            kind_size,
+            fortran_get_default_real_type_kind(),
+            "REAL");
 }
 
 type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_logical_type_from_kind, kind_size, fortran_get_default_logical_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_logical_type_from_kind,
+            kind_size,
+            fortran_get_default_logical_type_kind(),
+            "LOGICAL");
 }
 
 type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size)
 {
-    return choose_type_from_kind_function(expr, fortran_choose_character_type_from_kind, kind_size, fortran_get_default_character_type_kind());
+    return choose_type_from_kind_function(expr,
+            fortran_choose_character_type_from_kind,
+            kind_size,
+            fortran_get_default_character_type_kind(),
+            "CHARACTER");
 }
 
 static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type_t* (*fun)(nodecl_t expr, int kind_size),
@@ -2880,7 +2874,7 @@ static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type
 
 static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 {
-    ERROR_CONDITION(ASTType(a) != AST_DERIVED_TYPE_NAME, "Invalid tree '%s'\n", ast_print_node_type(ASTType(a)));
+    ERROR_CONDITION(ASTKind(a) != AST_DERIVED_TYPE_NAME, "Invalid tree '%s'\n", ast_print_node_type(ASTKind(a)));
 
     AST name = ASTSon0(a);
     if (ASTSon1(a) != NULL)
@@ -2917,7 +2911,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
         decl_context_t decl_context)
 {
     type_t* result = NULL;
-    switch (ASTType(a))
+    switch (ASTKind(a))
     {
         case AST_INT_TYPE:
             {
@@ -2947,7 +2941,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
         case AST_COMPLEX_TYPE:
             {
                 type_t* element_type = NULL; 
-                if (ASTType(ASTSon0(a)) == AST_DECIMAL_LITERAL)
+                if (ASTKind(ASTSon0(a)) == AST_DECIMAL_LITERAL)
                 {
                     element_type = choose_type_from_kind(ASTSon0(a), decl_context, 
                             choose_float_type_from_kind, fortran_get_default_real_type_kind);
@@ -2982,7 +2976,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
 
                 nodecl_t nodecl_len = nodecl_null();
                 if (len != NULL
-                        && ASTType(len) == AST_SYMBOL
+                        && ASTKind(len) == AST_SYMBOL
                         && strcmp(ASTText(len), "*") == 0)
                 {
                     is_undefined = 1;
@@ -3072,7 +3066,7 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         default:
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(a)));
             }
     }
 
@@ -3194,7 +3188,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
         attr_spec_handler_table_init = 1;
     }
 
-    switch (ASTType(attr_spec_item))
+    switch (ASTKind(attr_spec_item))
     {
         case AST_ATTR_SPEC:
             {
@@ -3210,7 +3204,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                 if (handler == NULL 
                         || handler->handler == NULL)
                 {
-                    internal_error("Unhandled handler of '%s' (%s)\n", ASTText(attr_spec_item), ast_print_node_type(ASTType(attr_spec_item)));
+                    internal_error("Unhandled handler of '%s' (%s)\n", ASTText(attr_spec_item), ast_print_node_type(ASTKind(attr_spec_item)));
                 }
 
                 (handler->handler)(attr_spec_item, decl_context, attr_spec);
@@ -3218,7 +3212,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
             }
         default:
             {
-                internal_error("Unhandled tree '%s'\n", ast_print_node_type(ASTType(attr_spec_item)));
+                internal_error("Unhandled tree '%s'\n", ast_print_node_type(ASTKind(attr_spec_item)));
             }
     }
 }
@@ -3413,7 +3407,6 @@ enum array_spec_kind_tag
 static type_t* compute_type_from_array_spec(type_t* basic_type, 
         AST array_spec_list, 
         decl_context_t decl_context,
-        array_spec_kind_t* array_spec_kind,
         // This is used for saved array expressions
         nodecl_t* nodecl_output)
 {
@@ -3452,7 +3445,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         nodecl_t upper_bound = nodecl_null();
 
         if (lower_bound_tree != NULL
-                && (ASTType(lower_bound_tree) != AST_SYMBOL
+                && (ASTKind(lower_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(lower_bound_tree), "*") != 0) ))
         {
             fortran_check_array_bounds_expression(lower_bound_tree, decl_context, &lower_bound);
@@ -3471,7 +3464,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         }
 
         if (upper_bound_tree != NULL
-                && (ASTType(upper_bound_tree) != AST_SYMBOL
+                && (ASTKind(upper_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(upper_bound_tree), "*") != 0) ))
         {
             fortran_check_array_bounds_expression(upper_bound_tree, decl_context, &upper_bound);
@@ -3505,7 +3498,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             }
         }
         else if (upper_bound_tree != NULL
-                && ASTType(upper_bound_tree) == AST_SYMBOL
+                && ASTKind(upper_bound_tree) == AST_SYMBOL
                 && strcmp(ASTText(upper_bound_tree), "*") == 0)
         {
             // (*)
@@ -3593,7 +3586,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->locus = nodecl_get_locus(lower_bound);
                 new_vla_dim->value = lower_bound;
                 new_vla_dim->type_information = no_ref(nodecl_get_type(lower_bound));
-                new_vla_dim->entity_specs.is_saved_expression = 1;
+                symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
                 lower_bound = nodecl_make_symbol(new_vla_dim,
                         new_vla_dim->locus);
@@ -3626,7 +3619,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 new_vla_dim->locus = nodecl_get_locus(upper_bound);
                 new_vla_dim->value = upper_bound;
                 new_vla_dim->type_information = no_ref(nodecl_get_type(upper_bound));
-                new_vla_dim->entity_specs.is_saved_expression = 1;
+                symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
                 upper_bound = nodecl_make_symbol(new_vla_dim,
                         new_vla_dim->locus);
@@ -3685,11 +3678,6 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         array_type = get_error_type();
     }
 
-    if (array_spec_kind != NULL)
-    {
-        *array_spec_kind = kind;
-    }
-
     if (was_ref
             && !is_error_type(array_type))
     {
@@ -3697,6 +3685,50 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
     }
 
     return array_type;
+}
+
+static char array_type_is_deferred_shape(type_t* t)
+{
+    ERROR_CONDITION(!fortran_is_array_type(t), "Invalid type", 0);
+
+    if (!array_type_with_descriptor(t))
+        return 0;
+
+    while (fortran_is_array_type(t))
+    {
+        if (!nodecl_is_null(array_type_get_array_lower_bound(t))
+                || !nodecl_is_null(array_type_get_array_upper_bound(t)))
+            return 0;
+
+        t = array_type_get_element_type(t);
+    }
+
+    return 1;
+}
+
+static void check_array_type_is_valid_for_allocatable(type_t* t,
+        scope_entry_t* entry,
+        const locus_t* locus)
+{
+    if (!array_type_is_deferred_shape(t))
+    {
+        error_printf("%s: error: ALLOCATABLE entity '%s' does not have a deferred shape DIMENSION attribute\n",
+                locus_to_str(locus),
+                entry->symbol_name);
+    }
+}
+
+static void check_array_type_is_valid_for_pointer(type_t* t,
+        scope_entry_t* entry,
+        const locus_t* locus)
+{
+    if (!array_type_is_deferred_shape(
+                pointer_type_get_pointee_type(t)))
+    {
+        error_printf("%s: error: POINTER entity '%s' does not have a deferred shape DIMENSION attribute\n",
+                locus_to_str(locus),
+                entry->symbol_name);
+    }
 }
 
 static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -3727,7 +3759,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
                     entry_list_iterator_next(entry_it))
             {
                 scope_entry_t* sym = entry_list_iterator_current(entry_it);
-                if (sym->entity_specs.access != AS_UNKNOWN)
+                if (symbol_entity_specs_get_access(sym) != AS_UNKNOWN)
                 {
                     error_printf("%s: access specifier already given for entity '%s'\n",
                             ast_location(access_id),
@@ -3737,11 +3769,11 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
                 {
                     if (attr_spec.is_public)
                     {
-                        sym->entity_specs.access = AS_PUBLIC;
+                        symbol_entity_specs_set_access(sym, AS_PUBLIC);
                     }
                     else if (attr_spec.is_private)
                     {
-                        sym->entity_specs.access = AS_PRIVATE;
+                        symbol_entity_specs_set_access(sym, AS_PRIVATE);
                     }
                     else
                     {
@@ -3765,7 +3797,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
         }
         else
         {
-            if (current_sym->entity_specs.access != AS_UNKNOWN)
+            if (symbol_entity_specs_get_access(current_sym) != AS_UNKNOWN)
             {
                 error_printf("%s: error: module '%s' already given a default access\n", 
                         ast_location(a),
@@ -3773,11 +3805,11 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
             }
             if (attr_spec.is_public)
             {
-                current_sym->entity_specs.access = AS_PUBLIC;
+                symbol_entity_specs_set_access(current_sym, AS_PUBLIC);
             }
             else if (attr_spec.is_private)
             {
-                current_sym->entity_specs.access = AS_PRIVATE;
+                symbol_entity_specs_set_access(current_sym, AS_PRIVATE);
             }
             else
             {
@@ -3787,75 +3819,8 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
     }
 }
 
-static void build_dimension_decl(AST a, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_saved_dim)
-{
-    // For simplicity, we allow this function be called with plain symbols
-    // which we merrily ignore
-    if (ASTType(a) == AST_SYMBOL)
-        return;
-
-    ERROR_CONDITION(ASTType(a) != AST_DIMENSION_DECL,
-            "Invalid tree", 0);
-
-    AST name = ASTSon0(a);
-    AST array_spec = ASTSon1(a);
-    AST coarray_spec = ASTSon2(a);
-
-    if (coarray_spec != NULL)
-    {
-       running_error("%s: sorry: coarrays not supported", ast_location(a));
-    }
-
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-
-    char was_ref = is_lvalue_reference_type(entry->type_information);
-    
-    if(entry->kind == SK_UNDEFINED)
-    {
-        entry->kind = SK_VARIABLE;
-        remove_unknown_kind_symbol(decl_context, entry);
-    }
-
-    if (entry->kind != SK_VARIABLE)
-    {
-        error_printf("%s: error: invalid entity '%s' in dimension declaration\n", 
-                ast_location(a),
-                ASTText(name));
-        return;
-    }
-    
-    if (fortran_is_array_type(no_ref(entry->type_information))
-            || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
-    {
-        error_printf("%s: error: entity '%s' already has a DIMENSION attribute\n",
-                ast_location(a),
-                entry->symbol_name);
-        return;
-    }
-
-    // We do not allow variable arrays in non function scopes
-    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION)
-        nodecl_saved_dim = NULL;
-
-    if (!is_error_type(entry->type_information))
-    {
-        type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
-                array_spec,
-                decl_context,
-                /* array_spec_kind */ NULL,
-                nodecl_saved_dim);
-        entry->type_information = array_type;
-
-        if (was_ref)
-        {
-            entry->type_information = get_lvalue_reference_type(entry->type_information);
-        }
-    }
-}
-
-static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST allocatable_decl_list = ASTSon0(a);
     AST it;
@@ -3863,22 +3828,26 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
     for_each_element(allocatable_decl_list, it)
     {
         AST allocatable_decl = ASTSon1(it);
-        nodecl_t nodecl_saved_dim = nodecl_null();
-        build_dimension_decl(allocatable_decl, decl_context, &nodecl_saved_dim);
-
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
 
         AST name = NULL;
-        if (ASTType(allocatable_decl) == AST_SYMBOL)
+        AST array_spec = NULL;
+        if (ASTKind(allocatable_decl) == AST_SYMBOL)
         {
             name = allocatable_decl;
         }
-        else if (ASTType(allocatable_decl))
+        else if (ASTKind(allocatable_decl) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(allocatable_decl);
+            array_spec = ASTSon1(allocatable_decl);
         }
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
+
+        if (entry->kind == SK_UNDEFINED)
+        {
+            entry->kind = SK_VARIABLE;
+            remove_unknown_kind_symbol(decl_context, entry);
+        }
 
         if (entry->kind != SK_VARIABLE)
         {
@@ -3888,25 +3857,57 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
             continue;
         }
 
-        if (!fortran_is_array_type(no_ref(entry->type_information))
-                && !fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+        if (is_pointer_type(entry->type_information))
         {
-            error_printf("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
-                    ast_location(name),
-                    ASTText(name));
+            error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
+                    ast_location(name));
             continue;
         }
 
-        if (entry->entity_specs.is_allocatable)
+        if (symbol_entity_specs_get_is_allocatable(entry))
         {
             error_printf("%s: error: attribute ALLOCATABLE was already set for entity '%s'\n",
                     ast_location(name),
                     ASTText(name));
             continue;
         }
-        entry->entity_specs.is_allocatable = 1;
-    }
+        symbol_entity_specs_set_is_allocatable(entry, 1);
 
+        if (array_spec != NULL)
+        {
+            if (fortran_is_array_type(no_ref(entry->type_information))
+                    || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+            {
+                error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
+                        ast_location(a),
+                        entry->symbol_name);
+                continue;
+            }
+
+            char was_ref = is_lvalue_reference_type(entry->type_information);
+
+            if (!is_error_type(entry->type_information))
+            {
+                type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
+                        array_spec,
+                        decl_context,
+                        /* nodecl_output */ NULL);
+                entry->type_information = array_type;
+
+                if (was_ref)
+                {
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                }
+            }
+        }
+
+        if (fortran_is_array_type(no_ref(entry->type_information)))
+        {
+            check_array_type_is_valid_for_allocatable(no_ref(entry->type_information),
+                    entry,
+                    ast_get_locus(allocatable_decl_list));
+        }
+    }
 }
 
 static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3931,7 +3932,7 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
         AST allocate_object = ASTSon1(it);
 
         // This one is here only for coarrays
-        if (ASTType(allocate_object) == AST_DIMENSION_DECL)
+        if (ASTKind(allocate_object) == AST_DIMENSION_DECL)
         {
             running_error("%s: sorry: coarrays not supported\n", 
                     ast_location(allocate_object));
@@ -3943,10 +3944,10 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (!nodecl_is_err_expr(nodecl_data_ref))
         {
-            scope_entry_t* entry = nodecl_get_symbol(nodecl_data_ref);
-
-            if (!entry->entity_specs.is_allocatable
-                    && !is_pointer_type(no_ref(entry->type_information)))
+            scope_entry_t* entry = fortran_data_ref_get_symbol(nodecl_data_ref);
+            if (entry == NULL
+                    || (!symbol_entity_specs_get_is_allocatable(entry)
+                        && !is_pointer_type(no_ref(entry->type_information))))
             {
                 error_printf("%s: error: entity '%s' does not have ALLOCATABLE or POINTER attribute\n", 
                         ast_location(a),
@@ -4134,7 +4135,7 @@ static void build_scope_bind_stmt(AST a,
     AST language_binding_spec = ASTSon0(a);
     AST bind_entity_list = ASTSon1(a);
 
-    if (ASTType(language_binding_spec) != AST_BIND_C_SPEC)
+    if (ASTKind(language_binding_spec) != AST_BIND_C_SPEC)
     {
         error_printf("%s: error: unsupported BIND statement\n", ast_location(a));
         return;
@@ -4148,7 +4149,7 @@ static void build_scope_bind_stmt(AST a,
         AST bind_entity = ASTSon1(it);
 
         scope_entry_t* entry = NULL;
-        if (ASTType(bind_entity) == AST_COMMON_NAME)
+        if (ASTKind(bind_entity) == AST_COMMON_NAME)
         {
             entry = query_common_name(decl_context, 
                     ASTText(ASTSon0(bind_entity)),
@@ -4167,7 +4168,7 @@ static void build_scope_bind_stmt(AST a,
             continue;
         }
 
-        entry->entity_specs.bind_info = bind_c_name;
+        symbol_entity_specs_set_bind_info(entry, bind_c_name);
     }
 
 }
@@ -4224,7 +4225,7 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
     {
         AST case_value_range = ASTSon1(it);
 
-        if (ASTType(case_value_range) == AST_CASE_VALUE_RANGE)
+        if (ASTKind(case_value_range) == AST_CASE_VALUE_RANGE)
         {
             AST lower_bound = ASTSon0(case_value_range);
             AST upper_bound = ASTSon1(case_value_range);
@@ -4376,23 +4377,23 @@ static void build_scope_common_stmt(AST a,
 
             AST name = NULL;
             AST array_spec = NULL;
-            if (ASTType(common_block_object) == AST_SYMBOL)
+            if (ASTKind(common_block_object) == AST_SYMBOL)
             {
                 name = common_block_object;
             }
-            else if (ASTType(common_block_object) == AST_DIMENSION_DECL)
+            else if (ASTKind(common_block_object) == AST_DIMENSION_DECL)
             {
                 name = ASTSon0(common_block_object);
                 array_spec = ASTSon1(common_block_object);
             }
             else
             {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(common_block_object)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTKind(common_block_object)));
             }
 
             scope_entry_t* sym = get_symbol_for_name(decl_context, name, ASTText(name));
             
-            if (sym->entity_specs.is_in_common)
+            if (symbol_entity_specs_get_is_in_common(sym))
             {
                 error_printf("%s: error: entity '%s' is already in a COMMON\n", 
                         ast_location(name),
@@ -4406,9 +4407,9 @@ static void build_scope_common_stmt(AST a,
                 remove_unknown_kind_symbol(decl_context, sym);
             }
             // We mark the symbol as non static and is in a common
-            sym->entity_specs.is_static = 0;
-            sym->entity_specs.is_in_common = 1;
-            sym->entity_specs.in_common = common_sym;
+            symbol_entity_specs_set_is_static(sym, 0);
+            symbol_entity_specs_set_is_in_common(sym, 1);
+            symbol_entity_specs_set_in_common(sym, common_sym);
 
             if (array_spec != NULL)
             {
@@ -4428,7 +4429,6 @@ static void build_scope_common_stmt(AST a,
                     type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
                             array_spec,
                             decl_context,
-                            /* array_spec_kind */ NULL,
                             /* nodecl_output */ NULL);
                     sym->type_information = array_type;
 
@@ -4439,7 +4439,7 @@ static void build_scope_common_stmt(AST a,
                 }
             }
 
-            P_LIST_ADD(common_sym->entity_specs.related_symbols, common_sym->entity_specs.num_related_symbols, sym);
+            symbol_entity_specs_add_related_symbols(common_sym, sym);
         }
     }
 
@@ -4814,7 +4814,7 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
     for_each_element(data_stmt_object_list, it2)
     {
         AST data_stmt_object = ASTSon1(it2);
-        if (ASTType(data_stmt_object) == AST_IMPLIED_DO)
+        if (ASTKind(data_stmt_object) == AST_IMPLIED_DO)
         {
             nodecl_t nodecl_implied_do = nodecl_null();
             generic_implied_do_handler(data_stmt_object, decl_context,
@@ -4831,9 +4831,9 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
             // Set the SAVE attribute
             scope_entry_t* entry = nodecl_get_symbol(nodecl_data_stmt_object);
             // If the symbol appears in a common, the symbol will never be static
-            if (entry != NULL && !entry->entity_specs.is_in_common)
+            if (entry != NULL && !symbol_entity_specs_get_is_in_common(entry))
             {
-                entry->entity_specs.is_static = 1;
+                symbol_entity_specs_set_is_static(entry, 1);
             }
         }
     }
@@ -4844,7 +4844,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
     AST data_stmt_set_list = ASTSon0(a);
 
     scope_entry_t* entry = get_or_create_data_symbol_info(decl_context);
-    
+
     AST it;
     for_each_element(data_stmt_set_list, it)
     {
@@ -4861,7 +4861,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         for_each_element(data_stmt_value_list, it2)
         {
             AST data_stmt_value = ASTSon1(it2);
-            if (ASTType(data_stmt_value) == AST_MUL)
+            if (ASTKind(data_stmt_value) == AST_MUL)
             {
                 nodecl_t nodecl_repeat;
                 fortran_check_expression(ASTSon0(data_stmt_value), decl_context, &nodecl_repeat);
@@ -4920,11 +4920,9 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
             }
         }
 
-        entry->value = nodecl_append_to_list(entry->value, 
-                nodecl_make_context(
-                    nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ast_get_locus(data_stmt_set)),
-                    decl_context,
-                    ast_get_locus(data_stmt_set)));
+        entry->value = nodecl_append_to_list(entry->value,
+                nodecl_make_fortran_data(nodecl_item_set,
+                    nodecl_data_set, ast_get_locus(data_stmt_set)));
     }
 }
 
@@ -4943,7 +4941,7 @@ static void build_scope_deallocate_stmt(AST a,
     {
         AST allocate_object = ASTSon1(it);
 
-        if (ASTType(allocate_object) == AST_DIMENSION_DECL)
+        if (ASTKind(allocate_object) == AST_DIMENSION_DECL)
         {
             running_error("%s: sorry: coarrays not supported\n", 
                     ast_location(allocate_object));
@@ -4955,10 +4953,10 @@ static void build_scope_deallocate_stmt(AST a,
 
         if (!nodecl_is_err_expr(nodecl_data_ref))
         {
-            scope_entry_t* entry = nodecl_get_symbol(nodecl_data_ref);
-
-            if (!entry->entity_specs.is_allocatable
-                    && !is_pointer_type(no_ref(entry->type_information)))
+            scope_entry_t* entry = fortran_data_ref_get_symbol(nodecl_data_ref);
+            if (entry == NULL
+                    || (!symbol_entity_specs_get_is_allocatable(entry)
+                        && !is_pointer_type(no_ref(entry->type_information))))
             {
                 error_printf("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
                         ast_location(a));
@@ -4994,7 +4992,7 @@ static char array_is_assumed_shape(scope_entry_t* entry, decl_context_t decl_con
     if (!fortran_is_array_type(no_ref(entry->type_information)))
         return 0;
 
-    if (entry->entity_specs.is_allocatable)
+    if (symbol_entity_specs_get_is_allocatable(entry))
         return 1;
 
     if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
@@ -5039,7 +5037,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         for_each_element(type_attr_spec_list, it)
         {
             AST type_attr_spec = ASTSon1(it);
-            switch (ASTType(type_attr_spec))
+            switch (ASTKind(type_attr_spec))
             {
                 case AST_ABSTRACT:
                     {
@@ -5072,7 +5070,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     if (class_name != NULL)
     {
         if (class_name->kind == SK_UNDEFINED
-                && class_name->entity_specs.is_implicit_basic_type)
+                && symbol_entity_specs_get_is_implicit_basic_type(class_name))
         {
             // This happens in this case
             //
@@ -5103,7 +5101,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         {
             // If it is declared in the same scope or it comes from a module, then this is wrong
             if (decl_context.current_scope == class_name->decl_context.current_scope
-                    || class_name->entity_specs.from_module != NULL)
+                    || symbol_entity_specs_get_from_module(class_name) != NULL)
             {
                 error_printf("%s: error: derived type 'TYPE(%s)' already defined\n", 
                         ast_location(name),
@@ -5127,7 +5125,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     class_name->kind = SK_CLASS;
     class_name->locus = ast_get_locus(name);
     class_name->type_information = get_new_class_type(decl_context, TT_STRUCT);
-    class_name->entity_specs.bind_info = bind_c_name;
+    symbol_entity_specs_set_bind_info(class_name, bind_c_name);
     class_name->defined = 1;
     
     remove_not_fully_defined_symbol(decl_context, class_name);
@@ -5135,11 +5133,11 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
     if (attr_spec.is_public)
     {
-        class_name->entity_specs.access = AS_PUBLIC;
+        symbol_entity_specs_set_access(class_name, AS_PUBLIC);
     }
     else if (attr_spec.is_private)
     {
-        class_name->entity_specs.access = AS_PRIVATE;
+        symbol_entity_specs_set_access(class_name, AS_PRIVATE);
     }
 
     AST type_param_def_stmt_seq = NULL,
@@ -5171,7 +5169,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         {
             AST private_or_sequence = ASTSon1(it);
 
-            if (ASTType(private_or_sequence) == AST_SEQUENCE_STATEMENT)
+            if (ASTKind(private_or_sequence) == AST_SEQUENCE_STATEMENT)
             {
                 if (is_sequence)
                 {
@@ -5180,7 +5178,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 }
                 is_sequence = 1;
             }
-            else if (ASTType(private_or_sequence) == AST_ACCESS_STATEMENT)
+            else if (ASTKind(private_or_sequence) == AST_ACCESS_STATEMENT)
             {
                 if (fields_are_private)
                 {
@@ -5194,7 +5192,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 internal_error("%s: Unexpected statement '%s'\n", 
                         ast_location(private_or_sequence),
-                        ast_print_node_type(ASTType(private_or_sequence)));
+                        ast_print_node_type(ASTKind(private_or_sequence)));
             }
         }
     }
@@ -5214,12 +5212,12 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         {
             AST component_def_stmt = ASTSon1(it);
 
-            if (ASTType(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
+            if (ASTKind(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
             {
                 running_error("%s: sorry: unsupported procedure components in derived type definition\n",
                         ast_location(component_def_stmt));
             }
-            ERROR_CONDITION(ASTType(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
+            ERROR_CONDITION(ASTKind(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
                     "Invalid tree", 0);
 
             AST declaration_type_spec = ASTSon0(component_def_stmt);
@@ -5254,7 +5252,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 remove_unknown_kind_symbol(inner_decl_context, entry);
 
                 entry->type_information = basic_type;
-                entry->entity_specs.is_implicit_basic_type = 0;
+                symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
 
                 entry->defined = 1;
 
@@ -5298,7 +5296,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                         error_printf("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                     }
 
-                    if (ASTType(char_length) != AST_SYMBOL
+                    if (ASTKind(char_length) != AST_SYMBOL
                             || strcmp(ASTText(char_length), "*") != 0)
                     {
                         nodecl_t nodecl_char_length = nodecl_null();
@@ -5338,40 +5336,62 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     type_t* array_type = compute_type_from_array_spec(entry->type_information, 
                             current_attr_spec.array_spec,
                             decl_context,
-                            /* array_spec_kind */ NULL,
                             /* nodecl_output */ NULL);
                     entry->type_information = array_type;
                 }
 
                 if (current_attr_spec.is_allocatable)
                 {
-                    if (!current_attr_spec.is_dimension)
+                    if (is_pointer_type(entry->type_information))
                     {
-                        error_printf("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                        error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
                                 ast_location(declaration));
                     }
                     else
                     {
-                        entry->entity_specs.is_allocatable = 1;
+                        symbol_entity_specs_set_is_allocatable(entry, 1);
                         entry->kind = SK_VARIABLE;
                     }
                 }
 
-                entry->entity_specs.is_target = current_attr_spec.is_target;
-                if (fields_are_private
-                        && entry->entity_specs.access == AS_UNKNOWN)
+                if (symbol_entity_specs_get_is_allocatable(entry)
+                        && fortran_is_array_type(entry->type_information))
                 {
-                    entry->entity_specs.access = AS_PRIVATE;
+                    check_array_type_is_valid_for_allocatable(entry->type_information,
+                            entry,
+                            ast_get_locus(declaration));
+                }
+
+                symbol_entity_specs_set_is_target(entry, current_attr_spec.is_target);
+                if (fields_are_private
+                        && symbol_entity_specs_get_access(entry) == AS_UNKNOWN)
+                {
+                    symbol_entity_specs_set_access(entry, AS_PRIVATE);
                 }
 
                 if (current_attr_spec.is_pointer
                         && !is_error_type(entry->type_information))
                 {
-                    entry->type_information = get_pointer_type(entry->type_information);
+                    if (symbol_entity_specs_get_is_allocatable(entry))
+                    {
+                        error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
+                                ast_location(declaration));
+                    }
+                    else
+                    {
+                        entry->type_information = get_pointer_type(entry->type_information);
+                    }
                 }
 
-                entry->entity_specs.is_member = 1;
-                entry->entity_specs.class_type = get_user_defined_type(class_name);
+                if (fortran_is_pointer_to_array_type(entry->type_information))
+                {
+                    check_array_type_is_valid_for_pointer(entry->type_information,
+                            entry,
+                            ast_get_locus(declaration));
+                }
+
+                symbol_entity_specs_set_is_member(entry, 1);
+                symbol_entity_specs_set_class_type(entry, get_user_defined_type(class_name));
 
                 if (current_attr_spec.is_contiguous)
                 {
@@ -5382,7 +5402,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                                 "or assumed-shape arrays\n",
                                 ast_location(name));
                     }
-                    entry->entity_specs.is_contiguous = 1;
+                    symbol_entity_specs_set_is_contiguous(entry, 1);
                 }
 
                 if (initialization != NULL)
@@ -5390,7 +5410,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     entry->kind = SK_VARIABLE;
                     nodecl_t nodecl_init = nodecl_null();
 
-                    if (ASTType(initialization) == AST_POINTER_INITIALIZATION
+                    if (ASTKind(initialization) == AST_POINTER_INITIALIZATION
                             && current_attr_spec.is_pointer)
                     {
                         initialization = ASTSon0(initialization);
@@ -5403,7 +5423,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                         error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                                 ast_location(initialization));
                     }
-                    else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+                    else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
                     {
                         error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                                 ast_location(initialization));
@@ -5433,11 +5453,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     {
         scope_entry_t* module = decl_context.current_scope->related_entry;
 
-        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                module->entity_specs.num_related_symbols,
-                class_name);
+        symbol_entity_specs_add_related_symbols(module, class_name);
 
-        class_name->entity_specs.in_module = module;
+        symbol_entity_specs_set_in_module(class_name, module);
     }
 }
 
@@ -5476,7 +5494,6 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
         type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                 array_spec,
                 decl_context,
-                /* array_spec_kind */ NULL,
                 &nodecl_saved_dim);
 
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -5494,6 +5511,22 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
             if (is_pointer)
             {
                 entry->type_information = get_pointer_type(no_ref(entry->type_information));
+            }
+
+            if (fortran_is_pointer_to_array_type(entry->type_information))
+            {
+                check_array_type_is_valid_for_pointer(
+                        entry->type_information,
+                        entry,
+                        ast_get_locus(dimension_decl));
+            }
+
+            if (symbol_entity_specs_get_is_allocatable(entry)
+                    && fortran_is_array_type(entry->type_information))
+            {
+                check_array_type_is_valid_for_allocatable(entry->type_information,
+                        entry,
+                        ast_get_locus(dimension_decl));
             }
 
             if (was_ref)
@@ -5537,7 +5570,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
         if (!nodecl_is_err_expr(nodecl_var))
         {
-            ind_var = nodecl_get_symbol(nodecl_var);
+            ind_var = fortran_data_ref_get_symbol(nodecl_var);
             if (ind_var != NULL
                     && !is_integer_type(no_ref(ind_var->type_information)))
             {
@@ -5601,7 +5634,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
 
     // Convert a labeled END DO into a labeled CONTINUE at the end of the block
     if (end_do_statement != NULL
-            && ASTType(end_do_statement) == AST_LABELED_STATEMENT)
+            && ASTKind(end_do_statement) == AST_LABELED_STATEMENT)
     {
         AST label = ASTSon0(end_do_statement);
 
@@ -5685,10 +5718,10 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
         scope_entry_t* entry = new_entry_symbol(decl_context, name, suffix, dummy_arg_list, related_sym);
         if (entry != NULL)
         {
-            if (related_sym->entity_specs.is_module_procedure)
+            if (symbol_entity_specs_get_is_module_procedure(related_sym))
             {
                 // Our principal procedure is a module procedure, this symbol will live as a sibling
-                insert_entry(related_sym->entity_specs.in_module->related_decl_context.current_scope, entry);
+                insert_entry(symbol_entity_specs_get_in_module(related_sym)->related_decl_context.current_scope, entry);
             }
 
             // (1) And we piggyback the entry in the node so we avoid a query later
@@ -5702,8 +5735,9 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
     }
     else
     {
-        // Recover the symbol we piggybacked in (1) above
+        // Recover the symbol we piggybacked in (1) above and remove it
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
+        nodecl_set_symbol(_nodecl_wrap(a), NULL);
 
         if (entry == error_entry)
             return;
@@ -5761,11 +5795,7 @@ static void build_scope_equivalence_stmt(AST a,
                 ast_get_locus(equivalence_set));
 
         equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
-                nodecl_make_context(
-                    nodecl_equivalence,
-                    decl_context,
-                    ast_get_locus(equivalence_set))
-                );
+                    nodecl_equivalence);
     }
 
 }
@@ -5797,7 +5827,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         if (entry->kind == SK_FUNCTION) 
         {
             // We have seen an INTRINSIC statement before for the same symbol 
-            if (entry->entity_specs.is_builtin)
+            if (symbol_entity_specs_get_is_builtin(entry))
             {
                 error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
                         ast_location(name),
@@ -5818,7 +5848,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         {
             // We mark the symbol as a external function
             entry->kind = SK_FUNCTION;
-            entry->entity_specs.is_extern = 1;
+            symbol_entity_specs_set_is_extern(entry, 1);
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
@@ -6030,7 +6060,7 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     // We append a labeled CONTINUE statement to the block that lies just
     // before the END IF
     if (endif_statement != NULL
-            && ASTType(endif_statement) == AST_LABELED_STATEMENT)
+            && ASTKind(endif_statement) == AST_LABELED_STATEMENT)
     {
         AST label = ASTSon0(endif_statement);
 
@@ -6215,7 +6245,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
             add_intent_declared_symbol(decl_context, entry);
         }
 
-        if (entry->entity_specs.intent_kind != INTENT_INVALID)
+        if (symbol_entity_specs_get_intent_kind(entry) != INTENT_INVALID)
         {
             error_printf("%s: error: entity '%s' already has an INTENT attribute\n",
                     ast_location(dummy_arg),
@@ -6228,7 +6258,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
 
         gather_attr_spec_item(intent_spec, decl_context, &attr_spec);
 
-        entry->entity_specs.intent_kind = attr_spec.intent_kind;
+        symbol_entity_specs_set_intent_kind(entry, attr_spec.intent_kind);
     }
 }
 
@@ -6241,15 +6271,15 @@ static scope_entry_list_t* build_scope_single_interface_specification(
         nodecl_t* nodecl_pragma)
 {
     scope_entry_list_t* result_entry_list = NULL;
-    if (ASTType(interface_specification) == AST_UNKNOWN_PRAGMA)
+    if (ASTKind(interface_specification) == AST_UNKNOWN_PRAGMA)
     {
         // Ignore these
     }
-    else if (ASTType(interface_specification) == AST_PROCEDURE)
+    else if (ASTKind(interface_specification) == AST_PROCEDURE)
     {
         unsupported_statement(interface_specification, "PROCEDURE");
     }
-    else if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+    else if (ASTKind(interface_specification) == AST_MODULE_PROCEDURE)
     {
         AST procedure_name_list = ASTSon0(interface_specification);
         AST it2;
@@ -6274,10 +6304,10 @@ static scope_entry_list_t* build_scope_single_interface_specification(
 
                     // If this symbol is from this module we allow non generic specifiers only
                     // but we need to remember if we saw some generic as well
-                    if (current->entity_specs.in_module == decl_context.current_scope->related_entry
-                            && current->entity_specs.from_module == NULL)
+                    if (symbol_entity_specs_get_in_module(current) == decl_context.current_scope->related_entry
+                            && symbol_entity_specs_get_from_module(current) == NULL)
                     {
-                        if (current->entity_specs.is_generic_spec)
+                        if (current->kind == SK_GENERIC_NAME)
                         {
                             is_generic_name_of_this_module = 1;
                         }
@@ -6290,10 +6320,9 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                     }
                     // If it comes from another module, we allow non generic specifiers module
                     // procedure
-                    else if (current->entity_specs.from_module != NULL
+                    else if (symbol_entity_specs_get_from_module(current) != NULL
                             && current->kind == SK_FUNCTION
-                            && !current->entity_specs.is_generic_spec
-                            && current->entity_specs.is_module_procedure)
+                            && symbol_entity_specs_get_is_module_procedure(current))
                     {
                         entry = current;
                         break;
@@ -6334,7 +6363,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 }
 
                 entry->kind = SK_FUNCTION;
-                entry->entity_specs.is_module_procedure = 1;
+                symbol_entity_specs_set_is_module_procedure(entry, 1);
 
                 // Add this symbol to the return list
                 result_entry_list = entry_list_add(result_entry_list, entry);
@@ -6367,8 +6396,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 {
                     scope_entry_t* current = entry_list_iterator_current(it);
                     if (current->kind == SK_FUNCTION
-                            && !current->entity_specs.is_generic_spec
-                            && current->entity_specs.is_module_procedure)
+                            && symbol_entity_specs_get_is_module_procedure(current))
                     {
                         entry = current;
                         break;
@@ -6400,8 +6428,8 @@ static scope_entry_list_t* build_scope_single_interface_specification(
             }
         }
     }
-    else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
-            || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
+    else if (ASTKind(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
+            || ASTKind(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
     {
         scope_entry_t* entry = NULL;
         nodecl_t nodecl_program_unit = nodecl_null();
@@ -6427,7 +6455,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
         remove_untyped_symbol(decl_context, entry);
         remove_unknown_kind_symbol(decl_context, entry);
     }
-    else if (ASTType(interface_specification) == AST_PRAGMA_CUSTOM_CONSTRUCT)
+    else if (ASTKind(interface_specification) == AST_PRAGMA_CUSTOM_CONSTRUCT)
     {
         AST pragma_line = ASTSon0(interface_specification);
         AST declaration = ASTSon1(interface_specification);
@@ -6472,7 +6500,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
     }
     else
     {
-        internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+        internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTKind(interface_specification)));
     }
 
     return result_entry_list;
@@ -6519,9 +6547,10 @@ static void build_scope_interface_block(AST a,
                     previous_generic_spec_sym = NULL;
                     generic_spec_sym = current_sym;
                 }
-                else if (current_sym->kind == SK_FUNCTION)
+                else if (current_sym->kind == SK_FUNCTION
+                        || current_sym->kind == SK_GENERIC_NAME)
                 {
-                    if (current_sym->entity_specs.from_module)
+                    if (symbol_entity_specs_get_from_module(current_sym) != NULL)
                     {
                         // We need this for the following case
                         //
@@ -6538,25 +6567,19 @@ static void build_scope_interface_block(AST a,
                         // END MODULE BAR
                         previous_generic_spec_sym = current_sym;
                     }
-                    else if (current_sym->entity_specs.is_generic_spec)
+                    else if (current_sym->kind == SK_GENERIC_NAME)
                     {
                         previous_generic_spec_sym = NULL;
                         generic_spec_sym = current_sym;
                     }
-                    else
-                    {
-                        if (current_sym->kind != SK_UNDEFINED
-                                && (current_sym->kind != SK_FUNCTION
-                                    || (!current_sym->entity_specs.is_generic_spec
-                                        && !current_sym->entity_specs.is_builtin)))
-                        {
-                            error_printf("%s: error: redefining symbol '%s'\n",
-                                    ast_location(generic_spec),
-                                    name);
-                            entry_list_iterator_free(it);
-                            return;
-                        }
-                    }
+                }
+                else // otherwise
+                {
+                    error_printf("%s: error: redefining symbol '%s'\n",
+                            ast_location(generic_spec),
+                            name);
+                    entry_list_iterator_free(it);
+                    return;
                 }
             }
             entry_list_iterator_free(it);
@@ -6574,17 +6597,16 @@ static void build_scope_interface_block(AST a,
         // The symbol won't be unknown anymore
         remove_untyped_symbol(decl_context, generic_spec_sym);
 
-        generic_spec_sym->kind = SK_FUNCTION;
-        generic_spec_sym->entity_specs.is_generic_spec = 1;
-        generic_spec_sym->entity_specs.is_implicit_basic_type = 0;
+        generic_spec_sym->kind = SK_GENERIC_NAME;
+        symbol_entity_specs_set_is_implicit_basic_type(generic_spec_sym, 0);
         remove_unknown_kind_symbol(decl_context, generic_spec_sym);
 
         // Set the access properly if the symbol has already been seen and we already know its access
         // (See coment above where we set previous_generic_spec_sym)
         if (previous_generic_spec_sym != NULL
-                && previous_generic_spec_sym->entity_specs.access != AS_UNKNOWN)
+                && symbol_entity_specs_get_access(previous_generic_spec_sym) != AS_UNKNOWN)
         {
-            generic_spec_sym->entity_specs.access = previous_generic_spec_sym->entity_specs.access;
+            symbol_entity_specs_set_access(generic_spec_sym, symbol_entity_specs_get_access(previous_generic_spec_sym));
         }
     }
 
@@ -6621,9 +6643,7 @@ static void build_scope_interface_block(AST a,
         int i;
         for (i = 0; i < num_related_symbols; i++)
         {
-            P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
-                    generic_spec_sym->entity_specs.num_related_symbols,
-                    related_symbols[i]);
+            symbol_entity_specs_add_related_symbols(generic_spec_sym, related_symbols[i]);
         }
     }
 }
@@ -6660,7 +6680,7 @@ static void build_scope_intrinsic_stmt(AST a,
             if (entry->kind == SK_FUNCTION) 
             {
                 // We have seen an INTRINSIC statement before for the same symbol 
-                if (entry->entity_specs.is_builtin)
+                if (symbol_entity_specs_get_is_builtin(entry))
                 {
                     error_printf("%s: error: entity '%s' already has INTRINSIC attribute\n",
                             ast_location(name),
@@ -6680,7 +6700,7 @@ static void build_scope_intrinsic_stmt(AST a,
             // This symbol will be the intrinsic
             else
             {
-                if (entry_intrinsic == NULL || !entry_intrinsic->entity_specs.is_builtin)
+                if (entry_intrinsic == NULL || !symbol_entity_specs_get_is_builtin(entry_intrinsic))
                 {
                     error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
                             ast_location(name),
@@ -6695,7 +6715,7 @@ static void build_scope_intrinsic_stmt(AST a,
         else
         {
             if (entry_intrinsic == NULL 
-                    || !entry_intrinsic->entity_specs.is_builtin)
+                    || !symbol_entity_specs_get_is_builtin(entry_intrinsic))
             {
                 error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
                         ast_location(name),
@@ -6756,11 +6776,9 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
                 // Make the new namelist a member of this module
                 scope_entry_t* module = decl_context.current_scope->related_entry;
 
-                P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                        module->entity_specs.num_related_symbols,
-                        new_namelist);
+                symbol_entity_specs_add_related_symbols(module, new_namelist);
 
-                new_namelist->entity_specs.in_module = module;
+                symbol_entity_specs_set_in_module(new_namelist, module);
             }
         }
 
@@ -6781,11 +6799,10 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
                 namelist_element = get_symbol_for_name(decl_context, namelist_item_name, ASTText(namelist_item_name));
             }
 
-            namelist_element->entity_specs.is_in_namelist = 1;
-            namelist_element->entity_specs.namelist = new_namelist;
+            symbol_entity_specs_set_is_in_namelist(namelist_element, 1);
+            symbol_entity_specs_set_namelist(namelist_element, new_namelist);
 
-            P_LIST_ADD(new_namelist->entity_specs.related_symbols,
-                    new_namelist->entity_specs.num_related_symbols,
+            symbol_entity_specs_add_related_symbols(new_namelist,
                     namelist_element);
         }
     }
@@ -6806,7 +6823,7 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
         nodecl_t nodecl_pointer_obj = nodecl_null();
         fortran_check_expression(pointer_object, decl_context, &nodecl_pointer_obj);
 
-        scope_entry_t* sym = nodecl_get_symbol(nodecl_pointer_obj);
+        scope_entry_t* sym = fortran_data_ref_get_symbol(nodecl_pointer_obj);
 
         if (sym == NULL ||
                 !is_pointer_type(no_ref(sym->type_information)))
@@ -6863,7 +6880,7 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl
                     ASTText(name));
             continue;
         }
-        entry->entity_specs.is_optional = 1;
+        symbol_entity_specs_set_is_optional(entry, 1);
     }
 
 }
@@ -6997,11 +7014,11 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             continue;
         }
 
-        pointer_entry->entity_specs.is_cray_pointer = 1;
+        symbol_entity_specs_set_is_cray_pointer(pointer_entry, 1);
 
         AST pointee_name = pointee_decl;
         AST array_spec = NULL;
-        if (ASTType(pointee_decl) == AST_DIMENSION_DECL)
+        if (ASTKind(pointee_decl) == AST_DIMENSION_DECL)
         {
             pointee_name = ASTSon0(pointee_decl);
             array_spec = ASTSon1(pointee_decl);
@@ -7009,17 +7026,18 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
 
         scope_entry_t* pointee_entry = get_symbol_for_name(decl_context, pointer_name, ASTText(pointee_name));
 
-        if (pointee_entry->entity_specs.is_cray_pointee)
+        if (symbol_entity_specs_get_is_cray_pointee(pointee_entry))
         {
             error_printf("%s: error: entity '%s' is already a pointee of Cray pointer '%s'\n",
                     ast_location(pointee_name),
                     pointee_entry->symbol_name,
-                    pointee_entry->entity_specs.cray_pointer->symbol_name);
+                    symbol_entity_specs_get_cray_pointer(pointee_entry)->symbol_name);
             continue;
         }
         if (array_spec != NULL)
         {
-            if (fortran_is_array_type(no_ref(pointee_entry->type_information)))
+            if (fortran_is_array_type(no_ref(pointee_entry->type_information))
+                    || fortran_is_pointer_to_array_type(no_ref(pointee_entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(pointee_name),
@@ -7028,11 +7046,10 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             }
 
             nodecl_t nodecl_saved_dim = nodecl_null();
-            
+
             type_t* array_type = compute_type_from_array_spec(no_ref(pointee_entry->type_information), 
                     array_spec,
                     decl_context,
-                    /* array_spec_kind */ NULL,
                     &nodecl_saved_dim);
 
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7044,8 +7061,8 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         }
 
         // We would change it into a SK_VARIABLE but it could be a function, so leave it undefined
-        pointee_entry->entity_specs.is_cray_pointee = 1;
-        pointee_entry->entity_specs.cray_pointer = pointer_entry;
+        symbol_entity_specs_set_is_cray_pointee(pointee_entry, 1);
+        symbol_entity_specs_set_cray_pointer(pointee_entry, pointer_entry);
     }
 }
 
@@ -7060,7 +7077,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         AST name = pointer_decl;
         AST array_spec = NULL;
-        if (ASTType(pointer_decl) == AST_DIMENSION_DECL)
+        if (ASTKind(pointer_decl) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(pointer_decl);
             array_spec = ASTSon1(pointer_decl);
@@ -7069,19 +7086,25 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         char was_ref = is_lvalue_reference_type(entry->type_information);
-
         if (is_pointer_type(no_ref(entry->type_information)))
         {
             error_printf("%s: error: entity '%s' has already the POINTER attribute\n",
-                    ast_location(a),
+                    ast_location(pointer_decl),
                     entry->symbol_name);
+            continue;
+        }
+
+        if (symbol_entity_specs_get_is_allocatable(entry))
+        {
+            error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
+                    ast_location(name));
             continue;
         }
 
         if (is_const_qualified_type(no_ref(entry->type_information)))
         {
             error_printf("%s: error: POINTER attribute is not compatible with PARAMETER attribute\n", 
-                    ast_location(a));
+                    ast_location(pointer_decl));
             continue;
         }
 
@@ -7091,7 +7114,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
                     || fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' has already a DIMENSION attribute\n",
-                        ast_location(a),
+                        ast_location(pointer_decl),
                         entry->symbol_name);
                 continue;
             }
@@ -7101,7 +7124,6 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                     array_spec,
                     decl_context,
-                    /* array_spec_kind */ NULL,
                     &nodecl_saved_dim);
 
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7116,13 +7138,21 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         if (entry->kind == SK_FUNCTION)
         {
-            entry->entity_specs.is_extern = 0;
+            symbol_entity_specs_set_is_extern(entry, 0);
             entry->kind = SK_VARIABLE;
         }
 
         if (!is_error_type(entry->type_information))
         {
             entry->type_information = get_pointer_type(no_ref(entry->type_information));
+
+            if (fortran_is_pointer_to_array_type(entry->type_information))
+            {
+                check_array_type_is_valid_for_pointer(
+                        entry->type_information,
+                        entry,
+                        ast_get_locus(pointer_decl));
+            }
 
             if (was_ref)
             {
@@ -7135,7 +7165,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
 static void build_scope_input_output_item(AST input_output_item, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (ASTType(input_output_item) == AST_IMPLIED_DO)
+    if (ASTKind(input_output_item) == AST_IMPLIED_DO)
     {
         generic_implied_do_handler(input_output_item, decl_context,
                 build_scope_input_output_item_list, nodecl_output);
@@ -7189,15 +7219,14 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
 
     dest->type_information = function_type;
 
-    dest->entity_specs.is_elemental = orig->entity_specs.is_elemental;
-    dest->entity_specs.is_pure = orig->entity_specs.is_pure;
+    symbol_entity_specs_set_is_elemental(dest, symbol_entity_specs_get_is_elemental(orig));
+    symbol_entity_specs_set_is_pure(dest, symbol_entity_specs_get_is_pure(orig));
 
     dest->related_decl_context = orig->related_decl_context;
 
-    dest->entity_specs.num_related_symbols = orig->entity_specs.num_related_symbols;
-    dest->entity_specs.related_symbols = orig->entity_specs.related_symbols;
+    symbol_entity_specs_copy_related_symbols_from(dest, orig);
 
-    dest->entity_specs.is_implicit_basic_type = 0;
+    symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
 }
 
 static void synthesize_procedure_type(scope_entry_t* entry, 
@@ -7224,7 +7253,7 @@ static void synthesize_procedure_type(scope_entry_t* entry,
         else
         {
             new_type = get_nonproto_function_type(return_type, 0);
-            entry->entity_specs.is_implicit_basic_type = 0;
+            symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
             remove_untyped_symbol(decl_context, entry);
         }
 
@@ -7262,7 +7291,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
     if (proc_interface != NULL)
     {
-        if (ASTType(proc_interface) == AST_SYMBOL)
+        if (ASTKind(proc_interface) == AST_SYMBOL)
         {
             interface = get_symbol_for_name(decl_context, proc_interface, ASTText(proc_interface));
 
@@ -7311,7 +7340,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
         AST init = NULL;
 
-        if (ASTType(name) == AST_RENAME)
+        if (ASTKind(name) == AST_RENAME)
         {
             name = ASTSon0(name);
             init = ASTSon0(name);
@@ -7319,7 +7348,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (entry->entity_specs.is_builtin)
+        if (symbol_entity_specs_get_is_builtin(entry))
         {
             error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
                     ast_location(name),
@@ -7329,13 +7358,13 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
         if (attr_spec.is_save)
         {
-            if (entry->entity_specs.is_static)
+            if (symbol_entity_specs_get_is_static(entry))
             {
                 running_error("%s: error: SAVE attribute already specified for symbol '%s'\n", 
                         ast_location(name),
                         entry->symbol_name);
             }
-            entry->entity_specs.is_static = 1;
+            symbol_entity_specs_set_is_static(entry, 1);
         }
 
         if (attr_spec.is_optional)
@@ -7345,13 +7374,13 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
                 error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(name));
             }
-            if (entry->entity_specs.is_optional)
+            if (symbol_entity_specs_get_is_optional(entry))
             {
                 error_printf("%s: error: OPTIONAL attribute already specified for symbol '%s'\n", 
                         ast_location(name),
                         entry->symbol_name);
             }
-            entry->entity_specs.is_optional = 1;
+            symbol_entity_specs_set_is_optional(entry, 1);
         }
 
         if (!attr_spec.is_pointer
@@ -7495,7 +7524,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
     scope_entry_t* program_unit = decl_context.current_scope->related_entry;
 
-    if (program_unit->entity_specs.is_saved_program_unit)
+    if (symbol_entity_specs_get_is_saved_program_unit(program_unit))
     {
         error_printf("%s: error: SAVE statement specified more than once\n",
                 ast_location(a));
@@ -7503,7 +7532,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
     if (saved_entity_list == NULL)
     {
-        program_unit->entity_specs.is_saved_program_unit = 1;
+        symbol_entity_specs_set_is_saved_program_unit(program_unit, 1);
         return;
     }
 
@@ -7512,7 +7541,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         AST saved_entity = ASTSon1(it);
 
         scope_entry_t* entry = NULL;
-        if (ASTType(saved_entity) == AST_COMMON_NAME)
+        if (ASTKind(saved_entity) == AST_COMMON_NAME)
         {
             entry = query_common_name(decl_context, ASTText(ASTSon0(saved_entity)),
                     ast_get_locus(ASTSon0(saved_entity)));
@@ -7535,7 +7564,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
         }
-        entry->entity_specs.is_static = 1;
+        symbol_entity_specs_set_is_static(entry, 1);
     }
 
 }
@@ -7557,7 +7586,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
     entry->kind = SK_FUNCTION;
-    entry->entity_specs.is_stmt_function = 1;
+    symbol_entity_specs_set_is_stmt_function(entry, 1);
     remove_unknown_kind_symbol(decl_context, entry);
 
     int num_dummy_arguments = 0;
@@ -7585,11 +7614,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
 
             symbol_set_as_parameter_of_function(dummy_arg, entry,
                     /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
+                    /* position */ symbol_entity_specs_get_num_related_symbols(entry));
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    dummy_arg);
+            symbol_entity_specs_add_related_symbols(entry, dummy_arg);
 
             num_dummy_arguments++;
         }
@@ -7601,9 +7628,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     result_sym->kind = SK_VARIABLE;
     result_sym->decl_context = decl_context;
     result_sym->type_information = entry->type_information;
-    result_sym->entity_specs.is_result_var = 1;
+    symbol_entity_specs_set_is_result_var(result_sym, 1);
 
-    entry->entity_specs.result_var = result_sym;
+    symbol_entity_specs_set_result_var(entry, result_sym);
 
     parameter_info_t parameter_info[1 + num_dummy_arguments];
     memset(parameter_info, 0, sizeof(parameter_info));
@@ -7611,7 +7638,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(entry->entity_specs.related_symbols[i]);
+        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* new_type = get_new_function_type(entry->type_information, 
@@ -7690,7 +7717,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
 
-        if (ASTType(target_decl_list) == AST_DIMENSION_DECL)
+        if (ASTKind(target_decl_list) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(target_decl);
             AST array_spec = ASTSon1(target_decl_list);
@@ -7719,7 +7746,6 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
                 type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
                         array_spec,
                         decl_context,
-                        /* array_spec_kind */ NULL,
                         &nodecl_saved_dim);
 
                 *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7736,7 +7762,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
             }
         }
 
-        if (entry->entity_specs.is_target)
+        if (symbol_entity_specs_get_is_target(entry))
         {
             error_printf("%s: error: entity '%s' already has TARGET attribute\n", 
                     ast_location(target_decl),
@@ -7749,7 +7775,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
         }
-        entry->entity_specs.is_target = 1;
+        symbol_entity_specs_set_is_target(entry, 1);
     }
 
 }
@@ -7804,7 +7830,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             entry->type_information = basic_type;
         }
 
-        if (!entry->entity_specs.is_implicit_basic_type)
+        if (!symbol_entity_specs_get_is_implicit_basic_type(entry))
         {
             error_printf("%s: error: entity '%s' already has a basic type\n",
                     ast_location(name),
@@ -7835,7 +7861,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         remove_untyped_symbol(decl_context, entry);
 
         entry->type_information = fortran_update_basic_type_with_type(entry->type_information, basic_type);
-        entry->entity_specs.is_implicit_basic_type = 0;
+        symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
 
         entry->locus = ast_get_locus(declaration);
 
@@ -7844,11 +7870,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             // Update the result name (if any) as well
             // Note that the result variable is never found through normal lookup, it is
             // only accessible through the function symbol
-            scope_entry_t* sym = entry->entity_specs.result_var;
+            scope_entry_t* sym = symbol_entity_specs_get_result_var(entry);
             if (sym != NULL)
             {
                 sym->type_information = fortran_update_basic_type_with_type(sym->type_information, basic_type);
-                sym->entity_specs.is_implicit_basic_type = 0;
+                symbol_entity_specs_set_is_implicit_basic_type(sym, 0);
             }
         }
 
@@ -7896,7 +7922,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
             rank0 = array_type_get_element_type(rank0);
 
-            if (ASTType(char_length) != AST_SYMBOL
+            if (ASTKind(char_length) != AST_SYMBOL
                     || strcmp(ASTText(char_length), "*") != 0)
             {
                 nodecl_t nodecl_char_length = nodecl_null();
@@ -7948,7 +7974,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             type_t* array_type = compute_type_from_array_spec(no_ref(get_unqualified_type(entry->type_information)),
                     current_attr_spec.array_spec,
                     decl_context,
-                    /* array_spec_kind */ NULL,
                     &nodecl_saved_dim);
 
             *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
@@ -7959,7 +7984,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 entry->kind = SK_VARIABLE;
                 remove_unknown_kind_symbol(decl_context, entry);
             }
-           
+
             if (!is_error_type(entry->type_information))
             {
                 entry->type_information = array_type;
@@ -8004,7 +8029,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 add_intent_declared_symbol(decl_context, entry);
             }
 
-            entry->entity_specs.intent_kind = current_attr_spec.intent_kind;
+            symbol_entity_specs_set_intent_kind(entry, current_attr_spec.intent_kind);
         }
 
         if (current_attr_spec.is_optional)
@@ -8015,27 +8040,36 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                         ast_location(declaration));
                 continue;
             }
-            entry->entity_specs.is_optional = 1;
+            symbol_entity_specs_set_is_optional(entry, 1);
         }
 
         if (current_attr_spec.is_allocatable)
         {
-            if (!current_attr_spec.is_dimension)
+            if (is_pointer_type(entry->type_information))
             {
-                error_printf("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
-                        ast_location(declaration));
+                error_printf("%s: error: attribute POINTER conflicts with ALLOCATABLE\n",
+                        ast_location(name));
                 continue;
             }
-            entry->entity_specs.is_allocatable = 1;
+            symbol_entity_specs_set_is_allocatable(entry, 1);
             entry->kind = SK_VARIABLE;
             remove_unknown_kind_symbol(decl_context, entry);
+        }
+
+        if (symbol_entity_specs_get_is_allocatable(entry)
+                && fortran_is_array_type(no_ref(entry->type_information)))
+        {
+            check_array_type_is_valid_for_allocatable(
+                    no_ref(entry->type_information),
+                    entry,
+                    ast_get_locus(declaration));
         }
 
         if (current_attr_spec.is_intrinsic)
         {
             scope_entry_t* intrinsic_name = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
             if (intrinsic_name == NULL
-                    || !intrinsic_name->entity_specs.is_builtin)
+                    || !symbol_entity_specs_get_is_builtin(intrinsic_name))
             {
                 error_printf("%s: error: name '%s' is not known as an intrinsic\n", 
                         ast_location(name),
@@ -8071,13 +8105,12 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
                 entry->kind = SK_FUNCTION;
-                entry->entity_specs.is_extern = 1;
+                symbol_entity_specs_set_is_extern(entry, 1);
                 remove_unknown_kind_symbol(decl_context, entry);
             }
         }
 
-        if ((current_attr_spec.is_pointer 
-                    || is_pointer_type(no_ref(entry->type_information)))
+        if (current_attr_spec.is_pointer
                 && !is_error_type(entry->type_information))
         {
             if (current_attr_spec.is_pointer
@@ -8087,10 +8120,15 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                         ast_location(name),
                         entry->symbol_name);
             }
+            else if (symbol_entity_specs_get_is_allocatable(entry))
+            {
+                error_printf("%s: error: attribute ALLOCATABLE conflicts with POINTER\n",
+                        ast_location(name));
+            }
             else
             {
                 entry->kind = SK_VARIABLE;
-                entry->entity_specs.is_extern = 0;
+                symbol_entity_specs_set_is_extern(entry, 0);
 
                 remove_unknown_kind_symbol(decl_context, entry);
 
@@ -8103,9 +8141,17 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
         }
 
+        if (fortran_is_pointer_to_array_type(no_ref(entry->type_information)))
+        {
+            check_array_type_is_valid_for_pointer(
+                    no_ref(entry->type_information),
+                    entry,
+                    ast_get_locus(declaration));
+        }
+
         if (current_attr_spec.is_save)
         {
-            entry->entity_specs.is_static = 1;
+            symbol_entity_specs_set_is_static(entry, 1);
         }
 
         if (current_attr_spec.is_contiguous)
@@ -8117,10 +8163,10 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                         "or assumed-shape arrays\n",
                         ast_location(name));
             }
-            entry->entity_specs.is_contiguous = 1;
+            symbol_entity_specs_set_is_contiguous(entry, 1);
         }
 
-        entry->entity_specs.is_target = current_attr_spec.is_target;
+        symbol_entity_specs_set_is_target(entry, current_attr_spec.is_target);
 
         if (initialization != NULL)
         {
@@ -8128,21 +8174,21 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             remove_unknown_kind_symbol(decl_context, entry);
             nodecl_t nodecl_init = nodecl_null();
 
-            if (ASTType(initialization) == AST_POINTER_INITIALIZATION
-                    && current_attr_spec.is_pointer)
+            if (ASTKind(initialization) == AST_POINTER_INITIALIZATION
+                    && is_pointer_type(no_ref(entry->type_information)))
             {
                 initialization = ASTSon0(initialization);
                 fortran_check_initialization(entry, initialization, decl_context, 
                         /* is_pointer_init */ 1,
                         &nodecl_init);
             }
-            else if (current_attr_spec.is_pointer)
+            else if (is_pointer_type(no_ref(entry->type_information)))
             {
                 error_printf("%s: error: a POINTER must be initialized using pointer initialization\n",
                         ast_location(initialization));
                 nodecl_init = nodecl_make_err_expr(ast_get_locus(initialization));
             }
-            else if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+            else if (ASTKind(initialization) == AST_POINTER_INITIALIZATION)
             {
                 error_printf("%s: error: no POINTER attribute, required for pointer initialization\n",
                         ast_location(initialization));
@@ -8150,7 +8196,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
             else
             {
-                fortran_check_initialization(entry, initialization, decl_context, 
+                fortran_check_initialization(entry, initialization, decl_context,
                         /* is_pointer_init */ 0,
                         &nodecl_init);
 
@@ -8164,13 +8210,13 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     // Update CHARACTER(LEN=*) to its real length
                     int num_elements = const_value_get_num_elements(nodecl_get_constant(nodecl_init));
 
-                    entry->type_information = 
+                    entry->type_information =
                         get_array_type_bounds(
                                 array_type_get_element_type(entry->type_information),
-                                nodecl_make_integer_literal(get_signed_int_type(), 
+                                nodecl_make_integer_literal(get_signed_int_type(),
                                     const_value_get_one(fortran_get_default_integer_type_kind(), 1),
                                     ast_get_locus(initialization)),
-                                nodecl_make_integer_literal(get_signed_int_type(), 
+                                nodecl_make_integer_literal(get_signed_int_type(),
                                     const_value_get_integer(num_elements, fortran_get_default_integer_type_kind(), 1),
                                     ast_get_locus(initialization)),
                                 decl_context);
@@ -8181,7 +8227,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                 entry->value = nodecl_init;
                 if (!current_attr_spec.is_constant)
                 {
-                    entry->entity_specs.is_static = 1;
+                    symbol_entity_specs_set_is_static(entry, 1);
                 }
                 else
                 {
@@ -8190,14 +8236,14 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
         }
 
-        if (current_attr_spec.is_pointer
+        if (is_pointer_type(no_ref(entry->type_information))
                 && current_attr_spec.is_constant)
         {
             error_printf("%s: error: PARAMETER attribute is not compatible with POINTER attribute\n",
                     ast_location(declaration));
         }
 
-        if (current_attr_spec.is_constant 
+        if (current_attr_spec.is_constant
                 && initialization == NULL)
         {
             error_printf("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
@@ -8206,7 +8252,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         if (current_attr_spec.is_public
                 || current_attr_spec.is_private)
         {
-            if (entry->entity_specs.access != AS_UNKNOWN)
+            if (symbol_entity_specs_get_access(entry) != AS_UNKNOWN)
             {
                 error_printf("%s: access specifier already given for entity '%s'\n",
                         ast_location(declaration),
@@ -8214,11 +8260,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
             if (current_attr_spec.is_public)
             {
-                entry->entity_specs.access = AS_PUBLIC;
+                symbol_entity_specs_set_access(entry, AS_PUBLIC);
             }
             else if (current_attr_spec.is_private)
             {
-                entry->entity_specs.access = AS_PRIVATE;
+                symbol_entity_specs_set_access(entry, AS_PRIVATE);
             }
         }
 
@@ -8240,7 +8286,8 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
             else
             {
-                error_printf("%s: internal access specifier <is-variable> was passed but the name '%s' was not an undefined nor a variable name\n",
+                error_printf("%s: internal access specifier <is-variable> was passed but the name "
+                        "'%s' was not an undefined nor a variable name\n",
                          ast_location(declaration),
                          entry->symbol_name);
             }
@@ -8319,11 +8366,11 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     // Always insert the ultimate symbol
     scope_entry_t* named_entry_from_module = entry;
-    if (entry->entity_specs.from_module != NULL)
+    if (symbol_entity_specs_get_from_module(entry) != NULL)
     {
-        ERROR_CONDITION(entry->entity_specs.alias_to == NULL, 
+        ERROR_CONDITION(symbol_entity_specs_get_alias_to(entry) == NULL, 
                 "Bad symbol with from_module attribute but no alias set", 0);
-        entry = entry->entity_specs.alias_to;
+        entry = symbol_entity_specs_get_alias_to(entry);
     }
 
     // Why do we duplicate instead of insert_entry or insert_alias?
@@ -8347,26 +8394,26 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     current_symbol->symbol_name = local_name;
     current_symbol->locus = locus;
 
-    current_symbol->entity_specs.from_module = module_symbol;
-    current_symbol->entity_specs.alias_to = entry;
+    symbol_entity_specs_set_from_module(current_symbol, module_symbol);
+    symbol_entity_specs_set_alias_to(current_symbol, entry);
 
-    current_symbol->entity_specs.is_renamed = 0;
+    symbol_entity_specs_set_is_renamed(current_symbol, 0);
 
     // Always alias to the ultimate symbol
-    if (entry->entity_specs.from_module != NULL
-            && entry->entity_specs.alias_to != NULL)
+    if (symbol_entity_specs_get_from_module(entry) != NULL
+            && symbol_entity_specs_get_alias_to(entry) != NULL)
     {
-        current_symbol->entity_specs.alias_to = entry->entity_specs.alias_to;
+        symbol_entity_specs_set_alias_to(current_symbol, symbol_entity_specs_get_alias_to(entry));
     }
 
     // Also set the access to be the default
-    current_symbol->entity_specs.access = AS_UNKNOWN;
+    symbol_entity_specs_set_access(current_symbol, AS_UNKNOWN);
 
     if (strcmp(local_name, named_entry_from_module->symbol_name) != 0)
     {
-        current_symbol->entity_specs.is_renamed = 1;
+        symbol_entity_specs_set_is_renamed(current_symbol, 1);
     }
-    current_symbol->entity_specs.from_module_name = named_entry_from_module->symbol_name;
+    symbol_entity_specs_set_from_module_name(current_symbol, named_entry_from_module->symbol_name);
 
     // Make it a member of this module
     if (decl_context.current_scope->related_entry != NULL
@@ -8374,16 +8421,14 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     {
         scope_entry_t* module = decl_context.current_scope->related_entry;
 
-        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                module->entity_specs.num_related_symbols,
-                current_symbol);
+        symbol_entity_specs_add_related_symbols(module, current_symbol);
 
-        current_symbol->entity_specs.in_module = module;
+        symbol_entity_specs_set_in_module(current_symbol, module);
     }
     else
     {
         // Not in a module
-        current_symbol->entity_specs.in_module = NULL;
+        symbol_entity_specs_set_in_module(current_symbol, NULL);
     }
 
     return current_symbol;
@@ -8456,7 +8501,7 @@ scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_int
     }
 
     if (must_be_intrinsic_module
-            && !module_symbol->entity_specs.is_builtin)
+            && !symbol_entity_specs_get_is_builtin(module_symbol))
     {
         error_printf("%s: error: loaded module '%s' is not an INTRINSIC module\n", locus_to_str(locus), module_name_str);
     }
@@ -8473,13 +8518,13 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
     char is_only = 0;
 
-    if (ASTType(a) == AST_USE_STATEMENT)
+    if (ASTKind(a) == AST_USE_STATEMENT)
     {
         module_nature = ASTSon0(a);
         module_name = ASTSon1(a);
         rename_list = ASTSon2(a);
     }
-    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
+    else if (ASTKind(a) == AST_USE_ONLY_STATEMENT)
     {
         module_nature = ASTSon0(a);
         module_name = ASTSon1(a);
@@ -8488,7 +8533,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
     }
     else
     {
-        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
+        internal_error("Unexpected node %s", ast_print_node_type(ASTKind(a)));
     }
 
     char must_be_intrinsic_module = 0;
@@ -8504,9 +8549,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
     // Query first in the module cache
 
     scope_entry_t* used_modules = get_or_create_used_modules_symbol_info(decl_context);
-    P_LIST_ADD_ONCE(used_modules->entity_specs.related_symbols,
-            used_modules->entity_specs.num_related_symbols,
-            module_symbol);
+    symbol_entity_specs_add_related_symbols(used_modules, module_symbol);
 
     nodecl_t nodecl_fortran_use = nodecl_null();
     nodecl_t nodecl_used_symbols = nodecl_null();
@@ -8577,11 +8620,11 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
 
         // Now add the ones not renamed
         int i;
-        for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
+        for (i = 0; i < symbol_entity_specs_get_num_related_symbols(module_symbol); i++)
         {
-            scope_entry_t* sym_in_module = module_symbol->entity_specs.related_symbols[i];
+            scope_entry_t* sym_in_module = symbol_entity_specs_get_related_symbols_num(module_symbol, i);
 
-            if (sym_in_module->entity_specs.access == AS_PRIVATE)
+            if (symbol_entity_specs_get_access(sym_in_module) == AS_PRIVATE)
                 continue;
 
             char found = 0;
@@ -8611,7 +8654,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         {
             AST only = ASTSon1(it);
 
-            switch (ASTType(only))
+            switch (ASTKind(only))
             {
                 case AST_RENAME:
                     {
@@ -8965,7 +9008,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
     // Convert a labeled END DO into a labeled CONTINUE at the end of the block
     if (end_do_statement != NULL
-            && ASTType(end_do_statement) == AST_LABELED_STATEMENT)
+            && ASTKind(end_do_statement) == AST_LABELED_STATEMENT)
     {
         AST label = ASTSon0(end_do_statement);
 
@@ -9211,19 +9254,16 @@ static char opt_common_const_character_expr(AST value, decl_context_t decl_conte
 static char opt_common_int_variable(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
     fortran_check_expression(value, decl_context, nodecl_value);
-    if (nodecl_get_symbol(*nodecl_value) == NULL)
-    { 
-        scope_entry_t* sym = nodecl_get_symbol(*nodecl_value);
-        if (sym == NULL
-                || (!is_integer_type(no_ref(sym->type_information))
-                    && !(is_pointer_type(no_ref(sym->type_information))
-                        && is_integer_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
-        {
-            error_printf("%s: error: specifier %s requires an integer variable\n",
-                    ast_location(value),
-                    opt_name);
-            return 0;
-        }
+    scope_entry_t* sym = fortran_data_ref_get_symbol(*nodecl_value);
+    if (sym == NULL
+            || (!is_integer_type(no_ref(sym->type_information))
+                && !(is_pointer_type(no_ref(sym->type_information))
+                    && is_integer_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
+    {
+        error_printf("%s: error: specifier %s requires an integer variable\n",
+                ast_location(value),
+                opt_name);
+        return 0;
     }
     return 1;
 }
@@ -9231,19 +9271,16 @@ static char opt_common_int_variable(AST value, decl_context_t decl_context, cons
 static char opt_common_logical_variable(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
     fortran_check_expression(value, decl_context, nodecl_value);
-    if (nodecl_get_symbol(*nodecl_value) == NULL)
-    { 
-        scope_entry_t* sym = nodecl_get_symbol(*nodecl_value);
-        if (sym == NULL
-                || (!is_bool_type(no_ref(sym->type_information))
-                    && !(is_pointer_type(no_ref(sym->type_information))
-                        && is_bool_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
-        {
-            error_printf("%s: error: specifier %s requires a logical variable\n",
-                    ast_location(value),
-                    opt_name);
-            return 0;
-        }
+    scope_entry_t* sym = fortran_data_ref_get_symbol(*nodecl_value);
+    if (sym == NULL
+            || (!is_bool_type(no_ref(sym->type_information))
+                && !(is_pointer_type(no_ref(sym->type_information))
+                    && is_bool_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
+    {
+        error_printf("%s: error: specifier %s requires a logical variable\n",
+                ast_location(value),
+                opt_name);
+        return 0;
     }
     return 1;
 }
@@ -9271,8 +9308,8 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, de
     AST value = ASTSon0(opt_value);
     nodecl_t nodecl_value = nodecl_null();
     fortran_check_expression(value, decl_context, &nodecl_value);
-    if (nodecl_get_symbol(nodecl_value) == NULL
-            || !is_bool_type(no_ref(nodecl_get_symbol(nodecl_value)->type_information)))
+    if (fortran_data_ref_get_symbol(nodecl_value) == NULL
+            || !is_bool_type(no_ref(fortran_data_ref_get_symbol(nodecl_value)->type_information)))
     {
         error_printf("%s: error: specifier 'ACQUIRED LOCK' requires a logical variable\n",
                 ast_location(value));
@@ -9407,7 +9444,7 @@ static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 
 static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (!(ASTType(value) == AST_SYMBOL
+    if (!(ASTKind(value) == AST_SYMBOL
                 && strcmp(ASTText(value), "*") == 0))
     {
         nodecl_t nodecl_value = nodecl_null();
@@ -9416,7 +9453,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         type_t* t = nodecl_get_type(nodecl_value);
         
         char valid = 1;
-        if (ASTType(value) == AST_DECIMAL_LITERAL)
+        if (ASTKind(value) == AST_DECIMAL_LITERAL)
         {
             scope_entry_t* entry = fortran_query_label(value, decl_context, /* is_definition */ 0);
             if (entry == NULL)
@@ -9430,7 +9467,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         }
         else 
         {
-            scope_entry_t* entry = nodecl_get_symbol(nodecl_value);
+            scope_entry_t* entry = fortran_data_ref_get_symbol(nodecl_value);
             if (fortran_is_character_type(no_ref(t)) 
                     || (fortran_is_array_type(no_ref(t)) && 
                         fortran_is_character_type(no_ref(get_unqualified_type(fortran_get_rank0_type(t))))))
@@ -9732,7 +9769,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 {
     AST value = ASTSon0(opt_value);
     // If it is not 'UNIT = *'
-    if (!(ASTType(value) == AST_SYMBOL
+    if (!(ASTKind(value) == AST_SYMBOL
                 && strcmp(ASTText(value), "*") == 0))
     {
         nodecl_t nodecl_value = nodecl_null();
@@ -9740,7 +9777,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 
         type_t* t = nodecl_get_type(nodecl_value);
         if (!(is_integer_type(no_ref(t))
-                    || (nodecl_get_symbol(nodecl_value) != NULL
+                    || (fortran_data_ref_get_symbol(nodecl_value) != NULL
                         && fortran_is_character_type_or_pointer_to(
                             fortran_get_rank0_type(no_ref(t))))))
         {
@@ -9942,7 +9979,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
             create_fortran_symbol_for_name_(decl_context, name, ASTText(name), /* no implicit */ 0);
     }
     
-    if (entry->entity_specs.from_module != NULL)
+    if (symbol_entity_specs_get_from_module(entry) != NULL)
         return 0;
 
     if (!fortran_is_scalar_type(no_ref(entry->type_information)))
@@ -9974,7 +10011,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
 
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context, char is_declaration)
 {
-    ERROR_CONDITION(ASTType(ambig_stmt) != AST_AMBIGUITY, "Invalid tree %s\n", ast_print_node_type(ASTType(ambig_stmt)));
+    ERROR_CONDITION(ASTKind(ambig_stmt) != AST_AMBIGUITY, "Invalid tree %s\n", ast_print_node_type(ASTKind(ambig_stmt)));
     ERROR_CONDITION(strcmp(ASTText(ambig_stmt), "ASSIGNMENT") != 0, "Invalid ambiguity", 0);
 
     int num_ambig = ast_get_num_ambiguities(ambig_stmt);
@@ -9987,11 +10024,11 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     {
         AST stmt = ast_get_ambiguity(ambig_stmt, i);
 
-        if (ASTType(stmt) == AST_LABELED_STATEMENT)
+        if (ASTKind(stmt) == AST_LABELED_STATEMENT)
             stmt = ASTSon1(stmt);
 
         char ok = 0;
-        switch (ASTType(stmt))
+        switch (ASTKind(stmt))
         {
             case AST_EXPRESSION_STATEMENT:
                 {
@@ -10016,7 +10053,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                 }
             default:
                 {
-                    internal_error("Invalid node '%s' at %s\n", ast_print_node_type(ASTType(ambig_stmt)), ast_location(ambig_stmt));
+                    internal_error("Invalid node '%s' at %s\n", ast_print_node_type(ASTKind(ambig_stmt)), ast_location(ambig_stmt));
                 }
         }
 
@@ -10049,7 +10086,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
 
 scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
 {
-    return entry->entity_specs.result_var;
+    return symbol_entity_specs_get_result_var(entry);
 }
 
 static scope_entry_t* symbol_name_is_in_external_list(const char *name,
@@ -10092,16 +10129,16 @@ static void resolve_external_calls_rec(nodecl_t node,
     if (nodecl_get_kind(node) == NODECL_FUNCTION_CALL
             && nodecl_get_kind((called = nodecl_get_child(node, 0))) == NODECL_SYMBOL)
     {
-        scope_entry_t* entry = nodecl_get_symbol(called);
+        scope_entry_t* entry = fortran_data_ref_get_symbol(called);
 
         if (entry->kind == SK_FUNCTION
                 && (entry->decl_context.current_scope->related_entry == NULL
                     || !symbol_is_parameter_of_function(entry,
                         entry->decl_context.current_scope->related_entry))
-                && !entry->entity_specs.is_nested_function
-                && !entry->entity_specs.is_module_procedure
-                && !entry->entity_specs.is_builtin
-                && !entry->entity_specs.is_stmt_function)
+                && !symbol_entity_specs_get_is_nested_function(entry)
+                && !symbol_entity_specs_get_is_module_procedure(entry)
+                && !symbol_entity_specs_get_is_builtin(entry)
+                && !symbol_entity_specs_get_is_stmt_function(entry))
         {
             DEBUG_CODE()
             {
@@ -10195,8 +10232,8 @@ static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
             scope_entry_t* function = nodecl_get_symbol(list[i]);
 
             if (function->kind == SK_FUNCTION
-                    && !function->entity_specs.is_nested_function
-                    && !function->entity_specs.is_module_procedure
+                    && !symbol_entity_specs_get_is_nested_function(function)
+                    && !symbol_entity_specs_get_is_module_procedure(function)
                     && (function->decl_context.current_scope == function->decl_context.global_scope))
             {
                 DEBUG_CODE()

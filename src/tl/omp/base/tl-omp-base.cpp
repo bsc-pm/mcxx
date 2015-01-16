@@ -24,6 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tl-omp-base.hpp"
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
@@ -40,6 +44,8 @@
 
 #include <algorithm>
 #include <iterator>
+
+#include "cxx-graphviz.h"
 
 namespace TL { namespace OpenMP {
 
@@ -69,42 +75,42 @@ namespace TL { namespace OpenMP {
                 "Discards unused data sharings in the body of the construct. "
                 "This behaviour may cause wrong code be emitted, use at your own risk",
                 _discard_unused_data_sharings_str,
-                "0").connect(functor(&Base::set_discard_unused_data_sharings, *this));
+                "0").connect(std::bind(&Base::set_discard_unused_data_sharings, this, std::placeholders::_1));
 
         register_parameter("simd_enabled",
                 "If set to '1' enables simd constructs, otherwise it is disabled",
                 _simd_enabled_str,
-                "0").connect(functor(&Base::set_simd, *this));
+                "0").connect(std::bind(&Base::set_simd, this, std::placeholders::_1));
 
         register_parameter("allow_shared_without_copies",
                 "If set to '1' allows shared without any copy directionality, otherwise they are set to copy_inout",
                 _allow_shared_without_copies_str,
-                "0").connect(functor(&Base::set_allow_shared_without_copies, *this));
+                "0").connect(std::bind(&Base::set_allow_shared_without_copies, this, std::placeholders::_1));
 
         register_parameter("allow_array_reductions",
                 "If set to '1' enables extended support for array reductions in C/C++",
                 _allow_array_reductions_str,
-                "1").connect(functor(&Base::set_allow_array_reductions, *this));
+                "1").connect(std::bind(&Base::set_allow_array_reductions, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
-                "0").connect(functor(&Base::set_ompss_mode, *this));
+                "0").connect(std::bind(&Base::set_ompss_mode, this, std::placeholders::_1));
 
         register_parameter("omp_report",
                 "Emits an OpenMP report describing the OpenMP semantics of the code",
                 _omp_report_str,
-                "0").connect(functor(&Base::set_omp_report, *this));
+                "0").connect(std::bind(&Base::set_omp_report_parameter, this, std::placeholders::_1));
 
         register_parameter("copy_deps_by_default",
                 "Enables copy_deps by default",
                 _copy_deps_str,
-                "1").connect(functor(&Base::set_copy_deps_by_default, *this));
+                "1").connect(std::bind(&Base::set_copy_deps_by_default, this, std::placeholders::_1));
 
         register_parameter("untied_tasks_by_default",
                 "If set to '1' tasks are untied by default, otherwise they are tied. This flag is only valid in OmpSs",
                 _untied_tasks_by_default_str,
-                "1").connect(functor(&Base::set_untied_tasks_by_default, *this));
+                "1").connect(std::bind(&Base::set_untied_tasks_by_default, this, std::placeholders::_1));
 
         register_parameter("disable_task_expression_optimization",
                 "Disables some optimizations applied to task expressions",
@@ -114,16 +120,16 @@ namespace TL { namespace OpenMP {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
-                    dispatcher().directive.pre[directive_name].connect(functor(&Base::_name##_handler_pre, *this)); \
-                    dispatcher().directive.post[directive_name].connect(functor(&Base::_name##_handler_post, *this)); \
+                    dispatcher().directive.pre[directive_name].connect(std::bind(&Base::_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher().directive.post[directive_name].connect(std::bind(&Base::_name##_handler_post, this, std::placeholders::_1)); \
                 }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
-                    dispatcher().declaration.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().declaration.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
-                    dispatcher().statement.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().statement.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
+                    dispatcher().declaration.pre[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher().declaration.post[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, this, std::placeholders::_1)); \
+                    dispatcher().statement.pre[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher().statement.post[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, this, std::placeholders::_1)); \
                 }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -180,9 +186,9 @@ namespace TL { namespace OpenMP {
 
         this->PragmaCustomCompilerPhase::run(dto);
 
-        RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+        std::shared_ptr<FunctionTaskSet> function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
 
-        Nodecl::NodeclBase translation_unit = dto["nodecl"];
+        Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
         TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
@@ -293,7 +299,7 @@ namespace TL { namespace OpenMP {
         _core.set_ompss_mode(_ompss_mode);
     }
 
-    void Base::set_omp_report(const std::string& str)
+    void Base::set_omp_report_parameter(const std::string& str)
     {
         parse_boolean_option("omp_report", str, _omp_report, "Assuming false.");
     }
@@ -1703,7 +1709,6 @@ namespace TL { namespace OpenMP {
         }
     }
 
-
     // clause(list[:int])
     template <typename openmp_node>
     void Base::process_symbol_list_colon_int_clause(
@@ -1806,10 +1811,6 @@ namespace TL { namespace OpenMP {
         // Suitable
         process_symbol_list_clause<Nodecl::OpenMP::Suitable>
             (pragma_line, "suitable", ref_scope, environment);
-
-        // Overlap
-        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Overlap>
-            (pragma_line, "overlap", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
@@ -1923,7 +1924,121 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        // Overlap
+        PragmaCustomClause overlap_clause = pragma_line.get_clause("overlap");
 
+        if (overlap_clause.is_defined())
+        {
+            TL::ObjectList<std::string> arg_clauses_list = overlap_clause.get_raw_arguments();
+
+            TL::ExpressionTokenizerTrim colon_tokenizer(':');
+            TL::ExpressionTokenizerTrim comma_tokenizer(',');
+
+            for(TL::ObjectList<std::string>::iterator it = arg_clauses_list.begin();
+                    it != arg_clauses_list.end();
+                    it++)
+            {
+                TL::ObjectList<std::string> colon_splited_list = colon_tokenizer.tokenize(*it);
+
+                int colon_splited_list_size = colon_splited_list.size();
+
+                ERROR_CONDITION((colon_splited_list_size <= 0) ||
+                        (colon_splited_list_size > 2),
+                        "'overlap' clause has a wrong format", 0);
+
+                //Nodecl::IntegerLiteral alignment = const_value_to_nodecl(const_value_get_zero(4, 1));
+
+                TL::ObjectList<std::string> comma_splited_list;
+                TL::ObjectList<Nodecl::NodeclBase> overlap_flags_obj_list;
+
+                Nodecl::NodeclBase min_group_loads;
+                Nodecl::NodeclBase max_group_registers;
+                Nodecl::NodeclBase max_groups;
+
+                if (colon_splited_list_size == 2)
+                {
+                    comma_splited_list = comma_tokenizer.tokenize(colon_splited_list.back());
+
+                    ERROR_CONDITION(comma_splited_list.size() > 3,
+                        "'overlap' clause has a wrong format", 0);
+
+                    TL::ObjectList<std::string>::iterator comma_splited_it =
+                       comma_splited_list.begin();
+
+                    // Min group loads
+                    if (comma_splited_it != comma_splited_list.end())
+                    {
+                        TL::Source it_src;
+                        it_src << *comma_splited_it;
+
+                        min_group_loads = it_src.parse_expression(
+                                ref_scope.retrieve_context());
+
+                        ERROR_CONDITION(!min_group_loads.is<Nodecl::IntegerLiteral>(),
+                                "'min_group_loads' in 'overlap' clause has a wrong type", 0);
+
+                        comma_splited_it++;
+                    }
+                    else
+                    {
+                        running_error("Missing 'min_group_loads' parameter in 'overlap' clause");
+                    } 
+
+                    // Max group registers
+                    if (comma_splited_it != comma_splited_list.end())
+                    {
+                        TL::Source it_src;
+                        it_src << *comma_splited_it;
+
+                        max_group_registers = it_src.parse_expression(
+                                ref_scope.retrieve_context());
+
+                        ERROR_CONDITION(!min_group_loads.is<Nodecl::IntegerLiteral>(),
+                                "'max_group_registers' in 'overlap' clause has a wrong type", 0);
+
+                        comma_splited_it++;
+                    }
+                    else
+                    {
+                        running_error("Missing 'max_group_registers' parameter in 'overlap' clause");
+                    } 
+
+                    // Max groups
+                    if (comma_splited_it != comma_splited_list.end())
+                    {
+                        TL::Source it_src;
+                        it_src << *comma_splited_it;
+
+                        max_groups = it_src.parse_expression(
+                                ref_scope.retrieve_context());
+
+                        ERROR_CONDITION(!min_group_loads.is<Nodecl::IntegerLiteral>(),
+                                "'max_groups' in 'overlap' clause has a wrong type", 0);
+
+                        comma_splited_it++;
+                    }
+                    else
+                    {
+                        running_error("Missing 'max_groups' parameter in 'overlap' clause");
+                    } 
+                }
+
+                comma_splited_list = comma_tokenizer.tokenize(
+                        colon_splited_list.front());
+
+                Nodecl::List overlap_variables =
+                    Nodecl::List::make(Nodecl::Utils::get_strings_as_expressions(
+                                comma_splited_list, pragma_line));
+
+                environment.append(
+                        Nodecl::OpenMP::Overlap::make(
+                            overlap_variables,
+                            min_group_loads,
+                            max_group_registers,
+                            max_groups,
+                            pragma_line.get_locus()));
+            }
+        }
     }
 
     // SIMD Statement
@@ -2501,8 +2616,13 @@ namespace TL { namespace OpenMP {
 
                 // Mark as __thread
                 scope_entry_t* entry = sym.get_internal_symbol();
+                symbol_entity_specs_set_is_thread(entry, 1);
 
-                entry->entity_specs.is_thread = 1;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    error_printf("%s: error: !$OMP THREADPRIVATE is not supported in Fortran\n",
+                            directive.get_locus_str().c_str());
+                }
             }
         }
 
@@ -2519,7 +2639,62 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(directive);
     }
 
-    struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>
+    void Base::register_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::register_handler_post(TL::PragmaCustomDirective directive)
+    {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+        PragmaCustomParameter parameter = pragma_line.get_parameter();
+
+        if (!parameter.is_defined())
+        {
+            error_printf("%s: error: missing parameter clause in '#pragma omp register'\n",
+                    directive.get_locus_str().c_str());
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> expr_list = parameter.get_arguments_as_expressions();
+        if (expr_list.empty())
+        {
+            warn_printf("%s: warning: ignoring empty '#pragma omp register\n", 
+                    directive.get_locus_str().c_str());
+            return;
+        }
+
+        ObjectList<Nodecl::NodeclBase> valid_expr_list;
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
+                it != expr_list.end();
+                it++)
+        {
+            if (it->is<Nodecl::Symbol>() // x
+                    || (it->is<Nodecl::Shaping>() // [n1][n2] x
+                        && it->as<Nodecl::Shaping>().get_postfix().is<Nodecl::Symbol>()))
+            {
+                valid_expr_list.append(*it);
+            }
+            else
+            {
+                error_printf("%s: error: invalid object specification '%s' in '#pragma omp register'\n",
+                        directive.get_locus_str().c_str(),
+                        it->prettyprint().c_str());
+            }
+        }
+        
+        if (valid_expr_list.empty())
+            return;
+
+        Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
+
+        Nodecl::OpenMP::Register new_register_directive = 
+            Nodecl::OpenMP::Register::make(
+                    list_expr,
+                    directive.get_locus());
+
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(new_register_directive);
+    }
+
+    struct SymbolBuilder
     {
         private:
             const locus_t* _locus;
@@ -2530,14 +2705,16 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            Nodecl::NodeclBase operator()(TL::Symbol arg) const
             {
                 return arg.make_nodecl(/*set_ref*/true, _locus);
             }
+#if !defined(HAVE_CXX11)
+            typedef Nodecl::NodeclBase result_type;
+#endif
     };
 
-    struct SymbolReasonBuilder : TL::Functor<Nodecl::NodeclBase,
-                                             DataSharingEnvironment::DataSharingInfoPair>
+    struct SymbolReasonBuilder
     {
         private:
             const locus_t* _locus;
@@ -2548,16 +2725,19 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            Nodecl::NodeclBase operator()(DataSharingEnvironment::DataSharingInfoPair arg) const
             {
                 return arg.first.make_nodecl(/*set_ref*/true, _locus);
             }
+
+#if !defined(HAVE_CXX11)
+            typedef Nodecl::NodeclBase result_type;
+#endif
     };
 
-    struct ReportSymbols : TL::Functor<void, DataSharingEnvironment::DataSharingInfoPair>
+    struct ReportSymbols
     {
         private:
-            const locus_t* _locus;
             DataSharingAttribute _data_sharing;
             std::ofstream *_omp_report_file;
 
@@ -2589,16 +2769,15 @@ namespace TL { namespace OpenMP {
             }
 
         public:
-            ReportSymbols(const locus_t* locus,
+            ReportSymbols(const locus_t*,
                     DataSharingAttribute data_sharing,
                     std::ofstream* omp_report_file)
-                : _locus(locus),
-                _data_sharing(data_sharing),
+                : _data_sharing(data_sharing),
                 _omp_report_file(omp_report_file)
             {
             }
 
-            virtual void do_(ArgType arg) const
+            void operator()(DataSharingEnvironment::DataSharingInfoPair arg) const
             {
                 // These variables confuse the user
                 if (arg.first.is_saved_expression())
@@ -2628,9 +2807,13 @@ namespace TL { namespace OpenMP {
 
                 *_omp_report_file << ss.str();
             }
+
+#if !defined(HAVE_CXX11)
+            typedef void result_type;
+#endif
     };
 
-    struct ReductionSymbolBuilder : TL::Functor<Nodecl::NodeclBase, ReductionSymbol>
+    struct ReductionSymbolBuilder
     {
         private:
             const locus_t* _locus;
@@ -2641,7 +2824,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            Nodecl::NodeclBase operator()(ReductionSymbol arg) const
             {
                 return Nodecl::OpenMP::ReductionItem::make(
                         /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _locus),
@@ -2649,23 +2832,25 @@ namespace TL { namespace OpenMP {
                         /* reduction type */ Nodecl::Type::make(arg.get_reduction_type(), _locus),
                         _locus);
             }
+
+#if !defined(HAVE_CXX11)
+            typedef Nodecl::NodeclBase result_type;
+#endif
     };
 
-    struct ReportReductions : TL::Functor<void, ReductionSymbol>
+    struct ReportReductions
     {
         private:
-            const locus_t* _locus;
             std::ofstream* _omp_report_file;
 
         public:
-            ReportReductions(const locus_t* locus,
+            ReportReductions(const locus_t*,
                     std::ofstream* omp_report_file)
-                : _locus(locus),
-                _omp_report_file(omp_report_file)
+                : _omp_report_file(omp_report_file)
             {
             }
 
-            virtual void do_(ArgType arg) const
+            void operator()(ReductionSymbol arg) const
             {
                 std::stringstream ss;
                 ss
@@ -2694,6 +2879,10 @@ namespace TL { namespace OpenMP {
                 *_omp_report_file
                     << ss.str();
             }
+
+#if !defined(HAVE_CXX11)
+            typedef void result_type;
+#endif
     };
 
     template <typename T>
@@ -2721,6 +2910,7 @@ namespace TL { namespace OpenMP {
 
     void Base::make_execution_environment_target_information(
             TargetInfo &target_info,
+            TL::Symbol called_symbol,
             const locus_t* locus,
             // out
             TL::ObjectList<Nodecl::NodeclBase> &result_list)
@@ -2774,7 +2964,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2784,7 +2974,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::ShMem::make(
                         Nodecl::List::make(shmem_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2794,7 +2984,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
                         Nodecl::List::make(onto_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2804,7 +2994,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::File::make(
                         Nodecl::Text::make(file),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2814,7 +3004,7 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Name::make(
                         Nodecl::Text::make(name),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -2844,8 +3034,9 @@ namespace TL { namespace OpenMP {
                     locus));
     }
 
-
-    Nodecl::List Base::make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, PragmaCustomLine pragma_line)
+    Nodecl::List Base::make_execution_environment_for_combined_worksharings(
+            OpenMP::DataSharingEnvironment &data_sharing_env,
+            PragmaCustomLine pragma_line)
     {
         const locus_t* locus = pragma_line.get_locus();
 
@@ -2880,7 +3071,8 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
-        TL::ObjectList<Symbol> reduction_symbols = reductions.map(functor(&ReductionSymbol::get_symbol));
+        TL::ObjectList<Symbol> reduction_symbols = reductions.map(
+                std::function<TL::Symbol(ReductionSymbol)>(&ReductionSymbol::get_symbol));
         if (!reduction_symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
@@ -2890,7 +3082,12 @@ namespace TL { namespace OpenMP {
                         locus));
         }
 
-        make_execution_environment_target_information(data_sharing_env.get_target_info(), locus, result_list);
+        TargetInfo& target_info = data_sharing_env.get_target_info();
+        make_execution_environment_target_information(
+                target_info,
+                target_info.get_target_symbol(),
+                locus,
+                result_list);
 
 
         // FIXME - Dependences for combined worksharings???
@@ -2967,7 +3164,8 @@ namespace TL { namespace OpenMP {
         data_sharing_env.get_all_reduction_symbols(reductions);
         if (!reductions.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(locus));
+            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes =
+                reductions.map(ReductionSymbolBuilder(locus));
 
             if (emit_omp_report())
             {
@@ -2990,7 +3188,8 @@ namespace TL { namespace OpenMP {
         data_sharing_env.get_all_simd_reduction_symbols(simd_reductions);
         if (!simd_reductions.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes = simd_reductions.map(ReductionSymbolBuilder(locus));
+            TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes =
+                simd_reductions.map(ReductionSymbolBuilder(locus));
 
             result_list.append(
                     Nodecl::OpenMP::SimdReduction::make(Nodecl::List::make(simd_reduction_nodes),
@@ -3047,7 +3246,12 @@ namespace TL { namespace OpenMP {
         if (!ignore_target_info)
         {
             // Build the tree which contains the target information
-            make_execution_environment_target_information(data_sharing_env.get_target_info(), locus, result_list);
+            TargetInfo& target_info = data_sharing_env.get_target_info();
+            make_execution_environment_target_information(
+                    target_info,
+                    target_info.get_target_symbol(),
+                    locus,
+                    result_list);
         }
 
         return Nodecl::List::make(result_list);

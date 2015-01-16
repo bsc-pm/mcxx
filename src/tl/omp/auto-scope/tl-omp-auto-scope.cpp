@@ -47,12 +47,12 @@ namespace OpenMP {
         register_parameter("auto_scope_enabled",
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _auto_scope_enabled_str,
-                           "0").connect(functor(&AutoScopePhase::set_auto_scope, *this));
+                           "0").connect(std::bind(&AutoScopePhase::set_auto_scope, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                             "Enables OmpSs semantics instead of OpenMP semantics",
                             _ompss_mode_str,
-                            "0").connect(functor(&AutoScopePhase::set_ompss_mode, *this));
+                            "0").connect(std::bind(&AutoScopePhase::set_ompss_mode, this, std::placeholders::_1));
     }
 
     void AutoScopePhase::pre_run(TL::DTO& dto)
@@ -101,7 +101,7 @@ namespace OpenMP {
     {
         this->PragmaCustomCompilerPhase::run(dto);
 
-        Analysis::NBase ast = dto["nodecl"];
+        Analysis::NBase ast = *std::static_pointer_cast<Analysis::NBase>(dto["nodecl"]);
 
         if(_auto_scope_enabled)
         {
@@ -112,16 +112,15 @@ namespace OpenMP {
             IsOmpssEnabled = _ompss_mode_enabled;
             
             // Automatically set the scope of the variables involved in the task, if possible
-            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(IsOmpssEnabled);
-            TL::Analysis::PCFGAnalysis_memento memento;
-            singleton.auto_scoping(memento, ast);
+            TL::Analysis::AnalysisBase analysis(IsOmpssEnabled);
+            analysis.auto_scoping(ast);
             
             // Print the results if any and modify the environment for later lowering
-            TL::ObjectList<TL::Analysis::ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-            for(TL::ObjectList<TL::Analysis::ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            const TL::ObjectList<TL::Analysis::ExtensibleGraph*>& pcfgs = analysis.get_pcfgs();
+            for(TL::ObjectList<TL::Analysis::ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
-                TL::ObjectList<TL::Analysis::Node*> tasks = (*it)->get_tasks_list();
-                for(TL::ObjectList<TL::Analysis::Node*>::iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
+                const TL::ObjectList<TL::Analysis::Node*>& tasks = (*it)->get_tasks_list();
+                for(TL::ObjectList<TL::Analysis::Node*>::const_iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
                 {
                     TL::Analysis::Node* task = *itt;
                     Nodecl::OpenMP::Task n = task->get_graph_related_ast().as<Nodecl::OpenMP::Task>();

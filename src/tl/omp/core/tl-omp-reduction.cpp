@@ -315,7 +315,7 @@ namespace TL { namespace OpenMP {
         //   - an AST_INIT_DECLARATOR
         //   - an ambiguity including an init-declarator and a at least one expression
 
-        if (ASTType(a) == AST_INIT_DECLARATOR)
+        if (ASTKind(a) == AST_INIT_DECLARATOR)
         {
             is_init_declarator = true;
             AST init_declarator = a;
@@ -353,14 +353,15 @@ namespace TL { namespace OpenMP {
                     entry,
                     get_unqualified_type(declarator_type),
                     nodecl_output,
-                    /* is_auto */ 0);
+                    /* is_auto */ 0,
+                    /* is_decltype_auto*/ 0);
             if (!init_check)
             {
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
         }
-        else if (ASTType(a) == AST_AMBIGUITY)
+        else if (ASTKind(a) == AST_AMBIGUITY)
         {
             int i;
             int valid = -1;

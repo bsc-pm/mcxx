@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_LOWER_TASK_COMMON_CPP
-#define TL_LOWER_TASK_COMMON_CPP
+#ifndef TL_LOWER_TASK_COMMON_HPP
+#define TL_LOWER_TASK_COMMON_HPP
 
 namespace TL { namespace Nanox {
 
@@ -81,32 +81,5 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-// This visitor is used during the transformation of the 'final' clause to
-// obtain a tree without tasks and without taskwaits
-struct RemoveOpenMPTaskStuff : public Nodecl::ExhaustiveVisitor<void>
-{
-    void visit(const Nodecl::OpenMP::Task & node)
-    {
-        node.replace(node.get_statements());
-    }
-
-    void visit(const Nodecl::OpenMP::TaskCall & node)
-    {
-        node.replace(node.get_call());
-    }
-
-    void visit(const Nodecl::OpenMP::TaskExpression& node)
-    {
-        Nodecl::NodeclBase expr_stmt = node.get_parent();
-        expr_stmt.replace(node.get_sequential_code());
-    }
-
-    void visit(const Nodecl::OpenMP::TaskwaitShallow& node)
-    {
-        Nodecl::Utils::remove_from_enclosing_list(node);
-    }
-};
-
 } }
-
-#endif
+#endif // TL_LOWER_TASK_COMMON_HPP

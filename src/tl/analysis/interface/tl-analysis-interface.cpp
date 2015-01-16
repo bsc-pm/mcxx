@@ -66,47 +66,45 @@ namespace Analysis {
             WhichAnalysis analysis_mask, 
             bool ompss_mode_enabled)
     {
-        TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
-
-        TL::Analysis::PCFGAnalysis_memento analysis_state;
+        TL::Analysis::AnalysisBase analysis(ompss_mode_enabled);
 
         // Compute "dynamic" analysis
         // Do it in such an order that the first is the most complete analysis and the last is the simplest one
         if( analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
         {
-            analysis.auto_scoping( analysis_state, n );
+            analysis.auto_scoping(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
-            analysis.reaching_definitions( analysis_state, n );
+            analysis.reaching_definitions(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            analysis.induction_variables( analysis_state, n );
+            analysis.induction_variables(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {
-            analysis.liveness( analysis_state, n );
+            analysis.liveness(n);
         }
         if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS |
                                               WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
-            analysis.use_def( analysis_state, n );
+            analysis.use_def(n);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
         {
-            analysis.parallel_control_flow_graph( analysis_state, n );
+            analysis.parallel_control_flow_graph(n);
         }
 
         if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
             CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context ||
             CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
             CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
-            analysis.print_all_pcfg(analysis_state);
+            analysis.print_all_pcfg();
 
         // Fill nodecl to pcfg map
-        ObjectList<ExtensibleGraph*> pcfgs = analysis_state.get_pcfgs();
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        const ObjectList<ExtensibleGraph*>& pcfgs = analysis.get_pcfgs();
+        for(ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
             Nodecl::NodeclBase func_nodecl = (*it)->get_nodecl();
 
@@ -135,8 +133,9 @@ namespace Analysis {
         else // Insert new scope in the map
         {
             Node* scope_node = pcfg->find_nodecl_pointer(scope);
-            ERROR_CONDITION(scope_node==NULL, "No PCFG node found for scope Nodecl '%s:%s'. \n",
-                    scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+            ERROR_CONDITION(scope_node==NULL, "No PCFG node found for scope Nodecl (%p)'%s:%s'. \n",
+                    &scope.get_internal_nodecl(), scope.get_locus_str().c_str(),
+                    scope.prettyprint().c_str());
 
             _scope_nodecl_to_node_map.insert(nodecl_to_node_pair_t(scope, scope_node));
 
@@ -157,6 +156,11 @@ namespace Analysis {
         if(!func_sym.is_valid() && n.is<Nodecl::FunctionCode>())
             func_sym = n.as<Nodecl::FunctionCode>().get_symbol();
 
+        if (!func_sym.is_valid())
+        {
+            func_sym = Nodecl::Utils::get_enclosing_function(n);
+        }
+ 
         ERROR_CONDITION(!func_sym.is_valid(), 
                 "Invalid Nodecl '%s' on expecting non top-level nodecls\n", n.prettyprint().c_str());
 
@@ -188,7 +192,7 @@ namespace Analysis {
         // Retrieve node
         Node* n_node = pcfg->find_nodecl_pointer(n);
         ERROR_CONDITION(n_node==NULL, "No PCFG node found for n Nodecl '%s:%s'. \n",
-                scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
 
         std::set<Nodecl::NodeclBase> visited_nodes;
 
@@ -233,7 +237,7 @@ namespace Analysis {
         return is_non_reduction_basic_iv_internal(scope_node, n);
     }
 
-    Nodecl::NodeclBase AnalysisInterface::get_induction_variable_lower_bound(
+    NodeclSet AnalysisInterface::get_induction_variable_lower_bound_list(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
@@ -279,7 +283,7 @@ namespace Analysis {
         return get_linear_variables_internal(scope_node);
     }
     
-    NBase AnalysisInterface::get_linear_variable_lower_bound(
+    NodeclSet AnalysisInterface::get_linear_variable_lower_bound(
             const NBase& scope, 
             const NBase& n)
     {
@@ -302,8 +306,23 @@ namespace Analysis {
         
         return get_linear_variable_increment_internal(scope_node, n);
     }
+
+    int AnalysisInterface::get_assume_aligned_attribute(
+            const NBase& scope, 
+            const Nodecl::Symbol& n) 
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve node
+        Node* n_node = pcfg->find_nodecl_pointer(n);
+        ERROR_CONDITION(n_node==NULL, "No PCFG node found for n Nodecl '%s:%s'. \n",
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
+
+
+        return get_assume_aligned_attribute_internal(n_node, n);
+    }
     
-    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks )
     {
         if( n.is_null( ) )
             return false;
@@ -319,8 +338,8 @@ namespace Analysis {
         }
 
         // Check its children
-        ObjectList<Nodecl::NodeclBase> children = n.children( );
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        Nodecl::NodeclBase::Children children = n.children( );
+        for( Nodecl::NodeclBase::Children::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = nodecl_calls_outline_task( *it, function_tasks );
         }
@@ -329,7 +348,7 @@ namespace Analysis {
     }
 
     static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs,
-                                              RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+                                              std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks )
     {
         if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) ||
             ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) ||
@@ -342,15 +361,15 @@ namespace Analysis {
 
         // Check the children
         bool result = false;
-        ObjectList<Nodecl::NodeclBase> children = n.children( );
-        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        Nodecl::NodeclBase::Children children = n.children( );
+        for( Nodecl::NodeclBase::Children::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = ompss_reduction_rhs_uses_lhs( *it, lhs, function_tasks );
         }
         return result;
     }
 
-    bool AnalysisInterface::is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const
+    bool AnalysisInterface::is_ompss_reduction( const Nodecl::NodeclBase& n, std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks ) const
     {
         bool result = false;
 

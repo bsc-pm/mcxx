@@ -71,24 +71,6 @@ namespace TL
             {
             }
 
-            //! Constructs a Symbol after a reference to Object
-            Symbol(RefPtr<Object> obj)
-            {
-                RefPtr<Symbol> pint = RefPtr<Symbol>::cast_dynamic(obj);
-                if (pint.get_pointer() != NULL)
-                {
-                    this->_symbol = pint->_symbol;
-                }
-                else
-                {
-                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
-                    {
-                        std::cerr << "Bad initialization of Symbol" << std::endl;
-                    }
-                    this->_symbol = NULL;
-                }
-            }
-
             //! Gets the type related to this symbol
             Type get_type() const;
 
@@ -399,6 +381,8 @@ namespace TL
 
             //! States if this member is a bitfield
             bool is_bitfield() const;
+            //! States if this member is an unnamed bitfield
+            bool is_unnamed_bitfield() const;
 
             //! Returns the size of the bitfield
             Nodecl::NodeclBase get_bitfield_size() const;
@@ -750,20 +734,6 @@ namespace TL
              * May be a null node if no NAME was specified for this BIND(C)
              */
             Nodecl::NodeclBase get_bind_c_name() const;
-
-            //! States if this class or enum was not given a name
-            /*!
-             * Typical cases are
-             *
-             *   struct { ... } x;
-             *   enum { ...  } y;
-             *
-             * Note that typedefs may be used to give names to classes or enums
-             *  
-             *   typedef struct { ... } C;
-             *   typedef enum { ... } E;
-             */
-            bool is_unnamed();
 
         private:
             scope_entry_t* _symbol;

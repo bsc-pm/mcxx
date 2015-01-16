@@ -134,7 +134,8 @@ namespace TL { namespace Nanox {
 
             ObjectList<TL::Symbol> parameters = result.get_related_symbols();
             // Propagate ALLOCATABLE attribute
-            parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
+            symbol_entity_specs_set_is_allocatable(parameters[0].get_internal_symbol(),
+                    sym.is_valid() && sym.is_allocatable());
 
             // Make sure we have a proper module info in the context of the parameter
             scope_entry_t* new_used_modules_info =
@@ -153,16 +154,16 @@ namespace TL { namespace Nanox {
 
             // The type may come from a module, emit a USE
             if (is_named_class_type(basic_type)
-                    && (named_type_get_symbol(basic_type)->entity_specs.in_module
-                        || named_type_get_symbol(basic_type)->entity_specs.from_module))
+                    && (symbol_entity_specs_get_in_module(named_type_get_symbol(basic_type))
+                        || symbol_entity_specs_get_from_module(named_type_get_symbol(basic_type))))
             {
                 scope_entry_t* orig_symbol =
                         named_type_get_symbol(basic_type);
 
                 scope_entry_t* module =
-                    orig_symbol->entity_specs.from_module;
+                    symbol_entity_specs_get_from_module(orig_symbol);
                 if (module == NULL)
-                    module = orig_symbol->entity_specs.in_module;
+                    module = symbol_entity_specs_get_in_module(orig_symbol);
 
                 // Insert the symbol from the module in the local scope
                 scope_entry_t* used_symbol = insert_symbol_from_module(

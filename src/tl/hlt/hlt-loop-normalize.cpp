@@ -206,13 +206,47 @@ namespace TL { namespace HLT {
         ReplaceInductionVar replace_induction_var(induction_var, orig_loop_lower, orig_loop_step);
         replace_induction_var.walk(normalized_loop_body);
 
+        // Nodecl::NodeclBase normalized_for = 
+        //     Nodecl::ForStatement::make(
+        //             Nodecl::RangeLoopControl::make(
+        //                 induction_var.make_nodecl(),
+        //                 const_value_to_nodecl(const_value_get_signed_int(0)),
+        //                 new_upper,
+        //                 const_value_to_nodecl(const_value_get_signed_int(1))),
+        //             normalized_loop_body,
+        //             /* loop-name */ Nodecl::NodeclBase::null());
+
+        // i = 0
+        Nodecl::NodeclBase init = 
+            Nodecl::Assignment::make(
+                    induction_var.make_nodecl(/* ref */ true),
+                    const_value_to_nodecl(const_value_get_signed_int(0)),
+                    induction_var.get_type().no_ref().get_lvalue_reference_to());
+
+        // i <= new_upper
+        Nodecl::NodeclBase cond =
+            Nodecl::LowerOrEqualThan::make(
+                    induction_var.make_nodecl(/* set_ref_type */ true),
+                    new_upper,
+                    ::get_bool_type());
+
+        // i = i + 1
+        Nodecl::NodeclBase next = 
+            Nodecl::Assignment::make(
+                    induction_var.make_nodecl(/* set_ref_type */ true),
+                    Nodecl::Add::make(
+                        induction_var.make_nodecl(/* set_ref_type */ true),
+                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                        induction_var.get_type().no_ref()),
+                    induction_var.get_type().no_ref().get_lvalue_reference_to());
+
+        // for (i = 0; i <= upper; i = i + 1)
         Nodecl::NodeclBase normalized_for = 
             Nodecl::ForStatement::make(
-                    Nodecl::RangeLoopControl::make(
-                        induction_var.make_nodecl(),
-                        const_value_to_nodecl(const_value_get_signed_int(0)),
-                        new_upper,
-                        const_value_to_nodecl(const_value_get_signed_int(1))),
+                    Nodecl::LoopControl::make(
+                        Nodecl::List::make(init),
+                        cond,
+                        next),
                     normalized_loop_body,
                     /* loop-name */ Nodecl::NodeclBase::null());
 

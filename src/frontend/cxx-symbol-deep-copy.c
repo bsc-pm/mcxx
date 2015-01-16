@@ -18,7 +18,9 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
 {
-    ERROR_CONDITION(source->kind == SK_CLASS, "Local class replication not implemented yet", 0);
+    ERROR_CONDITION(source->kind == SK_CLASS
+            && symbol_entity_specs_get_from_module(source) == NULL,
+            "Local class replication not implemented yet", 0);
     ERROR_CONDITION(source->kind == SK_NAMESPACE, "Namespaces should not be replicated!", 0);
 
     // Note that context is not copied, thus this symbol should already have a
@@ -56,12 +58,12 @@ void symbol_deep_copy_compute_maps(scope_entry_t* dest,
     if (dest->kind == SK_FUNCTION)
     {
         int i;
-        for (i = 0; i < dest->entity_specs.num_related_symbols; i++)
+        for (i = 0; i < symbol_entity_specs_get_num_related_symbols(dest); i++)
         {
-            scope_entry_t* current_symbol = dest->entity_specs.related_symbols[i];
+            scope_entry_t* current_symbol = symbol_entity_specs_get_related_symbols_num(dest, i);
             symbol_set_as_parameter_of_function(current_symbol, dest,
-                    symbol_get_parameter_nesting_in_function(source->entity_specs.related_symbols[i], source),
-                    symbol_get_parameter_position_in_function(source->entity_specs.related_symbols[i], source));
+                    symbol_get_parameter_nesting_in_function(symbol_entity_specs_get_related_symbols_num(source, i), source),
+                    symbol_get_parameter_position_in_function(symbol_entity_specs_get_related_symbols_num(source, i), source));
         }
     }
 

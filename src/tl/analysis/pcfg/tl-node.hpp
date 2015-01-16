@@ -145,11 +145,31 @@ namespace Analysis {
 
             //! Returns true when the node has some assert clause associated
             bool has_usage_assertion() const;
+            bool has_upper_exposed_assertion() const;
+            bool has_defined_assertion() const;
+            bool has_undefined_assertion() const;
             bool has_liveness_assertion() const;
+            bool has_live_in_assertion() const;
+            bool has_live_out_assertion() const;
+            bool has_dead_assertion() const;
             bool has_reach_defs_assertion() const;
+            bool has_reach_defs_in_assertion() const;
+            bool has_reach_defs_out_assertion() const;
             bool has_induction_vars_assertion() const;
             bool has_autoscope_assertion() const;
+            bool has_autoscope_fp_assertion() const;
+            bool has_autoscope_p_assertion() const;
+            bool has_autoscope_s_assertion() const;
             bool has_correctness_assertion() const;
+            bool has_correctness_auto_storage_assertion() const;
+            bool has_correctness_incoherent_fp_assertion() const;
+            bool has_correctness_incoherent_p_assertion() const;
+            bool has_correctness_incoherent_in_assertion() const;
+            bool has_correctness_incoherent_in_pointed_assertion() const;
+            bool has_correctness_incoherent_out_assertion() const;
+            bool has_correctness_incoherent_out_pointed_assertion() const;
+            bool has_correctness_race_assertion() const;
+            bool has_correctness_dead_assertion() const;
             
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
@@ -378,6 +398,14 @@ namespace Analysis {
             //! Returns true if the node has the same identifier and the same entries and exits
             bool operator==(const Node* &n) const;
 
+            //! Returns a list of all symbols that have private data-sharing within the node
+            //! This only makes sense for OpenMP nodes
+            NodeclSet get_private_vars();
+
+            //! Returns a list of all symbols that have private or firstprivate data-sharing within the node
+            //! This only makes sense for OpenMP nodes
+            NodeclSet get_all_private_vars();
+
             //! Returns a list of all variables that are shared within the node (shared, dep_in|out|inout, concurrent, commutative)
             //! This only makes sense for OpenMP nodes
             NodeclSet get_all_shared_accesses();
@@ -436,10 +464,6 @@ namespace Analysis {
 
             //! Set the node that contains the actual node. It must be a graph node
             void set_outer_node(Node* node);
-
-            //! Returns the scope of a node containing a block of code.
-            //! If no block is contained, then returns an empty scope
-            Scope get_node_scope();
 
             //! Returns true when the node contains statements with variables involved
             bool has_statements();
@@ -614,7 +638,7 @@ namespace Analysis {
             NodeclSet get_live_out_vars();
 
             //! Adds a new live out variable to the node removing any other variable contained in the new one
-            void add_live_out(const NBase& new_live_out_var);
+            void add_live_out(const NodeclSet& new_live_out_set);
 
             //! Adds a new live out variable to the node.
             void set_live_out(const NBase& new_live_out_var);
@@ -824,8 +848,9 @@ namespace Analysis {
             Nodecl::List get_correctness_incoherent_p_vars();
             void add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n);
             
-            Nodecl::List get_correctness_race_vars();
-            void add_correctness_race_var(const Nodecl::NodeclBase& n);
+            NodeclTriboolMap get_correctness_race_vars();
+            Nodecl::List get_true_correctness_race_vars();
+            void add_correctness_race_var(const Nodecl::NodeclBase& n, tribool certainty);
 
             Nodecl::List get_correctness_dead_vars();
             void add_correctness_dead_var(const Nodecl::NodeclBase& n);

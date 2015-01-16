@@ -108,11 +108,14 @@ namespace Vectorization
             TL::Type tl_sym_type = tl_sym.get_type();
 
             if (!tl_sym_type.is_vector() && !tl_sym_type.is_mask() &&
-                    !VectorizationAnalysisInterface::_vectorizer_analysis->
+                    !Vectorizer::_vectorizer_analysis->
                     is_uniform(_environment._analysis_simd_scope,
                         nodecl_sym, nodecl_sym) &&
-                    !VectorizationAnalysisInterface::_vectorizer_analysis->
+                    !Vectorizer::_vectorizer_analysis->
                     is_linear(_environment._analysis_simd_scope,
+                        nodecl_sym) &&
+                    !Vectorizer::_vectorizer_analysis->
+                    is_induction_variable(_environment._analysis_simd_scope,
                         nodecl_sym))
             {
                 TL::Type vector_type;
@@ -144,20 +147,23 @@ namespace Vectorization
             {
                 if (!tl_sym.get_type().is_vector())
                 {
-                    fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
-                            nodecl_sym.prettyprint().c_str());
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
+                                nodecl_sym.prettyprint().c_str());
 
-                    if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                            is_uniform(_environment._analysis_simd_scope,
-                                nodecl_sym, nodecl_sym))
+                        if (Vectorizer::_vectorizer_analysis->
+                                is_uniform(_environment._analysis_simd_scope,
+                                    nodecl_sym, nodecl_sym))
                             fprintf(stderr," (uniform)");
 
-                    if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                        is_linear(_environment._analysis_simd_scope,
-                            nodecl_sym))
+                        if (Vectorizer::_vectorizer_analysis->
+                                is_linear(_environment._analysis_simd_scope,
+                                    nodecl_sym))
                             fprintf(stderr," (linear)");
-                           
-                    fprintf(stderr,"\n");
+
+                        fprintf(stderr,"\n");
+                    }
                 }
             }
         }

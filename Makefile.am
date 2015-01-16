@@ -137,7 +137,7 @@ lib/tpp.o : lib/tpp.c
 
 lib_LTLIBRARIES += lib/libmcxx-utils.la
 
-lib_libmcxx_utils_la_CFLAGS = -Wall -DLIBUTILS_DLL_EXPORT
+lib_libmcxx_utils_la_CFLAGS = -std=gnu99 -Wall -DLIBUTILS_DLL_EXPORT
 lib_libmcxx_utils_la_SOURCES = \
 						  lib/mcxx_refcount.c \
 						  lib/mcxx_refcount.h \
@@ -159,9 +159,16 @@ lib_libmcxx_utils_la_SOURCES = \
                           $(END)
 
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
+lib_libmcxx_utils_la_LIBADD= -lm
 
-noinst_LIBRARIES += lib/libperish.a
-lib_libperish_a_SOURCES= lib/perish.c
+BUILT_SOURCES += lib/perish.o
+CLEANFILES += lib/perish.o
+
+EXTRA_DIST += lib/perish.c
+lib/perish.o : lib/perish.c
+	$(CCBUILD_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(top_srcdir)/lib/perish.c $(DEFAULT_INCLUDES) \
+	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
+
 
 ##########################################################################
 # src
@@ -183,7 +190,8 @@ lib_LTLIBRARIES += \
 				 src/frontend/libmcxx.la
 
 # Overall process library containing global data
-src_frontend_libmcxx_process_la_CFLAGS=-DLIBMCXXPROCESS_DLL_EXPORT \
+src_frontend_libmcxx_process_la_CFLAGS=-std=gnu99 \
+						  -DLIBMCXXPROCESS_DLL_EXPORT \
                           -I$(top_srcdir)/lib \
                           -I$(top_srcdir)/src/driver \
                           -I$(top_srcdir)/src/frontend \
@@ -208,6 +216,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-limits.h \
   src/frontend/cxx-macros.h \
   src/frontend/cxx-locus.h \
+  src/frontend/cxx-locus-inline.h \
   src/frontend/cxx-locus.c \
   src/frontend/cxx-asttype.h \
   src/frontend/cxx-asttype.c \
@@ -216,9 +225,11 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-asttype-str-internal.h \
   src/frontend/cxx-ast.c \
   src/frontend/cxx-ast.h \
+  src/frontend/cxx-ast-inline.h \
   src/frontend/cxx-ast-fwd.h \
   src/frontend/cxx-ast-decls.h \
   src/frontend/cxx-nodecl.h \
+  src/frontend/cxx-nodecl-inline.h \
   src/frontend/cxx-nodecl.c \
   src/frontend/cxx-nodecl-fwd.h \
   src/frontend/cxx-nodecl-decls.h \
@@ -302,7 +313,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.h \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-gccbuiltins.h \
-  src/frontend/cxx-gccbuiltins-sse.h \
+  src/frontend/cxx-gccbuiltins-ia32.h \
   src/frontend/cxx-gccbuiltins.c \
   src/frontend/cxx-gccspubuiltins.h \
   src/frontend/cxx-gccspubuiltins.c \
@@ -338,11 +349,12 @@ EXTRA_DIST += src/frontend/dll-exports.def
 
 src_frontend_libmcxx_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
 
-src_frontend_libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
+src_frontend_libmcxx_la_CFLAGS = \
+					-std=gnu99 \
+					-DLIBMCXX_DLL_EXPORT \
                     -Wall \
 					-Wshadow \
 					-Wextra \
-					-std=gnu99 \
 				    -I$(top_srcdir)/lib \
 				    -I$(top_srcdir)/src/driver \
 					-I$(top_srcdir)/src/mcxx_tl \
@@ -366,6 +378,7 @@ AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-omp.def
+AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-ompss.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-opencl.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-xl.def
@@ -394,6 +407,7 @@ ADDITIONAL_GRAMMARS += src/frontend/cxx-subparse.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-literal-nodes.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-pragma.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-omp.y
+ADDITIONAL_GRAMMARS += src/frontend/cxx-ompss.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-superscalar.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-ambig-handler.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-placeholders.y
@@ -607,6 +621,11 @@ BUILT_SOURCES += src/frontend/cxx-entity-specs.h
 src/frontend/cxx-entity-specs.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def > $@
 
+CLEANFILES    += src/frontend/cxx-entity-specs-ops.h
+BUILT_SOURCES += src/frontend/cxx-entity-specs-ops.h
+src/frontend/cxx-entity-specs-ops.h : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(top_srcdir)/src/frontend/gen-symbol-attrs.py $(top_srcdir)/src/frontend/cxx-entity-specs.def getters_and_setters > $@
+
 CLEANFILES    += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 BUILT_SOURCES += src/frontend/cxx-symbol-deep-copy-entity-specs.c
 src/frontend/cxx-symbol-deep-copy-entity-specs.c : $(top_srcdir)/src/frontend/cxx-entity-specs.def $(top_srcdir)/src/frontend/gen-symbol-attrs.py
@@ -715,7 +734,9 @@ src_frontend_fortran_libmf03_la_LDFLAGS = $(dll_exports) -avoid-version $(no_und
 # lines generated by the compiler are HUGE
 FORTRAN_FLEX_FLAGS=-DYY_BUF_SIZE=1048576
 
-src_frontend_fortran_libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
+src_frontend_fortran_libmf03_la_CFLAGS = \
+				    -std=gnu99 \
+					-DLIBMF03_DLL_EXPORT \
                     -Wall \
 					-Wshadow \
 					-Wextra \
@@ -745,7 +766,9 @@ src_frontend_fortran_libmf03_prescanner_la_SOURCES = \
                                 src/frontend/fortran/libmf03-prescanner-common.h \
                                 $(END)
 
-src_frontend_fortran_libmf03_prescanner_la_CFLAGS = -DLIBMF03_PRESCANNER_DLL_EXPORT \
+src_frontend_fortran_libmf03_prescanner_la_CFLAGS = \
+					-std=gnu99 \
+					-DLIBMF03_PRESCANNER_DLL_EXPORT \
                     -Wall \
 					-Wshadow \
 					-Wextra \
@@ -766,6 +789,7 @@ src_frontend_fortran_libmf03_prescanner_la_LDFLAGS = $(dll_exports) -avoid-versi
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY =
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-subparse.y
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-omp.y
+ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-ompss.y
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS_FORTRAN_ONLY)
 
@@ -914,7 +938,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-objectlist.cpp \
     src/tl/tl-externalvars.hpp \
     src/tl/tl-externalvars.cpp \
-    src/tl/tl-refptr.hpp \
     src/tl/tl-multifile.hpp \
     src/tl/tl-multifile.cpp \
     src/tl/tl-compilerpipeline.cpp \
@@ -1113,8 +1136,8 @@ src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.l
 				src/tl/optimizations/libtloptimizations.la
 
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
-				src/tl/analysis/common/tl-rename-visitor.hpp \
-				src/tl/analysis/common/tl-rename-visitor.cpp \
+				src/tl/analysis/common/tl-nodecl-replacer.hpp \
+				src/tl/analysis/common/tl-nodecl-replacer.cpp \
 				src/tl/analysis/common/tl-analysis-utils.hpp \
 				src/tl/analysis/common/tl-analysis-utils.cpp \
 				src/tl/analysis/common/tl-induction-variables-data.hpp \
@@ -1161,7 +1184,8 @@ src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
 
 lib_LTLIBRARIES += src/tl/analysis/use_def/libuse_def.la
 
-EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList
+EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList \
+              src/tl/analysis/use_def/cppLibraryFunctionList
 
 analysisdatadir = $(pkgdatadir)/analysisdata
 
@@ -1181,6 +1205,7 @@ src_tl_analysis_use_def_libuse_def_la_SOURCES = \
 
 analysisdata_DATA = \
 		    src/tl/analysis/use_def/cLibraryFunctionList \
+		    src/tl/analysis/use_def/cppLibraryFunctionList \
 		    $(END)
 
 ##########################################################################
@@ -1394,8 +1419,8 @@ src_tl_analysis_interface_libanalysis_interface_la_LIBADD= \
 				$(END)
 
 src_tl_analysis_interface_libanalysis_interface_la_SOURCES= \
-                                  src/tl/analysis/interface/tl-analysis-singleton.hpp \
-                                  src/tl/analysis/interface/tl-analysis-singleton.cpp \
+                                  src/tl/analysis/interface/tl-analysis-base.hpp \
+                                  src/tl/analysis/interface/tl-analysis-base.cpp \
                                   src/tl/analysis/interface/tl-analysis-internals.hpp \
                                   src/tl/analysis/interface/tl-analysis-internals.cpp \
                                   src/tl/analysis/interface/tl-analysis-interface.hpp \
@@ -1591,6 +1616,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-report.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-report.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp \
@@ -1826,6 +1853,8 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp \
+								 src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp \
@@ -1835,6 +1864,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-task-call.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskwait.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskyield.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-register.cpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.hpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-single.cpp \
@@ -1982,7 +2012,6 @@ src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags
 src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.cpp \
-       src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi-aux.hpp \
        $(END)
 
 endif
@@ -2200,7 +2229,9 @@ vector_lowering_cflags = -I $(top_srcdir)/src/tl/vectorization/common \
                          -I $(top_srcdir)/src/tl/analysis/interface\
                          -I $(top_srcdir)/src/tl/analysis/common \
                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(top_srcdir)/src/tl/analysis/tdg \
                          -I $(top_srcdir)/src/tl/omp/core \
+                         -I $(top_srcdir)/src/tl/optimizations \
                          $(END)
 
 if BUILD_VECTORIZATION
@@ -2256,12 +2287,6 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
-                              -I $(top_srcdir)/src/tl/optimizations \
-                              -I $(top_srcdir)/src/tl/vectorization/common \
-                              -I $(top_srcdir)/src/tl/analysis/interface \
-                              -I $(top_srcdir)/src/tl/analysis/common \
-                              -I $(top_srcdir)/src/tl/analysis/pcfg \
-                              -I $(top_srcdir)/src/tl/analysis/tdg \
                               $(END)
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
@@ -2453,7 +2478,7 @@ src_mcxx_tl_libmcxxtl_la_LIBADD = \
         $(top_builddir)/src/tl/libtl.la \
         $(top_builddir)/src/tl/codegen/common/libcodegen-common.la \
 	    $(top_builddir)/lib/libmcxx-utils.la \
-        $(DL_LIBRARY)
+        $(LIBADD_DLOPEN)
 		$(END)
 
 src_mcxx_tl_libmcxxtl_la_LDFLAGS=-avoid-version $(no_undefined) \
@@ -2482,7 +2507,9 @@ mcxxexec_PROGRAMS += src/driver/plaincxx \
 
 # _GNU_SOURCE is needed because of strsignal
 # although it is available directly since glibc >=2.10
-src_driver_plaincxx_CFLAGS=-D_GNU_SOURCE \
+src_driver_plaincxx_CFLAGS= \
+		    -std=gnu99 \
+			-D_GNU_SOURCE \
 			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
@@ -2682,7 +2709,8 @@ driver-uninstall-local:
 
 # Embedder
 
-src_driver_mcxx_embedder_CFLAGS=\
+src_driver_mcxx_embedder_CFLAGS= \
+			-std=gnu99 \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/driver \
 			-I$(top_srcdir)/src/driver/fortran \
@@ -2706,10 +2734,7 @@ src_driver_mcxx_embedder_SOURCES = \
                         src/driver/cxx-parameters.c \
                         $(END)
 
-src_driver_mcxx_embedder_LDADD = \
-   $(top_builddir)/gnulib/libgnulib.la \
-   $(top_builddir)/lib/libmcxx-utils.la \
-   $(top_builddir)/src/frontend/libmcxx-process.la \
+src_driver_mcxx_embedder_LDADD = $(src_driver_plaincxx_LDADD)
    $(END)
 
 src_driver_mcxx_embedder_LDFLAGS = \
@@ -2724,7 +2749,9 @@ src_driver_mcxx_embedder_LDFLAGS = \
 mcxxexec_PROGRAMS += src/driver/fortran/mf03-prescanner
 noinst_LTLIBRARIES += src/driver/fortran/libmf03-driver.la
 
-fortran_driver_common_cflags= -fexceptions \
+fortran_driver_common_cflags= \
+			-std=gnu99 \
+			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
 			-I$(top_srcdir)/src/frontend/fortran \
@@ -2749,10 +2776,7 @@ src_driver_fortran_mf03_prescanner_SOURCES = \
                           src/driver/cxx-driver-utils.c \
                           $(END)
 
-src_driver_fortran_mf03_prescanner_LDADD = \
-   $(top_builddir)/gnulib/libgnulib.la \
-   $(top_builddir)/lib/libmcxx-utils.la \
-   $(top_builddir)/src/frontend/libmcxx-process.la \
+src_driver_fortran_mf03_prescanner_LDADD = $(src_driver_plaincxx_LDADD) \
    $(top_builddir)/src/frontend/fortran/libmf03-prescanner.la \
    $(END)
 
@@ -2761,7 +2785,7 @@ src_driver_fortran_libmf03_driver_la_SOURCES = \
   src/driver/fortran/cxx-driver-fortran.h \
   $(END)
 
-src_driver_fortran_libmf03_driver_la_CFLAGS= $(fortran_driver_common_cflags)
+src_driver_fortran_libmf03_driver_la_CFLAGS = $(fortran_driver_common_cflags)
 
 ##########################################################################
 # config
@@ -2830,6 +2854,8 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOX_NEW_LINK[@]|$(NANOX_NEW_LINK)|g' \
+     -e 's|@NANOX_OLD_LINK[@]|$(NANOX_OLD_LINK)|g' \
      -e 's|@NANOX[@]|$(NANOX)|g' \
      -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
      -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \
@@ -2953,6 +2979,7 @@ config_DATA = \
 EXTRA_DIST += \
 			scripts/bison-2.3-rofi-patch \
 			scripts/mcxx-rpm.spec \
+			scripts/builtins_ia32.cpp \
 			$(DEBIAN_EXTRA)
 			$(END)
 
@@ -2963,16 +2990,23 @@ DEBIAN_EXTRA=\
               scripts/debian/control \
               $(END)
 
-LATEST_GXX=g++-4.8
-GXX_FLAGS=-fabi-version=6 -mavx -maes -mpclmul -mxop
+LATEST_GXX=g++-4.9
+LATEST_GXX_FLAGS=-fabi-version=6 \
+				 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx \
+				 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha \
+				 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 \
+				 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt \
+				 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mrdseed \
+				 $(END)
 
-generate_sse.bin : builtins_ia32_sse.cpp
-	$(LATEST_GXX) $(GXX_FLAGS) -o scripts/generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+scripts/generate_builtins_ia32.bin : $(srcdir)/scripts/builtins_ia32.cpp
+	$(LATEST_GXX) $(LATEST_GXX_FLAGS) -I$(srcdir) -o scripts/generate_builtins_ia32.bin $(srcdir)/scripts/builtins_ia32.cpp
 
-generate_sse: generate_sse.bin
-	./scripts/generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
-
-CLEANFILES += generate_sse.bin
+# These files are only regenerated manually
+.PHONY: generate_builtins_ia32
+CLEANFILES += scripts/generate_builtins_ia32.bin
+generate_builtins_ia32: scripts/generate_builtins_ia32.bin
+	./scripts/generate_builtins_ia32.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-ia32.h
 
 rpm: dist-gzip
 	@echo "Generating RPM structure"

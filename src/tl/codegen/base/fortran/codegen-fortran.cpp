@@ -28,6 +28,7 @@
 #include "codegen-fortran.hpp"
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
+#include "fortran03-exprtype.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-cexpr.h"
 #include "tl-compilerpipeline.hpp"
@@ -476,7 +477,8 @@ namespace Codegen
         }
 
         // Module procedures are only printed if we are in the current module
-        if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
+        if (get_current_declaring_module() !=
+                TL::Symbol(symbol_entity_specs_get_in_module(entry.get_internal_symbol())))
         {
 
            // The function can be contained in an other function, and this other function
@@ -1515,9 +1517,11 @@ OPERATOR_TABLE
             walk(node.get_rhs());
             *(file) << ")";
         }
-        else if (n.is<Nodecl::Symbol>()
-                && n.get_symbol().is_parameter()
-                && t.is_fortran_array()
+        // else if (n.is<Nodecl::Symbol>()
+        //         && n.get_symbol().is_parameter()
+        //         && t.is_fortran_array()
+        //         && t.array_requires_descriptor())
+        else if (t.is_fortran_array()
                 && t.array_requires_descriptor())
         {
             *file << "LOC(";
@@ -1580,9 +1584,12 @@ OPERATOR_TABLE
             array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
         }
 
+        TL::Symbol subscripted_symbol =
+            ::fortran_data_ref_get_symbol(subscripted.get_internal_nodecl());
+
         walk(subscripted);
         *(file) << "(";
-        codegen_array_subscripts(subscripted.get_symbol(), subscripts);
+        codegen_array_subscripts(subscripted_symbol, subscripts);
         *(file) << ")";
     }
 
@@ -2388,8 +2395,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranData& node)
     {
-        declare_everything_needed(node.get_objects(), node.retrieve_context());
-        declare_everything_needed(node.get_values(), node.retrieve_context());
+        ERROR_CONDITION(_being_declared_stack.empty(), "Unexpected visit", 0);
+        TL::Scope data_scope = _being_declared_stack.back().get_related_scope();
+
+        declare_everything_needed(node.get_objects(), data_scope);
+        declare_everything_needed(node.get_values(), data_scope);
 
         indent();
         *(file) << "DATA ";
@@ -2403,8 +2413,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FortranEquivalence& node)
     {
-        declare_everything_needed(node.get_first(), node.retrieve_context());
-        declare_everything_needed(node.get_second(), node.retrieve_context());
+        ERROR_CONDITION(_being_declared_stack.empty(), "Unexpected visit", 0);
+        TL::Scope equivalence_scope = _being_declared_stack.back().get_related_scope();
+
+        declare_everything_needed(node.get_first(), equivalence_scope);
+        declare_everything_needed(node.get_second(), equivalence_scope);
 
         indent();
         *(file) << "EQUIVALENCE (";
@@ -2500,35 +2513,55 @@ OPERATOR_TABLE
         *(file) << node.get_text();
     }
 
-    void FortranBase::emit_only_list(Nodecl::List only_items)
+    void FortranBase::emit_only_list(
+            const std::string &module_name,
+            Nodecl::List only_items)
     {
         int i = 0;
         for (Nodecl::List::iterator it = only_items.begin();
                 it != only_items.end();
                 it++)
         {
-            if (i > 0)
-            {
-                *(file) << ", ";
-            }
 
             TL::Symbol sym = it->get_symbol();
 
             set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
 
-            if (!sym.get_internal_symbol()->entity_specs.is_renamed)
+            if (!symbol_entity_specs_get_is_renamed(sym.get_internal_symbol()))
             {
-                *(file) << get_generic_specifier_str(sym.get_name());
+                if (!explicit_use_has_already_been_emitted(
+                        module_name, sym.get_name(), ""))
+                {
+                    if (i > 0)
+                    {
+                        *(file) << ", ";
+                    }
+
+                    *(file) << get_generic_specifier_str(sym.get_name());
+
+                    set_explicit_use_has_already_been_emitted(module_name, sym.get_name(), "");
+                    i++;
+                }
             }
             else
             {
-                *(file) << sym.get_name()
-                    << " => "
-                    << get_generic_specifier_str(sym.get_from_module_name());
-                ;
-            }
+                std::string gen_spec = get_generic_specifier_str(sym.get_from_module_name());
+                if (!explicit_use_has_already_been_emitted(
+                        module_name, sym.get_name(), gen_spec))
+                {
+                    if (i > 0)
+                    {
+                        *(file) << ", ";
+                    }
 
-            i++;
+                    *(file) << sym.get_name()
+                        << " => "
+                        << gen_spec
+                        ;
+                    set_explicit_use_has_already_been_emitted(module_name, sym.get_name(), gen_spec);
+                    i++;
+                }
+            }
         }
     }
 
@@ -2554,7 +2587,7 @@ OPERATOR_TABLE
                 *(file) << "ONLY: ";
         }
 
-        emit_only_list(items);
+        emit_only_list(module.get_name(), items);
         *(file) << "\n";
     }
 
@@ -2879,6 +2912,36 @@ OPERATOR_TABLE
         }
     }
 
+    // This is a workaround for gfortran where we avoid repeated USEs
+    bool FortranBase::explicit_use_has_already_been_emitted(
+            const std::string& module_name,
+            const std::string& name,
+            const std::string& rename_name)
+    {
+        // rename may be the empty string
+        if (_explicit_use_stack.empty())
+            return false;
+
+        explicit_use_t &last = _explicit_use_stack.back();
+
+        return (last.find(std::make_pair(module_name, std::make_pair(name, rename_name))) != last.end());
+    }
+
+    // This is a workaround for gfortran where we avoid repeated USEs
+    void FortranBase::set_explicit_use_has_already_been_emitted(
+            const std::string& module_name,
+        const std::string& name,
+        const std::string& rename_name)
+    {
+        // rename may be the empty string
+        if (_explicit_use_stack.empty())
+            return;
+
+        explicit_use_t &last = _explicit_use_stack.back();
+
+        last.insert(std::make_pair(module_name, std::make_pair(name, rename_name)));
+    }
+
     bool FortranBase::name_has_already_been_used(const std::string &str)
     {
         if (_name_set_stack.empty())
@@ -3046,8 +3109,8 @@ OPERATOR_TABLE
         else
         {
             // Generic case
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -3082,7 +3145,7 @@ OPERATOR_TABLE
                     && entry.get_value().is_null())
             {
                 // Make this an ALLOCATABLE
-                entry.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                symbol_entity_specs_set_is_allocatable(entry.get_internal_symbol(), 1);
             }
             else
             {
@@ -3427,8 +3490,8 @@ OPERATOR_TABLE
         if (node.is_null())
             return;
 
-        TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        Nodecl::NodeclBase::Children children = node.children();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++)
         {
@@ -3554,11 +3617,6 @@ OPERATOR_TABLE
     void FortranBase::declare_symbol(TL::Symbol entry, TL::Scope sc)
     {
         ERROR_CONDITION(!entry.is_valid(), "Invalid symbol to declare", 0);
-
-        if (entry.get_name() == "struct_descriptor_0")
-        {
-        std::cerr << "---> " << entry.get_name() << std::endl;
-        }
 
         // This function has nothing to do with stuff coming from modules
         if (entry.is_from_module())
@@ -3938,7 +3996,8 @@ OPERATOR_TABLE
                 }
             }
         }
-        else if (entry.is_function())
+        else if (entry.is_function()
+                || entry.is_generic_specifier())
         {
             TL::Type function_type = entry.get_type();
 
@@ -4064,7 +4123,7 @@ OPERATOR_TABLE
                 if (!function_type.returns().is_void()
                         // If nobody said anything about this function, we cannot assume
                         // it is a function
-                        && !entry.get_internal_symbol()->entity_specs.is_implicit_basic_type)
+                        && !symbol_entity_specs_get_is_implicit_basic_type(entry.get_internal_symbol()))
                 {
                     std::string type_spec;
                     std::string array_specifier;
@@ -5041,9 +5100,7 @@ OPERATOR_TABLE
                 // Check it matches the symbol
                 // (Note that if the user added a call here this args[0] would
                 // be a FortranActualArgument and not directly the symbol)
-                && ((args[0].is<Nodecl::Symbol>() && args[0].get_symbol() == array_symbol)
-                    || (args[0].is<Nodecl::Dereference>()
-                        && args[0].as<Nodecl::Dereference>().get_rhs().get_symbol() == array_symbol))
+                && (TL::Symbol(::fortran_data_ref_get_symbol(args[0].get_internal_nodecl())) == array_symbol)
                 // Check it matches the dimension
                 && args[1].is_constant()
                 && const_value_is_nonzero(
@@ -5363,7 +5420,7 @@ OPERATOR_TABLE
                 if (it2 != item_list.begin())
                     *(file) << ", ";
 
-                if (!entry.get_internal_symbol()->entity_specs.is_renamed)
+                if (!symbol_entity_specs_get_is_renamed(entry.get_internal_symbol()))
                 {
                     *(file) << get_generic_specifier_str(entry.get_name())
                         ;
@@ -5450,7 +5507,7 @@ OPERATOR_TABLE
             module = entry.in_module();
 
             // Make sure it has been loaded
-            if (!module.get_internal_symbol()->entity_specs.is_builtin)
+            if (!symbol_entity_specs_get_is_builtin(module.get_internal_symbol()))
                 fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
         else
@@ -6005,9 +6062,9 @@ OPERATOR_TABLE
 
         inc_indent();
 
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+        Nodecl::NodeclBase::Children children = n.children();
         int i = 0;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
                 it++, i++)
         {
@@ -6263,6 +6320,8 @@ OPERATOR_TABLE
             _rename_map_stack.push_back(rename_map_t());
         else
             _rename_map_stack.push_back(_rename_map_stack.back());
+
+        _explicit_use_stack.push_back(explicit_use_t());
     }
 
     void FortranBase::pop_declaration_status()
@@ -6276,6 +6335,8 @@ OPERATOR_TABLE
 
         _name_set_stack.pop_back();
         _rename_map_stack.pop_back();
+
+        _explicit_use_stack.pop_back();
     }
 
     void FortranBase::push_declaring_entity(TL::Symbol sym)
@@ -6341,19 +6402,19 @@ OPERATOR_TABLE
         register_parameter("emit_fun_loc",
                 "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",
                 _emit_fun_loc_str,
-                "0").connect(functor(&FortranBase::set_emit_fun_loc, *this));
+                "0").connect(std::bind(&FortranBase::set_emit_fun_loc, this, std::placeholders::_1));
 
         _deduce_use_statements = false;
         register_parameter("deduce_use_statements",
                 "Tries to deduce use statements regardless of the information in the scope",
                 _deduce_use_statements_str,
-                "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
+                "0").connect(std::bind(&FortranBase::set_deduce_use_statements, this, std::placeholders::_1));
 
         _emit_full_array_subscripts = false;
         register_parameter("emit_full_array_subscripts",
                 "Emits synthetic array subscripts ranges introduced by the FE",
                 _emit_full_array_subscripts_str,
-                "0").connect(functor(&FortranBase::set_emit_full_array_subscripts, *this));
+                "0").connect(std::bind(&FortranBase::set_emit_full_array_subscripts, this, std::placeholders::_1));
     }
 
     void FortranBase::set_emit_fun_loc(const std::string& str)

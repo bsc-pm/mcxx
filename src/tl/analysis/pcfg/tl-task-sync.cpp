@@ -45,9 +45,9 @@ namespace {
         scope_entry_t* entry = sym.get_internal_symbol();
 
         int i;
-        for (i = 0; i < entry->entity_specs.num_gcc_attributes; i++)
+        for (i = 0; i < symbol_entity_specs_get_num_gcc_attributes(entry); i++)
         {
-            const char* attr_name = entry->entity_specs.gcc_attributes[i].attribute_name;
+            const char* attr_name = symbol_entity_specs_get_gcc_attributes_num(entry, i).attribute_name;
             if (attr_name != NULL
                     && std::string(attr_name) == "omp_waits_tasks")
             {
@@ -856,9 +856,11 @@ namespace {
             }
         }
 
-        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, NBase::null());
-
         Node* exit = root->get_graph_exit_node();
+        if (exit->get_live_in_tasks().empty())
+            return;
+        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, NBase::null());
+        _graph->set_post_sync(post_sync);
         for (AliveTaskSet::iterator it = exit->get_live_in_tasks().begin();
                 it != exit->get_live_in_tasks().end();
                 it++)
@@ -1227,7 +1229,7 @@ task_synchronized:      break;
         //             find_last_synchronization_point_in_children( task, task_outer );
         //         }
         
-        ExtensibleGraph::clear_visits_backwards( task );
+        ExtensibleGraph::clear_visits_backwards_in_level(task, _graph->get_graph());
     }
 
     void TaskConcurrency::find_last_synchronization_point_in_parents( Node* current )

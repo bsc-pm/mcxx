@@ -55,14 +55,14 @@ struct implicit_info_tag
 
 static implicit_letter_set_t* allocate_implicit_letter_set(void)
 {
-    implicit_letter_set_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_letter_set_t* result = xcalloc(1, sizeof(*result));
 
     return result;
 }
 
 static implicit_info_data_t* allocate_implicit_info_data(void)
 {
-    implicit_info_data_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_data_t* result = xcalloc(1, sizeof(*result));
 
     result->implicit_letter_set = allocate_implicit_letter_set();
 
@@ -71,7 +71,7 @@ static implicit_info_data_t* allocate_implicit_info_data(void)
     
 static implicit_info_t* allocate_implicit_info(void)
 {
-    implicit_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_t* result = xcalloc(1, sizeof(*result));
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = allocate_implicit_letter_set();
@@ -81,7 +81,7 @@ static implicit_info_t* allocate_implicit_info(void)
 
 static implicit_info_t* allocate_implicit_info_sharing_set(implicit_info_t* implicit_letter_set)
 {
-    implicit_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_fortran_scope);
+    implicit_info_t* result = xcalloc(1, sizeof(*result));
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = implicit_letter_set->data->implicit_letter_set;
@@ -201,7 +201,7 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locat
         scope_entry_t* sym = new_symbol(program_unit_context, program_unit_context.current_scope, strtolower(name));
         sym->kind = SK_UNDEFINED;
         sym->type_information = implicit_type;
-        sym->entity_specs.is_implicit_basic_type = 1;
+        symbol_entity_specs_set_is_implicit_basic_type(sym, 1);
         
         if (location != NULL)
         {
@@ -322,18 +322,18 @@ scope_entry_t* query_name_in_class(decl_context_t class_context, const char* nam
 scope_entry_t* fortran_get_ultimate_symbol(scope_entry_t* entry)
 {
     while (entry != NULL
-            && entry->entity_specs.from_module != NULL)
+            && symbol_entity_specs_get_from_module(entry) != NULL)
     {
-        scope_entry_t* aliased = entry->entity_specs.alias_to;
+        scope_entry_t* aliased = symbol_entity_specs_get_alias_to(entry);
         DEBUG_CODE()
         {
             fprintf(stderr, "ADVANCING '%s.%s' TO '%s.%s'\n",
-                    entry->entity_specs.from_module->symbol_name,
+                    symbol_entity_specs_get_from_module(entry)->symbol_name,
                     entry->symbol_name,
-                    (aliased->entity_specs.from_module != NULL
-                     ? aliased->entity_specs.from_module->symbol_name
-                     : (aliased->entity_specs.in_module != NULL
-                         ?  aliased->entity_specs.in_module->symbol_name 
+                    (symbol_entity_specs_get_from_module(aliased) != NULL
+                     ? symbol_entity_specs_get_from_module(aliased)->symbol_name
+                     : (symbol_entity_specs_get_in_module(aliased) != NULL
+                         ?  symbol_entity_specs_get_in_module(aliased)->symbol_name 
                          : "<<UNKNOWN-MODULE>>")),
                     aliased->symbol_name
                    );
@@ -411,7 +411,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
 
             // Some symbols in the global scope must be ignored
             if (decl_context.global_scope == current_scope
-                    && result->entity_specs.is_global_hidden)
+                    && symbol_entity_specs_get_is_global_hidden(result))
             {
                 result = NULL;
             }
@@ -427,24 +427,24 @@ static char symbol_is_intrinsic_function(scope_entry_t* sym, void* data UNUSED_P
 {
     return sym != NULL
         && sym->kind == SK_FUNCTION
-        && sym->entity_specs.is_builtin
+        && symbol_entity_specs_get_is_builtin(sym)
         // Generic ones
-        && (sym->entity_specs.emission_template == NULL
+        && (symbol_entity_specs_get_emission_template(sym) == NULL
                 // Or specific intrinsics whose name is not the same as their generic
-                || (sym->entity_specs.emission_template != NULL
-                    && strcasecmp(sym->entity_specs.emission_template->symbol_name, sym->symbol_name) != 0));
+                || (symbol_entity_specs_get_emission_template(sym) != NULL
+                    && strcasecmp(symbol_entity_specs_get_emission_template(sym)->symbol_name, sym->symbol_name) != 0));
 }
 
 static char symbol_is_intrinsic_function_not_from_module(scope_entry_t* sym, void* data UNUSED_PARAMETER)
 {
     return symbol_is_intrinsic_function(sym, data)
-        && sym->entity_specs.from_module == NULL;
+        && symbol_entity_specs_get_from_module(sym) == NULL;
 }
 
 static char symbol_is_generic_intrinsic_function(scope_entry_t* sym, void* data UNUSED_PARAMETER)
 {
     return symbol_is_intrinsic_function(sym, data)
-        && sym->entity_specs.emission_template == NULL
+        && symbol_entity_specs_get_emission_template(sym) == NULL
         && is_computed_function_type(sym->type_information);
 }
 
@@ -452,7 +452,7 @@ static char symbol_is_generic_intrinsic_function(scope_entry_t* sym, void* data 
 static char symbol_is_generic_intrinsic_function_not_from_module(scope_entry_t* sym, void* data UNUSED_PARAMETER)
 {
     return symbol_is_generic_intrinsic_function(sym, data)
-        && sym->entity_specs.from_module == NULL;
+        && symbol_entity_specs_get_from_module(sym) == NULL;
 }
 
 scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
@@ -488,7 +488,7 @@ static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        result = entry->entity_specs.is_generic_spec;
+        result = entry->kind == SK_GENERIC_NAME;
     }
     entry_list_iterator_free(it);
 
@@ -499,8 +499,7 @@ static char all_names_are_generic_specifiers(scope_entry_list_t* entry_list)
 static char symbol_is_generic_specifier(scope_entry_t* sym, void* data UNUSED_PARAMETER)
 {
     return sym != NULL
-        && sym->kind == SK_FUNCTION
-        && sym->entity_specs.is_generic_spec;
+        && sym->kind == SK_GENERIC_NAME;
 }
 
 static char symbol_is_generic_specifier_or_generic_intrinsic(scope_entry_t* sym, void* data UNUSED_PARAMETER)
@@ -607,7 +606,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
                 if (!(decl_context.global_scope == current_scope
-                            && current->entity_specs.is_global_hidden)
+                            && symbol_entity_specs_get_is_global_hidden(current))
                         && symbol_is_generic_specifier(current, NULL))
                 {
                     result_list = entry_list_add_once(result_list, current);
@@ -622,7 +621,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
                 if (!(decl_context.global_scope == current_scope
-                            && current->entity_specs.is_global_hidden)
+                            && symbol_entity_specs_get_is_global_hidden(current))
                         && symbol_is_generic_intrinsic_function(current, NULL))
                 {
                     computed_function_type_t fun
@@ -651,7 +650,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
                 if (!(decl_context.global_scope == current_scope
-                            && current->entity_specs.is_global_hidden)
+                            && symbol_entity_specs_get_is_global_hidden(current))
                         && !symbol_is_generic_specifier(current, NULL)
                         && !symbol_is_generic_intrinsic_function(current, NULL))
                 {
@@ -702,13 +701,13 @@ scope_entry_list_t* fortran_query_module_for_name(scope_entry_t* module_symbol, 
 
     scope_entry_list_t* result = NULL;
     int i;
-    for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
+    for (i = 0; i < symbol_entity_specs_get_num_related_symbols(module_symbol); i++)
     {
-        scope_entry_t* sym = module_symbol->entity_specs.related_symbols[i];
+        scope_entry_t* sym = symbol_entity_specs_get_related_symbols_num(module_symbol, i);
 
         if (strcasecmp(sym->symbol_name, name) == 0
                 // Filter private symbols
-                && sym->entity_specs.access != AS_PRIVATE)
+                && symbol_entity_specs_get_access(sym) != AS_PRIVATE)
         {
             result = entry_list_add_once(result, sym);
         }

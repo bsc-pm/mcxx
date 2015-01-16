@@ -46,7 +46,7 @@ namespace Utils
             _if_statement_cost(4),
             _else_statement_cost(1),
             _static_for_statement_cost(10),
-            _masked_for_statement_cost(3),
+            //_masked_for_statement_cost(3),
             _function_call_cost(1000),
             _nesting_threshold(0),
             _nesting_level(0)
@@ -165,7 +165,7 @@ namespace Utils
         TL::Symbol new_mask_sym = scope.new_symbol("__mask_" +
                 Utils::get_var_counter());
         new_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-        new_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_mask_sym.get_internal_symbol(), 1);
         new_mask_sym.set_type(TL::Type::get_mask_type(mask_size));
 
         return new_mask_sym.make_nodecl(ref_type, make_locus("", 0, 0));
@@ -435,6 +435,79 @@ namespace Utils
         }
 
         return result;
+    }
+
+    void RemovePrefetchIntrinsics::visit(const Nodecl::FunctionCall& n)
+    {
+        Nodecl::NodeclBase called = n.get_called();
+        if (!called.is<Nodecl::Symbol>())
+            return;
+
+        Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
+        TL::Type call_type = n.get_type();
+        std::string func_name = called_sym.get_symbol().get_name();
+
+        if (func_name == "_mm_prefetch" || func_name == "_mm_prefetche")
+        {
+            ERROR_CONDITION(!n.get_parent().is<Nodecl::ExpressionStatement>(),
+                    "Prefetch intrinsic is not nested in an ExpressionStatement", 0);
+
+            Nodecl::NodeclBase expression_stmt = 
+                n.get_parent().as<Nodecl::ExpressionStatement>();
+
+
+            Nodecl::Utils::remove_from_enclosing_list(expression_stmt);
+        }
+    }
+
+    Nodecl::NodeclBase get_vector_load_scalar_access(
+            const Nodecl::VectorLoad& vector_load)
+    {
+        Nodecl::NodeclBase vl_rhs = vector_load.get_rhs();
+
+        if (vl_rhs.is<Nodecl::Reference>())
+        {
+            vl_rhs = vl_rhs.as<Nodecl::Reference>().get_rhs();
+
+            return vl_rhs;
+        }
+
+        internal_error("Invalid Vector Load\n", 0);
+    }
+
+    Nodecl::NodeclBase get_vector_load_subscripted(
+            const Nodecl::VectorLoad& vector_load)
+    {
+        Nodecl::NodeclBase vl_rhs =
+            get_vector_load_scalar_access(vector_load);
+
+        if (vl_rhs.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript array =
+                vl_rhs.as<Nodecl::ArraySubscript>();
+
+            return array.get_subscripted().no_conv();
+        }
+
+        internal_error("Invalid Vector Load\n", 0);
+    }
+
+    Nodecl::NodeclBase get_vector_load_subscript(
+            const Nodecl::VectorLoad& vector_load)
+    {
+        Nodecl::NodeclBase vl_rhs= 
+            get_vector_load_scalar_access(vector_load);
+
+        if (vl_rhs.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript array =
+                vl_rhs.as<Nodecl::ArraySubscript>();
+
+            return array.get_subscripts().as<Nodecl::List>().
+                front().no_conv();
+        }
+
+        internal_error("Invalid Vector Load\n", 0);
     }
 }
 }

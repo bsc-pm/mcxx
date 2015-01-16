@@ -24,13 +24,8 @@
 #include "tl-analysis-internals.hpp"
 
 #include "tl-tribool.hpp"
+#include "cxx-cexpr.h"
 
-//#include "cxx-process.h"
-//#include "tl-analysis-utils.hpp"
-//#include "tl-analysis-static-info.hpp"
-//#include "tl-expression-reduction.hpp"
-//#include "tl-use-def.hpp"
- 
 namespace TL  {
 namespace Analysis {
 
@@ -48,6 +43,9 @@ namespace Analysis {
     {
         // Start of base cases for Uniform.
         if(Nodecl::Utils::nodecl_is_literal(n))
+            return true;
+
+        if (n.is_constant())
             return true;
 
         if (n.is<Nodecl::Symbol>())
@@ -138,6 +136,101 @@ namespace Analysis {
     /*
      *  QUERIES
      */
+    int get_assume_aligned_rec(
+            Node* current,
+            const Nodecl::Symbol& n)
+    {
+        if (current->is_visited())
+            return -1;
+
+        current->set_visited(true);
+        // Treat current node
+        if (current->is_graph_node())
+        {
+            get_assume_aligned_rec(current->get_graph_exit_node(), n);
+        }
+        else
+        {
+            const NodeclSet& killed = current->get_killed_vars();
+            if (Utils::nodecl_set_contains_nodecl(n, killed))
+            {
+                return -1;
+            }
+            else
+            {
+                if (current->is_function_call_node())
+                {
+                    const ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
+                    ERROR_CONDITION(stmts.size() != 1, "Unexpected number of statements in a FunctionCall node\n", 0);
+
+                    const Nodecl::FunctionCall& func_nodecl = stmts.front().as<Nodecl::FunctionCall>();
+
+                    TL::Symbol func_sym = func_nodecl.get_called().get_symbol();
+                    if (func_sym.get_name() == "__assume_aligned")
+                    {
+                        const ObjectList<Nodecl::NodeclBase> args_list = 
+                            func_nodecl.get_arguments().as<Nodecl::List>().to_object_list();
+
+                        ERROR_CONDITION(args_list.size() != 2,
+                                "Two arguments expected for '__assume_aligned'", 0);
+
+                        Nodecl::NodeclBase aligned_expr = args_list.begin()->no_conv();
+                        Nodecl::NodeclBase alignment_node = (++args_list.begin())->no_conv();
+
+                        ERROR_CONDITION(!aligned_expr.is<Nodecl::Symbol>(),
+                                "Only Symbols are currently supported in '__assume_aligned'", 0);
+                        ERROR_CONDITION(!alignment_node.is<Nodecl::IntegerLiteral>(),
+                                "Integer inmediate expected in '__assume_aligned'", 0);
+
+                        TL::Symbol aligned_sym = aligned_expr.
+                            as<Nodecl::Symbol>().get_symbol();
+                       
+                        if (n.get_symbol() == aligned_sym)
+                        {
+                            return const_value_cast_to_4(alignment_node.get_constant());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recursively call with parents
+        const ObjectList<Node*>& parents = current->is_entry_node() ? 
+                current->get_outer_node()->get_parents()
+                : current->get_parents();
+
+        int num_attributes = 0;
+        int value = -1;
+        for (ObjectList<Node*>::const_iterator it = parents.begin();
+                it != parents.end(); ++it)
+        {
+            int parent_result = get_assume_aligned_rec(*it, n);
+            if (parent_result != -1)
+            {
+                if (!(num_attributes != 0 && 
+                        value == parent_result))
+                { 
+                    num_attributes++;
+                    value = parent_result;
+                }
+            }
+        }
+
+        if (num_attributes == 1)
+            return value;
+
+        return -1;
+    }
+
+    int get_assume_aligned_attribute_internal(
+            Node* const stmt_node,
+            const Nodecl::Symbol& n)
+    {
+        int result = get_assume_aligned_rec(stmt_node, n);
+        ExtensibleGraph::clear_visits_backwards(stmt_node);
+        return result;
+    }
+
     bool is_uniform_internal(
             Node* const scope_node,
             Node* const stmt_node,
@@ -189,7 +282,7 @@ namespace Analysis {
             if(!new_scope->is_omp_simd_node())
                 goto iv_as_linear;
 
-            // First try to get the information form the user clauses
+            // First try to get the information from the user clauses
             {
                 ObjectList<Utils::LinearVars> linear_syms = new_scope->get_linear_symbols();
                 for (ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
@@ -201,10 +294,15 @@ namespace Analysis {
                             return true;
                     }
                 }
+
+                // Reduction vars are not considered linear
+                ObjectList<TL::Symbol> reductions = new_scope->get_reductions();
+                if(reductions.contains(n.get_symbol()))
+                    return false;
             }
         }
         
-        // Second get the information form the analysis: IV
+        // Second get the information from the analysis: IV
 iv_as_linear:
         if(scope_node->is_loop_node())
             return is_iv_internal(scope_node, n);
@@ -215,7 +313,7 @@ final_linear:
     
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
-            const GlobalVarsSet& global_variables)
+            const NodeclSet& global_variables)
     {
         bool result = false;
 
@@ -301,32 +399,22 @@ final_linear:
         return result;
     }
 
-    Nodecl::NodeclBase get_iv_lower_bound_internal(Node* const scope_node,
+    NodeclSet get_iv_lower_bound_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n)
     {
-        Nodecl::NodeclBase result;
+        NodeclSet result;
 
-        Utils::InductionVarList ivs = scope_node->get_induction_variables();
-
+        const Utils::InductionVarList& ivs = scope_node->get_induction_variables();
         Utils::InductionVarList::const_iterator it;
-        for( it = ivs.begin( );
-             it != ivs.end( ); ++it )
+        for (it = ivs.begin(); it != ivs.end(); ++it)
         {
-            if ( Nodecl::Utils::structurally_equal_nodecls(
-                        ( *it )->get_variable( ), n,
-                        /* skip conversion nodes */ true ) )
-            {
-                result = ( *it )->get_lb( );
-                break;
-            }
+            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), n, /*skip_conversions*/ true))
+                return (*it)->get_lb();
         }
 
-        if( it == ivs.end( ) )
-        {
-            WARNING_MESSAGE( "You are asking for the lower bound of an Object ( %s ) "\
-                             "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
-        }
-
+        WARNING_MESSAGE("You are asking for the lower bound of an Object (%s) "
+                        "which is not an Induction Variable\n",
+                        n.prettyprint().c_str());
         return result;
     }
 
@@ -435,7 +523,7 @@ final_get_linear:
         return result;
     }
     
-    NBase get_linear_variable_lower_bound_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
+    NodeclSet get_linear_variable_lower_bound_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
     {
         Utils::InductionVarList scope_ivs = get_linear_variables_internal(scope_node);
         for(Utils::InductionVarList::iterator it = scope_ivs.begin(); it != scope_ivs.end(); it++)
@@ -445,7 +533,7 @@ final_get_linear:
                 return (*it)->get_lb();
         }
         
-        return NBase::null();
+        return NodeclSet();
     }
     
     NBase get_linear_variable_increment_internal(Node* const scope_node, const Nodecl::NodeclBase& n)

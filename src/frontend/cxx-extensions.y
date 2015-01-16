@@ -9,6 +9,7 @@
 %token<token_atrib> MCC_BOOL "<bool-type-spec>"
 %token<token_atrib> MCC_MASK "<mask-type-spec>"
 %token<token_atrib> MCC_ARRAY_SUBSCRIPT_CHECK "@array-subscript-check@"
+%token<token_atrib> MCC_CONST_VALUE_CHECK "@const-value-check@"
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -16,6 +17,10 @@
 primary_expression : MCC_ARRAY_SUBSCRIPT_CHECK '(' assignment_expression ',' constant_expression ')'
 {
     $$ = ASTMake2(AST_MCC_ARRAY_SUBSCRIPT_CHECK, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| MCC_CONST_VALUE_CHECK '(' assignment_expression ')'
+{
+    $$ = ASTMake1(AST_MCC_CONSTANT_VALUE_CHECK, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 

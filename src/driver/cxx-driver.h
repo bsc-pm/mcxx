@@ -39,11 +39,11 @@
 
 MCXX_BEGIN_DECLS
 
-struct extensions_table_t*
+extern struct extensions_table_t*
 fileextensions_lookup (register const char *str, 
         register unsigned int len);
 
-struct configuration_directive_t*
+extern struct configuration_directive_t*
 configoptions_lookup (register const char *str, 
         register unsigned int len);
 
@@ -52,7 +52,7 @@ int parse_arguments(int argc, const char* argv[],
 
 struct debug_flags_list_t** list_of_debug_flags(void);
 
-struct debug_flags_list_t *
+extern struct debug_flags_list_t *
 debugflags_lookup (register const char *str, register unsigned int len);
 
 // Internal between cxx-driver.c and cxx-configfile.c, do not use elsewhere

@@ -51,6 +51,7 @@ namespace Codegen
 
             void handle_parameter(int n, void* data);
 
+            using CodegenPhase::visit;
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);
@@ -135,7 +136,7 @@ namespace Codegen
             Ret visit(const Nodecl::IfElseStatement &);
             Ret visit(const Nodecl::ImagPart &);
             Ret visit(const Nodecl::IndexDesignator &);
-            Ret visit(const Nodecl::Lambda &);
+            Ret visit(const Nodecl::CxxLambda &);
             Ret visit(const Nodecl::IntegerLiteral &);
             Ret visit(const Nodecl::LabeledStatement &);
             Ret visit(const Nodecl::LogicalAnd &);
@@ -229,8 +230,9 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxDecl& node);
             Ret visit(const Nodecl::CxxDef& node);
-            Ret visit(const Nodecl::CxxExplicitInstantiation& node);
-            Ret visit(const Nodecl::CxxExternExplicitInstantiation& node);
+            Ret visit(const Nodecl::CxxExplicitInstantiationDef& node);
+            Ret visit(const Nodecl::CxxExplicitInstantiationDecl& node);
+            Ret visit(const Nodecl::CxxImplicitInstantiation& node);
             Ret visit(const Nodecl::CxxUsingNamespace& node);
             Ret visit(const Nodecl::CxxUsingDecl& node);
             Ret visit(const Nodecl::CxxDepFunctionCall &);
@@ -512,10 +514,11 @@ namespace Codegen
             bool same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand);
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, const std::string& prefix);
-            static bool nodecl_calls_to_constructor(Nodecl::NodeclBase, TL::Type t);
+            static bool nodecl_calls_to_constructor(Nodecl::NodeclBase);
+            static bool nodecl_calls_to_constructor_indirectly(Nodecl::NodeclBase);
             static bool nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase);
             static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
-            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type);
+            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node);
 
             static std::string unmangle_symbol_name(TL::Symbol);
 

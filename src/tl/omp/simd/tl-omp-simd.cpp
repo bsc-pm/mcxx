@@ -51,32 +51,32 @@ namespace TL {
             register_parameter("simd_enabled",
                     "If set to '1' enables simd constructs, otherwise it is disabled",
                     _simd_enabled_str,
-                    "0").connect(functor(&Simd::set_simd, *this));
+                    "0").connect(std::bind(&Simd::set_simd, this, std::placeholders::_1));
 
             register_parameter("svml_enabled",
                     "If set to '1' enables svml math library, otherwise it is disabled",
                     _svml_enabled_str,
-                    "0").connect(functor(&Simd::set_svml, *this));
+                    "0").connect(std::bind(&Simd::set_svml, this, std::placeholders::_1));
 
             register_parameter("fast_math_enabled",
                     "If set to '1' enables fast_math operations, otherwise it is disabled",
                     _fast_math_enabled_str,
-                    "0").connect(functor(&Simd::set_fast_math, *this));
+                    "0").connect(std::bind(&Simd::set_fast_math, this, std::placeholders::_1));
 
             register_parameter("mic_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
                     _knc_enabled_str,
-                    "0").connect(functor(&Simd::set_knc, *this));
+                    "0").connect(std::bind(&Simd::set_knc, this, std::placeholders::_1));
 
             register_parameter("avx2_enabled",
                     "If set to '1' enables compilation for AVX2 instruction set, otherwise it is disabled",
                     _avx2_enabled_str,
-                    "0").connect(functor(&Simd::set_avx2, *this));
+                    "0").connect(std::bind(&Simd::set_avx2, this, std::placeholders::_1));
 
             register_parameter("spml_enabled",
                     "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
                     _spml_enabled_str,
-                    "0").connect(functor(&Simd::set_spml, *this));
+                    "0").connect(std::bind(&Simd::set_spml, this, std::placeholders::_1));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -136,9 +136,7 @@ namespace TL {
         {
             this->PragmaCustomCompilerPhase::run(dto);
 
-            //RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
-
-            Nodecl::NodeclBase translation_unit = dto["nodecl"];
+            Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
             if (_simd_enabled)
             {
@@ -242,15 +240,15 @@ namespace TL {
                 as<Nodecl::List>();
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(simd_environment, aligned_expressions);
 
-            // Aligned clause
-            map_tl_sym_int_t linear_symbols;
+            // Linear clause
+            map_tlsym_int_t linear_symbols;
             process_linear_clause(simd_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(simd_environment, uniform_symbols);
 
             // Suitable clause
@@ -258,7 +256,7 @@ namespace TL {
             process_suitable_clause(simd_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(simd_environment, nontemporal_expressions);
 
             // Vectorlengthfor clause
@@ -267,14 +265,14 @@ namespace TL {
                     vectorlengthfor_type);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(simd_environment, overlap_symbols);
 
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction and simd_reduction clauses
-            objlist_tlsymbol_t reductions;
+            objlist_tlsym_t reductions;
 
             Nodecl::List omp_reduction_list = process_reduction_clause(
                     simd_environment, reductions, 
@@ -344,8 +342,19 @@ namespace TL {
             {
                 _vectorizer.vectorize_loop(
                         loop_statement, loop_environment);
-                _vectorizer.opt_overlapped_accesses(
-                        loop_statement, loop_environment);
+
+                if (!loop_environment._overlap_symbols_map.empty())
+                {
+                    Nodecl::List prependix;
+                    
+                    _vectorizer.opt_overlapped_accesses(
+                            loop_statement, loop_environment,
+                            false, /* simd for */
+                            false, /* epilog */
+                            prependix);
+
+                    loop_statement.prepend_sibling(prependix);
+                }
             }
 
             // Add new vector symbols
@@ -425,12 +434,33 @@ namespace TL {
                         only_epilog,
                         false /*parallel loop */);
 
-                // Remove Simd node from epilog
-                simd_node_epilog.replace(simd_node_epilog.get_statement());
+                // Reload environment
+                // 'epilog_for_statement' could be no longer a ForStatement
+                loop_environment.unload_environment();
+                loop_environment.load_environment(net_epilog_node);
 
                 // Overlap
-                _vectorizer.opt_overlapped_accesses(
-                        loop_stmt_epilog, loop_environment);
+                if (!loop_environment._overlap_symbols_map.empty())
+                {
+                    Nodecl::List prependix;
+                    _vectorizer.opt_overlapped_accesses(net_epilog_node,
+                            loop_environment, false /* simd for */,
+                            true /* epilog */,
+                            prependix);
+
+                    ERROR_CONDITION(!prependix.empty(),
+                            "Prependix is not empty in the epilogue loop", 0);
+                }
+
+                // 2nd step of transformation on epilog loop
+                _vectorizer.clean_up_epilog(net_epilog_node,
+                        loop_environment,
+                        epilog_iterations,
+                        only_epilog,
+                        true /*parallel loop*/);
+
+                // Remove Simd node from epilog
+                simd_node_epilog.replace(simd_node_epilog.get_statement());
 
                 loop_environment.unload_environment();
             }
@@ -514,15 +544,15 @@ namespace TL {
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_simd_for_environment, aligned_expressions);
 
             // Linear clause
-            map_tl_sym_int_t linear_symbols;
+            map_tlsym_int_t linear_symbols;
             process_linear_clause(omp_simd_for_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(omp_simd_for_environment, uniform_symbols);
 
             // Suitable clause
@@ -530,11 +560,11 @@ namespace TL {
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_for_environment, overlap_symbols);
 
             // Vectorlengthfor clause
@@ -545,7 +575,7 @@ namespace TL {
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction clause
-            objlist_tlsymbol_t reductions;
+            objlist_tlsym_t reductions;
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_for_environment,
                         reductions, new_external_vector_symbol_map,
@@ -567,6 +597,9 @@ namespace TL {
                     overlap_symbols,
                     &reductions,
                     &new_external_vector_symbol_map);
+
+            Nodecl::List prependix_list;
+            Nodecl::List appendix_list;
 
             // Add scopes, default masks, etc.
             for_environment.load_environment(for_statement);
@@ -601,8 +634,14 @@ namespace TL {
             {
                 _vectorizer.vectorize_loop(
                         for_statement, for_environment);
-                _vectorizer.opt_overlapped_accesses(
-                        for_statement, for_environment);
+
+                if (!for_environment._overlap_symbols_map.empty())
+                { 
+                    _vectorizer.opt_overlapped_accesses(
+                            for_statement, for_environment,
+                            true /* simd for */, false /*epilog*/,
+                            prependix_list);
+                }
             }
 
             // Add new vector symbols
@@ -664,7 +703,6 @@ namespace TL {
 
             for_environment.unload_environment();
 
-            Nodecl::List appendix_list;
             Nodecl::NodeclBase net_epilog_node;
             Nodecl::ForStatement epilog_for_statement;
 
@@ -685,9 +723,30 @@ namespace TL {
                         only_epilog,
                         true /*parallel loop*/);
 
+                // Reload environment
+                // 'epilog_for_statement' could be no longer a ForStatement
+                for_environment.unload_environment();
+                for_environment.load_environment(net_epilog_node);
+
+                Nodecl::List single_stmts_list;
+
                 // Overlap
-                _vectorizer.opt_overlapped_accesses(
-                        net_epilog_node, for_environment);
+                if (!for_environment._overlap_symbols_map.empty())
+                {
+                    _vectorizer.opt_overlapped_accesses(net_epilog_node,
+                            for_environment, true /* simd for */,
+                            true /* epilog */,
+                            single_stmts_list);
+                }
+
+                // 2nd step of transformation on epilog loop
+                _vectorizer.clean_up_epilog(net_epilog_node,
+                        for_environment,
+                        epilog_iterations,
+                        only_epilog,
+                        true /*parallel loop*/);
+
+                single_stmts_list.append(net_epilog_node.shallow_copy());
 
                 for_environment.unload_environment();
 
@@ -696,7 +755,7 @@ namespace TL {
                 // Create single node
                 Nodecl::OpenMP::Single single_epilog =
                     Nodecl::OpenMP::Single::make(single_environment,
-                            net_epilog_node.shallow_copy(),
+                            single_stmts_list,
                             net_epilog_node.get_locus());
 
                 net_epilog_node.replace(single_epilog);
@@ -722,11 +781,12 @@ namespace TL {
             else
             {
                 // ForAppendix only if appendix is not empty
-                if (!appendix_list.empty())
+                if (!appendix_list.empty() || !prependix_list.empty())
                 {
                     for_epilog =
                         Nodecl::OpenMP::ForAppendix::make(omp_for_environment.shallow_copy(),
                                 loop_context.shallow_copy(),
+                                prependix_list,
                                 appendix_list,
                                 omp_for.get_locus());
                 }
@@ -845,15 +905,15 @@ namespace TL {
                 get_environment().as<Nodecl::List>();
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_environment, aligned_expressions);
 
             // Linear clause
-            map_tl_sym_int_t linear_symbols;
+            map_tlsym_int_t linear_symbols;
             process_linear_clause(omp_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(omp_environment, uniform_symbols);
 
             // Suitable clause
@@ -861,11 +921,11 @@ namespace TL {
             process_suitable_clause(omp_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_environment, overlap_symbols);
 //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
@@ -947,15 +1007,15 @@ namespace TL {
             walk(parallel_statements);
 
             // Aligned clause
-            map_tl_sym_int_t aligned_expressions;
+            map_tlsym_int_t aligned_expressions;
             process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
 
-            // Aligned clause
-            map_tl_sym_int_t linear_symbols;
-            process_aligned_clause(omp_simd_parallel_environment, linear_symbols);
+            // Linear clause
+            map_tlsym_int_t linear_symbols;
+            process_linear_clause(omp_simd_parallel_environment, linear_symbols);
 
             // Uniform clause
-            objlist_tlsymbol_t uniform_symbols;
+            objlist_tlsym_t uniform_symbols;
             process_uniform_clause(omp_simd_parallel_environment, uniform_symbols);
 
             // Suitable clause
@@ -963,13 +1023,12 @@ namespace TL {
             process_suitable_clause(omp_simd_parallel_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
+            map_tlsym_objlist_t nontemporal_expressions;
             process_nontemporal_clause(omp_simd_parallel_environment, nontemporal_expressions);
 
             // Overlap clause
-            map_tl_sym_int_t overlap_symbols;
+            map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_parallel_environment, overlap_symbols);
-//            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -979,7 +1038,7 @@ namespace TL {
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction clause
-            objlist_tlsymbol_t reductions;
+            objlist_tlsym_t reductions;
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_parallel_environment,
                         reductions, new_external_vector_symbol_map,
@@ -1097,7 +1156,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
-                map_tl_sym_int_t& aligned_expressions_map)
+                map_tlsym_int_t& aligned_expressions_map)
         {
             TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list =
                 environment.find_all<Nodecl::OpenMP::Aligned>();
@@ -1129,7 +1188,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_linear_clause(const Nodecl::List& environment,
-                map_tl_sym_int_t& linear_symbols_map)
+                map_tlsym_int_t& linear_symbols_map)
         {
             TL::ObjectList<Nodecl::OpenMP::Linear> omp_linear_list =
                 environment.find_all<Nodecl::OpenMP::Linear>();
@@ -1162,7 +1221,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_uniform_clause(const Nodecl::List& environment,
-                objlist_tlsymbol_t& uniform_symbols)
+                objlist_tlsym_t& uniform_symbols)
         {
             Nodecl::OpenMP::Uniform omp_uniform =
                 environment.find_first<Nodecl::OpenMP::Uniform>();
@@ -1196,7 +1255,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_nontemporal_clause(const Nodecl::List& environment,
-                nontmp_expr_map_t& nontemporal_expressions)
+                map_tlsym_objlist_t& nontemporal_expressions)
         {
             TL::ObjectList<Nodecl::OpenMP::Nontemporal> omp_nontemporal_list =
                 environment.find_all<Nodecl::OpenMP::Nontemporal>();
@@ -1274,22 +1333,9 @@ namespace TL {
                 vectorlengthfor_type = omp_vector_length_for.get_type();
             }
         }
-/*
-        void SimdVisitor::process_overlap_clause(const Nodecl::List& environment,
-                objlist_nodecl_t& overlap_expressions)
-        {
-            Nodecl::OpenMP::Overlap omp_overlap =
-                environment.find_first<Nodecl::OpenMP::Overlap>();
 
-            if(!omp_overlap.is_null())
-            {
-                overlap_expressions = omp_overlap.get_overlap_expressions().
-                    as<Nodecl::List>().to_object_list();
-            }
-        }
-*/
         void SimdVisitor::process_overlap_clause(const Nodecl::List& environment,
-                map_tl_sym_int_t& overlap_symbols)
+                map_tlsym_objlist_int_t& overlap_symbols)
         {
             TL::ObjectList<Nodecl::OpenMP::Overlap> omp_overlap_list =
                 environment.find_all<Nodecl::OpenMP::Overlap>();
@@ -1303,15 +1349,26 @@ namespace TL {
                 objlist_nodecl_t overlap_symbols_list =
                     omp_overlap.get_overlap_expressions().as<Nodecl::List>().to_object_list();
 
-                int overlap_factor = const_value_cast_to_signed_int(
-                        it->get_overlap_factor().as<Nodecl::IntegerLiteral>().get_constant());
+                int min_group_loads = const_value_cast_to_signed_int(
+                        it->get_min_group_loads().get_constant());
+                int max_group_registers = const_value_cast_to_signed_int(
+                        it->get_max_group_registers().get_constant());
+                int max_groups = const_value_cast_to_signed_int(
+                        it->get_max_groups().get_constant());
 
                 for(objlist_nodecl_t::iterator it2 = overlap_symbols_list.begin();
                         it2 != overlap_symbols_list.end();
                         it2++)
                 {
-                    if(!overlap_symbols.insert(std::pair<TL::Symbol, int>(
-                                    it2->as<Nodecl::Symbol>().get_symbol(), overlap_factor)).second)
+                    objlist_int_t overlap_params(3);
+                    overlap_params[0] = min_group_loads;
+                    overlap_params[1] = max_group_registers;
+                    overlap_params[2] = max_groups;
+                    
+
+                    if(!overlap_symbols.insert(std::pair<TL::Symbol, objlist_int_t>(
+                                    it2->as<Nodecl::Symbol>().get_symbol(),
+                                    overlap_params)).second)
                     {
                         running_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
                     }
@@ -1351,7 +1408,7 @@ namespace TL {
                         TL::Symbol new_red_sym =
                             enclosing_scope.new_symbol("__vred_" + red_sym.get_name());
                         new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                        new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                        symbol_entity_specs_set_is_user_declared(new_red_sym.get_internal_symbol(), 1);
                         new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
 
                         // Add new TL::Symbol to map

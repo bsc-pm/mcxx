@@ -61,7 +61,6 @@ namespace Analysis {
         void set_ompss_mode( const std::string& ompss_mode_str);
         
         //!Entry point of the phase
-        virtual void pre_run( TL::DTO& dto );
         virtual void run( TL::DTO& dto );
         
         virtual ~AnalysisCheckPhase( ) { }

@@ -28,6 +28,8 @@
 #include "cxx-exprtype.h"
 #include "cxx-instantiation.h"
 
+#include "fortran03-buildscope.h"
+
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
@@ -67,8 +69,8 @@ namespace TL { namespace OpenMP {
 
             void unhandled_node(const Nodecl::NodeclBase & n)
             {
-                TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                Nodecl::NodeclBase::Children children = n.children();
+                for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                         it != children.end();
                         it++)
                 {
@@ -159,7 +161,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    FunctionCallVisitor::FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
+    FunctionCallVisitor::FunctionCallVisitor(std::shared_ptr<FunctionTaskSet> function_task_set,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
@@ -206,18 +208,27 @@ namespace TL { namespace OpenMP {
 
         if (sym.is_from_module())
         {
-            // This symbol comes from a module
-            TL::Symbol module = sym.from_module();
+            // This symbol comes from a module, but use
+            // the ultimate one otherwise we may be loading
+            // the wrong information
             sym = sym.aliased_from_module();
+            TL::Symbol module = sym.in_module();
 
-            // Check if we already saw this module
-            module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
-            if (it == _module_function_tasks.end())
+            ERROR_CONDITION(!module.is_valid(), "Invalid module symbol", 0);
+            if (!module.is_intrinsic())
             {
-                // Not seen before, load
-                _function_task_set->load_from_module(module);
+                // Make sure the module has been loaded
+                ::fortran_load_module(module.get_name().c_str(), /* intrinsic */ 0, call.get_locus());
 
-                _module_function_tasks.insert(module);
+                // Check if we already saw this module
+                module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
+                if (it == _module_function_tasks.end())
+                {
+                    // Not seen before, load
+                    _function_task_set->load_from_module(module);
+
+                    _module_function_tasks.insert(module);
+                }
             }
         }
 
@@ -229,27 +240,32 @@ namespace TL { namespace OpenMP {
             task_info = _function_task_set->get_function_task(sym);
             valid_task_info = true;
         }
-        else if (sym.get_type().is_template_specialized_type()
-                && _function_task_set->is_function_task(sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
+        else if ( // if the type of the current function symbol is a template specialized type
+                sym.get_type().is_template_specialized_type()
+                // and the primary template is registered as a function task
+                && _function_task_set->is_function_task(
+                    sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
         {
             // Note that the pragma of the current task is written in terms of the primary symbol
             TL::Symbol primary_sym  = sym.get_type().get_related_template_type().get_primary_template().get_symbol();
 
             // This map will be used to instantiate the function task info
-            instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(/* parent */ NULL);
+            instantiation_symbol_map_t* instantiation_symbol_map =
+                instantiation_symbol_map_push(/* parent */ NULL);
 
             TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
             prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
 
             TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
             TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();
-            ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "", 0);
+            ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "Unreachable code", 0);
 
-            int num_params = primary_params.size();
-
-            // Create the related symbols of the new specialization, using the parameter types of the specialization function type
-            // FIXME: I'm not sure, but maybe the instantiation phase should provided the related symbols of the specialization
+            // Create the related symbols of the new specialization, using the
+            // parameter types of the specialization function type
+            // FIXME: I'm not sure, but maybe the instantiation phase should
+            // provided the related symbols of the specialization
             TL::ObjectList<TL::Symbol> spec_related_symbols;
+            int num_params = primary_params.size();
             for (int i = 0; i < num_params; ++i)
             {
                 TL::Symbol prim_param_sym = primary_params[i];
@@ -263,12 +279,15 @@ namespace TL { namespace OpenMP {
                         sym.get_scope().get_decl_context(),
                         call.get_locus());
 
-                spec_param_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                symbol_entity_specs_set_is_user_declared(spec_param_sym.get_internal_symbol(), 1);
 
                 spec_related_symbols.append(spec_param_sym);
 
-                symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(), sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
-                instantiation_symbol_map_add(instantiation_symbol_map, prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
+                symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(),
+                        sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
+
+                instantiation_symbol_map_add(instantiation_symbol_map,
+                        prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
             }
 
             sym.set_related_symbols(spec_related_symbols);
@@ -283,6 +302,7 @@ namespace TL { namespace OpenMP {
             _function_task_set->add_function_task(sym, task_info);
         }
 
+        // The current function call is not a task, ignore it!
         if (!valid_task_info)
             return;
 
@@ -374,7 +394,8 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    Nodecl::NodeclBase FunctionCallVisitor::make_exec_environment(const Nodecl::FunctionCall &call,
+    Nodecl::NodeclBase FunctionCallVisitor::make_exec_environment(
+            const Nodecl::FunctionCall &call,
             TL::Symbol function_sym,
             FunctionTaskInfo& function_task_info)
     {
@@ -513,8 +534,15 @@ namespace TL { namespace OpenMP {
         }
 
         // Build the tree which contains the target information
+        TL::Symbol called_symbol = function_sym;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            called_symbol = call.as<Nodecl::FunctionCall>()
+                                .get_called().as<Nodecl::Symbol>().get_symbol();
+        }
         _base->make_execution_environment_target_information(
                 function_task_info.get_target_info(),
+                called_symbol,
                 locus,
                 result_list);
 
@@ -710,13 +738,12 @@ namespace TL { namespace OpenMP {
     struct ReportExecEnvironmentDependences : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            const locus_t* _locus;
             std::ofstream* _omp_report_file;
 
         public:
 
-        ReportExecEnvironmentDependences(const locus_t* locus, std::ofstream* omp_report_file)
-            : _locus(locus), _omp_report_file(omp_report_file)
+        ReportExecEnvironmentDependences(const locus_t*, std::ofstream* omp_report_file)
+            : _omp_report_file(omp_report_file)
         {
         }
 
@@ -984,60 +1011,13 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
-    bool expression_stmt_is_compound_assignment(Nodecl::NodeclBase expr_stmt)
-    {
-        ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(),
-                        "Unexpected node %s\n", ast_print_node_type(expr_stmt.get_kind()));
-
-        Nodecl::NodeclBase expr = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
-        return (expr.is<Nodecl::AddAssignment>()
-                || expr.is<Nodecl::ArithmeticShrAssignment>()
-                || expr.is<Nodecl::BitwiseAndAssignment>()
-                || expr.is<Nodecl::BitwiseOrAssignment>()
-                || expr.is<Nodecl::BitwiseShlAssignment>()
-                || expr.is<Nodecl::BitwiseShrAssignment>()
-                || expr.is<Nodecl::BitwiseXorAssignment>()
-                || expr.is<Nodecl::DivAssignment>()
-                || expr.is<Nodecl::MinusAssignment>()
-                || expr.is<Nodecl::ModAssignment>()
-                || expr.is<Nodecl::MulAssignment>());
-    }
-
-    bool is_a_subexpression_of(Nodecl::NodeclBase subexpr, Nodecl::NodeclBase expr)
-    {
-        if (expr.is_null())
-            return false;
-
-        if (expr.get_kind() == subexpr.get_kind()
-                && Nodecl::Utils::structurally_equal_nodecls(expr, subexpr))
-            return true;
-
-        bool found = false;
-        if (expr.is<Nodecl::List>())
-        {
-            Nodecl::List l = expr.as<Nodecl::List>();
-            for (Nodecl::List::iterator it = l.begin(); it != l.end() && !found; it++)
-            {
-                found = is_a_subexpression_of(subexpr, *it);
-            }
-        }
-        else
-        {
-            TL::ObjectList<Nodecl::NodeclBase> children = expr.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                    it != children.end() && !found;
-                    it++)
-            {
-                found = is_a_subexpression_of(subexpr, *it);
-            }
-        }
-        return found;
-    }
-
-    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+    static bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
+
+        // We use the analysis phase here to know if an expression is a reduction.
+        // Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
 #ifdef ANALYSIS_ENABLED
         TL::Analysis::AnalysisInterface a;
         bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
@@ -1045,22 +1025,6 @@ namespace TL { namespace OpenMP {
 #else
         return 0;
 #endif
-
-        // // FIXME: How to know if a expression is a reduction will be implemented by
-        // // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
-        // Nodecl::NodeclBase lhs_expr, rhs_expr;
-        // decompose_expression_statement(expr, lhs_expr, rhs_expr);
-
-        // // If the expression does not have a left-hand-side expression, this is not a reduction
-        // if (lhs_expr.is_null())
-        //     return false;
-
-        // // If the expression is a compound assignment, this is a reduction
-        // if (expression_stmt_is_compound_assignment(expr))
-        //     return true;
-
-        // // Detect this kind of reductions: x = foo(i) + x;
-        // return is_a_subexpression_of(lhs_expr, rhs_expr);
     }
 
     Nodecl::OpenMP::Task FunctionCallVisitor::generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
@@ -1287,7 +1251,7 @@ namespace TL { namespace OpenMP {
     }
 
     TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(
-            RefPtr<FunctionTaskSet> function_task_set,
+            std::shared_ptr<FunctionTaskSet> function_task_set,
             bool task_expr_optim_disabled,
             bool ignore_template_functions)
         :
@@ -1430,7 +1394,7 @@ namespace TL { namespace OpenMP {
                     _function_task_set->get_function_task(function_called);
 
                 Scope sc = function_called_task_info.get_parsing_scope();
-                TL::Symbol this_ = sc.get_symbol_from_name("this");
+                TL::Symbol this_ = sc.get_symbol_this();
                 ERROR_CONDITION(this_.is_invalid(), "Unreachable code", 0);
                 parameter_names.append("this__");
                 parameter_types.append(this_.get_type());
@@ -1459,7 +1423,7 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase new_function_code,new_function_body;
             SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
 
-            new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
+            symbol_entity_specs_set_function_code(new_function.get_internal_symbol(), new_function_code.get_internal_nodecl());
 
             // Update the map of transformed tasks
             _transformed_task_map.insert(std::make_pair(function_called, new_function));
@@ -1517,7 +1481,7 @@ namespace TL { namespace OpenMP {
 
         return_arg_sym.get_internal_symbol()->kind = SK_VARIABLE;
         return_arg_sym.get_internal_symbol()->type_information = return_type.get_internal_type();
-        return_arg_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(return_arg_sym.get_internal_symbol(), 1);
 
         // Create the new argument's list of the new function call to the void function task
         Nodecl::List new_arguments;
@@ -1648,10 +1612,10 @@ namespace TL { namespace OpenMP {
         {
             private:
                 int _num_involved_tasks;
-                RefPtr<FunctionTaskSet> _function_task_set;
+                std::shared_ptr<FunctionTaskSet> _function_task_set;
 
             public:
-                TaskFinder(RefPtr<FunctionTaskSet> function_task_set) :
+                TaskFinder(std::shared_ptr<FunctionTaskSet> function_task_set) :
                     _num_involved_tasks(0),
                     _function_task_set(function_task_set) { }
 
@@ -1769,7 +1733,7 @@ namespace TL { namespace OpenMP {
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = value.get_type().get_internal_type();
-        new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+        symbol_entity_specs_set_is_user_declared(new_symbol.get_internal_symbol(), 1);
 
         Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(new_symbol, locus);
         sym_nodecl.set_type(lvalue_ref(new_symbol.get_type().get_internal_type()));
@@ -1995,8 +1959,8 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -2043,7 +2007,7 @@ namespace TL { namespace OpenMP {
                 _function_task_set->get_function_task(function_called);
 
             Scope sc = function_called_task_info.get_parsing_scope();
-            TL::Symbol this_ = sc.get_symbol_from_name("this");
+            TL::Symbol this_ = sc.get_symbol_this();
             ERROR_CONDITION(this_.is_invalid(), "Unreachable code", 0);
             parameter_names.append("this__");
             parameter_types.append(this_.get_type());
@@ -2089,7 +2053,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase new_function_code,new_function_body;
         SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
 
-        new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
+        symbol_entity_specs_set_function_code(new_function.get_internal_symbol(), new_function_code.get_internal_nodecl());
 
         // Create the code of the new void function task
         Nodecl::NodeclBase new_stmts = create_body_for_new_optmized_function_task(
@@ -2296,8 +2260,8 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = node.children();
+            for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it++)
             {
@@ -2343,7 +2307,7 @@ namespace TL { namespace OpenMP {
             TL::Symbol aux_var = new_funct_body.retrieve_context().new_symbol("tmp");
             aux_var.get_internal_symbol()->kind = SK_VARIABLE;
             aux_var.get_internal_symbol()->type_information = task_call.get_type().no_ref().get_internal_type();
-            aux_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            symbol_entity_specs_set_is_user_declared(aux_var.get_internal_symbol(), 1);
 
             Nodecl::NodeclBase task_call_copied = task_call.shallow_copy();
             aux_var.get_internal_symbol()->value = task_call_copied.get_internal_nodecl();

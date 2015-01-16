@@ -77,12 +77,26 @@
   the native (backend) compiler.
 */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tl-common.hpp"
 #include <iostream>
 #include <string>
 #include <typeinfo>
 #include "cxx-tltype.h"
-#include "tl-refptr.hpp"
+
+#if !defined(HAVE_CXX11)
+#include <tr1/memory>
+
+namespace std
+{
+    using std::tr1::shared_ptr;
+    using std::tr1::static_pointer_cast;
+}
+
+#endif
 
 namespace TL
 {
@@ -92,36 +106,11 @@ namespace TL
      * It is also used for data passed along the compiler pipeline structure using
      * a TL::DTO object.
      */
-    class LIBTL_CLASS Object 
-    { 
-        private:
-            /*! Internal reference counter when a RefPtr<Object> is used.
-             * Right after the creation of an instance of Object, it will
-             * be 1.
-             */
-            int _refcount;
+    class LIBTL_CLASS Object
+    {
         public:
             //! Default constructor for Object
-            Object()
-                : _refcount(1)
-            {
-            }
-
-            //! Increases a reference to this entity. Required by RefPtr.
-            void obj_reference()
-            {
-                _refcount++;
-            }
-
-            //! Decreases a reference to this entity. Required by RefPtr.
-            void obj_unreference()
-            {
-                _refcount--;
-                if (_refcount == 0)
-                {
-                    delete this;
-                }
-            }
+            Object() { }
 
             //! Destructor of Object
             virtual ~Object() { }

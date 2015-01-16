@@ -121,7 +121,16 @@ namespace Nodecl { namespace Utils { namespace Fortran {
 
                 if (sym.is_function())
                 {
-                    _extra_insert_sym.insert(sym);
+                    // An statement function has to be duplicated because its expression
+                    // may use a dummy argument (see #2280)
+                    if (sym.is_statement_function_statement())
+                    {
+                        _extra_new_sym.insert(sym);
+                    }
+                    else
+                    {
+                        _extra_insert_sym.insert(sym);
+                    }
 
                     if (sym.is_nested_function())
                     {
@@ -224,8 +233,8 @@ namespace Nodecl { namespace Utils { namespace Fortran {
                 {
                     insert_type(n.get_type());
                 }
-                TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                Nodecl::NodeclBase::Children children = n.children();
+                for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                         it != children.end();
                         it++)
                 {

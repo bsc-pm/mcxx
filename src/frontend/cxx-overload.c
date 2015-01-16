@@ -42,13 +42,6 @@
 
 #include <string.h>
 
-static unsigned long long int _bytes_overload = 0;
-
-unsigned long long overload_used_memory(void)
-{
-    return _bytes_overload;
-}
-
 typedef
 enum implicit_conversion_sequence_kind_tag
 {
@@ -190,10 +183,10 @@ static implicit_conversion_sequence_t ics_make_user_defined_using_conversor(type
     if (conversor == NULL)
         return invalid_ics;
 
-    if (conversor->entity_specs.is_constructor)
+    if (symbol_entity_specs_get_is_constructor(conversor))
     {
         type_t* conversion_source_type = function_type_get_parameter_type_num(conversor->type_information, 0);
-        type_t* class_type = conversor->entity_specs.class_type;
+        type_t* class_type = symbol_entity_specs_get_class_type(conversor);
 
         standard_conversion_t first_sc;
         if (!standard_conversion_between_types_for_overload(&first_sc, orig, conversion_source_type, locus))
@@ -205,12 +198,12 @@ static implicit_conversion_sequence_t ics_make_user_defined_using_conversor(type
 
         return ics_make_user_defined(first_sc, conversor, second_sc);
     }
-    else if (conversor->entity_specs.is_conversion)
+    else if (symbol_entity_specs_get_is_conversion(conversor))
     {
         type_t* converted_type = function_type_get_return_type(conversor->type_information);
         ref_qualifier_t conv_ref_qualifier = function_type_get_ref_qualifier(conversor->type_information);
 
-        type_t* implicit_parameter = conversor->entity_specs.class_type;
+        type_t* implicit_parameter = symbol_entity_specs_get_class_type(conversor);
         if (is_const_qualified_type(conversor->type_information))
         {
             implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
@@ -510,7 +503,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         scope_entry_t* default_constructor = class_type_get_default_constructor(dest);
 
         if (default_constructor != NULL
-                && !default_constructor->entity_specs.is_explicit)
+                && !symbol_entity_specs_get_is_explicit(default_constructor))
         {
             result->kind = ICSK_USER_DEFINED;
             result->first_sc = get_identity_scs(orig, dest);
@@ -862,8 +855,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
         if (solved_function != NULL)
         {
-            if (!solved_function->entity_specs.is_member
-                    || solved_function->entity_specs.is_static)
+            if (!symbol_entity_specs_get_is_member(solved_function)
+                    || symbol_entity_specs_get_is_static(solved_function))
             {
                 orig = get_lvalue_reference_type(solved_function->type_information);
             }
@@ -871,7 +864,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             {
                 orig = get_pointer_to_member_type(
                             solved_function->type_information,
-                            solved_function->entity_specs.class_type);
+                            symbol_entity_specs_get_class_type(solved_function));
             }
             // And proceed evaluating this ICS
         }
@@ -1094,14 +1087,14 @@ static char solve_initialization_of_direct_reference_type_ics(
         }
 
         if (initialization_kind & IK_COPY_INITIALIZATION
-                && conversion->entity_specs.is_explicit)
+                && symbol_entity_specs_get_is_explicit(conversion))
             continue;
 
         type_t* return_type =
             function_type_get_return_type(conversion->type_information);
 
         char ok = 0;
-        if (!conversion->entity_specs.is_explicit)
+        if (!symbol_entity_specs_get_is_explicit(conversion))
         {
             // 13.3.1.6 [over.match.ref]
             // Those non-explicit conversion
@@ -1254,7 +1247,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_nonc
         standard_conversion_t scs;
         char ok = 0;
 
-        if (!conversion->entity_specs.is_explicit)
+        if (!symbol_entity_specs_get_is_explicit(conversion))
         {
             // 13.3.1.5 [over.match.conv]
             // Those non-explicit conversion functions that are not hidden within S
@@ -1266,7 +1259,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_nonc
                     locus));
 
         }
-        else if (conversion->entity_specs.is_explicit
+        else if (symbol_entity_specs_get_is_explicit(conversion)
                 && (initialization_kind & IK_DIRECT_INITIALIZATION))
         {
             // 13.3.1.5 [over.match.conv]
@@ -1347,7 +1340,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_clas
             // cv-qualified T as its first argument, called with a single argument
             // in the context of direct-initialization of an object of type "cv2
             // T", explicit conversion functions are also considered.
-            if (conversion->entity_specs.is_explicit)
+            if (symbol_entity_specs_get_is_explicit(conversion))
                 continue;
         }
 
@@ -1656,14 +1649,14 @@ static char solve_initialization_of_reference_type_ics(
                     // binding or if it involves a user-defined conversion.
                     type_t* relevant_type = NULL;
 
-                    if (constructor->entity_specs.is_conversion)
+                    if (symbol_entity_specs_get_is_conversion(constructor))
                     {
                         relevant_type = function_type_get_return_type(constructor->type_information);
                     }
-                    else if (constructor->entity_specs.is_constructor)
+                    else if (symbol_entity_specs_get_is_constructor(constructor))
                     {
                         relevant_type = get_cv_qualified_type(
-                                constructor->entity_specs.class_type,
+                                symbol_entity_specs_get_class_type(constructor),
                                 get_cv_qualifier(no_ref(orig)));
                     }
                     else
@@ -1771,8 +1764,8 @@ static char solve_initialization_of_nonclass_type_ics(
 
         if (solved_function != NULL)
         {
-            if (!solved_function->entity_specs.is_member
-                    || solved_function->entity_specs.is_static)
+            if (!symbol_entity_specs_get_is_member(solved_function)
+                    || symbol_entity_specs_get_is_static(solved_function))
             {
                 orig = get_lvalue_reference_type(solved_function->type_information);
             }
@@ -1780,7 +1773,7 @@ static char solve_initialization_of_nonclass_type_ics(
             {
                 orig = get_pointer_to_member_type(
                         solved_function->type_information,
-                        solved_function->entity_specs.class_type);
+                        symbol_entity_specs_get_class_type(solved_function));
             }
         }
         else
@@ -2470,8 +2463,8 @@ static char better_ics(implicit_conversion_sequence_t ics1,
 
 static char can_be_called_with_number_of_arguments_ovl(scope_entry_t* entry, int num_arguments)
 {
-    if (entry->entity_specs.is_member
-            && !entry->entity_specs.is_constructor)
+    if (symbol_entity_specs_get_is_member(entry)
+            && !symbol_entity_specs_get_is_constructor(entry))
         num_arguments--;
     return can_be_called_with_number_of_arguments(entry, num_arguments);
 }
@@ -2511,8 +2504,8 @@ static overload_entry_list_t* compute_viable_functions(
             char requires_ambiguous_conversion = 0;
 
             // Static members have their implicit argument simply ignored
-            if (candidate->entity_specs.is_member
-                    && candidate->entity_specs.is_static)
+            if (symbol_entity_specs_get_is_member(candidate)
+                    && symbol_entity_specs_get_is_static(candidate))
             {
                 P_LIST_ADD(ics_arguments, num_ics_arguments, invalid_ics);
                 i = 1;
@@ -2524,8 +2517,8 @@ static overload_entry_list_t* compute_viable_functions(
 
                 implicit_conversion_sequence_t ics_to_candidate;
                 if (i == 0
-                        && candidate->entity_specs.is_member
-                        && !candidate->entity_specs.is_constructor)
+                        && symbol_entity_specs_get_is_member(candidate)
+                        && !symbol_entity_specs_get_is_constructor(candidate))
                 {
                     if (argument_types[0] != NULL)
                     {
@@ -2536,11 +2529,11 @@ static overload_entry_list_t* compute_viable_functions(
                         // their original type
                         if (orig_candidate->kind == SK_USING)
                         {
-                            member_object_type = orig_candidate->entity_specs.class_type;
+                            member_object_type = symbol_entity_specs_get_class_type(orig_candidate);
                         }
                         else
                         {
-                            member_object_type = candidate->entity_specs.class_type;
+                            member_object_type = symbol_entity_specs_get_class_type(candidate);
                         }
 
                         ref_qualifier_t ref_qualifier =
@@ -2583,8 +2576,8 @@ static overload_entry_list_t* compute_viable_functions(
                 else
                 {
                     // The implicit is not counted in the function type, so skew it
-                    if (candidate->entity_specs.is_member
-                            && !candidate->entity_specs.is_constructor)
+                    if (symbol_entity_specs_get_is_member(candidate)
+                            && !symbol_entity_specs_get_is_constructor(candidate))
                         argument_number--;
 
                     type_t* parameter_type = NULL;
@@ -2628,7 +2621,7 @@ static overload_entry_list_t* compute_viable_functions(
 
             if (still_viable)
             {
-                overload_entry_list_t* new_result = counted_xcalloc(1, sizeof(*new_result), &_bytes_overload);
+                overload_entry_list_t* new_result = xcalloc(1, sizeof(*new_result));
                 new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
@@ -2702,7 +2695,7 @@ static char is_better_function_despite_equal_ics(
                     locus,
                     // Flags
                     num_arguments,
-                    f->entity_specs.is_conversion))
+                    symbol_entity_specs_get_is_conversion(f)))
         {
             DEBUG_CODE()
             {
@@ -2755,9 +2748,9 @@ char is_better_function(
 
     int first_type = 0;
 
-    if (f->entity_specs.is_member
-            && g->entity_specs.is_member
-            && f->entity_specs.is_static)
+    if (symbol_entity_specs_get_is_member(f)
+            && symbol_entity_specs_get_is_member(g)
+            && symbol_entity_specs_get_is_static(f))
     {
         first_type = 1;
     }
@@ -2893,8 +2886,8 @@ char is_better_function(
         }
 
         int num_arguments_of_call = ovl_f->candidate->num_args;
-        if (f->entity_specs.is_member
-                && !f->entity_specs.is_constructor)
+        if (symbol_entity_specs_get_is_member(f)
+                && !symbol_entity_specs_get_is_constructor(f))
             num_arguments_of_call--;
 
         if (is_better_function_despite_equal_ics(f, g, decl_context, locus, num_arguments_of_call))
@@ -2940,7 +2933,7 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
                         entry->symbol_name,
                         locus_to_str(entry->locus),
                         print_declarator(entry->type_information),
-                        (entry->entity_specs.is_builtin ? "<builtin function>" : ""));
+                        (symbol_entity_specs_get_is_builtin(entry) ? "<builtin function>" : ""));
 
                 fprintf(stderr, "OVERLOAD: Candidate %d: called with (", i);
                 if (it->num_args == 0)
@@ -2953,8 +2946,8 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
                     for (j = 0; j < it->num_args; j++)
                     {
                         if (j == 0 
-                                && entry->entity_specs.is_member
-                                && !entry->entity_specs.is_constructor)
+                                && symbol_entity_specs_get_is_member(entry)
+                                && !symbol_entity_specs_get_is_constructor(entry))
                         {
                             fprintf(stderr, "[[implicit argument]] ");
                         }
@@ -3059,7 +3052,7 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
                             entry->type_information,
                             entry->decl_context,
                             entry->symbol_name),
-                        entry->entity_specs.is_builtin ? "<builtin>" : "");
+                        symbol_entity_specs_get_is_builtin(entry) ? "<builtin>" : "");
 
                 it = it->next;
             }
@@ -3179,7 +3172,6 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
     while (it != NULL)
     {
         overload_entry_list_t* next = it->next;
-        _bytes_overload -= sizeof(*it);
         xfree(it->ics_arguments);
         xfree(it);
         it = next;
@@ -3246,7 +3238,7 @@ scope_entry_t* address_of_overloaded_function(
     }
     else if (is_function_type(functional_type))
     {
-        functional_type = functional_type;
+        // functional_type = functional_type;
     }
 
     if (!is_function_type(functional_type))
@@ -3355,12 +3347,12 @@ scope_entry_t* address_of_overloaded_function(
         }
 
         // Now check feasibility
-        if (((!considered_function->entity_specs.is_member
-                        || considered_function->entity_specs.is_static)
+        if (((!symbol_entity_specs_get_is_member(considered_function)
+                        || symbol_entity_specs_get_is_static(considered_function))
                     && (is_pointer_to_function_type(target_type)
                         || is_function_type(no_ref(target_type))))
-                || (considered_function->entity_specs.is_member
-                    && !considered_function->entity_specs.is_static
+                || (symbol_entity_specs_get_is_member(considered_function)
+                    && !symbol_entity_specs_get_is_static(considered_function)
                     && is_pointer_to_member_type(no_ref(target_type))))
         {
             DEBUG_CODE()
@@ -3472,7 +3464,7 @@ scope_entry_t* address_of_overloaded_function(
                             // TODO: Should we pass them?
                             /* explicit_template_arguments */ NULL,
                             locus,
-                            /* is_conversion */ current_fun->entity_specs.is_conversion))
+                            /* is_conversion */ symbol_entity_specs_get_is_conversion(current_fun)))
                 {
                     more_specialized = current_fun;
                 }
@@ -3495,7 +3487,7 @@ scope_entry_t* address_of_overloaded_function(
                             // TODO: Should we pass them?
                             /* explicit_template_arguments */ NULL,
                             locus,
-                            /* is_conversion */ current_fun->entity_specs.is_conversion))
+                            /* is_conversion */ symbol_entity_specs_get_is_conversion(current_fun)))
                 {
                     more_specialized = NULL;
                     break;
@@ -3562,7 +3554,7 @@ static scope_entry_list_t* constructor_candidates_initialization_of_class_type(
         // For direct-initialization, the candidate functions are all the
         // constructors of the class of the object being initialized.
         if ((initialization_kind & IK_COPY_INITIALIZATION)
-                && constructor->entity_specs.is_explicit)
+                && symbol_entity_specs_get_is_explicit(constructor))
             continue;
 
         // 13.3.1.3 [over.match.ctor]
@@ -3571,14 +3563,14 @@ static scope_entry_list_t* constructor_candidates_initialization_of_class_type(
         // expression-list or assignment-expression of the initializer.
         if ((initialization_kind & IK_COPY_INITIALIZATION)
                 && (initialization_kind & IK_BY_CONSTRUCTOR)
-                && !constructor->entity_specs.is_conversor_constructor)
+                && !symbol_entity_specs_get_is_conversor_constructor(constructor))
             continue;
 
         // 13.3.1.4 [over.match.copy]
         // - The converting constructors (12.3.1) of T are candidate functions.
         if ((initialization_kind & IK_COPY_INITIALIZATION)
                 && (initialization_kind & IK_BY_USER_DEFINED_CONVERSION)
-                && !constructor->entity_specs.is_conversor_constructor)
+                && !symbol_entity_specs_get_is_conversor_constructor(constructor))
             continue;
 
         // Filter init constructors only
@@ -3922,7 +3914,7 @@ static char solve_list_initialization_of_class_type_(
             // In copy-list-initialization, if an explicit constructor is
             // chosen, the initialization is ill-formed.
             if ((initialization_kind & IK_COPY_INITIALIZATION)
-                    && overload_resolution->entity_specs.is_explicit)
+                    && symbol_entity_specs_get_is_explicit(overload_resolution))
             {
                 *constructor = 0;
                 return 0;
@@ -3991,7 +3983,7 @@ static char solve_list_initialization_of_class_type_(
     // chosen, the initialization is ill-formed.
     if (overload_resolution != NULL
             && (initialization_kind & IK_COPY_INITIALIZATION)
-            && overload_resolution->entity_specs.is_explicit)
+            && symbol_entity_specs_get_is_explicit(overload_resolution))
     {
         *constructor = 0;
         return 0;
@@ -4030,7 +4022,7 @@ candidate_t* candidate_set_add(candidate_t* candidate_set,
         int num_args,
         type_t** args)
 {
-    candidate_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_overload);
+    candidate_t* result = xcalloc(1, sizeof(*result));
 
     result->next = candidate_set;
 
@@ -4041,7 +4033,7 @@ candidate_t* candidate_set_add(candidate_t* candidate_set,
 
     // For members ignore the implicit argument which we allow to be NULL
     int i = 0;
-    if (entry->entity_specs.is_member)
+    if (symbol_entity_specs_get_is_member(entry))
         i = 1;
 
     for (; i < result->num_args; i++)
@@ -4063,7 +4055,6 @@ void candidate_set_free(candidate_t** p_candidate_set)
     while (candidate_set != NULL)
     {
         candidate_t* next = candidate_set->next;
-        _bytes_overload -= sizeof(*candidate_set);
         xfree(candidate_set);
         candidate_set = next;
     }

@@ -121,10 +121,10 @@ static void prettyprint_context_copy(prettyprint_context_t* dest,
 static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx);
 
 #define HELPER_PARAMETER \
-    (handlers_list[ASTType(a)].parameter)
+    (handlers_list[ASTKind(a)].parameter)
 
 #define HELPER_PARAMETER_STRING \
-    ((handlers_list[ASTType(a)].parameter != NULL) ? (handlers_list[ASTType(a)].parameter) : "")
+    ((handlers_list[ASTKind(a)].parameter != NULL) ? (handlers_list[ASTKind(a)].parameter) : "")
 
 
 extern const char* prettyprint_in_buffer_common(AST a, 

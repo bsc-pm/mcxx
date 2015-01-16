@@ -47,21 +47,6 @@ namespace {
         return static_cast<SyncModification>(static_cast<int>(a) | static_cast<int>(b));
     }
 
-    bool variable_is_invariant_between_nodes(Node* source, Node* target, const Nodecl::NodeclBase var)
-    {
-        bool res = true;
-
-        // Get the creation nodes of both tasks
-        Node* src_creation_node = ExtensibleGraph::get_task_creation_from_task(source);
-        Node* tgt_creation_node = ExtensibleGraph::get_task_creation_from_task(target);
-        ERROR_CONDITION(src_creation_node==NULL, "Creation node of task %d could not be found.\n", source->get_id());
-        ERROR_CONDITION(tgt_creation_node==NULL, "Creation node of task %d could not be found.\n", target->get_id());
-
-        // TODO
-
-        return res;
-    }
-
     SyncModification compute_condition_for_unmatched_values(
             Node* n_node, Node* m_node,
             const NBase& n, const NBase& m,
@@ -106,7 +91,7 @@ namespace {
                 cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
                 // Although unknown, they might have the same value
                 if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/true) &&
-                    variable_is_invariant_between_nodes(n_node, m_node, n))
+                    data_reference_is_modified_between_tasks(n_node, m_node, n))
                 {
                     modification_type = Remove;
                     cond_part = Nodecl::NodeclBase::null();
@@ -179,6 +164,7 @@ namespace {
         return modification_type;
     }
 
+#if 0
     SyncModification match_variable_values(
             Node* n_node, Node* m_node,
             const NBase& n, const NBase& m,
@@ -234,16 +220,17 @@ namespace {
 
         return modification_type;
     }
+#endif
 
-    SyncModification match_array_subscripts (Node* n_node, Node* m_node,
-                                             const Nodecl::List& n_subs, const Nodecl::List& m_subs,
-                                             NBase& condition)
+    SyncModification match_array_subscripts(Node* n_node, Node* m_node,
+                                            const Nodecl::List& n_subs, const Nodecl::List& m_subs,
+                                            NBase& condition)
     {
-        SyncModification modification_type = Keep;
+        SyncModification modification_type = None;
         Nodecl::List::iterator itn = n_subs.begin();
         Nodecl::List::iterator itm = m_subs.begin();
         bool cannot_match = false;
-        for(; (itn != n_subs.end()) && (modification_type != Remove); ++itn, ++itm)
+        for(; (itn != n_subs.end()) && !(modification_type & Remove); ++itn, ++itm)
         {
             const Nodecl::NodeclBase& n = *itn;
             const Nodecl::NodeclBase& m = *itm;
@@ -270,16 +257,14 @@ namespace {
                 }
                 else
                 {   // m_node[v2]
-                    if(Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/ true))
-                    {   // Case 1: the two variables are the same
-                        if(data_reference_is_modified_between_tasks(n_node, m_node, n))
-                        {   // The variable has changed => we are sure there is no dependency
+                    if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/ true)
+                            && data_reference_is_modified_between_tasks(n_node, m_node, n))
+                    {   // The two variables are the same and the variable has changed => we are sure there is no dependency
                             modification_type = modification_type | Remove;
                             goto match_array_subscripts_end;
-                        }
                     }
                     else
-                    {   // Case 2: We cannot match the variables => compute the condition
+                    {   // The dependency still exists => compute the condition
                         modification_type = modification_type | compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
                         cannot_match = true;
                     }
@@ -316,7 +301,7 @@ match_array_subscripts_end:
         {
             if(m_.is<Nodecl::Symbol>())
             {
-                if(Nodecl::Utils::structurally_equal_nodecls(n_, m_))
+                if(Nodecl::Utils::structurally_equal_nodecls(n_, m_, /*skip_conversions*/true))
                     modification_type = MaybeToStatic;
                 else
                     modification_type = Remove;
@@ -335,9 +320,9 @@ match_array_subscripts_end:
                 Nodecl::ClassMemberAccess src_dep_ = n_.as<Nodecl::ClassMemberAccess>();
                 Nodecl::ClassMemberAccess tgt_dep_ = m_.as<Nodecl::ClassMemberAccess>();
                 if(Nodecl::Utils::structurally_equal_nodecls(src_dep_.get_lhs(), tgt_dep_.get_lhs()))
-                    modification_type = match_dependence (n_node, m_node,
-                                                          src_dep_.get_member(), src_dep_.get_member(),
-                                                          condition);
+                    modification_type = match_dependence(n_node, m_node,
+                                                         src_dep_.get_member(), src_dep_.get_member(),
+                                                         condition);
                 else
                     modification_type = Remove;
             }
@@ -412,7 +397,21 @@ match_array_subscripts_end:
             }
         }
     }
-    
+
+    template <typename DependenceNode>
+    static TL::ObjectList<Nodecl::NodeclBase> gather_dependences(
+            Nodecl::List list,
+            Nodecl::NodeclBase (DependenceNode::*get_dependences)() const)
+    {
+        ObjectList<NBase> deps = list.find_all<DependenceNode>()
+                .map(get_dependences)                // ObjectList<NBase>
+                .map(&NBase::as<Nodecl::List>)       // ObjectList<Nodecl::List>
+                .map(&Nodecl::List::to_object_list)  // ObjectList<ObjectList<NBase> >
+                .reduction(append_two_lists<NBase>); // ObjectList<NBase>
+
+        return deps;
+    }
+
     /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
      * \param source_environ is the environment of the source task
      * \param target_environ is the environment of the target task
@@ -426,56 +425,41 @@ match_array_subscripts_end:
     {
         NBase condition;
         
-        typedef std::pair<ObjectList<NBase>, ObjectList<NBase> > nodecl_object_list_pair;
-
         // 1.- Collect the variables in the dependency clauses
         Nodecl::List source_environ = source->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         Nodecl::List target_environ = target->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         // 1.1.- Get in dependencies on one side and out and inout dependencies on the other side
         //       - out|inout will be matched with in|out|inout in the target
         //       - in will be matched with out|inout dependencies
-        ObjectList<NBase> source_in_deps = source_environ.find_all<Nodecl::OpenMP::DepIn>()
-                .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> source_out_deps = source_environ.find_all<Nodecl::OpenMP::DepOut>()
-                .map(functor(&Nodecl::OpenMP::DepOut::get_out_deps))                // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> source_inout_deps = source_environ.find_all<Nodecl::OpenMP::DepInout>()
-                .map(functor(&Nodecl::OpenMP::DepInout::get_inout_deps))            // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> source_all_out_deps = append_two_lists(nodecl_object_list_pair(source_out_deps, source_inout_deps));
+
+        ObjectList<NBase> source_in_deps = gather_dependences(
+                source_environ,
+                &Nodecl::OpenMP::DepIn::get_in_deps);
+
+        ObjectList<NBase> source_out_deps = gather_dependences(
+                source_environ,
+                &Nodecl::OpenMP::DepOut::get_out_deps);
+
+        ObjectList<NBase> source_inout_deps = gather_dependences(
+                source_environ,
+                &Nodecl::OpenMP::DepInout::get_inout_deps);
+            
+        ObjectList<NBase> source_all_out_deps = append_two_lists(source_out_deps, source_inout_deps);
         // 1.2.- Get all in, out and inout dependencies
-        ObjectList<NBase> target_in_deps = target_environ.find_all<Nodecl::OpenMP::DepIn>()
-                .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> target_out_deps = target_environ.find_all<Nodecl::OpenMP::DepOut>()
-                .map(functor(&Nodecl::OpenMP::DepOut::get_out_deps))                // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> target_inout_deps = target_environ.find_all<Nodecl::OpenMP::DepInout>()
-                .map(functor(&Nodecl::OpenMP::DepInout::get_inout_deps))            // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
+        ObjectList<NBase> target_in_deps = gather_dependences(
+                target_environ,
+                &Nodecl::OpenMP::DepIn::get_in_deps);
+        ObjectList<NBase> target_out_deps = gather_dependences(
+                target_environ,
+                &Nodecl::OpenMP::DepOut::get_out_deps);
+        ObjectList<NBase> target_inout_deps = gather_dependences(
+                target_environ,
+                &Nodecl::OpenMP::DepInout::get_inout_deps);
+
         ObjectList<NBase> target_deps =
-                append_two_lists(nodecl_object_list_pair(target_inout_deps,
-                                                          append_two_lists(nodecl_object_list_pair(target_in_deps, target_out_deps))));
-        ObjectList<NBase> target_all_out_deps = append_two_lists(nodecl_object_list_pair(target_out_deps, target_inout_deps));
+            append_two_lists(target_inout_deps,
+                    append_two_lists(target_in_deps, target_out_deps));
+        ObjectList<NBase> target_all_out_deps = append_two_lists(target_out_deps, target_inout_deps);
 
         // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
         SyncModification modification_type = None;

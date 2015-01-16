@@ -30,7 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
 
-#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorizer-overlap.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-target-type-heuristic.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
@@ -40,6 +40,9 @@
 #include "tl-spml-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
+#include "tl-vectorization-utils.hpp"
+
+#include "tl-vectorizer-report.hpp"
 
 namespace TL
 {
@@ -47,6 +50,8 @@ namespace Vectorization
 {
     Vectorizer *Vectorizer::_vectorizer = 0;
     FunctionVersioning Vectorizer::_function_versioning;
+    VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
+
 
     Vectorizer& Vectorizer::get_vectorizer()
     {
@@ -59,13 +64,14 @@ namespace Vectorization
     void Vectorizer::initialize_analysis(
             const Nodecl::NodeclBase& enclosing_function)
     {
-        VectorizationAnalysisInterface::
-            initialize_analysis(enclosing_function);
+        _vectorizer_analysis = new VectorizationAnalysisInterface(
+                enclosing_function,
+                TL::Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
     }
 
     void Vectorizer::finalize_analysis()
     {
-        VectorizationAnalysisInterface::finalize_analysis();
+        delete(_vectorizer_analysis);
     }
 
 
@@ -90,7 +96,7 @@ namespace Vectorization
                     target_type_heuristic.get_target_type(n));
         }
 
-        VectorizerVisitorPreprocessor vectorizer_preproc(environment);
+        VectorizerVisitorPreprocessor vectorizer_preproc;//environment);
         vectorizer_preproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
@@ -123,6 +129,9 @@ namespace Vectorization
 
             VectorizerVisitorLoop visitor_for(environment);
             visitor_for.walk(loop_statement.as<Nodecl::ForStatement>());
+
+            VectorizerReport report;
+            report.print_report(loop_statement);
         }
         else if (loop_statement.is<Nodecl::WhileStatement>())
         {
@@ -193,14 +202,19 @@ namespace Vectorization
     }
 
     void Vectorizer::opt_overlapped_accesses(Nodecl::NodeclBase& statements,
-            VectorizerEnvironment& environment)
+            VectorizerEnvironment& environment,
+            const bool is_simd_for,
+            const bool is_epilog,
+            Nodecl::List& init_stmts)
     {
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: ----- Optimizing Overlapped Accesses -----\n");
         }
 
-        OverlappedAccessesOptimizer overlap_visitor(environment);
+        OverlappedAccessesOptimizer overlap_visitor(environment,
+                Vectorizer::_vectorizer_analysis, is_simd_for,
+                is_epilog, init_stmts);
         overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()
@@ -228,6 +242,10 @@ namespace Vectorization
                 epilog_iterations, only_epilog, is_parallel_loop);
         visitor_epilog.visit(loop_statement, net_epilog_node);
 
+        // Remove prefetch instrucitons from epilog
+        Vectorization::Utils::RemovePrefetchIntrinsics remove_prefetch;
+        remove_prefetch.walk(loop_statement);
+
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(loop_statement, _fast_math_enabled);
         TL::Optimizations::canonicalize_and_fold(net_epilog_node, _fast_math_enabled);
@@ -235,6 +253,31 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "\n");
+        }
+    }
+
+    void Vectorizer::clean_up_epilog(Nodecl::NodeclBase& net_epilog,
+            VectorizerEnvironment& environment,
+            int epilog_iterations,
+            bool only_epilog,
+            bool is_parallel_loop)
+    {
+        // Clean up vector epilog
+        if (environment._support_masking)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "Clean-up vector epilog\n");
+            }
+
+            VectorizerVisitorLoopEpilog visitor_epilog(environment,
+                    epilog_iterations, only_epilog, is_parallel_loop);
+
+            visitor_epilog.clean_up_epilog(net_epilog);
+
+            // Applying strenth reduction
+            TL::Optimizations::canonicalize_and_fold(
+                    net_epilog, _fast_math_enabled);
         }
     }
 

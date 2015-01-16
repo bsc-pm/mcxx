@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 WHEREAMI=$(dirname $0)
 LICENSE_HEADER=../${WHEREAMI}/LICENSE_HEADER

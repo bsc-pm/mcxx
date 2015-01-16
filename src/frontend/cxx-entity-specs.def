@@ -14,7 +14,6 @@
 #      -> type
 #      -> typeof("literal-c-typename")
 #      -> array(TYPE)
-#      -> static_array(TYPE, size)
 #      -> string
 #
 # LANG -> all
@@ -81,7 +80,6 @@ bool|fortran|is_target|This entity has the TARGET attribute
 bool|fortran|is_elemental|This is an ELEMENTAL function
 bool|fortran|is_recursive|This is a RECURSIVE function
 bool|fortran|is_stmt_function|This symbol has been declared after a statement function statement
-bool|fortran|is_generic_spec|This symbol is a generic specifier name
 bool|fortran|is_intrinsic_subroutine|This symbol is an INTRINSIC SUBROUTINE
 bool|fortran|is_intrinsic_function|This symbol is an INTRINSIC FUNCTION
 bool|fortran|is_module_procedure|This function has been named in an interface construct as a MODULE PROCEDURE

@@ -41,13 +41,13 @@ int main(int argc, char** argv)
     int *ptr;
     int a[N];
     
-    #pragma analysis_check assert upper_exposed(__ANALYSIS_NONE__) defined(ptr, *ptr)
+    #pragma analysis_check assert upper_exposed() defined(ptr, *ptr)
     {
         ptr = &v;
         *ptr = 10;
     }
     
-    #pragma analysis_check assert upper_exposed(__ANALYSIS_NONE__) defined(ptr)
+    #pragma analysis_check assert upper_exposed() defined(ptr)
     ptr = &a[0];
     
     #pragma analysis_check assert upper_exposed(a) defined(ptr)

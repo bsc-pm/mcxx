@@ -37,14 +37,12 @@ namespace Utils {
     // ********************************************************************************************* //
     // ************************* Class representing and induction variable ************************* //
 
-    InductionVar::InductionVar(NBase var)
-        : _var(var), _lb(NBase::null()), _ub(NBase::null()),
-          _incr(NBase::null()), _incrs()
+    InductionVar::InductionVar(const NBase& var)
+        : _var(var), _lb(), _ub(), _incr(NBase::null()), _incrs()
     {}
 
-    InductionVar::InductionVar(NBase var, InductionVarType type, NBase family)
-        : _var(var), _lb(NBase::null()), _ub(NBase::null()),
-          _incr(NBase::null()), _incrs(), _type(type), _family(family)
+    InductionVar::InductionVar(const NBase& var, InductionVarType type, const NBase& family)
+        : _var(var), _lb(), _ub(), _incr(NBase::null()), _incrs(), _type(type), _family(family)
     {}
 
     NBase InductionVar::get_variable() const
@@ -52,27 +50,39 @@ namespace Utils {
         return _var;
     }
 
-    void InductionVar::set_variable(NBase var)
+    void InductionVar::set_variable(const NBase& var)
     {
         _var = var;
     }
 
-    NBase InductionVar::get_lb() const
+    NodeclSet InductionVar::get_lb() const
     {
         return _lb;
     }
 
-    void InductionVar::set_lb(NBase lb)
+    void InductionVar::set_lb(const NBase& lb)
+    {
+        _lb.clear();
+        _lb.insert(lb);
+    }
+
+    void InductionVar::set_lb(const NodeclSet& lb)
     {
         _lb = lb;
     }
 
-    NBase InductionVar::get_ub() const
+    NodeclSet InductionVar::get_ub() const
     {
         return _ub;
     }
 
-    void InductionVar::set_ub(NBase ub)
+    void InductionVar::set_ub(const NBase& ub)
+    {
+        _ub.clear();
+        _ub.insert(ub);
+    }
+
+    void InductionVar::set_ub(const NodeclSet& ub)
     {
         _ub = ub;
     }
@@ -82,7 +92,7 @@ namespace Utils {
         return _incr;
     }
 
-    void InductionVar::set_increment(NBase incr)
+    void InductionVar::set_increment(const NBase& incr)
     {
         _incr = incr;
     }
@@ -97,7 +107,7 @@ namespace Utils {
         return _incrs;
     }
 
-    void InductionVar::set_increment_list(ObjectList<NBase> incr_list)
+    void InductionVar::set_increment_list(const ObjectList<NBase>& incr_list)
     {
         _incrs.insert(incr_list);
     }
@@ -122,13 +132,29 @@ namespace Utils {
         return _family;
     }
 
-    bool InductionVar::operator==(const InductionVar& rhs) const
+    bool InductionVar::operator==(const InductionVar& iv) const
     {
-        return (Nodecl::Utils::structurally_equal_nodecls(_var, rhs._var)
-                 && Nodecl::Utils::structurally_equal_nodecls(_lb, rhs._lb)
-                 && Nodecl::Utils::structurally_equal_nodecls(_ub, rhs._ub)
-                 && Nodecl::Utils::structurally_equal_nodecls(_incr, rhs._incr)
-                 && (_type == rhs._type) && (_family == rhs._family));
+        bool equal_bounds = (_lb.size() == iv._lb.size()) && (_ub.size() == iv._ub.size());
+        if (!equal_bounds)
+            return false;
+
+        // Compare the LBs
+        NodeclSet::iterator it = _lb.begin();
+        NodeclSet::iterator it_iv = iv._lb.begin();
+        for (; it != _lb.end() && equal_bounds; ++it, ++it_iv)
+            equal_bounds = equal_bounds || Nodecl::Utils::structurally_equal_nodecls(*it, *it_iv);
+
+        // Compare the UBs
+        it = _ub.begin();
+        it_iv = iv._ub.begin();
+        for (; it != _ub.end() && equal_bounds; ++it, ++it_iv)
+            equal_bounds = equal_bounds || Nodecl::Utils::structurally_equal_nodecls(*it, *it_iv);
+
+        // Compare the other fields
+        return (equal_bounds
+                    && Nodecl::Utils::structurally_equal_nodecls(_var, iv._var)
+                    && Nodecl::Utils::structurally_equal_nodecls(_incr, iv._incr)
+                    && (_type == iv._type) && (_family == iv._family));
     }
 
     // *********************** END class representing and induction variable *********************** //
@@ -139,26 +165,46 @@ namespace Utils {
     // ********************************************************************************************* //
     // ********************************* Induction Variables utils ********************************* //
 
+    std::string prettyprint_iv_boundary_list(const NodeclSet& boundaries)
+    {
+        std::string boundaries_str;
+        if (boundaries.empty())
+        {
+            boundaries_str = "NULL";
+        }
+        else
+        {
+            for (NodeclSet::const_iterator it = boundaries.begin(); it != boundaries.end(); )
+            {
+                boundaries_str += it->prettyprint();
+                ++it;
+                if (it != boundaries.end())
+                    boundaries_str += ",";
+            }
+        }
+        return boundaries_str;
+    }
+
     static std::string prettyprint_induction_var(InductionVar* iv)
     {
         std::string result;
-        NBase lb = iv->get_lb();
-        NBase ub = iv->get_ub();
+        std::string lb_str = prettyprint_iv_boundary_list(iv->get_lb());
+        std::string ub_str = prettyprint_iv_boundary_list(iv->get_ub());
         NBase incr = iv->get_increment();
         result += iv->get_variable().prettyprint()
-                + "[ " + (lb.is_null()   ? "NULL" : lb.prettyprint())
-                + ":"  + (ub.is_null()   ? "NULL" : ub.prettyprint())
+                + "[ " + lb_str
+                + ":"  + ub_str
                 + ":"  + (incr.is_null() ? "NULL" : incr.prettyprint())
                 + ":"  + iv->get_type_as_string()
                 + " ]";
         return result;
     }
     
-    std::string prettyprint_induction_vars(InductionVarList iv_list, bool to_dot)
+    std::string prettyprint_induction_vars(const InductionVarList& iv_list, bool to_dot)
     {
         std::string result = "";
         std::string eol = (to_dot ? "\\n" : "\n");
-        for(InductionVarList::iterator it = iv_list.begin(); it != iv_list.end(); )
+        for(InductionVarList::const_iterator it = iv_list.begin(); it != iv_list.end(); )
         {
             result += prettyprint_induction_var(*it);
             ++it;
@@ -169,35 +215,35 @@ namespace Utils {
         return result;
     }
 
-    void print_induction_vars(InductionVarsPerNode iv_list)
+    void print_induction_vars(const InductionVarsPerNode& iv_list)
     {
         std::cerr << "    Induction Variables: " << std::endl;
-        for(InductionVarsPerNode::iterator it = iv_list.begin(); it != iv_list.end(); ++it)
+        for (InductionVarsPerNode::const_iterator it = iv_list.begin(); it != iv_list.end(); ++it)
         {
             std::cerr << "        * " << it->first << ": " << prettyprint_induction_var(it->second) << std::endl;
         }
     }
     
-    bool induction_variable_list_contains_variable(InductionVarList iv_list, NBase var)
+    bool induction_variable_list_contains_variable(const InductionVarList& iv_list, const NBase& var)
     {
-        for(InductionVarList::iterator it = iv_list.begin(); it != iv_list.end(); ++it)
-            if(Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/ true))
+        for (InductionVarList::const_iterator it = iv_list.begin(); it != iv_list.end(); ++it)
+            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/ true))
                 return true;
         return false;
     }
 
-    InductionVar* get_induction_variable_from_list(InductionVarList ivs, NBase var)
+    InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var)
     {
-        for(InductionVarList::iterator it = ivs.begin(); it != ivs.end(); ++it)
-            if(Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip conversion*/ true))
+        for (InductionVarList::const_iterator it = ivs.begin(); it != ivs.end(); ++it)
+            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip conversion*/ true))
                 return *it;
         return NULL;
     }
 
-    InductionVar* get_induction_variable_from_list(Utils::InductionVarsPerNode ivs, NBase var)
+    InductionVar* get_induction_variable_from_list(const Utils::InductionVarsPerNode& ivs, const NBase& var)
     {
-        for(InductionVarsPerNode::iterator it = ivs.begin(); it != ivs.end(); ++it)
-            if(Nodecl::Utils::structurally_equal_nodecls(it->second->get_variable(), var, /*skip conversion*/ true))
+        for (InductionVarsPerNode::const_iterator it = ivs.begin(); it != ivs.end(); ++it)
+            if (Nodecl::Utils::structurally_equal_nodecls(it->second->get_variable(), var, /*skip conversion*/ true))
                 return it->second;
         return NULL;
     }

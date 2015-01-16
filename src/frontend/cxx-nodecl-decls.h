@@ -36,5 +36,6 @@ struct nodecl_tag
 };
 
 struct nodecl_expr_info_tag;
+typedef struct nodecl_expr_info_tag nodecl_expr_info_t;
 
 #endif // CXX_NODECL_OUTPUT_DECLS_H

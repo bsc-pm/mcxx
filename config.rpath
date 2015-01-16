@@ -1,0 +1,4 @@
+# This file is required because we use iconv.m4
+#
+# config.rpath actually belongs to gettext but we do not
+# use gettext

@@ -32,6 +32,7 @@ namespace Analysis {
 
 namespace {
     
+#if 0
     bool sync_in_all_branches(Node* current, Node* original)
     {
         bool res = false;
@@ -115,6 +116,7 @@ namespace {
             }
         }
     }
+#endif
     
     Utils::UsageKind compute_usage_in_region_rec(Node* current, NBase n, Node* region)
     {
@@ -348,7 +350,7 @@ namespace {
             {
                 if(usage_in_task._usage_type & Utils::UsageKind::DEFINED)
                 {
-                    GlobalVarsSet global_vars = _graph->get_global_variables();
+                    NodeclSet global_vars = _graph->get_global_variables();
                     if((global_vars.find(n) != global_vars.end()) || 
                         Utils::nodecl_set_contains_nodecl(n, task->get_live_out_vars()))
                     {

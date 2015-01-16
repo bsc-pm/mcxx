@@ -87,6 +87,7 @@ void dhash_ptr_destroy(dhash_ptr_t* dhash)
     }
 
     xfree(dhash->buckets);
+    xfree(dhash);
 }
 
 void* dhash_ptr_query(dhash_ptr_t* dhash, const char* key)

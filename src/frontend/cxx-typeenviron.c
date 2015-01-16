@@ -49,13 +49,6 @@
 #undef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-static long long unsigned int _bytes_due_to_type_environment = 0;
-
-long long unsigned int type_environment_used_memory(void)
-{
-    return _bytes_due_to_type_environment;
-}
-
 /* Utility functions */
 static void next_offset_with_align(_size_t* current_offset, _size_t required_align)
 {
@@ -167,7 +160,7 @@ static void system_v_field_layout(scope_entry_t* field,
     }
     _size_t field_align = type_get_alignment(field_type);
 
-    if (field->entity_specs.is_bitfield)
+    if (symbol_entity_specs_get_is_bitfield(field))
     {
         _size_t initial_bit = 0;
         _size_t filled_bits = 0;
@@ -176,7 +169,7 @@ static void system_v_field_layout(scope_entry_t* field,
         // Bitfields are very special, otherwise all this stuff would be
         // extremely easy
         unsigned int bitsize = const_value_cast_to_4(
-                nodecl_get_constant(field->entity_specs.bitfield_size)
+                nodecl_get_constant(symbol_entity_specs_get_bitfield_size(field))
                 );
 
         if (!(*previous_was_bitfield))
@@ -240,7 +233,7 @@ static void system_v_field_layout(scope_entry_t* field,
             // Now move within the current storage
             filled_bits = bitsize;
 
-            if (!field->entity_specs.is_unnamed_bitfield)
+            if (!symbol_entity_specs_get_is_unnamed_bitfield(field))
             {
                 // Named bitfields DO contribute to the align of the whole struct
                 // Update the whole align, this is needed for the tail padding
@@ -256,20 +249,20 @@ static void system_v_field_layout(scope_entry_t* field,
         // Note that the byte boundary is aligned to the storage unit of this bitfield
         // which may be shared with another (possibly bitfield)field
         _size_t bitfield_offset = compute_bitfield_offset((*offset), field_align);
-        field->entity_specs.field_offset = bitfield_offset;
-        field->entity_specs.bitfield_offset = (*offset);
+        symbol_entity_specs_set_field_offset(field, bitfield_offset);
+        symbol_entity_specs_set_bitfield_offset(field, (*offset));
 
         if (CURRENT_CONFIGURATION->type_environment->endianness == ENV_LITTLE_ENDIAN)
         {
             // Little endian lays bits starting from the least significant one
-            field->entity_specs.bitfield_first = initial_bit;
-            field->entity_specs.bitfield_last = field->entity_specs.bitfield_first + (filled_bits - 1);
+            symbol_entity_specs_set_bitfield_first(field, initial_bit);
+            symbol_entity_specs_set_bitfield_last(field, symbol_entity_specs_get_bitfield_first(field) + (filled_bits - 1));
         }
         else
         {
             // Big endian lays bits starting from the most significant one
-            field->entity_specs.bitfield_first = (field_size * 8 - initial_bit) - 1;
-            field->entity_specs.bitfield_last = field->entity_specs.bitfield_first - (filled_bits - 1);
+            symbol_entity_specs_set_bitfield_first(field, (field_size * 8 - initial_bit) - 1);
+            symbol_entity_specs_set_bitfield_last(field, symbol_entity_specs_get_bitfield_first(field) - (filled_bits - 1));
         }
 
         // Advance always the offset (we will go backwards for consecutive bitfields)
@@ -289,7 +282,7 @@ static void system_v_field_layout(scope_entry_t* field,
         next_offset_with_align(&(*offset), field_align);
 
         // Store the byte boundary (*offset) for this field
-        field->entity_specs.field_offset = (*offset);
+        symbol_entity_specs_set_field_offset(field, (*offset));
 
         // Now update the (*offset), we have to advance at least field_size
         (*offset) += field_size;
@@ -772,8 +765,8 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
     // Cases: previous_offset == NULL means we are at the beginning
     // current_offset == NULL means we are the largest offset
 
-    offset_info_t* new_offset_info = counted_xcalloc(1, 
-            sizeof(*new_offset_info), &_bytes_due_to_type_environment);
+    offset_info_t* new_offset_info = xcalloc(1, 
+            sizeof(*new_offset_info));
     new_offset_info->offset = offset;
 
     scope_entry_list_t* new_entry_list = entry_list_new(entry);
@@ -862,9 +855,9 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
             scope_entry_t* nonstatic_data_member = entry_list_iterator_current(it);
 
             // Bitfields are not taken into account here
-            if (!nonstatic_data_member->entity_specs.is_bitfield)
+            if (!symbol_entity_specs_get_is_bitfield(nonstatic_data_member))
             {
-                _size_t field_offset = nonstatic_data_member->entity_specs.field_offset;
+                _size_t field_offset = symbol_entity_specs_get_field_offset(nonstatic_data_member);
 
                 // Recurse
                 cxx_abi_register_subobject_offset(layout_info,
@@ -1004,7 +997,7 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         layout_info_t* layout_info)
 {
     unsigned int bitsize 
-        = const_value_cast_to_4(nodecl_get_constant(member->entity_specs.bitfield_size));
+        = const_value_cast_to_4(nodecl_get_constant(symbol_entity_specs_get_bitfield_size(member)));
 
     _size_t size_of_member = type_get_size(member->type_information);
     _size_t initial_bit = 0;
@@ -1069,24 +1062,24 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         
         // Keep the storage unit boundary offset of this bitfield
         _size_t bitfield_offset = compute_bitfield_offset(offset, member_align);
-        member->entity_specs.field_offset = bitfield_offset;
-        member->entity_specs.bitfield_offset = offset;
+        symbol_entity_specs_set_field_offset(member, bitfield_offset);
+        symbol_entity_specs_set_bitfield_offset(member, offset);
 
         if (CURRENT_CONFIGURATION->type_environment->endianness == ENV_LITTLE_ENDIAN)
         {
             // Little endian lays bits starting from the least significant one
-            member->entity_specs.bitfield_first = initial_bit;
-            member->entity_specs.bitfield_last = member->entity_specs.bitfield_first + (filled_bits - 1);
+            symbol_entity_specs_set_bitfield_first(member, initial_bit);
+            symbol_entity_specs_set_bitfield_last(member, symbol_entity_specs_get_bitfield_first(member) + (filled_bits - 1));
         }
         else
         {
             // Big endian lays bits starting from the most significant one
-            member->entity_specs.bitfield_first = (size_of_member * 8 - initial_bit) - 1;
-            member->entity_specs.bitfield_last = member->entity_specs.bitfield_first - (filled_bits - 1);
+            symbol_entity_specs_set_bitfield_first(member, (size_of_member * 8 - initial_bit) - 1);
+            symbol_entity_specs_set_bitfield_last(member, symbol_entity_specs_get_bitfield_first(member) - (filled_bits - 1));
         }
 
         // Update align if not unnamed
-        if (!member->entity_specs.is_unnamed_bitfield)
+        if (!symbol_entity_specs_get_is_unnamed_bitfield(member))
             layout_info->align = MAX(layout_info->align, member_align);
     }
     else
@@ -1098,7 +1091,7 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         next_offset_with_align(&offset, integral_type_align);
         
         // Keep the byte boundary offset of this bitfield
-        member->entity_specs.field_offset = offset;
+        symbol_entity_specs_set_field_offset(member, offset);
 
         // Advance the required amount of bytes
         used_bytes += bitsize / 8;
@@ -1109,7 +1102,7 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         // FIXME - bitfield_first and bitfield_last not filled here!
 
         // Update align if not unnamed
-        if (!member->entity_specs.is_unnamed_bitfield)
+        if (!symbol_entity_specs_get_is_unnamed_bitfield(member))
             layout_info->align = MAX(layout_info->align, integral_type_align);
     }
 
@@ -1134,7 +1127,7 @@ static void cxx_abi_lay_member_out(type_t* t,
         char is_virtual_base_class,
         char is_last_member)
 {
-    if (member->entity_specs.is_bitfield)
+    if (symbol_entity_specs_get_is_bitfield(member))
     {
         cxx_abi_lay_bitfield(t, member, layout_info);
     }
@@ -1278,7 +1271,7 @@ static void cxx_abi_lay_member_out(type_t* t,
             }
             else
             {
-                member->entity_specs.field_offset = offset;
+                symbol_entity_specs_set_field_offset(member, offset);
                 cxx_abi_register_subobject_offset(layout_info, member, offset);
 
                 // Otherwise, if D is a data member, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
@@ -1344,11 +1337,11 @@ static char is_pod_type_layout(type_t* t)
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
 
-            if (data_member->entity_specs.is_bitfield)
+            if (symbol_entity_specs_get_is_bitfield(data_member))
             {
                 _size_t bits_of_bitfield = 
                     const_value_cast_to_8(
-                            nodecl_get_constant(data_member->entity_specs.bitfield_size)
+                            nodecl_get_constant(symbol_entity_specs_get_bitfield_size(data_member))
                             );
 
                 _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
@@ -1776,11 +1769,17 @@ static type_environment_t linux_amd64;
 static type_environment_t linux_ia64;
 static type_environment_t linux_ppc32;
 static type_environment_t linux_ppc64;
+static type_environment_t linux_ppc64_le;
+static type_environment_t linux_bgq_ppc64;
 static type_environment_t linux_spu;
 static type_environment_t linux_arm_eabi;
 static type_environment_t linux_arm64;
 static type_environment_t solaris_sparcv9;
 
+static type_t* bgq_get_pointer_to_char(void)
+{
+    return get_pointer_type(get_char_type());
+}
 void init_type_environments(void)
 {
     static char inited = 0;
@@ -2007,7 +2006,7 @@ void init_type_environments(void)
     //     Linux PowerPC 32
     // ***************************+***************
     linux_ppc32.environ_id = "linux-ppc32";
-    linux_ppc32.environ_name = "Linux PowerPC 32";
+    linux_ppc32.environ_name = "Linux PowerPC 32 (ELFv1 Big Endian)";
 
     linux_ia64.endianness = ENV_BIG_ENDIAN;
 
@@ -2079,7 +2078,7 @@ void init_type_environments(void)
     //     Linux PowerPC 64
     // ***************************+***************
     linux_ppc64.environ_id = "linux-ppc64";
-    linux_ppc64.environ_name = "Linux PowerPC 64";
+    linux_ppc64.environ_name = "Linux PowerPC 64 (ELFv1 Big Endian)";
 
     linux_ppc64.endianness = ENV_BIG_ENDIAN;
 
@@ -2137,7 +2136,7 @@ void init_type_environments(void)
     // Valid both for C and C++
     linux_ppc64.compute_sizeof = generic_system_v_sizeof;
 
-    // In PPC64 a size_t is an unsigned long 
+    // In PPC64 a size_t is an unsigned long
     linux_ppc64.type_of_sizeof = get_unsigned_long_int_type;
     linux_ppc64.type_of_ptrdiff_t = get_signed_long_int_type;
 
@@ -2147,6 +2146,87 @@ void init_type_environments(void)
     // __builtin_va_list
     linux_ppc64.sizeof_builtin_va_list = 8;
     linux_ppc64.alignof_builtin_va_list = 8;
+
+    // ***************************+***************
+    //     Linux PPC64-BGQ
+    // ***************************+***************
+    linux_bgq_ppc64 = linux_ppc64;
+    linux_bgq_ppc64.environ_id = "linux-bgq-ppc64";
+    linux_bgq_ppc64.environ_name = "BlueGene/Q PowerPC 64 (ELFv1 Big Endian)";
+    linux_bgq_ppc64.builtin_va_list_type = bgq_get_pointer_to_char;
+
+    // ***************************+***************
+    //     Linux PowerPC 64 Elv2 Little endian
+    // ***************************+***************
+    linux_ppc64_le.environ_id = "linux-ppc64-le";
+    linux_ppc64_le.environ_name = "Linux PowerPC 64 (ELFv2 Little Endian)";
+
+    linux_ppc64_le.endianness = ENV_LITTLE_ENDIAN;
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    linux_ppc64_le.sizeof_bool = 1;
+    linux_ppc64_le.alignof_bool = 1;
+
+    linux_ppc64_le.int_type_of_wchar_t = get_signed_int_type;
+    linux_ppc64_le.sizeof_wchar_t = 4;
+    linux_ppc64_le.alignof_wchar_t = 4;
+
+    linux_ppc64_le.sizeof_unsigned_short = 2;
+    linux_ppc64_le.alignof_unsigned_short = 2;
+
+    linux_ppc64_le.sizeof_signed_short = 2;
+    linux_ppc64_le.alignof_signed_short = 2;
+
+    linux_ppc64_le.sizeof_unsigned_int = 4;
+    linux_ppc64_le.alignof_unsigned_int = 4;
+
+    linux_ppc64_le.sizeof_signed_int = 4;
+    linux_ppc64_le.alignof_signed_int = 4;
+
+    linux_ppc64_le.sizeof_unsigned_long = 8;
+    linux_ppc64_le.alignof_unsigned_long = 8;
+
+    linux_ppc64_le.sizeof_signed_long = 8;
+    linux_ppc64_le.alignof_signed_long = 8;
+
+    linux_ppc64_le.sizeof_unsigned_long_long = 8;
+    linux_ppc64_le.alignof_unsigned_long_long = 8;
+
+    linux_ppc64_le.sizeof_signed_long_long = 8;
+    linux_ppc64_le.alignof_signed_long_long = 8;
+
+    DEFINE_FLOAT_TYPE(linux_ppc64_le, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_ppc64_le, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_ppc64_le, long_double, binary_float_2x64)
+
+    linux_ppc64_le.sizeof_pointer = 8;
+    linux_ppc64_le.alignof_pointer = 8;
+
+    // One 'ptrdiff_t'
+    linux_ppc64_le.sizeof_pointer_to_data_member = 8;
+    linux_ppc64_le.alignof_pointer_to_data_member = 8;
+
+    linux_ppc64_le.sizeof_function_pointer = 8;
+    linux_ppc64_le.alignof_function_pointer = 8;
+
+    // Two 'ptrdiff_t'
+    linux_ppc64_le.sizeof_pointer_to_member_function = 16;
+    linux_ppc64_le.alignof_pointer_to_member_function = 8;
+
+    // Valid both for C and C++
+    linux_ppc64_le.compute_sizeof = generic_system_v_sizeof;
+
+    // In PPC64 a size_t is an unsigned long
+    linux_ppc64_le.type_of_sizeof = get_unsigned_long_int_type;
+    linux_ppc64_le.type_of_ptrdiff_t = get_signed_long_int_type;
+
+    // In PPC64 'char' == 'unsigned char'
+    linux_ppc64_le.char_type = get_unsigned_char_type;
+
+    // __builtin_va_list
+    linux_ppc64_le.sizeof_builtin_va_list = 8;
+    linux_ppc64_le.alignof_builtin_va_list = 8;
 
     // ***************************+***************
     //     Linux SPU
@@ -2460,6 +2540,8 @@ type_environment_t* type_environment_list[] = {
     &linux_ia64,
     &linux_ppc32,
     &linux_ppc64,
+    &linux_bgq_ppc64,
+    &linux_ppc64_le,
     &linux_amd64,
     &linux_spu,
     &linux_arm_eabi,

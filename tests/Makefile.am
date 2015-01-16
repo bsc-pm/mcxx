@@ -33,7 +33,6 @@ DISTCLEANFILES+=test.log test.log.xml
 
 prepare-check: ./config/bets wipe-modules
 	chmod +x config/bets
-	chmod +x config/mercurium-cxx11
 	chmod +x config/mercurium-libraries
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
@@ -54,6 +53,8 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-run
 	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
+	chmod +x */mercurium-cxx11
+	chmod +x */mercurium-cxx14
 
 wipe-modules:
 	rm -f *.mod
@@ -91,6 +92,7 @@ CORE_DIRS=\
 		$(BETS_DIRS)/02_typecalc_c.dg \
 		$(BETS_DIRS)/02_typecalc_cxx.dg \
 		$(BETS_DIRS)/02_typecalc_cxx11.dg \
+		$(BETS_DIRS)/02_typecalc_cxx14.dg \
 		$(BETS_DIRS)/03_extensions_c.dg \
 		$(BETS_DIRS)/03_extensions_cxx.dg \
 		$(BETS_DIRS)/04_compat_cxx0x.dg \

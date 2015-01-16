@@ -123,7 +123,7 @@ namespace TL { namespace Nanox {
         }
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+                lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         ERROR_CONDITION (reduction_items.empty(), "No reductions to process", 0);
 
         for (TL::ObjectList<OutlineDataItem*>::iterator it = reduction_items.begin();
@@ -142,7 +142,7 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
 
         TL::ObjectList<OutlineDataItem*> reduction_items = outline_info.get_data_items().filter(
-                predicate(lift_pointer(functor(&OutlineDataItem::is_reduction))));
+               lift_pointer<OutlineDataItem>(&OutlineDataItem::is_reduction));
         if (!reduction_items.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> reduction_stmts;
@@ -161,7 +161,7 @@ namespace TL { namespace Nanox {
                 scope_entry_t* shared_symbol_proxy = (scope_entry_t*)xcalloc(1, sizeof(*shared_symbol_proxy));
                 shared_symbol_proxy->symbol_name = UNIQUESTR_LITERAL("<<reduction-variable>>"); // Crude way to ensure it is replaced
                 shared_symbol_proxy->kind = shared_symbol->kind;
-                shared_symbol_proxy->entity_specs = shared_symbol->entity_specs;
+                symbol_entity_specs_copy_from(shared_symbol_proxy, shared_symbol);
                 shared_symbol_proxy->decl_context = shared_symbol->decl_context;
                 shared_symbol_proxy->type_information = shared_symbol->type_information;
                 shared_symbol_proxy->locus = shared_symbol->locus;

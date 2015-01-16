@@ -31,7 +31,7 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-visitor.hpp"
-#include "tl-rename-visitor.hpp"
+#include "tl-nodecl-replacer.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -53,6 +53,15 @@ namespace Analysis {
         //!Usage of IPA modifiable variable (reference variables, pointed values of pointer parameters and global variables)
         IpUsageMap _ipa_modif_vars;
         
+        //! Path to the file with the c lib functions
+        std::string _c_lib_file;
+
+        //! Scope where the c_lib functions are registered
+        Scope _c_lib_sc;
+
+        //! Load the functions from the file with the C lib functions usage
+        void load_c_lib_functions();
+
         //!Initialize all IPA modifiable variables' usage to NONE
         void initialize_ipa_var_usage();
         
@@ -60,7 +69,9 @@ namespace Analysis {
          * \param current Node from which the method begins the computation
          */
         void compute_usage_rec(Node* current);
-        
+
+        void purge_local_variables(Scope graph_sc, NodeclSet& vars_set);
+
         /*!Recursive method that returns a list with three elements:
          * - The first is the list of upper exposed variables of the graph node;
          * - The second is the list of killed variables of the graph node
@@ -127,6 +138,12 @@ namespace Analysis {
         //! List of IPA modifiable variables appeared until a given point of the analysis
         IpUsageMap* _ipa_modif_vars;
 
+        //! Path to the file with the c lib functions
+        std::string _c_lib_file;
+
+        //! Scope where the c lib functions are registered
+        Scope _c_lib_sc;
+
         /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
          *  When a function call appears in a split statement we calculate the first time (the func_call node)
          *  but for the other nodes, we just propagate the information
@@ -170,18 +187,18 @@ namespace Analysis {
         // *** Known called function code use-def analysis *** //
         void propagate_called_func_pointed_values_usage_to_func_call(
                 const NodeclSet& called_func_usage, 
-                const sym_to_nodecl_map& ptr_param_to_arg_map, 
+                const SymToNodeclMap& ptr_param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
-        void propagate_called_func_ref_params_usage_to_func_call(
+        void propagate_called_func_params_usage_to_func_call(
                 const NodeclSet& called_func_usage,
-                const sym_to_nodecl_map& ref_param_to_arg_map,
+                const SymToNodeclMap& ref_param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void propagate_global_variables_usage(
-                const NodeclSet& called_func_usage, 
-                const GlobalVarsSet& called_global_vars, 
-                const sym_to_nodecl_map& param_to_arg_map,
+                const NodeclSet& called_func_usage,
+                const NodeclSet& called_global_vars,
+                const SymToNodeclMap& param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void ipa_propagate_known_function_usage(
@@ -190,10 +207,8 @@ namespace Analysis {
         
         
         // *** Unknown called function code use-def analysis *** //
-        void parse_parameter(std::string current_param, const NBase& arg);
-        
-        bool parse_c_functions_file(Symbol func_sym, const Nodecl::List& args);
-        
+        bool check_c_lib_functions(Symbol func_sym, const Nodecl::List& args);
+
         bool check_function_gcc_attributes(Symbol func_sym, const Nodecl::List& args);
         
         void ipa_propagate_unreachable_function_usage(Symbol func_sym, 
@@ -214,7 +229,11 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars);
+        UsageVisitor(Node* n,
+                ExtensibleGraph* pcfg,
+                IpUsageMap* ipa_modifiable_vars,
+                std::string c_lib_file,
+                Scope c_lib_sc);
         
         // *** Modifiers *** //
         void compute_statement_usage(NBase st);
@@ -265,16 +284,14 @@ namespace Analysis {
     
     NBase simplify_pointer(const NBase& original_variables);
     Nodecl::List simplify_pointers(const Nodecl::List& original_variables);
+    Nodecl::List simplify_arguments(const Nodecl::List& original_args);
     
     NBase split_var_depending_on_usage(NBase container, NBase contained);
     
-    void get_modifiable_parameters_to_arguments_map(
-        const ObjectList<Symbol>& params, 
-        const Nodecl::List& args,
-        sym_to_nodecl_map& ptr_params, 
-        sym_to_nodecl_map& ref_params);
+    bool any_parameter_is_pointer(const ObjectList<Symbol>& params);
+    bool any_parameter_is_reference(const ObjectList<Symbol>& params);
     
-    sym_to_nodecl_map get_parameters_to_arguments_map(
+    SymToNodeclMap get_parameters_to_arguments_map(
         const ObjectList<Symbol>& params, 
         const Nodecl::List& args);
     

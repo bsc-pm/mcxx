@@ -41,8 +41,7 @@ namespace Vectorization
 {
     KNCVectorLegalization::KNCVectorLegalization(bool prefer_gather_scatter,
             bool prefer_mask_gather_scatter)
-        : _vector_length(KNC_VECTOR_LENGTH),
-        _prefer_gather_scatter(prefer_gather_scatter),
+        : _prefer_gather_scatter(prefer_gather_scatter),
         _prefer_mask_gather_scatter(prefer_mask_gather_scatter)
     {
         std::cerr << "--- KNC legalization phase ---" << std::endl;
@@ -124,8 +123,6 @@ namespace Vectorization
 
     void KNCVectorLegalization::visit(const Nodecl::VectorLoad& n)
     {
-
-
         const Nodecl::NodeclBase rhs = n.get_rhs();
         const Nodecl::NodeclBase mask = n.get_mask();
 
@@ -341,8 +338,8 @@ namespace Vectorization
             // TODO better
             n.replace(new_n);
 
-            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            Nodecl::NodeclBase::Children children = n.children();
+            for(Nodecl::NodeclBase::Children::iterator it = children.begin();
                     it != children.end();
                     it ++)
             {

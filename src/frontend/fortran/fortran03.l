@@ -150,7 +150,7 @@ static int count_hollerith_constant = 0;
 
 %}
 
-%option noyyalloc noyyrealloc noyyfree
+%option noyyalloc noyyrealloc noyyfree noinput
 
  /* Compatibility with different file formats unix/mac/dos */
 newline ([\n]|[\r]|([\r][\n]))
@@ -520,6 +520,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     {
         // Move on as if nothing happened
         // This should look like as if this had never happened
+        yy_set_bol(1);
         last_eos = 1;
         BEGIN(INITIAL);
     }
@@ -921,6 +922,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 @OMP-DEPEND-ITEM@ {
     parse_token_text();
     return SUBPARSE_OPENMP_DEPEND_ITEM;
+}
+
+@OMPSS-DEPENDENCY-EXPR@ {
+    parse_token_text();
+    return SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION;
 }
 
  /* Special tokens for placeholders */
@@ -3412,15 +3418,6 @@ static void parse_line_marker(const char* str, const char** filename, unsigned i
         internal_error("Junk at the end of a line marker '%s'. Junk -> '%s'", str, p);
     }
 }
-
-// Shut up the compiler
-#ifndef YY_NO_INPUT
-#ifdef __cplusplus
-    UNUSED_PARAMETER static int yyinput (void);
-#else
-    UNUSED_PARAMETER static int input  (void);
-#endif
-#endif
 
 void * mf03alloc (size_t bytes)
 {

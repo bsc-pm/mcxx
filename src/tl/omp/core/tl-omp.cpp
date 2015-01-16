@@ -98,36 +98,40 @@ namespace TL
         {
             // Remove implicit bit
             data_attribute = (DataSharingAttribute)(data_attribute & ~DS_IMPLICIT);
-            for (map_symbol_data_t::iterator it = _map->begin();
-                    it != _map->end();
+
+            // Traverse using insertion order
+            for (map_symbol_data_sharing_insertion_t::iterator it = _map->i.begin();
+                    it != _map->i.end();
                     it++)
             {
                 // Remove implicit bit
-                if ((DataSharingAttribute)(it->second.attr & ~DS_IMPLICIT) 
+                if ((DataSharingAttribute)(_map->m[*it].attr & ~DS_IMPLICIT) 
                         == data_attribute)
                 {
-                    sym_list.append(it->first);
+                    sym_list.append(*it);
                 }
             }
-        } 
+        }
 
         void DataSharingEnvironment::get_all_symbols_info(DataSharingAttribute data_attribute, 
                 ObjectList<DataSharingInfoPair>& sym_list)
         {
             // Remove implicit bit
             data_attribute = (DataSharingAttribute)(data_attribute & ~DS_IMPLICIT);
-            for (map_symbol_data_t::iterator it = _map->begin();
-                    it != _map->end();
+
+            // Traverse using insertion order
+            for (map_symbol_data_sharing_insertion_t::iterator it = _map->i.begin();
+                    it != _map->i.end();
                     it++)
             {
                 // Remove implicit bit
-                if ((DataSharingAttribute)(it->second.attr & ~DS_IMPLICIT) 
+                if ((DataSharingAttribute)(_map->m[*it].attr & ~DS_IMPLICIT) 
                         == data_attribute)
                 {
-                    sym_list.append(std::make_pair(it->first, it->second.reason));
+                    sym_list.append(std::make_pair(*it, _map->m[*it].reason));
                 }
             }
-        } 
+        }
 
         DataSharingEnvironment& DataSharingEnvironment::set_is_parallel(bool b)
         {
@@ -175,7 +179,7 @@ namespace TL
         void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
                 const std::string& reason)
         {
-            (_map->operator[](sym)) = DataSharingAttributeInfo(data_attr, reason);
+            (*_map)[sym] = DataSharingAttributeInfo(data_attr, reason);
         }
 
         void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
@@ -187,13 +191,15 @@ namespace TL
         void DataSharingEnvironment::set_reduction(const ReductionSymbol &reduction_symbol,
                 const std::string& reason)
         {
-            (_map->operator[](reduction_symbol.get_symbol())) = DataSharingAttributeInfo(DS_REDUCTION, reason);
+            TL::Symbol sym = reduction_symbol.get_symbol();
+            (*_map)[sym] = DataSharingAttributeInfo(DS_REDUCTION, reason);
             _reduction_symbols.append(reduction_symbol);
         }
 
         void DataSharingEnvironment::set_simd_reduction(const ReductionSymbol &reduction_symbol)
         {
-            (_map->operator[](reduction_symbol.get_symbol())) = DataSharingAttributeInfo(DS_SIMD_REDUCTION, /* reason */ "");
+            TL::Symbol sym = reduction_symbol.get_symbol();
+            (*_map)[sym] = DataSharingAttributeInfo(DS_SIMD_REDUCTION, /* reason */ "");
             _simd_reduction_symbols.append(reduction_symbol);
         }
 
@@ -230,8 +236,8 @@ namespace TL
         DataSharingEnvironment::DataSharingAttributeInfo
             DataSharingEnvironment::get_internal(Symbol sym)
         {
-            std::map<Symbol, DataSharingAttributeInfo>::iterator it = _map->find(sym);
-            if (it == _map->end())
+            std::map<Symbol, DataSharingAttributeInfo>::iterator it = _map->m.find(sym);
+            if (it == _map->m.end())
             {
                 return DataSharingAttributeInfo();
             }
@@ -280,12 +286,12 @@ namespace TL
         void OpenMPPhase::run(DTO& dto)
         {
             // Use the DTO instead
-            translation_unit = (*(Nodecl::NodeclBase*)dto["nodecl"].get_pointer());
+            translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
             global_scope = translation_unit.retrieve_context();
 
             if (dto.get_keys().contains("openmp_info"))
             {
-                openmp_info = RefPtr<Info>::cast_static(dto["openmp_info"]);
+                openmp_info = std::static_pointer_cast<Info>(dto["openmp_info"]);
             }
             else
             {
@@ -296,7 +302,7 @@ namespace TL
 
             if (dto.get_keys().contains("openmp_task_info"))
             {
-                function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+                function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
             }
 
             // Let the user register its slots

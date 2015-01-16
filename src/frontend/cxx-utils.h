@@ -53,6 +53,9 @@ MCXX_BEGIN_DECLS
 #define IS_CXX11_LANGUAGE (IS_CXX_LANGUAGE && CURRENT_CONFIGURATION->enable_cxx11)
 #define CXX11_LANGUAGE() if (IS_CXX11_LANGUAGE)
 
+#define IS_CXX14_LANGUAGE (IS_CXX_LANGUAGE && CURRENT_CONFIGURATION->enable_cxx14)
+#define CXX14_LANGUAGE() if (IS_CXX14_LANGUAGE)
+
 #define IS_C_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_C)
 #define C_LANGUAGE() if (IS_C_LANGUAGE)
 
@@ -60,10 +63,6 @@ MCXX_BEGIN_DECLS
 #define FORTRAN_LANGUAGE() if (IS_FORTRAN_LANGUAGE)
 
 #define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
-
-// Special xmalloc/xcalloc that count
-LIBMCXX_EXTERN void *counted_xmalloc(size_t nmemb, size_t size, unsigned long long *counter);
-LIBMCXX_EXTERN void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter);
 
 MCXX_END_DECLS
 

@@ -27,16 +27,11 @@
 #ifndef TL_ANALYSIS_INTERFACE_HPP
 #define TL_ANALYSIS_INTERFACE_HPP
 
-#include "tl-analysis-singleton.hpp"
+#include "tl-analysis-base.hpp"
 
 #include "tl-tribool.hpp"
 #include "tl-omp.hpp"
 #include <set>
-
-//#include "tl-induction-variables-data.hpp"
-//#include "tl-nodecl-visitor.hpp"
-//#include "tl-objectlist.hpp"
-//#include "tl-omp.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -102,7 +97,7 @@ namespace Analysis {
                     const Nodecl::NodeclBase& n);
             virtual Utils::InductionVarList get_linear_variables(
                     const Nodecl::NodeclBase& scope);
-            virtual NBase get_linear_variable_lower_bound(
+            virtual NodeclSet get_linear_variable_lower_bound(
                     const NBase& scope, 
                     const NBase& n);
             virtual NBase get_linear_variable_increment(
@@ -117,7 +112,7 @@ namespace Analysis {
             virtual bool is_non_reduction_basic_induction_variable(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-            virtual Nodecl::NodeclBase get_induction_variable_lower_bound(
+            virtual NodeclSet get_induction_variable_lower_bound_list(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
             virtual Nodecl::NodeclBase get_induction_variable_increment(
@@ -125,6 +120,10 @@ namespace Analysis {
                     const Nodecl::NodeclBase& n);
             virtual Utils::InductionVarList get_induction_variables(
                     const Nodecl::NodeclBase& scope);
+ 
+            virtual int get_assume_aligned_attribute(
+                    const NBase& scope, 
+                    const Nodecl::Symbol& n);
             
             // *** Queries about Auto-Scoping *** //
 
@@ -133,7 +132,7 @@ namespace Analysis {
 
 
             bool is_ompss_reduction( const Nodecl::NodeclBase& n,
-                    RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const;
+                    std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks ) const;
 
             /*
             DEPRECATED bool reach_defs_depend_on_iv(

@@ -130,6 +130,37 @@ def parse_rules(f):
                 rule_map[rule_name].append( nodecl_structure )
             else:
                 rule_map[rule_name].append( RuleRef(rhs) )
+
+    for current_rule_name in rule_map:
+        can_be_seq = 1
+        can_be_opt = 1
+        has_to_be_seq = 0
+        has_to_be_opt = 0
+        for rhs in rule_map[current_rule_name]:
+            if rhs.__class__ == NodeclStructure:
+                if has_to_be_seq:
+                    raise Exception("inconsistent RHS: should generate a list, not a single node")
+                if has_to_be_opt:
+                    raise Exception("inconsistent RHS: should generate an optional node, not a single node")
+                can_be_seq = 0
+                can_be_opt = 0
+            elif rhs.__class__ == RuleRef:
+                current_is_seq = rhs.rule_ref.find("-seq") > 0
+                current_is_opt = rhs.rule_ref.find("-opt") > 0
+                if not can_be_seq and current_is_seq:
+                    raise Exception("inconsistent RHS: cannot generate a list")
+                if not can_be_opt and current_is_opt:
+                    raise Exception("inconsistent RHS: cannot generate an optional node")
+                if not current_is_seq and has_to_be_seq:
+                    raise Exception("inconsistent RHS: must generate a list")
+                if not current_is_opt and has_to_be_opt:
+                    raise Exception("inconsistent RHS: must generate an optional node")
+                if current_is_seq:
+                    has_to_be_seq = 1
+                if current_is_opt:
+                    has_to_be_opt = 1
+            else:
+                raise Exception("invalid kind of node")
     return rule_map
 
 
@@ -849,7 +880,6 @@ def generate_nodecl_classes_base(rule_map):
    print "#define TL_NODECL_HPP"
    print ""
    print "#include <string>"
-   print "#include <sstream>"
    print "#include \"tl-nodecl-base.hpp\""
    print "#include \"mem.h\""
    
@@ -958,9 +988,9 @@ def generate_routines_header(rule_map):
    print ""
    print "#include \"cxx-macros.h\""
    print "#include \"cxx-nodecl.h\""
-   print "#include \"cxx-scope-fwd.h\""
    print "#include \"cxx-type-fwd.h\""
    print "#include \"cxx-cexpr-fwd.h\""
+   print "#include \"cxx-scope-decls.h\""
    print "#include \"mem.h\""
    print ""
    print "MCXX_BEGIN_DECLS"
@@ -1186,7 +1216,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
     AST tree = nodecl_get_ast(n);
     if (tree == NULL)
         return;
-    switch (ASTType(tree))
+    switch (ASTKind(tree))
     {
         case AST_NODE_LIST: { AST it; for_each_element(tree, it) { AST elem = ASTSon1(it); nodecl_walk(external_visitor, _nodecl_wrap(elem)); } break; }
 """
@@ -1200,7 +1230,7 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
         print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, n); break; }" % (node[0], node[1], node[1])
     print """
        default:
-           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTType(tree))); }
+           { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTKind(tree))); }
     }
 }
 

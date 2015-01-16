@@ -107,13 +107,11 @@ LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr,
         decl_context_t decl_context,
-        char is_decltype,
-        char is_removed_reference);
+        char is_decltype);
 
 LIBMCXX_EXTERN nodecl_t typeof_expr_type_get_expression(type_t* t);
 LIBMCXX_EXTERN decl_context_t typeof_expr_type_get_expression_context(type_t* t);
 
-LIBMCXX_EXTERN char typeof_expr_type_is_removed_reference(type_t* t);
 LIBMCXX_EXTERN char typeof_expr_type_is_decltype(type_t* t);
 
 LIBMCXX_EXTERN char is_typeof_expr(type_t* t);
@@ -164,6 +162,18 @@ LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
         template_parameter_list_t* explicit_template_arguments,
         decl_context_t decl_context,
         const locus_t* locus);
+
+LIBMCXX_EXTERN type_t* deduce_auto_initializer(
+        nodecl_t nodecl_initializer,
+        type_t* type_to_deduce,
+        decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* deduce_decltype_auto_initializer(
+        nodecl_t nodecl_initializer,
+        type_t* type_to_deduce,
+        decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* compute_type_of_decltype_nodecl(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -252,6 +262,9 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
         decl_context_t decl_context,
         nodecl_t region, 
         decl_context_t decl_context_region);
+
+LIBMCXX_EXTERN type_t* get_array_type_unknown_size_dependent(
+        type_t* element_type);
 
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
         parameter_info_t* parameter_info, int num_parameters,
@@ -410,6 +423,9 @@ LIBMCXX_EXTERN char is_generic_vector_type(type_t* t);
 LIBMCXX_EXTERN char is_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_unnamed_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_named_class_type(type_t* possible_class);
+
+// Convenience
+LIBMCXX_EXTERN char is_class_type_or_array_thereof(type_t* t);
 
 LIBMCXX_EXTERN char is_literal_type(type_t* possible_union);
 
@@ -785,7 +801,6 @@ LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);
-LIBMCXX_EXTERN long long unsigned int type_system_used_memory(void);
 
 LIBMCXX_EXTERN const char* sci_conversion_to_str(standard_conversion_item_t e);
 
@@ -815,18 +830,6 @@ LIBMCXX_EXTERN void class_type_get_virtual_base_with_offset_num(type_t* t, int n
         scope_entry_t** symbol, 
         _size_t* offset);
 
-LIBMCXX_EXTERN unsigned int get_array_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_class_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_function_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_function_type_reused(void);
-LIBMCXX_EXTERN unsigned int get_function_type_requested(void);
-LIBMCXX_EXTERN unsigned int get_pointer_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_pointer_to_member_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_qualified_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_reference_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_vector_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_enum_type_counter(void);
-LIBMCXX_EXTERN unsigned int get_template_type_counter(void);
 LIBMCXX_EXTERN size_t get_type_t_size(void);
 
 LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
@@ -863,8 +866,11 @@ LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(sco
 
 // C++ auto
 LIBMCXX_EXTERN type_t* get_auto_type(void);
-LIBMCXX_EXTERN type_t* get_nondependent_auto_type(void);
+LIBMCXX_EXTERN type_t* get_decltype_auto_type(void);
 LIBMCXX_EXTERN char is_auto_type(type_t* t);
+LIBMCXX_EXTERN char type_contains_auto(type_t* t);
+
+LIBMCXX_EXTERN char is_decltype_auto_type(type_t* t);
 
 // C genericity stuff. 
 // Used only to implement gcc builtins. Not to be used elsewhere!
