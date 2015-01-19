@@ -18509,6 +18509,9 @@ static void build_scope_ambiguity_handler(AST a,
         nodecl_t* nodecl_output)
 {
     solve_ambiguous_statement(a, decl_context);
+    nodecl_t n = flush_extra_declared_symbols(ast_get_locus(a));
+    nodecl_free(n);
+
     // Restart
     build_scope_statement(a, decl_context, nodecl_output);
 }
