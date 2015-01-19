@@ -9217,7 +9217,7 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_
     }
 }
 
-static char check_opt_common_int_expr(const char* opt_name, nodecl_t* nodecl_value)
+static char check_opt_common_int_expr(nodecl_t* nodecl_value)
 {
     type_t* t = no_ref(nodecl_get_type(*nodecl_value));
     return is_integer_type(t)
@@ -9228,7 +9228,7 @@ static char check_opt_common_int_expr(const char* opt_name, nodecl_t* nodecl_val
 static char opt_common_int_expr(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
     fortran_check_expression(value, decl_context, nodecl_value);
-    char ok = check_opt_common_int_expr(opt_name, nodecl_value);
+    char ok = check_opt_common_int_expr(nodecl_value);
     if (!ok)
     {
         error_printf("%s: error: specifier %s requires a character expression\n",
@@ -9263,7 +9263,7 @@ static char opt_common_int_variable(AST value, decl_context_t decl_context, cons
     fortran_check_expression(value, decl_context, nodecl_value);
     type_t* t = nodecl_get_type(*nodecl_value);
 
-    char ok = is_lvalue_reference_type(t) && check_opt_common_int_expr(opt_name, nodecl_value);
+    char ok = is_lvalue_reference_type(t) && check_opt_common_int_expr(nodecl_value);
     if (!ok)
     {
         error_printf("%s: error: specifier %s requires an integer variable\n",
