@@ -693,7 +693,7 @@ void LoweringVisitor::emit_async_common(
         if_condition_end_opt << "}";
     }
 
-    Source num_dependences;
+    Source num_dependences, num_dependences_if_dynamic;
     // Spawn code
     spawn_code
         << "{"
@@ -714,6 +714,7 @@ void LoweringVisitor::emit_async_common(
         <<     if_condition_end_opt
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
+        <<     num_dependences_if_dynamic
         <<     dependences_info
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
@@ -751,7 +752,27 @@ void LoweringVisitor::emit_async_common(
     }
     else
     {
-        internal_error("Not yet implemented", 0);
+        Source num_deps_init;
+        num_dependences_if_dynamic
+            << "int num_dyn_dependences = " << num_deps_init << ";"
+            ;
+
+        if (num_static_dependences == 0)
+        {
+            num_deps_init
+                << as_expression(
+                        count_dynamic_dependences(outline_info));
+        }
+        else
+        {
+            num_deps_init
+                << num_static_dependences << "+ ("
+                << as_expression(
+                        count_dynamic_dependences(outline_info))
+                << ")";
+        }
+
+        num_dependences << "num_dyn_dependences";
     }
 
     int num_copies = 0;
@@ -792,7 +813,12 @@ void LoweringVisitor::emit_async_common(
             ;
     }
 
-    fill_dependences(construct, outline_info, dependences_info);
+    fill_dependences(construct,
+            outline_info,
+            num_static_dependences,
+            num_dynamic_dependences,
+            num_dependences,
+            dependences_info);
 
     FORTRAN_LANGUAGE()
     {
@@ -1537,6 +1563,87 @@ void LoweringVisitor::count_dependences(OutlineInfo& outline_info,
             }
         }
     }
+}
+
+Nodecl::NodeclBase LoweringVisitor::count_dynamic_dependences_extent(
+        const TL::ObjectList<DataReference::MultiDepIterator>& multideps)
+{
+    ERROR_CONDITION(multideps.empty(), "There must be multidependences", 0);
+    Nodecl::NodeclBase total_size;
+    for (TL::ObjectList<DataReference::MultiDepIterator>::const_iterator
+            mit = multideps.begin();
+            mit != multideps.end();
+            mit++)
+    {
+        // TL::Symbol iterator_sym = mit->first;
+        Nodecl::Range range = mit->second.as<Nodecl::Range>();
+
+        Nodecl::NodeclBase current_size =
+            Nodecl::Add::make(
+                    Nodecl::Minus::make(
+                        range.get_upper().shallow_copy(),
+                        range.get_lower().shallow_copy(),
+                        TL::Type::get_int_type(),
+                        range.get_locus()),
+                    const_value_to_nodecl(const_value_get_signed_int(1)),
+                    TL::Type::get_int_type(),
+                    range.get_locus());
+
+        if (total_size.is_null())
+        {
+            total_size = current_size;
+        }
+        else
+        {
+            total_size = Nodecl::Mul::make(
+                    total_size,
+                    current_size,
+                    TL::Type::get_int_type(),
+                    total_size.get_locus());
+        }
+    }
+
+    return total_size;
+}
+
+Nodecl::NodeclBase LoweringVisitor::count_dynamic_dependences(OutlineInfo& outline_info)
+{
+    Nodecl::NodeclBase result;
+
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+        for (TL::ObjectList<OutlineDataItem::DependencyItem>::iterator it_deps = deps.begin();
+                it_deps != deps.end();
+                it_deps++)
+        {
+            DataReference data_ref(it_deps->expression);
+            if (!data_ref.is_multidependence())
+                continue;
+
+            TL::ObjectList<DataReference::MultiDepIterator> multideps = data_ref.multidependences();
+
+            Nodecl::NodeclBase total_size = count_dynamic_dependences_extent(multideps);
+
+            if (result.is_null())
+            {
+                result = total_size;
+            }
+            else
+            {
+                result = Nodecl::Add::make(
+                        result,
+                        total_size,
+                        TL::Type::get_int_type(),
+                        result.get_locus());
+            }
+        }
+    }
+
+    return result;
 }
 
 void LoweringVisitor::count_copies(OutlineInfo& outline_info,
@@ -2339,21 +2446,26 @@ void LoweringVisitor::emit_translation_function_region(
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
+        int num_static_dependences,
+        int num_dynamic_dependences,
+        Source runtime_num_dependences,
         // out
         Source& result_src)
 {
-    fill_dependences_internal(ctr, outline_info, /* on_wait */ false, result_src);
+    fill_dependences_internal(ctr, outline_info, /* on_wait */ false,
+            num_static_dependences,
+            num_dynamic_dependences,
+            runtime_num_dependences,
+            result_src);
 }
 
 void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase ctr,
         TL::DataReference dep_expr,
         OutlineDataItem::DependencyDirectionality dir,
-        int current_dep_num,
-        Source& dependency_regions,
-        Source& dependency_init,
+        Source dimension_array,
+        Source& current_dep_num,
         Source& result_src)
-
 {
     ERROR_CONDITION(!dep_expr.is_valid(),
             "%s: Invalid dependency detected '%s'. Reason: %s\n",
@@ -2439,20 +2551,6 @@ void LoweringVisitor::handle_dependency_item(
 
     std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
 
-    dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
-        ;
-
-    Source dims_description;
-
-    if (IS_C_LANGUAGE
-            || IS_CXX_LANGUAGE)
-    {
-        dependency_regions << "=  { " << dims_description << "}";
-    }
-
-    dependency_regions << ";"
-        ;
-
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof_dependence();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
@@ -2467,26 +2565,11 @@ void LoweringVisitor::handle_dependency_item(
         dimension_lower_bound << "0";
         dimension_accessed_length << dimension_size;
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            dims_description
-                << "{"
-                << dimension_size << ","
-                << dimension_lower_bound << ","
-                << dimension_accessed_length
-                << "}"
-                ;
-        }
-        else
-        {
-            dependency_regions
-                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                ;
-        }
-
+        result_src
+            << dimension_array << "[0].size = " << dimension_size << ";"
+            << dimension_array << "[0].lower_bound = " << dimension_lower_bound << ";"
+            << dimension_array << "[0].accessed_length = " << dimension_accessed_length << ";"
+            ;
     }
     else
     {
@@ -2542,25 +2625,11 @@ void LoweringVisitor::handle_dependency_item(
         dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
         dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            dims_description
-                << "{"
-                << dimension_size << ","
-                << dimension_lower_bound << ","
-                << dimension_accessed_length
-                << "}"
-                ;
-        }
-        else
-        {
-            dependency_regions
-                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                ;
-        }
+        result_src
+            << dimension_array << "[0].size = " << dimension_size << ";"
+            << dimension_array << "[0].lower_bound = " << dimension_lower_bound << ";"
+            << dimension_array << "[0].accessed_length = " << dimension_accessed_length << ";"
+            ;
 
         if (num_dimensions > 1)
         {
@@ -2568,12 +2637,11 @@ void LoweringVisitor::handle_dependency_item(
             fill_dimensions(
                     num_dimensions,
                     /* current_dim */ num_dimensions,
-                    current_dep_num,
+                    dimension_array,
                     dep_source_expr,
                     dimension_sizes,
                     dependency_type,
-                    dims_description,
-                    dependency_regions,
+                    result_src,
                     dep_source_expr.retrieve_context());
         }
 
@@ -2584,37 +2652,50 @@ void LoweringVisitor::handle_dependency_item(
     if (num_dimension_items == 0)
         num_dimension_items = 1;
 
-    if (IS_C_LANGUAGE
-            || IS_CXX_LANGUAGE)
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-        if (current_dep_num > 0)
-        {
-            dependency_init << ", ";
-        }
-
-        dependency_init
-            << "{"
-            << "(void *) " << as_expression(base_address) << ", "
-            << dependency_flags << ", "
-            << "(short) " << num_dimension_items << ", "
-            << "dimensions_" << current_dep_num << ","
-            << dependency_offset
-            << "}";
+        result_src
+            << "dependences[" << current_dep_num << "].address = (void*)"
+            << as_expression(base_address) << ";"
+            ;
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
         result_src
-            << "dependences[" << current_dep_num << "].address = "
+            << "dependences[" << current_dep_num << "].address ="
             << as_expression(base_address) << ";"
-            << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
-            << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-            << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
-            << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
-            << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
-            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
-            << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
-            << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
             ;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    result_src
+        << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
+        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
+        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
+        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
+        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+        ;
+
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+        result_src
+            << "dependences[" << current_dep_num << "].dimensions = " << dimension_array << ";"
+            ;
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        result_src
+            << "dependences[" << current_dep_num << "].dimensions = &(" << dimension_array << "[0]);"
+            ;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 }
 
@@ -2622,26 +2703,16 @@ void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
         bool on_wait,
+        int num_static_dependences,
+        int num_dynamic_dependences,
+        Source& runtime_num_dependences,
         // out
         Source& result_src)
 {
-    Source dependency_init;
-
-    int num_deps;
-    int num_static_deps, num_dynamic_deps;
-    count_dependences(outline_info, num_static_deps, num_dynamic_deps);
-    if (num_dynamic_deps != 0)
-    {
-        internal_error("Not yet implemented", 0);
-    }
-    else
-    {
-        num_deps = num_static_deps;
-    }
-
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
-    if (num_deps == 0)
+    int total_dependences = num_static_dependences + num_dynamic_dependences;
+    if (total_dependences == 0)
     {
         if (Nanos::Version::interface_is_at_least("deps_api", 1001))
         {
@@ -2657,51 +2728,228 @@ void LoweringVisitor::fill_dependences_internal(
         return;
     }
 
-    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+    if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
-        Source dependency_regions;
+        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n",
+                ctr.get_locus_str().c_str());
+    }
 
-        result_src
-            << dependency_regions
-            << "nanos_data_access_t dependences[" << num_deps << "]"
-            ;
+    Source dependency_regions;
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
+    result_src
+        << dependency_regions
+        << "nanos_data_access_t dependences[" << runtime_num_dependences << "];"
+        ;
+
+
+    int current_static_dep_idx = 0;
+    bool there_are_dynamic_dependences = false;
+
+    // Static dependences
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+        for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
+                dep_it != deps.end();
+                dep_it++)
         {
-            result_src << " = {"
-                << dependency_init
-                << "};"
-                ;
-        }
-        result_src << ";"
-            ;
+            OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
+            TL::DataReference dep_expr(dep_it->expression);
 
-        int current_dep_num = 0;
+            if (dep_expr.is_multidependence())
+            {
+                there_are_dynamic_dependences = true;
+                // We will handle them later
+                continue;
+            }
+
+            Source current_dep_num;
+            current_dep_num << current_static_dep_idx;
+
+            Type dependency_type = dep_expr.get_data_type();
+            int num_dimensions = dependency_type.get_num_dimensions();
+
+            TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-dep-dimensions");
+            Source dimension_name;
+            dimension_name << "dimensions_" << (int)dep_dim_num;
+            dep_dim_num++;
+            dependency_regions << "nanos_region_dimension_t " << dimension_name << "[" << std::max(num_dimensions, 1) << "];"
+                ;
+
+            handle_dependency_item(ctr, dep_expr, dir,
+                    dimension_name, current_dep_num, result_src);
+
+            current_static_dep_idx++;
+        }
+    }
+
+    // Dynamic dependences
+    if (there_are_dynamic_dependences)
+    {
+        TL::Scope sc = ctr.retrieve_context();
+        TL::Symbol dyn_dep_idx;
+
+        TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-dynamic-deps");
+        std::stringstream ss; ss << "dyn_dep_idx_" << (int)dep_dim_num;
+        dep_dim_num++;
+
+        // Create the global dynamic index
+        dyn_dep_idx = sc.new_symbol(ss.str());
+        dyn_dep_idx.get_internal_symbol()->kind = SK_VARIABLE;
+        dyn_dep_idx.get_internal_symbol()->type_information = get_signed_int_type();
+        dyn_dep_idx.get_internal_symbol()->value =
+            const_value_to_nodecl(const_value_get_signed_int(0));
+        symbol_entity_specs_set_is_user_declared(dyn_dep_idx.get_internal_symbol(), 1);
+
+        result_src << as_symbol(dyn_dep_idx) << " = 0;";
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase def = Nodecl::CxxDef::make(
+                    Nodecl::NodeclBase::null(),
+                    dyn_dep_idx,
+                    ctr.get_locus());
+            // FIXME - Check this
+            ctr.prepend_sibling(def);
+        }
+
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
 
-            if (deps.empty())
-                continue;
-
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
-                    dep_it++, current_dep_num++)
+                    dep_it++)
             {
                 OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
                 TL::DataReference dep_expr(dep_it->expression);
 
-                handle_dependency_item(ctr, dep_expr, dir,
-                        current_dep_num, dependency_regions, dependency_init, result_src);
+                if (!dep_expr.is_multidependence())
+                {
+                    // Static dependences were handled above
+                    continue;
+                }
+
+                Source dependency_loop;
+                ObjectList<DataReference::MultiDepIterator> m = dep_expr.multidependences();
+
+                // Create the dimensionality array
+                Nodecl::NodeclBase total_base = count_dynamic_dependences_extent(m);
+
+                Source dimension_array;
+                dimension_array << "dyn_dimensions_" << (int)dep_dim_num;
+                dep_dim_num++;
+
+                Type dependency_type = dep_expr.get_data_type();
+                int num_dimensions = dependency_type.get_num_dimensions();
+
+                dependency_regions
+                    << "nanos_region_dimension_t " << dimension_array
+                        << "[" << as_expression(total_base) << "][" << std::max(1, num_dimensions) << "];"
+                    ;
+
+                // Index for the dimension array
+                ss.str(""); ss << "dyn_dim_idx_" << (int)dep_dim_num;
+                dep_dim_num++;
+
+                TL::Symbol dyn_dim_idx = sc.new_symbol(ss.str());
+                dyn_dim_idx.get_internal_symbol()->kind = SK_VARIABLE;
+                dyn_dim_idx.get_internal_symbol()->type_information = get_signed_int_type();
+                symbol_entity_specs_set_is_user_declared(dyn_dim_idx.get_internal_symbol(), 1);
+
+                result_src
+                    << as_symbol(dyn_dim_idx) << "= 0;"
+                    ;
+
+                Nodecl::Utils::SimpleSymbolMap symbol_map;
+
+                for (ObjectList<DataReference::MultiDepIterator>::iterator current_multidep = m.begin();
+                        current_multidep != m.end();
+                        current_multidep++)
+                {
+                    // Create the current induction variable
+                    ss.str(""); ss << "dyn_dep_" << (int)dep_dim_num;
+                    TL::Symbol new_sym = sc.new_symbol(ss.str() + "_" + current_multidep->first.get_name());
+                    new_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_sym.get_internal_symbol()->type_information = get_signed_int_type();
+                    symbol_entity_specs_set_is_user_declared(new_sym.get_internal_symbol(), 1);
+
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                new_sym,
+                                ctr.get_locus());
+                        // FIXME - Check this
+                        ctr.prepend_sibling(def);
+                    }
+
+                    symbol_map.add_map(current_multidep->first, new_sym);
+
+                    Nodecl::Range range = current_multidep->second.as<Nodecl::Range>();
+                    ERROR_CONDITION(!range.is<Nodecl::Range>(), "Invalid node %s", ast_print_node_type(range.get_kind()));
+
+                    Nodecl::NodeclBase lower = range.get_lower().shallow_copy();
+                    Nodecl::NodeclBase upper = range.get_upper().shallow_copy();
+                    Nodecl::NodeclBase stride = range.get_stride().shallow_copy();
+
+                    result_src
+                        << "for ("
+                        <<       as_symbol(new_sym) << "=" << as_expression(lower) << ";"
+                        <<       as_symbol(new_sym) << "<=" << as_expression(upper) << ";"
+                        <<       as_symbol(new_sym) << "+=" << as_expression(stride) << ")"
+                        << "{"
+                        ;
+
+
+                    if (current_multidep + 1 == m.end())
+                    {
+                        // If this is the last iterator, map the dependence and
+                        // generate the loop body
+                        Nodecl::NodeclBase orig_dep = current_multidep->second;
+
+                        // Now ignore the multidependence as such...
+                        Nodecl::NodeclBase current_dep = dep_expr;
+                        while (current_dep.is<Nodecl::OmpSs::MultiDependence>())
+                        {
+                            current_dep =
+                                current_dep.as<Nodecl::OmpSs::MultiDependence>().get_dependence();
+                        }
+
+                        // and update it
+                        Nodecl::NodeclBase updated_dep = Nodecl::Utils::deep_copy(
+                                current_dep, sc, symbol_map);
+
+                        Source current_dep_num;
+                        current_dep_num << as_symbol(dyn_dep_idx);
+
+                        Source current_dimension_array;
+                        current_dimension_array << dimension_array << "[" << as_symbol(dyn_dim_idx) << "]";
+
+                        Source current_dep_src;
+                        handle_dependency_item(ctr, updated_dep, dir,
+                                current_dimension_array,
+                                current_dep_num, current_dep_src);
+
+                        result_src << current_dep_src;
+                        result_src << as_symbol(dyn_dep_idx) << "++;";
+                        result_src << as_symbol(dyn_dim_idx) << "++;";
+
+                        for (ObjectList<DataReference::MultiDepIterator>::reverse_iterator
+                                rev_current_multidep = m.rbegin();
+                                rev_current_multidep != m.rend();
+                                rev_current_multidep++)
+                        {
+                            result_src
+                                << "}";
+                        }
+                    }
+                }
             }
         }
-    }
-    else
-    {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus_str().c_str());
     }
 }
 
@@ -2807,20 +3055,21 @@ Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr,
 void LoweringVisitor::fill_dimensions(
         int n_dims,
         int current_dim,
-        int current_dep_num,
+        Source& dimension_array,
         Nodecl::NodeclBase dep_expr,
         Nodecl::NodeclBase * dim_sizes,
         Type dep_type,
-        Source& dims_description,
-        Source& dependency_regions_code,
+        Source& result_src,
         Scope sc)
 {
     // We do not handle the contiguous dimension here
     if (current_dim > 1)
     {
-        fill_dimensions(n_dims, current_dim - 1, current_dep_num,
+        fill_dimensions(n_dims, current_dim - 1, dimension_array,
                 dep_expr, dim_sizes,
-                dep_type.array_element(), dims_description, dependency_regions_code, sc);
+                dep_type.array_element(),
+                result_src,
+                sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase array_lb, array_ub, size;
@@ -2858,24 +3107,11 @@ void LoweringVisitor::fill_dimensions(
         dimension_lower_bound << as_expression(adjusted_lb);
         dimension_accessed_length << as_expression(size);
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            dims_description << ", {" 
-                << dimension_size << ", " 
-                << dimension_lower_bound << ", "
-                << dimension_accessed_length 
-                << "}"
-                ;
-        }
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            dependency_regions_code
-                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].accessed_length = " << dimension_accessed_length << ";"
-                ;
-        }
+        result_src
+            << dimension_array << "[" << current_dim - 1 << "].size = " << dimension_size << ";"
+            << dimension_array << "[" << current_dim - 1 << "].lower_bound = " << dimension_lower_bound << ";"
+            << dimension_array << "[" << current_dim - 1 << "].accessed_length = " << dimension_accessed_length << ";"
+            ;
     }
 }
 

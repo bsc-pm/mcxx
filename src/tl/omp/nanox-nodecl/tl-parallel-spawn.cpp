@@ -258,7 +258,12 @@ namespace TL { namespace Nanox {
                 copy_imm_setup,
                 xlate_function_symbol);
 
-        fill_dependences(construct, outline_info, dependences_info);
+        fill_dependences(construct,
+                outline_info,
+                num_static_dependences,
+                num_dynamic_dependences,
+                num_dependences,
+                dependences_info);
 
         FORTRAN_LANGUAGE()
         {
