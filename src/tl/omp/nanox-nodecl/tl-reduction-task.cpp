@@ -322,47 +322,62 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase initializer = red->get_initializer().shallow_copy();
 
-        TL::Source omp_out_pointer_opt;
-        TL::Source extra_stuff_array_red;
+
+        TL::Type omp_out_type = reduction_type,
+                 omp_ori_type = reduction_type;
+
+        // These sources are only used in array reductions
+        TL::Source omp_out_extra_attributes,
+            extra_stuff_array_red;
+
         if (reduction_type.is_array())
         {
-            omp_out_pointer_opt << ", POINTER ";
-            Source extra_dims;
+            Source dims_descr;
+            TL::Type t = reduction_type;
+            int rank = 0;
+            if (t.is_fortran_array())
             {
-                TL::Type t = reduction_type;
-                int rank = 0;
-                if (t.is_fortran_array())
-                {
-                    rank = t.fortran_rank();
-                }
-
-                int i;
-                for (i = 0; i < rank; i++)
-                {
-                    Source lbound_src;
-                    lbound_src << "LBOUND(omp_orig, DIM = " << (rank - i) << ")";
-                    Source ubound_src;
-                    ubound_src << "UBOUND(omp_orig, DIM = " << (rank - i) << ")";
-
-                    extra_dims << "(" << lbound_src << ":" << ubound_src << ")";
-
-                    t = t.array_element();
-                }
-
-                extra_stuff_array_red << "ALLOCATE(omp_out" << extra_dims <<")\n";
-
+                rank = t.fortran_rank();
             }
+
+            dims_descr << "(";
+            omp_out_extra_attributes << ", POINTER, DIMENSION(";
+
+            int i;
+            for (i = 0; i < rank; i++)
+            {
+                if (i != 0)
+                {
+                    dims_descr << ",";
+                    omp_out_extra_attributes << ",";
+                }
+
+                dims_descr << "LBOUND(omp_orig, DIM = " << (rank - i) << ")"
+                    << ":"
+                    << "UBOUND(omp_orig, DIM = " << (rank - i) << ")"
+                    ;
+
+                omp_out_extra_attributes << ":";
+                t = t.array_element();
+            }
+
+            dims_descr << ")";
+            omp_out_extra_attributes << ")";
+
+            omp_out_type = t;
+
+            extra_stuff_array_red << "ALLOCATE(omp_out" << dims_descr <<")\n";
         }
 
         Source src;
         src << "SUBROUTINE " << fun_name << "(omp_out, omp_orig)\n"
             <<    "IMPLICIT NONE\n"
-            <<    as_type(reduction_type) << omp_out_pointer_opt << " ::  omp_out\n"
-            <<    as_type(reduction_type) <<  " :: omp_orig\n"
+            <<    as_type(omp_out_type) << omp_out_extra_attributes << " ::  omp_out\n"
+            <<    as_type(omp_ori_type) <<  " :: omp_orig\n"
             <<    extra_stuff_array_red
             <<    "omp_out = " << as_expression(initializer) << "\n"
-            << "END SUBROUTINE " << fun_name << "\n";
-        ;
+            << "END SUBROUTINE " << fun_name << "\n"
+            ;
 
         TL::Scope global_scope = construct.retrieve_context().get_global_scope();
         Nodecl::NodeclBase function_code = src.parse_global(global_scope);
