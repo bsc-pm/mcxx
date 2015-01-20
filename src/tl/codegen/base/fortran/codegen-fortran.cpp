@@ -763,7 +763,7 @@ OPERATOR_TABLE
         }
     }
 
-    // In a pure fortran example, this node never appear in the tree.
+    // In a pure fortran code, this node never appears in the tree.
     void FortranBase::visit(const Nodecl::Mod &node)
     {
         // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
@@ -772,6 +772,49 @@ OPERATOR_TABLE
         *(file) << ", ";
         walk(node.get_rhs());
         *(file) << ")";
+    }
+
+    void FortranBase::common_increment(const Nodecl::NodeclBase& item)
+    {
+        // Emit an assignment expression
+        walk(item);
+        *file << " = ";
+        walk(item);
+        *file << " + 1";
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Postincrement &node)
+    {
+        common_increment(node.get_rhs());
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Preincrement &node)
+    {
+        common_increment(node.get_rhs());
+    }
+
+    void FortranBase::common_decrement(const Nodecl::NodeclBase& item)
+    {
+        // Emit an assignment expression
+        walk(item);
+        *file << " = ";
+        walk(item);
+        *file << " - 1";
+    }
+
+    //
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Postdecrement &node)
+    {
+        common_decrement(node.get_rhs());
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Predecrement &node)
+    {
+        common_decrement(node.get_rhs());
     }
 
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
