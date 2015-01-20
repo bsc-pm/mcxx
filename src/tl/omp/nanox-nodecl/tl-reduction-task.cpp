@@ -95,7 +95,8 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
         TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
         ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
-        param_omp_out.get_internal_symbol()->entity_specs.is_allocatable = omp_out_type_is_allocatable;
+
+        symbol_entity_specs_set_is_allocatable(param_omp_out.get_internal_symbol(), omp_out_type_is_allocatable);
 
         TL::Symbol function_sym = inside_function.get_symbol_from_name(function_name);
         ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", function_name.c_str());
@@ -175,7 +176,7 @@ namespace TL { namespace Nanox {
                     red_fun_orig_var.str(),
                     /* omp_out_type */ reduction_type,
                     /* omp_in_type */ reduction_type.get_pointer_to(),
-                    reduction_item.get_internal_symbol()->entity_specs.is_allocatable);
+                    symbol_entity_specs_get_is_allocatable(reduction_item.get_internal_symbol()));
         }
         else
         {
