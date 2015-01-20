@@ -840,7 +840,7 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase statements = construct.get_statements();
 
     Nodecl::NodeclBase final_statements;
-    if(!environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::ConcurrentReduction>().is_null())
+    if(!environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::TaskReduction>().is_null())
     {
         // This final_statements will be used when we are generating the code for the 'final' clause
         final_statements = Nodecl::Utils::deep_copy(statements, construct);

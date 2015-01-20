@@ -1283,7 +1283,7 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::OpenMP::ConcurrentReduction& reduction)
+            void visit(const Nodecl::OpenMP::TaskReduction& reduction)
             {
                 Nodecl::List reductions = reduction.get_reductions().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = reductions.begin();

@@ -3175,7 +3175,7 @@ namespace TL { namespace OpenMP {
             if (is_inline_task)
             {
                 result_list.append(
-                        Nodecl::OpenMP::ConcurrentReduction::make(Nodecl::List::make(reduction_nodes), locus));
+                        Nodecl::OpenMP::TaskReduction::make(Nodecl::List::make(reduction_nodes), locus));
             }
             else
             {
