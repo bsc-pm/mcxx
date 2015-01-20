@@ -2786,7 +2786,7 @@ namespace TL { namespace OpenMP {
                 if (diff > 0)
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
-                ss << string_of_data_sharing(_data_sharing);
+                ss << " " << string_of_data_sharing(_data_sharing);
 
                 length = ss.str().size();
                 diff = 20 - length;
@@ -3180,16 +3180,33 @@ namespace TL { namespace OpenMP {
                     );
         }
 
+        if (emit_omp_report())
+        {
+            if (result_list.empty())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << "There are no data sharings\n"
+                    ;
+            }
+        }
+
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_sharing_env.get_all_dependences(dependences);
 
         if (emit_omp_report())
         {
-            if (!dependences.empty())
+            *_omp_report_file
+                << OpenMP::Report::indent
+                << "Dependences\n"
+                ;
+            if (dependences.empty())
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "Dependences\n"
+                    << OpenMP::Report::indent
+                    << "There are no dependences\n"
                     ;
             }
         }
