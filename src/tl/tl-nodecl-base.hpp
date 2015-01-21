@@ -157,6 +157,25 @@ namespace Nodecl {
                 }
             }
 
+            // C++ bits
+            bool is_value_dependent() const
+            {
+                return nodecl_expr_is_value_dependent(_n);
+            }
+            void set_is_value_dependent(bool b)
+            {
+                nodecl_expr_set_is_value_dependent(_n, b);
+            }
+
+            bool is_type_dependent() const
+            {
+                return nodecl_expr_is_type_dependent(_n);
+            }
+            void set_is_type_dependent(bool b)
+            {
+                nodecl_expr_set_is_type_dependent(_n, b);
+            }
+
             // Internal use only
             void* get_internal_tree_address();
     };
