@@ -834,14 +834,27 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     std::string append;
     if (IS_FORTRAN_LANGUAGE){
         append="_";
+        
+        std::string prepend_module="";
 
+        //FIXME: Improve the way to detect gcc/icc
+        std::string preprocessorName(CURRENT_CONFIGURATION->preprocessor_name);
+        //If we are not gcc
+        if ( preprocessorName.find("g")==std::string::npos )
+        {
+            if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
+                prepend_module=host_function.in_module().get_name()+"_mp_";
+        } else {
+            if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
+                prepend_module="__" + host_function.in_module().get_name()+"_MOD_";            
+        }
 
         _extraFortranDecls <<
-               "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
-               "extern void " << device_outline_name << "_device"  << append << "(void);";
+               "extern void " << prepend_module << device_outline_name << "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
+               "extern void " << prepend_module << device_outline_name << "_device"  << append << "(void);";
         
-       _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
-       _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+       _sectionCodeHost.append_with_separator("(void*)" + prepend_module + host_function.get_qualified_name() + append,",");
+       _sectionCodeDevice.append_with_separator("(void(*)())" + prepend_module + device_function.get_qualified_name() + append,",");
        _currTaskId++; 
     } else {
         if( current_function.get_type().is_template_specialized_type()
@@ -938,7 +951,9 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
             std::string qualified_name = current_function.get_qualified_name(function_scope,without_template_args);            
             // Restore the original name of the current function
             current_function.set_name(original_name);
-            
+
+
+            //WARNING: maybe this nanos_mpi_args_t variable should not be static (non thread-safe)
             //Initialize static with 0's and then change its value each time we spawn a task
             //This struct will be copied by nanox at task creation time, so values will be correct in the runtime
             ancillary_device_description
