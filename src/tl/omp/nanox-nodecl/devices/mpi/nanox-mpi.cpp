@@ -52,6 +52,15 @@ static std::string get_outline_name(const std::string & name) {
 }
 
 
+//This function tries to return if we are using icc/gcc, looks for a "g" in the preprocessor (which should mean gnu...)
+static bool compilingWithIcc()
+{
+    //FIXME: no existing reliable/clear way to detect if we are using icc or gcc
+    std::string preprocessorName(CURRENT_CONFIGURATION->preprocessor_name);
+    return preprocessorName.find("g")==std::string::npos;
+}
+
+
 void DeviceMPI::generate_additional_mpi_code(
         const TL::ObjectList<OutlineDataItem*>& data_items,
         const TL::Symbol& struct_args,
@@ -837,10 +846,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         
         std::string prepend_module="";
 
-        //FIXME: Improve the way to detect gcc/icc
-        std::string preprocessorName(CURRENT_CONFIGURATION->preprocessor_name);
+        bool isIcc=compilingWithIcc();
         //If we are not gcc
-        if ( preprocessorName.find("g")==std::string::npos )
+        if ( isIcc )
         {
             if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
                 prepend_module=host_function.in_module().get_name()+"_mp_";
