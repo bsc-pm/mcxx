@@ -111,13 +111,14 @@ namespace TL { namespace Nanox {
                 || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
             Source val, extended_descr, extra_cast, instrument_before_c,
-            instrument_after_c, function_name_instr;
+            instrument_after_c, function_name_instr, val_type;
 
             // In some cases, the outline_function name is the same for two different tasks.
             // For this reason we add also the filename and the line
             val << outline_function.get_name()
                 << "@" << locus_get_filename(locus)
-                << "@" << locus_get_line(locus);
+                << "@" << locus_get_line(locus)
+                << "@" << val_type;
 
             std::string function_name;
             if (task_label.is_null())
@@ -138,10 +139,12 @@ namespace TL { namespace Nanox {
                 }
 
                 extended_descr << function_name;
+                val_type << "FUNCTION";
             }
             else
             {
                 extended_descr = task_label.get_text();
+                val_type << "LABEL";
             }
 
             // The description should contains:
@@ -149,8 +152,7 @@ namespace TL { namespace Nanox {
             //  - FILE: The filename
             //  - LINE: The line number
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
-            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
-
+            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus) << "@" << val_type;
 
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target an unsigned long long, in architectures of 32

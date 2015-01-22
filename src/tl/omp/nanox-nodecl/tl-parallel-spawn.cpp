@@ -149,7 +149,8 @@ namespace TL { namespace Nanox {
 
         if (!if_condition.is_null())
         {
-            if_condition_code_opt << "if (!" << as_expression(if_condition) << ")  nanos_num_threads = 1;";
+            // Do not remove the extra parenthesis (#2281)
+            if_condition_code_opt << "if (!(" << as_expression(if_condition) << "))  nanos_num_threads = 1;";
         }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
@@ -257,7 +258,12 @@ namespace TL { namespace Nanox {
                 copy_imm_setup,
                 xlate_function_symbol);
 
-        fill_dependences(construct, outline_info, dependences_info);
+        fill_dependences(construct,
+                outline_info,
+                num_static_dependences,
+                num_dynamic_dependences,
+                num_dependences,
+                dependences_info);
 
         FORTRAN_LANGUAGE()
         {

@@ -14459,6 +14459,32 @@ static void implement_lambda_expression(
     }
 }
 
+static char nodecl_contains_error_nodes(nodecl_t n)
+{
+    if (!nodecl_is_null(n))
+    {
+        if (nodecl_is_err_expr(n)
+                || nodecl_is_err_stmt(n))
+            return 1;
+
+        if ((nodecl_get_kind(n) == NODECL_OBJECT_INIT
+                    || nodecl_get_kind(n) == NODECL_CXX_DECL
+                    || nodecl_get_kind(n) == NODECL_CXX_DEF)
+                && nodecl_contains_error_nodes(
+                    nodecl_get_symbol(n)->value))
+            return 1;
+
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            if (nodecl_contains_error_nodes(nodecl_get_child(n, i)))
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
 // Note this function only implements C++11
 // C++14 lambdas are different and will require a rework of this function
 static void check_lambda_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -14733,6 +14759,14 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     result_symbol->type_information = function_type_get_return_type(function_type);
 
     build_scope_statement(compound_statement, lambda_block_context, &nodecl_lambda_body);
+
+    if (nodecl_contains_error_nodes(nodecl_lambda_body))
+    {
+        nodecl_free(nodecl_lambda_body);
+
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        return;
+    }
 
     // We are only interested in the head of this list
     nodecl_lambda_body = nodecl_list_head(nodecl_lambda_body);

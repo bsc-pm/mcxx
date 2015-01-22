@@ -51,8 +51,11 @@ namespace TL { namespace OpenMP {
                 DataSharingEnvironment& _data_sharing;
                 ObjectList<Symbol>& _symbols;
 
-                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
-                    :_data_sharing(ds_), _symbols(symbols) { }
+                const ObjectList<Symbol>& _iterators;
+
+                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols,
+                        const ObjectList<Symbol>& iterators)
+                    :_data_sharing(ds_), _symbols(symbols), _iterators(iterators) { }
 
                 void visit(const Nodecl::Symbol& node)
                 {
@@ -60,7 +63,9 @@ namespace TL { namespace OpenMP {
 
                     if (!sym.is_valid()
                             || !sym.is_variable()
-                            || sym.is_fortran_parameter())
+                            || sym.is_fortran_parameter()
+                            // For multidependences, we do not care about iterator symbols
+                            || _iterators.contains(sym))
                         return;
 
                     if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
@@ -75,12 +80,15 @@ namespace TL { namespace OpenMP {
                     walk(node.get_lhs());
                     // Do not walk the rhs
                 }
+
             };
 
             ExtraDataSharing _extra_data_sharing;
 
+            ObjectList<TL::Symbol> _iterators;
+
             DataRefVisitorDep(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
-                : _extra_data_sharing(ds_, symbols) { }
+                : _extra_data_sharing(ds_, symbols, _iterators) { }
 
             void visit_pre(const Nodecl::Symbol &node)
             {
@@ -114,6 +122,15 @@ namespace TL { namespace OpenMP {
             void visit_pre(const Nodecl::ClassMemberAccess &node)
             {
                 _extra_data_sharing.walk(node.get_lhs());
+            }
+
+            // Note that we alter the traversal here because we do not want to
+            // traverse the iterators, only the dependence
+            void visit(const Nodecl::OmpSs::MultiDependence& node)
+            {
+                _iterators.push_back(node.get_symbol());
+                walk(node.get_dependence());
+                _iterators.pop_back();
             }
         };
 
@@ -585,9 +602,19 @@ namespace TL { namespace OpenMP {
                 AST identifier = ASTSon0(ompss_iterator);
                 AST range = ASTSon1(ompss_iterator);
 
+                const char* iterator_name = NULL;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    iterator_name = strtolower(ASTText(identifier));
+                }
+                else
+                {
+                    iterator_name = ASTText(identifier);
+                }
+
                 scope_entry_t* new_iterator = new_symbol(decl_context,
                         decl_context.current_scope,
-                        ASTText(identifier));
+                        iterator_name);
                 new_iterator->kind = SK_VARIABLE;
                 new_iterator->type_information = get_signed_int_type();
                 new_iterator->locus = ast_get_locus(ompss_iterator);

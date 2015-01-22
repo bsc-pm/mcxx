@@ -55,7 +55,45 @@ void LoweringVisitor::fill_dependences_taskwait(
         Source& result_src
         )
 {
-    fill_dependences_internal(ctr, outline_info, /* on_wait */ true, result_src);
+    int num_static_dependences, num_dynamic_dependences;
+    count_dependences(outline_info, num_static_dependences, num_dynamic_dependences);
+    Source num_dependences;
+    if (num_dynamic_dependences == 0)
+    {
+        num_dependences << num_static_dependences;
+    }
+    else
+    {
+        internal_error("Not yet implemented", 0);
+        // Source num_deps_init;
+        // num_dependences_if_dynamic
+        //     << "int num_dyn_dependences = " << num_deps_init << ";"
+        //     ;
+
+        // if (num_static_dependences == 0)
+        // {
+        //     num_deps_init
+        //         << as_expression(
+        //                 count_dynamic_dependences(outline_info));
+        // }
+        // else
+        // {
+        //     num_deps_init
+        //         << num_static_dependences << "+ ("
+        //         << as_expression(
+        //                 count_dynamic_dependences(outline_info))
+        //         << ")";
+        // }
+
+        // num_dependences << "num_dyn_dependences";
+    }
+    fill_dependences_internal(ctr,
+            outline_info,
+            /* on_wait */ true,
+            num_static_dependences,
+            num_dynamic_dependences,
+            num_dependences,
+            result_src);
 }
 
 void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
