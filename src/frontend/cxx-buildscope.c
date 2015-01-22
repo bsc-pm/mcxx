@@ -11493,6 +11493,11 @@ static void update_function_specifiers(scope_entry_t* entry,
             || gather_info->is_inline
             || gather_info->is_constexpr);
 
+    // Merge extern attribute
+    symbol_entity_specs_set_is_extern(entry,
+            symbol_entity_specs_get_is_extern(entry)
+            || gather_info->is_extern);
+
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
     if (!gather_info->is_friend)
