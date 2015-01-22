@@ -721,7 +721,7 @@ void LoweringVisitor::emit_async_common(
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<        statement_placeholder(fill_outline_arguments_tree)
         <<        copy_ol_setup
-        <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", dependences, (nanos_team_t)0);"
+        <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", &dependences[0], (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
@@ -732,7 +732,7 @@ void LoweringVisitor::emit_async_common(
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", "
         <<                  "&imm_args,"
-        <<                  num_dependences << ", dependences, "
+        <<                  num_dependences << ", &dependences[0], "
         <<                  copy_imm_arg << ", "
         <<                  translation_function << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -2803,7 +2803,7 @@ void LoweringVisitor::fill_dependences_internal(
             const_value_to_nodecl(const_value_get_signed_int(0));
         symbol_entity_specs_set_is_user_declared(dyn_dep_idx.get_internal_symbol(), 1);
 
-        result_src << as_symbol(dyn_dep_idx) << " = 0;";
+        result_src << as_symbol(dyn_dep_idx) << " = " << num_static_dependences << ";";
 
         if (IS_CXX_LANGUAGE)
         {
