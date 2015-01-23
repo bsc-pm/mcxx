@@ -21782,7 +21782,8 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
         nodecl_t nodecl_loop_iter = nodecl_get_child(nodecl_loop_control, 2);
 
         nodecl_loop_init = instantiate_loop_init(v, nodecl_loop_init);
-        nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
+        if (!nodecl_is_null(nodecl_loop_condition))
+            nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
         nodecl_loop_iter = instantiate_expression(nodecl_loop_iter,
                 v->new_decl_context,
                 v->instantiation_symbol_map,
