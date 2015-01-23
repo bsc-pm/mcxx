@@ -12076,13 +12076,33 @@ static void check_nodecl_function_call_cxx(
             // The call is of the form F(X) (where F is an unqualified-id)
             if (!any_arg_is_type_dependent)
             {
-                // No argument was found dependent, so the name F should have
-                // already been bound here
+                // No argument was found dependent (or there were no
+                // arguments), so the name F should have already been bound
+                // here
             }
             else
             {
-                // The called name is not bound
-                nodecl_called = nodecl_called_name;
+                // Some argument was found dependent, but the lookup found something
+                // that can be bound here (i.e. a variable)
+                if (nodecl_get_symbol(nodecl_called) != NULL
+                        && nodecl_get_symbol(nodecl_called)->kind == SK_VARIABLE)
+                {
+                    // This is for this case, we want to remember who we are calling
+                    //
+                    // template <typename Op,
+                    //           typename Arg1,
+                    //           typename Arg2>
+                    // void f(Op op, Arg1 arg1, Arg2 arg2)
+                    // {
+                    //     op(arg1, arg2);
+                    // }
+                }
+                else
+                {
+                    // otherwise the called name is not bound at this point (and
+                    // instantiation will finally choose the called entity)
+                    nodecl_called = nodecl_called_name;
+                }
             }
         }
 
