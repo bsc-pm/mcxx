@@ -355,8 +355,6 @@ namespace Codegen
             void codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out);
 
             std::vector<TL::Scope> _scope_stack;
-            // States whether we should emit the extern linkage
-            bool _emit_always_extern_linkage;
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);
