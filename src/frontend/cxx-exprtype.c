@@ -2452,8 +2452,25 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
                 /* sign */ 0));
 }
 
+static char this_can_be_used(decl_context_t decl_context)
+{
+    scope_entry_t* function = decl_context.current_scope->related_entry;
+    if (function != NULL
+            && ((function->kind == SK_FUNCTION
+                    && symbol_entity_specs_get_is_static(function))
+                || function->kind == SK_DEPENDENT_FRIEND_FUNCTION))
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
 {
+    if (!this_can_be_used(decl_context))
+        return NULL;
+
     scope_entry_t *this_symbol = NULL;
     if (decl_context.current_scope->kind == BLOCK_SCOPE)
     {
@@ -11680,7 +11697,18 @@ static char any_is_member_function(scope_entry_list_t* candidates)
             !entry_list_iterator_end(it) && !is_member;
             entry_list_iterator_next(it))
     {
-        is_member |= symbol_entity_specs_get_is_member(entry_list_iterator_current(it));
+        scope_entry_t* fun = 
+            entry_list_iterator_current(it);
+
+        if (fun->kind == SK_TEMPLATE)
+        {
+            fun = named_type_get_symbol(template_type_get_primary_type(fun->type_information));
+        }
+
+        if (fun->kind == SK_FUNCTION)
+        {
+            is_member |= symbol_entity_specs_get_is_member(entry_list_iterator_current(it));
+        }
     }
     entry_list_iterator_free(it);
 
@@ -11696,8 +11724,19 @@ static char any_is_nonstatic_member_function(scope_entry_list_t* candidates)
             !entry_list_iterator_end(it) && !is_member;
             entry_list_iterator_next(it))
     {
-        is_member |= symbol_entity_specs_get_is_member(entry_list_iterator_current(it))
-            && !symbol_entity_specs_get_is_static(entry_list_iterator_current(it));
+        scope_entry_t* fun = 
+            entry_list_iterator_current(it);
+
+        if (fun->kind == SK_TEMPLATE)
+        {
+            fun = named_type_get_symbol(template_type_get_primary_type(fun->type_information));
+        }
+
+        if (fun->kind == SK_FUNCTION)
+        {
+            is_member |= symbol_entity_specs_get_is_member(fun)
+                && !symbol_entity_specs_get_is_static(fun);
+        }
     }
     entry_list_iterator_free(it);
 
@@ -12096,6 +12135,43 @@ static void check_nodecl_function_call_cxx(
                     // {
                     //     op(arg1, arg2);
                     // }
+                }
+                else if (this_symbol != NULL
+                        && is_dependent_type(this_symbol->type_information)
+                        && is_unresolved_overloaded_type(nodecl_get_type(nodecl_called))
+                        && any_is_nonstatic_member_function(candidates))
+                {
+                    // This is for this case, we want to remember this call
+                    // goes through this (since Koenig lookup will always
+                    // prioritize members, regardless they can be called or
+                    // not)
+                    //
+                    // template <typename T>
+                    // struct A
+                    // {
+                    //    void g();
+                    //    void f(T t)
+                    //    {
+                    //        g(t); // this->g(t);
+                    //    }
+                    // };
+
+                    type_t* ptr_class_type = this_symbol->type_information;
+                    type_t* class_type = pointer_type_get_pointee_type(ptr_class_type);
+
+                    nodecl_t nodecl_this = nodecl_make_symbol(this_symbol,
+                            nodecl_get_locus(nodecl_called));
+                    nodecl_set_type(nodecl_this, ptr_class_type);
+
+                    nodecl_called =
+                        nodecl_make_cxx_class_member_access(
+                                nodecl_make_dereference(
+                                    nodecl_this,
+                                    get_lvalue_reference_type(class_type),
+                                    nodecl_get_locus(nodecl_called)),
+                                nodecl_called,
+                                get_unknown_dependent_type(),
+                                nodecl_get_locus(nodecl_called));
                 }
                 else
                 {
