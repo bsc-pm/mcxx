@@ -528,6 +528,19 @@ namespace TL { namespace OpenMP {
                                 nodecl_stride,
                                 get_signed_int_type(),
                                 ast_get_locus(range));
+
+                        if (nodecl_is_constant(nodecl_lower)
+                                && nodecl_is_constant(nodecl_upper)
+                                && nodecl_is_constant(nodecl_stride))
+                        {
+                            nodecl_set_constant(
+                                    *nodecl_output,
+                                    const_value_make_range(
+                                        nodecl_get_constant(nodecl_lower),
+                                        nodecl_get_constant(nodecl_upper),
+                                        nodecl_get_constant(nodecl_stride)));
+                        }
+
                         break;
                     }
                 case AST_OMPSS_ITERATOR_RANGE_SIZE: // lower ; num_elements [C/C++ only]
@@ -578,12 +591,37 @@ namespace TL { namespace OpenMP {
                                 get_signed_int_type(),
                                 ast_get_locus(range));
 
+                        if (nodecl_is_constant(nodecl_lower)
+                                && nodecl_is_constant(nodecl_length))
+                        {
+                            nodecl_set_constant(
+                                    nodecl_upper,
+                                    const_value_sub(
+                                        const_value_add(
+                                            nodecl_get_constant(nodecl_lower),
+                                            nodecl_get_constant(nodecl_length)),
+                                        const_value_get_signed_int(1)));
+                        }
+
                         *nodecl_output = nodecl_make_range(
                                 nodecl_lower,
                                 nodecl_upper,
                                 nodecl_stride,
                                 get_signed_int_type(),
                                 ast_get_locus(range));
+
+                        if (nodecl_is_constant(nodecl_lower)
+                                && nodecl_is_constant(nodecl_upper)
+                                && nodecl_is_constant(nodecl_stride))
+                        {
+                            nodecl_set_constant(
+                                    *nodecl_output,
+                                    const_value_make_range(
+                                        nodecl_get_constant(nodecl_lower),
+                                        nodecl_get_constant(nodecl_upper),
+                                        nodecl_get_constant(nodecl_stride)));
+                        }
+
                         break;
                     }
                 default:
