@@ -1313,6 +1313,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     }
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::ErrStatement& node)
+{
+    if (!this->is_file_output())
+    {
+        *(file) << "<<error statement>>";
+    }
+    else
+    {
+        internal_error("%s: error: <<error statement>> found when the output is a file",
+                node.get_locus_str().c_str());
+    }
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();

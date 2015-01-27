@@ -151,6 +151,9 @@ namespace Codegen
             void visit(const Nodecl::Predecrement& node);
             void visit(const Nodecl::Postdecrement& node);
 
+            void visit(const Nodecl::ErrExpr& node);
+            void visit(const Nodecl::ErrStatement& node);
+
             void emit_explicit_use_statement(TL::Symbol &module,
                     Nodecl::List items,
                     bool is_only);

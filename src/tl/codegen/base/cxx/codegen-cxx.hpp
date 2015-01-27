@@ -124,6 +124,7 @@ namespace Codegen
             Ret visit(const Nodecl::EmptyStatement &);
             Ret visit(const Nodecl::Equal &);
             Ret visit(const Nodecl::ErrExpr &);
+            Ret visit(const Nodecl::ErrStatement &);
             Ret visit(const Nodecl::ExpressionStatement &);
             Ret visit(const Nodecl::FieldDesignator &);
             Ret visit(const Nodecl::FloatingLiteral &);
