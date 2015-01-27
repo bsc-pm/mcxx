@@ -40,6 +40,7 @@ namespace Utils {
 
 namespace {
     const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
+    const_value_t* zero = const_value_get_zero(/*bytes*/ 4, /*signed*/ 1);
     
     NBase get_max(const NBase& n1, const NBase& n2)
     {
@@ -180,8 +181,8 @@ namespace {
         else
             ub = Nodecl::Add::make(r1_ub, r2_ub, t);
 
-        NBase one_nodecl = NBase(const_value_to_nodecl(one));
-        NBase result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
+        NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Addition " << r1.prettyprint() << " - " << r2.prettyprint()
@@ -218,8 +219,8 @@ namespace {
         else
             ub = Nodecl::Minus::make(r1_ub, r2_ub, t);
 
-        NBase one_nodecl = NBase(const_value_to_nodecl(one));
-        result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
+        result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Subtraction " << r1.prettyprint() << " - " << r2.prettyprint()
@@ -256,8 +257,8 @@ namespace {
         else
             ub = Nodecl::Mul::make(r1_ub.shallow_copy(), r2_ub.shallow_copy(), t);
 
-        NBase one_nodecl = NBase(const_value_to_nodecl(one));
-        result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
+        result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
@@ -302,8 +303,8 @@ namespace {
         else
             ub = Nodecl::Div::make(r1_ub.shallow_copy(), r2_lb.shallow_copy(), t);
 
-        NBase one_nodecl = NBase(const_value_to_nodecl(one));
-        result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+        NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
+        result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
@@ -360,7 +361,7 @@ namespace {
                 }
                 else 
                 {
-                    NBase one_nodecl = NBase(const_value_to_nodecl(one));
+                    NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
                     if((const_value_is_positive(lb_dif) || const_value_is_zero(lb_dif)) && 
                        (const_value_is_negative(ub_dif) || const_value_is_zero(ub_dif)))
                     {   // r2 contains r1
@@ -372,11 +373,11 @@ namespace {
                         const_value_t* new_left_ub_c = const_value_sub(r2_lb_c, one);
                         Nodecl::Range left_range = 
                                 Nodecl::Range::make(r1_lb.shallow_copy(), NBase(const_value_to_nodecl(new_left_ub_c)), 
-                                                    one_nodecl.shallow_copy(), t);
+                                                    zero_nodecl.shallow_copy(), t);
                         const_value_t* new_right_lb_c = const_value_add(r2_ub_c, one);
                         Nodecl::Range right_range = 
                                 Nodecl::Range::make(NBase(const_value_to_nodecl(new_right_lb_c)), r1_ub.shallow_copy(), 
-                                                    one_nodecl.shallow_copy(), t);
+                                                    zero_nodecl.shallow_copy(), t);
                         if(const_value_is_zero(lb_dif))
                             result = right_range;
                         else if(const_value_is_zero(ub_dif))
@@ -397,7 +398,7 @@ namespace {
                             lb = r1_lb.shallow_copy();
                             ub = NBase(const_value_to_nodecl(const_value_sub(r2_lb_c, one)));
                         }
-                        result = Nodecl::Range::make(lb, ub, one_nodecl.shallow_copy(), t);
+                        result = Nodecl::Range::make(lb, ub, zero_nodecl.shallow_copy(), t);
                     }
                 }
             }
@@ -471,7 +472,6 @@ namespace {
         NBase lb_m = m.as<Nodecl::Range>().get_lower();
         NBase ub_m = m.as<Nodecl::Range>().get_upper();
         TL::Type t = lb_n.get_type();
-        NBase one_nodecl = NBase(const_value_to_nodecl(one));
         NBase lb, ub;
         if(dir._cycle_direction & Utils::CycleDirection::POSITIVE)
         {
@@ -496,7 +496,8 @@ namespace {
         }
         else
         {
-            result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+            NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
+            result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
         }
 
 #ifdef RANGES_DEBUG
@@ -547,7 +548,7 @@ namespace {
             else if (m_ub.is_constant())
                 m_ub_c = m_ub.get_constant();
 
-            NBase one_nodecl(const_value_to_nodecl(one));
+            NBase zero_nodecl(const_value_to_nodecl(zero));
             if ((n_lb_c!=NULL) && (n_ub_c!=NULL) && (m_lb_c!=NULL) && (m_ub_c!=NULL))
             {
                 if (const_value_is_positive(const_value_sub(n_lb_c, m_ub_c))
@@ -557,11 +558,11 @@ namespace {
                     {   // If the boundaries are contiguous, we can still merge the ranges
                         if (const_value_is_one(const_value_sub(n_lb_c, m_ub_c)))
                         {
-                            result = Nodecl::Range::make(m_lb.shallow_copy(), n_ub.shallow_copy(), one_nodecl, t);
+                            result = Nodecl::Range::make(m_lb.shallow_copy(), n_ub.shallow_copy(), zero_nodecl, t);
                         }
                         else if (const_value_is_one(const_value_sub(m_lb_c, n_ub_c)))
                         {
-                            result = Nodecl::Range::make(n_lb.shallow_copy(), m_ub.shallow_copy(), one_nodecl, t);
+                            result = Nodecl::Range::make(n_lb.shallow_copy(), m_ub.shallow_copy(), zero_nodecl, t);
                         }
                         else
                         {
@@ -584,7 +585,7 @@ namespace {
                                                                                         : n_lb.shallow_copy();
                     NBase ub = const_value_is_positive(const_value_sub(n_ub_c, m_ub_c)) ? n_ub.shallow_copy()
                                                                                         : m_ub.shallow_copy();
-                    result = Nodecl::Range::make(lb, ub, one_nodecl, t);
+                    result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
                 }
             }
             else
@@ -593,12 +594,12 @@ namespace {
                 if (m_lb.is_constant() && n_ub.is_constant()
                         && const_value_is_one(const_value_sub(m_lb.get_constant(), n_ub.get_constant())))
                 {   // m_lb == n_ub+1
-                    result = Nodecl::Range::make(n_lb, m_ub, one_nodecl, t);
+                    result = Nodecl::Range::make(n_lb, m_ub, zero_nodecl, t);
                 }
                 else if (m_ub.is_constant() && n_lb.is_constant()
                         && const_value_is_one(const_value_sub(n_lb.get_constant(), m_ub.get_constant())))
                 {   // m_ub == n_lb-1
-                    result = Nodecl::Range::make(m_lb, n_ub, one_nodecl, t);
+                    result = Nodecl::Range::make(m_lb, n_ub, zero_nodecl, t);
                 }
                 else if (n_lb.is_constant() && m_lb.is_constant()
                         && const_value_is_one(const_value_sub(n_lb.get_constant(), m_lb.get_constant())))
@@ -606,7 +607,7 @@ namespace {
                     if (Nodecl::Utils::structurally_equal_nodecls(n_ub, m_ub, /*skip_conversions*/true))
                         result = m.shallow_copy();
                     else
-                        result = Nodecl::Range::make(m_lb.shallow_copy(), get_max(n_ub, m_ub), one_nodecl, t);
+                        result = Nodecl::Range::make(m_lb.shallow_copy(), get_max(n_ub, m_ub), zero_nodecl, t);
                 }
                 else if (n_lb.is_constant() && m_lb.is_constant()
                     && const_value_is_one(const_value_sub(m_lb.get_constant(), n_lb.get_constant())))
@@ -614,7 +615,7 @@ namespace {
                     if (Nodecl::Utils::structurally_equal_nodecls(n_ub, m_ub, /*skip_conversions*/true))
                         result = n.shallow_copy();
                     else
-                        result = Nodecl::Range::make(n_lb.shallow_copy(), get_max(n_ub, m_ub), one_nodecl, t);
+                        result = Nodecl::Range::make(n_lb.shallow_copy(), get_max(n_ub, m_ub), zero_nodecl, t);
                 }
                 else
                 {
@@ -763,7 +764,7 @@ namespace {
         NBase new_lb = nodecl_value_add(lb, v);
         NBase new_ub = nodecl_value_add(ub, v);
 
-        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), v.get_type());
+        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), v.get_type());
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Value Add " << r.prettyprint() << " + " << v.prettyprint() << " = " << result.prettyprint() << std::endl;
@@ -794,7 +795,7 @@ namespace {
         else
             new_ub = Nodecl::Minus::make(ub, v, t);
 
-        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), t);
+        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Value Subtract " << r.prettyprint() << " - " << v.prettyprint()
@@ -826,7 +827,7 @@ namespace {
         else
             new_ub = Nodecl::Div::make(ub, v, t);
 
-        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), t);
+        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Value Multiplication " << r.prettyprint() << " * " << v.prettyprint()
@@ -858,7 +859,7 @@ namespace {
         else
             new_ub = Nodecl::Div::make(ub, v, t);
         
-        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(one)), t);
+        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
 #ifdef RANGES_DEBUG
         std::cerr << "        Range Value Division " << r.prettyprint() << " / " << v.prettyprint()

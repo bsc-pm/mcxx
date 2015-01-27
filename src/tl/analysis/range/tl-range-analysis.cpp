@@ -507,9 +507,9 @@ namespace {
             Nodecl::Analysis::RangeIntersection::make(
                 s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Analysis::RangeUnion::make(Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub,
-                                                                       const_value_to_nodecl(one), t),
+                                                                       const_value_to_nodecl(zero), t),
                                                    Nodecl::Range::make(lb, Nodecl::Analysis::PlusInfinity::make(t),
-                                                                       const_value_to_nodecl(one), t),
+                                                                       const_value_to_nodecl(zero), t),
                                                    t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
@@ -528,7 +528,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Range::make(val.shallow_copy(),
                                     val.shallow_copy(),
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
         Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
@@ -573,7 +573,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false), 
                 Nodecl::Range::make(val.shallow_copy(),
                                     val.shallow_copy(), 
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
         Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
@@ -601,9 +601,9 @@ namespace {
             Nodecl::Analysis::RangeIntersection::make(
                 s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Analysis::RangeUnion::make(Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub, 
-                                                                       const_value_to_nodecl(one), t), 
+                                                                       const_value_to_nodecl(zero), t),
                                                    Nodecl::Range::make(lb, Nodecl::Analysis::PlusInfinity::make(t), 
-                                                                       const_value_to_nodecl(one), t), 
+                                                                       const_value_to_nodecl(zero), t),
                                                    t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
@@ -651,7 +651,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false), 
                 Nodecl::Range::make(lb,
                                     Nodecl::Analysis::PlusInfinity::make(t), 
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
         Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
@@ -669,7 +669,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
                                     val.shallow_copy(), 
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
         Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
@@ -714,7 +714,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false), 
                 Nodecl::Range::make(val.shallow_copy(),
                                     Nodecl::Analysis::PlusInfinity::make(t), 
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
         Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
@@ -734,7 +734,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
                                     ub, 
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
         Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
@@ -927,7 +927,7 @@ namespace {
                 s.make_nodecl(/*set_ref_type*/false), 
                 Nodecl::Range::make(const_value_to_nodecl(zero),
                                     ub, 
-                                    const_value_to_nodecl(one), t),
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
         Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ModTrue);
@@ -944,12 +944,12 @@ namespace {
             Nodecl::Analysis::RangeIntersection::make(
                 s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Analysis::RangeUnion::make(
-                    Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                        const_value_to_nodecl(minus_one), 
-                                        const_value_to_nodecl(one), t), 
-                    Nodecl::Range::make(val.shallow_copy(), 
-                                        Nodecl::Analysis::PlusInfinity::make(t), 
-                                        const_value_to_nodecl(one), t), 
+                    Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t),
+                                        const_value_to_nodecl(minus_one),
+                                        const_value_to_nodecl(zero), t),
+                    Nodecl::Range::make(val.shallow_copy(),
+                                        Nodecl::Analysis::PlusInfinity::make(t),
+                                        const_value_to_nodecl(zero), t),
                     t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
@@ -1078,7 +1078,7 @@ namespace {
         const NBase& rhs = val.as<Nodecl::Add>().get_rhs().no_conv();
         CGOpType val_type = get_op_type_from_value(val);
 
-        CGNode* target_op;
+        CGNode* target_op = NULL;
         if(lhs.is<Nodecl::Symbol>())
         {
             if(rhs.is<Nodecl::Symbol>())
@@ -1779,7 +1779,7 @@ root_done:  ;
         _cg->solve_constraints(roots);
         if(VERBOSE)
             _cg->print_graph();
-        
+
         // 5.- Insert computed ranges in the PCFG
         set_ranges_to_pcfg(constr_map);
         set_ranges_to_pcfg(propagated_constr_map);
