@@ -107,9 +107,9 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
     {
         src << "{"
             <<     "nanos_wd_t nanos_wd_ = nanos_current_wd();"
-            <<     "nanos_err_t err;"
-            <<     "err = nanos_wg_wait_completion(nanos_wd_, " << (is_noflush ? "1" : "0") << ");"
-            <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<     "nanos_err_t nanos_err;"
+            <<     "nanos_err = nanos_wg_wait_completion(nanos_wd_, " << (is_noflush ? "1" : "0") << ");"
+            <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << "}"
             ;
     }
@@ -135,8 +135,8 @@ void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,
 
         src << "{"
             <<     dependences
-            <<     "nanos_err_t err = nanos_wait_on(" << num_dependences << ", dependences);"
-            <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<     "nanos_err_t nanos_err = nanos_wait_on(" << num_dependences << ", dependences);"
+            <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << "}"
             ;
     }

@@ -170,19 +170,19 @@ namespace TL { namespace Nanox {
             instrument_before_c
                 << "static int nanos_funct_id_init = 0;"
                 << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "nanos_err_t err;"
+                << "nanos_err_t nanos_err;"
                 << "if (nanos_funct_id_init == 0)"
                 << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val("
+                <<    "nanos_err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+                <<    "nanos_err = nanos_instrument_register_value_with_val("
                 <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
                 <<          "\"user-funct-location\","
                 <<          "\"" << val << "\","
                 <<          "\"" << extended_descr << "\","
                 <<          /* abort_when_registered */ "0);"
 
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
                 ;
@@ -218,7 +218,7 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_START;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
     }
 
@@ -231,7 +231,7 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_END;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
     }
 
@@ -1277,13 +1277,13 @@ namespace TL { namespace Nanox {
         //         {
         //             if (first)
         //             {
-        //                 ancillary_source << "   nanos_err_t err;\n";
+        //                 ancillary_source << "   nanos_err_t nanos_err;\n";
         //                 first = false;
         //             }
 
         //             ancillary_source
-        //                 << "    err = nanos_free(p" << i << ");\n"
-        //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
+        //                 << "    nanos_err = nanos_free(p" << i << ");\n"
+        //                 << "    if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);\n"
         //                 ;
         //         }
         //     }

@@ -234,13 +234,13 @@ namespace TL { namespace Nanox {
             Source src;
             src
                 << "{"
-                << "nanos_err_t err;"
-                << "err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
+                << "nanos_err_t nanos_err;"
+                << "nanos_err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
                 <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
                 <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
                 <<     size_of_array_descriptor
                 << ");"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 << "}"
                 ;
 

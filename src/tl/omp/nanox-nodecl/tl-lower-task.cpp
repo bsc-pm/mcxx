@@ -655,7 +655,7 @@ void LoweringVisitor::emit_async_common(
     }
 
     Source err_name;
-    err_name << "err";
+    err_name << "nanos_err";
 
     Source placeholder_task_expression_opt, update_alloca_decls_opt;
     if (placeholder_task_expr_transformation != NULL)
@@ -1790,9 +1790,9 @@ int LoweringVisitor::count_copies_dimensions(OutlineInfo& outline_info)
 //     {
 //         copy_ol_setup
 //             << "{"
-//             << "nanos_err_t err;"
-//             << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
-//             << "if (err != NANOS_OK) nanos_handle_error(err);"
+//             << "nanos_err_t nanos_err;"
+//             << "nanos_err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
+//             << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 //             << "}"
 //             ;
 //     }
@@ -2049,9 +2049,9 @@ void LoweringVisitor::fill_copies_region(
     {
         copy_ol_setup
             << "{"
-            << "nanos_err_t err;"
-            << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << "}"
             ;
     }
@@ -2294,15 +2294,15 @@ bool is_not_alnum(int charact) {
 //             << "{"
 //             << "intptr_t device_base_address;"
 //             << "signed long offset;"
-//             << "nanos_err_t err;"
+//             << "nanos_err_t nanos_err;"
 //             << "intptr_t host_base_address;"
 // 
 //             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
 //             << "offset = " << as_expression(offset) << ";"
 //             << "device_base_address = 0;"
-//             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
+//             << "nanos_err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
 //             << "device_base_address -= offset;"
-//             << "if (err != NANOS_OK) nanos_handle_error(err);"
+//             << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 //             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
 //             << "}"
 //             ;
@@ -2388,11 +2388,11 @@ void LoweringVisitor::emit_translation_function_region(
         translations
             << "{"
             << "void *device_base_address;"
-            << "nanos_err_t err;"
+            << "nanos_err_t nanos_err;"
 
             << "device_base_address = 0;"
-            << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             ;
 
         if ((*it)->get_symbol().is_allocatable()

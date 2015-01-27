@@ -174,17 +174,17 @@ namespace TL { namespace Nanox {
                 reduction_code
                     << "{"
                     << "nanos_lock_t* red_lock;"
-                    << "nanos_err_t err;"
-                    << "err = nanos_get_lock_address("
+                    << "nanos_err_t nanos_err;"
+                    << "nanos_err = nanos_get_lock_address("
                     <<       ((*it)->get_private_type().is_array() ? "" : "&")
                     <<             as_symbol( shared_symbol_proxy ) << ", &red_lock);"
-                    << "if (err != NANOS_OK) nanos_handle_error(err);"
+                    << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
-                    << "err = nanos_set_lock(red_lock);"
-                    << "if (err != NANOS_OK) nanos_handle_error(err);"
+                    << "nanos_err = nanos_set_lock(red_lock);"
+                    << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                     << statement_placeholder(partial_reduction_code)
-                    << "err = nanos_unset_lock(red_lock);"
-                    << "if (err != NANOS_OK) nanos_handle_error(err);"
+                    << "nanos_err = nanos_unset_lock(red_lock);"
+                    << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                     << "}"
                     ;
 

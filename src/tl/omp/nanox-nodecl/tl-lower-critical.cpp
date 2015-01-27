@@ -103,12 +103,12 @@ namespace TL { namespace Nanox {
         Source critical_postorder_src;
         critical_postorder_src
             << "{"
-            <<    "nanos_err_t err;"
-            <<    "err = nanos_set_lock(&" << lock_name << ");"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_err_t nanos_err;"
+            <<    "nanos_err = nanos_set_lock(&" << lock_name << ");"
+            <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             <<    statement_placeholder(stmt_placeholder)
-            <<    "err = nanos_unset_lock(&" << lock_name << ");"
-            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_err = nanos_unset_lock(&" << lock_name << ");"
+            <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << "}"
             ;
 
