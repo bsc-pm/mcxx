@@ -880,7 +880,6 @@ def generate_nodecl_classes_base(rule_map):
    print "#define TL_NODECL_HPP"
    print ""
    print "#include <string>"
-   print "#include <sstream>"
    print "#include \"tl-nodecl-base.hpp\""
    print "#include \"mem.h\""
    

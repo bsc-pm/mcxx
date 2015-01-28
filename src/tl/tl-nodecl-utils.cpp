@@ -71,7 +71,7 @@ namespace Nodecl
         return sym_list;
     }
 
-    struct IsLocalSymbol : TL::Predicate<TL::Symbol>
+    struct IsLocalSymbol
     {
         private:
             TL::Scope _sc;
@@ -82,7 +82,7 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const TL::Symbol& sym) const
+            bool operator()(const TL::Symbol& sym) const
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
@@ -90,7 +90,7 @@ namespace Nodecl
             }
     };
 
-    struct IsNonLocalSymbol : TL::Predicate<TL::Symbol>
+    struct IsNonLocalSymbol
     {
         private:
             TL::Scope _sc;
@@ -101,7 +101,7 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const TL::Symbol& sym) const
+            bool operator()(const TL::Symbol& sym) const
             {
                 // If its scope is not contained in the base node one, then it
                 // is "nonlocal"
@@ -154,7 +154,7 @@ namespace Nodecl
         return result;
     }
 
-    struct IsLocalOcurrence : TL::Predicate<Nodecl::Symbol>
+    struct IsLocalOcurrence
     {
         private:
             IsLocalSymbol _pred;
@@ -165,13 +165,13 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const Nodecl::Symbol& n) const
+            bool operator()(const Nodecl::Symbol& n) const
             {
                 return _pred(n.get_symbol());
             }
     };
 
-    struct IsNonLocalOcurrence : TL::Predicate<Nodecl::Symbol>
+    struct IsNonLocalOcurrence
     {
         private:
             IsNonLocalSymbol _pred;
@@ -182,7 +182,7 @@ namespace Nodecl
             {
             }
 
-            virtual bool do_(const Nodecl::Symbol& n) const
+            bool operator()(const Nodecl::Symbol& n) const
             {
                 return _pred(n.get_symbol());
             }
@@ -210,7 +210,7 @@ namespace Nodecl
                 && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
             result.insert(n.as<Nodecl::Symbol>(),
-                    TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
+                   &Nodecl::Symbol::get_symbol);
         }
         else if (n.is<Nodecl::ObjectInit>())
         {
@@ -1864,6 +1864,8 @@ namespace TL
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                     else
@@ -1884,13 +1886,15 @@ namespace TL
                         }
                         else
                         {
-                            _upper_bound = 
+                            _upper_bound =
                                 CopyPolicy::new_node(
                                         Nodecl::Add::make(
                                             CopyPolicy::shallow_copy(lhs),
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                 }
@@ -1934,6 +1938,8 @@ namespace TL
                                         CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                         t,
                                         rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                     else
@@ -1961,6 +1967,8 @@ namespace TL
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                 }
@@ -2048,6 +2056,8 @@ namespace TL
                                 rhs,
                                 t,
                                 rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
                 }
             }
             // _induction_var = _induction_var + incr
@@ -2098,6 +2108,8 @@ namespace TL
                                 CopyPolicy::shallow_copy(rhs),
                                 t,
                                 rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
                 }
             }
             else
@@ -2176,7 +2188,6 @@ namespace TL
                         .make_nodecl(/* lvalue_ref */ true),
                         rlc.get_upper().shallow_copy(),
                         TL::Type::get_bool_type());
-
             }
             else if (const_value_is_negative(rlc.get_step().get_constant()))
             {

@@ -95,7 +95,7 @@ namespace TL { namespace Nanox {
         register_parameter("instrument",
                 "Enables instrumentation of the device provider if set to '1'",
                 _enable_instrumentation_str,
-                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+                "0").connect(std::bind(&DeviceProvider::set_instrumentation, this, std::placeholders::_1));
     }
 
     void DeviceProvider::get_instrumentation_code(
@@ -111,13 +111,14 @@ namespace TL { namespace Nanox {
                 || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
             Source val, extended_descr, extra_cast, instrument_before_c,
-            instrument_after_c, function_name_instr;
+            instrument_after_c, function_name_instr, val_type;
 
             // In some cases, the outline_function name is the same for two different tasks.
             // For this reason we add also the filename and the line
             val << outline_function.get_name()
                 << "@" << locus_get_filename(locus)
-                << "@" << locus_get_line(locus);
+                << "@" << locus_get_line(locus)
+                << "@" << val_type;
 
             std::string function_name;
             if (task_label.is_null())
@@ -138,10 +139,12 @@ namespace TL { namespace Nanox {
                 }
 
                 extended_descr << function_name;
+                val_type << "FUNCTION";
             }
             else
             {
                 extended_descr = task_label.get_text();
+                val_type << "LABEL";
             }
 
             // The description should contains:
@@ -149,8 +152,7 @@ namespace TL { namespace Nanox {
             //  - FILE: The filename
             //  - LINE: The line number
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
-            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
-
+            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus) << "@" << val_type;
 
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target an unsigned long long, in architectures of 32
@@ -168,19 +170,19 @@ namespace TL { namespace Nanox {
             instrument_before_c
                 << "static int nanos_funct_id_init = 0;"
                 << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "nanos_err_t err;"
+                << "nanos_err_t nanos_err;"
                 << "if (nanos_funct_id_init == 0)"
                 << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val("
+                <<    "nanos_err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+                <<    "nanos_err = nanos_instrument_register_value_with_val("
                 <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
                 <<          "\"user-funct-location\","
                 <<          "\"" << val << "\","
                 <<          "\"" << extended_descr << "\","
                 <<          /* abort_when_registered */ "0);"
 
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
                 ;
@@ -216,7 +218,7 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_START;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
     }
 
@@ -229,7 +231,7 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_END;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
     }
 
@@ -893,9 +895,17 @@ namespace TL { namespace Nanox {
 
                         break;
                     }
+                case OutlineDataItem::SHARING_UNDEFINED:
+                    {
+                        internal_error("Undefined data sharing kind for symbol %s",
+                                (*it)->get_symbol().get_name().c_str());
+                        break;
+                    }
                 default:
                     {
-                        internal_error("Unexpected data sharing kind", 0);
+                        internal_error("Unexpected data sharing kind = %d for symbol %s",
+                                (*it)->get_sharing(),
+                                (*it)->get_symbol().get_name().c_str());
                     }
             }
         }
@@ -1267,13 +1277,13 @@ namespace TL { namespace Nanox {
         //         {
         //             if (first)
         //             {
-        //                 ancillary_source << "   nanos_err_t err;\n";
+        //                 ancillary_source << "   nanos_err_t nanos_err;\n";
         //                 first = false;
         //             }
 
         //             ancillary_source
-        //                 << "    err = nanos_free(p" << i << ");\n"
-        //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
+        //                 << "    nanos_err = nanos_free(p" << i << ");\n"
+        //                 << "    if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);\n"
         //                 ;
         //         }
         //     }

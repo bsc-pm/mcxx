@@ -334,16 +334,16 @@ namespace TL { namespace Nanox {
                                 << as_type(TL::Type::get_bool_type()) << name_private_copy_bool << ";"
                                 << ptr_type.get_declaration(outline_function_scope, name_private_copy)  << ";"
                                 << "{"
-                                <<      "nanos_err_t err;"
+                                <<      "nanos_err_t nanos_err;"
                                 <<      "if ((" << as_expression(data_ref.get_sizeof()) << ") > 4096)"
                                 <<      "{"
                                 <<          name_private_copy_bool << " =  1;"
-                                <<          "err = nanos_malloc("
+                                <<          "nanos_err = nanos_malloc("
                                 <<              "(void**) (&" << name_private_copy  << "), "
                                 <<              as_expression(data_ref.get_sizeof()) << ", "
                                 <<              "\"" << original_statements.get_filename() << "\", "
                                 <<              original_statements.get_line() << ");"
-                                <<          "if (err != NANOS_OK) nanos_handle_error (err);"
+                                <<          "if (nanos_err != NANOS_OK) nanos_handle_error (nanos_err);"
                                 <<      "}"
                                 <<      "else"
                                 <<      "{"
@@ -351,11 +351,11 @@ namespace TL { namespace Nanox {
                                 <<          name_private_copy << " = "
                                 <<              "(" << as_type(cast_type) << ") __builtin_alloca(" << as_expression(data_ref.get_sizeof()) << ");"
                                 <<      "}"
-                                <<      "err = nanos_memcpy("
+                                <<      "nanos_err = nanos_memcpy("
                                 <<         name_private_copy << ", "
                                 <<         "(" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ", "
                                 <<         as_expression(data_ref.get_sizeof()) << ");"
-                                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+                                <<      "if (nanos_err != NANOS_OK) nanos_handle_error (nanos_err);"
 
                                 <<  "}"
                                 ;
@@ -363,7 +363,7 @@ namespace TL { namespace Nanox {
                             extra_code_end
                                 << "if (" << name_private_copy_bool << ")"
                                 <<  "{"
-                                <<      "nanos_err_t err = nanos_free(" << name_private_copy << ");"
+                                <<      "nanos_err_t nanos_err = nanos_free(" << name_private_copy << ");"
                                 <<  "}"
                                 ;
 
@@ -491,8 +491,8 @@ namespace TL { namespace Nanox {
         {
             extra_code_begin
                 << "{"
-                <<      "nanos_err_t err = nanos_dependence_release_all();"
-                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+                <<      "nanos_err_t nanos_err = nanos_dependence_release_all();"
+                <<      "if (nanos_err != NANOS_OK) nanos_handle_error (nanos_err);"
                 << "}"
                 ;
         }

@@ -80,19 +80,19 @@ namespace TL
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments_as_expressions(scope);
+                target_ctx.copy_in = parse_dependences_ompss_clause(copy_in, scope);
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments_as_expressions(scope);
+                target_ctx.copy_out = parse_dependences_ompss_clause(copy_out, scope);
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions(scope);
+                target_ctx.copy_inout = parse_dependences_ompss_clause(copy_inout, scope);
             }
 
             PragmaCustomClause ndrange = pragma_line.get_clause("ndrange");
@@ -264,6 +264,12 @@ namespace TL
         // #pragma omp target on top of a #pragma omp task outline
         void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
             TargetContext target_ctx;
 
@@ -339,6 +345,12 @@ namespace TL
         // #pragma omp target on top of a #pragma omp task inline
         void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
         {
+            if (!this->in_ompss_mode())
+            {
+                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
+                return;
+            }
+
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
             if (!nested_pragma.is_null()
                     && nested_pragma.is<Nodecl::List>())
@@ -617,8 +629,8 @@ namespace TL
                 all_copies.append(target_info.get_copy_inout());
 
                 ObjectList<Symbol> all_copied_syms = all_copies
-                    .map(functor(&CopyItem::get_copy_expression))
-                    .map(functor(&DataReference::get_base_symbol));
+                    .map(&CopyItem::get_copy_expression)
+                    .map(&DataReference::get_base_symbol);
 
                 // In devices with disjoint memory, it may be wrong to use a
                 // global variables inside a pragma task without copying it.
@@ -642,10 +654,6 @@ namespace TL
                                 " copy directionality. This may cause problems at run-time\n",
                                 construct.get_locus_str().c_str(),
                                 io_it->get_qualified_name().c_str());
-
-                        Nodecl::Symbol new_symbol_ref =
-                            Nodecl::Symbol::make(*io_it, construct.get_locus());
-                        new_symbol_ref.set_type(io_it->get_type().no_ref().get_lvalue_reference_to());
                     }
                 }
             }

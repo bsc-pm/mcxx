@@ -378,6 +378,7 @@ AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-omp.def
+AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-ompss.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-opencl.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-xl.def
@@ -406,6 +407,7 @@ ADDITIONAL_GRAMMARS += src/frontend/cxx-subparse.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-literal-nodes.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-pragma.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-omp.y
+ADDITIONAL_GRAMMARS += src/frontend/cxx-ompss.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-superscalar.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-ambig-handler.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-placeholders.y
@@ -787,6 +789,7 @@ src_frontend_fortran_libmf03_prescanner_la_LDFLAGS = $(dll_exports) -avoid-versi
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY =
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-subparse.y
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-omp.y
+ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-ompss.y
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS_FORTRAN_ONLY)
 
@@ -2854,6 +2857,8 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOX_NEW_LINK[@]|$(NANOX_NEW_LINK)|g' \
+     -e 's|@NANOX_OLD_LINK[@]|$(NANOX_OLD_LINK)|g' \
      -e 's|@NANOX[@]|$(NANOX)|g' \
      -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
      -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \

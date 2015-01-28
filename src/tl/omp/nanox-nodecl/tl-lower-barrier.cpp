@@ -35,10 +35,10 @@ namespace TL { namespace Nanox {
 
         barrier_src
             << "{"
-            << "nanos_err_t err;"
-            << "err = nanos_omp_barrier();"
-            << "if (err != NANOS_OK)"
-            <<    "nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_omp_barrier();"
+            << "if (nanos_err != NANOS_OK)"
+            <<    "nanos_handle_error(nanos_err);"
             << "}"
             ;
 

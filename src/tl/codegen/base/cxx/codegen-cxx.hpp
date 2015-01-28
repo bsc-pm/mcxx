@@ -124,6 +124,7 @@ namespace Codegen
             Ret visit(const Nodecl::EmptyStatement &);
             Ret visit(const Nodecl::Equal &);
             Ret visit(const Nodecl::ErrExpr &);
+            Ret visit(const Nodecl::ErrStatement &);
             Ret visit(const Nodecl::ExpressionStatement &);
             Ret visit(const Nodecl::FieldDesignator &);
             Ret visit(const Nodecl::FloatingLiteral &);
@@ -320,6 +321,11 @@ namespace Codegen
                 // inc_indent, dec_indent
                 int _indent_level;
 
+                // Emit '(*this).x.foo' -> as 'x.foo'
+                // This is needed to workaround some issues with g++ and
+                // its C++11 support
+                bool _do_not_emit_this;
+
                 State() :
                     global_namespace(),
                     opened_namespace(),
@@ -340,14 +346,14 @@ namespace Codegen
                     friend_function_declared_but_not_defined(),
                     do_not_derref_rebindable_reference(false),
                     _inline_comment_nest(0),
-                    _indent_level(0) { }
+                    _indent_level(0),
+                   _do_not_emit_this(false) { }
             } state;
             // End of State
 
-            std::vector<TL::Scope> _scope_stack;
+            void codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out);
 
-            // States whether we should emit the extern linkage
-            bool _emit_always_extern_linkage;
+            std::vector<TL::Scope> _scope_stack;
 
             bool symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym);
             bool symbol_is_nested_in_defined_classes(TL::Symbol symbol);

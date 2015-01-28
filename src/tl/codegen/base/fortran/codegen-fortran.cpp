@@ -763,7 +763,7 @@ OPERATOR_TABLE
         }
     }
 
-    // In a pure fortran example, this node never appear in the tree.
+    // In a pure fortran code, this node never appears in the tree.
     void FortranBase::visit(const Nodecl::Mod &node)
     {
         // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
@@ -772,6 +772,49 @@ OPERATOR_TABLE
         *(file) << ", ";
         walk(node.get_rhs());
         *(file) << ")";
+    }
+
+    void FortranBase::common_increment(const Nodecl::NodeclBase& item)
+    {
+        // Emit an assignment expression
+        walk(item);
+        *file << " = ";
+        walk(item);
+        *file << " + 1";
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Postincrement &node)
+    {
+        common_increment(node.get_rhs());
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Preincrement &node)
+    {
+        common_increment(node.get_rhs());
+    }
+
+    void FortranBase::common_decrement(const Nodecl::NodeclBase& item)
+    {
+        // Emit an assignment expression
+        walk(item);
+        *file << " = ";
+        walk(item);
+        *file << " - 1";
+    }
+
+    //
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Postdecrement &node)
+    {
+        common_decrement(node.get_rhs());
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Predecrement &node)
+    {
+        common_decrement(node.get_rhs());
     }
 
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
@@ -6057,27 +6100,39 @@ OPERATOR_TABLE
 
     void FortranBase::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        indent();
-        *(file) << "! >>> " << ast_print_node_type(n.get_kind()) << " >>>\n";
-
-        inc_indent();
-
+        *file << ast_print_node_type(n.get_kind()) << "(";
         Nodecl::NodeclBase::Children children = n.children();
         int i = 0;
         for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
-                it++, i++)
+                it++)
         {
-            indent();
-            *(file) << "! Children " << i << "\n";
-
-            walk(*it);
+            if (!it->is_null())
+            {
+                if (i > 0)
+                    *file << ", ";
+                if (it->is<Nodecl::List>())
+                {
+                    Nodecl::List l = it->as<Nodecl::List>();
+                    *file << "[";
+                    for (Nodecl::List::iterator it_list = l.begin(); it_list != l.end(); it_list++)
+                    {
+                        walk(*it_list);
+                        if (it_list + 1 != l.end())
+                        {
+                            *file << ", ";
+                        }
+                    }
+                    *file << "]";
+                }
+                else
+                {
+                    walk(*it);
+                }
+                i++;
+            }
         }
-
-        dec_indent();
-
-        indent();
-        *(file) << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
+        *file << ")";
     }
 
     void FortranBase::clear_codegen_status()
@@ -6402,19 +6457,19 @@ OPERATOR_TABLE
         register_parameter("emit_fun_loc",
                 "Does not use LOC for functions and emits MFC_FUN_LOC functions instead",
                 _emit_fun_loc_str,
-                "0").connect(functor(&FortranBase::set_emit_fun_loc, *this));
+                "0").connect(std::bind(&FortranBase::set_emit_fun_loc, this, std::placeholders::_1));
 
         _deduce_use_statements = false;
         register_parameter("deduce_use_statements",
                 "Tries to deduce use statements regardless of the information in the scope",
                 _deduce_use_statements_str,
-                "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
+                "0").connect(std::bind(&FortranBase::set_deduce_use_statements, this, std::placeholders::_1));
 
         _emit_full_array_subscripts = false;
         register_parameter("emit_full_array_subscripts",
                 "Emits synthetic array subscripts ranges introduced by the FE",
                 _emit_full_array_subscripts_str,
-                "0").connect(functor(&FortranBase::set_emit_full_array_subscripts, *this));
+                "0").connect(std::bind(&FortranBase::set_emit_full_array_subscripts, this, std::placeholders::_1));
     }
 
     void FortranBase::set_emit_fun_loc(const std::string& str)
@@ -6434,6 +6489,33 @@ OPERATOR_TABLE
                 _emit_full_array_subscripts,
                 "Assuming false.");
     }
+
+    FortranBase::Ret FortranBase::visit(const Nodecl::ErrExpr& node)
+    {
+        if (!this->is_file_output())
+        {
+            *(file) << "<<error expression>>";
+        }
+        else
+        {
+            internal_error("%s: error: <<error expression>> found when the output is a file",
+                    node.get_locus_str().c_str());
+        }
+    }
+
+    FortranBase::Ret FortranBase::visit(const Nodecl::ErrStatement& node)
+    {
+        if (!this->is_file_output())
+        {
+            *(file) << "<<error statement>>";
+        }
+        else
+        {
+            internal_error("%s: error: <<error statement>> found when the output is a file",
+                    node.get_locus_str().c_str());
+        }
+    }
 }
+
 
 EXPORT_PHASE(Codegen::FortranBase)

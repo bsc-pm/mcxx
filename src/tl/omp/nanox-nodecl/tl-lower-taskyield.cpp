@@ -33,8 +33,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Taskyield& construct)
     TL::Source src;
     src
         << "{"
-        <<      "nanos_err_t err;"
-        <<      "err = nanos_yield();"
+        <<      "nanos_err_t nanos_err;"
+        <<      "nanos_err = nanos_yield();"
         << "}"
         ;
 

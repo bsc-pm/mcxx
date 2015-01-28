@@ -950,4 +950,12 @@ esac
 done
 
 define_colors
+
+START_TIME=$SECONDS
+
 do_$mode $*
+
+END_TIME=$SECONDS
+ELAPSED_TIME=$(($END_TIME - $START_TIME))
+
+echo Duration: $(($ELAPSED_TIME / 60))min $(($ELAPSED_TIME % 60))sec

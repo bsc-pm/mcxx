@@ -45,14 +45,14 @@ MCXX_END_DECLS
 #include "cxx-printscope.h"
 namespace Codegen {
 
-void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
+void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out)
 {
     if (n.is_null())
         return;
 
-    // Keep the state and reset it
+    // Keep the state
     State old_state = state;
-    state = State();
+    state = new_state;
     std::ostream* old_out = file;
 
     state.nontype_template_argument_needs_parentheses =
@@ -75,6 +75,11 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
     // Restore previous state
     file = old_out;
     state = old_state;
+}
+
+void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
+{
+    codegen(n, State(), out);
 }
 
 void CxxBase::push_scope(TL::Scope sc)
@@ -714,17 +719,30 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         *(file) << "(*";
     }
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs);
-    if (needs_parentheses)
+    // If this is like (*this).x and we cannot emit it, ignore lhs
+    bool lhs_is_derref_this = (state._do_not_emit_this
+            && lhs.is<Nodecl::Dereference>()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().is_valid()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().get_name() == "this");
+
+    if (lhs_is_derref_this)
     {
-        *(file) << "(";
+        // do nothing
     }
-    // Left hand side does not care about the top level reference status
-    state.do_not_derref_rebindable_reference = false;
-    walk(lhs);
-    if (needs_parentheses)
+    else
     {
-        *(file) << ")";
+        bool needs_parentheses = operand_has_lower_priority(node, lhs);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        // Left hand side does not care about the top level reference status
+        state.do_not_derref_rebindable_reference = false;
+        walk(lhs);
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
     }
 
     if (!is_anonymous_union_accessor)
@@ -739,12 +757,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         {
             *(file) << "::";
         }
+        else if (lhs_is_derref_this)
+        {
+            // skip any separator
+        }
         else
         {
             *(file) << ".";
         }
 
-        needs_parentheses = operand_has_lower_priority(node, rhs);
+        bool needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
         {
             *(file) << "(";
@@ -1068,24 +1090,37 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    //
+    // If this is like (*this).x and we cannot emit it, ignore lhs
+    bool lhs_is_derref_this = (state._do_not_emit_this
+            && lhs.is<Nodecl::Dereference>()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().is_valid()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().get_name() == "this");
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs);
-    if (needs_parentheses)
+    if (lhs_is_derref_this)
     {
-        *(file) << "(";
+        // Do nothing
     }
-    walk(lhs);
-
-    if (needs_parentheses)
+    else
     {
-        *(file) << ")";
+
+        bool needs_parentheses = operand_has_lower_priority(node, lhs);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        walk(lhs);
+
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
+
+        *(file) << "."
+            << /* template tag if needed */ node.get_text();
     }
 
-    *(file) << "."
-         << /* template tag if needed */ node.get_text();
-
-
-    needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_parentheses = operand_has_lower_priority(node, rhs);
     if (needs_parentheses)
     {
         *(file) << "(";
@@ -1297,6 +1332,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
+                node.get_locus_str().c_str());
+    }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::ErrStatement& node)
+{
+    if (!this->is_file_output())
+    {
+        *(file) << "<<error statement>>";
+    }
+    else
+    {
+        internal_error("%s: error: <<error statement>> found when the output is a file",
                 node.get_locus_str().c_str());
     }
 }
@@ -8021,7 +8069,7 @@ bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
             || sym.is_dependent_friend_class())
         return friends.contains(sym);
     else
-        return friends.map(functor(&TL::Symbol::get_alias_to)).contains(sym);
+        return friends.map(&TL::Symbol::get_alias_to).contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
@@ -9454,8 +9502,16 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
         if (!symbol.function_noexcept().is_null())
         {
             exception_spec += " noexcept(";
-            exception_spec += this->codegen_to_str(symbol.function_noexcept(),
-                    symbol.get_scope());
+
+            std::stringstream ss;
+            State new_state(state);
+            new_state._do_not_emit_this = true;
+
+            push_scope(symbol.get_scope());
+            this->codegen(symbol.function_noexcept(), new_state, &ss);
+            pop_scope();
+
+            exception_spec += ss.str();
             exception_spec += ")";
         }
         else if (!symbol.function_throws_any_exception())
@@ -9829,19 +9885,19 @@ CxxBase::CxxBase()
     register_parameter("emit_saved_variables_as_unused",
             "Emits saved-expression variables as __attribute__((unused))",
             _emit_saved_variables_as_unused_str,
-            "0").connect(functor(&CxxBase::set_emit_saved_variables_as_unused, *this));
+            "0").connect(std::bind(&CxxBase::set_emit_saved_variables_as_unused, this, std::placeholders::_1));
 
     _prune_saved_variables = true;
     register_parameter("prune_saved_variables",
             "Disables removal of unused saved-expression variables. If you need to enable this, please report a ticket",
             _prune_saved_variables_str,
-            "1").connect(functor(&CxxBase::set_prune_saved_variables, *this));
+            "1").connect(std::bind(&CxxBase::set_prune_saved_variables, this, std::placeholders::_1));
 
     _use_old_method_for_class_definitions = false;
     register_parameter("old_method_for_class_definitions",
             "Uses an old method to emit class definitions. If you need to enable this, please report a ticket",
             _use_old_method_for_class_definitions_str,
-            "0").connect(functor(&CxxBase::set_old_method_for_class_definitions, *this));
+            "0").connect(std::bind(&CxxBase::set_old_method_for_class_definitions, this, std::placeholders::_1));
 }
 
 void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)

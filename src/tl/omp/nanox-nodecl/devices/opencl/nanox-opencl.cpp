@@ -118,7 +118,7 @@ void DeviceOpenCL::generate_ndrange_code(
     }
 
     //Create OCL Kernel
-    code_ndrange_aux << "nanos_err_t err;"
+    code_ndrange_aux << "nanos_err_t nanos_err;"
                      << "void* ompss_kernel_ocl = nanos_create_current_kernel(\""
                      <<         kernel_name << "\",\""
                      <<         filename << "\",\""
@@ -160,7 +160,7 @@ void DeviceOpenCL::generate_ndrange_code(
         if (is_global)
         {
             code_ndrange_aux
-                << "err = nanos_opencl_set_bufferarg("
+                << "nanos_err = nanos_opencl_set_bufferarg("
                 <<      "ompss_kernel_ocl, "
                 <<      i << ", "
                 <<      as_symbol(unpacked_argument) <<");";
@@ -181,7 +181,7 @@ void DeviceOpenCL::generate_ndrange_code(
                 sizeof_arg << as_expression(new_shmem[index_local]);
             }
 
-            code_ndrange_aux << "err = nanos_opencl_set_arg("
+            code_ndrange_aux << "nanos_err = nanos_opencl_set_arg("
                 <<      "ompss_kernel_ocl, "
                 <<      i << ", "
                 <<      sizeof_arg << ", "
@@ -190,7 +190,7 @@ void DeviceOpenCL::generate_ndrange_code(
         }
         else
         {
-            code_ndrange_aux << "err = nanos_opencl_set_arg("
+            code_ndrange_aux << "nanos_err = nanos_opencl_set_arg("
                 <<      "ompss_kernel_ocl, "
                 <<      i << ", "
                 <<      "sizeof(" << as_type(unpacked_argument.get_type().no_ref()) << "), "
@@ -380,12 +380,12 @@ void DeviceOpenCL::generate_ndrange_code(
             << "if (local_size_zero)"
             << "{"
             //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-            <<      "err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, 0, global_size_arr);"
+            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, 0, global_size_arr);"
             << "}"
             << "else"
             << "{"
             //Launch kernel/ it will be freed inside, with ndrange calculated inside the checkDim loop
-            <<      "err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, local_size_arr, global_size_arr);"
+            <<      "nanos_err = nanos_exec_kernel(ompss_kernel_ocl, num_dim, offset_arr, local_size_arr, global_size_arr);"
             << "}"
             ;
     }
@@ -910,7 +910,7 @@ DeviceOpenCL::DeviceOpenCL()
     register_parameter("disable_opencl_file_check",
             "Do not check if the argument of the 'file' clause is specified as an OpenCL file in the command line",
             _disable_opencl_file_check_str,
-            "0").connect(functor(&DeviceOpenCL::disable_opencl_file_check, *this));
+            "0").connect(std::bind(&DeviceOpenCL::disable_opencl_file_check, this, std::placeholders::_1));
 }
 
 void  DeviceOpenCL::disable_opencl_file_check(const std::string &str)
@@ -983,7 +983,7 @@ void DeviceOpenCL::generate_outline_events_after(
         Source& extra_cast,
         Source& instrumentation_after)
 {
-    instrumentation_after << "err = nanos_instrument_close_user_fun_event();";
+    instrumentation_after << "nanos_err = nanos_instrument_close_user_fun_event();";
 }
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)

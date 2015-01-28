@@ -52,6 +52,15 @@ static std::string get_outline_name(const std::string & name) {
 }
 
 
+//This function tries to return if we are using icc/gcc, looks for a "g" in the preprocessor (which should mean gnu...)
+static bool compilingWithIcc()
+{
+    //FIXME: no existing reliable/clear way to detect if we are using icc or gcc
+    std::string preprocessorName(CURRENT_CONFIGURATION->preprocessor_name);
+    return preprocessorName.find("g")==std::string::npos;
+}
+
+
 void DeviceMPI::generate_additional_mpi_code(
         const TL::ObjectList<OutlineDataItem*>& data_items,
         const TL::Symbol& struct_args,
@@ -378,10 +387,12 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
                             ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
-                        data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
 
                         if (!(*it)->get_copies().empty())
-                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+                        {
+                            data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
+                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));";
+                        }
 
                         data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
 
@@ -832,14 +843,26 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     std::string append;
     if (IS_FORTRAN_LANGUAGE){
         append="_";
+        
+        std::string prepend_module="";
 
+        bool isIcc=compilingWithIcc();
+        //If we are not gcc
+        if ( isIcc )
+        {
+            if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
+                prepend_module=host_function.in_module().get_name()+"_mp_";
+        } else {
+            if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
+                prepend_module="__" + host_function.in_module().get_name()+"_MOD_";            
+        }
 
         _extraFortranDecls <<
-               "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
-               "extern void " << device_outline_name << "_device"  << append << "(void);";
+               "extern void " << prepend_module << device_outline_name << "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
+               "extern void " << prepend_module << device_outline_name << "_device"  << append << "(void);";
         
-       _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
-       _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+       _sectionCodeHost.append_with_separator("(void*)" + prepend_module + host_function.get_qualified_name() + append,",");
+       _sectionCodeDevice.append_with_separator("(void(*)())" + prepend_module + device_function.get_qualified_name() + append,",");
        _currTaskId++; 
     } else {
         if( current_function.get_type().is_template_specialized_type()
@@ -936,7 +959,9 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
             std::string qualified_name = current_function.get_qualified_name(function_scope,without_template_args);            
             // Restore the original name of the current function
             current_function.set_name(original_name);
-            
+
+
+            //WARNING: maybe this nanos_mpi_args_t variable should not be static (non thread-safe)
             //Initialize static with 0's and then change its value each time we spawn a task
             //This struct will be copied by nanox at task creation time, so values will be correct in the runtime
             ancillary_device_description

@@ -130,6 +130,11 @@ namespace TL
              */
             Nodecl::NodeclBase get_offsetof_copy(Nodecl::NodeclBase reference, TL::Scope sc) const;
 
+            //! States if this is a multidependence data-reference
+            bool is_multidependence() const;
+            typedef std::pair<TL::Symbol, Nodecl::NodeclBase> MultiDepIterator;
+            TL::ObjectList<MultiDepIterator> multidependences() const;
+
             friend struct DataReferenceVisitor;
 
             ~DataReference();
@@ -141,6 +146,8 @@ namespace TL
 
             TL::Symbol _base_symbol;
             TL::Type _data_type;
+
+            TL::ObjectList<MultiDepIterator> _iterators;
 
             // Error log
             std::string _error_log;

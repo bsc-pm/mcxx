@@ -146,7 +146,7 @@ expression : literal
            | context
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
-           | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
+           | range-expression
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
@@ -240,17 +240,19 @@ expression : literal
 # This one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
+range-expression : NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
+
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
 
 structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
-      | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
-      | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
-      | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
+  | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
+  | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
+  | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
-          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
-          | expression
-          | fortran-implied-do
+      | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
+      | expression
+      | fortran-implied-do
 
 fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([name]name, [range]expression, [items]initializer-item-seq)
 
@@ -530,6 +532,7 @@ target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [sym
 
 expression : task-call
             | task-expression
+            | ompss-multi-dep
 
 top-level: target-declaration
 
@@ -624,6 +627,8 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
 
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
+
+ompss-multi-dep : NODECL_OMP_SS*MULTI_DEPENDENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
 
 ##############################
 # SIMD                       #

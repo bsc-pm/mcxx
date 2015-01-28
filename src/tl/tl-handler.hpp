@@ -48,7 +48,7 @@ namespace TL
     class Signal1
     {
         private:
-            typedef typename std::vector<Functor<void, Param1>* > handlers_type;
+            typedef typename std::vector<std::function<void(Param1)> > handlers_type;
             typedef typename handlers_type::iterator handlers_iterator;
 
 
@@ -69,16 +69,14 @@ namespace TL
                 {
                     typedef T& type;
                 };
-    
+
             handlers_type _handlers;
         public:
             //! Connects a functor to this signal
             template <class T>
                 void connect(const T& handler)
                 {
-                    T* new_handler = new T(handler);
-    
-                    _handlers.push_back(new_handler);
+                    _handlers.push_back(handler);
                 }
     
             //! Signals all the connected functors with given parameter
@@ -87,17 +85,7 @@ namespace TL
                 handlers_iterator it;
                 for (it = _handlers.begin(); it != _handlers.end(); it++)
                 {
-                    (*it)->operator()(p1);
-                }
-            }
-    
-            // Destructor
-            ~Signal1()
-            {
-                handlers_iterator it;
-                for (it = _handlers.begin(); it != _handlers.end(); it++)
-                {
-                    delete (*it);
+                    it->operator()(p1);
                 }
             }
     };

@@ -133,23 +133,23 @@ namespace TL { namespace Nanox {
         Source spawn_code, barrier_code;
         spawn_code
         << "{"
-        <<     "nanos_err_t err;"
+        <<     "nanos_err_t nanos_err;"
         <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     dynamic_wd_info
         <<     const_wd_info
         <<     schedule_setup
-        <<     "err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
+        <<     "nanos_err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<            "(size_t)" << struct_size << ","
         <<            "nanos_wd_const_data.base.data_alignment,"
         <<            "(void**)&ol_args, nanos_current_wd(), nanos_slicer, &nanos_wd_const_data.base.props, &nanos_dyn_props,"
         <<            "0, 0, 0, 0);"
-        <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
         <<     statement_placeholder(fill_slicer_descriptor_tree)
         <<     statement_placeholder(fill_outline_arguments_tree)
-        <<     "err = nanos_submit(nanos_wd_, 0, 0, 0);"
-        <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<     "nanos_err = nanos_submit(nanos_wd_, 0, 0, 0);"
+        <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
         <<     barrier_code
         << "}"
         ;
@@ -158,8 +158,8 @@ namespace TL { namespace Nanox {
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
             barrier_code
-                << "err = nanos_wg_wait_completion(nanos_current_wd(), 0);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_err = nanos_wg_wait_completion(nanos_current_wd(), 0);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 ;
         }
 

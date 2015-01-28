@@ -152,28 +152,33 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         ObjectList<Symbol>& extra_symbols);
 
-                void get_dependences_info_clause(
+                void get_dependences_ompss_info_clause(
                         PragmaCustomClause clause,
+                        Nodecl::NodeclBase construct,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr,
                         DataSharingAttribute default_data_attr,
                         const std::string& clause_name,
                         ObjectList<Symbol>& extra_symbols);
 
-                void parse_dependences_info_std_clause(
+                ObjectList<Nodecl::NodeclBase> parse_dependences_ompss_clause(
+                        PragmaCustomClause& clause,
+                        TL::ReferenceScope parsing_scope);
+
+                void get_dependences_openmp(
+                        TL::PragmaCustomLine construct,
+                        TL::PragmaCustomClause clause,
+                        DataSharingEnvironment& data_sharing,
+                        DataSharingAttribute default_data_attr,
+                        ObjectList<Symbol>& extra_symbols);
+
+                void parse_dependences_openmp_clause(
                         TL::ReferenceScope parsing_scope,
                         TL::PragmaCustomClause clause,
                         TL::ObjectList<Nodecl::NodeclBase> &in,
                         TL::ObjectList<Nodecl::NodeclBase> &out,
                         TL::ObjectList<Nodecl::NodeclBase> &inout,
                         const locus_t* locus);
-
-                void get_dependences_info_std_clause(
-                        TL::PragmaCustomLine construct,
-                        TL::PragmaCustomClause clause,
-                        DataSharingEnvironment& data_sharing,
-                        DataSharingAttribute default_data_attr,
-                        ObjectList<Symbol>& extra_symbols);
 
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing,

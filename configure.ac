@@ -489,6 +489,7 @@ nanox=""
 nanox_mic_include=""
 nanox_mic_lib=""
 nanox=""
+nanox_pm_selection="none"
 NANOX=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
@@ -501,6 +502,8 @@ nanox_mic_enabled=no
 MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
 MIC_LIBS=""
+NANOX_NEW_LINK="\# "
+NANOX_OLD_LINK="\# "
 
 if test x$is_enabled_ompss = xyes;
 then
@@ -536,6 +539,45 @@ then
             nanox_lib="${withval}"
            ]
    )
+
+   AC_MSG_CHECKING([linking mechanism of Nanos++])
+   for nanox_version in performance debug instrumentation instrumentation-debug;
+   do
+       if test -d $nanox_lib/$nanox_version;
+       then
+           if test -f $nanox_lib/$nanox_version/libnanox-ompss.so;
+           then
+               if test "$nanox_pm_selection" = "none";
+               then
+                   nanox_pm_selection="new"
+               elif test "$nanox_pm_selection" != "new";
+               then
+                   AC_MSG_ERROR([Nanos++ installation is broken])
+               fi
+           else
+               if test "$nanox_pm_selection" = "none";
+               then
+                   nanox_pm_selection="old"
+               elif test "$nanox_pm_selection" != "old";
+               then
+                   AC_MSG_ERROR([Nanos++ installation is broken])
+               fi
+           fi
+       fi
+   done
+
+   if test "$nanox_pm_selection" = "none";
+   then
+       AC_MSG_ERROR([Cannot determine Nanos++ mechanism of Programming Model selection. Likely Nanos++ library path is wrong])
+   elif test "$nanox_pm_selection" = "new";
+   then
+       AC_MSG_RESULT([new mechanism])
+       NANOX_NEW_LINK=""
+   elif test "$nanox_pm_selection" = "old";
+   then
+       AC_MSG_RESULT([old mechanism])
+       NANOX_OLD_LINK=""
+   fi
 
    AC_ARG_WITH([nanox-mic],
            AS_HELP_STRING([--with-nanox-mic=dir], [Directory of Nanos++ MIC installation]),
@@ -616,6 +658,9 @@ then
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 40.config.cuda"
 fi
+
+AC_SUBST([NANOX_NEW_LINK])
+AC_SUBST([NANOX_OLD_LINK])
 
 AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
 AM_CONDITIONAL([BUILD_NANOX_NODECL], test x$is_enabled_tl_omp_nanox = xyes)
@@ -2113,7 +2158,17 @@ then
      AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
   fi
 
-	echo "   Nanos++ tests regions support:" $nanox_regions
+  echo ""
+  if test "$nanox_pm_selection" = "new";
+  then
+      nanox_pm_selection_desc="new, more portable"
+  elif test "$nanox_pm_selection" = "old";
+  then
+      nanox_pm_selection_desc="old, less portable"
+  else
+      nanox_pm_selection_desc="error"
+  fi
+  echo "   Nanos++ Prog.Model. Selection Mechanism:" $nanox_pm_selection_desc
 fi
 
 echo ""

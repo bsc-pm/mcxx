@@ -25,470 +25,68 @@
 --------------------------------------------------------------------*/
 
 
-
-
 #ifndef TL_FUNCTOR_HPP
 #define TL_FUNCTOR_HPP
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tl-common.hpp"
-#include <iostream>
+#include <functional>
 #include "cxx-macros.h"
 
-namespace TL
+#if !defined(HAVE_CXX11)
+#include <tr1/functional>
+namespace std
 {
-    //! \addtogroup Functors Functors and Predicates
-    //! @{
+    using std::tr1::function;
+    using std::tr1::bind;
+    // Note: std::tr1::result_of behaves slightly different to std::result_of
+    // so we prefer to make sure we acknowledge the difference
+    // Note: std::tr1::result_of requires a result_type if a function object
+    // is created using a class
 
-    template <class Ret, class T>
-    class FunctorBase
-    {
-        protected:
-            virtual Ret do_(const T& t) const = 0;
-            typedef const T& ArgType;
-            FunctorBase() {}
-            virtual ~FunctorBase() {}
-    };
-
-    template <class Ret, class T>
-    class FunctorBase<Ret, const T&>
-    {
-        protected:
-            virtual Ret do_(const T& t) const = 0;
-            typedef const T& ArgType;
-            FunctorBase() {}
-            virtual ~FunctorBase() {}
-    };
-
-
-    template <class Ret, class T>
-    class FunctorBase<Ret, T&>
-    {
-        protected:
-            virtual Ret do_(T& t) const = 0;
-            typedef T& ArgType;
-            FunctorBase() {}
-            virtual ~FunctorBase() {}
-    };
-    
-    //! Function representing a callable entity with only one argument
-    /*!
-     * \param Ret The returning type of this callable entity
-     * \param T The first parameter of this entity
-     */
-    template <class Ret, class T>
-    class Functor : public FunctorBase<Ret, T>
-    {
-        public:
-            virtual Ret operator()(typename FunctorBase<Ret, T>::ArgType t) const FINAL
-            {
-                return this->do_(t);
-            }
-
-            Functor() {}
-            virtual ~Functor() { }
-    };
-
-    //! Adapter class for non-member functions
-    template <class Ret, class T>
-    class FunctionAdapterVal : public Functor<Ret, T>
-    {
-        private:
-            Ret (*_pf)(T);
-        public:
-            FunctionAdapterVal(Ret (*pf)(T))
-                : _pf(pf)
-            {
-            }
-
-            virtual Ret do_(typename FunctionAdapterVal::ArgType t) const 
-            {
-                return (_pf)(t);
-            }
-
-            virtual ~FunctionAdapterVal()
-            {
-            }
-    };
-
-    template <class Ret, class T>
-    class FunctionAdapterConstRef : public Functor<Ret, T>
-    {
-        private:
-            Ret (*_pf)(const T&);
-        public:
-            FunctionAdapterConstRef(Ret (*pf)(const T&))
-                : _pf(pf)
-            {
-            }
-
-            virtual Ret do_(typename FunctionAdapterConstRef::ArgType t) const 
-            {
-                return (_pf)(t);
-            }
-
-            virtual ~FunctionAdapterConstRef()
-            {
-            }
-    };
-
-    template <class Ret, class T>
-    class FunctionAdapterRef : public Functor<Ret, T&>
-    {
-        private:
-            Ret (*_pf)(T&);
-        public:
-            FunctionAdapterRef(Ret (*pf)(T&))
-                : _pf(pf)
-            {
-            }
-
-            virtual Ret do_(typename FunctionAdapterRef::ArgType t) const 
-            {
-                return (_pf)(t);
-            }
-
-            virtual ~FunctionAdapterRef()
-            {
-            }
-    };
-
-    // Ret (Q::*pmf)(T t)
-    //! Adapter class for member functions of a given object expecting value parameter
-    template <class Ret, class T, class Q>
-    class MemberFunctionAdapterVal : public Functor<Ret, T>
-    {
-        private:
-            Q& _q;
-            Ret (Q::*_pmf)(T t);
-        public:
-            MemberFunctionAdapterVal(Ret (Q::*pmf)(T t), Q& q)
-                : _q(q), _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename MemberFunctionAdapterVal::ArgType t) const
-            {
-                return (_q.*_pmf)(t);
-            }
-
-            virtual ~MemberFunctionAdapterVal()
-            {
-            }
-    };
-
-    // Ret (Q::*pmf)(const T& t)
-    //! Adapter class for member functions of a given object expecting a const reference parameter
-    template <class Ret, class T, class Q>
-    class MemberFunctionAdapterConstRef : public Functor<Ret, T>
-    {
-        private:
-            Q& _q;
-            Ret (Q::*_pmf)(const T& t);
-        public:
-            MemberFunctionAdapterConstRef(Ret (Q::*pmf)(const T& t), Q& q)
-                : _q(q), _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename MemberFunctionAdapterConstRef::ArgType t) const
-            {
-                return (_q.*_pmf)(t);
-            }
-
-            virtual ~MemberFunctionAdapterConstRef()
-            {
-            }
-    };
-
-
-    // Ret (Q::*pmf)(T& t)
-    //! Adapter class for member functions of a given object
-    template <class Ret, class T, class Q>
-    class MemberFunctionAdapterRef : public Functor<Ret, T&>
-    {
-        private:
-            Q& _q;
-            Ret (Q::*_pmf)(T& t);
-        public:
-            MemberFunctionAdapterRef(Ret (Q::*pmf)(T& t), Q& q)
-                : _q(q), _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename MemberFunctionAdapterRef::ArgType t) const
-            {
-                return (_q.*_pmf)(t);
-            }
-
-            virtual ~MemberFunctionAdapterRef()
-            {
-            }
-    };
-
-    // Ret (Q::*pmf)(T t) const
-    //! Adapter class for member functions of a given constant object expecting a value parameter
-    template <class Ret, class T, class Q>
-    class MemberConstFunctionAdapterVal : public Functor<Ret, T>
-    {
-        private:
-            Q& _q;
-            Ret (Q::*_pmf)(T t) const;
-        public:
-            MemberConstFunctionAdapterVal(Ret (Q::*pmf)(T t) const, Q& q)
-                : _q(q), _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename MemberConstFunctionAdapterVal::ArgType t) const
-            {
-                return (_q.*_pmf)(t);
-            }
-
-            virtual ~MemberConstFunctionAdapterVal()
-            {
-            }
-    };
-
-    // Ret (Q::*pmf)(T& t) const
-    //! Adapter class for member functions of a given constant object
-    template <class Ret, class T, class Q>
-    class MemberConstFunctionAdapterRef : public Functor<Ret, T&>
-    {
-        private:
-            Q& _q;
-            Ret (Q::*_pmf)(T& t) const;
-        public:
-            MemberConstFunctionAdapterRef(Ret (Q::*pmf)(T& t) const, Q& q)
-                : _q(q), _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename MemberConstFunctionAdapterRef::ArgType t) const
-            {
-                return (_q.*_pmf)(t);
-            }
-
-            virtual ~MemberConstFunctionAdapterRef()
-            {
-            }
-    };
-    
-    // Ret (Q::*pmf)(const T& t) const
-    //! Adapter class for member functions of a given constant object expecting a const reference parameter
-    template <class Ret, class T, class Q>
-    class MemberConstFunctionAdapterConstRef : public Functor<Ret, T>
-    {
-        private:
-            Q& _q;
-            Ret (Q::*_pmf)(const T& t) const;
-        public:
-            MemberConstFunctionAdapterConstRef(Ret (Q::*pmf)(const T& t) const, Q& q)
-                : _q(q), _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename MemberConstFunctionAdapterConstRef::ArgType t) const
-            {
-                return (_q.*_pmf)(t);
-            }
-
-            virtual ~MemberConstFunctionAdapterConstRef()
-            {
-            }
-    };
-
-    //! Adapter class for data member functions
-    template <class Ret, class T>
-    class DataMemberAdapter : public Functor<Ret, T>
-    {
-        private:
-            Ret T::*_pdm;
-        public:
-            DataMemberAdapter(Ret T::*pdm)
-                : _pdm(pdm)
-            {
-            }
-
-            ~DataMemberAdapter()
-            {
-            }
-
-            virtual Ret do_(typename DataMemberAdapter::ArgType t) const
-            {
-                return t.*_pdm;
-            }
-    };
-
-    //! Adapter class for this same object
-    template <class Ret, class T>
-    class ThisMemberFunctionAdapter : public Functor<Ret, T>
-    {
-        private:
-            Ret (T::*_pmf)();
-        public:
-            ThisMemberFunctionAdapter(Ret (T::*pmf)())
-                : _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename ThisMemberFunctionAdapter::ArgType t) const
-            {
-                return (t.*_pmf)();
-            }
-
-            virtual ~ThisMemberFunctionAdapter()
-            {
-            }
-    };
-
-    //! Adapter class for this same const object
-    template <class Ret, class T>
-    class ThisMemberFunctionConstAdapter : public Functor<Ret, T>
-    {
-        private:
-            Ret (T::*_pmf)() const;
-        public:
-            ThisMemberFunctionConstAdapter(Ret (T::*pmf)() const)
-                : _pmf(pmf)
-            {
-            }
-
-            virtual Ret do_(typename ThisMemberFunctionConstAdapter::ArgType t) const
-            {
-                return (t.*_pmf)();
-            }
-
-            virtual ~ThisMemberFunctionConstAdapter()
-            {
-            }
-    };
-
-    //! Adaptor to create functors of non-member functions with value parameter
-    template <class Ret, class T>
-    FunctionAdapterVal<Ret, T> functor(Ret (*pf)(T))
-    {
-        FunctionAdapterVal<Ret, T> result(pf);
-        return result;
+    namespace placeholders {
+        using std::tr1::placeholders::_1;
+        // using std::tr1::placeholders::_2;
     }
-
-    //! Adaptor to create functors of non-member functions
-    template <class Ret, class T>
-    FunctionAdapterRef<Ret, T> functor(Ret (*pf)(T&))
-    {
-        FunctionAdapterRef<Ret, T> result(pf);
-        return result;
-    }
-
-    //! Adaptor to create functors of non-member functions with const reference parameter
-    template <class Ret, class T>
-    FunctionAdapterConstRef<Ret, T> functor(Ret (*pf)(const T&))
-    {
-        FunctionAdapterConstRef<Ret, T> result(pf);
-        return result;
-    }
-
-    // Ret (Q::*pmf)(T t)
-    //! Adaptor to create functors of member functions of a given object receiving a value
-    template <class Ret, class T, class Q>
-    MemberFunctionAdapterVal<Ret, T, Q> functor(Ret (Q::*pmf)(T t), Q& q)
-    {
-        MemberFunctionAdapterVal<Ret, T, Q> result(pmf, q);
-        return result;
-    }
-
-    // Ret (Q::*pmf)(T& t)
-    //! Adaptor to create functors of member functions of a given object
-    template <class Ret, class T, class Q>
-    MemberFunctionAdapterRef<Ret, T, Q> functor(Ret (Q::*pmf)(T& t), Q& q)
-    {
-        MemberFunctionAdapterRef<Ret, T, Q> result(pmf, q);
-        return result;
-    }
-
-    // Ret (Q::*pmf)(const T& t)
-    //! Adaptor to create functors of member functions of a given object receiving a const reference
-    template <class Ret, class T, class Q>
-    MemberFunctionAdapterConstRef<Ret, T, Q> functor(Ret (Q::*pmf)(const T& t), Q& q)
-    {
-        MemberFunctionAdapterConstRef<Ret, T, Q> result(pmf, q);
-        return result;
-    }
-
-    // Ret (Q::*pmf)(T& t) const
-    //! Adaptor to create functors of member functions of a given const object
-    template <class Ret, class T, class Q>
-    MemberConstFunctionAdapterRef<Ret, T, Q> functor(Ret (Q::*pmf)(T& t) const, Q& q)
-    {
-        MemberConstFunctionAdapterRef<Ret, T, Q> result(pmf, q);
-        return result;
-    }
-    
-    // Ret (Q::*pmf)(const T& t) const
-    //! Adaptor to create functors of member functions of a given const object receiving a const reference
-    template <class Ret, class T, class Q>
-    MemberConstFunctionAdapterConstRef<Ret, T, Q> functor(Ret (Q::*pmf)(const T& t) const, Q& q)
-    {
-        MemberConstFunctionAdapterConstRef<Ret, T, Q> result(pmf, q);
-        return result;
-    }
-
-    // Ret (Q::*pmf)(T t) const
-    //! Adaptor to create functors of member functions of a given const object receiving a value
-    template <class Ret, class T, class Q>
-    MemberConstFunctionAdapterVal<Ret, T, Q> functor(Ret (Q::*pmf)(T t) const, Q& q)
-    {
-        MemberConstFunctionAdapterVal<Ret, T, Q> result(pmf, q);
-        return result;
-    }
-
-    //! Adaptor to create functors of this same object
-    template <class Ret, class T>
-    ThisMemberFunctionAdapter<Ret, T> functor(Ret (T::*pmf)())
-    {
-        ThisMemberFunctionAdapter<Ret, T> result(pmf);
-        return result;
-    }
-
-    //! Adaptor to create functors of this same const object
-    template <class Ret, class T>
-    ThisMemberFunctionConstAdapter<Ret, T> functor(Ret (T::*pmf)() const)
-    {
-        ThisMemberFunctionConstAdapter<Ret, T> result(pmf);
-        return result;
-    }
-
-    //! Adaptor to create data member functors of a given object
-    template <class Ret, class T>
-    DataMemberAdapter<Ret, T> functor (Ret T::*pdm)
-    {
-        DataMemberAdapter<Ret, T> result(pdm);
-        return result;
-    }
-
-    template <class Ret, class T>
-    struct LiftPointer : public Functor<Ret, T*>
-    {
-        private:
-        const Functor<Ret, T>& _f;
-
-        public:
-        LiftPointer(const Functor<Ret, T>& f)
-            : _f(f) { }
-
-        virtual Ret do_(typename LiftPointer::ArgType t) const 
-        {
-            return _f(*t);
-        }
-    };
-
-    template <class Ret, class T>
-    LiftPointer<Ret, T> lift_pointer(const Functor<Ret, T>& fun)
-    {
-        LiftPointer<Ret, T> lift_pointer(fun);
-        return lift_pointer;
-    }
-
-    //! @}
 }
+#endif
+
+
+template <typename T, typename F>
+struct LiftPointer
+{
+    private:
+#if defined(HAVE_CXX11)
+        typedef typename std::result_of<F(T)>::type Ret;
+#else
+        typedef typename std::tr1::result_of<F(T)>::type Ret;
+#endif
+        std::function<Ret(T)> _f;
+
+    public:
+    LiftPointer(F f)
+        : _f(f) { }
+
+    Ret operator ()(T *t) const
+    {
+        return _f(*t);
+    }
+
+#if !defined(HAVE_CXX11)
+    typedef Ret result_type;
+#endif
+};
+
+
+template <typename T, typename F>
+LiftPointer<T, F> lift_pointer(F fun)
+{
+    LiftPointer<T, F> lifted(fun);
+    return lifted;
+}
+
 
 #endif // TL_FUNCTOR_HPP
