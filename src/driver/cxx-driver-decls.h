@@ -168,6 +168,7 @@ typedef struct debug_options_tag
     char binary_check;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
+    char analysis_perf;
     char print_pcfg;
     char print_pcfg_w_context;
     char print_pcfg_w_analysis;
