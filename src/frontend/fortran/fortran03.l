@@ -924,6 +924,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     return SUBPARSE_OPENMP_DEPEND_ITEM;
 }
 
+@OMPSS-DEPENDENCY-EXPR@ {
+    parse_token_text();
+    return SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION;
+}
+
  /* Special tokens for placeholders */
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); RETURN_TOKEN(STATEMENT_PLACEHOLDER); }
 

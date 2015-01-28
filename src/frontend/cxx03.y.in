@@ -675,6 +675,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/
+/*!include cxx-ompss.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
 /*!include cxx-opencl.y*/
@@ -5917,16 +5918,6 @@ template_argument_list : template_argument %merge<ambiguityHandler>
 {
 	$$ = ASTList($1, $3);
 }
-| template_argument ELLIPSIS %merge<ambiguityHandler>
-{
-    AST template_argument_pack = ASTMake1(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
-	$$ = ASTListLeaf(template_argument_pack);
-}
-| template_argument_list ',' template_argument ELLIPSIS %merge<ambiguityHandler>
-{
-    AST template_argument_pack = ASTMake1(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
-	$$ = ASTList($1, template_argument_pack);
-}
 ;
 
 template_argument : template_assignment_expression %merge<ambiguityHandler>
@@ -5938,6 +5929,17 @@ template_argument : template_assignment_expression %merge<ambiguityHandler>
 | type_id_not_ellipsis %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_TEMPLATE_TYPE_ARGUMENT, $1, ast_get_locus($1), NULL);
+}
+|template_assignment_expression ELLIPSIS %merge<ambiguityHandler>
+{
+	$$ = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT_PACK,
+			ASTMake1(AST_EXPRESSION, $1, ast_get_locus($1), NULL), 
+             ast_get_locus($1), NULL);
+}
+| type_id_not_ellipsis ELLIPSIS %merge<ambiguityHandler>
+{
+	$$ = ASTMake1(AST_TEMPLATE_TYPE_ARGUMENT_PACK,
+            $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -6600,6 +6602,7 @@ right_bracket_token : '>'
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-omp.y*/
+/*!include cxx-ompss.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
 /*!include cxx-opencl.y*/

@@ -30,6 +30,10 @@
 #ifndef CXX_MACROS_H
 #define CXX_MACROS_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 // Some useful macros
 #ifndef __GNUC__
     #define __attribute__(x)

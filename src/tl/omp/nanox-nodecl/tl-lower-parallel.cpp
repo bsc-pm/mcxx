@@ -103,18 +103,18 @@ namespace TL { namespace Nanox {
         Source outline_source, reduction_code_src, reduction_initialization_src;
         Nodecl::NodeclBase inner_placeholder;
         outline_source
-            << "nanos_err_t err;"
-            << "err = nanos_omp_set_implicit(nanos_current_wd());"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "err = nanos_enter_team();"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_omp_set_implicit(nanos_current_wd());"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+            << "nanos_err = nanos_enter_team();"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << reduction_initialization_src
             << statement_placeholder(inner_placeholder)
             << reduction_code_src
-            << "err = nanos_omp_barrier();"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "err = nanos_leave_team();"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err = nanos_omp_barrier();"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+            << "nanos_err = nanos_leave_team();"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             ;
 
         Nodecl::NodeclBase reduction_initialization, reduction_code;

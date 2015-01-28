@@ -165,16 +165,16 @@ namespace TL
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
             if (_pred) { \
                 std::string directive_name = remove_separators_of_directive(_directive); \
-                dispatcher().directive.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, *this)); \
-                dispatcher().directive.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, *this)); \
+                dispatcher().directive.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+                dispatcher().directive.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDirective))&Core::_name##_handler_post, this, std::placeholders::_1)); \
             }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
             if (_pred) { \
                 std::string directive_name = remove_separators_of_directive(_directive); \
-                dispatcher().declaration.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
-                dispatcher().declaration.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
-                dispatcher().statement.pre[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
-                dispatcher().statement.post[directive_name].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
+                dispatcher().declaration.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+                dispatcher().declaration.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, this, std::placeholders::_1)); \
+                dispatcher().statement.pre[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, this, std::placeholders::_1)); \
+                dispatcher().statement.post[directive_name].connect(std::bind((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, this, std::placeholders::_1)); \
             }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -348,14 +348,14 @@ namespace TL
                 }
         };
 
-        struct NotInRefList : Predicate<DataReference>
+        struct NotInRefList
         {
             ObjectList<DataReference> &_ref_list;
             NotInRefList(ObjectList<DataReference>& ref_list) : _ref_list(ref_list) { }
 
-            virtual bool do_(Predicate<DataReference>::ArgType t) const
+            bool operator()(DataReference t) const
             {
-                return !_ref_list.contains(t, functor(&DataReference::get_base_symbol));
+                return !_ref_list.contains(t, &DataReference::get_base_symbol);
             }
         };
 
@@ -368,7 +368,7 @@ namespace TL
                     it != firstprivate.end();
                     it++)
             {
-                if (lastprivate.contains(*it, functor(&DataReference::get_base_symbol)))
+                if (lastprivate.contains(*it, std::function<TL::Symbol(DataReference)>(&DataReference::get_base_symbol)))
                 {
                     result.append(*it);
                 }
@@ -767,7 +767,7 @@ namespace TL
 
             ObjectList<TL::Symbol> nonlocal_symbols =
                 Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-                .map(functor<TL::Symbol, Nodecl::Symbol>(&Nodecl::NodeclBase::get_symbol));
+                .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
 
             ObjectList<Symbol> already_nagged;
 
@@ -1257,7 +1257,7 @@ namespace TL
 
             ObjectList<TL::Symbol> nonlocal_symbols =
                 Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement)
-                .map(functor<TL::Symbol, Nodecl::Symbol>(&Nodecl::NodeclBase::get_symbol));
+                .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
 
             if (!_ompss_mode)
             {
@@ -1836,8 +1836,9 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
 
             ObjectList<Symbol> extra_symbols;
-            get_dependences_info_clause(
+            get_dependences_ompss_info_clause(
                     construct.get_pragma_line().get_clause("on"),
+                    construct,
                     data_sharing,
                     DEP_DIR_INOUT,
                     /* default data sharing */ DS_UNDEFINED,

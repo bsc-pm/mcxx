@@ -397,7 +397,21 @@ match_array_subscripts_end:
             }
         }
     }
-    
+
+    template <typename DependenceNode>
+    static TL::ObjectList<Nodecl::NodeclBase> gather_dependences(
+            Nodecl::List list,
+            Nodecl::NodeclBase (DependenceNode::*get_dependences)() const)
+    {
+        ObjectList<NBase> deps = list.find_all<DependenceNode>()
+                .map(get_dependences)                // ObjectList<NBase>
+                .map(&NBase::as<Nodecl::List>)       // ObjectList<Nodecl::List>
+                .map(&Nodecl::List::to_object_list)  // ObjectList<ObjectList<NBase> >
+                .reduction(append_two_lists<NBase>); // ObjectList<NBase>
+
+        return deps;
+    }
+
     /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
      * \param source_environ is the environment of the source task
      * \param target_environ is the environment of the target task
@@ -411,56 +425,41 @@ match_array_subscripts_end:
     {
         NBase condition;
         
-        typedef std::pair<ObjectList<NBase>, ObjectList<NBase> > nodecl_object_list_pair;
-
         // 1.- Collect the variables in the dependency clauses
         Nodecl::List source_environ = source->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         Nodecl::List target_environ = target->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         // 1.1.- Get in dependencies on one side and out and inout dependencies on the other side
         //       - out|inout will be matched with in|out|inout in the target
         //       - in will be matched with out|inout dependencies
-        ObjectList<NBase> source_in_deps = source_environ.find_all<Nodecl::OpenMP::DepIn>()
-                .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> source_out_deps = source_environ.find_all<Nodecl::OpenMP::DepOut>()
-                .map(functor(&Nodecl::OpenMP::DepOut::get_out_deps))                // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> source_inout_deps = source_environ.find_all<Nodecl::OpenMP::DepInout>()
-                .map(functor(&Nodecl::OpenMP::DepInout::get_inout_deps))            // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> source_all_out_deps = append_two_lists(nodecl_object_list_pair(source_out_deps, source_inout_deps));
+
+        ObjectList<NBase> source_in_deps = gather_dependences(
+                source_environ,
+                &Nodecl::OpenMP::DepIn::get_in_deps);
+
+        ObjectList<NBase> source_out_deps = gather_dependences(
+                source_environ,
+                &Nodecl::OpenMP::DepOut::get_out_deps);
+
+        ObjectList<NBase> source_inout_deps = gather_dependences(
+                source_environ,
+                &Nodecl::OpenMP::DepInout::get_inout_deps);
+            
+        ObjectList<NBase> source_all_out_deps = append_two_lists(source_out_deps, source_inout_deps);
         // 1.2.- Get all in, out and inout dependencies
-        ObjectList<NBase> target_in_deps = target_environ.find_all<Nodecl::OpenMP::DepIn>()
-                .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> target_out_deps = target_environ.find_all<Nodecl::OpenMP::DepOut>()
-                .map(functor(&Nodecl::OpenMP::DepOut::get_out_deps))                // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
-        ObjectList<NBase> target_inout_deps = target_environ.find_all<Nodecl::OpenMP::DepInout>()
-                .map(functor(&Nodecl::OpenMP::DepInout::get_inout_deps))            // ObjectList<NBase>
-                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
-                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
-                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
-                ;
+        ObjectList<NBase> target_in_deps = gather_dependences(
+                target_environ,
+                &Nodecl::OpenMP::DepIn::get_in_deps);
+        ObjectList<NBase> target_out_deps = gather_dependences(
+                target_environ,
+                &Nodecl::OpenMP::DepOut::get_out_deps);
+        ObjectList<NBase> target_inout_deps = gather_dependences(
+                target_environ,
+                &Nodecl::OpenMP::DepInout::get_inout_deps);
+
         ObjectList<NBase> target_deps =
-                append_two_lists(nodecl_object_list_pair(target_inout_deps,
-                                                          append_two_lists(nodecl_object_list_pair(target_in_deps, target_out_deps))));
-        ObjectList<NBase> target_all_out_deps = append_two_lists(nodecl_object_list_pair(target_out_deps, target_inout_deps));
+            append_two_lists(target_inout_deps,
+                    append_two_lists(target_in_deps, target_out_deps));
+        ObjectList<NBase> target_all_out_deps = append_two_lists(target_out_deps, target_inout_deps);
 
         // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
         SyncModification modification_type = None;

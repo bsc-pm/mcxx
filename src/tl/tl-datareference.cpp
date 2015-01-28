@@ -103,6 +103,7 @@ namespace TL
                 }
             }
 
+            // *a
             virtual void visit(const Nodecl::Dereference& derref)
             {
                 Nodecl::NodeclBase operand = derref.get_rhs();
@@ -140,6 +141,7 @@ namespace TL
                 }
             }
 
+            // &a
             virtual void visit(const Nodecl::Reference& ref)
             {
                 // In general we do not allow &x but there are some cases that may arise
@@ -169,11 +171,13 @@ namespace TL
                walk(c.get_nest());
             }
 
+            // (a)
             virtual void visit(const Nodecl::ParenthesizedExpression& p)
             {
                 walk(p.get_nest());
             }
 
+            // a[e]
             virtual void visit(const Nodecl::ArraySubscript& array)
             {
                 walk(array.get_subscripted());
@@ -217,11 +221,12 @@ namespace TL
                 {
                     // float (*p)[20][30]    (p[1])[2][3]  (we are in [2][3])
                     // Do nothing
+                    _data_ref._base_address = subscripted;
                 }
                 else if (subscripted.is<Nodecl::Dereference>())
                 {
                     // float (*p)[20][30]    (*p)[2][3]    (we are in [2][3])
-                    // This is like p[0][2][3] so the base address is p.
+                    // This is like p[0][2][3] so the base address is p[0] == *p.
                     // Do nothing
                 }
                 else
@@ -433,6 +438,21 @@ namespace TL
                 }
 
                 return rebuilt_type;
+            }
+
+            virtual void visit(const Nodecl::OmpSs::MultiDependence& multi_deps)
+            {
+                TL::Symbol sym = multi_deps.get_symbol();
+                Nodecl::NodeclBase range = multi_deps.get_range();
+
+                _data_ref._iterators.append(std::make_pair(sym, range));
+
+                walk(multi_deps.get_dependence());
+
+                if (!_data_ref._is_valid)
+                {
+                    _data_ref._iterators.clear();
+                }
             }
 
     };
@@ -1200,5 +1220,16 @@ namespace TL
         mr.read(_error_log);
 
         mr.read(_base_address);
+    }
+
+    bool DataReference::is_multidependence() const
+    {
+        return !_iterators.empty();
+    }
+
+    TL::ObjectList<DataReference::MultiDepIterator>
+        DataReference::multidependences() const
+    {
+        return _iterators;
     }
 }

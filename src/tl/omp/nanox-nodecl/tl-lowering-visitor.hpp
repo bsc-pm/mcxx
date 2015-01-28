@@ -110,8 +110,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& fill_immediate_arguments
                 );
 
-        int count_dependences(OutlineInfo& outline_info);
-        int count_copies(OutlineInfo& outline_info);
+        void count_dependences(OutlineInfo& outline_info, int &num_static_dependences, int &num_dynamic_dependences);
+        Nodecl::NodeclBase count_dynamic_dependences(OutlineInfo& outline_info);
+
+        Nodecl::NodeclBase count_dynamic_dependences_extent(
+                const TL::ObjectList<DataReference::MultiDepIterator>& multideps);
+
+        void count_copies(OutlineInfo& outline_info, int &num_static_copies, int &num_dynamic_copies);
         int count_copies_dimensions(OutlineInfo& outline_info);
 
         void fill_copies(
@@ -173,6 +178,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 bool on_wait,
+                int num_static_dependences,
+                int num_dynamic_dependences,
+                Source& num_dependences,
                 // out
                 Source& result_src);
 
@@ -180,14 +188,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase ctr,
                 TL::DataReference dep_expr,
                 OutlineDataItem::DependencyDirectionality dir,
-                int current_dep_num,
-                Source& dependency_regions,
-                Source& dependency_init,
+                Source dimension_name,
+                Source& current_dep_num,
                 Source& result_src);
 
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
+                int num_static_dependences,
+                int num_dynamic_dependences,
+                Source num_dependences,
                 // out
                 Source& result_src);
 
@@ -202,12 +212,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 bool is_noflush);
 
-        static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+        static void fill_dimensions(int n_dims,
+                int actual_dim,
+                Source& dimension_array,
                 Nodecl::NodeclBase dep_expr,
                 Nodecl::NodeclBase * dim_sizes, 
                 Type dep_type, 
-                Source& dims_description, 
-                Source& dependency_regions_code, 
+                Source& result_src, 
                 Scope sc);
 
         Source fill_const_wd_info(

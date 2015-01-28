@@ -493,9 +493,9 @@ namespace TL
     ObjectList<std::string> PragmaCustomLine::get_all_clause_names() const
     {
         ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
-        ObjectList<std::string> clauses_strings = 
-            // nodes.map(ThisMemberFunctionConstAdapter<std::string, Nodecl::PragmaCustomClause>(&Nodecl::NodeclBase::get_text));
-            nodes.map(functor<std::string, Nodecl::PragmaCustomClause>(&Nodecl::PragmaCustomClause::get_text));
+
+        ObjectList<std::string> clauses_strings = nodes
+            .map(&Nodecl::NodeclBase::get_text);
 
         return clauses_strings;
     }

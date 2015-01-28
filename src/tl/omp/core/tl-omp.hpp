@@ -358,8 +358,20 @@ namespace OpenMP
                     : attr(a), reason(r) { }
             };
 
-            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_t;
-            map_symbol_data_t  *_map;
+            typedef TL::ObjectList<Symbol> map_symbol_data_sharing_insertion_t;
+            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_sharing_t;
+            struct map_symbol_data_t
+            {
+                map_symbol_data_sharing_t  m;
+                // We use this to preserve insertion order
+                map_symbol_data_sharing_insertion_t  i;
+
+                DataSharingAttributeInfo &operator[](const TL::Symbol &sym)
+                {
+                    i.insert(sym);
+                    return m[sym];
+                }
+            } *_map;
             DataSharingEnvironment *_enclosing;
 
             ObjectList<ReductionSymbol> _reduction_symbols;

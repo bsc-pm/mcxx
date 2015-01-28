@@ -24,6 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tl-omp-base.hpp"
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
@@ -71,42 +75,42 @@ namespace TL { namespace OpenMP {
                 "Discards unused data sharings in the body of the construct. "
                 "This behaviour may cause wrong code be emitted, use at your own risk",
                 _discard_unused_data_sharings_str,
-                "0").connect(functor(&Base::set_discard_unused_data_sharings, *this));
+                "0").connect(std::bind(&Base::set_discard_unused_data_sharings, this, std::placeholders::_1));
 
         register_parameter("simd_enabled",
                 "If set to '1' enables simd constructs, otherwise it is disabled",
                 _simd_enabled_str,
-                "0").connect(functor(&Base::set_simd, *this));
+                "0").connect(std::bind(&Base::set_simd, this, std::placeholders::_1));
 
         register_parameter("allow_shared_without_copies",
                 "If set to '1' allows shared without any copy directionality, otherwise they are set to copy_inout",
                 _allow_shared_without_copies_str,
-                "0").connect(functor(&Base::set_allow_shared_without_copies, *this));
+                "0").connect(std::bind(&Base::set_allow_shared_without_copies, this, std::placeholders::_1));
 
         register_parameter("allow_array_reductions",
                 "If set to '1' enables extended support for array reductions in C/C++",
                 _allow_array_reductions_str,
-                "1").connect(functor(&Base::set_allow_array_reductions, *this));
+                "1").connect(std::bind(&Base::set_allow_array_reductions, this, std::placeholders::_1));
 
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
-                "0").connect(functor(&Base::set_ompss_mode, *this));
+                "0").connect(std::bind(&Base::set_ompss_mode, this, std::placeholders::_1));
 
         register_parameter("omp_report",
                 "Emits an OpenMP report describing the OpenMP semantics of the code",
                 _omp_report_str,
-                "0").connect(functor(&Base::set_omp_report, *this));
+                "0").connect(std::bind(&Base::set_omp_report_parameter, this, std::placeholders::_1));
 
         register_parameter("copy_deps_by_default",
                 "Enables copy_deps by default",
                 _copy_deps_str,
-                "1").connect(functor(&Base::set_copy_deps_by_default, *this));
+                "1").connect(std::bind(&Base::set_copy_deps_by_default, this, std::placeholders::_1));
 
         register_parameter("untied_tasks_by_default",
                 "If set to '1' tasks are untied by default, otherwise they are tied. This flag is only valid in OmpSs",
                 _untied_tasks_by_default_str,
-                "1").connect(functor(&Base::set_untied_tasks_by_default, *this));
+                "1").connect(std::bind(&Base::set_untied_tasks_by_default, this, std::placeholders::_1));
 
         register_parameter("disable_task_expression_optimization",
                 "Disables some optimizations applied to task expressions",
@@ -116,16 +120,16 @@ namespace TL { namespace OpenMP {
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
-                    dispatcher().directive.pre[directive_name].connect(functor(&Base::_name##_handler_pre, *this)); \
-                    dispatcher().directive.post[directive_name].connect(functor(&Base::_name##_handler_post, *this)); \
+                    dispatcher().directive.pre[directive_name].connect(std::bind(&Base::_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher().directive.post[directive_name].connect(std::bind(&Base::_name##_handler_post, this, std::placeholders::_1)); \
                 }
 #define OMP_CONSTRUCT_COMMON(_directive, _name, _noend, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
-                    dispatcher().declaration.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().declaration.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, *this)); \
-                    dispatcher().statement.pre[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, *this)); \
-                    dispatcher().statement.post[directive_name].connect(functor((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, *this)); \
+                    dispatcher().declaration.pre[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher().declaration.post[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomDeclaration))&Base::_name##_handler_post, this, std::placeholders::_1)); \
+                    dispatcher().statement.pre[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_pre, this, std::placeholders::_1)); \
+                    dispatcher().statement.post[directive_name].connect(std::bind((void (Base::*)(TL::PragmaCustomStatement))&Base::_name##_handler_post, this, std::placeholders::_1)); \
                 }
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -295,7 +299,7 @@ namespace TL { namespace OpenMP {
         _core.set_ompss_mode(_ompss_mode);
     }
 
-    void Base::set_omp_report(const std::string& str)
+    void Base::set_omp_report_parameter(const std::string& str)
     {
         parse_boolean_option("omp_report", str, _omp_report, "Assuming false.");
     }
@@ -2680,7 +2684,7 @@ namespace TL { namespace OpenMP {
         directive.replace(new_register_directive);
     }
 
-    struct SymbolBuilder : TL::Functor<Nodecl::NodeclBase, Symbol>
+    struct SymbolBuilder
     {
         private:
             const locus_t* _locus;
@@ -2691,14 +2695,16 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            Nodecl::NodeclBase operator()(TL::Symbol arg) const
             {
                 return arg.make_nodecl(/*set_ref*/true, _locus);
             }
+#if !defined(HAVE_CXX11)
+            typedef Nodecl::NodeclBase result_type;
+#endif
     };
 
-    struct SymbolReasonBuilder : TL::Functor<Nodecl::NodeclBase,
-                                             DataSharingEnvironment::DataSharingInfoPair>
+    struct SymbolReasonBuilder
     {
         private:
             const locus_t* _locus;
@@ -2709,13 +2715,17 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            Nodecl::NodeclBase operator()(DataSharingEnvironment::DataSharingInfoPair arg) const
             {
                 return arg.first.make_nodecl(/*set_ref*/true, _locus);
             }
+
+#if !defined(HAVE_CXX11)
+            typedef Nodecl::NodeclBase result_type;
+#endif
     };
 
-    struct ReportSymbols : TL::Functor<void, DataSharingEnvironment::DataSharingInfoPair>
+    struct ReportSymbols
     {
         private:
             DataSharingAttribute _data_sharing;
@@ -2757,7 +2767,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual void do_(ArgType arg) const
+            void operator()(DataSharingEnvironment::DataSharingInfoPair arg) const
             {
                 // These variables confuse the user
                 if (arg.first.is_saved_expression())
@@ -2776,7 +2786,7 @@ namespace TL { namespace OpenMP {
                 if (diff > 0)
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
-                ss << string_of_data_sharing(_data_sharing);
+                ss << " " << string_of_data_sharing(_data_sharing);
 
                 length = ss.str().size();
                 diff = 20 - length;
@@ -2787,9 +2797,13 @@ namespace TL { namespace OpenMP {
 
                 *_omp_report_file << ss.str();
             }
+
+#if !defined(HAVE_CXX11)
+            typedef void result_type;
+#endif
     };
 
-    struct ReductionSymbolBuilder : TL::Functor<Nodecl::NodeclBase, ReductionSymbol>
+    struct ReductionSymbolBuilder
     {
         private:
             const locus_t* _locus;
@@ -2800,7 +2814,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual Nodecl::NodeclBase do_(ArgType arg) const
+            Nodecl::NodeclBase operator()(ReductionSymbol arg) const
             {
                 return Nodecl::OpenMP::ReductionItem::make(
                         /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _locus),
@@ -2808,9 +2822,13 @@ namespace TL { namespace OpenMP {
                         /* reduction type */ Nodecl::Type::make(arg.get_reduction_type(), _locus),
                         _locus);
             }
+
+#if !defined(HAVE_CXX11)
+            typedef Nodecl::NodeclBase result_type;
+#endif
     };
 
-    struct ReportReductions : TL::Functor<void, ReductionSymbol>
+    struct ReportReductions
     {
         private:
             std::ofstream* _omp_report_file;
@@ -2822,7 +2840,7 @@ namespace TL { namespace OpenMP {
             {
             }
 
-            virtual void do_(ArgType arg) const
+            void operator()(ReductionSymbol arg) const
             {
                 std::stringstream ss;
                 ss
@@ -2851,6 +2869,10 @@ namespace TL { namespace OpenMP {
                 *_omp_report_file
                     << ss.str();
             }
+
+#if !defined(HAVE_CXX11)
+            typedef void result_type;
+#endif
     };
 
     template <typename T>
@@ -3039,7 +3061,8 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
-        TL::ObjectList<Symbol> reduction_symbols = reductions.map(functor(&ReductionSymbol::get_symbol));
+        TL::ObjectList<Symbol> reduction_symbols = reductions.map(
+                std::function<TL::Symbol(ReductionSymbol)>(&ReductionSymbol::get_symbol));
         if (!reduction_symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols =
@@ -3130,7 +3153,8 @@ namespace TL { namespace OpenMP {
         data_sharing_env.get_all_reduction_symbols(reductions);
         if (!reductions.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes = reductions.map(ReductionSymbolBuilder(locus));
+            TL::ObjectList<Nodecl::NodeclBase> reduction_nodes =
+                reductions.map(ReductionSymbolBuilder(locus));
 
             if (emit_omp_report())
             {
@@ -3147,7 +3171,8 @@ namespace TL { namespace OpenMP {
         data_sharing_env.get_all_simd_reduction_symbols(simd_reductions);
         if (!simd_reductions.empty())
         {
-            TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes = simd_reductions.map(ReductionSymbolBuilder(locus));
+            TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes =
+                simd_reductions.map(ReductionSymbolBuilder(locus));
 
             result_list.append(
                     Nodecl::OpenMP::SimdReduction::make(Nodecl::List::make(simd_reduction_nodes),
@@ -3155,16 +3180,33 @@ namespace TL { namespace OpenMP {
                     );
         }
 
+        if (emit_omp_report())
+        {
+            if (result_list.empty())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << "There are no data sharings\n"
+                    ;
+            }
+        }
+
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_sharing_env.get_all_dependences(dependences);
 
         if (emit_omp_report())
         {
-            if (!dependences.empty())
+            *_omp_report_file
+                << OpenMP::Report::indent
+                << "Dependences\n"
+                ;
+            if (dependences.empty())
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "Dependences\n"
+                    << OpenMP::Report::indent
+                    << "There are no dependences\n"
                     ;
             }
         }

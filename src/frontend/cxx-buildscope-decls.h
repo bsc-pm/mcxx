@@ -89,7 +89,6 @@ struct gather_decl_spec_tag {
     bool emit_always:1;
     bool any_exception:1; // Set to 1 if no exception specifier was seen
     bool is_vector:1;
-    bool is_template_pack:1;
     bool is_final:1;
     bool is_hides_member:1;
     bool is_override:1;

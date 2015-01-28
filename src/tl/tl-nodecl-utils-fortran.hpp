@@ -121,7 +121,16 @@ namespace Nodecl { namespace Utils { namespace Fortran {
 
                 if (sym.is_function())
                 {
-                    _extra_insert_sym.insert(sym);
+                    // An statement function has to be duplicated because its expression
+                    // may use a dummy argument (see #2280)
+                    if (sym.is_statement_function_statement())
+                    {
+                        _extra_new_sym.insert(sym);
+                    }
+                    else
+                    {
+                        _extra_insert_sym.insert(sym);
+                    }
 
                     if (sym.is_nested_function())
                     {

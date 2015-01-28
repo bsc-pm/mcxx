@@ -77,6 +77,10 @@
   the native (backend) compiler.
 */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tl-common.hpp"
 #include <iostream>
 #include <string>

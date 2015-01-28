@@ -813,7 +813,7 @@ void DeviceCUDA::generate_outline_events_before(
 {
     if (Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
     {
-        instrumentation_before << "err = nanos_instrument_raise_gpu_kernel_launch_event();";
+        instrumentation_before << "nanos_err = nanos_instrument_raise_gpu_kernel_launch_event();";
     }
     else
     {
@@ -828,11 +828,11 @@ void DeviceCUDA::generate_outline_events_after(
 {
     if (Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
     {
-        instrumentation_after << "err = nanos_instrument_close_gpu_kernel_launch_event();";
+        instrumentation_after << "nanos_err = nanos_instrument_close_gpu_kernel_launch_event();";
     }
     else
     {
-        instrumentation_after << "err = nanos_instrument_close_user_fun_event();";
+        instrumentation_after << "nanos_err = nanos_instrument_close_user_fun_event();";
     }
 }
 

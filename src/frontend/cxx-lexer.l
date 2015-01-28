@@ -1388,6 +1388,7 @@ type {
 @NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
 @SYMBOL-LITERAL-REF@ { parse_token_text(); return SYMBOL_LITERAL_REF; }
 @TYPE-LITERAL-REF@ { parse_token_text(); return TYPE_LITERAL_REF; }
+@OMPSS-DEPENDENCY-EXPR@ { parse_token_text(); return SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
