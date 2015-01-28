@@ -49,6 +49,9 @@ namespace Analysis {
         ExtensibleGraph* _graph;
         Utils::InductionVarType _var_type;
 
+        // Optimization to avoid checking the same variable twice
+        std::multimap<int, Nodecl::NodeclBase> _non_induction_vars;
+
         //! Recursive method traversing a PCFG from node \p current
         //! to compute all induction variables
         void compute_induction_variables_rec(Node* current, bool& changed);

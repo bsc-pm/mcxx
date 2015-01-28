@@ -182,7 +182,7 @@ namespace {
     // ************************** Class for induction variables analysis *************************** //
 
     InductionVariableAnalysis::InductionVariableAnalysis(ExtensibleGraph* graph)
-            : _induction_vars(), _graph(graph), _var_type(Utils::BASIC_IV)
+            : _induction_vars(), _graph(graph), _var_type(Utils::BASIC_IV), _non_induction_vars()
     {}
 
     void InductionVariableAnalysis::compute_induction_variables()
@@ -285,7 +285,7 @@ namespace {
 
         if (is_accepted_induction_variable_syntax(loop, st, iv, incr))
         {
-            // Get a list from the IVs in the map corresponding to the current loop
+            // Check if this IV has already been found as IV
             std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
                     _induction_vars.equal_range(loop->get_id());
             for (Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it)
@@ -294,9 +294,19 @@ namespace {
                     return NBase::null();   // The variable was already detected as an IV, there is nothing else to do
             }
 
+            // Check if this IV has already been found as non-IV
+            std::pair<std::map<int, Nodecl::NodeclBase>::iterator, std::map<int, Nodecl::NodeclBase>::iterator> loop_non_ivs =
+                    _non_induction_vars.equal_range(loop->get_id());
+            for (std::map<int, Nodecl::NodeclBase>::iterator it = loop_non_ivs.first; it != loop_non_ivs.second; ++it)
+            {
+                if (Nodecl::Utils::structurally_equal_nodecls(it->second, iv, /*skip_conversions*/true))
+                    return NBase::null();   // The variable was already detected as an IV, there is nothing else to do
+            }
+
             // Check if the variable is modified in some other point of the loop
             if (!check_potential_induction_variable(iv, incr, incr_list, st, loop))
             {   // The variable is not really an IV => return a null nodecl
+                _non_induction_vars.insert(std::pair<int, Nodecl::NodeclBase>(loop->get_id(), iv));
                 return NBase::null();
             }
             else
@@ -342,16 +352,16 @@ namespace {
                 if (check_undesired_modifications(iv, incr, incr_list, stmt, node->get_graph_entry_node(), loop))
                     return true;
             }
-            else
+            else if (!node->is_exit_node())
             {
                 // Check the current node
                 const NodeclList& stmts = node->get_statements();
+                FalseInductionVariablesVisitor v(iv, &incr, &incr_list, loop);
                 for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     // Check the statement only if it is not the statement where the potential IV was found
                     if (!Nodecl::Utils::structurally_equal_nodecls(stmt, *it, /*skip_conversions*/true))
                     {
-                        FalseInductionVariablesVisitor v(iv, &incr, &incr_list, loop);
                         v.walk(*it);
                         if (!v.get_is_induction_variable())
                         {
@@ -464,22 +474,29 @@ namespace {
             // Check whether the statement has the accepted syntax of an induction variable
             if (is_accepted_induction_variable_syntax(_loop, n, _iv, new_incr))
             {
-                // Check if the increments are linear and can be combined
-                if (const_value_is_positive(_incr->get_constant()) &&
-                    const_value_is_positive(new_incr.get_constant()))
+                if (_incr->is_constant() && new_incr.is_constant())
                 {
-                    _incr_list->insert(new_incr);
-                    NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
-                    const_value_t* c_value = _calc.compute_const_value(c);
-                    *_incr = const_value_to_nodecl(c_value);
-                }
-                else if (const_value_is_negative(_incr->get_constant()) &&
-                    const_value_is_negative(new_incr.get_constant()))
-                {
-                    _incr_list->insert(new_incr);
-                    NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
-                    const_value_t* c_value = _calc.compute_const_value(c);
-                    *_incr = const_value_to_nodecl(c_value);
+                    // Check if the increments are linear and can be combined
+                    if (const_value_is_positive(_incr->get_constant()) &&
+                        const_value_is_positive(new_incr.get_constant()))
+                    {
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
+                    }
+                    else if (const_value_is_negative(_incr->get_constant()) &&
+                        const_value_is_negative(new_incr.get_constant()))
+                    {
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
+                    }
+                    else
+                    {
+                        undefine_induction_variable();
+                    }
                 }
                 else
                 {
@@ -511,23 +528,29 @@ namespace {
             // Check whether the statement has the accepted syntax of an induction variable
             if (is_accepted_induction_variable_syntax(_loop, n, _iv, new_incr))
             {
-                // Check if the increments are linear and can be combined
-                if (const_value_is_positive(_incr->get_constant()) &&
-                    const_value_is_positive(new_incr.get_constant()))
+                if (_incr->is_constant() && new_incr.is_constant())
                 {
-                    _incr_list->insert(new_incr);
-                    NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
-                    const_value_t* c_value = _calc.compute_const_value(c);
-                    *_incr = const_value_to_nodecl(c_value);
-
-                }
-                else if (const_value_is_negative(_incr->get_constant()) &&
-                    const_value_is_negative(new_incr.get_constant()))
-                {
-                    _incr_list->insert(new_incr);
-                    NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
-                    const_value_t* c_value = _calc.compute_const_value(c);
-                    *_incr = const_value_to_nodecl(c_value);
+                    // Check if the increments are linear and can be combined
+                    if (const_value_is_positive(_incr->get_constant()) &&
+                        const_value_is_positive(new_incr.get_constant()))
+                    {
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
+                    }
+                    else if (const_value_is_negative(_incr->get_constant()) &&
+                        const_value_is_negative(new_incr.get_constant()))
+                    {
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
+                    }
+                    else
+                    {
+                        undefine_induction_variable();
+                    }
                 }
                 else
                 {
@@ -611,22 +634,29 @@ namespace {
             // Check whether the statement has the accepted syntax of an induction variable
             if (is_accepted_induction_variable_syntax(_loop, n, _iv, new_incr))
             {
-                // Check if the increments are linear and can be combined
-                if (const_value_is_positive(_incr->get_constant()) &&
-                    const_value_is_positive(new_incr.get_constant()))
+                if (_incr->is_constant() && new_incr.is_constant())
                 {
-                    _incr_list->insert(new_incr);
-                    NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
-                    const_value_t* c_value = _calc.compute_const_value(c);
-                    *_incr = const_value_to_nodecl(c_value);
-                }
-                else if (const_value_is_negative(_incr->get_constant()) &&
-                    const_value_is_negative(new_incr.get_constant()))
-                {
-                    _incr_list->insert(new_incr);
-                    NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
-                    const_value_t* c_value = _calc.compute_const_value(c);
-                    *_incr = const_value_to_nodecl(c_value);
+                    // Check if the increments are linear and can be combined
+                    if (const_value_is_positive(_incr->get_constant()) &&
+                        const_value_is_positive(new_incr.get_constant()))
+                    {
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
+                    }
+                    else if (const_value_is_negative(_incr->get_constant()) &&
+                        const_value_is_negative(new_incr.get_constant()))
+                    {
+                        _incr_list->insert(new_incr);
+                        NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
+                        const_value_t* c_value = _calc.compute_const_value(c);
+                        *_incr = const_value_to_nodecl(c_value);
+                    }
+                    else
+                    {
+                        undefine_induction_variable();
+                    }
                 }
                 else
                 {
@@ -661,7 +691,7 @@ namespace {
         else
         {
             // Check if the increments are linear and can be combined
-            if (const_value_is_negative(_incr->get_constant()))
+            if (_incr->is_constant() && const_value_is_negative(_incr->get_constant()))
             {
                 NBase new_incr = const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1));
                 NBase c = Nodecl::Minus::make(*_incr, new_incr, _incr->get_type());
@@ -689,7 +719,7 @@ namespace {
         else
         {
             // Check if the increments are linear and can be combined
-            if (const_value_is_positive(_incr->get_constant()))
+            if (_incr->is_constant() && const_value_is_positive(_incr->get_constant()))
             {
                 NBase new_incr = const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1));
                 NBase c = Nodecl::Add::make(*_incr, new_incr, _incr->get_type());
