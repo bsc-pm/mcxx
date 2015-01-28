@@ -638,6 +638,8 @@ connect_node:
                     }
 
                     Utils::makeup_dot_block(aux_str);
+                    if (aux_str.size() > 50)
+                        aux_str = aux_str.substr(0, 50) + " ...";
                     basic_block += aux_str + "\\n";
                 }
                 basic_block = basic_block.substr(0, basic_block.size() - 2);   // Remove the last back space
