@@ -30,7 +30,7 @@
 namespace TL {
 namespace Analysis {
 
-    #define RANGES_DEBUG
+//     #define RANGES_DEBUG
     
     // *********************************************** //
     // ****************** CG Nodes ******************* //
@@ -38,8 +38,8 @@ namespace Analysis {
 namespace {
     unsigned int cgnode_id = 0;
 }
-    
-    CGNode::CGNode(CGNodeType type, const NBase& constraint)
+
+    CGNode::CGNode(CGOpType type, const NBase& constraint)
         : _id(++cgnode_id), _type(type), 
           _constraint(constraint), _valuation(), 
           _entries(), _exits()
@@ -49,23 +49,15 @@ namespace {
     { 
         return _id;
     }
-    
-    CGNodeType CGNode::get_type() const
+
+    CGOpType CGNode::get_type() const
     {
         return _type;
     }
     
-    std::string CGNode::get_type_as_str() const
+    std::string CGNode::get_type_as_string() const
     {
-        switch(_type)
-        {
-            #undef CGNODE_TYPE
-            #define CGNODE_TYPE(X) case __##X : return #X;
-            CGNODE_TYPE_LIST
-            #undef CGNODE_TYPE
-            default: WARNING_MESSAGE("Unexpected type of node '%d'", _type);
-        }
-        return "";
+        return get_op_type_as_string(_type);
     }
     
     NBase CGNode::get_constraint() const
@@ -114,13 +106,16 @@ namespace {
         return children;
     }
     
-    CGEdge* CGNode::add_child(CGNode* child, bool is_back_edge, NBase predicate)
+    CGEdge* CGNode::add_child(CGNode* child,
+            CGOpType edge_type,
+            NBase predicate,
+            bool is_back_edge)
     {
         CGEdge* e = NULL;
         ObjectList<CGNode*> children = get_children();
         if (!children.contains(child))
         {
-            e = new CGEdge(this, child, is_back_edge, predicate);
+            e = new CGEdge(this, child, edge_type, predicate, is_back_edge);
             _exits.insert(e); 
         }
         else
@@ -145,35 +140,49 @@ namespace {
     // *********************************************** //
     // ****************** CG Edges ******************* //
     
-    CGEdge::CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate)
-        : _source(source), _target(target), _is_back_edge(is_back), _predicate(predicate)
+    CGEdge::CGEdge(CGNode* source, CGNode* target,
+            CGOpType edge_type,
+            const NBase& predicate,
+            bool back_edge)
+        : _source(source), _target(target),
+          _edge_type(edge_type), _predicate(predicate), _is_back_edge(back_edge)
     {}
-    
+
     CGNode* CGEdge::get_source() const
     {
         return _source;
     }
-    
+
     CGNode* CGEdge::get_target() const
     {
         return _target;
     }
-    
-    bool CGEdge::is_back_edge() const
+
+    CGOpType CGEdge::get_edge_type() const
     {
-        return _is_back_edge;
+        return _edge_type;
     }
-    
+
     NBase CGEdge::get_predicate() const
     {
         return _predicate;        
     }
-    
+
+    bool CGEdge::is_back_edge() const
+    {
+        return _is_back_edge;
+    }
+
+    std::string CGEdge::get_type_as_string() const
+    {
+        return get_op_type_as_string(_edge_type);
+    }
+
     // **************** END CG Edges ***************** //
     // *********************************************** //
-    
-    
-    
+
+
+
     // *********************************************** //
     // ********************* SCC ********************* //
  
@@ -236,7 +245,7 @@ namespace {
         }
         return res;
     }
-    
+
     void SCC::find_path_and_direction(
             const CGNode* const source, 
             const CGNode* target, 
@@ -244,12 +253,12 @@ namespace {
             NBase& value, 
             std::set<const CGNode*>& visited)
     {
-        if((target==source) || (visited.find(target)!=visited.end()))
+        if ((target==source) || (visited.find(target)!=visited.end()))
             return;
         
         const ObjectList<CGEdge*> exits = target->get_exits();
         ObjectList<NBase> new_values;
-        for(ObjectList<CGEdge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
+        for (ObjectList<CGEdge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
         {
             CGNode* new_target = (*it)->get_target();
             if((*_node_to_scc_map)[new_target] != this)
@@ -258,7 +267,8 @@ namespace {
             Utils::CycleDirection new_dir = dir;
             NBase new_value = value;
             const NBase predicate = (*it)->get_predicate();
-            if(predicate.is<Nodecl::Neg>())
+            CGOpType edge_type = (*it)->get_edge_type();
+            if (edge_type == __Sub || edge_type == __Div)
             {
                 switch(dir._cycle_direction)
                 {
@@ -298,7 +308,7 @@ namespace {
                         }
                 }
             }
-            else if(predicate.is<Nodecl::Plus>())
+            if (edge_type == __Add || edge_type == __Mul)
             {
                 switch(dir._cycle_direction)
                 {
@@ -362,7 +372,7 @@ namespace {
             dir = dir | new_dir;
         }
     }
-    
+
     Utils::CycleDirection SCC::get_cycle_direction(const CGEdge* const edge)
     {
         Utils::CycleDirection dir = Utils::CycleDirection::NONE;
@@ -370,7 +380,6 @@ namespace {
         CGNode* target = edge->get_target();
         NBase n;
         std::set<const CGNode*> visited;
-        
         find_path_and_direction(source, target, dir, n, visited);
         
         return dir;
@@ -409,12 +418,26 @@ namespace {
     // *********************************************** //
     // ***************** I/O methods ***************** //
     
-    void print_constraint(std::string stmt_name, const Symbol& s, const NBase& val, const Type& t)
+    inline std::string print_constraint_kind(ConstraintKind c_kind)
     {
-        #ifdef RANGES_DEBUG
-        std::cerr << "    " << stmt_name << " Constraint " << s.get_name() << " = " << val.prettyprint() 
+        switch(c_kind)
+        {
+            #undef CONSTRAINT_KIND
+            #define CONSTRAINT_KIND(X) case __##X : return #X;
+            CONSTRAINT_KIND_LIST
+            #undef CONSTRAINT_KIND
+            default: WARNING_MESSAGE("Unexpected type of node '%d'", c_kind);
+        }
+        return "";
+    }
+
+    void print_constraint(ConstraintKind c_kind, const Symbol& s, const NBase& val, const Type& t)
+    {
+#ifdef RANGES_DEBUG
+        std::cerr << "    " << print_constraint_kind(c_kind) << " Constraint "
+                  << s.get_name() << " = " << val.prettyprint()
                   << " (" << t.print_declarator() << ")" << std::endl;
-        #endif
+#endif
     }
     
     void print_sccs(const std::vector<SCC*>& scc_list)

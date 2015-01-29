@@ -34,6 +34,9 @@
 
 namespace TL {
 namespace Analysis {
+
+#define RANGES_DEBUG
+
 namespace Utils {
     
     // ******************************************************************************************* //
@@ -75,14 +78,20 @@ namespace Utils {
         }
     };
 
+    bool nodecl_is_Z_range(const NBase& n);
+
     NBase range_sub(const NBase& r1, const NBase& r2);
 
     NBase range_addition(const NBase& r1, const NBase& r2);
     NBase range_subtraction(const NBase& r1, const NBase& r2);
+    NBase range_multiplication(const NBase& r1, const NBase& r2);
+    NBase range_division(const NBase& r1, const NBase& r2);
     NBase range_intersection(const NBase& r, const NBase& r2, CycleDirection dir);
     NBase range_union(const NBase& r1, const NBase& r2);
     Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v);
-    Nodecl::Range range_value_subtract(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_sub(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_mul(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_div(const Nodecl::Range& r, const NBase& v);
     
     // ********************************* END Ranges arithmetic *********************************** //
     // ******************************************************************************************* //
@@ -91,8 +100,7 @@ namespace Utils {
     
     // ******************************************************************************************* //
     // ******************************* Range Analysis Constraints ******************************** //
-   
-    
+
     /*! The possible constraints are:
      *  - Y = [lb, ub]
      *  - Y = expr | c
@@ -102,20 +110,21 @@ namespace Utils {
     struct Constraint {
         TL::Symbol _constr_sym;     /*!< symbol associated to a given variable at this point of the program */
         NBase _constraint;          /*!< actual constraint applying to the variable */
-        
+
         // *** Constructors *** //
         Constraint();
         Constraint(const TL::Symbol& constr_sym, const NBase& constraint);
-        
+
         // *** Getters and Setters *** //
         TL::Symbol get_symbol() const;
+        void set_symbol(const TL::Symbol& s);
         NBase get_constraint() const;
-        
+
         // *** Comparators *** //
         bool operator!=(const Constraint& c) const;
         bool operator==(const Constraint& c) const;
     };
-    
+
     typedef std::map<NBase, Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
     typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> RangeValuesMap;
     

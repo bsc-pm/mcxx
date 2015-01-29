@@ -1004,6 +1004,18 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters for OpenMP/OmpSs clauses info ******************** //
 
+    NodeclSet Node::get_firstprivate_vars()
+    {
+        NodeclSet firstprivate_vars;
+        const TL::Analysis::PCFGPragmaInfo& task_pragma_info = get_pragma_node_info();
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Private>().get_symbols().shallow_copy().as<Nodecl::List>();
+            firstprivate_vars.insert(tmp.begin(), tmp.end());
+        }
+        return firstprivate_vars;
+    }
+
     NodeclSet Node::get_private_vars()
     {
         NodeclSet private_vars;

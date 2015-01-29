@@ -43,18 +43,28 @@ namespace Analysis {
     class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        Utils::VarToConstraintMap _constraints_map;
-        
+        Utils::VarToConstraintMap* _constraints_map;
+
+        Node* _n;
+        SSAVarToValue_map *_constraints;
+        NodeclList *_ordered_constraints;
+
     public:
         // *** Constructor *** //
-        ConstraintReplacement(Utils::VarToConstraintMap constraints_map);
+        ConstraintReplacement(
+                Utils::VarToConstraintMap* constraints_map,
+                Node* n,
+                SSAVarToValue_map *constraints,
+                NodeclList *ordered_constraints);
         
         // *** Visiting methods *** //
         Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
+        Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::Symbol& n);
     };
-    
+
     class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<void>
     {
     private:
@@ -66,12 +76,14 @@ namespace Analysis {
         Utils::VarToConstraintMap _output_constraints_map;       // Constraints computed so far for the current node
         Utils::VarToConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
         Utils::VarToConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
-        
+
         SSAVarToValue_map *_constraints;
         NodeclList *_ordered_constraints;
-        
+
+        ConstraintReplacement _cr;
+
         Symbol get_condition_node_constraints(const NBase& lhs, const Type& t, 
-                                              std::string s_str, std::string nodecl_str);
+                                              std::string s_str, ConstraintKind c_kind);
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
         Ret visit_increment(const NBase& rhs, bool positive);
         
@@ -79,19 +91,21 @@ namespace Analysis {
         
         // *** Constructor *** //
         ConstraintBuilderVisitor(Node* n,
-                Utils::VarToConstraintMap input_constraints, 
-                Utils::VarToConstraintMap current_constraints, 
+                Utils::VarToConstraintMap input_constraints,
+                Utils::VarToConstraintMap current_constraints,
                 SSAVarToValue_map *constraints,
                 NodeclList *ordered_constraints);
         
         ConstraintBuilderVisitor(Node* n,
+                Utils::VarToConstraintMap input_constraints,
                 SSAVarToValue_map *constraints,
                 NodeclList *ordered_constraints);
         
         // *** Modifiers *** //
-        Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, std::string c_name);
+        Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, ConstraintKind c_kind);
         void compute_stmt_constraints(const NBase& n);
         void compute_parameters_constraints(const ObjectList<Symbol>& params);
+        void set_false_constraint_to_inf(const NBase& n);
         
         // *** Getters and setters *** //
         Utils::VarToConstraintMap get_output_constraints_map();
@@ -105,6 +119,7 @@ namespace Analysis {
         Ret join_list(TL::ObjectList<Utils::Constraint>& list);
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::Different& n);
         Ret visit(const Nodecl::Equal& n);
         Ret visit(const Nodecl::GreaterThan& n);
         Ret visit(const Nodecl::GreaterOrEqualThan& n);
@@ -134,26 +149,33 @@ namespace Analysis {
         std::string _name;
         CGValueToCGNode_map _nodes;
         std::map<CGNode*, SCC*> _node_to_scc_map;
-        
+
         //! Method building the SCCs from the Constraint Graph. It follows the Tarjan's method to do so
         void strong_connect(CGNode* n, unsigned int& scc_current_index, 
                             std::stack<CGNode*>& s, std::vector<SCC*>& scc_list, 
                             std::map<CGNode*, int>& scc_lowlink_index,
                             std::map<CGNode*, int>& scc_index);
-        
+
         //! Insert, if it is not yet there, a new node in the CG with the value #value
         CGNode* insert_node(const NBase& value);
-        CGNode* insert_node(CGNodeType type);
-        
+        CGNode* insert_node(CGOpType type);
+
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
+        void connect_nodes(CGNode* source, CGNode* target,
+                CGOpType edge_type = __Flow,
+                NBase predicate = NBase::null(),
+                bool is_back_edge = false);
         
         //! Method to solve constraints within a cycle
         void resolve_cycle(SCC* scc);
-        
+
         //! Method to evaluate the ranges in a sinle Constraint Graph node
-        void evaluate_cgnode(CGNode* const node);
-        
+        void evaluate_cgnode(CGNode* const node, bool& changes);
+
+        CGNode* fill_cg_with_binary_op_rec(
+                const NBase& val,
+                CGOpType n_type);
+
     public:
         // *** Constructor *** //
         ConstraintGraph(std::string name);
@@ -161,12 +183,17 @@ namespace Analysis {
         // *** Getters and setters *** //
         //! Retrieves the Constraint Graph node given a SSA variable
         CGNode* get_node_from_ssa_var(const NBase& n);
-        
+
         // *** Modifiers *** //
+        void fill_cg_with_binary_op(
+                const NBase& s,
+                const NBase& val,
+                CGOpType op_type);
+
         void fill_constraint_graph(
                 const SSAVarToValue_map& constraints,
                 const NodeclList& ordered_constraints);
-        
+
         //! Decompose the Constraint Graph in a set of Strongly Connected Components
         std::vector<SCC*> topologically_compose_strongly_connected_components();
         
@@ -202,20 +229,35 @@ namespace Analysis {
         //! Method computing the constraints of the whole #pcfg
         //! It perform deep first search over the #pcfg without back edges
         void compute_constraints_rec(
-                Node* n, 
-                std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
-                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+                Node* n,
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map,
+                std::set<Node*>& treated);
         
         //! Method propagating constraints from the back edges of the #pcfg
         void propagate_constraints_from_back_edges(
                 Node* n, 
                 std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
                 std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
-        
+
+        //! Method joining the constraints of node #n parents into #new_input_constrs
+        void join_parents_constraints(
+                Node* n,
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map,
+                Utils::VarToConstraintMap& input_constrs,
+                Utils::VarToConstraintMap& new_input_constrs);
+
+        //! Method computing the constraints of node #n
+        void compute_current_constraints(
+                Node* n,
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                const Utils::VarToConstraintMap& input_constrs);
+
         //! Method generating all constraints of the #pcfg
         void compute_constraints(
-            std::map<Node*, Utils::VarToConstraintMap>& constr_map,
-            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
         
         //! Method building a Constraint Graph from a set of constraints
         void build_constraint_graph();
@@ -237,7 +279,7 @@ namespace Analysis {
 
     // ****************************** End class implementing range analysis ******************************* //
     // **************************************************************************************************** //
-    
+
 }
 }
 
