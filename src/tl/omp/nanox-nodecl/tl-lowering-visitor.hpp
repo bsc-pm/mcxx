@@ -124,7 +124,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Nodecl::NodeclBase count_dynamic_dependences(OutlineInfo& outline_info);
 
         Nodecl::NodeclBase count_multidependences_extent(
-                const TL::ObjectList<DataReference::MultiDepIterator>& multideps);
+                const TL::ObjectList<DataReference::MultiRefIterator>& multideps);
 
         void count_copies(OutlineInfo& outline_info, int &num_static_copies, int &num_dynamic_copies);
         Nodecl::NodeclBase count_copies_dimensions(OutlineInfo& outline_info);

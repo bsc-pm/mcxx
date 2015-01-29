@@ -535,7 +535,6 @@ target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [sym
 
 expression : task-call
             | task-expression
-            | ompss-multi-dep
 
 top-level: target-declaration
 
@@ -631,7 +630,8 @@ data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
 
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
 
-ompss-multi-dep : NODECL_OMP_SS*MULTI_DEPENDENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
+# extension used for multidependences/multicopies
+expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
 
 ##############################
 # SIMD                       #

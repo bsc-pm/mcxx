@@ -1599,11 +1599,11 @@ void LoweringVisitor::count_dependences(OutlineInfo& outline_info,
 }
 
 Nodecl::NodeclBase LoweringVisitor::count_multidependences_extent(
-        const TL::ObjectList<DataReference::MultiDepIterator>& multideps)
+        const TL::ObjectList<DataReference::MultiRefIterator>& multideps)
 {
     ERROR_CONDITION(multideps.empty(), "There must be multidependences", 0);
     Nodecl::NodeclBase total_size;
-    for (TL::ObjectList<DataReference::MultiDepIterator>::const_iterator
+    for (TL::ObjectList<DataReference::MultiRefIterator>::const_iterator
             mit = multideps.begin();
             mit != multideps.end();
             mit++)
@@ -1707,10 +1707,10 @@ Nodecl::NodeclBase LoweringVisitor::count_dynamic_items(OutlineInfo& outline_inf
                 it_items++)
         {
             DataReference data_ref(it_items->expression);
-            if (!data_ref.is_multidependence())
+            if (!data_ref.is_multireference())
                 continue;
 
-            TL::ObjectList<DataReference::MultiDepIterator> multideps = data_ref.multidependences();
+            TL::ObjectList<DataReference::MultiRefIterator> multideps = data_ref.multireferences();
             Nodecl::NodeclBase total_size = count_multidependences_extent(multideps);
 
             if (result.is_null())
@@ -1761,7 +1761,7 @@ void LoweringVisitor::count_items(OutlineInfo& outline_info,
                 it_items++)
         {
             DataReference data_ref(it_items->expression);
-            if (!data_ref.is_multidependence())
+            if (!data_ref.is_multireference())
             {
                 num_static_items++;
             }
@@ -1801,10 +1801,10 @@ Nodecl::NodeclBase LoweringVisitor::count_copies_dimensions(OutlineInfo& outline
 
             Nodecl::NodeclBase current_value = const_value_to_nodecl(const_value_get_signed_int(v));
 
-            if (data_ref.is_multidependence())
+            if (data_ref.is_multireference())
             {
                 Nodecl::NodeclBase total_base =
-                    count_multidependences_extent(data_ref.multidependences());
+                    count_multidependences_extent(data_ref.multireferences());
 
                 if (total_base.is_constant()
                         && current_value.is_constant())
@@ -2124,7 +2124,7 @@ void LoweringVisitor::fill_copies_region(
                 copy_it++)
         {
             TL::DataReference copy_expr(copy_it->expression);
-            if (copy_expr.is_multidependence())
+            if (copy_expr.is_multireference())
             {
                 there_are_dynamic_copies = true;
                 // We handle them below
@@ -2194,7 +2194,7 @@ void LoweringVisitor::fill_copies_region(
                     copy_it++)
             {
                 TL::DataReference copy_expr(copy_it->expression);
-                if (!copy_expr.is_multidependence())
+                if (!copy_expr.is_multireference())
                 {
                     there_are_dynamic_copies = true;
                     // We handled them above
@@ -2202,7 +2202,7 @@ void LoweringVisitor::fill_copies_region(
                 }
 
                 Source copies_loop;
-                ObjectList<DataReference::MultiDepIterator> m = copy_expr.multidependences();
+                ObjectList<DataReference::MultiRefIterator> m = copy_expr.multireferences();
 
                 Source dimension_array;
                 dimension_array << "dyn_dimensions_" << (int)dep_dim_num;
@@ -2210,7 +2210,7 @@ void LoweringVisitor::fill_copies_region(
 
                 Nodecl::Utils::SimpleSymbolMap symbol_map;
 
-                for (ObjectList<DataReference::MultiDepIterator>::iterator current_multidep = m.begin();
+                for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
                         current_multidep != m.end();
                         current_multidep++)
                 {
@@ -2263,10 +2263,10 @@ void LoweringVisitor::fill_copies_region(
 
                         // Now ignore the multidependence as such...
                         Nodecl::NodeclBase current_copy = copy_expr;
-                        while (current_copy.is<Nodecl::OmpSs::MultiDependence>())
+                        while (current_copy.is<Nodecl::MultiReference>())
                         {
                             current_copy =
-                                current_copy.as<Nodecl::OmpSs::MultiDependence>().get_dependence();
+                                current_copy.as<Nodecl::MultiReference>().get_dependence();
                         }
 
                         // and update it
@@ -2297,7 +2297,7 @@ void LoweringVisitor::fill_copies_region(
                         copy_ol_setup << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";";
                         copy_imm_setup << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";";
 
-                        for (ObjectList<DataReference::MultiDepIterator>::reverse_iterator
+                        for (ObjectList<DataReference::MultiRefIterator>::reverse_iterator
                                 rev_current_multidep = m.rbegin();
                                 rev_current_multidep != m.rend();
                                 rev_current_multidep++)
@@ -3007,7 +3007,7 @@ void LoweringVisitor::fill_dependences_internal(
             OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
             TL::DataReference dep_expr(dep_it->expression);
 
-            if (dep_expr.is_multidependence())
+            if (dep_expr.is_multireference())
             {
                 there_are_dynamic_dependences = true;
                 // We will handle them later
@@ -3077,14 +3077,14 @@ void LoweringVisitor::fill_dependences_internal(
                 OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
                 TL::DataReference dep_expr(dep_it->expression);
 
-                if (!dep_expr.is_multidependence())
+                if (!dep_expr.is_multireference())
                 {
                     // Static dependences were handled above
                     continue;
                 }
 
                 Source dependency_loop;
-                ObjectList<DataReference::MultiDepIterator> m = dep_expr.multidependences();
+                ObjectList<DataReference::MultiRefIterator> m = dep_expr.multireferences();
 
                 // Create the dimensionality array
                 Nodecl::NodeclBase total_base = count_multidependences_extent(m);
@@ -3116,7 +3116,7 @@ void LoweringVisitor::fill_dependences_internal(
 
                 Nodecl::Utils::SimpleSymbolMap symbol_map;
 
-                for (ObjectList<DataReference::MultiDepIterator>::iterator current_multidep = m.begin();
+                for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
                         current_multidep != m.end();
                         current_multidep++)
                 {
@@ -3162,10 +3162,10 @@ void LoweringVisitor::fill_dependences_internal(
 
                         // Now ignore the multidependence as such...
                         Nodecl::NodeclBase current_dep = dep_expr;
-                        while (current_dep.is<Nodecl::OmpSs::MultiDependence>())
+                        while (current_dep.is<Nodecl::MultiReference>())
                         {
                             current_dep =
-                                current_dep.as<Nodecl::OmpSs::MultiDependence>().get_dependence();
+                                current_dep.as<Nodecl::MultiReference>().get_dependence();
                         }
 
                         // and update it
@@ -3187,7 +3187,7 @@ void LoweringVisitor::fill_dependences_internal(
                         result_src << as_symbol(dyn_dep_idx) << "++;";
                         result_src << as_symbol(dyn_dim_idx) << "++;";
 
-                        for (ObjectList<DataReference::MultiDepIterator>::reverse_iterator
+                        for (ObjectList<DataReference::MultiRefIterator>::reverse_iterator
                                 rev_current_multidep = m.rbegin();
                                 rev_current_multidep != m.rend();
                                 rev_current_multidep++)
