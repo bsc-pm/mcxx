@@ -255,13 +255,13 @@ namespace {
         _reported_offset_vars.insert(std::pair<Node*, NBase>(n, var));
     }
 
-    struct StructuralCompareBind1 : Predicate<NBase>
+    struct StructuralCompareBind1
     {
         NBase n1;
 
         StructuralCompareBind1(const NBase n1_) : n1(n1_) { }
 
-        virtual bool do_(const NBase& n2) const
+        virtual bool operator()(const NBase& n2) const
         {
             return Nodecl::Utils::structurally_equal_nodecls(n1, n2);
         }
@@ -500,9 +500,9 @@ end_get_vars:
                     {
                         bool is_loop_iv = false;
                         Utils::InductionVarList ivs = cs->get_pcfg_node()->get_induction_variables();
-                        for (Utils::InductionVarList::iterator it = ivs.begin(); it != ivs.end(); ++it)
+                        for (Utils::InductionVarList::iterator itt = ivs.begin(); itt != ivs.end(); ++itt)
                         {
-                            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), v, /*skip_conversions*/true))
+                            if (Nodecl::Utils::structurally_equal_nodecls((*itt)->get_variable(), v, /*skip_conversions*/true))
                             {
                                 is_loop_iv = true;
                                 break;
