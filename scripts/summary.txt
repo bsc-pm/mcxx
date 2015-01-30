@@ -1,0 +1,584 @@
+Using top level /home/roger/Compiladors/C++/mcxx...
+~/Compiladors/C++/mcxx ~/Compiladors/C++/mcxx/scripts
+File 'lib/char_hash.c' has license byt does not seem to have any copyright year
+File 'lib/dhash_ptr.c' does not seem to have the LGPLv3 license
+File 'lib/dhash_ptr.h' does not seem to have the LGPLv3 license
+File 'lib/dhash_str.c' does not seem to have the LGPLv3 license
+File 'lib/dhash_str.h' does not seem to have the LGPLv3 license
+File 'lib/filename.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'lib/libutils-common.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'lib/mcxx_refcount.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'lib/mem.c' does not seem to have the LGPLv3 license
+File 'lib/mem.h' does not seem to have the LGPLv3 license
+File 'lib/perish.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'lib/red_black_tree.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'lib/red_black_tree.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'lib/string_utils.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'lib/string_utils.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'lib/tpp.c' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'lib/uniquestr.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/driver/cxx-configfile-lexer.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/cxx-configfile-lexer.l' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-configfile-parser.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/driver/cxx-configfile-parser.y' does not seem to have the LGPLv3 license
+File 'src/driver/cxx-configfile.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-configoptions.gperf' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-debugflags.gperf' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/driver/cxx-driver-decls.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-driver-utils.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-driver-utils.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/driver/cxx-driver-vars.c' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/cxx-driver.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-driver.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/driver/cxx-embed.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/cxx-fileextensions.gperf' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-multifile.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-parameters.c' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/cxx-parameters.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/cxx-profile.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/driver/cxx-profile.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/fortran/cxx-driver-fortran.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/driver/fortran/prescanner-driver.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/c99-parser.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/c99-upc.y' does not seem to have the LGPLv3 license
+File 'src/frontend/c99.y.in' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-ambig-handler.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-ambiguity.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-ambiguity.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-ast-decls.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-ast-fwd.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-ast-inline.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-ast.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-ast.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-asttype-str.c' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-asttype-str.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-buildscope-decls.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-buildscope.c' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/frontend/cxx-buildscope.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-cexpr-decls.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-cexpr-fwd.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-cexpr.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-cexpr.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-codegen.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-cuda.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-cuda.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-cuda.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-diagnostic.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-diagnostic.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-dyninit.c' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-dyninit.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-entrylist-decls.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-entrylist.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-entrylist.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-exprtype-decls.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-exprtype.c' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/frontend/cxx-exprtype.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-extensions.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-fortran-compat.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-gccbuiltins-ia32.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-gccbuiltins.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-gccbuiltins.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-gccspubuiltins.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-gccspubuiltins.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-gccsupport-decls.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-gccsupport.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-gccsupport.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-graphviz.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-graphviz.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-html.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-html.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-instantiation.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-instantiation.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-koenig.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-koenig.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-lexer.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-lexer.l' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-limits.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-literal-nodes.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-locus-inline.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-locus.c' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-locus.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-macros.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-ms.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-mssupport.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-mssupport.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-nodecl-checker.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-nodecl-decls.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-nodecl-deep-copy-fwd.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-nodecl-deep-copy.c' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-nodecl-deep-copy.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-nodecl-fwd.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-nodecl-inline.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-nodecl.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-nodecl.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-omp.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-ompss.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-opencl.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-overload-decls.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-overload.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-overload.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-parser.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-placeholders.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-placeholders.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-placeholders.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-pragma.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-pragma.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-pragma.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-prettyprint-internal.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-prettyprint.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-prettyprint.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-printscope.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-printscope.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-process.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-process.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-scope-decls.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-scope-fwd.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-scope.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-scope.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-solvetemplate.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-solvetemplate.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-subparse.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-superscalar.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-symbol-deep-copy.c' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-symbol-deep-copy.h' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx-tltype.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-tltype.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-type-decls.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-type-fwd.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-type-trie.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-type-trie.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-typededuc.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-typededuc.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-typeenviron-decls.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-typeenviron.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-typeenviron.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-typeorder.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-typeorder.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-typeutils.c' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/frontend/cxx-typeutils.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-upc.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/cxx-upc.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/cxx-utils.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-utils.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/cxx-xl.y' does not seem to have the LGPLv3 license
+File 'src/frontend/cxx03.y.in' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-buildscope.c' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/frontend/fortran/fortran03-codegen.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-exprtype.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-exprtype.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/fortran/fortran03-intrinsics-simplify.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-intrinsics.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-intrinsics.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-lexer.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-modules-data.h' does not seem to have the LGPLv3 license
+File 'src/frontend/fortran/fortran03-modules.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-omp.y' does not seem to have the LGPLv3 license
+File 'src/frontend/fortran/fortran03-ompss.y' does not seem to have the LGPLv3 license
+File 'src/frontend/fortran/fortran03-parser.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-prettyprint.c' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/fortran/fortran03-prettyprint.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/fortran/fortran03-scope-decls.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-scope.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-scope.h' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/frontend/fortran/fortran03-split.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-subparse.y' does not seem to have the LGPLv3 license
+File 'src/frontend/fortran/fortran03-typeenviron-decls.h' does not seem to have the LGPLv3 license
+File 'src/frontend/fortran/fortran03-typeenviron.c' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-typeenviron.h' does not seem to have the LGPLv3 license
+File 'src/frontend/fortran/fortran03-typeutils.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-typeutils.h' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03-utils.c' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03-utils.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/fortran03.l' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/fortran03.y.in' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/libmf03-common.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/libmf03-prescanner-common.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/prescanner-process-decls.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/prescanner-process.c' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/fortran/prescanner-process.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/fortran/prescanner.l' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/frontend/gen-symbol-attrs.py' does not seem to have the LGPLv3 license
+File 'src/frontend/libmcxx-common.h' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/frontend/nodecl-generator.py' does not seem to have the LGPLv3 license
+File 'src/mcxx_tl/cxx-compilerphases.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/mcxx_tl/cxx-compilerphases.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/Makefile.phases' does not seem to have the LGPLv3 license
+File 'src/tl/Makefile.tl' does not seem to have the LGPLv3 license
+File 'src/tl/analysis/auto-scope/tl-auto-scope.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/auto-scope/tl-auto-scope.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/checker/tl-analysis-check-phase.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/checker/tl-analysis-check-phase.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/common/tl-analysis-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/common/tl-analysis-utils.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/common/tl-induction-variables-data.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/common/tl-induction-variables-data.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/common/tl-nodecl-replacer.cpp' has license byt does not seem to have any copyright year
+File 'src/tl/analysis/common/tl-nodecl-replacer.hpp' has license byt does not seem to have any copyright year
+File 'src/tl/analysis/common/tl-ranges-common.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/common/tl-ranges-common.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/common/tl-tribool.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/complexity/tl-cyclomatic-complexity.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/complexity/tl-cyclomatic-complexity.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/constants/tl-constants-analysis-phase.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/constants/tl-constants-analysis.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/constants/tl-constants-analysis.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/interface/tl-analysis-base.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/interface/tl-analysis-base.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/interface/tl-analysis-interface.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/interface/tl-analysis-interface.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/interface/tl-analysis-internals.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/interface/tl-analysis-internals.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/liveness/tl-liveness.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/liveness/tl-liveness.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/loops/tl-iv-analysis.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/loops/tl-iv-analysis.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/loops/tl-loop-analysis.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/loops/tl-renaming-visitor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/loops/tl-renaming-visitor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-dot-graph.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-edge.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-edge.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-extensible-graph-ipa.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-extensible-graph.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-extensible-graph.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-node.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-node.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-pcfg-utils.cpp' has license byt does not seem to have any copyright year
+File 'src/tl/analysis/pcfg/tl-pcfg-utils.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-pcfg-visitor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-pcfg-visitor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-task-sync.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pcfg/tl-task-sync.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/pointers/tl-pointer-size.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/pointers/tl-pointer-size.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/range/tl-range-analysis.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/range/tl-range-analysis.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/range/tl-range-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/range/tl-range-utils.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/reach_defs/tl-reaching-definitions.cpp' does not have the proper copyright year, it is 2009 but it should be 2014
+File 'src/tl/analysis/reach_defs/tl-reaching-definitions.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/tdg/tl-task-dependency-graph.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/tdg/tl-task-dependency-graph.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/analysis/test_phase/tl-test-analysis-phase.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/test_phase/tl-test-analysis-phase.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/use_def/cLibraryFunctionList' does not seem to have the LGPLv3 license
+File 'src/tl/analysis/use_def/cppLibraryFunctionList' does not seem to have the LGPLv3 license
+File 'src/tl/analysis/use_def/tl-use-def-ipa.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/use_def/tl-use-def-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/use_def/tl-use-def.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/analysis/use_def/tl-use-def.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/codegen/base/cxx/codegen-cxx.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/codegen/base/cxx/codegen-cxx.hpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/codegen/base/cxx/codegen-prune.cpp' does not seem to have the LGPLv3 license
+File 'src/tl/codegen/base/cxx/codegen-prune.hpp' does not seem to have the LGPLv3 license
+File 'src/tl/codegen/base/fortran/codegen-fortran.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/codegen/base/fortran/codegen-fortran.hpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/codegen/common/codegen-common.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/codegen/common/codegen-common.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/codegen/common/codegen-phase.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/codegen/common/codegen-phase.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/codegen/gpu/cuda/codegen-cuda.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/codegen/gpu/cuda/codegen-cuda.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/codegen/vector/knc/codegen-knc-module.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/codegen/vector/knc/codegen-knc-module.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/complexity/tl-complexity.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/complexity/tl-complexity.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/examples/01_basic_phase/README' does not seem to have the LGPLv3 license
+File 'src/tl/examples/02_parameters/README' does not seem to have the LGPLv3 license
+File 'src/tl/examples/03_visitor/README' does not seem to have the LGPLv3 license
+File 'src/tl/examples/03_visitor/tl-example-visitor.cpp' does not seem to have the LGPLv3 license
+File 'src/tl/examples/03_visitor/tl-example-visitor.hpp' does not seem to have the LGPLv3 license
+File 'src/tl/hlt/hlt-loop-unroll.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/hlt/hlt-loop-unroll.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/hlt/hlt-pragma.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/hlt/hlt-pragma.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/hlt/hlt-transform.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/instr/tl-instrumentation.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/instr/tl-instrumentation.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/instr/tl-instrumentcalls.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/instr/tl-instrumentcalls.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/instr/tl-instrumentfilter.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/instr/tl-instrumentfilter.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_examples/README' does not seem to have the LGPLv3 license
+File 'src/tl/old_examples/basic_phase/README' does not seem to have the LGPLv3 license
+File 'src/tl/old_examples/mypragma/README' does not seem to have the LGPLv3 license
+File 'src/tl/old_examples/parameters/README' does not seem to have the LGPLv3 license
+File 'src/tl/old_hlt/hlt-pragma.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/old_tl/tl-ast.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/old_tl/tl-ast.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-clauses-info.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-clauses-info.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-context.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-context.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-cuda.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-cuda.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-datareference.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-datareference.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-declarationclosure.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-declarationclosure.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-for-nest.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-for-nest.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-fortran.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-fortran.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-langconstruct.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/old_tl/tl-langconstruct.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-overload.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-pragmasupport.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-pragmasupport.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-predicateutils.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-predicateutils.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-scopelink.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-scopelink.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-simd.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-simd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-statement.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-statement.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-static-callgraph.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-static-callgraph.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-templates.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-templates.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-traverse.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/old_tl/tl-traverse.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/auto-scope/tl-omp-auto-scope.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/auto-scope/tl-omp-auto-scope.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/base/tl-omp-base-task.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/base/tl-omp-base-task.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/base/tl-omp-base-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/base/tl-omp-base-utils.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/base/tl-omp-base.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/base/tl-omp-base.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-collapse.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/core/tl-omp-constructs.def' does not seem to have the LGPLv3 license
+File 'src/tl/omp/core/tl-omp-core.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-core.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-deps.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/core/tl-omp-deps.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-reduction-builtin.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-reduction.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-target.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-target.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-tasks.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp-tasks.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/core/tl-omp.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/core/tl-omp.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/example/tl-omp-example.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/example/tl-omp-example.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-cache-rtl-calls.cpp' does not seem to have the LGPLv3 license
+File 'src/tl/omp/intel/tl-cache-rtl-calls.hpp' does not seem to have the LGPLv3 license
+File 'src/tl/omp/intel/tl-lower-for.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lower-master.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lower-parallel.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lower-single.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lowering-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lowering-utils.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lowering-visitor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-lowering-visitor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/intel/tl-omp-intel.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/lint/tl-omp-lint.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/lint/tl-omp-lint.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanos-common/tl-nanos-atomic.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/nanos-common/tl-nanos-atomic.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/nanos-common/tl-nanos-threadprivate.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/nanos-common/tl-nanos-threadprivate.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/nanos-common/tl-nanos.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanos-common/tl-nanos.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/nanos-main/tl-omp-nanos-main.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanos-main/tl-omp-nanos-main.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/devices/cuda/nanox-cuda.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/devices/cuda/nanox-cuda.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/devices/fpga/nanox-fpga.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.cpp' does not have the proper copyright year, it is 2011 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/devices/opencl/nanox-opencl.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/devices/opencl/nanox-opencl.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/devices/smp/nanox-smp.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-devices.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-devices.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-final-stmts-generator.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-final-stmts-generator.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-loop-spawn-slicer.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-loop-spawn-worksharing.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-arguments.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-atomic.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-barrier.cpp' does not have the proper copyright year, it is 2012 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-critical.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-flush.cpp' does not have the proper copyright year, it is 2012 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-for-slicer.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-for-worksharing.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-for.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-master.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/nanox-nodecl/tl-lower-nanox-ocl-intrinsics.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-parallel.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-register.cpp' does not have the proper copyright year, it is 2014 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-sections.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-single.cpp' does not have the proper copyright year, it is 2012 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-task-call.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-task-common.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-task-expression.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lower-task.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-taskwait.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-taskyield.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lower-workshare.cpp' does not have the proper copyright year, it is 2012 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-lowering-visitor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-lowering-visitor.hpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-nanox-array-descriptor.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-nanox-nodecl-prerun.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-nanox-nodecl.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-nanox-nodecl.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-nanox-ptr.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-nanox-ptr.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-outline-info.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-outline-info.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-parallel-spawn.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-reduction-ompss.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-reduction-openmp.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/omp/nanox-nodecl/tl-target-information.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/nanox-nodecl/tl-target-information.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/profile/omp-closure.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/profile/omp-profile.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/profile/omp-profile.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/simd/tl-omp-simd.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/simd/tl-omp-simd.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/omp/ss2omp/tl-ss2omp.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/omp/ss2omp/tl-ss2omp.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/optimizations/tl-expression-reduction.cpp' does not seem to have the LGPLv3 license
+File 'src/tl/optimizations/tl-expression-reduction.hpp' does not seem to have the LGPLv3 license
+File 'src/tl/optimizations/tl-nodecl-calc.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/optimizations/tl-nodecl-calc.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/optimizations/tl-optimizations.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/optimizations/tl-optimizations.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/optimizations/tl-strength-reduction.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/optimizations/tl-strength-reduction.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/testing/sizeof/tl-test-sizeof.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/testing/sizeof/tl-test-sizeof.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-builtin.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-builtin.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-clauses-info.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-clauses-info.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-common.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-compilerphase.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-compilerphase.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-compilerpipeline.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-compilerpipeline.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-counters.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-counters.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-datareference.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/tl-datareference.hpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/tl-dto.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-dto.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-externalvars.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-externalvars.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-functor.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-functor.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-handler.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-handler.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-lexer.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-modules-fwd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-modules.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-modules.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-multifile.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-nodecl-base-fwd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-nodecl-base.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-nodecl-base.hpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/tl-nodecl-replace.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-nodecl-replace.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-nodecl-utils-c.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-nodecl-utils-fortran.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-nodecl-utils-fortran.hpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/tl-nodecl-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2015
+File 'src/tl/tl-nodecl-utils.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-object.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-object.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-objectlist.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-objectlist.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-pragmasupport.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-pragmasupport.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-predicate.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-predicate.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-predicateutils.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-predicateutils.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-replace.cpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-replace.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-scope-fwd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-scope.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-scope.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-setdto-phase.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/tl-setdto-phase.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-source-fwd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-source.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-source.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-symbol-fwd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-symbol-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-symbol-utils.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-symbol.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-symbol.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-type-fwd.hpp' does not have the proper copyright year, it is 2012 but it should be 2013
+File 'src/tl/tl-type.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/tl-type.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-expression-evolution-visitor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-expression-evolution-visitor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-suitable-alignment-visitor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-suitable-alignment-visitor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-analysis-interface.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-analysis-interface.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-analysis-internals.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-analysis-internals.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-common.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-utils.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/common/tl-vectorization-utils.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc-extern.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/knc/legalization/tl-vector-legalization-knc.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/knc/legalization/tl-vector-legalization-knc.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.cpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/tl-vector-lowering.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vector-lowering/tl-vector-lowering.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-function-versioning.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-function-versioning.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-environment-fwd.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-environment.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-overlap-fwd.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-overlap.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-overlap.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-report.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-report.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-target-type-heuristic.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-target-type-heuristic.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp' does not have the proper copyright year, it is 2012 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-local-symbol.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-local-symbol.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-statement.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer-visitor-statement.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer.cpp' does not have the proper copyright year, it is 2013 but it should be 2014
+File 'src/tl/vectorization/vectorizer/tl-vectorizer.hpp' does not have the proper copyright year, it is 2013 but it should be 2014
+~/Compiladors/C++/mcxx/scripts
