@@ -1615,6 +1615,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap-fwd.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-overlap.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-prefetcher.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-prefetcher.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment-fwd.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \

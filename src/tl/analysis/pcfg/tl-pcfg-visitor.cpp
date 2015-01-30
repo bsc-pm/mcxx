@@ -3372,6 +3372,11 @@ next_it:    ;
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorPrefetch& n )
+    {
+        return visit_vector_memory_func( n, /*mem_access_type = load*/ '1' );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorPromotion& n )
     {
         return visit_vector_unary_node( n, n.get_rhs( ) );

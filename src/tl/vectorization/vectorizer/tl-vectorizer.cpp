@@ -224,6 +224,25 @@ namespace Vectorization
         }
     }
 
+    void Vectorizer::prefetcher(const Nodecl::NodeclBase& statements,
+            const prefetch_info_t& pref_info,
+            const VectorizerEnvironment& environment)
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Prefetcher -----\n");
+        }
+
+        Prefetcher vector_prefetcher(pref_info, environment._vectorization_factor);
+        vector_prefetcher.walk(statements);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
+    }
+
+
     void Vectorizer::process_epilog(Nodecl::NodeclBase& loop_statement,
             VectorizerEnvironment& environment,
             Nodecl::NodeclBase& net_epilog_node,

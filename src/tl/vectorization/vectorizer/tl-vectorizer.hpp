@@ -35,6 +35,7 @@
 #include "tl-vectorization-common.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-function-versioning.hpp"
+#include "tl-vectorizer-prefetcher.hpp"
 
 namespace TL
 {
@@ -79,6 +80,9 @@ namespace TL
                         const bool is_simd_for,
                         const bool is_epilog,
                         Nodecl::List& init_stmts);
+                void prefetcher(const Nodecl::NodeclBase& statements,
+                        const prefetch_info_t& pref_info,
+                        const VectorizerEnvironment& environment);
 
                 void process_epilog(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
@@ -131,6 +135,7 @@ namespace TL
                 friend class VectorizerLoopInfo;
                 friend class VectorizerVisitorLoopCond;
                 friend class VectorizerVisitorLoopEpilog;
+                friend class Prefetcher;
         };
    }
 }

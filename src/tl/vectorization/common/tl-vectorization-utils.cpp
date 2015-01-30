@@ -460,26 +460,31 @@ namespace Utils
         }
     }
 
-    Nodecl::NodeclBase get_vector_load_scalar_access(
-            const Nodecl::VectorLoad& vector_load)
+    Nodecl::NodeclBase get_scalar_memory_access(
+            const Nodecl::NodeclBase& n)
     {
-        Nodecl::NodeclBase vl_rhs = vector_load.get_rhs();
-
-        if (vl_rhs.is<Nodecl::Reference>())
+        Nodecl::NodeclBase vaccess;
+       
+        if (n.is<Nodecl::VectorLoad>())
+            vaccess = n.as<Nodecl::VectorLoad>().get_rhs();
+        else if (n.is<Nodecl::VectorStore>())
         {
-            vl_rhs = vl_rhs.as<Nodecl::Reference>().get_rhs();
-
-            return vl_rhs;
+            vaccess = n.as<Nodecl::VectorStore>().get_lhs();
         }
 
-        internal_error("Invalid Vector Load\n", 0);
+        if (vaccess.is<Nodecl::Reference>())
+        {
+            return vaccess.as<Nodecl::Reference>().get_rhs();
+        }
+
+        internal_error("Invalid Vector Memory Access\n", 0);
     }
 
     Nodecl::NodeclBase get_vector_load_subscripted(
             const Nodecl::VectorLoad& vector_load)
     {
         Nodecl::NodeclBase vl_rhs =
-            get_vector_load_scalar_access(vector_load);
+            get_scalar_memory_access(vector_load);
 
         if (vl_rhs.is<Nodecl::ArraySubscript>())
         {
@@ -496,7 +501,7 @@ namespace Utils
             const Nodecl::VectorLoad& vector_load)
     {
         Nodecl::NodeclBase vl_rhs= 
-            get_vector_load_scalar_access(vector_load);
+            get_scalar_memory_access(vector_load);
 
         if (vl_rhs.is<Nodecl::ArraySubscript>())
         {
@@ -508,6 +513,35 @@ namespace Utils
         }
 
         internal_error("Invalid Vector Load\n", 0);
+    }
+
+    // It filters contained list and returns only nodecls
+    // not nested in any of the container list nodecls
+    objlist_nodecl_t get_nodecls_not_contained_in(
+                const objlist_nodecl_t& contained_list,
+                const objlist_nodecl_t& container_list)
+    {
+        objlist_nodecl_t result;
+
+        for(auto& contained : contained_list)
+        {
+            bool is_nested = false;
+
+            for(auto& container : container_list)
+            {
+                if (Nodecl::Utils::nodecl_contains_nodecl_by_pointer(
+                            container, contained))
+                {
+                    is_nested  = true;
+                    break;
+                }
+            }
+
+            if (!is_nested)
+                result.append(contained);
+        }
+
+        return result;
     }
 }
 }

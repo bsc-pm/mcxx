@@ -388,7 +388,7 @@ namespace Vectorization
                         new_flags.find_first<Nodecl::AlignmentInfo>());
 
                 // New aligned array
-                Nodecl::ArraySubscript new_array = Utils::get_vector_load_scalar_access(
+                Nodecl::ArraySubscript new_array = Utils::get_scalar_memory_access(
                         min_vload).shallow_copy().as<Nodecl::ArraySubscript>();
                 Nodecl::NodeclBase subscript = new_array.get_subscripts().
                     as<Nodecl::List>().front().no_conv();
@@ -471,7 +471,7 @@ namespace Vectorization
                         new_flags.find_first<Nodecl::AlignmentInfo>());
 
                 // New aligned array
-                Nodecl::ArraySubscript new_array = Utils::get_vector_load_scalar_access(
+                Nodecl::ArraySubscript new_array = Utils::get_scalar_memory_access(
                         max_vload).shallow_copy().as<Nodecl::ArraySubscript>();
                 Nodecl::NodeclBase subscript = new_array.get_subscripts().
                     as<Nodecl::List>().front().no_conv();
@@ -546,7 +546,7 @@ namespace Vectorization
                     min_vload.get_flags().shallow_copy().as<Nodecl::List>();
 
                 // New array
-                Nodecl::ArraySubscript new_array = Utils::get_vector_load_scalar_access(
+                Nodecl::ArraySubscript new_array = Utils::get_scalar_memory_access(
                         max_vload).shallow_copy().as<Nodecl::ArraySubscript>();
                 Nodecl::NodeclBase subscript = new_array.get_subscripts().
                     as<Nodecl::List>().front().no_conv();
@@ -706,7 +706,7 @@ namespace Vectorization
 
             if(_analysis->is_simd_aligned_access(
                     _environment._analysis_simd_scope,
-                    Utils::get_vector_load_scalar_access(main_vl),
+                    Utils::get_scalar_memory_access(main_vl),
                     _environment._aligned_symbols_map,
                     _environment._suitable_exprs_list,
                     1, //vectorization factor. The code is already vectorized
@@ -745,7 +745,7 @@ namespace Vectorization
 
             if(_analysis->is_simd_aligned_access(
                     _environment._analysis_simd_scope,
-                    Utils::get_vector_load_scalar_access(main_vl),
+                    Utils::get_scalar_memory_access(main_vl),
                     _environment._aligned_symbols_map,
                     _environment._suitable_exprs_list,
                     1, //vectorization factor. The code is already vectorized

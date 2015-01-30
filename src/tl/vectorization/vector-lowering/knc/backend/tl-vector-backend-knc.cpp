@@ -26,6 +26,7 @@
 
 #include "tl-vector-backend-knc.hpp"
 
+#include "tl-vectorization-prefetcher-common.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -1478,6 +1479,68 @@ namespace Vectorization
         n.replace(function_call);
     }
 
+    void KNCVectorBackend::visit(const Nodecl::VectorPrefetch& n)
+    {
+        Nodecl::NodeclBase address = n.get_address();
+        PrefetchKind kind = (PrefetchKind) const_value_cast_to_signed_int(
+                n.get_prefetch_kind().as<Nodecl::IntegerLiteral>().get_constant());
+
+        TL::Type type = n.get_type().basic_type();
+
+        TL::Source intrin_src, intrin_name, intrin_type_suffix, args;
+        int prefetch_hint;
+
+        intrin_src << intrin_name
+            << "("
+            << args
+            << ")"
+            ;
+
+        intrin_name << "_mm_prefetch";
+
+    /* constants for use with _mm_prefetch
+#define _MM_HINT_T0 1
+#define _MM_HINT_T1 2
+#define _MM_HINT_T2 3
+#define _MM_HINT_NTA    0
+#define _MM_HINT_ENTA   4
+#define _MM_HINT_ET0    5
+#define _MM_HINT_ET1    6
+#define _MM_HINT_ET2    7
+     */
+
+        switch(kind)
+        {
+            case PrefetchKind::L1_READ :
+                prefetch_hint = 1;
+                break;
+            case PrefetchKind::L2_READ :
+                prefetch_hint = 2;
+                break;
+            case PrefetchKind::L1_WRITE:
+                prefetch_hint = 5;
+                break;
+            case PrefetchKind::L2_WRITE:
+                prefetch_hint = 6;
+                break;
+            default:
+                internal_error("KNC Backend: Node %s at %s has a wrong prefetch kind.",
+                        ast_print_node_type(n.get_kind()),
+                        locus_to_str(n.get_locus()));
+        }
+
+        walk(address);
+
+        args << "(void *)"
+            << as_expression(address)
+            << ", "
+            << prefetch_hint;
+
+        Nodecl::NodeclBase function_call =
+            intrin_src.parse_expression(n.retrieve_context());
+
+        n.replace(function_call);
+    }
 
     void KNCVectorBackend::visit(const Nodecl::VectorLoad& n)
     {
