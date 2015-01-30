@@ -1,3 +1,4 @@
+lib/char_hash.c
 src/tl/analysis/use_def/cLibraryFunctionList
 src/tl/analysis/use_def/cppLibraryFunctionList
 src/frontend/cxx-asttype*.def

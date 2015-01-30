@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-#  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+#  (C) Copyright 2006-2015 Barcelona Supercomputing Center
 #                          Centro Nacional de Supercomputacion
 #  
 #  This file is part of Mercurium C/C++ source-to-source compiler.
