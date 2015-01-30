@@ -1,0 +1,4 @@
+debian/compat
+debian/control
+debian/rules
+debian/source/format
