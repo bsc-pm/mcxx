@@ -30,7 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
 
-#include "tl-vectorizer-overlap.hpp"
+#include "tl-vectorizer-overlap-optimizer.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-target-type-heuristic.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"

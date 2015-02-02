@@ -1612,9 +1612,10 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-fwd.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-common.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-optimizer.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-optimizer.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-prefetcher.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-prefetcher.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment-fwd.hpp \

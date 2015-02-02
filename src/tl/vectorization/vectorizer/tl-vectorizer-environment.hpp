@@ -28,8 +28,6 @@
 #define TL_VECTORIZER_ENVIRONMENT_HPP
 
 
-#include "tl-vectorizer-environment-fwd.hpp"
-
 #include "tl-vectorization-common.hpp"
 #include "tl-nodecl-base.hpp"
 

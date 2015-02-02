@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-prefetcher.hpp"
+#include "tl-vectorizer-overlap-common.hpp"
 #include "tl-vectorizer.hpp"
 #include "tl-vectorization-utils.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -113,12 +114,33 @@ namespace Vectorization
     {
         _loop = n;
         _linear_vars = Vectorizer::_vectorizer_analysis->get_linear_nodecls(n);
+
+        ERROR_CONDITION(_linear_vars.size() != 1,
+                "Linear variables != 1 in a SIMD loop", 0);
+
+        Nodecl::NodeclBase iv = *_linear_vars.begin();
+        Nodecl::NodeclBase iv_step = Vectorizer::_vectorizer_analysis->get_linear_step(n, iv);
+
         Nodecl::NodeclBase stmts = n.get_statement();
 
+        // VectorStores have preference over VectorLoads
+        // TODO: Overlap?
         objlist_nodecl_t vector_memory_accesses = Nodecl::Utils::
             nodecl_get_all_nodecls_of_kind<Nodecl::VectorStore>(stmts);
+
         objlist_nodecl_t vector_loads = Nodecl::Utils::
             nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(stmts);
+        // Let's see if vector loads overlap
+
+        objlist_ogroup_t overlap_groups =
+            get_overlap_groups(
+                    vector_loads,
+                    1, //min_group_loads,
+                    0, //max_group_registers,
+                    0, //max_groups,
+                    iv,
+                    iv_step);
+
 
         for (auto& vload : vector_loads)
         {

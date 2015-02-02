@@ -29,7 +29,6 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-overlap.hpp"
 #include "tl-vectorizer-prefetcher.hpp"
 
 namespace TL
