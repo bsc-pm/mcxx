@@ -30,7 +30,7 @@
 <testinfo>
 test_generator=config/mercurium-ompss
 test_ENV="NX_THROTTLE=dummy"
-test_CFLAGS="--no-copy-deps"
+test_CXXFLAGS="--no-copy-deps"
 </testinfo>
 */
 #include <stdio.h>

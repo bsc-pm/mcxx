@@ -2166,6 +2166,14 @@ void LoweringVisitor::fill_copies_region(
         dyn_copy_idx.get_internal_symbol()->type_information = get_signed_int_type();
         symbol_entity_specs_set_is_user_declared(dyn_copy_idx.get_internal_symbol(), 1);
 
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                    dyn_copy_idx,
+                    ctr.get_locus());
+            ctr.prepend_sibling(def);
+        }
+
         ss.str(""); ss << "dyn_dim_idx_" << (int)dep_dim_num;
         dep_dim_num++;
 
@@ -2173,6 +2181,14 @@ void LoweringVisitor::fill_copies_region(
         dyn_dim_idx.get_internal_symbol()->kind = SK_VARIABLE;
         dyn_dim_idx.get_internal_symbol()->type_information = get_signed_int_type();
         symbol_entity_specs_set_is_user_declared(dyn_dim_idx.get_internal_symbol(), 1);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                    dyn_dim_idx,
+                    ctr.get_locus());
+            ctr.prepend_sibling(def);
+        }
 
         copy_ol_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
             ;
@@ -2226,7 +2242,6 @@ void LoweringVisitor::fill_copies_region(
                         Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
                                 new_sym,
                                 ctr.get_locus());
-                        // FIXME - Check this
                         ctr.prepend_sibling(def);
                     }
 
@@ -3109,6 +3124,14 @@ void LoweringVisitor::fill_dependences_internal(
                 dyn_dim_idx.get_internal_symbol()->kind = SK_VARIABLE;
                 dyn_dim_idx.get_internal_symbol()->type_information = get_signed_int_type();
                 symbol_entity_specs_set_is_user_declared(dyn_dim_idx.get_internal_symbol(), 1);
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                            dyn_dim_idx,
+                            ctr.get_locus());
+                    ctr.prepend_sibling(def);
+                }
 
                 result_src
                     << as_symbol(dyn_dim_idx) << "= 0;"
