@@ -1184,9 +1184,6 @@ src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
 
 lib_LTLIBRARIES += src/tl/analysis/use_def/libuse_def.la
 
-EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList \
-              src/tl/analysis/use_def/cppLibraryFunctionList
-
 analysisdatadir = $(pkgdatadir)/analysisdata
 
 src_tl_analysis_use_def_libuse_def_la_CFLAGS = $(tl_cflags)
@@ -1322,6 +1319,9 @@ src_tl_analysis_auto_scope_libauto_scope_la_SOURCES = \
                           $(END)
 
 endif
+
+EXTRA_DIST += src/tl/analysis/use_def/cLibraryFunctionList \
+              src/tl/analysis/use_def/cppLibraryFunctionList
 
 ##########################################################################
 # src/tl/analysis/tdg
@@ -1900,10 +1900,9 @@ nanoxdata_DATA = \
 				 src/tl/omp/nanos-common/nanos-exports.def \
 				 $(END)
 
-EXTRA_DIST += src/tl/omp/nanos-common/nanos-exports.def
-
 endif
 
+EXTRA_DIST += src/tl/omp/nanos-common/nanos-exports.def
 
 ##########################################################################
 # src/tl/omp/nanos-main/
