@@ -28,6 +28,7 @@
 #define TL_VECTORIZER_PREFETCHER_HPP
 
 
+#include "tl-vectorizer-environment.hpp"
 #include "tl-vectorization-prefetcher-common.hpp"
 #include "tl-vectorization-common.hpp"
 #include "tl-nodecl.hpp"
@@ -48,17 +49,19 @@ namespace TL
         } prefetch_info_t;        
 
 
+        typedef std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase> pair_nodecl_nodecl_t;
+        typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> map_nodecl_nodecl_t;
         class Prefetcher : 
             public Nodecl::ExhaustiveVisitor<void>
         {
             private:
                 const int _L1_distance;
                 const int _L2_distance;
-                const int _vectorization_factor;
+                const VectorizerEnvironment& _environment;
                 Nodecl::NodeclBase _object_init;
                 Nodecl::NodeclBase _loop;
                 objlist_nodecl_t _linear_vars;
-                objlist_nodecl_t _not_nested_vaccesses;
+                map_nodecl_nodecl_t _not_nested_vaccesses;
 
                 Nodecl::NodeclBase get_prefetch_node(
                         const Nodecl::NodeclBase& address,
@@ -67,7 +70,7 @@ namespace TL
 
             public:
                 Prefetcher(const prefetch_info_t& pref_info,
-                        const int vectorization_factor);
+                        const VectorizerEnvironment& environment);
 
                 void visit(const Nodecl::ForStatement& n);
                 void visit(const Nodecl::VectorLoad& n);

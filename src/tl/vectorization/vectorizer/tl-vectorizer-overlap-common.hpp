@@ -38,12 +38,14 @@ namespace TL
     {
         struct OverlapGroup
         {
-            Nodecl::Symbol _subscripted;
+            TL::Symbol _subscripted;
             objlist_tlsym_t _registers;
             objlist_nodecl_t _registers_indexes;
             objlist_nodecl_t _loads;
-            Nodecl::VectorLoad _leftmost_vload;
-            Nodecl::VectorLoad _rightmost_vload;
+            Nodecl::VectorLoad _leftmost_code_vload;
+            Nodecl::VectorLoad _rightmost_code_vload;
+            Nodecl::VectorLoad _leftmost_group_vload;
+            Nodecl::VectorLoad _rightmost_group_vload;
             Nodecl::NodeclBase _loop_ind_var;
             Nodecl::NodeclBase _loop_ind_var_step;
             TL::Type _basic_type;

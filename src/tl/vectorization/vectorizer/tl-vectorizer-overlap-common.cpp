@@ -43,11 +43,6 @@ namespace Vectorization
         _basic_type = front_load.get_type().no_ref().basic_type();
 
         compute_inter_iteration_overlap();
-
-        // Group subscript
-        _subscripted = Utils::get_vector_load_subscripted(
-                front_load.as<Nodecl::VectorLoad>()).
-                as<Nodecl::Symbol>();
     }
     
     void OverlapGroup::compute_inter_iteration_overlap()
@@ -201,6 +196,9 @@ namespace Vectorization
                 }
             }
         }
+
+        _leftmost_code_vload = min_vload;
+        _rightmost_code_vload = max_vload;
       
         // ALIGNED STRATEGY 
         if (aligned_strategy)
@@ -439,8 +437,8 @@ namespace Vectorization
             }
         }
 
-        _leftmost_vload = min_vload;
-        _rightmost_vload = max_vload;
+        _leftmost_group_vload = min_vload;
+        _rightmost_group_vload = max_vload;
 
         if (aligned_strategy)
             std::cerr << "ALIGNED STRATEGY: " << std::endl;
@@ -449,9 +447,9 @@ namespace Vectorization
 
         VECTORIZATION_DEBUG()
         {
-            std::cerr << "Min index is " << _leftmost_vload.prettyprint()
+            std::cerr << "Min index is " << _leftmost_group_vload.prettyprint()
                 << " with " << min_offset << " offset" << std::endl;
-            std::cerr << "Max index is " << _rightmost_vload.prettyprint()
+            std::cerr << "Max index is " << _rightmost_group_vload.prettyprint()
                 << " with " << max_offset << " offset" << std::endl;
         }
     }
@@ -460,9 +458,9 @@ namespace Vectorization
             const Vectorization::VectorizerEnvironment& environment)
     {
         Nodecl::NodeclBase leftmost_index =
-            Utils::get_vector_load_subscript(_leftmost_vload);
+            Utils::get_vector_load_subscript(_leftmost_group_vload);
         Nodecl::NodeclBase rightmost_index =
-            Utils::get_vector_load_subscript(_rightmost_vload);
+            Utils::get_vector_load_subscript(_rightmost_group_vload);
 
         Nodecl::Minus minus = Nodecl::Minus::make(
                 rightmost_index.no_conv().shallow_copy(),
@@ -510,25 +508,25 @@ namespace Vectorization
     {
         objlist_ogroup_t ogroups;
 
-        for (objlist_nodecl_t::const_iterator target_load =
-                vector_loads.begin();
-                target_load != vector_loads.end();
-                target_load++)
+        for (auto& target_load : vector_loads)
         {
+            TL::Symbol target_symbol = Utils::get_vector_load_subscripted(
+                   target_load.as<Nodecl::VectorLoad>()).as<Nodecl::Symbol>().get_symbol(); 
+
             Nodecl::VectorLoad target_load_copy =
-                target_load->shallow_copy().as<Nodecl::VectorLoad>();
+                target_load.shallow_copy().as<Nodecl::VectorLoad>();
 
             bool og_found = false;
-            for(objlist_ogroup_t::iterator it_ogroup =
-                    ogroups.begin();
-                    it_ogroup != ogroups.end();
-                    it_ogroup++)
+            for(auto& it_ogroup : ogroups)
             {
-                if(it_ogroup->overlaps(target_load_copy))
+                if (it_ogroup._subscripted != target_symbol)
+                    continue;
+                
+                if(it_ogroup.overlaps(target_load_copy))
                 {
                     //std::cerr << target_load_copy.prettyprint() << " overlap!"<< std::endl;
-                    target_load->replace(target_load_copy);
-                    it_ogroup->_loads.append(*target_load);
+                    target_load.replace(target_load_copy);
+                    it_ogroup._loads.append(target_load);
 
                     og_found = true;
                     break;
@@ -546,10 +544,13 @@ namespace Vectorization
                         << std::endl;
                 }
 
-                target_load->replace(target_load_copy);
-                ogroup._loads.append(*target_load);
+                target_load.replace(target_load_copy);
+   
+                ogroup._loads.append(target_load);
                 ogroup._loop_ind_var = loop_ind_var;
                 ogroup._loop_ind_var_step = loop_ind_var_step;
+                ogroup._subscripted = target_symbol;
+
                 ogroups.append(ogroup);
             }
         }
@@ -568,7 +569,7 @@ namespace Vectorization
  
         std::cerr << std::endl << 
             "    - Groups after merging: "
-            << ogroups.size();
+            << ogroups.size() << " ";
 
         for(objlist_ogroup_t::iterator it_ogroup =
                 ogroups.begin();
@@ -603,7 +604,7 @@ namespace Vectorization
 
         std::cerr << std::endl << 
             "    - Groups after min cardinality filtering: "
-            << ogroups.size();
+            << ogroups.size() << " ";
 
         for(objlist_ogroup_t::iterator it_ogroup =
                 ogroups.begin();
