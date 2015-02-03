@@ -50,6 +50,8 @@ namespace TL { namespace Nanox {
             bool final_clause_transformation_disabled() const;
             bool firstprivates_always_by_reference() const;
 
+            bool seen_a_task_with_priorities() const;
+            void set_seen_a_task_with_priorities(bool b);
         private:
             void load_headers(DTO& dto);
 
@@ -85,7 +87,10 @@ namespace TL { namespace Nanox {
             void set_firstprivates_always_references(const std::string& str);
 
             void finalize_phase(Nodecl::NodeclBase global_node);
-            void set_openmp_programming_model(Nodecl::NodeclBase global_node);
+            void emit_nanos_requirements(Nodecl::NodeclBase global_node);
+            void set_openmp_programming_model(Source &src);
+
+            bool _seen_a_task_with_priorities;
 
             std::string _openmp_dry_run;
     };

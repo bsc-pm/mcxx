@@ -1895,6 +1895,13 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-target-information.hpp \
 								 $(END)
 
+nanoxdatadir = $(pkgdatadir)/nanos
+nanoxdata_DATA = \
+				 src/tl/omp/nanos-common/nanos-exports.def \
+				 $(END)
+
+EXTRA_DIST += src/tl/omp/nanos-common/nanos-exports.def
+
 endif
 
 

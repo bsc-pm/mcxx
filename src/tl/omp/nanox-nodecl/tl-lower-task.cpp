@@ -577,6 +577,10 @@ void LoweringVisitor::emit_async_common(
     {
         priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
     }
+    else
+    {
+        _lowering->set_seen_a_task_with_priorities(true);
+    }
 
     if (final_condition.is_null())
     {
