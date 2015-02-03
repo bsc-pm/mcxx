@@ -291,7 +291,7 @@ namespace Vectorization
                         Nodecl::VectorLoad::make(
                             Nodecl::Reference::make(
                                 Nodecl::ArraySubscript::make(
-                                    ogroup._subscripted.shallow_copy(),
+                                    ogroup._subscripted.make_nodecl(),
                                     Nodecl::List::make(
                                         vload_index),
                                     ogroup._basic_type),
@@ -332,7 +332,7 @@ namespace Vectorization
                     Nodecl::VectorLoad::make(
                         Nodecl::Reference::make(
                             Nodecl::ArraySubscript::make(
-                                ogroup._subscripted.shallow_copy(),
+                                ogroup._subscripted.make_nodecl(),
                                 Nodecl::List::make(
                                     ogroup._registers_indexes[size-1].shallow_copy()),
                                 ogroup._basic_type),
@@ -872,7 +872,7 @@ namespace Vectorization
             const int num_group)
     { 
         Nodecl::NodeclBase leftmost_index = 
-            Utils::get_vector_load_subscript(ogroup._leftmost_vload);
+            Utils::get_vector_load_subscript(ogroup._leftmost_group_vload);
         int vectorization_factor = ogroup._vector_type.vector_num_elements();
 
         // Declare group registers
@@ -880,7 +880,7 @@ namespace Vectorization
         {
             std::stringstream new_sym_name;
             new_sym_name << "__overlap_" 
-                << ogroup._subscripted.get_symbol().get_name() << "_"
+                << ogroup._subscripted.get_name() << "_"
                 << num_group << "_"
                 << i;
 

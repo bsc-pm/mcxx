@@ -233,7 +233,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: ----- Prefetcher -----\n");
         }
 
-        Prefetcher vector_prefetcher(pref_info, environment._vectorization_factor);
+        Prefetcher vector_prefetcher(pref_info, environment);
         vector_prefetcher.walk(statements);
 
         VECTORIZATION_DEBUG()
