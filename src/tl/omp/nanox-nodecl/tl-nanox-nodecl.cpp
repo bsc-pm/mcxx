@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -45,7 +45,8 @@ namespace TL { namespace Nanox {
         _instrumentation_enabled(false),
         _nanos_debug_enabled(false),
         _final_clause_transformation_disabled(false),
-        _firstprivates_always_references(false)
+        _firstprivates_always_references(false),
+        _seen_a_task_with_priorities(false)
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");
@@ -116,7 +117,7 @@ namespace TL { namespace Nanox {
 
     void Lowering::finalize_phase(Nodecl::NodeclBase global_node)
     {
-        set_openmp_programming_model(global_node);
+        emit_nanos_requirements(global_node);
     }
 
     void Lowering::set_weaks_as_statics(const std::string& str)
@@ -174,42 +175,49 @@ namespace TL { namespace Nanox {
         return _firstprivates_always_references;
     }
 
-    void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
+    bool Lowering::seen_a_task_with_priorities() const
     {
-        if (Nanos::Version::interface_is_at_least("master", 5028))
-            // Do nothing
-            return;
+        return _seen_a_task_with_priorities;
+    }
 
+    void Lowering::set_seen_a_task_with_priorities(bool b)
+    {
+        _seen_a_task_with_priorities = b;
+    }
+
+    void Lowering::emit_nanos_requirements(Nodecl::NodeclBase global_node)
+    {
         Source src;
-        if (!_static_weak_symbols)
+        if (seen_a_task_with_priorities())
         {
             src
-                << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
-                ;
-        }
-        else
-        {
-            // Some compilers (like ICC) may require this
-            src
-                << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                << "__attribute__((common)) char nanos_need_priorities_;"
                 ;
         }
 
-        FORTRAN_LANGUAGE()
+        if (!Nanos::Version::interface_is_at_least("master", 5028))
+            set_openmp_programming_model(src);
+
+        Nodecl::List n;
+        if (!src.empty()) // avoid parsing an empty source
         {
-            // Parse in C
-            Source::source_language = SourceLanguage::C;
+            FORTRAN_LANGUAGE()
+            {
+                // Parse in C
+                Source::source_language = SourceLanguage::C;
+            }
+            n = src.parse_global(global_node).as<Nodecl::List>();
+            FORTRAN_LANGUAGE()
+            {
+                Source::source_language = SourceLanguage::Current;
+            }
         }
-        Nodecl::List n = src.parse_global(global_node).as<Nodecl::List>();
 
         Nodecl::List& extra_c_code = this->get_extra_c_code();
-
         extra_c_code.append(n);
 
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
+        if (extra_c_code.empty())
+            return;
 
         if (!IS_FORTRAN_LANGUAGE)
         {
@@ -233,6 +241,24 @@ namespace TL { namespace Nanox {
 
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
         }
+    }
+
+    void Lowering::set_openmp_programming_model(Source &src)
+    {
+        if (!_static_weak_symbols)
+        {
+            src
+                << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
+        else
+        {
+            // Some compilers (like ICC) may require this
+            src
+                << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
+
     }
 
     FILE* Lowering::get_ancillary_file()
@@ -259,6 +285,11 @@ namespace TL { namespace Nanox {
 
     Nodecl::List Lowering::_extra_c_code;
 
+    Nodecl::List& Lowering::get_extra_c_code()
+    {
+        return _extra_c_code;
+    }
+
     void Lowering::phase_cleanup(DTO& data_flow)
     {
         if (_ancillary_file != NULL)
@@ -266,11 +297,7 @@ namespace TL { namespace Nanox {
 
         _ancillary_file = NULL;
         _extra_c_code.get_internal_nodecl() = nodecl_null();
-    }
-
-    Nodecl::List& Lowering::get_extra_c_code()
-    {
-        return _extra_c_code;
+        _seen_a_task_with_priorities = false;
     }
 } }
 

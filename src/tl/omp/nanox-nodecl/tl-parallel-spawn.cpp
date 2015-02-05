@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -244,7 +244,8 @@ namespace TL { namespace Nanox {
             num_dependences << num_static_dependences;
         }
 
-        int num_copies = 0;
+        Source num_copies;
+        num_copies << 0;
         fill_copies(construct,
                 outline_info,
                 /* parameter_outline_info */ NULL,

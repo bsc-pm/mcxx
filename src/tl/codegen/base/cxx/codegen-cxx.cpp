@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -9427,9 +9427,14 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9464,9 +9469,14 @@ std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9485,9 +9495,14 @@ std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
         std::stringstream ss_out;
         std::ostream *tmp_out = &ss_out;
 
+        bool b = this->is_file_output();
+        this->set_is_file_output(false);
         std::swap(file, tmp_out);
+
         walk(symbol.get_asm_specification());
+
         std::swap(file, tmp_out);
+        this->set_is_file_output(b);
 
         result = ss_out.str();
     }

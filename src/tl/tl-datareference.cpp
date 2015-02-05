@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -440,7 +440,7 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::OmpSs::MultiDependence& multi_deps)
+            virtual void visit(const Nodecl::MultiReference& multi_deps)
             {
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
@@ -1222,13 +1222,13 @@ namespace TL
         mr.read(_base_address);
     }
 
-    bool DataReference::is_multidependence() const
+    bool DataReference::is_multireference() const
     {
         return !_iterators.empty();
     }
 
-    TL::ObjectList<DataReference::MultiDepIterator>
-        DataReference::multidependences() const
+    TL::ObjectList<DataReference::MultiRefIterator>
+        DataReference::multireferences() const
     {
         return _iterators;
     }

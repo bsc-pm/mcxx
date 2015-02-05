@@ -42,7 +42,7 @@ void generate0(int length, int *a, int val)
 {
 #pragma omp task out( { a[k], k = 0;length } )
     {
-        usleep(500);
+        usleep(50);
         int i;
         for (i = 0; i < length; i++)
         {
@@ -55,7 +55,7 @@ void consume0(int length, int *a, int val)
 {
 #pragma omp task in( { a[k], k = 0;length } )
     {
-        usleep(500);
+        usleep(50);
         int i;
         for (i = 0; i < length; i++)
         {
@@ -72,7 +72,7 @@ void generate1(int start, int length, int *a, int val)
 {
 #pragma omp task out( { a[k], k = start;length } )
     {
-        usleep(500);
+        usleep(50);
         int i;
         for (i = start; i < (start + length); i++)
         {
@@ -85,7 +85,7 @@ void consume1(int start, int length, int *a, int val)
 {
 #pragma omp task in( { a[k], k = start;length } )
     {
-        usleep(500);
+        usleep(50);
         int i;
         for (i = start; i < (start + length); i++)
         {
