@@ -37,13 +37,153 @@ namespace Vectorization
 {
     Prefetcher::Prefetcher(const prefetch_info_t& pref_info,
             const VectorizerEnvironment& environment)
-        : _L1_distance(pref_info.L1_distance),
-        _L2_distance(pref_info.L2_distance),
-        _environment(environment)
+        : _pref_info(pref_info), _environment(environment)
     {
     }
 
-    Nodecl::NodeclBase Prefetcher::get_prefetch_node(
+    void Prefetcher::visit(const Nodecl::ForStatement& n)
+    {
+        objlist_nodecl_t linear_vars = Vectorizer::_vectorizer_analysis->get_linear_nodecls(n);
+
+        ERROR_CONDITION(linear_vars.size() != 1,
+                "Linear variables != 1 in a SIMD loop", 0);
+
+        Nodecl::NodeclBase iv = *linear_vars.begin();
+        Nodecl::NodeclBase iv_step = Vectorizer::_vectorizer_analysis->get_linear_step(n, iv);
+
+        Nodecl::NodeclBase stmts = n.get_statement();
+
+        objlist_nodecl_t nested_for_stmts = Nodecl::Utils::
+            nodecl_get_all_nodecls_of_kind<Nodecl::ForStatement>(stmts);
+
+        objlist_nodecl_t vector_stores = Utils::get_nodecls_not_contained_in(
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::VectorStore>(stmts),
+                nested_for_stmts);
+
+        objlist_nodecl_t vector_loads = Utils::get_nodecls_not_contained_in(
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(stmts),
+                nested_for_stmts);
+
+        map_nodecl_nodecl_t not_nested_vaccesses;
+
+        // Process VectorStores
+        // They have preference over VectorLoads
+        for (auto& vstore : vector_stores)
+        {
+            bool is_new_access = true;
+            Nodecl::NodeclBase store_scalar_access = 
+                Vectorization::Utils::get_scalar_memory_access(vstore);
+
+            for (auto& vaccess : not_nested_vaccesses)
+            {
+                Nodecl::NodeclBase memory_scalar_access = 
+                    Vectorization::Utils::get_scalar_memory_access(vaccess.first);
+
+                if (Nodecl::Utils::structurally_equal_nodecls(
+                            store_scalar_access,
+                            memory_scalar_access,
+                            true /*skip conv */))
+                {
+                    is_new_access = false;
+                    break;
+                }
+            }
+
+            if (is_new_access)
+            {
+                not_nested_vaccesses.insert(
+                        pair_nodecl_nodecl_t(vstore, vstore));
+            }
+        }
+
+        // Let's see if vector loads overlap
+        // TODO: Vector Stores?
+        objlist_ogroup_t overlap_groups =
+            get_overlap_groups(
+                    vector_loads,
+                    1, //min_group_loads,
+                    0, //max_group_registers,
+                    0, //max_groups,
+                    iv,
+                    iv_step,
+                    true /* consider aligned adjacent accesses */);
+
+        for (auto& ogroup : overlap_groups)
+        {
+            ogroup.compute_basic_properties();
+            ogroup.compute_leftmost_rightmost_vloads(
+                    _environment, 0 /*max_registers*/);
+
+            const Nodecl::NodeclBase& vload = ogroup._rightmost_group_vload;
+
+            bool is_new_access = true;
+            Nodecl::NodeclBase load_scalar_access = 
+                Vectorization::Utils::get_scalar_memory_access(vload);
+
+            for (const auto& vaccess : not_nested_vaccesses)
+            {
+                Nodecl::NodeclBase memory_scalar_access = 
+                    Vectorization::Utils::get_scalar_memory_access(vaccess.second);
+
+                if (Nodecl::Utils::structurally_equal_nodecls(
+                            load_scalar_access,
+                            memory_scalar_access,
+                            true /*skip conv */))
+                {
+                    is_new_access = false;
+                    break;
+                }
+            }
+
+            if (is_new_access)
+            {
+                not_nested_vaccesses.insert(
+                        pair_nodecl_nodecl_t(ogroup._rightmost_code_vload,
+                            ogroup._rightmost_group_vload));
+            }
+        }
+
+
+        // Add #pragma noprefetch to the loop
+        if (!not_nested_vaccesses.empty())
+        {
+            // We visit vaccesses again to generate pref instructions in the
+            // same order. If execution time is a problem, revisit this approach.
+        
+            GenPrefetch gen_prefetch(n, not_nested_vaccesses, _environment, _pref_info);
+            gen_prefetch.walk(stmts);
+            objlist_nodecl_t pref_instructions = gen_prefetch.get_prefetch_instructions();
+
+            // Add prefetching instructions at the beginning of the compound
+            Nodecl::Utils::prepend_items_in_nested_compound_statement(
+                    n, Nodecl::List::make(pref_instructions));
+
+            // Add #pragma noprefetch to loop
+            Nodecl::UnknownPragma noprefetch_pragma =
+                Nodecl::UnknownPragma::make("noprefetch");
+
+            n.prepend_sibling(noprefetch_pragma);
+        }
+
+        walk(stmts);
+    }
+
+    GenPrefetch::GenPrefetch(const Nodecl::NodeclBase& loop,
+            const map_nodecl_nodecl_t& vaccesses,
+            const VectorizerEnvironment& environment,
+            const prefetch_info_t& pref_info)
+        : _loop(loop), _vaccesses(vaccesses), _environment(environment),
+        _pref_info(pref_info),
+        _linear_vars(Vectorizer::_vectorizer_analysis->get_linear_nodecls(_loop))
+    {
+    }
+
+    void GenPrefetch::visit(const Nodecl::ForStatement& n)
+    {
+        // Do not explore nested ForStatement
+    }
+
+    Nodecl::NodeclBase GenPrefetch::get_prefetch_node(
             const Nodecl::NodeclBase& address,
             const PrefetchKind kind,
             const int distance)
@@ -111,187 +251,49 @@ namespace Vectorization
         return prefetch_stmt;
     }
 
-    void Prefetcher::visit(const Nodecl::ForStatement& n)
-    {
-        _loop = n;
-        _linear_vars = Vectorizer::_vectorizer_analysis->get_linear_nodecls(n);
-
-        ERROR_CONDITION(_linear_vars.size() != 1,
-                "Linear variables != 1 in a SIMD loop", 0);
-
-        Nodecl::NodeclBase iv = *_linear_vars.begin();
-        Nodecl::NodeclBase iv_step = Vectorizer::_vectorizer_analysis->get_linear_step(n, iv);
-
-        Nodecl::NodeclBase stmts = n.get_statement();
-
-        objlist_nodecl_t nested_for_stmts = Nodecl::Utils::
-            nodecl_get_all_nodecls_of_kind<Nodecl::ForStatement>(stmts);
-
-        objlist_nodecl_t vector_stores = Utils::get_nodecls_not_contained_in(
-                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::VectorStore>(stmts),
-                nested_for_stmts);
-
-        objlist_nodecl_t vector_loads = Utils::get_nodecls_not_contained_in(
-                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(stmts),
-                nested_for_stmts);
-
-        // Process VectorStores
-        // They have preference over VectorLoads
-        for (auto& vstore : vector_stores)
-        {
-            bool is_new_access = true;
-            Nodecl::NodeclBase store_scalar_access = 
-                Vectorization::Utils::get_scalar_memory_access(vstore);
-
-            for (auto& vaccess : _not_nested_vaccesses)
-            {
-                Nodecl::NodeclBase memory_scalar_access = 
-                    Vectorization::Utils::get_scalar_memory_access(vaccess.first);
-
-                if (Nodecl::Utils::structurally_equal_nodecls(
-                            store_scalar_access,
-                            memory_scalar_access,
-                            true /*skip conv */))
-                {
-                    is_new_access = false;
-                    break;
-                }
-            }
-
-            if (is_new_access)
-            {
-                _not_nested_vaccesses.insert(
-                        pair_nodecl_nodecl_t(vstore, vstore));
-            }
-
-        }
-
-
-        // Let's see if vector loads overlap
-        // TODO: Vector Stores?
-        objlist_ogroup_t overlap_groups =
-            get_overlap_groups(
-                    vector_loads,
-                    1, //min_group_loads,
-                    0, //max_group_registers,
-                    0, //max_groups,
-                    iv,
-                    iv_step);
-
-        for (auto& ogroup : overlap_groups)
-        {
-            ogroup.compute_basic_properties();
-            ogroup.compute_leftmost_rightmost_vloads(
-                    _environment, 0 /*max_registers*/);
-
-            const Nodecl::NodeclBase& vload = ogroup._rightmost_group_vload;
-
-            bool is_new_access = true;
-            Nodecl::NodeclBase load_scalar_access = 
-                Vectorization::Utils::get_scalar_memory_access(vload);
-
-            for (const auto& vaccess : _not_nested_vaccesses)
-            {
-                Nodecl::NodeclBase memory_scalar_access = 
-                    Vectorization::Utils::get_scalar_memory_access(vaccess.second);
-
-                if (Nodecl::Utils::structurally_equal_nodecls(
-                            load_scalar_access,
-                            memory_scalar_access,
-                            true /*skip conv */))
-                {
-                    is_new_access = false;
-                    break;
-                }
-            }
-
-            if (is_new_access)
-            {
-                _not_nested_vaccesses.insert(
-                        pair_nodecl_nodecl_t(ogroup._rightmost_code_vload,
-                            ogroup._rightmost_group_vload));
-            }
-        }
-
-
-        // Add #pragma noprefetch to the loop
-        if (!_not_nested_vaccesses.empty())
-        {
-            Nodecl::UnknownPragma noprefetch_pragma =
-                Nodecl::UnknownPragma::make("noprefetch");
-
-            n.prepend_sibling(noprefetch_pragma);
-        }
-
-
-        /* This doesn't work because of the ObjectInit issue */
-        //for (auto& vaccess : not_nested_vaccesses)
-        //{
-        //    walk(vaccess);
-        //}
-
-        walk(stmts);
-    }
-
-    void Prefetcher::visit(const Nodecl::VectorLoad& n)
+    void GenPrefetch::visit(const Nodecl::VectorLoad& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
 
-        const auto& vload_it = _not_nested_vaccesses.find(n);
+        walk(rhs);
+        walk(n.get_flags());
 
-        if (vload_it != _not_nested_vaccesses.end())
+        const auto& vload_it = _vaccesses.find(n);
+
+        if (vload_it != _vaccesses.end())
         {
-            Nodecl::NodeclBase ref_node;
-            if (!_object_init.is_null())
-                ref_node = _object_init;
-            else
-                ref_node = n;
-
             Nodecl::NodeclBase pref_memory_address = vload_it->second.
                 as<Nodecl::VectorLoad>().get_rhs();
 
-            Nodecl::Utils::prepend_statement(ref_node,
-                    get_prefetch_node(pref_memory_address, L2_READ, _L2_distance));
-            Nodecl::Utils::prepend_statement(ref_node,
-                    get_prefetch_node(pref_memory_address, L1_READ, _L1_distance));
+            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
+            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
         }
-        
-        walk(rhs);
-        walk(n.get_flags());
     }
 
-    void Prefetcher::visit(const Nodecl::VectorStore& n)
+    void GenPrefetch::visit(const Nodecl::VectorStore& n)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-
-        const auto& vstore_it = _not_nested_vaccesses.find(n);
-
-        if (vstore_it != _not_nested_vaccesses.end())
-        {
-            Nodecl::NodeclBase ref_node;
-            if (!_object_init.is_null())
-                ref_node = _object_init;
-            else
-                ref_node = n;
-
-            Nodecl::NodeclBase pref_memory_address = vstore_it->second.
-                as<Nodecl::VectorStore>().get_lhs();
-
-            Nodecl::Utils::prepend_statement(ref_node,
-                    get_prefetch_node(pref_memory_address, L2_WRITE, _L2_distance));
-            Nodecl::Utils::prepend_statement(ref_node,
-                    get_prefetch_node(pref_memory_address, L1_WRITE, _L1_distance));
-        }
-
+        
         walk(lhs);
         walk(rhs);
         walk(n.get_flags());
+
+        const auto& vstore_it = _vaccesses.find(n);
+
+        if (vstore_it != _vaccesses.end())
+        {
+            Nodecl::NodeclBase pref_memory_address = vstore_it->second.
+                as<Nodecl::VectorStore>().get_lhs();
+
+            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
+            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+        }
     }
 
-    void Prefetcher::visit(const Nodecl::ObjectInit& n)
+    void GenPrefetch::visit(const Nodecl::ObjectInit& n)
     {
-        _object_init = n;
+        //_object_init = n;
 
         TL::Symbol sym = n.get_symbol();
         Nodecl::NodeclBase init = sym.get_value();
@@ -301,7 +303,12 @@ namespace Vectorization
             walk(init);
         }
 
-        _object_init = Nodecl::NodeclBase::null(); 
+        //_object_init = Nodecl::NodeclBase::null(); 
+    }
+
+    objlist_nodecl_t GenPrefetch::get_prefetch_instructions()
+    {
+        return _pref_instr;
     }
 }
 }

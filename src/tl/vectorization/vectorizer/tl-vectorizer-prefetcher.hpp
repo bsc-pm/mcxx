@@ -55,27 +55,44 @@ namespace TL
             public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                const int _L1_distance;
-                const int _L2_distance;
+                const prefetch_info_t& _pref_info;
                 const VectorizerEnvironment& _environment;
-                Nodecl::NodeclBase _object_init;
-                Nodecl::NodeclBase _loop;
-                objlist_nodecl_t _linear_vars;
-                map_nodecl_nodecl_t _not_nested_vaccesses;
-
-                Nodecl::NodeclBase get_prefetch_node(
-                        const Nodecl::NodeclBase& address,
-                        const PrefetchKind kind,
-                        const int distance);
+                //Nodecl::NodeclBase _object_init;
 
             public:
                 Prefetcher(const prefetch_info_t& pref_info,
                         const VectorizerEnvironment& environment);
 
                 void visit(const Nodecl::ForStatement& n);
+        };
+
+        class GenPrefetch : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                const Nodecl::NodeclBase _loop;
+                const map_nodecl_nodecl_t& _vaccesses;
+                const VectorizerEnvironment& _environment;
+                const prefetch_info_t& _pref_info;
+                const objlist_nodecl_t _linear_vars;
+                objlist_nodecl_t _pref_instr;
+ 
+                Nodecl::NodeclBase get_prefetch_node(
+                        const Nodecl::NodeclBase& address,
+                        const PrefetchKind kind,
+                        const int distance);
+
+            public:
+                GenPrefetch(const Nodecl::NodeclBase& loop,
+                        const map_nodecl_nodecl_t& vaccesses,
+                        const VectorizerEnvironment& environment,
+                        const prefetch_info_t& pref_info);
+
+                void visit(const Nodecl::ForStatement& n);
                 void visit(const Nodecl::VectorLoad& n);
                 void visit(const Nodecl::VectorStore& n);
                 void visit(const Nodecl::ObjectInit& n);
+
+                objlist_nodecl_t get_prefetch_instructions();
         };
     }
 }

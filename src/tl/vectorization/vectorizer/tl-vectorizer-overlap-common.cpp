@@ -62,7 +62,7 @@ namespace Vectorization
             Nodecl::Utils::nodecl_replace_nodecl_by_structure(
                     next_vl, _loop_ind_var, next_iv);
 
-            if (overlaps(next_vl))
+            if (overlaps(next_vl, false /*consider aligned adjacent accesses */))
             {
                 _inter_it_overlap = true;         // By overlap-related property
                 return;
@@ -72,12 +72,16 @@ namespace Vectorization
         _inter_it_overlap = false;
     }
 
-    bool OverlapGroup::overlaps(const Nodecl::VectorLoad& vector_load)
+    bool OverlapGroup::overlaps(const Nodecl::VectorLoad& vector_load,
+            const bool consider_aligned_adjacent_accesses)
     {
         int VF = vector_load.get_type().vector_num_elements();
 
         Nodecl::NodeclBase vl_subscripts =
             Utils::get_vector_load_subscript(vector_load);
+
+        //TODO: Get aligned vector version for unaligned vector loads
+        //      and use them in the UntaryReduct
 
         for(objlist_nodecl_t::iterator it = _loads.begin();
                 it != _loads.end();
@@ -104,10 +108,17 @@ namespace Vectorization
                     << std::endl;
             }
 
-            if (minus.is_constant() && 
-                    abs(const_value_cast_to_signed_int(minus.get_constant())) < VF)
+            if (consider_aligned_adjacent_accesses)
             {
-                return true;
+                if (minus.is_constant() && 
+                        abs(const_value_cast_to_signed_int(minus.get_constant())) <= VF)
+                    return true;
+            }
+            else
+            {
+                if (minus.is_constant() && 
+                        abs(const_value_cast_to_signed_int(minus.get_constant())) < VF)
+                    return true;
             }
         }
 
@@ -504,11 +515,24 @@ namespace Vectorization
             const int max_group_registers,
             const int max_groups,
             const Nodecl::NodeclBase& loop_ind_var,
-            const Nodecl::NodeclBase& loop_ind_var_step)
+            const Nodecl::NodeclBase& loop_ind_var_step,
+            const bool consider_aligned_adjacent_accesses)
     {
         objlist_ogroup_t ogroups;
+        
+        objlist_nodecl_t unique_vector_loads;
 
-        for (auto& target_load : vector_loads)
+        // Remove repeated
+        for (auto& vl : vector_loads)
+        {
+            if (!Nodecl::Utils::list_contains_nodecl_by_structure(
+                        unique_vector_loads, vl))
+            {
+                unique_vector_loads.append(vl);
+            }
+        }
+
+        for (auto& target_load : unique_vector_loads)
         {
             TL::Symbol target_symbol = Utils::get_vector_load_subscripted(
                    target_load.as<Nodecl::VectorLoad>()).as<Nodecl::Symbol>().get_symbol(); 
@@ -522,7 +546,8 @@ namespace Vectorization
                 if (it_ogroup._subscripted != target_symbol)
                     continue;
                 
-                if(it_ogroup.overlaps(target_load_copy))
+                if(it_ogroup.overlaps(target_load_copy,
+                            consider_aligned_adjacent_accesses))
                 {
                     //std::cerr << target_load_copy.prettyprint() << " overlap!"<< std::endl;
                     target_load.replace(target_load_copy);

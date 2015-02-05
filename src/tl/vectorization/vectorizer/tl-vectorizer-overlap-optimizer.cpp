@@ -307,7 +307,7 @@ namespace Vectorization
 
             Optimizations::canonicalize_and_fold(exp_stmt, false /*fast math*/);
 
-            result_list.prepend(exp_stmt);
+            result_list.append(exp_stmt);
         }
 
         return result_list;
@@ -461,7 +461,8 @@ namespace Vectorization
                             max_group_registers,
                             max_groups,
                             loop_ind_var,
-                            loop_ind_var_step);
+                            loop_ind_var_step,
+                            false /*consider aligned adjacent accesses*/);
 
                 int num_group = 0;
                 for(objlist_ogroup_t::iterator ogroup =
@@ -499,7 +500,8 @@ namespace Vectorization
                                 max_group_registers,
                                 max_groups,
                                 loop_ind_var,
-                                loop_ind_var_step);
+                                loop_ind_var_step,
+                                false /*consider aligned adjacent accesses*/);
 
                     int num_group = 0;
                     for(objlist_ogroup_t::iterator ogroup =
@@ -611,7 +613,8 @@ namespace Vectorization
                         0, //max_group_registers,
                         0, //max_groups,
                         iv,
-                        iv_step);
+                        iv_step,
+                        true /* consider aligned adjacent accesses */);
 
             for(objlist_ogroup_t::iterator ogroup =
                     overlap_groups.begin();
@@ -958,7 +961,7 @@ namespace Vectorization
 
                 if(is_simd_loop)
                 {
-                    _prependix_stmts.prepend(init_stmts);
+                    _prependix_stmts.prepend_ordered(init_stmts);
                 }
                 else
                 {
@@ -977,8 +980,7 @@ namespace Vectorization
             }
 
             // Update Pre
-            Nodecl::List pre_stmts = 
-                get_ogroup_iteration_update_pre(ogroup);
+            Nodecl::List pre_stmts = get_ogroup_iteration_update_pre(ogroup);
             Nodecl::Utils::prepend_items_in_nested_compound_statement(
                     n.get_statement(), pre_stmts);
         }

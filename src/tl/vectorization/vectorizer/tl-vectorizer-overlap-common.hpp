@@ -54,7 +54,8 @@ namespace TL
             bool _aligned_strategy;
             bool _inter_it_overlap;
 
-            bool overlaps(const Nodecl::VectorLoad& vector_load);
+            bool overlaps(const Nodecl::VectorLoad& vector_load,
+                    const bool consider_aligned_adjacent_accesses);
 
             void compute_leftmost_rightmost_vloads(
                     const Vectorization::VectorizerEnvironment& environment,
@@ -79,7 +80,8 @@ namespace TL
                 const int max_group_registers,
                 const int max_groups,
                 const Nodecl::NodeclBase& loop_ind_var,
-                const Nodecl::NodeclBase& loop_ind_var_step);
+                const Nodecl::NodeclBase& loop_ind_var_step,
+                const bool consider_aligned_adjacent_accesses);
     }
 }
 

@@ -136,6 +136,7 @@ namespace TL
                 friend class VectorizerVisitorLoopCond;
                 friend class VectorizerVisitorLoopEpilog;
                 friend class Prefetcher;
+                friend class GenPrefetch;
         };
    }
 }

@@ -1082,7 +1082,8 @@ namespace Nodecl
         Nodecl::List stmts_list =
             node.get_statements().as<List>();
 
-        stmts_list.prepend(items);
+        stmts_list.prepend_ordered(items);
+        //stmts_list.prepend(items);
     }
 
     void Nodecl::Utils::append_items_in_nested_compound_statement(
