@@ -12947,15 +12947,26 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             (*result).conv[1] = SCI_SCALAR_TO_VECTOR_CONVERSION;
             dest = vector_type_get_element_type(no_ref(dest));
         }
-        // Vector conversions
-        // vector type -> struct __m128 / struct __m256 / struct __M512
-        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
-                && (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
-                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig))))
+        // Intel vector conversions
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types)
         {
-            // We do not account this as a conversion of any kind, we just let
-            // these types be transparently compatible
-            orig = dest;
+            if (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
+                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig)))
+            {
+                // vector type -> struct __m128 / struct __m256 / struct __M512
+                // We do not account this as a conversion of any kind, we just let
+                // these types be transparently compatible
+                orig = dest;
+            }
+            else if (IS_CXX_LANGUAGE
+                    && intel_vector_struct_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))
+            {
+                // For C++ we allow this extra reinterpretation
+                //    __mXXX{,d,i} <-> __mXXX{,d,i}
+                // We do not account this as a conversion of any kind, we just let
+                // these types be transparently compatible
+                orig = dest;
+            }
         }
     }
 

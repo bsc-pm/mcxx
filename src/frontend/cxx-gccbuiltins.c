@@ -3708,6 +3708,7 @@ type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type)
 
 // This function allows conversion between logically equivalent vector types
 // and Intel structs
+#if 0
 char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
 {
     if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
@@ -3744,6 +3745,7 @@ char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
                         && equivalent_types(dest_struct, get_m512i_struct_type())))));
 
 }
+#endif
 
 // This function allows conversion between vector types of the same size as an Intel struct
 char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest)
@@ -3773,6 +3775,45 @@ char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* d
             return (equivalent_types(dest_struct, get_m512_struct_type())
                     || equivalent_types(dest_struct, get_m512d_struct_type())
                     || equivalent_types(dest_struct, get_m512i_struct_type()));
+    }
+
+    return 0;
+}
+
+char intel_vector_struct_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+    struct vector_kinds_tag {
+        type_t* (*v[3])(void); 
+    } vector_list[] = {
+        { { get_m128_struct_type, get_m128d_struct_type, get_m128i_struct_type } },
+        { { get_m256_struct_type, get_m256d_struct_type, get_m256i_struct_type } } ,
+        { { get_m512_struct_type, get_m512d_struct_type, get_m512i_struct_type } },
+        { { NULL, NULL, NULL } },
+    };
+
+    int i;
+    for (i = 0; vector_list[i].v[0] != NULL; i++)
+    {
+        int j;
+        for (j = 0; j < 3; j++)
+        {
+            if (equivalent_types((vector_list[i].v[j])(), orig))
+            {
+                int k;
+                for (k = 0; k < 3; k++)
+                {
+                    // Note that when k == j this function should not have been used
+                    if (equivalent_types((vector_list[i].v[k])(), dest))
+                    {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+        }
     }
 
     return 0;
