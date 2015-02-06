@@ -1896,8 +1896,6 @@ namespace TL
                 internal_error("Code unreachable", 0);
             }
         }
-        void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
-        void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 
         void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct)
         {
@@ -2214,18 +2212,26 @@ namespace TL
         void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
 
+#define EMPTY_HANDLERS_DECLARATION(_name) \
+        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
+        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { }
+
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_CONSTRUCT(atomic)
-        EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(critical)
-        EMPTY_HANDLERS_DIRECTIVE(flush)
+        EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-        EMPTY_HANDLERS_DIRECTIVE(taskyield)
+        EMPTY_HANDLERS_CONSTRUCT(simd_fortran)
+
+        EMPTY_HANDLERS_DECLARATION(simd)
+
+        EMPTY_HANDLERS_DIRECTIVE(barrier)
+        EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_DIRECTIVE(register)
+        EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

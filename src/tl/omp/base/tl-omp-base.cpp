@@ -2067,9 +2067,18 @@ namespace TL { namespace OpenMP {
             stmt.replace(Nodecl::List::make(omp_simd_node));
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd\n", stmt.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring '#pragma omp simd'\n", stmt.get_locus_str().c_str());
 #endif
     }
+
+    void Base::simd_fortran_handler_pre(TL::PragmaCustomStatement stmt) { }
+    void Base::simd_fortran_handler_post(TL::PragmaCustomStatement stmt) {
+        warn_printf("%s: warning: ignoring '!$OMP SIMD'\n",
+                stmt.get_locus_str().c_str());
+    }
+
+    void Base::simd_fortran_handler_pre(TL::PragmaCustomDeclaration stmt) { }
+    void Base::simd_fortran_handler_post(TL::PragmaCustomDeclaration stmt) { }
 
     // SIMD Functions
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
