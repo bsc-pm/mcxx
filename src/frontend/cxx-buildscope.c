@@ -11483,6 +11483,55 @@ static void update_function_specifiers(scope_entry_t* entry,
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
 
+    C_LANGUAGE()
+    {
+        if (entry->decl_context.current_scope
+                == entry->decl_context.global_scope)
+        {
+            // If this function is global, and previously declared not static,
+            // extern or inline and now is going to be inline, make it extern
+            // otherwise the function will not be emitted in C99
+            //
+            // So, the input source (case A)
+            //
+            //   void f();
+            //   inline void f() { }
+            //
+            // must be emitted as
+            //
+            //   extern inline void f() { }
+            //
+            // Note that, the input source
+            //
+            //   inline void f();
+            //   inline void f() { }
+            //
+            // must NOT add extern: a definition of 'f' does not have to be emitted
+            // in this case (the use may provide it elsewhere by using extern, or
+            // not using inline)
+            //
+            // The dual case (case B)
+            //
+            //   inline void f();
+            //   void f() { }
+            //
+            // must be emitted also as
+            //
+            //   extern inline void f()
+            //
+            // Note that in general we do not force extern to functions, this is a
+            // special case required by the subtle C99 semantics regarding inline
+            if (!symbol_entity_specs_get_is_extern(entry)
+                    && !symbol_entity_specs_get_is_static(entry)
+                    // This covers cases A and B shown above
+                    && (symbol_entity_specs_get_is_inline(entry)
+                        != gather_info->is_inline))
+            {
+                symbol_entity_specs_set_is_extern(entry, 1);
+            }
+        }
+    }
+
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
