@@ -26,7 +26,7 @@
 
 ACLOCAL_AMFLAGS=-I m4
 
-SUBDIRS = tests
+SUBDIRS = . tests
 
 DIST_SUBDIRS = tests doc
 
