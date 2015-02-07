@@ -258,6 +258,10 @@ struct simple_type_tag {
     // States that the STK_INDIRECT is a not the last indirect
     _Bool is_indirect:1;
 
+    // States that the STK_INDIRECT cannot be cached because the referred
+    // symbol may at some point change its type. This happens in Fortran
+    _Bool is_mutable:1;
+
     // States that the type is a transparent union (GCC extension)
     _Bool is_transparent_union:1;
 
@@ -282,7 +286,7 @@ struct simple_type_tag {
 
     // For enums (kind == STK_ENUM)
     enum_info_t* enum_info;
-    
+
     // For classes (kind == STK_CLASS)
     // this includes struct/class/union
     class_info_t* class_info;
@@ -539,6 +543,9 @@ struct type_tag
     // Sequence type
     // (kind == TK_SEQUENCE)
     sequence_type_info_t* sequence_type;
+
+    // Cache typedefs
+    type_t* _advanced_type;
 };
 
 static common_type_info_t* new_common_type_info(void)
@@ -566,6 +573,8 @@ static type_t* copy_type_for_class_alias(type_t* t)
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
 
+    result->_advanced_type = NULL;
+
     result->info = copy_common_type_info(t->info);
 
     return result;
@@ -580,6 +589,8 @@ static type_t* copy_type_for_variant(type_t* t)
     *result = *t;
 
     result->unqualified_type = result;
+
+    result->_advanced_type = NULL;
 
     result->info = copy_common_type_info(t->info);
 
@@ -1376,15 +1387,25 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
     return type_info;
 }
 
+
 extern inline type_t* get_user_defined_type(scope_entry_t* entry)
 {
     return get_indirect_type_(entry,
-            /* indirect */ entry->kind == SK_TYPEDEF || entry->kind == SK_TEMPLATE_ALIAS);
+            /* indirect */
+            entry->kind == SK_TYPEDEF
+            || entry->kind == SK_TEMPLATE_ALIAS);
 }
 
-extern inline type_t* get_indirect_type(scope_entry_t* entry)
+extern inline type_t* get_immutable_indirect_type(scope_entry_t* entry)
 {
     return get_indirect_type_(entry, /* indirect */ 1);
+}
+
+extern inline type_t* get_mutable_indirect_type(scope_entry_t* entry)
+{
+    type_t* t = get_indirect_type_(entry, /* indirect */ 1);
+    t->type->is_mutable = 1;
+    return t;
 }
 
 static char same_template_argument_list(
@@ -4227,6 +4248,8 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
+        qualified_type->_advanced_type = NULL;
+
         dhash_ptr_insert(_qualification[(int)(cv_qualification)], 
                 (const char*)original->unqualified_type, 
                 qualified_type);
@@ -5222,6 +5245,8 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
     *result = *class_type;
 
     result->unqualified_type = result;
+
+    result->_advanced_type = NULL;
 
     // These are the parts relevant for duplication
     result->info = xcalloc(1, sizeof(*result->info));
@@ -6523,12 +6548,16 @@ extern inline void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fix
     enum_type->enum_info->underlying_type_is_fixed = is_fixed;
 }
 
-extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifier_t* cv_qualif)
+static inline type_t* advance_over_typedefs_with_cv_qualif_(type_t* t,
+        cv_qualifier_t* cv_qualif,
+        char *is_cacheable)
 {
-    type_t* result = t;
-    if (result == NULL)
+    if (t == NULL)
         return NULL;
 
+    char is_cacheable_result = 1;
+
+    type_t* result = t;
     cv_qualifier_t cv_qualifier_result = result->cv_qualifier;
 
     // Advance over typedefs
@@ -6537,11 +6566,12 @@ extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifi
             && result->type->user_defined_type != NULL
             && result->type->is_indirect)
     {
+        is_cacheable_result &= !(result->type->is_mutable);
         result = result->type->user_defined_type->type_information;
         cv_qualifier_result |= result->cv_qualifier;
     }
 
-    // Arrays add the element qualification 
+    // Arrays add the element qualification
     //
     // Note: DO NOT use is_array because it uses advance_over_typedefs which
     // ends using advance_over_typedefs_with_cv_qualif
@@ -6554,19 +6584,62 @@ extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifi
     {
         *cv_qualif |= cv_qualifier_result;
     }
+    *is_cacheable = is_cacheable_result;
 
     return result;
 }
 
-extern inline type_t* advance_over_typedefs(type_t* t1)
+extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifier_t* cv_qualif)
 {
-    cv_qualifier_t cv = CV_NONE;
-    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv);
+    char is_cacheable;
+    return advance_over_typedefs_with_cv_qualif_(t, cv_qualif, &is_cacheable);
+}
 
-    if (cv != CV_NONE)
-        return get_cv_qualified_type(t1, cv);
+extern inline type_t* advance_over_typedefs(type_t* t)
+{
+    if (t == NULL)
+        return NULL;
+
+    if (t->kind != TK_DIRECT
+            || t->type->kind != STK_INDIRECT
+            || !t->type->is_indirect)
+    {
+        // We do not cache these and simply early return
+        return t;
+    }
     else
-        return t1;
+    {
+        // t->kind == TK_DIRECT
+        // && t->type->kind == STK_INDIRECT
+        // && t->type->is_indirect
+        if (t->_advanced_type == NULL)
+        {
+            char is_cacheable;
+            cv_qualifier_t cv = CV_NONE;
+            type_t* advanced_unqualif = advance_over_typedefs_with_cv_qualif_(t,
+                    &cv,
+                    &is_cacheable);
+
+            type_t* result;
+            if (cv != CV_NONE)
+                result = get_cv_qualified_type(advanced_unqualif, cv);
+            else
+                result = advanced_unqualif;
+
+            if (is_cacheable)
+            {
+                t->_advanced_type = result;
+            }
+
+            return result;
+        }
+        else
+        {
+            return t->_advanced_type;
+        }
+
+    }
+    internal_error("Code unreachable", 0);
 }
 
 extern inline char function_type_get_lacking_prototype(type_t* function_type)
@@ -9042,6 +9115,16 @@ extern inline char is_indirect_type(type_t* t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_INDIRECT
             && t->type->is_indirect
+            && t->type->user_defined_type != NULL);
+}
+
+extern inline char is_mutable_indirect_type(type_t* t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_INDIRECT
+            && t->type->is_indirect
+            && t->type->is_mutable
             && t->type->user_defined_type != NULL);
 }
 
@@ -15087,7 +15170,12 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
         symbol = symbol_map->map(symbol_map, symbol);
         if (is_indirect_type(orig))
         {
-            result = get_indirect_type(symbol);
+            if (is_mutable_indirect_type(orig))
+            {
+                result = get_mutable_indirect_type(symbol);
+            }
+            else
+                result = get_immutable_indirect_type(symbol);
         }
         else
         {

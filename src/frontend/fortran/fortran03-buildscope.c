@@ -1686,7 +1686,7 @@ static scope_entry_t* new_procedure_symbol(
 
             result_sym->type_information = return_type;
 
-            return_type = get_indirect_type(result_sym);
+            return_type = get_mutable_indirect_type(result_sym);
 
             symbol_entity_specs_set_result_var(entry, result_sym);
 
@@ -1717,7 +1717,7 @@ static scope_entry_t* new_procedure_symbol(
 
         add_untyped_symbol(program_unit_context, result_sym);
 
-        return_type = get_indirect_type(result_sym);
+        return_type = get_mutable_indirect_type(result_sym);
 
         symbol_entity_specs_set_result_var(entry, result_sym);
     }
@@ -1743,7 +1743,7 @@ static scope_entry_t* new_procedure_symbol(
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
+        parameter_info[i].type_info = get_mutable_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
@@ -1954,7 +1954,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 result_sym->type_information = get_lvalue_reference_type(return_type);
             }
 
-            return_type = get_indirect_type(result_sym);
+            return_type = get_mutable_indirect_type(result_sym);
 
             symbol_entity_specs_set_result_var(entry, result_sym);
 
@@ -1990,7 +1990,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             result_sym->type_information = get_lvalue_reference_type(return_type);
         }
 
-        return_type = get_indirect_type(result_sym);
+        return_type = get_mutable_indirect_type(result_sym);
 
         symbol_entity_specs_set_result_var(entry, result_sym);
     }
@@ -2015,7 +2015,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
+        parameter_info[i].type_info = get_mutable_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
@@ -7651,7 +7651,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
+        parameter_info[i].type_info = get_mutable_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* new_type = get_new_function_type(entry->type_information, 
