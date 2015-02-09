@@ -557,9 +557,7 @@ then
                 AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
              fi
         fi
-      ],
-      []
-      )
+      ])
 
    if test "$nanox_pm_selection" = "none"; then
        for nanox_version in performance debug instrumentation instrumentation-debug;
