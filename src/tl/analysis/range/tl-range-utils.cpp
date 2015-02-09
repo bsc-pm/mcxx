@@ -29,8 +29,6 @@
 
 namespace TL {
 namespace Analysis {
-
-//     #define RANGES_DEBUG
     
     // *********************************************** //
     // ****************** CG Nodes ******************* //
@@ -433,32 +431,32 @@ namespace {
 
     void print_constraint(ConstraintKind c_kind, const Symbol& s, const NBase& val, const Type& t)
     {
-#ifdef RANGES_DEBUG
-        std::cerr << "    " << print_constraint_kind(c_kind) << " Constraint "
-                  << s.get_name() << " = " << val.prettyprint()
-                  << " (" << t.print_declarator() << ")" << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "    " << print_constraint_kind(c_kind) << " Constraint "
+                      << s.get_name() << " = " << val.prettyprint()
+                      << " (" << t.print_declarator() << ")" << std::endl;
     }
     
     void print_sccs(const std::vector<SCC*>& scc_list)
     {
-        #ifdef RANGES_DEBUG
-        std::cerr << "STRONGLY CONNECTED COMPONENTS" << std::endl;
-        for(std::vector<SCC*>::const_iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        if (RANGES_DEBUG)
         {
-            SCC* scc = *it;
-            std::vector<CGNode*> nodes = scc->get_nodes();
-            std::cerr << "    SCC " << (*it)->get_id() << ": ";
-            for(std::vector<CGNode*>::iterator itt = nodes.begin(); itt != nodes.end(); )
+            std::cerr << "STRONGLY CONNECTED COMPONENTS" << std::endl;
+            for(std::vector<SCC*>::const_iterator it = scc_list.begin(); it != scc_list.end(); ++it)
             {
-                std::cerr << (*itt)->get_id();
-                ++itt;
-                if(itt != nodes.end())
-                    std::cerr << ", ";
+                SCC* scc = *it;
+                std::vector<CGNode*> nodes = scc->get_nodes();
+                std::cerr << "    SCC " << (*it)->get_id() << ": ";
+                for(std::vector<CGNode*>::iterator itt = nodes.begin(); itt != nodes.end(); )
+                {
+                    std::cerr << (*itt)->get_id();
+                    ++itt;
+                    if(itt != nodes.end())
+                        std::cerr << ", ";
+                }
+                std::cerr << " (root: " << scc->get_root()->get_id() << ")" << std::endl;
             }
-            std::cerr << " (root: " << scc->get_root()->get_id() << ")" << std::endl;
         }
-        #endif
     }
     
     // *************** END I/O methods *************** //

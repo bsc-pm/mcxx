@@ -1580,9 +1580,9 @@ root_done:  ;
                     valuation = join_valuations(Utils::range_multiplication, entry_valuations); // RANGE_DIV
             }
         }
-#ifdef RANGES_DEBUG
-        std::cerr << "    EVALUATE " << node->get_id() << "  ::  " << valuation.prettyprint() << std::endl;
-#endif
+
+        if (RANGES_DEBUG)
+            std::cerr << "    EVALUATE " << node->get_id() << "  ::  " << valuation.prettyprint() << std::endl;
 
         if (Nodecl::Utils::structurally_equal_nodecls(old_valuation, valuation, /*skip_conversions*/ true))
         {
@@ -1670,10 +1670,10 @@ root_done:  ;
                                     "Null predicate expected for a back-edge, but %s found for edge %d->%d.\n",
                                     exits[0]->get_predicate().prettyprint().c_str(), target->get_id(), exits[0]->get_target()->get_id());
                     exits[0]->get_target()->set_valuation(valuation);
-#ifdef RANGES_DEBUG
-                    std::cerr << "        PROPAGATE back edge to " << target->get_id() << " and " << exits[0]->get_target()->get_id()
-                              << "  ::  " << valuation.prettyprint() << std::endl;
-#endif
+
+                    if (RANGES_DEBUG)
+                        std::cerr << "        PROPAGATE back edge to " << target->get_id() << " and " << exits[0]->get_target()->get_id()
+                                  << "  ::  " << valuation.prettyprint() << std::endl;
                 }
             }
         }
@@ -1681,11 +1681,13 @@ root_done:  ;
     
     void ConstraintGraph::solve_constraints(const std::vector<SCC*>& roots)
     {
-#ifdef RANGES_DEBUG
-        std::cerr << "________________________________________________" << std::endl;
-        std::cerr << "SOLVE CONSTRAINTS:" << std::endl;
-        std::cerr << "------------------" << std::endl;
-#endif
+        if (RANGES_DEBUG)
+        {
+            std::cerr << "________________________________________________" << std::endl;
+            std::cerr << "SOLVE CONSTRAINTS:" << std::endl;
+            std::cerr << "------------------" << std::endl;
+        }
+
         std::queue<SCC*> next_scc;
         for(std::vector<SCC*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
             next_scc.push(*it);
@@ -1718,17 +1720,15 @@ root_done:  ;
             // Treat the current SCC
             if(scc->is_trivial())
             {   // Evaluate the only node within the SCC
-#ifdef RANGES_DEBUG
-                std::cerr << "  SCC " << scc->get_id() << "  ->  TRIVIAL" << std::endl;
-#endif
+                if (RANGES_DEBUG)
+                    std::cerr << "  SCC " << scc->get_id() << "  ->  TRIVIAL" << std::endl;
                 bool changes;   // Unnecessary when calling evaluate_cgnode from here
                 evaluate_cgnode(scc->get_nodes()[0], changes);
             }
             else
             {   // Cycle resolution
-#ifdef RANGES_DEBUG
-                std::cerr << "  SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
-#endif
+                if (RANGES_DEBUG)
+                    std::cerr << "  SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
                 resolve_cycle(scc);
             }
             visited.insert(scc);
@@ -1794,10 +1794,9 @@ root_done:  ;
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
         std::set<Node*> treated;
         compute_constraints_rec(entry, constr_map, propagated_constr_map, treated);
-        
-#ifdef RANGES_DEBUG
-        print_constraints();
-#endif
+
+        if (RANGES_DEBUG)
+            print_constraints();
     }
     
     void RangeAnalysis::build_constraint_graph()
@@ -2193,9 +2192,6 @@ namespace {
             const Utils::VarToConstraintMap constraints = it->second;
             if(!constraints.empty())
             {
-#ifdef RANGES_DEBUG
-//                 std::cerr << "    " << it->first->get_id() << std::endl;
-#endif
                 for(Utils::VarToConstraintMap::const_iterator itt = constraints.begin(); itt != constraints.end(); ++itt)
                 {
                     Symbol s(itt->second.get_symbol());
@@ -2206,9 +2202,6 @@ namespace {
                                      s.get_name().c_str());
                     CGNode* n = _cg->get_node_from_ssa_var(itt->second.get_symbol().make_nodecl(/*set_ref_type*/false));
                     it->first->set_range(ssa_to_var_it->second, n->get_valuation());
-#ifdef RANGES_DEBUG
-//                     std::cerr << "        " << s.get_name() << " : " << ssa_to_var_it->second.prettyprint() << " -> " << n->get_valuation().prettyprint() <<  std::endl;
-#endif
                 }
             }
         }

@@ -184,10 +184,9 @@ namespace {
         NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
         NBase result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Addition " << r1.prettyprint() << " - " << r2.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Addition " << r1.prettyprint() << " + " << r2.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -222,10 +221,9 @@ namespace {
         NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
         result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Subtraction " << r1.prettyprint() << " - " << r2.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Subtraction " << r1.prettyprint() << " - " << r2.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -260,10 +258,9 @@ namespace {
         NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
         result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -306,10 +303,9 @@ namespace {
         NBase zero_nodecl = NBase(const_value_to_nodecl(zero));
         result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Multiplication " << r1.prettyprint() << " * " << r2.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -408,10 +404,9 @@ namespace {
             result = Nodecl::Analysis::RangeSub::make(r1, r2, t);
         }
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Sub " << r1.prettyprint() << " - " << r2.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Sub " << r1.prettyprint() << " - " << r2.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -452,10 +447,9 @@ namespace {
         // If some intersection has been computed, return it now!
         if (!result.is_null())
         {
-#ifdef RANGES_DEBUG
-            std::cerr << "        Range Intersection " << n.prettyprint() << " ∩ " << m.prettyprint()
-                      << " (" << dir.get_direction_as_str() << ") = " << result.prettyprint() << std::endl;
-#endif
+            if (RANGES_DEBUG)
+                std::cerr << "        Range Intersection " << n.prettyprint() << " ∩ " << m.prettyprint()
+                          << " (" << dir.get_direction_as_str() << ") = " << result.prettyprint() << std::endl;
             return result;
         }
 
@@ -500,10 +494,9 @@ namespace {
             result = Nodecl::Range::make(lb, ub, zero_nodecl, t);
         }
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Intersection " << n.prettyprint() << " ∩ " << m.prettyprint()
-                  << " (" << dir.get_direction_as_str() << ") = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Intersection " << n.prettyprint() << " ∩ " << m.prettyprint()
+                      << " (" << dir.get_direction_as_str() << ") = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -668,6 +661,10 @@ namespace {
             result = Nodecl::Analysis::RangeUnion::make(r.shallow_copy(), u.shallow_copy(), t);
         }
 
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Union " << r.prettyprint() << " ∪ " << u.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
+
         return result;
     }
 
@@ -700,9 +697,9 @@ namespace {
         // If some union has been computed, return it now!
         if (!result.is_null())
         {
-#ifdef RANGES_DEBUG
-            std::cerr << "        Range Union " << n.prettyprint() << " ∪ " << m.prettyprint() << " = " << result.prettyprint() << std::endl;
-#endif
+            if (RANGES_DEBUG)
+                std::cerr << "        Range Union " << n.prettyprint() << " ∪ " << m.prettyprint()
+                          << " = " << result.prettyprint() << std::endl;
             return result;
         }
 
@@ -712,9 +709,10 @@ namespace {
 
         result = range_union_rec(n.as<Nodecl::Range>(), m.as<Nodecl::Range>());
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Union " << n.prettyprint() << " ∪ " << m.prettyprint() << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Union " << n.prettyprint() << " ∪ " << m.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
+
         return result;
     }
 
@@ -766,9 +764,9 @@ namespace {
 
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), v.get_type());
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Value Add " << r.prettyprint() << " + " << v.prettyprint() << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Value Add " << r.prettyprint() << " + " << v.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -797,10 +795,9 @@ namespace {
 
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Value Subtract " << r.prettyprint() << " - " << v.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Value Subtract " << r.prettyprint() << " - " << v.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -829,10 +826,9 @@ namespace {
 
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Value Multiplication " << r.prettyprint() << " * " << v.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Value Multiplication " << r.prettyprint() << " * " << v.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -861,10 +857,9 @@ namespace {
         
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
-#ifdef RANGES_DEBUG
-        std::cerr << "        Range Value Division " << r.prettyprint() << " / " << v.prettyprint()
-                  << " = " << result.prettyprint() << std::endl;
-#endif
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Value Division " << r.prettyprint() << " / " << v.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
