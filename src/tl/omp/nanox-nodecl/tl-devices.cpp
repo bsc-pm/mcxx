@@ -235,35 +235,6 @@ namespace TL { namespace Nanox {
             ;
     }
 
-    void DeviceProvider::create_weak_device_symbol(
-            const std::string& symbol_name,
-            Nodecl::NodeclBase root)
-    {
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char " << symbol_name << " = 1;";
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::C;
-
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
-
-        Source::source_language = SourceLanguage::Current;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            _extra_c_code.prepend(functions_section_tree);
-        }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
-        }
-    }
-
-    bool DeviceProvider::is_gpu_device() const
-    {
-        return false;
-    }
-
     // This is only for Fortran!
     TL::Symbol DeviceProvider::new_function_symbol_forward(
             TL::Symbol current_function,

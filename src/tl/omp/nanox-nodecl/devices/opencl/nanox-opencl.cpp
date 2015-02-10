@@ -411,14 +411,16 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
-    _opencl_tasks_processed=true;
     // Unpack DTO
+    Lowering *lowering = info._lowering;
     const std::string& outline_name = ocl_outline_name(info._outline_name);
     const Nodecl::NodeclBase& task_statements = info._task_statements;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+
+    lowering->seen_opencl_task = true;
 
     symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
@@ -988,13 +990,6 @@ void DeviceOpenCL::generate_outline_events_after(
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {
-    if (_opencl_tasks_processed)
-    {
-        create_weak_device_symbol("ompss_uses_opencl",
-                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
-        _opencl_tasks_processed = false;
-    }
-
     if (_extra_c_code.is_null())
         return;
 
@@ -1034,16 +1029,10 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 
 void DeviceOpenCL::pre_run(DTO& dto)
 {
-    _opencl_tasks_processed = false;
 }
 
 void DeviceOpenCL::run(DTO& dto)
 {
-}
-
-bool DeviceOpenCL::is_gpu_device() const
-{
-    return true;
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceOpenCL);

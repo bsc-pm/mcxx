@@ -50,8 +50,24 @@ namespace TL { namespace Nanox {
             bool final_clause_transformation_disabled() const;
             bool firstprivates_always_by_reference() const;
 
-            bool seen_a_task_with_priorities() const;
-            void set_seen_a_task_with_priorities(bool b);
+            struct Flag
+            {
+                bool _flag;
+                Flag() : _flag(false) { }
+                void operator=(bool b) { _flag = b; }
+#ifdef HAVE_CXX11
+                explicit
+#endif
+                operator bool() const
+                {
+                    return _flag;
+                }
+            };
+
+            Flag seen_task_with_priorities;
+            Flag seen_opencl_task;
+            Flag seen_cuda_task;
+            Flag seen_gpu_cublas_handle;
         private:
             void load_headers(DTO& dto);
 
@@ -89,8 +105,6 @@ namespace TL { namespace Nanox {
             void finalize_phase(Nodecl::NodeclBase global_node);
             void emit_nanos_requirements(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Source &src);
-
-            bool _seen_a_task_with_priorities;
 
             std::string _openmp_dry_run;
     };

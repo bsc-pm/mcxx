@@ -579,7 +579,7 @@ void LoweringVisitor::emit_async_common(
     }
     else
     {
-        _lowering->set_seen_a_task_with_priorities(true);
+        _lowering->seen_task_with_priorities = true;
     }
 
     if (final_condition.is_null())
@@ -674,6 +674,7 @@ void LoweringVisitor::emit_async_common(
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             CreateOutlineInfo info_implementor(
+                    _lowering,
                     implementor_outline_name,
                     outline_info.get_data_items(),
                     target_info,

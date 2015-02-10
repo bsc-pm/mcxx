@@ -45,8 +45,7 @@ namespace TL { namespace Nanox {
         _instrumentation_enabled(false),
         _nanos_debug_enabled(false),
         _final_clause_transformation_disabled(false),
-        _firstprivates_always_references(false),
-        _seen_a_task_with_priorities(false)
+        _firstprivates_always_references(false)
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");
@@ -175,23 +174,30 @@ namespace TL { namespace Nanox {
         return _firstprivates_always_references;
     }
 
-    bool Lowering::seen_a_task_with_priorities() const
-    {
-        return _seen_a_task_with_priorities;
-    }
-
-    void Lowering::set_seen_a_task_with_priorities(bool b)
-    {
-        _seen_a_task_with_priorities = b;
-    }
-
     void Lowering::emit_nanos_requirements(Nodecl::NodeclBase global_node)
     {
         Source src;
-        if (seen_a_task_with_priorities())
+        if (seen_task_with_priorities)
         {
-            src
-                << "__attribute__((common)) char nanos_need_priorities_;"
+            src << "__attribute__((common)) char nanos_need_priorities_;"
+                ;
+        }
+
+        if (seen_opencl_task)
+        {
+            src << "__attribute__((common)) char ompss_uses_opencl;"
+                ;
+        }
+
+        if (seen_cuda_task)
+        {
+            src << "__attribute__((common)) char ompss_uses_cuda;"
+                ;
+        }
+
+        if (seen_gpu_cublas_handle)
+        {
+            src << "__attribute__((common)) char gpu_cublas_init;"
                 ;
         }
 
@@ -297,7 +303,12 @@ namespace TL { namespace Nanox {
 
         _ancillary_file = NULL;
         _extra_c_code.get_internal_nodecl() = nodecl_null();
-        _seen_a_task_with_priorities = false;
+
+        // Cleanup flags
+        seen_task_with_priorities = false;
+        seen_opencl_task = false;
+        seen_cuda_task = false;
+        seen_gpu_cublas_handle = false;
     }
 } }
 

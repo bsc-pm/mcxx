@@ -136,7 +136,9 @@ namespace TL { namespace Nanox {
         TL::Symbol called_task_dummy;
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name,
+        CreateOutlineInfo info(
+                _lowering,
+                outline_name,
                 outline_info.get_data_items(),
                 target_info,
                 /* original statements */ statements,
