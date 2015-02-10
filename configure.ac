@@ -569,11 +569,11 @@ then
                    nanox_pm_selection="new"
                elif test "$nanox_pm_selection" != "new"
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken, new library found but old library also found first])
+                   AC_MSG_ERROR([Nanos++ installation is broken, new library found but old library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
                if test -f $nanox_lib/$nanox_version/libnanox-ss.so;
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken, new and old libraries found])
+                   AC_MSG_ERROR([Nanos++ installation is broken, new and old libraries found. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
            elif test -f $nanox_lib/$nanox_version/libnanox-ss.so;
            then
@@ -582,7 +582,7 @@ then
                    nanox_pm_selection="old"
                elif test "$nanox_pm_selection" != "old";
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken, old library found but new library also found first])
+                   AC_MSG_ERROR([Nanos++ installation is broken, old library found but new library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
            fi
        done
