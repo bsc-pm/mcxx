@@ -1263,6 +1263,11 @@ namespace TL { namespace Nanox {
                 }
             }
 
+            void visit(const Nodecl::OpenMP::Threadprivate& threadprivate)
+            {
+                // We don't want to do anything in the case of threadprivate variables
+            }
+
             void visit(const Nodecl::OpenMP::ReductionItem& reduction)
             {
                 TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
