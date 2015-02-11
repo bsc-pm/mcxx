@@ -786,8 +786,27 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         __uint128_t_type->locus = make_locus("(global scope)", 0, 0);
     }
 #endif
-    // Mercurium limit constants
+    // Mercurium basic types
+    struct {
+        const char* type_name;
+        type_t* related_type;
+    } mercurium_basic_types[] = {
+        { "mercurium_size_t", get_size_t_type() },
+        { "mercurium_ptrdiff_t", get_ptrdiff_t_type() },
+        { NULL, NULL }
+    };
+    int i;
+    for (i = 0; mercurium_basic_types[i].type_name != NULL; i++)
+    {
+        scope_entry_t* typedef_sym = new_symbol(decl_context, decl_context.global_scope,
+                mercurium_basic_types[i].type_name);
+        typedef_sym->kind = SK_TYPEDEF;
+        typedef_sym->type_information = mercurium_basic_types[i].related_type;
+        typedef_sym->locus = make_locus("(global scope)", 0, 0);
+        symbol_entity_specs_set_is_user_declared(typedef_sym, 1);
+    }
 
+    // Mercurium limit constants
     struct {
         const char* base_name;
         type_t* related_type;
@@ -813,7 +832,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         { NULL, NULL }
     };
 
-    int i;
     for (i = 0; mercurium_constant_limits[i].base_name != NULL; i++)
     {
         const char* base_name = mercurium_constant_limits[i].base_name;
