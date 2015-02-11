@@ -539,7 +539,7 @@ namespace TL { namespace Nanox {
                             storage_var << "indirect";
 
                             extra_array_red_memcpy
-                                << "err = nanos_memcpy("
+                                << "nanos_err = nanos_memcpy("
                                 <<      "(void **) &" << storage_name << ","
                                 <<      "indirect,"
                                 <<      size_of_array_descriptor << ");"
@@ -548,7 +548,7 @@ namespace TL { namespace Nanox {
                             final_stmts
                                 << "if (" << storage_var << " == 0)"
                                 << "{"
-                                <<     "err = nanos_memcpy("
+                                <<     "nanos_err = nanos_memcpy("
                                 <<         "(void **) &" << storage_name << ","
                                 <<         orig_address << ","
                                 <<         size_of_array_descriptor << ");"
@@ -589,7 +589,7 @@ namespace TL { namespace Nanox {
                     reductions_stuff
                         << extra_array_red_decl
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "err = nanos_task_reduction_get_thread_storage("
+                        << "nanos_err = nanos_task_reduction_get_thread_storage("
                         <<         orig_address  << ","
                         <<         "(void **) &" << storage_var << ");"
                         << extra_array_red_memcpy
@@ -598,7 +598,7 @@ namespace TL { namespace Nanox {
                     reductions_stuff_final
                         << extra_array_red_decl
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "err = nanos_task_reduction_get_thread_storage("
+                        << "nanos_err = nanos_task_reduction_get_thread_storage("
                         <<         orig_address  << ","
                         <<         "(void **) &" << storage_var << ");"
                         << final_stmts
@@ -610,7 +610,7 @@ namespace TL { namespace Nanox {
                     reductions_stuff
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
                         << "nanos_TPRS_t* " << cache_storage << ";"
-                        << "err = nanos_reduction_request_tprs("
+                        << "nanos_err = nanos_reduction_request_tprs("
                         <<      "(void *) &" << (*it)->get_field_name() << "," // target
                         <<      "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
@@ -623,11 +623,11 @@ namespace TL { namespace Nanox {
                     TL::Source auxiliar_final, auxiliar_final2;
                     reductions_stuff_final
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "err = nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
+                        << "nanos_err = nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
                         << "if (is_registered)"
                         << "{"
                         <<      "nanos_TPRS_t* " << cache_storage << ";"
-                        <<      "err = nanos_reduction_request_tprs("
+                        <<      "nanos_err = nanos_reduction_request_tprs("
                         <<           "(void *) &" << (*it)->get_field_name() << "," // target
                         <<           "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
@@ -695,7 +695,7 @@ namespace TL { namespace Nanox {
                 // Generating the final code
                 {
                     TL::Source extra_declarations;
-                    extra_declarations << "nanos_err_t err;";
+                    extra_declarations << "nanos_err_t nanos_err;";
 
                     if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
                         extra_declarations << as_type(TL::Type::get_bool_type()) << "is_registered;";
@@ -751,7 +751,7 @@ namespace TL { namespace Nanox {
                     Nodecl::NodeclBase placeholder;
                     new_statements_src
                         << "{"
-                        <<      "nanos_err_t err;"
+                        <<      "nanos_err_t nanos_err;"
                         <<      reductions_stuff
                         <<      statement_placeholder(placeholder)
                         << "}"
@@ -856,7 +856,7 @@ namespace TL { namespace Nanox {
             }
 
             src
-                << "err = nanos_task_reduction_register("
+                << "nanos_err = nanos_task_reduction_register("
                 <<      target_address << "," // object address
                 <<      "(void *) & " << (*it)->get_field_name() << ","
                 <<      size_to_be_allocated << ","    // size
