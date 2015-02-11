@@ -250,6 +250,15 @@ namespace TL
                             continue;
                         }
 
+                        if (base_sym.is_thread()
+                                || base_sym.is_thread_local())
+                        {
+                            std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
+                                << "' since " << (base_sym.is_thread() ? "__thread" : "thread_local")
+                                <<  " variables cannot appear in data-sharing clauses" << std::endl;
+                            continue;
+                        }
+
                         data_ref_list.append(data_ref);
                         add_extra_symbols(data_ref, data_sharing, extra_symbols);
                     }
