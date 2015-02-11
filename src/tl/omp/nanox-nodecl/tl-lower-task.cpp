@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -177,18 +177,33 @@ Source LoweringVisitor::fill_const_wd_info(
     // MultiMap with every implementation of the current function task
 
     DeviceHandler device_handler = DeviceHandler::get_device_handler();
-    int num_copies;
+    Source num_copies;
+
     int num_static_copies, num_dynamic_copies;
     count_copies(outline_info, num_static_copies, num_dynamic_copies);
-    if (num_dynamic_copies != 0)
+
+    if (IS_FORTRAN_LANGUAGE)
     {
-        internal_error("Not yet implemented", 0);
+        num_copies << "0";
     }
     else
     {
-        num_copies = num_static_copies;
+        if (num_dynamic_copies != 0)
+        {
+            if (num_static_copies != 0)
+            {
+                num_copies << num_static_copies << " + ";
+            }
+
+            num_copies << as_expression(count_dynamic_dependences(outline_info));
+        }
+        else
+        {
+            num_copies << num_static_copies;
+        }
     }
-    int num_copies_dimensions = count_copies_dimensions(outline_info);
+
+    Nodecl::NodeclBase num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
     int num_implementations = 0;
@@ -207,7 +222,7 @@ Source LoweringVisitor::fill_const_wd_info(
 
     Source ancillary_device_descriptions,
            device_descriptions,
-           opt_fortran_dynamic_init;
+           wd_dynamic_init;
 
     // In Fortran, the copies are filled in the function 'setCopies',
     // after the creation of the WorkDescriptor. For this reason,
@@ -219,16 +234,50 @@ Source LoweringVisitor::fill_const_wd_info(
         << "{"
         << /* ".props = " << */ props_init << ", \n"
         << /* ".data_alignment = " << */ alignment << ", \n"
-        // We do not register copies at creation in Fortran
-        << /* ".num_copies = " << */ (!IS_FORTRAN_LANGUAGE ? num_copies : 0) << ",\n"
+        ;
+
+    if (num_dynamic_copies == 0)
+    {
+        // Note that this will be zero in Fortran
+        result
+            << /* ".num_copies = " << */ num_copies << ",\n"
+            ;
+    }
+    else
+    {
+        result
+            << /* ".num_copies = " << */ 0 << ",\n"
+            ;
+         wd_dynamic_init << "nanos_wd_const_data.base.num_copies = " << num_copies << ";";
+    }
+    result
         << /* ".num_devices = " << */ num_implementations << ",\n"
         ;
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
-        result
-            << /* ".num_dimensions = " */ (!IS_FORTRAN_LANGUAGE ? num_copies_dimensions : 0) << ",\n"
-            ;
+        if (num_dynamic_copies == 0)
+        {
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                result
+                    << /* ".num_dimensions = " */ 0 << ",\n"
+                    ;
+            }
+            else
+            {
+                result
+                    << /* ".num_dimensions = " */ as_expression(num_copies_dimensions) << ",\n"
+                    ;
+            }
+        }
+        else
+        {
+            result
+                << /* ".num_dimensions = " */ 0 << ",\n"
+                ;
+            wd_dynamic_init << "nanos_wd_const_data.base.num_dimensions = " << as_expression(num_copies_dimensions) << ";";
+        }
     }
 
     if (Nanos::Version::interface_is_at_least("master", 5022)
@@ -251,7 +300,7 @@ Source LoweringVisitor::fill_const_wd_info(
         << "}, "
         << /* ".devices = " << */ "{" << device_descriptions << "}"
         << "};"
-        << opt_fortran_dynamic_init
+        << wd_dynamic_init
         ;
 
     alignment << "__alignof__(" << struct_arg_type_name << ")";
@@ -337,7 +386,7 @@ Source LoweringVisitor::fill_const_wd_info(
 
             device_descriptions << device_description;
             ancillary_device_descriptions << ancillary_device_description;
-            opt_fortran_dynamic_init << aux_fortran_init;
+            wd_dynamic_init << aux_fortran_init;
         }
     }
 
@@ -529,6 +578,10 @@ void LoweringVisitor::emit_async_common(
     {
         priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
     }
+    else
+    {
+        _lowering->seen_task_with_priorities = true;
+    }
 
     if (final_condition.is_null())
     {
@@ -622,6 +675,7 @@ void LoweringVisitor::emit_async_common(
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             CreateOutlineInfo info_implementor(
+                    _lowering,
                     implementor_outline_name,
                     outline_info.get_data_items(),
                     target_info,
@@ -656,7 +710,7 @@ void LoweringVisitor::emit_async_common(
     }
 
     Source err_name;
-    err_name << "err";
+    err_name << "nanos_err";
 
     Source placeholder_task_expression_opt, update_alloca_decls_opt;
     if (placeholder_task_expr_transformation != NULL)
@@ -694,7 +748,7 @@ void LoweringVisitor::emit_async_common(
         if_condition_end_opt << "}";
     }
 
-    Source num_dependences;
+    Source num_dependences, num_dependences_if_dynamic;
     // Spawn code
     spawn_code
         << "{"
@@ -716,13 +770,14 @@ void LoweringVisitor::emit_async_common(
         <<     if_condition_end_opt
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
+        <<     num_dependences_if_dynamic
         <<     dependences_info
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<        statement_placeholder(fill_outline_arguments_tree)
         <<        copy_ol_setup
-        <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", dependences, (nanos_team_t)0);"
+        <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", &dependences[0], (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     "}"
         <<     "else"
@@ -733,7 +788,7 @@ void LoweringVisitor::emit_async_common(
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", "
         <<                  "&imm_args,"
-        <<                  num_dependences << ", dependences, "
+        <<                  num_dependences << ", &dependences[0], "
         <<                  copy_imm_arg << ", "
         <<                  translation_function << ");"
         <<          "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -753,10 +808,33 @@ void LoweringVisitor::emit_async_common(
     }
     else
     {
-        internal_error("Not yet implemented", 0);
+        Source num_deps_init;
+        num_dependences_if_dynamic
+            << "int num_dyn_dependences = " << num_deps_init << ";"
+            ;
+
+        if (num_static_dependences == 0)
+        {
+            num_deps_init
+                << as_expression(
+                        count_dynamic_dependences(outline_info));
+        }
+        else
+        {
+            num_deps_init
+                << num_static_dependences << "+ ("
+                << as_expression(
+                        count_dynamic_dependences(outline_info))
+                << ")";
+        }
+
+        num_dependences << "num_dyn_dependences";
     }
 
-    int num_copies = 0;
+    int num_static_copies, num_dynamic_copies;
+    count_copies(outline_info, num_static_copies, num_dynamic_copies);
+
+    Source num_copies;
     fill_copies(construct,
             outline_info,
             parameter_outline_info,
@@ -770,7 +848,8 @@ void LoweringVisitor::emit_async_common(
             copy_imm_setup,
             xlate_function_symbol);
 
-    if (num_copies == 0)
+    if (num_static_copies == 0
+            && num_dynamic_copies == 0)
     {
         translation_function << "(nanos_translate_args_t)0";
     }
@@ -794,7 +873,13 @@ void LoweringVisitor::emit_async_common(
             ;
     }
 
-    fill_dependences(construct, outline_info, dependences_info);
+    fill_dependences(construct,
+            outline_info,
+            num_static_dependences,
+            num_dynamic_dependences,
+            num_dependences,
+            dependences_info);
+
     register_reductions(construct, outline_info, register_reductions_opt);
 
     FORTRAN_LANGUAGE()
@@ -1533,27 +1618,182 @@ void LoweringVisitor::count_dependences(OutlineInfo& outline_info,
         int &num_static_dependences,
         int &num_dynamic_dependences)
 {
-    num_static_dependences = 0;
-    num_dynamic_dependences = 0;
+    count_items<OutlineDataItem::DependencyItem>(outline_info,
+            &OutlineDataItem::get_dependences,
+            num_static_dependences,
+            num_dynamic_dependences);
+}
+
+Nodecl::NodeclBase LoweringVisitor::count_multidependences_extent(
+        const TL::ObjectList<DataReference::MultiRefIterator>& multideps)
+{
+    ERROR_CONDITION(multideps.empty(), "There must be multidependences", 0);
+    Nodecl::NodeclBase total_size;
+    for (TL::ObjectList<DataReference::MultiRefIterator>::const_iterator
+            mit = multideps.begin();
+            mit != multideps.end();
+            mit++)
+    {
+        // TL::Symbol iterator_sym = mit->first;
+        Nodecl::Range range = mit->second.as<Nodecl::Range>();
+
+        Nodecl::NodeclBase m;
+        if (range.get_upper().is_constant()
+                && range.get_lower().is_constant())
+        {
+            m = const_value_to_nodecl(
+                    const_value_sub(
+                        range.get_upper().get_constant(),
+                        range.get_lower().get_constant()));
+        }
+        else
+        {
+            m = Nodecl::Minus::make(
+                    range.get_upper().shallow_copy(),
+                    range.get_lower().shallow_copy(),
+                    TL::Type::get_int_type(),
+                    range.get_locus());
+        }
+
+        Nodecl::NodeclBase a;
+        if (m.is_constant())
+        {
+            a = const_value_to_nodecl(
+                    const_value_add(
+                        m.get_constant(),
+                        const_value_get_signed_int(1)));
+        }
+        else
+        {
+            a = Nodecl::Add::make(
+                    m,
+                    const_value_to_nodecl(const_value_get_signed_int(1)),
+                    TL::Type::get_int_type(),
+                    range.get_locus());
+        }
+
+        Nodecl::NodeclBase current_size = a;
+        if (total_size.is_null())
+        {
+            total_size = current_size;
+        }
+        else
+        {
+            if (total_size.is_constant()
+                    && current_size.is_constant())
+            {
+                total_size = const_value_to_nodecl(
+                        const_value_mul(
+                            total_size.get_constant(),
+                            current_size.get_constant()));
+            }
+            else
+            {
+                if (total_size.is_constant()
+                        && const_value_is_one(total_size.get_constant()))
+                {
+                    total_size = current_size;
+                }
+                else if (current_size.is_constant()
+                        && const_value_is_one(current_size.get_constant()))
+                {
+                    // total_size = total_size;
+                }
+                else
+                {
+                    total_size = Nodecl::Mul::make(
+                            total_size,
+                            current_size,
+                            TL::Type::get_int_type(),
+                            total_size.get_locus());
+
+                }
+            }
+        }
+    }
+
+    return total_size;
+}
+
+template <typename Items>
+Nodecl::NodeclBase LoweringVisitor::count_dynamic_items(OutlineInfo& outline_info,
+        const TL::ObjectList<Items>& (OutlineDataItem::*getter)() const)
+{
+    Nodecl::NodeclBase result;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
     {
-        TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
-        for (TL::ObjectList<OutlineDataItem::DependencyItem>::iterator it_deps = deps.begin();
-                it_deps != deps.end();
-                it_deps++)
+        const TL::ObjectList<Items> &items = ((*it)->*getter)();
+
+        for (typename TL::ObjectList<Items>::const_iterator it_items = items.begin();
+                it_items != items.end();
+                it_items++)
         {
-            DataReference data_ref(it_deps->expression);
-            if (!data_ref.is_multidependence())
+            DataReference data_ref(it_items->expression);
+            if (!data_ref.is_multireference())
+                continue;
+
+            TL::ObjectList<DataReference::MultiRefIterator> multideps = data_ref.multireferences();
+            Nodecl::NodeclBase total_size = count_multidependences_extent(multideps);
+
+            if (result.is_null())
             {
-                num_static_dependences++;
+                result = total_size;
             }
             else
             {
-                num_dynamic_dependences++;
+                result = Nodecl::Add::make(
+                        result,
+                        total_size,
+                        TL::Type::get_int_type(),
+                        result.get_locus());
+            }
+        }
+    }
+
+    return result;
+}
+
+Nodecl::NodeclBase LoweringVisitor::count_dynamic_dependences(OutlineInfo& outline_info)
+{
+    return count_dynamic_items<OutlineDataItem::DependencyItem>(outline_info, &OutlineDataItem::get_dependences);
+}
+
+Nodecl::NodeclBase LoweringVisitor::count_dynamic_copies(OutlineInfo& outline_info)
+{
+    return count_dynamic_items<OutlineDataItem::CopyItem>(outline_info, &OutlineDataItem::get_copies);
+}
+
+template <typename Items>
+void LoweringVisitor::count_items(OutlineInfo& outline_info,
+        const TL::ObjectList<Items>& (OutlineDataItem::*getter)() const,
+        int &num_static_items,
+        int &num_dynamic_items)
+{
+    num_static_items = 0;
+    num_dynamic_items = 0;
+
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        const TL::ObjectList<Items> &items = ((*it)->*getter)();
+        for (typename TL::ObjectList<Items>::const_iterator it_items = items.begin();
+                it_items != items.end();
+                it_items++)
+        {
+            DataReference data_ref(it_items->expression);
+            if (!data_ref.is_multireference())
+            {
+                num_static_items++;
+            }
+            else
+            {
+                num_dynamic_items++;
             }
         }
     }
@@ -1563,35 +1803,14 @@ void LoweringVisitor::count_copies(OutlineInfo& outline_info,
         int &num_static_copies,
         int &num_dynamic_copies)
 {
-    num_static_copies = 0;
-    num_dynamic_copies = 0;
-
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-        for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator it_copies = copies.begin();
-                it_copies != copies.end();
-                it_copies++)
-        {
-            DataReference data_ref(it_copies->expression);
-            if (!data_ref.is_multidependence())
-            {
-                num_static_copies++;
-            }
-            else
-            {
-                num_dynamic_copies++;
-            }
-        }
-    }
+    count_items<OutlineDataItem::CopyItem>(outline_info,
+            &OutlineDataItem::get_copies,
+            num_static_copies, num_dynamic_copies);
 }
 
-int LoweringVisitor::count_copies_dimensions(OutlineInfo& outline_info)
+Nodecl::NodeclBase LoweringVisitor::count_copies_dimensions(OutlineInfo& outline_info)
 {
-    int num_copies_dimensions = 0;
+    Nodecl::NodeclBase result;
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -1603,120 +1822,265 @@ int LoweringVisitor::count_copies_dimensions(OutlineInfo& outline_info)
                 copy_it != copies.end();
                 copy_it++)
         {
-            TL::DataReference data_ref(copy_it->expression);
+            DataReference data_ref(copy_it->expression);
+            int v = std::max(1, data_ref.get_data_type().get_num_dimensions());
 
-            num_copies_dimensions += std::max(1, data_ref.get_data_type().get_num_dimensions());
+            Nodecl::NodeclBase current_value = const_value_to_nodecl(const_value_get_signed_int(v));
+
+            if (data_ref.is_multireference())
+            {
+                Nodecl::NodeclBase total_base =
+                    count_multidependences_extent(data_ref.multireferences());
+
+                if (total_base.is_constant()
+                        && current_value.is_constant())
+                {
+                    current_value = const_value_to_nodecl(
+                            const_value_mul(
+                                total_base.get_constant(),
+                                current_value.get_constant()));
+                }
+                else
+                {
+                    if (current_value.is_constant()
+                            && const_value_is_one(current_value.get_constant()))
+                    {
+                        current_value = total_base;
+                    }
+                    else if (total_base.is_constant()
+                            && const_value_is_one(total_base.get_constant()))
+                    {
+                        // current_value = current_value;
+                    }
+                    else
+                    {
+                        current_value = Nodecl::Mul::make(
+                                total_base,
+                                current_value,
+                                TL::Type::get_int_type());
+                    }
+                }
+            }
+
+            if (result.is_null())
+            {
+                result = current_value;
+            }
+            else
+            {
+                if (result.is_constant())
+                {
+                    result = const_value_to_nodecl(
+                            const_value_add(
+                                result.get_constant(),
+                                current_value.get_constant()));
+                }
+                else
+                {
+                    result = Nodecl::Add::make(
+                            result,
+                            current_value,
+                            TL::Type::get_int_type());
+                }
+            }
         }
     }
 
-    return num_copies_dimensions;
+    if (result.is_null())
+    {
+        result = const_value_to_nodecl(const_value_get_signed_int(0));
+    }
+
+    return result;
 }
 
-// void LoweringVisitor::fill_copies_nonregion(
-//         Nodecl::NodeclBase ctr,
-//         OutlineInfo& outline_info,
-//         int num_copies,
-//         // Source arguments_accessor,
-//         // out
-//         Source& copy_ol_decl,
-//         Source& copy_ol_arg,
-//         Source& copy_ol_setup,
-//         Source& copy_imm_arg,
-//         Source& copy_imm_setup)
-// {
-//     if (IS_C_LANGUAGE
-//             || IS_CXX_LANGUAGE)
-//     {
-//         copy_ol_arg << "&ol_copy_data";
-//         copy_imm_arg << "imm_copy_data";
-// 
-//         copy_ol_decl
-//             << "nanos_copy_data_t *ol_copy_data = (nanos_copy_data_t*)0;"
-//             ;
-//         copy_imm_setup 
-//             << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
-//     }
-//     else if (IS_FORTRAN_LANGUAGE)
-//     {
-//         copy_ol_arg << "(nanos_copy_data_t**)0";
-//         copy_imm_arg << "imm_copy_data";
-// 
-//         copy_ol_decl
-//             << "nanos_copy_data_t ol_copy_data[" << num_copies << "];";
-//             ;
-//         copy_imm_setup
-//             << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
-//     }
-// 
-//     // typedef struct {
-//     //    uint64_t address;
-//     //    nanos_sharing_t sharing;
-//     //    struct {
-//     //       bool input: 1;
-//     //       bool output: 1;
-//     //    } flags;
-//     //    size_t size;
-//     // } nanos_copy_data_internal_t;
-// 
-//     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-// 
-//     int current_copy_num = 0;
-//     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-//             it != data_items.end();
-//             it++)
-//     {
-//         TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
-// 
-//         if (copies.empty())
-//             continue;
-// 
-//         for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
-//                 copy_it != copies.end();
-//                 copy_it++)
-//         {
-//             TL::DataReference data_ref((*copy_it).expression);
-//             OutlineDataItem::CopyDirectionality dir = (*copy_it).directionality;
-// 
-// 
-//             int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-//             int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-// 
-//             copy_ol_setup
-//                 << "ol_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-//                 << "ol_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-//                 << "ol_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-//                 << "ol_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-//                 << "ol_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-//                 ;
-//             copy_imm_setup
-//                 << "imm_copy_data[" << current_copy_num << "].sharing = NANOS_SHARED;"
-//                 << "imm_copy_data[" << current_copy_num << "].address = (uint64_t)" << as_expression(data_ref.get_base_address()) << ";"
-//                 << "imm_copy_data[" << current_copy_num << "].size = " << as_expression(data_ref.get_sizeof()) << ";"
-//                 << "imm_copy_data[" << current_copy_num << "].flags.input = " << input << ";"
-//                 << "imm_copy_data[" << current_copy_num << "].flags.output = " << output << ";"
-//                 ;
-//             current_copy_num++;
-//         }
-//     }
-// 
-//     if (IS_FORTRAN_LANGUAGE)
-//     {
-//         copy_ol_setup
-//             << "{"
-//             << "nanos_err_t err;"
-//             << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
-//             << "if (err != NANOS_OK) nanos_handle_error(err);"
-//             << "}"
-//             ;
-//     }
-// }
+void LoweringVisitor::handle_copy_item(
+        TL::DataReference& data_ref,
+        OutlineDataItem::CopyDirectionality dir,
+        Nodecl::NodeclBase ctr,
+        Source current_copy_index,
+        Source current_dimension_descriptor_index,
+        // out
+        Source &copy_ol_setup,
+        Source &copy_imm_setup,
+        int &num_dimensions_of_copy)
+{
+    Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
+
+    int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+    int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+
+    Source num_dimensions, dimension_descriptor_name, ol_dimension_descriptors, imm_dimension_descriptors, copy_offset;
+
+    copy_ol_setup
+        << ol_dimension_descriptors
+        << "ol_copy_data[" << current_copy_index << "].sharing = NANOS_SHARED;"
+        << "ol_copy_data[" << current_copy_index << "].address = (void*)" << as_expression(address_of_object) << ";"
+        << "ol_copy_data[" << current_copy_index << "].flags.input = " << input << ";"
+        << "ol_copy_data[" << current_copy_index << "].flags.output = " << output << ";"
+        << "ol_copy_data[" << current_copy_index << "].dimension_count = (short)" << num_dimensions << ";"
+        << "ol_copy_data[" << current_copy_index << "].dimensions = &(ol_copy_dimensions[" << current_dimension_descriptor_index << "]);"
+        << "ol_copy_data[" << current_copy_index << "].offset = " << copy_offset << ";"
+        ;
+
+    copy_imm_setup
+        << imm_dimension_descriptors
+        << "imm_copy_data[" << current_copy_index << "].sharing = NANOS_SHARED;"
+        << "imm_copy_data[" << current_copy_index << "].address = (void*)" << as_expression(address_of_object) << ";"
+        << "imm_copy_data[" << current_copy_index << "].flags.input = " << input << ";"
+        << "imm_copy_data[" << current_copy_index << "].flags.output = " << output << ";"
+        << "imm_copy_data[" << current_copy_index << "].dimension_count = (short)" << num_dimensions << ";"
+        << "imm_copy_data[" << current_copy_index << "].dimensions = &(imm_copy_dimensions[" << current_dimension_descriptor_index << "]);"
+        << "imm_copy_data[" << current_copy_index << "].offset = " << copy_offset << ";"
+        ;
+
+    copy_offset << as_expression(data_ref.get_offsetof_copy(data_ref, ctr.retrieve_context()));
+
+    TL::Type copy_type = data_ref.get_data_type();
+    TL::Type base_type = copy_type;
+
+    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
+
+    num_dimensions_of_copy = copy_type.get_num_dimensions();
+    if (num_dimensions_of_copy == 0)
+    {
+        lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+        upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
+        total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+        num_dimensions_of_copy++;
+    }
+    else
+    {
+        TL::Type t = copy_type;
+        int rank = copy_type.fortran_rank();
+
+        while (t.is_array())
+        {
+            Nodecl::NodeclBase array_lb, array_ub;
+            Nodecl::NodeclBase region_lb, region_ub;
+            Nodecl::NodeclBase region_size;
+            if (t.array_is_region())
+            {
+                t.array_get_bounds(array_lb, array_ub);
+                t.array_get_region_bounds(region_lb, region_ub);
+                region_size = t.array_get_size();
+            }
+            else
+            {
+                t.array_get_bounds(array_lb, array_ub);
+                region_size = t.array_get_size();
+            }
+
+            if (IS_FORTRAN_LANGUAGE
+                    && t.is_fortran_array())
+            {
+                if (array_lb.is_null())
+                {
+                    array_lb = get_lower_bound(data_ref, rank);
+                }
+                if (array_ub.is_null())
+                {
+                    array_ub = get_upper_bound(data_ref, rank);
+                }
+                if (region_size.is_null())
+                {
+                    region_size = get_size_for_dimension(t, rank, data_ref);
+                }
+            }
+
+            // The region is the whole array
+            if (region_lb.is_null())
+                region_lb = array_lb;
+            if (region_ub.is_null())
+                region_ub = array_ub;
+
+            // Adjust bounds to be 0-based
+            Nodecl::NodeclBase adjusted_region_lb =
+                (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
+                parse_expression(ctr);
+            Nodecl::NodeclBase adjusted_region_ub =
+                (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
+                parse_expression(ctr);
+
+            lower_bounds.append(adjusted_region_lb);
+            upper_bounds.append(adjusted_region_ub);
+            total_sizes.append(region_size);
+
+            t = t.array_element();
+
+            rank--;
+        }
+
+        base_type = t;
+
+        // Sanity check
+        ERROR_CONDITION(num_dimensions_of_copy != (signed)lower_bounds.size()
+                || num_dimensions_of_copy != (signed)upper_bounds.size()
+                || num_dimensions_of_copy != (signed)total_sizes.size(),
+                "Mismatch between dimensions", 0);
+
+    }
+
+    num_dimensions
+        << num_dimensions_of_copy;
+
+    int k = 0;
+    for (int dim = num_dimensions_of_copy - 1; dim >= 0; dim--, k++)
+    {
+        if (dim == num_dimensions_of_copy - 1)
+        {
+            // In bytes
+            ol_dimension_descriptors
+                << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k << "].size = "
+                << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                <<  "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
+                << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                <<  "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
+                << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
+                ;
+            imm_dimension_descriptors
+                << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
+                << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                <<  "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
+                << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                <<  "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
+                << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
+                ;
+        }
+        else
+        {
+            // In elements
+            ol_dimension_descriptors
+                << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
+                << as_expression(total_sizes[dim].shallow_copy()) << ";"
+                << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
+                << as_expression(lower_bounds[dim].shallow_copy()) << ";"
+                << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
+                << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
+                ;
+            imm_dimension_descriptors
+                << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
+                << as_expression(total_sizes[dim].shallow_copy()) << ";"
+                << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
+                << as_expression(lower_bounds[dim].shallow_copy()) << ";"
+                << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
+                << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
+                << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
+                ;
+        }
+    }
+}
 
 void LoweringVisitor::fill_copies_region(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
-        int num_copies,
-        int num_copies_dimensions,
-        // Source arguments_accessor,
+        int num_static_copies,
+        // int num_dynamic_copies,
+        Source num_copies,
+        Nodecl::NodeclBase num_copies_dimensions,
         // out
         Source& copy_ol_decl,
         Source& copy_ol_arg,
@@ -1747,27 +2111,31 @@ void LoweringVisitor::fill_copies_region(
         copy_imm_arg << "imm_copy_data, imm_copy_dimensions";
         copy_imm_setup
             << "nanos_copy_data_t imm_copy_data[" << num_copies << "];"
-            << "nanos_region_dimension_internal_t imm_copy_dimensions[" << num_copies_dimensions << "];"
+            << "nanos_region_dimension_internal_t imm_copy_dimensions[" << as_expression(num_copies_dimensions) << "];"
             ;
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
         copy_ol_decl
             << "nanos_copy_data_t ol_copy_data[" << num_copies << "];"
-            << "nanos_region_dimension_internal_t ol_copy_dimensions[" << num_copies_dimensions << "];"
+            << "nanos_region_dimension_internal_t ol_copy_dimensions[" << as_expression(num_copies_dimensions) << "];"
             ;
         copy_ol_arg << "(nanos_copy_data_t**)0, (nanos_region_dimension_internal_t**)0";
         copy_imm_arg << "imm_copy_data, imm_copy_dimensions";
         copy_imm_setup
             << "nanos_copy_data_t imm_copy_data[" << num_copies << "];"
-            << "nanos_region_dimension_internal_t imm_copy_dimensions[" << num_copies_dimensions << "];"
+            << "nanos_region_dimension_internal_t imm_copy_dimensions[" << as_expression(num_copies_dimensions) << "];"
             ;
     }
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
-    int current_dimension_descriptor = 0;
-    int i = 0;
+    TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-copy-deps-dimensions");
+    int current_copy_idx = 0;
+    int current_dimension_descriptor_idx = 0;
+    bool there_are_dynamic_copies = false;
+
+    // Static copies first
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -1779,192 +2147,220 @@ void LoweringVisitor::fill_copies_region(
 
         for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
                 copy_it != copies.end();
-                copy_it++, i++)
+                copy_it++)
         {
-            TL::DataReference data_ref(copy_it->expression);
-            OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
-
-            Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
-
-            int input = (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-            int output = (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-
-            Source num_dimensions, dimension_descriptor_name, ol_dimension_descriptors, imm_dimension_descriptors, copy_offset;
-
-            copy_ol_setup
-                << ol_dimension_descriptors
-                << "ol_copy_data[" << i << "].sharing = NANOS_SHARED;"
-                << "ol_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
-                << "ol_copy_data[" << i << "].flags.input = " << input << ";"
-                << "ol_copy_data[" << i << "].flags.output = " << output << ";"
-                << "ol_copy_data[" << i << "].dimension_count = (short)" << num_dimensions << ";"
-                << "ol_copy_data[" << i << "].dimensions = &(ol_copy_dimensions[" << current_dimension_descriptor << "]);"
-                << "ol_copy_data[" << i << "].offset = " << copy_offset << ";"
-                ;
-
-            copy_imm_setup
-                << imm_dimension_descriptors
-                << "imm_copy_data[" << i << "].sharing = NANOS_SHARED;"
-                << "imm_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
-                << "imm_copy_data[" << i << "].flags.input = " << input << ";"
-                << "imm_copy_data[" << i << "].flags.output = " << output << ";"
-                << "imm_copy_data[" << i << "].dimension_count = (short)" << num_dimensions << ";"
-                << "imm_copy_data[" << i << "].dimensions = &(imm_copy_dimensions[" << current_dimension_descriptor << "]);"
-                << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
-                ;
-
-            copy_offset << as_expression(data_ref.get_offsetof_copy(data_ref, ctr.retrieve_context()));
-
-            TL::Type copy_type = data_ref.get_data_type();
-            TL::Type base_type = copy_type;
-
-            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
-
-            int num_dimensions_count = copy_type.get_num_dimensions();
-            if (num_dimensions_count == 0)
+            TL::DataReference copy_expr(copy_it->expression);
+            if (copy_expr.is_multireference())
             {
-                lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
-                num_dimensions_count++;
-            }
-            else
-            {
-                TL::Type t = copy_type;
-                int rank = copy_type.fortran_rank();
-
-                while (t.is_array())
-                {
-                    Nodecl::NodeclBase array_lb, array_ub;
-                    Nodecl::NodeclBase region_lb, region_ub;
-                    Nodecl::NodeclBase region_size;
-                    if (t.array_is_region())
-                    {
-                        t.array_get_bounds(array_lb, array_ub);
-                        t.array_get_region_bounds(region_lb, region_ub);
-                        region_size = t.array_get_size();
-                    }
-                    else
-                    {
-                        t.array_get_bounds(array_lb, array_ub);
-                        region_size = t.array_get_size();
-                    }
-
-                    if (IS_FORTRAN_LANGUAGE
-                            && t.is_fortran_array())
-                    {
-                        if (array_lb.is_null())
-                        {
-                            array_lb = get_lower_bound(data_ref, rank);
-                        }
-                        if (array_ub.is_null())
-                        {
-                            array_ub = get_upper_bound(data_ref, rank);
-                        }
-                        if (region_size.is_null())
-                        {
-                            region_size = get_size_for_dimension(t, rank, data_ref);
-                        }
-                    }
-
-                    // The region is the whole array
-                    if (region_lb.is_null())
-                        region_lb = array_lb;
-                    if (region_ub.is_null())
-                        region_ub = array_ub;
-
-                    // Adjust bounds to be 0-based
-                    Nodecl::NodeclBase adjusted_region_lb =
-                        (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
-                        parse_expression(ctr);
-                    Nodecl::NodeclBase adjusted_region_ub =
-                        (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
-                        parse_expression(ctr);
-
-                    lower_bounds.append(adjusted_region_lb);
-                    upper_bounds.append(adjusted_region_ub);
-                    total_sizes.append(region_size);
-
-                    t = t.array_element();
-
-                    rank--;
-                }
-
-                base_type = t;
-
-                // Sanity check
-                ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
-                        || num_dimensions_count != (signed)upper_bounds.size()
-                        || num_dimensions_count != (signed)total_sizes.size(),
-                        "Mismatch between dimensions", 0);
-
+                there_are_dynamic_copies = true;
+                // We handle them below
+                continue;
             }
 
-            num_dimensions
-                << num_dimensions_count;
+            Source current_copy_index;
+            current_copy_index << current_copy_idx;
 
-            for (int dim = num_dimensions_count - 1; dim >= 0; dim--, current_dimension_descriptor++)
-            {
-                // Sanity check
-                ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
-                        current_dimension_descriptor, num_copies_dimensions);
+            Source current_dimension_descriptor_index;
+            current_dimension_descriptor_index << current_dimension_descriptor_idx;
 
-                if (dim == num_dimensions_count - 1)
-                {
-                    // In bytes
-                    ol_dimension_descriptors
-                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
-                        <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
-                        << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
-                        <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
-                        << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
-                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
-                        ;
-                    imm_dimension_descriptors
-                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
-                        <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
-                        << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
-                        <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
-                        << "((" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
-                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1) * sizeof(" << as_type(base_type) << ");"
-                        ;
-                }
-                else
-                {
-                    // In elements
-                    ol_dimension_descriptors
-                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
-                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
-                        << as_expression(lower_bounds[dim].shallow_copy()) << ";"
-                        << "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
-                        << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
-                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
-                        ;
-                    imm_dimension_descriptors
-                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
-                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
-                        << as_expression(lower_bounds[dim].shallow_copy()) << ";"
-                        << "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
-                        << "(" << as_expression(upper_bounds[dim].shallow_copy()) << ") - ("
-                        << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
-                        ;
-                }
-            }
+            int num_dimensions_of_copy = 0;
+            handle_copy_item(copy_expr,
+                    copy_it->directionality,
+                    ctr,
+                    current_copy_index,
+                    current_dimension_descriptor_index,
+                    // out
+                    copy_ol_setup,
+                    copy_imm_setup,
+                    num_dimensions_of_copy);
 
+            current_copy_idx++;
+            current_dimension_descriptor_idx += num_dimensions_of_copy;
         }
     }
-    
+
+    if (there_are_dynamic_copies)
+    {
+        TL::Scope sc = ctr.retrieve_context();
+        // Index for the dimension array
+        std::stringstream ss;
+        ss << "dyn_copy_idx_" << (int)dep_dim_num;
+        dep_dim_num++;
+
+        TL::Symbol dyn_copy_idx = sc.new_symbol(ss.str());
+        dyn_copy_idx.get_internal_symbol()->kind = SK_VARIABLE;
+        dyn_copy_idx.get_internal_symbol()->type_information = get_signed_int_type();
+        symbol_entity_specs_set_is_user_declared(dyn_copy_idx.get_internal_symbol(), 1);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                    dyn_copy_idx,
+                    ctr.get_locus());
+            ctr.prepend_sibling(def);
+        }
+
+        ss.str(""); ss << "dyn_dim_idx_" << (int)dep_dim_num;
+        dep_dim_num++;
+
+        TL::Symbol dyn_dim_idx = sc.new_symbol(ss.str());
+        dyn_dim_idx.get_internal_symbol()->kind = SK_VARIABLE;
+        dyn_dim_idx.get_internal_symbol()->type_information = get_signed_int_type();
+        symbol_entity_specs_set_is_user_declared(dyn_dim_idx.get_internal_symbol(), 1);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                    dyn_dim_idx,
+                    ctr.get_locus());
+            ctr.prepend_sibling(def);
+        }
+
+        copy_ol_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+            ;
+        copy_imm_setup << as_symbol(dyn_dim_idx) << " = " << num_static_copies << ";"
+            ;
+
+        // Dynamic copies second
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            TL::ObjectList<OutlineDataItem::CopyItem> copies = (*it)->get_copies();
+
+            if (copies.empty())
+                continue;
+
+            for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                    copy_it != copies.end();
+                    copy_it++)
+            {
+                TL::DataReference copy_expr(copy_it->expression);
+                if (!copy_expr.is_multireference())
+                {
+                    there_are_dynamic_copies = true;
+                    // We handled them above
+                    continue;
+                }
+
+                Source copies_loop;
+                ObjectList<DataReference::MultiRefIterator> m = copy_expr.multireferences();
+
+                Source dimension_array;
+                dimension_array << "dyn_dimensions_" << (int)dep_dim_num;
+                dep_dim_num++;
+
+                Nodecl::Utils::SimpleSymbolMap symbol_map;
+
+                for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
+                        current_multidep != m.end();
+                        current_multidep++)
+                {
+                    // Create the current induction variable
+                    ss.str(""); ss << "dyn_copy_" << (int)dep_dim_num;
+                    TL::Symbol new_sym = sc.new_symbol(ss.str() + "_" + current_multidep->first.get_name());
+                    new_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_sym.get_internal_symbol()->type_information = get_signed_int_type();
+                    symbol_entity_specs_set_is_user_declared(new_sym.get_internal_symbol(), 1);
+
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                new_sym,
+                                ctr.get_locus());
+                        ctr.prepend_sibling(def);
+                    }
+
+                    symbol_map.add_map(current_multidep->first, new_sym);
+
+                    Nodecl::Range range = current_multidep->second.as<Nodecl::Range>();
+                    ERROR_CONDITION(!range.is<Nodecl::Range>(), "Invalid node %s", ast_print_node_type(range.get_kind()));
+
+                    Nodecl::NodeclBase lower = range.get_lower().shallow_copy();
+                    Nodecl::NodeclBase upper = range.get_upper().shallow_copy();
+                    Nodecl::NodeclBase stride = range.get_stride().shallow_copy();
+
+                    copy_ol_setup
+                        << "for ("
+                        <<       as_symbol(new_sym) << "=" << as_expression(lower) << ";"
+                        <<       as_symbol(new_sym) << "<=" << as_expression(upper) << ";"
+                        <<       as_symbol(new_sym) << "+=" << as_expression(stride) << ")"
+                        << "{"
+                        ;
+                    copy_imm_setup
+                        << "for ("
+                        <<       as_symbol(new_sym) << "=" << as_expression(lower) << ";"
+                        <<       as_symbol(new_sym) << "<=" << as_expression(upper) << ";"
+                        <<       as_symbol(new_sym) << "+=" << as_expression(stride) << ")"
+                        << "{"
+                        ;
+
+
+                    if (current_multidep + 1 == m.end())
+                    {
+                        // If this is the last iterator, map the copy and
+                        // generate the loop body
+                        Nodecl::NodeclBase orig_copy = current_multidep->second;
+
+                        // Now ignore the multidependence as such...
+                        Nodecl::NodeclBase current_copy = copy_expr;
+                        while (current_copy.is<Nodecl::MultiReference>())
+                        {
+                            current_copy =
+                                current_copy.as<Nodecl::MultiReference>().get_dependence();
+                        }
+
+                        // and update it
+                        Nodecl::NodeclBase updated_copy = Nodecl::Utils::deep_copy(
+                                current_copy, sc, symbol_map);
+                        TL::DataReference updated_copy_ref(updated_copy);
+
+                        Source current_copy_index;
+                        current_copy_index << as_symbol(dyn_copy_idx);
+
+                        Source current_dimension_descriptor_index;
+                        current_dimension_descriptor_index << as_symbol(dyn_dim_idx);
+
+                        int num_dimensions_of_copy = 0;
+                        handle_copy_item(updated_copy_ref,
+                                copy_it->directionality,
+                                ctr,
+                                current_copy_index,
+                                current_dimension_descriptor_index,
+                                // out
+                                copy_ol_setup,
+                                copy_imm_setup,
+                                num_dimensions_of_copy);
+
+                        copy_ol_setup << as_symbol(dyn_copy_idx) << "++;";
+                        copy_imm_setup << as_symbol(dyn_copy_idx) << "++;";
+
+                        copy_ol_setup << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";";
+                        copy_imm_setup << as_symbol(dyn_dim_idx) << "+= " << num_dimensions_of_copy << ";";
+
+                        for (ObjectList<DataReference::MultiRefIterator>::reverse_iterator
+                                rev_current_multidep = m.rbegin();
+                                rev_current_multidep != m.rend();
+                                rev_current_multidep++)
+                        {
+                            copy_ol_setup
+                                << "}";
+                            copy_imm_setup
+                                << "}";
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (IS_FORTRAN_LANGUAGE)
     {
         copy_ol_setup
             << "{"
-            << "nanos_err_t err;"
-            << "err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_set_copies(nanos_wd_, " << num_copies << ", ol_copy_data);"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << "}"
             ;
     }
@@ -1977,7 +2373,7 @@ void LoweringVisitor::fill_copies(
         TL::Symbol structure_symbol,
         // Source arguments_accessor,
         // out
-        int &num_copies,
+        Source &num_copies,
         Source& copy_ol_decl,
         Source& copy_ol_arg,
         Source& copy_ol_setup,
@@ -1988,19 +2384,27 @@ void LoweringVisitor::fill_copies(
 {
     int num_static_copies, num_dynamic_copies;
     count_copies(outline_info, num_static_copies, num_dynamic_copies);
-    if (num_dynamic_copies != 0)
+
+    if (num_dynamic_copies == 0)
     {
-        internal_error("Not yet implemented", 0);
+        num_copies << num_static_copies;
     }
     else
     {
-        num_copies = num_static_copies;
+        if (num_static_copies != 0)
+        {
+            num_copies << num_static_copies << "+";
+        }
+
+        num_copies << as_expression(count_dynamic_copies(outline_info));
     }
 
     if (Nanos::Version::interface_is_at_least("copies_api", 1000))
     {
-        int num_copies_dimensions = count_copies_dimensions(outline_info);
-        if (num_copies == 0)
+        Nodecl::NodeclBase num_copies_dimensions = count_copies_dimensions(outline_info);
+
+        if (num_static_copies == 0
+                && num_dynamic_copies == 0)
         {
             copy_ol_arg << "(nanos_copy_data_t**)0, (nanos_region_dimension_internal_t**)0";
             copy_imm_arg << "(nanos_copy_data_t*)0, (nanos_region_dimension_internal_t*)0";
@@ -2009,6 +2413,8 @@ void LoweringVisitor::fill_copies(
         {
             fill_copies_region(ctr,
                     outline_info,
+                    num_static_copies,
+                    // num_dynamic_dependences
                     num_copies,
                     num_copies_dimensions,
                     copy_ol_decl,
@@ -2028,41 +2434,12 @@ void LoweringVisitor::fill_copies(
             else
             {
                 internal_error("Code unreachable", 0);
-                // emit_translation_function_nonregion(ctr,
-                //         outline_info,
-                //         parameter_outline_info,
-                //         structure_symbol,
-                //         allow_multiple_copies,
-                //         xlate_function_symbol);
             }
         }
     }
     else
     {
         internal_error("Code unreachable", 0);
-//         if (num_copies == 0)
-//         {
-//             copy_ol_arg << "(nanos_copy_data_t**)0";
-//             copy_imm_arg << "(nanos_copy_data_t*)0";
-//         }
-//         else
-//         {
-//             fill_copies_nonregion(ctr,
-//                     outline_info,
-//                     num_copies,
-//                     copy_ol_decl,
-//                     copy_ol_arg,
-//                     copy_ol_setup,
-//                     copy_imm_arg,
-//                     copy_imm_setup);
-// 
-//             emit_translation_function_nonregion(ctr,
-//                     outline_info,
-//                     parameter_outline_info,
-//                     structure_symbol,
-//                     /* allow_multiple_copies */ false,
-//                     xlate_function_symbol);
-//         }
     }
 }
 
@@ -2207,15 +2584,15 @@ bool is_not_alnum(int charact) {
 //             << "{"
 //             << "intptr_t device_base_address;"
 //             << "signed long offset;"
-//             << "nanos_err_t err;"
+//             << "nanos_err_t nanos_err;"
 //             << "intptr_t host_base_address;"
 // 
 //             << "host_base_address = (intptr_t)arg." << (*it)->get_field_name() << ";"
 //             << "offset = " << as_expression(offset) << ";"
 //             << "device_base_address = 0;"
-//             << "err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
+//             << "nanos_err = nanos_get_addr(" << copy_num << ", (void**)&device_base_address, wd);"
 //             << "device_base_address -= offset;"
-//             << "if (err != NANOS_OK) nanos_handle_error(err);"
+//             << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 //             << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
 //             << "}"
 //             ;
@@ -2301,11 +2678,11 @@ void LoweringVisitor::emit_translation_function_region(
         translations
             << "{"
             << "void *device_base_address;"
-            << "nanos_err_t err;"
+            << "nanos_err_t nanos_err;"
 
             << "device_base_address = 0;"
-            << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             ;
 
         if ((*it)->get_symbol().is_allocatable()
@@ -2359,21 +2736,26 @@ void LoweringVisitor::emit_translation_function_region(
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
+        int num_static_dependences,
+        int num_dynamic_dependences,
+        Source runtime_num_dependences,
         // out
         Source& result_src)
 {
-    fill_dependences_internal(ctr, outline_info, /* on_wait */ false, result_src);
+    fill_dependences_internal(ctr, outline_info, /* on_wait */ false,
+            num_static_dependences,
+            num_dynamic_dependences,
+            runtime_num_dependences,
+            result_src);
 }
 
 void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase ctr,
         TL::DataReference dep_expr,
         OutlineDataItem::DependencyDirectionality dir,
-        int current_dep_num,
-        Source& dependency_regions,
-        Source& dependency_init,
+        Source dimension_array,
+        Source& current_dep_num,
         Source& result_src)
-
 {
     ERROR_CONDITION(!dep_expr.is_valid(),
             "%s: Invalid dependency detected '%s'. Reason: %s\n",
@@ -2459,20 +2841,6 @@ void LoweringVisitor::handle_dependency_item(
 
     std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
 
-    dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
-        ;
-
-    Source dims_description;
-
-    if (IS_C_LANGUAGE
-            || IS_CXX_LANGUAGE)
-    {
-        dependency_regions << "=  { " << dims_description << "}";
-    }
-
-    dependency_regions << ";"
-        ;
-
     Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof_dependence();
     ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
 
@@ -2487,26 +2855,11 @@ void LoweringVisitor::handle_dependency_item(
         dimension_lower_bound << "0";
         dimension_accessed_length << dimension_size;
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            dims_description
-                << "{"
-                << dimension_size << ","
-                << dimension_lower_bound << ","
-                << dimension_accessed_length
-                << "}"
-                ;
-        }
-        else
-        {
-            dependency_regions
-                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                ;
-        }
-
+        result_src
+            << dimension_array << "[0].size = " << dimension_size << ";"
+            << dimension_array << "[0].lower_bound = " << dimension_lower_bound << ";"
+            << dimension_array << "[0].accessed_length = " << dimension_accessed_length << ";"
+            ;
     }
     else
     {
@@ -2562,25 +2915,11 @@ void LoweringVisitor::handle_dependency_item(
         dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
         dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            dims_description
-                << "{"
-                << dimension_size << ","
-                << dimension_lower_bound << ","
-                << dimension_accessed_length
-                << "}"
-                ;
-        }
-        else
-        {
-            dependency_regions
-                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                ;
-        }
+        result_src
+            << dimension_array << "[0].size = " << dimension_size << ";"
+            << dimension_array << "[0].lower_bound = " << dimension_lower_bound << ";"
+            << dimension_array << "[0].accessed_length = " << dimension_accessed_length << ";"
+            ;
 
         if (num_dimensions > 1)
         {
@@ -2588,12 +2927,11 @@ void LoweringVisitor::handle_dependency_item(
             fill_dimensions(
                     num_dimensions,
                     /* current_dim */ num_dimensions,
-                    current_dep_num,
+                    dimension_array,
                     dep_source_expr,
                     dimension_sizes,
                     dependency_type,
-                    dims_description,
-                    dependency_regions,
+                    result_src,
                     dep_source_expr.retrieve_context());
         }
 
@@ -2604,37 +2942,50 @@ void LoweringVisitor::handle_dependency_item(
     if (num_dimension_items == 0)
         num_dimension_items = 1;
 
-    if (IS_C_LANGUAGE
-            || IS_CXX_LANGUAGE)
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-        if (current_dep_num > 0)
-        {
-            dependency_init << ", ";
-        }
-
-        dependency_init
-            << "{"
-            << "(void *) " << as_expression(base_address) << ", "
-            << dependency_flags << ", "
-            << "(short) " << num_dimension_items << ", "
-            << "dimensions_" << current_dep_num << ","
-            << dependency_offset
-            << "}";
+        result_src
+            << "dependences[" << current_dep_num << "].address = (void*)"
+            << as_expression(base_address) << ";"
+            ;
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
         result_src
-            << "dependences[" << current_dep_num << "].address = "
+            << "dependences[" << current_dep_num << "].address ="
             << as_expression(base_address) << ";"
-            << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
-            << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-            << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
-            << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
-            << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
-            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
-            << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
-            << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
             ;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    result_src
+        << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
+        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
+        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
+        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
+        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+        ;
+
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+        result_src
+            << "dependences[" << current_dep_num << "].dimensions = " << dimension_array << ";"
+            ;
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        result_src
+            << "dependences[" << current_dep_num << "].dimensions = &(" << dimension_array << "[0]);"
+            ;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 }
 
@@ -2642,26 +2993,16 @@ void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
         bool on_wait,
+        int num_static_dependences,
+        int num_dynamic_dependences,
+        Source& runtime_num_dependences,
         // out
         Source& result_src)
 {
-    Source dependency_init;
-
-    int num_deps;
-    int num_static_deps, num_dynamic_deps;
-    count_dependences(outline_info, num_static_deps, num_dynamic_deps);
-    if (num_dynamic_deps != 0)
-    {
-        internal_error("Not yet implemented", 0);
-    }
-    else
-    {
-        num_deps = num_static_deps;
-    }
-
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
-    if (num_deps == 0)
+    int total_dependences = num_static_dependences + num_dynamic_dependences;
+    if (total_dependences == 0)
     {
         if (Nanos::Version::interface_is_at_least("deps_api", 1001))
         {
@@ -2677,51 +3018,236 @@ void LoweringVisitor::fill_dependences_internal(
         return;
     }
 
-    if (Nanos::Version::interface_is_at_least("deps_api", 1001))
+    if (!Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
-        Source dependency_regions;
+        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n",
+                ctr.get_locus_str().c_str());
+    }
 
-        result_src
-            << dependency_regions
-            << "nanos_data_access_t dependences[" << num_deps << "]"
-            ;
+    Source dependency_regions;
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
+    result_src
+        << dependency_regions
+        << "nanos_data_access_t dependences[" << runtime_num_dependences << "];"
+        ;
+
+
+    int current_static_dep_idx = 0;
+    bool there_are_dynamic_dependences = false;
+
+    // Static dependences
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+        for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
+                dep_it != deps.end();
+                dep_it++)
         {
-            result_src << " = {"
-                << dependency_init
-                << "};"
-                ;
-        }
-        result_src << ";"
-            ;
+            OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
+            TL::DataReference dep_expr(dep_it->expression);
 
-        int current_dep_num = 0;
+            if (dep_expr.is_multireference())
+            {
+                there_are_dynamic_dependences = true;
+                // We will handle them later
+                continue;
+            }
+
+            Source current_dep_num;
+            current_dep_num << current_static_dep_idx;
+
+            Type dependency_type = dep_expr.get_data_type();
+            int num_dimensions = dependency_type.get_num_dimensions();
+
+            TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-copy-deps-dimensions");
+            Source dimension_name;
+            dimension_name << "dimensions_" << (int)dep_dim_num;
+            dep_dim_num++;
+            dependency_regions << "nanos_region_dimension_t " << dimension_name << "[" << std::max(num_dimensions, 1) << "];"
+                ;
+
+            handle_dependency_item(ctr, dep_expr, dir,
+                    dimension_name, current_dep_num, result_src);
+
+            current_static_dep_idx++;
+        }
+    }
+
+    // Dynamic dependences
+    if (there_are_dynamic_dependences)
+    {
+        TL::Scope sc = ctr.retrieve_context();
+        TL::Symbol dyn_dep_idx;
+
+        TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-dynamic-deps");
+        std::stringstream ss; ss << "dyn_dep_idx_" << (int)dep_dim_num;
+        dep_dim_num++;
+
+        // Create the global dynamic index
+        dyn_dep_idx = sc.new_symbol(ss.str());
+        dyn_dep_idx.get_internal_symbol()->kind = SK_VARIABLE;
+        dyn_dep_idx.get_internal_symbol()->type_information = get_signed_int_type();
+        dyn_dep_idx.get_internal_symbol()->value =
+            const_value_to_nodecl(const_value_get_signed_int(0));
+        symbol_entity_specs_set_is_user_declared(dyn_dep_idx.get_internal_symbol(), 1);
+
+        result_src << as_symbol(dyn_dep_idx) << " = " << num_static_dependences << ";";
+
+        if (IS_CXX_LANGUAGE)
+        {
+            Nodecl::NodeclBase def = Nodecl::CxxDef::make(
+                    Nodecl::NodeclBase::null(),
+                    dyn_dep_idx,
+                    ctr.get_locus());
+            // FIXME - Check this
+            ctr.prepend_sibling(def);
+        }
+
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
         {
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
 
-            if (deps.empty())
-                continue;
-
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
                     dep_it != deps.end();
-                    dep_it++, current_dep_num++)
+                    dep_it++)
             {
                 OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
                 TL::DataReference dep_expr(dep_it->expression);
 
-                handle_dependency_item(ctr, dep_expr, dir,
-                        current_dep_num, dependency_regions, dependency_init, result_src);
+                if (!dep_expr.is_multireference())
+                {
+                    // Static dependences were handled above
+                    continue;
+                }
+
+                Source dependency_loop;
+                ObjectList<DataReference::MultiRefIterator> m = dep_expr.multireferences();
+
+                // Create the dimensionality array
+                Nodecl::NodeclBase total_base = count_multidependences_extent(m);
+
+                Source dimension_array;
+                dimension_array << "dyn_dimensions_" << (int)dep_dim_num;
+                dep_dim_num++;
+
+                Type dependency_type = dep_expr.get_data_type();
+                int num_dimensions = dependency_type.get_num_dimensions();
+
+                dependency_regions
+                    << "nanos_region_dimension_t " << dimension_array
+                        << "[" << as_expression(total_base) << "][" << std::max(1, num_dimensions) << "];"
+                    ;
+
+                // Index for the dimension array
+                ss.str(""); ss << "dyn_dim_idx_" << (int)dep_dim_num;
+                dep_dim_num++;
+
+                TL::Symbol dyn_dim_idx = sc.new_symbol(ss.str());
+                dyn_dim_idx.get_internal_symbol()->kind = SK_VARIABLE;
+                dyn_dim_idx.get_internal_symbol()->type_information = get_signed_int_type();
+                symbol_entity_specs_set_is_user_declared(dyn_dim_idx.get_internal_symbol(), 1);
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                            dyn_dim_idx,
+                            ctr.get_locus());
+                    ctr.prepend_sibling(def);
+                }
+
+                result_src
+                    << as_symbol(dyn_dim_idx) << "= 0;"
+                    ;
+
+                Nodecl::Utils::SimpleSymbolMap symbol_map;
+
+                for (ObjectList<DataReference::MultiRefIterator>::iterator current_multidep = m.begin();
+                        current_multidep != m.end();
+                        current_multidep++)
+                {
+                    // Create the current induction variable
+                    ss.str(""); ss << "dyn_dep_" << (int)dep_dim_num;
+                    TL::Symbol new_sym = sc.new_symbol(ss.str() + "_" + current_multidep->first.get_name());
+                    new_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_sym.get_internal_symbol()->type_information = get_signed_int_type();
+                    symbol_entity_specs_set_is_user_declared(new_sym.get_internal_symbol(), 1);
+
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                new_sym,
+                                ctr.get_locus());
+                        // FIXME - Check this
+                        ctr.prepend_sibling(def);
+                    }
+
+                    symbol_map.add_map(current_multidep->first, new_sym);
+
+                    Nodecl::Range range = current_multidep->second.as<Nodecl::Range>();
+                    ERROR_CONDITION(!range.is<Nodecl::Range>(), "Invalid node %s", ast_print_node_type(range.get_kind()));
+
+                    Nodecl::NodeclBase lower = range.get_lower().shallow_copy();
+                    Nodecl::NodeclBase upper = range.get_upper().shallow_copy();
+                    Nodecl::NodeclBase stride = range.get_stride().shallow_copy();
+
+                    result_src
+                        << "for ("
+                        <<       as_symbol(new_sym) << "=" << as_expression(lower) << ";"
+                        <<       as_symbol(new_sym) << "<=" << as_expression(upper) << ";"
+                        <<       as_symbol(new_sym) << "+=" << as_expression(stride) << ")"
+                        << "{"
+                        ;
+
+
+                    if (current_multidep + 1 == m.end())
+                    {
+                        // If this is the last iterator, map the dependence and
+                        // generate the loop body
+                        Nodecl::NodeclBase orig_dep = current_multidep->second;
+
+                        // Now ignore the multidependence as such...
+                        Nodecl::NodeclBase current_dep = dep_expr;
+                        while (current_dep.is<Nodecl::MultiReference>())
+                        {
+                            current_dep =
+                                current_dep.as<Nodecl::MultiReference>().get_dependence();
+                        }
+
+                        // and update it
+                        Nodecl::NodeclBase updated_dep = Nodecl::Utils::deep_copy(
+                                current_dep, sc, symbol_map);
+
+                        Source current_dep_num;
+                        current_dep_num << as_symbol(dyn_dep_idx);
+
+                        Source current_dimension_array;
+                        current_dimension_array << dimension_array << "[" << as_symbol(dyn_dim_idx) << "]";
+
+                        Source current_dep_src;
+                        handle_dependency_item(ctr, updated_dep, dir,
+                                current_dimension_array,
+                                current_dep_num, current_dep_src);
+
+                        result_src << current_dep_src;
+                        result_src << as_symbol(dyn_dep_idx) << "++;";
+                        result_src << as_symbol(dyn_dim_idx) << "++;";
+
+                        for (ObjectList<DataReference::MultiRefIterator>::reverse_iterator
+                                rev_current_multidep = m.rbegin();
+                                rev_current_multidep != m.rend();
+                                rev_current_multidep++)
+                        {
+                            result_src
+                                << "}";
+                        }
+                    }
+                }
             }
         }
-    }
-    else
-    {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus_str().c_str());
     }
 }
 
@@ -2827,20 +3353,21 @@ Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr,
 void LoweringVisitor::fill_dimensions(
         int n_dims,
         int current_dim,
-        int current_dep_num,
+        Source& dimension_array,
         Nodecl::NodeclBase dep_expr,
         Nodecl::NodeclBase * dim_sizes,
         Type dep_type,
-        Source& dims_description,
-        Source& dependency_regions_code,
+        Source& result_src,
         Scope sc)
 {
     // We do not handle the contiguous dimension here
     if (current_dim > 1)
     {
-        fill_dimensions(n_dims, current_dim - 1, current_dep_num,
+        fill_dimensions(n_dims, current_dim - 1, dimension_array,
                 dep_expr, dim_sizes,
-                dep_type.array_element(), dims_description, dependency_regions_code, sc);
+                dep_type.array_element(),
+                result_src,
+                sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
         Nodecl::NodeclBase array_lb, array_ub, size;
@@ -2878,24 +3405,11 @@ void LoweringVisitor::fill_dimensions(
         dimension_lower_bound << as_expression(adjusted_lb);
         dimension_accessed_length << as_expression(size);
 
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-        {
-            dims_description << ", {" 
-                << dimension_size << ", " 
-                << dimension_lower_bound << ", "
-                << dimension_accessed_length 
-                << "}"
-                ;
-        }
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            dependency_regions_code
-                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].size = " << dimension_size << ";"
-                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].lower_bound = " << dimension_lower_bound << ";"
-                << "dimensions_" << current_dep_num << "[" << current_dim - 1 << "].accessed_length = " << dimension_accessed_length << ";"
-                ;
-        }
+        result_src
+            << dimension_array << "[" << current_dim - 1 << "].size = " << dimension_size << ";"
+            << dimension_array << "[" << current_dim - 1 << "].lower_bound = " << dimension_lower_bound << ";"
+            << dimension_array << "[" << current_dim - 1 << "].accessed_length = " << dimension_accessed_length << ";"
+            ;
     }
 }
 

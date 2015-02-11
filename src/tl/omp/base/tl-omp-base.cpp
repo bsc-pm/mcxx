@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -2075,9 +2075,18 @@ namespace TL { namespace OpenMP {
             stmt.replace(Nodecl::List::make(omp_simd_node));
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd\n", stmt.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring '#pragma omp simd'\n", stmt.get_locus_str().c_str());
 #endif
     }
+
+    void Base::simd_fortran_handler_pre(TL::PragmaCustomStatement stmt) { }
+    void Base::simd_fortran_handler_post(TL::PragmaCustomStatement stmt) {
+        warn_printf("%s: warning: ignoring '!$OMP SIMD'\n",
+                stmt.get_locus_str().c_str());
+    }
+
+    void Base::simd_fortran_handler_pre(TL::PragmaCustomDeclaration stmt) { }
+    void Base::simd_fortran_handler_post(TL::PragmaCustomDeclaration stmt) { }
 
     // SIMD Functions
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
@@ -2796,7 +2805,7 @@ namespace TL { namespace OpenMP {
                 if (diff > 0)
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
-                ss << string_of_data_sharing(_data_sharing);
+                ss << " " << string_of_data_sharing(_data_sharing);
 
                 length = ss.str().size();
                 diff = 20 - length;
@@ -3069,6 +3078,11 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_data_sharing_list<Nodecl::OpenMP::Threadprivate>(
+                data_sharing_env, OpenMP::DS_THREADPRIVATE,
+                locus,
+                result_list);
+
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
         TL::ObjectList<Symbol> reduction_symbols = reductions.map(
@@ -3160,6 +3174,11 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_data_sharing_list<Nodecl::OpenMP::Threadprivate>(
+                data_sharing_env, OpenMP::DS_THREADPRIVATE,
+                locus,
+                result_list);
+
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
         if (!reductions.empty())
@@ -3197,16 +3216,33 @@ namespace TL { namespace OpenMP {
                     );
         }
 
+        if (emit_omp_report())
+        {
+            if (result_list.empty())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << "There are no data sharings\n"
+                    ;
+            }
+        }
+
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_sharing_env.get_all_dependences(dependences);
 
         if (emit_omp_report())
         {
-            if (!dependences.empty())
+            *_omp_report_file
+                << OpenMP::Report::indent
+                << "Dependences\n"
+                ;
+            if (dependences.empty())
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "Dependences\n"
+                    << OpenMP::Report::indent
+                    << "There are no dependences\n"
                     ;
             }
         }

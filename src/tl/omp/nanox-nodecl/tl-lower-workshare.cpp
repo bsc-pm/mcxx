@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -50,8 +50,8 @@ namespace TL { namespace Nanox {
         transform_code
             << "{"
             << as_type(::get_bool_type()) << " single_guard;"
-            << "nanos_err_t err = nanos_omp_single(&single_guard);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err_t nanos_err = nanos_omp_single(&single_guard);"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
             << "if (single_guard)"
             << "{"

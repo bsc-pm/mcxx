@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -234,13 +234,13 @@ namespace TL { namespace Nanox {
             Source src;
             src
                 << "{"
-                << "nanos_err_t err;"
-                << "err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
+                << "nanos_err_t nanos_err;"
+                << "nanos_err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
                 <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
                 <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
                 <<     size_of_array_descriptor
                 << ");"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 << "}"
                 ;
 
@@ -1216,9 +1216,9 @@ namespace TL { namespace Nanox {
                 _outline_info.set_name(name.get_function_name().as<Nodecl::Symbol>().get_symbol(), name.get_name().get_text());
             }
 
-            void visit(const Nodecl::OpenMP::Firstprivate& shared)
+            void visit(const Nodecl::OpenMP::Firstprivate& firstprivate)
             {
-                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
+                Nodecl::List l = firstprivate.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1228,9 +1228,9 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::OpenMP::Lastprivate& shared)
+            void visit(const Nodecl::OpenMP::Lastprivate& lastprivate)
             {
-                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
+                Nodecl::List l = lastprivate.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1240,9 +1240,9 @@ namespace TL { namespace Nanox {
                 }
             }
 
-            void visit(const Nodecl::OpenMP::FirstLastprivate& shared)
+            void visit(const Nodecl::OpenMP::FirstLastprivate& firstlastprivate)
             {
-                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
+                Nodecl::List l = firstlastprivate.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1262,6 +1262,11 @@ namespace TL { namespace Nanox {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     add_private(sym);
                 }
+            }
+
+            void visit(const Nodecl::OpenMP::Threadprivate& threadprivate)
+            {
+                // We don't want to do anything in the case of threadprivate variables
             }
 
             void visit(const Nodecl::OpenMP::Reduction& reduction)

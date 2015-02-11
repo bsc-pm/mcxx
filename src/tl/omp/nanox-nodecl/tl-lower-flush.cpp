@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -47,10 +47,10 @@ namespace TL { namespace Nanox {
         {
             flush_source
                 << "{"
-                << "nanos_err_t err;"
-                << "err = nanos_memory_fence();"
-                << "if (err != NANOS_OK)"
-                <<    "nanos_handle_error(err);"
+                << "nanos_err_t nanos_err;"
+                << "nanos_err = nanos_memory_fence();"
+                << "if (nanos_err != NANOS_OK)"
+                <<    "nanos_handle_error(nanos_err);"
                 << "}"
                 ;
         }

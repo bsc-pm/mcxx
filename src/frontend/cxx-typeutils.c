@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -11664,12 +11664,12 @@ static char is_unknown_dependent_type(type_t* t)
 static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
 {
     if (nodecl_is_null(n))
-        return "<<<unknown>>>";
+        return "?";
     if (nodecl_get_kind(n) == NODECL_SYMBOL
             && symbol_entity_specs_get_is_saved_expression(nodecl_get_symbol(n)))
     {
         const char* result = NULL;
-        uniquestr_sprintf(&result, "%s { => %s }",
+        uniquestr_sprintf(&result, "%s { alias of %s }",
                 nodecl_get_symbol(n)->symbol_name,
                 codegen_to_str(nodecl_get_symbol(n)->value, decl_context));
 
@@ -11821,13 +11821,13 @@ extern inline const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, "]");
                 if (printed_declarator->array->region != NULL)
                 {
-                    tmp_result = strappend(tmp_result, " with region {");
+                    tmp_result = strappend(tmp_result, " with region [");
                     tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->lower_bound, 
                                 CURRENT_COMPILED_FILE->global_decl_context));
-                    tmp_result = strappend(tmp_result, " ; ");
+                    tmp_result = strappend(tmp_result, ":");
                     tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->region->upper_bound, 
                                 CURRENT_COMPILED_FILE->global_decl_context));
-                    tmp_result = strappend(tmp_result, "}" );
+                    tmp_result = strappend(tmp_result, "]" );
                 }
                 tmp_result = strappend(tmp_result, " of ");
                 printed_declarator = printed_declarator->array->element_type;
@@ -12947,15 +12947,26 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             (*result).conv[1] = SCI_SCALAR_TO_VECTOR_CONVERSION;
             dest = vector_type_get_element_type(no_ref(dest));
         }
-        // Vector conversions
-        // vector type -> struct __m128 / struct __m256 / struct __M512
-        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
-                && (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
-                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig))))
+        // Intel vector conversions
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types)
         {
-            // We do not account this as a conversion of any kind, we just let
-            // these types be transparently compatible
-            orig = dest;
+            if (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
+                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig)))
+            {
+                // vector type -> struct __m128 / struct __m256 / struct __M512
+                // We do not account this as a conversion of any kind, we just let
+                // these types be transparently compatible
+                orig = dest;
+            }
+            else if (IS_CXX_LANGUAGE
+                    && intel_vector_struct_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest)))
+            {
+                // For C++ we allow this extra reinterpretation
+                //    __mXXX{,d,i} <-> __mXXX{,d,i}
+                // We do not account this as a conversion of any kind, we just let
+                // these types be transparently compatible
+                orig = dest;
+            }
         }
     }
 

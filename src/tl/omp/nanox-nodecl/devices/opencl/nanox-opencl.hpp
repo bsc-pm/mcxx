@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -39,8 +39,6 @@ namespace TL
         class DeviceOpenCL : public DeviceProvider
         {
             private:
-
-                bool _opencl_tasks_processed;
 
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
@@ -82,9 +80,7 @@ namespace TL
             virtual void copy_stuff_to_device_file(
                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
-                bool allow_mandatory_creation();
-
-             virtual bool is_gpu_device() const;
+            bool allow_mandatory_creation();
 
              virtual void generate_outline_events_after(
                      Source& function_name_instr,

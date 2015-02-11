@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -120,9 +120,36 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& fill_immediate_arguments
                 );
 
+        template <typename Items>
+        void count_items(OutlineInfo& outline_info,
+                const TL::ObjectList<Items>& (OutlineDataItem::*getter)() const,
+                int &num_static_items,
+                int &num_dynamic_items);
+
+        template <typename Items>
+        Nodecl::NodeclBase count_dynamic_items(OutlineInfo& outline_info,
+                const TL::ObjectList<Items>& (OutlineDataItem::*getter)() const);
+
         void count_dependences(OutlineInfo& outline_info, int &num_static_dependences, int &num_dynamic_dependences);
+        Nodecl::NodeclBase count_dynamic_dependences(OutlineInfo& outline_info);
+
+        Nodecl::NodeclBase count_multidependences_extent(
+                const TL::ObjectList<DataReference::MultiRefIterator>& multideps);
+
         void count_copies(OutlineInfo& outline_info, int &num_static_copies, int &num_dynamic_copies);
-        int count_copies_dimensions(OutlineInfo& outline_info);
+        Nodecl::NodeclBase count_copies_dimensions(OutlineInfo& outline_info);
+        Nodecl::NodeclBase count_dynamic_copies(OutlineInfo& outline_info);
+
+        void handle_copy_item(
+                TL::DataReference& data_ref,
+                OutlineDataItem::CopyDirectionality dir,
+                Nodecl::NodeclBase ctr,
+                Source current_copy_index,
+                Source current_dimension_descriptor_index,
+                // out
+                Source &copy_ol_setup,
+                Source &copy_imm_setup,
+                int &num_dimensions_of_copy);
 
         void fill_copies(
                 Nodecl::NodeclBase ctr,
@@ -131,7 +158,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol structure_symbol,
                 // Source arguments_accessor,
                 // out
-                int &num_copies,
+                Source &num_copies,
                 Source& copy_ol_decl,
                 Source& copy_ol_arg,
                 Source& copy_ol_setup,
@@ -154,9 +181,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_copies_region(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                int num_copies,
-                int num_copies_dimensions,
-                // Source arguments_accessor,
+                int num_static_copies,
+                // int num_dynamic_copies,
+                Source num_copies,
+                Nodecl::NodeclBase num_copies_dimensions,
                 // out
                 Source& copy_ol_decl,
                 Source& copy_ol_arg,
@@ -183,6 +211,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 bool on_wait,
+                int num_static_dependences,
+                int num_dynamic_dependences,
+                Source& num_dependences,
                 // out
                 Source& result_src);
 
@@ -190,14 +221,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase ctr,
                 TL::DataReference dep_expr,
                 OutlineDataItem::DependencyDirectionality dir,
-                int current_dep_num,
-                Source& dependency_regions,
-                Source& dependency_init,
+                Source dimension_name,
+                Source& current_dep_num,
                 Source& result_src);
 
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
+                int num_static_dependences,
+                int num_dynamic_dependences,
+                Source num_dependences,
                 // out
                 Source& result_src);
 
@@ -218,12 +251,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 bool is_noflush);
 
-        static void fill_dimensions(int n_dims, int actual_dim, int current_dep_num,
+        static void fill_dimensions(int n_dims,
+                int actual_dim,
+                Source& dimension_array,
                 Nodecl::NodeclBase dep_expr,
                 Nodecl::NodeclBase * dim_sizes, 
                 Type dep_type, 
-                Source& dims_description, 
-                Source& dependency_regions_code, 
+                Source& result_src, 
                 Scope sc);
 
         Source fill_const_wd_info(

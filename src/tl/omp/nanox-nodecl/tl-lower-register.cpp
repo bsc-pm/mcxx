@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2014 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -45,18 +45,23 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
     outline_info_register.add_copies(
             construct.get_registered_set().as<Nodecl::List>(), OutlineDataItem::COPY_IN);
 
-    int num_copies;
+    Source num_copies;
     int num_static_copies, num_dynamic_copies;
     count_copies(outline_info, num_static_copies, num_dynamic_copies);
-    int num_copies_dimensions = count_copies_dimensions(outline_info);
+    Nodecl::NodeclBase num_copies_dimensions = count_copies_dimensions(outline_info);
 
     if (num_dynamic_copies != 0)
     {
-        internal_error("Not yet implemented", 0);
+        if (num_static_copies != 0)
+        {
+            num_copies << num_static_copies << "+";
+        }
+
+        num_copies << as_expression(count_dynamic_copies(outline_info));
     }
     else
     {
-        num_copies = num_static_copies;
+        num_copies << num_static_copies;
     }
 
     TL::Symbol structure_symbol;
@@ -70,6 +75,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
     fill_copies_region(
             construct,
             outline_info,
+            num_static_copies,
             num_copies,
             num_copies_dimensions,
             // out
@@ -83,9 +89,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
     src 
         << "{"
         << copy_imm_setup
-        << "nanos_err_t err;"
-        << "err = nanos_register_object(" << num_copies << ", imm_copy_data);"
-        << "if (err != NANOS_OK) nanos_handle_error(err);"
+        << "nanos_err_t nanos_err;"
+        << "nanos_err = nanos_register_object(" << num_copies << ", imm_copy_data);"
+        << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
         << "}";
 
     Nodecl::NodeclBase new_stmt = src.parse_statement(construct);

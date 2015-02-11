@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,6 +31,7 @@
 #include "tl-omp-deps.hpp"
 #include "cxx-diagnostic.h"
 #include "cxx-exprtype.h"
+#include "cxx-entrylist.h"
 #include "fortran03-exprtype.h"
 
 // Needed for parsing OpenMP standard clauses
@@ -51,8 +52,11 @@ namespace TL { namespace OpenMP {
                 DataSharingEnvironment& _data_sharing;
                 ObjectList<Symbol>& _symbols;
 
-                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
-                    :_data_sharing(ds_), _symbols(symbols) { }
+                const ObjectList<Symbol>& _iterators;
+
+                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols,
+                        const ObjectList<Symbol>& iterators)
+                    :_data_sharing(ds_), _symbols(symbols), _iterators(iterators) { }
 
                 void visit(const Nodecl::Symbol& node)
                 {
@@ -60,7 +64,9 @@ namespace TL { namespace OpenMP {
 
                     if (!sym.is_valid()
                             || !sym.is_variable()
-                            || sym.is_fortran_parameter())
+                            || sym.is_fortran_parameter()
+                            // For multidependences, we do not care about iterator symbols
+                            || _iterators.contains(sym))
                         return;
 
                     if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
@@ -75,12 +81,15 @@ namespace TL { namespace OpenMP {
                     walk(node.get_lhs());
                     // Do not walk the rhs
                 }
+
             };
 
             ExtraDataSharing _extra_data_sharing;
 
+            ObjectList<TL::Symbol> _iterators;
+
             DataRefVisitorDep(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
-                : _extra_data_sharing(ds_, symbols) { }
+                : _extra_data_sharing(ds_, symbols, _iterators) { }
 
             void visit_pre(const Nodecl::Symbol &node)
             {
@@ -114,6 +123,15 @@ namespace TL { namespace OpenMP {
             void visit_pre(const Nodecl::ClassMemberAccess &node)
             {
                 _extra_data_sharing.walk(node.get_lhs());
+            }
+
+            // Note that we alter the traversal here because we do not want to
+            // traverse the iterators, only the dependence
+            void visit(const Nodecl::MultiReference& node)
+            {
+                _iterators.push_back(node.get_symbol());
+                walk(node.get_dependence());
+                _iterators.pop_back();
             }
         };
 
@@ -510,6 +528,19 @@ namespace TL { namespace OpenMP {
                                 nodecl_stride,
                                 get_signed_int_type(),
                                 ast_get_locus(range));
+
+                        if (nodecl_is_constant(nodecl_lower)
+                                && nodecl_is_constant(nodecl_upper)
+                                && nodecl_is_constant(nodecl_stride))
+                        {
+                            nodecl_set_constant(
+                                    *nodecl_output,
+                                    const_value_make_range(
+                                        nodecl_get_constant(nodecl_lower),
+                                        nodecl_get_constant(nodecl_upper),
+                                        nodecl_get_constant(nodecl_stride)));
+                        }
+
                         break;
                     }
                 case AST_OMPSS_ITERATOR_RANGE_SIZE: // lower ; num_elements [C/C++ only]
@@ -560,12 +591,37 @@ namespace TL { namespace OpenMP {
                                 get_signed_int_type(),
                                 ast_get_locus(range));
 
+                        if (nodecl_is_constant(nodecl_lower)
+                                && nodecl_is_constant(nodecl_length))
+                        {
+                            nodecl_set_constant(
+                                    nodecl_upper,
+                                    const_value_sub(
+                                        const_value_add(
+                                            nodecl_get_constant(nodecl_lower),
+                                            nodecl_get_constant(nodecl_length)),
+                                        const_value_get_signed_int(1)));
+                        }
+
                         *nodecl_output = nodecl_make_range(
                                 nodecl_lower,
                                 nodecl_upper,
                                 nodecl_stride,
                                 get_signed_int_type(),
                                 ast_get_locus(range));
+
+                        if (nodecl_is_constant(nodecl_lower)
+                                && nodecl_is_constant(nodecl_upper)
+                                && nodecl_is_constant(nodecl_stride))
+                        {
+                            nodecl_set_constant(
+                                    *nodecl_output,
+                                    const_value_make_range(
+                                        nodecl_get_constant(nodecl_lower),
+                                        nodecl_get_constant(nodecl_upper),
+                                        nodecl_get_constant(nodecl_stride)));
+                        }
+
                         break;
                     }
                 default:
@@ -576,6 +632,7 @@ namespace TL { namespace OpenMP {
         void ompss_multidep_expression(
                 AST a,
                 decl_context_t decl_context,
+                decl_context_t iterator_context,
                 void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
                 nodecl_t* nodecl_output)
         {
@@ -585,15 +642,46 @@ namespace TL { namespace OpenMP {
                 AST identifier = ASTSon0(ompss_iterator);
                 AST range = ASTSon1(ompss_iterator);
 
-                scope_entry_t* new_iterator = new_symbol(decl_context,
-                        decl_context.current_scope,
-                        ASTText(identifier));
+                const char* iterator_name = NULL;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    iterator_name = strtolower(ASTText(identifier));
+                }
+                else
+                {
+                    iterator_name = ASTText(identifier);
+                }
+
+                {
+                    // Shadow check
+                    scope_entry_list_t* entry_list = query_name_str(decl_context, iterator_name, NULL);
+                    if (entry_list != NULL)
+                    {
+                        scope_entry_t* entry = entry_list_head(entry_list);
+                        entry_list_free(entry_list);
+                        if (entry->kind == SK_VARIABLE
+                                && entry->decl_context.current_scope != NULL
+                                && entry->decl_context.current_scope->kind == BLOCK_SCOPE
+                                && entry->decl_context.current_scope->related_entry == decl_context.current_scope->related_entry)
+                        {
+                            warn_printf("%s: warning: iterator name '%s' in multidependence shadows a previous variable\n",
+                                    ast_location(identifier),
+                                    iterator_name);
+                            info_printf("%s: info: declaration of the shadowed variable\n",
+                                    locus_to_str(entry->locus));
+                        }
+                    }
+                }
+
+                scope_entry_t* new_iterator = new_symbol(iterator_context,
+                        iterator_context.current_scope,
+                        iterator_name);
                 new_iterator->kind = SK_VARIABLE;
                 new_iterator->type_information = get_signed_int_type();
                 new_iterator->locus = ast_get_locus(ompss_iterator);
 
                 nodecl_t nodecl_range = nodecl_null();
-                ompss_multidep_check_range(range, decl_context, check_expression, &nodecl_range);
+                ompss_multidep_check_range(range, iterator_context, check_expression, &nodecl_range);
 
                 if (nodecl_is_err_expr(nodecl_range))
                 {
@@ -602,7 +690,11 @@ namespace TL { namespace OpenMP {
                 }
 
                 nodecl_t nodecl_subexpr = nodecl_null();
-                ompss_multidep_expression(ASTSon0(a), decl_context, check_expression, &nodecl_subexpr);
+                ompss_multidep_expression(ASTSon0(a),
+                        decl_context,
+                        iterator_context,
+                        check_expression,
+                        &nodecl_subexpr);
 
                 if (nodecl_is_err_expr(nodecl_subexpr))
                 {
@@ -610,7 +702,7 @@ namespace TL { namespace OpenMP {
                     return;
                 }
 
-                *nodecl_output = nodecl_make_omp_ss_multi_dependence(nodecl_range,
+                *nodecl_output = nodecl_make_multi_reference(nodecl_range,
                         nodecl_subexpr,
                         new_iterator,
                         nodecl_get_type(nodecl_subexpr),
@@ -618,7 +710,7 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                check_expression(a, decl_context, nodecl_output);
+                check_expression(a, iterator_context, nodecl_output);
             }
         }
 
@@ -626,8 +718,10 @@ namespace TL { namespace OpenMP {
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                decl_context_t new_context = new_block_context(decl_context);
-                ompss_multidep_expression(a, new_context,
+                decl_context_t iterator_context = new_block_context(decl_context);
+                ompss_multidep_expression(a,
+                        decl_context,
+                        iterator_context,
                         Source::c_cxx_check_expression_adapter,
                         nodecl_output);
             }
@@ -641,8 +735,10 @@ namespace TL { namespace OpenMP {
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                decl_context_t new_context = new_block_context(decl_context);
-                ompss_multidep_expression(a, new_context,
+                decl_context_t iterator_context = new_block_context(decl_context);
+                ompss_multidep_expression(a,
+                        decl_context,
+                        iterator_context,
                         Source::fortran_check_expression_adapter,
                         nodecl_output);
             }

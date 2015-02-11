@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -1855,6 +1855,8 @@ namespace TL
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                     else
@@ -1875,13 +1877,15 @@ namespace TL
                         }
                         else
                         {
-                            _upper_bound = 
+                            _upper_bound =
                                 CopyPolicy::new_node(
                                         Nodecl::Add::make(
                                             CopyPolicy::shallow_copy(lhs),
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                 }
@@ -1925,6 +1929,8 @@ namespace TL
                                         CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                         t,
                                         rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                     else
@@ -1952,6 +1958,8 @@ namespace TL
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                 }
@@ -2039,6 +2047,8 @@ namespace TL
                                 rhs,
                                 t,
                                 rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
                 }
             }
             // _induction_var = _induction_var + incr
@@ -2089,6 +2099,8 @@ namespace TL
                                 CopyPolicy::shallow_copy(rhs),
                                 t,
                                 rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
                 }
             }
             else
@@ -2167,7 +2179,6 @@ namespace TL
                         .make_nodecl(/* lvalue_ref */ true),
                         rlc.get_upper().shallow_copy(),
                         TL::Type::get_bool_type());
-
             }
             else if (const_value_is_negative(rlc.get_step().get_constant()))
             {

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -786,8 +786,27 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         __uint128_t_type->locus = make_locus("(global scope)", 0, 0);
     }
 #endif
-    // Mercurium limit constants
+    // Mercurium basic types
+    struct {
+        const char* type_name;
+        type_t* related_type;
+    } mercurium_basic_types[] = {
+        { "mercurium_size_t", get_size_t_type() },
+        { "mercurium_ptrdiff_t", get_ptrdiff_t_type() },
+        { NULL, NULL }
+    };
+    int i;
+    for (i = 0; mercurium_basic_types[i].type_name != NULL; i++)
+    {
+        scope_entry_t* typedef_sym = new_symbol(decl_context, decl_context.global_scope,
+                mercurium_basic_types[i].type_name);
+        typedef_sym->kind = SK_TYPEDEF;
+        typedef_sym->type_information = mercurium_basic_types[i].related_type;
+        typedef_sym->locus = make_locus("(global scope)", 0, 0);
+        symbol_entity_specs_set_is_user_declared(typedef_sym, 1);
+    }
 
+    // Mercurium limit constants
     struct {
         const char* base_name;
         type_t* related_type;
@@ -813,7 +832,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         { NULL, NULL }
     };
 
-    int i;
     for (i = 0; mercurium_constant_limits[i].base_name != NULL; i++)
     {
         const char* base_name = mercurium_constant_limits[i].base_name;
@@ -11483,6 +11501,55 @@ static void update_function_specifiers(scope_entry_t* entry,
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
 
+    C_LANGUAGE()
+    {
+        if (entry->decl_context.current_scope
+                == entry->decl_context.global_scope)
+        {
+            // If this function is global, and previously declared not static,
+            // extern or inline and now is going to be inline, make it extern
+            // otherwise the function will not be emitted in C99
+            //
+            // So, the input source (case A)
+            //
+            //   void f();
+            //   inline void f() { }
+            //
+            // must be emitted as
+            //
+            //   extern inline void f() { }
+            //
+            // Note that, the input source
+            //
+            //   inline void f();
+            //   inline void f() { }
+            //
+            // must NOT add extern: a definition of 'f' does not have to be emitted
+            // in this case (the use may provide it elsewhere by using extern, or
+            // not using inline)
+            //
+            // The dual case (case B)
+            //
+            //   inline void f();
+            //   void f() { }
+            //
+            // must be emitted also as
+            //
+            //   extern inline void f()
+            //
+            // Note that in general we do not force extern to functions, this is a
+            // special case required by the subtle C99 semantics regarding inline
+            if (!symbol_entity_specs_get_is_extern(entry)
+                    && !symbol_entity_specs_get_is_static(entry)
+                    // This covers cases A and B shown above
+                    && (symbol_entity_specs_get_is_inline(entry)
+                        != gather_info->is_inline))
+            {
+                symbol_entity_specs_set_is_extern(entry, 1);
+            }
+        }
+    }
+
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
@@ -11492,6 +11559,11 @@ static void update_function_specifiers(scope_entry_t* entry,
             symbol_entity_specs_get_is_inline(entry)
             || gather_info->is_inline
             || gather_info->is_constexpr);
+
+    // Merge extern attribute
+    symbol_entity_specs_set_is_extern(entry,
+            symbol_entity_specs_get_is_extern(entry)
+            || gather_info->is_extern);
 
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
@@ -18509,6 +18581,9 @@ static void build_scope_ambiguity_handler(AST a,
         nodecl_t* nodecl_output)
 {
     solve_ambiguous_statement(a, decl_context);
+    nodecl_t n = flush_extra_declared_symbols(ast_get_locus(a));
+    nodecl_free(n);
+
     // Restart
     build_scope_statement(a, decl_context, nodecl_output);
 }
@@ -21774,7 +21849,8 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
         nodecl_t nodecl_loop_iter = nodecl_get_child(nodecl_loop_control, 2);
 
         nodecl_loop_init = instantiate_loop_init(v, nodecl_loop_init);
-        nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
+        if (!nodecl_is_null(nodecl_loop_condition))
+            nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
         nodecl_loop_iter = instantiate_expression(nodecl_loop_iter,
                 v->new_decl_context,
                 v->instantiation_symbol_map,

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -116,7 +116,7 @@ namespace TL { namespace Nanox {
 
     void Lowering::finalize_phase(Nodecl::NodeclBase global_node)
     {
-        set_openmp_programming_model(global_node);
+        emit_nanos_requirements(global_node);
     }
 
     void Lowering::set_weaks_as_statics(const std::string& str)
@@ -174,42 +174,56 @@ namespace TL { namespace Nanox {
         return _firstprivates_always_references;
     }
 
-    void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)
+    void Lowering::emit_nanos_requirements(Nodecl::NodeclBase global_node)
     {
-        if (Nanos::Version::interface_is_at_least("master", 5028))
-            // Do nothing
-            return;
-
         Source src;
-        if (!_static_weak_symbols)
+        if (seen_task_with_priorities)
         {
-            src
-                << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
-                ;
-        }
-        else
-        {
-            // Some compilers (like ICC) may require this
-            src
-                << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+            src << "__attribute__((common)) char nanos_need_priorities_;"
                 ;
         }
 
-        FORTRAN_LANGUAGE()
+        if (seen_opencl_task)
         {
-            // Parse in C
-            Source::source_language = SourceLanguage::C;
+            src << "__attribute__((common)) char ompss_uses_opencl;"
+                ;
         }
-        Nodecl::List n = src.parse_global(global_node).as<Nodecl::List>();
+
+        if (seen_cuda_task)
+        {
+            src << "__attribute__((common)) char ompss_uses_cuda;"
+                ;
+        }
+
+        if (seen_gpu_cublas_handle)
+        {
+            src << "__attribute__((common)) char gpu_cublas_init;"
+                ;
+        }
+
+        if (!Nanos::Version::interface_is_at_least("master", 5028))
+            set_openmp_programming_model(src);
+
+        Nodecl::List n;
+        if (!src.empty()) // avoid parsing an empty source
+        {
+            FORTRAN_LANGUAGE()
+            {
+                // Parse in C
+                Source::source_language = SourceLanguage::C;
+            }
+            n = src.parse_global(global_node).as<Nodecl::List>();
+            FORTRAN_LANGUAGE()
+            {
+                Source::source_language = SourceLanguage::Current;
+            }
+        }
 
         Nodecl::List& extra_c_code = this->get_extra_c_code();
-
         extra_c_code.append(n);
 
-        FORTRAN_LANGUAGE()
-        {
-            Source::source_language = SourceLanguage::Current;
-        }
+        if (extra_c_code.empty())
+            return;
 
         if (!IS_FORTRAN_LANGUAGE)
         {
@@ -233,6 +247,24 @@ namespace TL { namespace Nanox {
 
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
         }
+    }
+
+    void Lowering::set_openmp_programming_model(Source &src)
+    {
+        if (!_static_weak_symbols)
+        {
+            src
+                << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
+        else
+        {
+            // Some compilers (like ICC) may require this
+            src
+                << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
+
     }
 
     FILE* Lowering::get_ancillary_file()
@@ -259,6 +291,11 @@ namespace TL { namespace Nanox {
 
     Nodecl::List Lowering::_extra_c_code;
 
+    Nodecl::List& Lowering::get_extra_c_code()
+    {
+        return _extra_c_code;
+    }
+
     void Lowering::phase_cleanup(DTO& data_flow)
     {
         if (_ancillary_file != NULL)
@@ -266,11 +303,12 @@ namespace TL { namespace Nanox {
 
         _ancillary_file = NULL;
         _extra_c_code.get_internal_nodecl() = nodecl_null();
-    }
 
-    Nodecl::List& Lowering::get_extra_c_code()
-    {
-        return _extra_c_code;
+        // Cleanup flags
+        seen_task_with_priorities = false;
+        seen_opencl_task = false;
+        seen_cuda_task = false;
+        seen_gpu_cublas_handle = false;
     }
 } }
 

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -2452,8 +2452,25 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
                 /* sign */ 0));
 }
 
+static char this_can_be_used(decl_context_t decl_context)
+{
+    scope_entry_t* function = decl_context.current_scope->related_entry;
+    if (function != NULL
+            && ((function->kind == SK_FUNCTION
+                    && symbol_entity_specs_get_is_static(function))
+                || function->kind == SK_DEPENDENT_FRIEND_FUNCTION))
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
 {
+    if (!this_can_be_used(decl_context))
+        return NULL;
+
     scope_entry_t *this_symbol = NULL;
     if (decl_context.current_scope->kind == BLOCK_SCOPE)
     {
@@ -11181,7 +11198,9 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                     && (entry->kind != SK_VARIABLE
                         || (!is_class_type(type)
                             && !is_pointer_to_function_type(type)
-                            && !is_dependent_type(type)))
+                            && !is_dependent_type(type)
+                            && !is_decltype_auto_type(type)
+                            && !type_contains_auto(type)))
                     && (entry->kind != SK_TEMPLATE
                         || !is_function_type(
                             named_type_get_symbol(template_type_get_primary_type(type))
@@ -11209,7 +11228,9 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                         || (entry->kind == SK_VARIABLE
                             && (is_class_type(type)
                                 || is_pointer_to_function_type(type)
-                                || is_dependent_type(type)))
+                                || is_dependent_type(type)
+                                || is_decltype_auto_type(type)
+                                || type_contains_auto(type)))
                         // Or It's a local function
                         || (entry->kind == SK_FUNCTION
                             &&  entry->decl_context.current_scope->kind == BLOCK_SCOPE))
@@ -11676,7 +11697,18 @@ static char any_is_member_function(scope_entry_list_t* candidates)
             !entry_list_iterator_end(it) && !is_member;
             entry_list_iterator_next(it))
     {
-        is_member |= symbol_entity_specs_get_is_member(entry_list_iterator_current(it));
+        scope_entry_t* fun = 
+            entry_list_iterator_current(it);
+
+        if (fun->kind == SK_TEMPLATE)
+        {
+            fun = named_type_get_symbol(template_type_get_primary_type(fun->type_information));
+        }
+
+        if (fun->kind == SK_FUNCTION)
+        {
+            is_member |= symbol_entity_specs_get_is_member(entry_list_iterator_current(it));
+        }
     }
     entry_list_iterator_free(it);
 
@@ -11692,8 +11724,19 @@ static char any_is_nonstatic_member_function(scope_entry_list_t* candidates)
             !entry_list_iterator_end(it) && !is_member;
             entry_list_iterator_next(it))
     {
-        is_member |= symbol_entity_specs_get_is_member(entry_list_iterator_current(it))
-            && !symbol_entity_specs_get_is_static(entry_list_iterator_current(it));
+        scope_entry_t* fun = 
+            entry_list_iterator_current(it);
+
+        if (fun->kind == SK_TEMPLATE)
+        {
+            fun = named_type_get_symbol(template_type_get_primary_type(fun->type_information));
+        }
+
+        if (fun->kind == SK_FUNCTION)
+        {
+            is_member |= symbol_entity_specs_get_is_member(fun)
+                && !symbol_entity_specs_get_is_static(fun);
+        }
     }
     entry_list_iterator_free(it);
 
@@ -12072,13 +12115,70 @@ static void check_nodecl_function_call_cxx(
             // The call is of the form F(X) (where F is an unqualified-id)
             if (!any_arg_is_type_dependent)
             {
-                // No argument was found dependent, so the name F should have
-                // already been bound here
+                // No argument was found dependent (or there were no
+                // arguments), so the name F should have already been bound
+                // here
             }
             else
             {
-                // The called name is not bound
-                nodecl_called = nodecl_called_name;
+                // Some argument was found dependent, but the lookup found something
+                // that can be bound here (i.e. a variable)
+                if (nodecl_get_symbol(nodecl_called) != NULL
+                        && nodecl_get_symbol(nodecl_called)->kind == SK_VARIABLE)
+                {
+                    // This is for this case, we want to remember who we are calling
+                    //
+                    // template <typename Op,
+                    //           typename Arg1,
+                    //           typename Arg2>
+                    // void f(Op op, Arg1 arg1, Arg2 arg2)
+                    // {
+                    //     op(arg1, arg2);
+                    // }
+                }
+                else if (this_symbol != NULL
+                        && is_dependent_type(this_symbol->type_information)
+                        && is_unresolved_overloaded_type(nodecl_get_type(nodecl_called))
+                        && any_is_nonstatic_member_function(candidates))
+                {
+                    // This is for this case, we want to remember this call
+                    // goes through this (since Koenig lookup will always
+                    // prioritize members, regardless they can be called or
+                    // not)
+                    //
+                    // template <typename T>
+                    // struct A
+                    // {
+                    //    void g();
+                    //    void f(T t)
+                    //    {
+                    //        g(t); // this->g(t);
+                    //    }
+                    // };
+
+                    type_t* ptr_class_type = this_symbol->type_information;
+                    type_t* class_type = pointer_type_get_pointee_type(ptr_class_type);
+
+                    nodecl_t nodecl_this = nodecl_make_symbol(this_symbol,
+                            nodecl_get_locus(nodecl_called));
+                    nodecl_set_type(nodecl_this, ptr_class_type);
+
+                    nodecl_called =
+                        nodecl_make_cxx_class_member_access(
+                                nodecl_make_dereference(
+                                    nodecl_this,
+                                    get_lvalue_reference_type(class_type),
+                                    nodecl_get_locus(nodecl_called)),
+                                nodecl_called,
+                                get_unknown_dependent_type(),
+                                nodecl_get_locus(nodecl_called));
+                }
+                else
+                {
+                    // otherwise the called name is not bound at this point (and
+                    // instantiation will finally choose the called entity)
+                    nodecl_called = nodecl_called_name;
+                }
             }
         }
 
@@ -14459,6 +14559,32 @@ static void implement_lambda_expression(
     }
 }
 
+static char nodecl_contains_error_nodes(nodecl_t n)
+{
+    if (!nodecl_is_null(n))
+    {
+        if (nodecl_is_err_expr(n)
+                || nodecl_is_err_stmt(n))
+            return 1;
+
+        if ((nodecl_get_kind(n) == NODECL_OBJECT_INIT
+                    || nodecl_get_kind(n) == NODECL_CXX_DECL
+                    || nodecl_get_kind(n) == NODECL_CXX_DEF)
+                && nodecl_contains_error_nodes(
+                    nodecl_get_symbol(n)->value))
+            return 1;
+
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            if (nodecl_contains_error_nodes(nodecl_get_child(n, i)))
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
 // Note this function only implements C++11
 // C++14 lambdas are different and will require a rework of this function
 static void check_lambda_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -14733,6 +14859,14 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     result_symbol->type_information = function_type_get_return_type(function_type);
 
     build_scope_statement(compound_statement, lambda_block_context, &nodecl_lambda_body);
+
+    if (nodecl_contains_error_nodes(nodecl_lambda_body))
+    {
+        nodecl_free(nodecl_lambda_body);
+
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        return;
+    }
 
     // We are only interested in the head of this list
     nodecl_lambda_body = nodecl_list_head(nodecl_lambda_body);

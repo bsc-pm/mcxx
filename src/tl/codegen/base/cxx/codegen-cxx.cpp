@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -45,14 +45,14 @@ MCXX_END_DECLS
 #include "cxx-printscope.h"
 namespace Codegen {
 
-void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
+void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out)
 {
     if (n.is_null())
         return;
 
-    // Keep the state and reset it
+    // Keep the state
     State old_state = state;
-    state = State();
+    state = new_state;
     std::ostream* old_out = file;
 
     state.nontype_template_argument_needs_parentheses =
@@ -75,6 +75,11 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
     // Restore previous state
     file = old_out;
     state = old_state;
+}
+
+void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
+{
+    codegen(n, State(), out);
 }
 
 void CxxBase::push_scope(TL::Scope sc)
@@ -716,17 +721,30 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         *(file) << "(*";
     }
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs);
-    if (needs_parentheses)
+    // If this is like (*this).x and we cannot emit it, ignore lhs
+    bool lhs_is_derref_this = (state._do_not_emit_this
+            && lhs.is<Nodecl::Dereference>()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().is_valid()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().get_name() == "this");
+
+    if (lhs_is_derref_this)
     {
-        *(file) << "(";
+        // do nothing
     }
-    // Left hand side does not care about the top level reference status
-    state.do_not_derref_rebindable_reference = false;
-    walk(lhs);
-    if (needs_parentheses)
+    else
     {
-        *(file) << ")";
+        bool needs_parentheses = operand_has_lower_priority(node, lhs);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        // Left hand side does not care about the top level reference status
+        state.do_not_derref_rebindable_reference = false;
+        walk(lhs);
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
     }
 
     if (!is_anonymous_union_accessor)
@@ -741,12 +759,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         {
             *(file) << "::";
         }
+        else if (lhs_is_derref_this)
+        {
+            // skip any separator
+        }
         else
         {
             *(file) << ".";
         }
 
-        needs_parentheses = operand_has_lower_priority(node, rhs);
+        bool needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
         {
             *(file) << "(";
@@ -1045,24 +1067,37 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    //
+    // If this is like (*this).x and we cannot emit it, ignore lhs
+    bool lhs_is_derref_this = (state._do_not_emit_this
+            && lhs.is<Nodecl::Dereference>()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().is_valid()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().get_name() == "this");
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs);
-    if (needs_parentheses)
+    if (lhs_is_derref_this)
     {
-        *(file) << "(";
+        // Do nothing
     }
-    walk(lhs);
-
-    if (needs_parentheses)
+    else
     {
-        *(file) << ")";
+
+        bool needs_parentheses = operand_has_lower_priority(node, lhs);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        walk(lhs);
+
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
+
+        *(file) << "."
+            << /* template tag if needed */ node.get_text();
     }
 
-    *(file) << "."
-         << /* template tag if needed */ node.get_text();
-
-
-    needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_parentheses = operand_has_lower_priority(node, rhs);
     if (needs_parentheses)
     {
         *(file) << "(";
@@ -1274,6 +1309,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
+                node.get_locus_str().c_str());
+    }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::ErrStatement& node)
+{
+    if (!this->is_file_output())
+    {
+        *(file) << "<<error statement>>";
+    }
+    else
+    {
+        internal_error("%s: error: <<error statement>> found when the output is a file",
                 node.get_locus_str().c_str());
     }
 }
@@ -9350,9 +9398,14 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9387,9 +9440,14 @@ std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9408,9 +9466,14 @@ std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
         std::stringstream ss_out;
         std::ostream *tmp_out = &ss_out;
 
+        bool b = this->is_file_output();
+        this->set_is_file_output(false);
         std::swap(file, tmp_out);
+
         walk(symbol.get_asm_specification());
+
         std::swap(file, tmp_out);
+        this->set_is_file_output(b);
 
         result = ss_out.str();
     }
@@ -9425,8 +9488,16 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
         if (!symbol.function_noexcept().is_null())
         {
             exception_spec += " noexcept(";
-            exception_spec += this->codegen_to_str(symbol.function_noexcept(),
-                    symbol.get_scope());
+
+            std::stringstream ss;
+            State new_state(state);
+            new_state._do_not_emit_this = true;
+
+            push_scope(symbol.get_scope());
+            this->codegen(symbol.function_noexcept(), new_state, &ss);
+            pop_scope();
+
+            exception_spec += ss.str();
             exception_spec += ")";
         }
         else if (!symbol.function_throws_any_exception())

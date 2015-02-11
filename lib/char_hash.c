@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2012 Jan Hoogerbrugge
+  (C) Copyright 2012-2012 Jan Hoogerbrugge
 
   This file is part of Mercurium C/C++ source-to-source compiler.
 

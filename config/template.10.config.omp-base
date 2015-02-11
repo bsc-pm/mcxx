@@ -75,6 +75,7 @@ linker_options = -Xlinker --enable-new-dtags
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
+linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 
 [omp-base-ibm : omp-base-common]
 linker_options = -Wl,--add-needed
@@ -92,3 +93,4 @@ linker_options = -Wl,--enable-new-dtags
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_IBM_LDFLAGS@
+linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def

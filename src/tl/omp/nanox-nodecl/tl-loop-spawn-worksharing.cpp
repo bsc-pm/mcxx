@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -86,9 +86,9 @@ namespace TL { namespace Nanox {
         {
             schedule_setup
                 <<     "nanos_omp_sched_t nanos_runtime_sched;"
-                <<     "err = nanos_omp_get_schedule(&nanos_runtime_sched, &nanos_chunk);"
-                <<     "if (err != NANOS_OK)"
-                <<         "nanos_handle_error(err);"
+                <<     "nanos_err = nanos_omp_get_schedule(&nanos_runtime_sched, &nanos_chunk);"
+                <<     "if (nanos_err != NANOS_OK)"
+                <<         "nanos_handle_error(nanos_err);"
                 <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(nanos_runtime_sched);"
                 ;
         }
@@ -123,9 +123,9 @@ namespace TL { namespace Nanox {
                 << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), slicer_descriptor));
         }
         worksharing_creation
-            <<     "err = nanos_worksharing_create(&" << as_symbol(slicer_descriptor) << ", current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
-            <<     "if (err != NANOS_OK)"
-            <<         "nanos_handle_error(err);"
+            <<     "nanos_err = nanos_worksharing_create(&" << as_symbol(slicer_descriptor) << ", current_ws_policy, (void**)&nanos_setup_info_loop, &single_guard);"
+            <<     "if (nanos_err != NANOS_OK)"
+            <<         "nanos_handle_error(nanos_err);"
             ;
 
         std::string wd_description;
@@ -171,7 +171,7 @@ namespace TL { namespace Nanox {
         spawn_code
         << "{"
         <<     as_type(get_bool_type()) << " single_guard;"
-        <<     "nanos_err_t err;"
+        <<     "nanos_err_t nanos_err;"
         <<     schedule_setup
         <<     "nanos_ws_info_loop_t nanos_setup_info_loop;"
         <<     "nanos_setup_info_loop.lower_bound = " << as_expression(lower) << ";"
@@ -182,18 +182,18 @@ namespace TL { namespace Nanox {
         <<     "if (single_guard)"
         <<     "{"
         <<         "int sup_threads;"
-        <<         "err = nanos_team_get_num_supporting_threads(&sup_threads);"
-        <<         "if (err != NANOS_OK)"
-        <<             "nanos_handle_error(err);"
+        <<         "nanos_err = nanos_team_get_num_supporting_threads(&sup_threads);"
+        <<         "if (nanos_err != NANOS_OK)"
+        <<             "nanos_handle_error(nanos_err);"
         <<         "if (sup_threads > 0)"
         <<         "{"
-        <<             "err = nanos_malloc((void**)&(" << as_symbol(slicer_descriptor) << "->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
-        <<             "err = nanos_team_get_supporting_threads(&" << as_symbol(slicer_descriptor) << "->nths, " 
+        <<             "nanos_err = nanos_malloc((void**)&(" << as_symbol(slicer_descriptor) << "->threads), sizeof(nanos_thread_t) * sup_threads, \"\", 0);"
+        <<             "if (nanos_err != NANOS_OK)"
+        <<                 "nanos_handle_error(nanos_err);"
+        <<             "nanos_err = nanos_team_get_supporting_threads(&" << as_symbol(slicer_descriptor) << "->nths, " 
         <<                        as_symbol(slicer_descriptor) << "->threads);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
+        <<             "if (nanos_err != NANOS_OK)"
+        <<                 "nanos_handle_error(nanos_err);"
         <<             struct_arg_type_name << " *ol_args = (" << struct_arg_type_name <<"*) 0;"
         <<             const_wd_info
         <<             "nanos_wd_t nanos_wd_ = (nanos_wd_t) 0;"
@@ -204,22 +204,22 @@ namespace TL { namespace Nanox {
         <<                 "replicate = nanos_find_slicer(\"replicate\");"
         <<             "if (replicate == (nanos_slicer_t)0)"
         <<                 "nanos_handle_error(NANOS_UNIMPLEMENTED);"
-        <<             "err = nanos_create_sliced_wd(&nanos_wd_, "
+        <<             "nanos_err = nanos_create_sliced_wd(&nanos_wd_, "
         <<                                           "nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
         <<                                           "(size_t)" << struct_size << ",  nanos_wd_const_data.base.data_alignment, "
         <<                                           "(void**)&ol_args, (nanos_wd_t*)0, replicate,"
         <<                                           "&nanos_wd_const_data.base.props, &dyn_props, 0, (nanos_copy_data_t**)0,"
         <<                                           "0, (nanos_region_dimension_internal_t**)0"
         <<                                           ");"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
+        <<             "if (nanos_err != NANOS_OK)"
+        <<                 "nanos_handle_error(nanos_err);"
         <<             statement_placeholder(fill_outline_arguments_tree)
-        <<             "err = nanos_submit(nanos_wd_, 0, ( " << dependence_type << ") 0, (nanos_team_t) 0);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
-        <<             "err = nanos_free(" << as_symbol(slicer_descriptor) << "->threads);"
-        <<             "if (err != NANOS_OK)"
-        <<                 "nanos_handle_error(err);"
+        <<             "nanos_err = nanos_submit(nanos_wd_, 0, ( " << dependence_type << ") 0, (nanos_team_t) 0);"
+        <<             "if (nanos_err != NANOS_OK)"
+        <<                 "nanos_handle_error(nanos_err);"
+        <<             "nanos_err = nanos_free(" << as_symbol(slicer_descriptor) << "->threads);"
+        <<             "if (nanos_err != NANOS_OK)"
+        <<                 "nanos_handle_error(nanos_err);"
         <<         "}"
         <<     "}"
         <<     immediate_decl

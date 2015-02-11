@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -155,6 +155,25 @@ namespace Nodecl {
                 {
                     nodecl_set_child(_n, i, new_childs[i].get_internal_nodecl());
                 }
+            }
+
+            // C++ bits
+            bool is_value_dependent() const
+            {
+                return nodecl_expr_is_value_dependent(_n);
+            }
+            void set_is_value_dependent(bool b)
+            {
+                nodecl_expr_set_is_value_dependent(_n, b);
+            }
+
+            bool is_type_dependent() const
+            {
+                return nodecl_expr_is_type_dependent(_n);
+            }
+            void set_is_type_dependent(bool b)
+            {
+                nodecl_expr_set_is_type_dependent(_n, b);
             }
 
             // Internal use only

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -170,19 +170,19 @@ namespace TL { namespace Nanox {
             instrument_before_c
                 << "static int nanos_funct_id_init = 0;"
                 << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "nanos_err_t err;"
+                << "nanos_err_t nanos_err;"
                 << "if (nanos_funct_id_init == 0)"
                 << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val("
+                <<    "nanos_err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+                <<    "nanos_err = nanos_instrument_register_value_with_val("
                 <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
                 <<          "\"user-funct-location\","
                 <<          "\"" << val << "\","
                 <<          "\"" << extended_descr << "\","
                 <<          /* abort_when_registered */ "0);"
 
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
                 ;
@@ -218,7 +218,7 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_START;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
     }
 
@@ -231,37 +231,8 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_END;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
-    }
-
-    void DeviceProvider::create_weak_device_symbol(
-            const std::string& symbol_name,
-            Nodecl::NodeclBase root)
-    {
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char " << symbol_name << " = 1;";
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::C;
-
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
-
-        Source::source_language = SourceLanguage::Current;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            _extra_c_code.prepend(functions_section_tree);
-        }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
-        }
-    }
-
-    bool DeviceProvider::is_gpu_device() const
-    {
-        return false;
     }
 
     // This is only for Fortran!
@@ -1279,13 +1250,13 @@ namespace TL { namespace Nanox {
         //         {
         //             if (first)
         //             {
-        //                 ancillary_source << "   nanos_err_t err;\n";
+        //                 ancillary_source << "   nanos_err_t nanos_err;\n";
         //                 first = false;
         //             }
 
         //             ancillary_source
-        //                 << "    err = nanos_free(p" << i << ");\n"
-        //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
+        //                 << "    nanos_err = nanos_free(p" << i << ");\n"
+        //                 << "    if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);\n"
         //                 ;
         //         }
         //     }
