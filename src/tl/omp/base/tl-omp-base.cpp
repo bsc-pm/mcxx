@@ -3068,6 +3068,11 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_data_sharing_list<Nodecl::OpenMP::Threadprivate>(
+                data_sharing_env, OpenMP::DS_THREADPRIVATE,
+                locus,
+                result_list);
+
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
         TL::ObjectList<Symbol> reduction_symbols = reductions.map(
@@ -3155,6 +3160,11 @@ namespace TL { namespace OpenMP {
 
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
+                locus,
+                result_list);
+
+        make_data_sharing_list<Nodecl::OpenMP::Threadprivate>(
+                data_sharing_env, OpenMP::DS_THREADPRIVATE,
                 locus,
                 result_list);
 

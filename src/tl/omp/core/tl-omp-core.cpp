@@ -805,6 +805,16 @@ namespace TL
                     continue;
                 }
 
+                if (sym.is_thread()
+                        || sym.is_thread_local())
+                {
+                    std::stringstream reason;
+                    reason << (sym.is_thread() ? "__thread" : "thread_local")
+                           << " variables are threadprivate";
+
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
+                }
+
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
@@ -1311,6 +1321,16 @@ namespace TL
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
                             "Cray pointee is private");
                     sym  = sym.get_cray_pointer();
+                }
+
+                if (sym.is_thread()
+                        || sym.is_thread_local())
+                {
+                    std::stringstream reason;
+                    reason << (sym.is_thread() ? "__thread" : "thread_local")
+                           << " variables are threadprivate";
+
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
                 }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
