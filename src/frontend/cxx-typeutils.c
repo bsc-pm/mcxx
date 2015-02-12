@@ -493,30 +493,46 @@ struct type_tag
     // (all types)
     type_t* unqualified_type;
 
-    // Pointer
-    // (kind == TK_POINTER)
-    // (kind == TK_POINTER_TO_MEMBER)
-    pointer_info_t* pointer;
+    union {
 
-    // Array
-    // (kind == TK_ARRAY)
-    array_info_t* array;
+        // Pointer
+        // (kind == TK_POINTER)
+        // (kind == TK_POINTER_TO_MEMBER)
+        pointer_info_t* pointer;
 
-    // Function
-    // (kind == TK_FUNCTION)
-    function_info_t* function;
+        // Array
+        // (kind == TK_ARRAY)
+        array_info_t* array;
 
-    // "Simple" type
-    // (kind == TK_DIRECT)
-    simple_type_t* type;
-    
-    // For unresolved overload function types 
-    // (kind == TK_OVERLOAD)
-    scope_entry_list_t* overload_set;
+        // Function
+        // (kind == TK_FUNCTION)
+        function_info_t* function;
 
-    // Braced list type
-    // (kind == TK_BRACED_LIST)
-    braced_list_info_t* braced_type;
+        // "Simple" type
+        // (kind == TK_DIRECT)
+        simple_type_t* type;
+
+        // For unresolved overload function types
+        // (kind == TK_OVERLOAD)
+        scope_entry_list_t* overload_set;
+
+        // Braced list type
+        // (kind == TK_BRACED_LIST)
+        braced_list_info_t* braced_type;
+
+        // Computed function type
+        // A parameterized function type (implemented in the compiler)
+        // (kind == TK_COMPUTED)
+        computed_function_type_t compute_type_function;
+
+        // Expanded type
+        // (kind == TK_PACK)
+        pack_type_info_t* pack_type;
+
+        // Sequence type
+        // (kind == TK_SEQUENCE)
+        sequence_type_info_t* sequence_type;
+    };
 
     // For template specialized parameters and template types
     // (kind == TK_DIRECT && (type->kind == STK_CLASS || type->kind == STK_TEMPLATE_TYPE))
@@ -530,19 +546,6 @@ struct type_tag
     // (kind == TK_DIRECT && type->kind == STK_CLASS)
     // (kind == TK_FUNCTION)
     type_t* related_template_type;
-
-    // Computed function type
-    // A parameterized function type (implemented in the compiler)
-    // (kind == TK_COMPUTED)
-    computed_function_type_t compute_type_function;
-
-    // Expanded type
-    // (kind == TK_PACK)
-    pack_type_info_t* pack_type;
-
-    // Sequence type
-    // (kind == TK_SEQUENCE)
-    sequence_type_info_t* sequence_type;
 
     // Cache typedefs
     type_t* _advanced_type;
