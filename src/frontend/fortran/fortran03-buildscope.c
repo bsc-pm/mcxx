@@ -8395,6 +8395,7 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     // Copy everything and restore the name
     *current_symbol = *entry;
+    symbol_clear_indirect_types(current_symbol);
 
     // Restore original context
     current_symbol->decl_context = decl_context;

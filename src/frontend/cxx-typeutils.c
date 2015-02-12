@@ -1346,18 +1346,9 @@ static int uint_comp(const void *v1, const void *v2)
         return 0;
 }
 
-static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
+static inline type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 {
-    static dhash_ptr_t *_user_defined_types_arr[2] = { NULL, NULL };
-
-    if (_user_defined_types_arr[!!indirect] == NULL)
-    {
-        _user_defined_types_arr[!!indirect] = dhash_ptr_new(5);
-    }
-
-    dhash_ptr_t * _user_defined_types = _user_defined_types_arr[!!indirect];
-    
-    type_t* type_info = dhash_ptr_query(_user_defined_types, (const char*)entry);
+    type_t* type_info = entry->_indirect_type[!!indirect];
 
     if (type_info == NULL)
     {
@@ -1384,7 +1375,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
             type_info->info->is_dependent = is_dependent_type(entry->type_information);
         }
 
-        dhash_ptr_insert(_user_defined_types, (const char*)entry, type_info);
+        entry->_indirect_type[!!indirect] = type_info;
     }
 
     return type_info;

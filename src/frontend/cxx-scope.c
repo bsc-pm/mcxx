@@ -8655,3 +8655,9 @@ nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
 
     return nodecl_null();
 }
+
+void symbol_clear_indirect_types(scope_entry_t* entry)
+{
+    entry->_indirect_type[0] = NULL;
+    entry->_indirect_type[1] = NULL;
+}
