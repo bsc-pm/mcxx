@@ -462,6 +462,28 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
             NULL);
 }
 
+static char solve_ambiguous_member_declaration_check_interpretation(
+        AST declaration,
+        decl_context_t decl_context,
+        int option,
+        void* p)
+{
+    // solve_ambiguous_declaration_check_interpretation already supports member_declarations
+    return solve_ambiguous_declaration_check_interpretation(declaration,
+            decl_context,
+            option,
+            p);
+}
+
+void solve_ambiguous_member_declaration(AST a, decl_context_t decl_context)
+{
+    solve_ambiguity_generic(a, decl_context,
+            NULL,
+            solve_ambiguous_member_declaration_check_interpretation,
+            NULL,
+            NULL);
+}
+
 // Checks for old-styled functions
 static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_context)
 {
