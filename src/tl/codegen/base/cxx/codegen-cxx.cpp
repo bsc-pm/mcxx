@@ -6541,12 +6541,13 @@ void CxxBase::declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Sy
                 /* without template id */ true);
     }
 
-    // Dirty trick to remove the firsts two colons if the name of the function has them
+    // Protect this declarator because the decl-specifier seq might end with an
+    // id-expression that would end being "pasted" to the declarator-name
     if (function_name.size() >= 2 &&
             function_name[0] == ':' &&
             function_name[1] == ':')
     {
-        function_name = function_name.substr(2);
+        function_name = "(" + function_name + ")";
     }
 
     indent();
