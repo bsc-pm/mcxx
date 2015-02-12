@@ -7293,7 +7293,9 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
     {
         if (ASTKind(proc_interface) == AST_SYMBOL)
         {
-            interface = get_symbol_for_name(decl_context, proc_interface, ASTText(proc_interface));
+            interface = fortran_query_name_str(decl_context,
+                    strtolower(ASTText(proc_interface)),
+                    ast_get_locus(proc_interface));
 
             if (interface == NULL
                     || interface->kind != SK_FUNCTION)
