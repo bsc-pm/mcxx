@@ -11467,7 +11467,7 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
     return 1;
 }
 
-static type_t* compute_default_argument_conversion(type_t* arg_type,
+static type_t* compute_default_argument_conversion_for_ellipsis(type_t* arg_type,
         decl_context_t decl_context,
         const locus_t* locus,
         char emit_diagnostic)
@@ -11631,7 +11631,6 @@ static char check_argument_types_of_call(
         {
             nodecl_t arg = list[i];
 
-            // We do not check unprototyped functions
             if (!function_type_get_lacking_prototype(function_type))
             {
                 // Ellipsis is not to be checked
@@ -11652,7 +11651,7 @@ static char check_argument_types_of_call(
                     {
                         type_t* arg_type = nodecl_get_type(arg);
 
-                        type_t* default_conversion = compute_default_argument_conversion(
+                        type_t* default_conversion = compute_default_argument_conversion_for_ellipsis(
                                 arg_type,
                                 data->decl_context,
                                 nodecl_get_locus(arg),
@@ -11668,7 +11667,7 @@ static char check_argument_types_of_call(
             {
                 type_t* arg_type = nodecl_get_type(arg);
 
-                type_t* default_conversion = compute_default_argument_conversion(
+                type_t* default_conversion = compute_default_argument_conversion_for_ellipsis(
                         arg_type,
                         data->decl_context,
                         nodecl_get_locus(arg),
@@ -12706,7 +12705,8 @@ static void check_nodecl_function_call_cxx(
                 {
                     type_t* arg_type = nodecl_get_type(nodecl_arg);
                     // Ellipsis
-                    type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
+                    type_t* default_argument_promoted_type = compute_default_argument_conversion_for_ellipsis(
+                            arg_type,
                             decl_context,
                             nodecl_get_locus(nodecl_arg),
                             /* emit_diagnostic */ 1);
@@ -18669,7 +18669,8 @@ void check_nodecl_braced_initializer(
                         {
                             type_t* arg_type = nodecl_get_type(nodecl_arg);
                             // Ellipsis
-                            type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
+                            type_t* default_argument_promoted_type = compute_default_argument_conversion_for_ellipsis(
+                                    arg_type,
                                     decl_context,
                                     nodecl_get_locus(nodecl_arg),
                                     /* emit_diagnostic */ 1);
@@ -19049,9 +19050,14 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
             nodecl_t argument_list = nodecl_null();
 
+            char is_promoting_ellipsis = 0;
             int num_parameters = function_type_get_num_parameters(chosen_constructor->type_information);
             if (function_type_get_has_ellipsis(chosen_constructor->type_information))
             {
+                is_promoting_ellipsis = is_ellipsis_type(
+                        function_type_get_parameter_type_num(chosen_constructor->type_information,
+                            num_parameters - 1)
+                        );
                 num_parameters--;
             }
 
@@ -19076,9 +19082,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                         return;
                     }
                 }
-                else
+                else if (is_promoting_ellipsis)
                 {
-                    type_t* default_argument_promoted_type = compute_default_argument_conversion(
+                    type_t* default_argument_promoted_type = compute_default_argument_conversion_for_ellipsis(
                             nodecl_get_type(nodecl_arg),
                             decl_context,
                             nodecl_get_locus(nodecl_arg),
@@ -24445,7 +24451,7 @@ nodecl_t cxx_nodecl_make_function_call(
             {
                 // We do not emit diagnostic here because it is too late to take any
                 // corrective measure, the caller code should have checked it earlier
-                type_t* default_conversion = compute_default_argument_conversion(
+                type_t* default_conversion = compute_default_argument_conversion_for_ellipsis(
                         arg_type,
                         /* decl_context is not used since we do not request diagnostics*/
                         CURRENT_COMPILED_FILE->global_decl_context,
