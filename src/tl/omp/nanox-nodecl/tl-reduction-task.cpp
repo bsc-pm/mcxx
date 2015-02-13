@@ -609,14 +609,14 @@ namespace TL { namespace Nanox {
                     std::string cache_storage = (*it)->get_field_name() + "_cache_storage";
                     reductions_stuff
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "nanos_TPRS_t* " << cache_storage << ";"
-                        << "nanos_err = nanos_reduction_request_tprs("
+                        << "nanos_red_t* " << cache_storage << ";"
+                        << "nanos_err = nanos_reduction_request("
                         <<      "(void *) &" << (*it)->get_field_name() << "," // target
+                        <<      "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<      "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
                         <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
-                        <<      "(void (*)(void *, void *, void*)) reduction_reduce," // reducer atomic
-                        <<      "(void (*)(void *)) reduction_flush," // flush
+                        <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
                         <<      "&" << cache_storage << ");"  // storage
                         ;
 
@@ -626,14 +626,14 @@ namespace TL { namespace Nanox {
                         << "nanos_err = nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
                         << "if (is_registered)"
                         << "{"
-                        <<      "nanos_TPRS_t* " << cache_storage << ";"
-                        <<      "nanos_err = nanos_reduction_request_tprs("
+                        <<      "nanos_red_t* " << cache_storage << ";"
+                        <<      "nanos_err = nanos_reduction_request("
                         <<           "(void *) &" << (*it)->get_field_name() << "," // target
                         <<           "sizeof(" << as_type(reduction_type) << "),"  // size
+                        <<           "sizeof(" << as_type(reduction_type) << "),"  // size
+                        <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
                         <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
                         <<           "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
-                        <<           "(void (*)(void *, void *, void*)) reduction_reduce," // reducer atomic
-                        <<           "(void (*)(void *)) reduction_flush," // flush
                         <<           "&" << cache_storage << ");"  // storage
                         <<      auxiliar_final
                         << "}"
