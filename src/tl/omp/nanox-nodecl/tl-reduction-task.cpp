@@ -616,7 +616,7 @@ namespace TL { namespace Nanox {
                         <<      "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
                         <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
-                        <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
+                        <<      "(void (*)(void *)) &NANOS_REDUCTION_FLUSH,"
                         <<      "&" << cache_storage << ");"  // storage
                         ;
 
@@ -632,8 +632,8 @@ namespace TL { namespace Nanox {
                         <<           "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<           "sizeof(" << as_type(reduction_type) << "),"  // size
                         <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
-                        <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
                         <<           "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
+                        <<           "(void (*)(void *)) &NANOS_REDUCTION_FLUSH,"
                         <<           "&" << cache_storage << ");"  // storage
                         <<      auxiliar_final
                         << "}"
