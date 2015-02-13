@@ -7226,6 +7226,17 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
 
     symbol_entity_specs_copy_related_symbols_from(dest, orig);
 
+    // Mark parameters also parameters of the copied interface
+    int i, N = symbol_entity_specs_get_num_related_symbols(dest);
+    for (i = 0; i < N; i++)
+    {
+        scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(dest, i);
+
+        symbol_set_as_parameter_of_function(param, dest,
+                /* nesting */ 0,
+                /* position */ symbol_get_parameter_position_in_function(param, orig));
+    }
+
     symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
 }
 
