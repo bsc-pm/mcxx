@@ -8829,8 +8829,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_CLASS_MEMBER_ACCESS:
         case NODECL_CXX_ARROW:
         case NODECL_CXX_POSTFIX_INITIALIZER:
-        case NODECL_CXX_ARRAY_SECTION_RANGE:
-        case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
             {

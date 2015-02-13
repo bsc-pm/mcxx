@@ -303,20 +303,6 @@ namespace TL
                 }
             }
 
-            virtual void visit(const Nodecl::CxxArraySectionSize & array)
-            {
-               // We need to define this visitor because we want to keep these
-               // kind of expressions but, as they are dependent, we don't
-               // compute anything
-            }
-
-            virtual void visit(const Nodecl::CxxArraySectionRange & array)
-            {
-               // We need to define this visitor because we want to keep these
-               // kind of expressions but, as they are dependent, we don't
-               // compute anything
-            }
-
             virtual void visit(const Nodecl::Shaping& shaping_expr)
             {
                 walk(shaping_expr.get_postfix());
@@ -865,6 +851,16 @@ namespace TL
                     element_size.get_locus());
 
             return array_size;
+        }
+        else if (relevant_type.is_dependent())
+        {
+            Nodecl::NodeclBase result = Nodecl::Sizeof::make(
+                    Nodecl::Type::make(relevant_type),
+                    Nodecl::NodeclBase::null(),
+                    get_size_t_type());
+
+            result.set_is_value_dependent(true);
+            return result;
         }
         else
         {

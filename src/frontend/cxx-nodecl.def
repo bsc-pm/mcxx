@@ -383,10 +383,6 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type const-value-opt
-# a[e:e]
-    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt, [stride] expression-opt) type const-value-opt
-# a[e;e]
-    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt, [stride] expression-opt) type const-value-opt
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)

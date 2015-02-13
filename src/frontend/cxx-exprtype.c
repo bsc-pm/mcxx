@@ -21876,30 +21876,6 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         return;
     }
 
-    if (nodecl_expr_is_type_dependent(nodecl_postfix)
-            || (!nodecl_is_null(nodecl_lower) && nodecl_expr_is_type_dependent(nodecl_lower))
-            || (!nodecl_is_null(nodecl_upper) && nodecl_expr_is_type_dependent(nodecl_upper)))
-    {
-        if (is_array_section_size)
-        {
-            *nodecl_output = nodecl_make_cxx_array_section_size(nodecl_postfix, 
-                    nodecl_lower, nodecl_upper, nodecl_stride,
-                    get_unknown_dependent_type(),
-                    locus);
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_cxx_array_section_range(nodecl_postfix, 
-                    nodecl_lower, nodecl_upper, nodecl_stride,
-                    get_unknown_dependent_type(),
-                    locus);
-        }
-
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
-
-
     type_t* indexed_type = no_ref(nodecl_get_type(nodecl_postfix));
 
     if (nodecl_is_null(nodecl_lower) && (is_array_type(indexed_type) || is_pointer_type(indexed_type))) 
@@ -21990,6 +21966,16 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         }
         result_type = get_array_type_bounds_with_regions(
                 pointer_type_get_pointee_type(indexed_type),
+                nodecl_lower,
+                nodecl_upper,
+                decl_context,
+                nodecl_range,
+                decl_context);
+    }
+    else if (is_dependent_type(indexed_type))
+    {
+        result_type = get_array_type_bounds_with_regions(
+                get_unknown_dependent_type(), // and hope for the best here
                 nodecl_lower,
                 nodecl_upper,
                 decl_context,
@@ -25162,6 +25148,40 @@ static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor
             nodecl_locus_to_str(nodecl_expr));
 }
 
+static void instantiate_range(nodecl_instantiate_expr_visitor_t *v, nodecl_t node)
+{
+    nodecl_t nodecl_lower = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    if (nodecl_is_err_expr(nodecl_lower))
+    {
+        v->nodecl_result = nodecl_lower;
+        return;
+    }
+
+    nodecl_t nodecl_upper = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+    if (nodecl_is_err_expr(nodecl_upper))
+    {
+        nodecl_free(nodecl_lower);
+        v->nodecl_result = nodecl_upper;
+        return;
+    }
+
+    nodecl_t nodecl_stride = instantiate_expr_walk(v, nodecl_get_child(node, 2));
+    if (nodecl_is_err_expr(nodecl_stride))
+    {
+        nodecl_free(nodecl_lower);
+        nodecl_free(nodecl_upper);
+        v->nodecl_result = nodecl_stride;
+        return;
+    }
+
+    v->nodecl_result = nodecl_make_range(
+            nodecl_lower,
+            nodecl_upper,
+            nodecl_stride,
+            get_signed_int_type(),
+            nodecl_get_locus(node));
+}
+
 static void instantiate_type(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     type_t* t = nodecl_get_type(node);
@@ -25865,35 +25885,30 @@ static void instantiate_array_subscript(nodecl_instantiate_expr_visitor_t* v, no
     nodecl_t nodecl_subscripted = instantiate_expr_walk(v, nodecl_get_child(node, 0));
     nodecl_t nodecl_subscript = instantiate_expr_walk(v, nodecl_get_child(node, 1));
 
-    check_nodecl_array_subscript_expression_cxx(
-            nodecl_subscripted,
-            nodecl_subscript,
-            v->decl_context,
-            &v->nodecl_result);
-}
+    if (nodecl_get_kind(nodecl_subscript) == NODECL_RANGE)
+    {
+        nodecl_t nodecl_lower = nodecl_get_child(nodecl_subscript, 0);
+        nodecl_t nodecl_upper = nodecl_get_child(nodecl_subscript, 1);
+        nodecl_t nodecl_stride = nodecl_get_child(nodecl_subscript, 2);
 
-static void instantiate_cxx_array_section_size(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
-{
-    nodecl_t nodecl_postfix = instantiate_expr_walk(v, nodecl_get_child(node, 0));
-    nodecl_t nodecl_start = instantiate_expr_walk(v, nodecl_get_child(node, 1));
-    nodecl_t nodecl_num_items = instantiate_expr_walk(v, nodecl_get_child(node, 2));
-    nodecl_t nodecl_stride = instantiate_expr_walk(v, nodecl_get_child(node, 3));
-
-    check_nodecl_array_section_expression(nodecl_postfix,
-            nodecl_start, nodecl_num_items, nodecl_stride,
-            v->decl_context, /* is_array_section_size */ 1, nodecl_get_locus(node), &v->nodecl_result);
-}
-
-static void instantiate_cxx_array_section_range(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
-{
-    nodecl_t nodecl_postfix = instantiate_expr_walk(v, nodecl_get_child(node, 0));
-    nodecl_t nodecl_lower   = instantiate_expr_walk(v, nodecl_get_child(node, 1));
-    nodecl_t nodecl_upper   = instantiate_expr_walk(v, nodecl_get_child(node, 2));
-    nodecl_t nodecl_stride  = instantiate_expr_walk(v, nodecl_get_child(node, 3));
-
-    check_nodecl_array_section_expression(nodecl_postfix,
-            nodecl_lower, nodecl_upper, nodecl_stride,
-            v->decl_context, /* is_array_section_size */ 0, nodecl_get_locus(node), &v->nodecl_result);
+        check_nodecl_array_section_expression(
+                nodecl_subscripted,
+                nodecl_lower,
+                nodecl_upper,
+                nodecl_stride,
+                v->decl_context,
+                /* is_array_section_size */ 0,
+                nodecl_get_locus(nodecl_subscripted),
+                &v->nodecl_result);
+    }
+    else
+    {
+        check_nodecl_array_subscript_expression_cxx(
+                nodecl_subscripted,
+                nodecl_subscript,
+                v->decl_context,
+                &v->nodecl_result);
+    }
 }
 
 static void instantiate_throw(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -26959,10 +26974,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Array subscript
     NODECL_VISITOR(v)->visit_array_subscript = instantiate_expr_visitor_fun(instantiate_array_subscript);
 
-    // Cxx Array Sections
-    NODECL_VISITOR(v)->visit_cxx_array_section_size = instantiate_expr_visitor_fun(instantiate_cxx_array_section_size);
-    NODECL_VISITOR(v)->visit_cxx_array_section_range = instantiate_expr_visitor_fun(instantiate_cxx_array_section_range);
-
+    // Ranges
+    NODECL_VISITOR(v)->visit_range = instantiate_expr_visitor_fun(instantiate_range);
 
     // Throw
     NODECL_VISITOR(v)->visit_throw = instantiate_expr_visitor_fun(instantiate_throw);
