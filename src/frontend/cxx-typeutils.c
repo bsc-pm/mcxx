@@ -2142,9 +2142,16 @@ extern inline void free_temporary_template_type(type_t* t)
 
     free_template_parameter_list(primary_specialization->type_information->template_arguments);
     xfree(primary_specialization->type_information->info);
+    xfree(primary_specialization->type_information);
     xfree(primary_specialization);
 
     free_template_parameter_list(t->template_parameters);
+
+    xfree(primary_specialization_type->info);
+    xfree(primary_specialization_type->type);
+    xfree(primary_specialization_type);
+
+    xfree(t->info);
     xfree(t->type);
     xfree(t);
 }
