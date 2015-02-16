@@ -1,6 +1,7 @@
 Authors (in alphabetic order)
 
   Alex Duran Gonzalez <alex.duran@bsc.es>
+  Antonio Filgueras <antonio.filgueras@bsc.es>
   Diego Caballero <diego.caballero@bsc.es>
   Josep Maria Perez Cancer <josep.m.perez@bsc.es>
   Judit Planas <judit.planas@bsc.es>
@@ -17,7 +18,7 @@ Contributors (we thank their kind support)
 
 Please report bugs at
 
-  http://nanos.ac.upc.edu/projects/mcxx/newticket
+  http://pm.bsc.es/projects/mcxx/newticket
 
 For generic questions about the compiler please refer to
 
