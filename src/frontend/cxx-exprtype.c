@@ -22158,7 +22158,9 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
     for (i = num_items - 1; i >= 0; i--)
     {
         nodecl_t current_expr = list[i];
-        result_type = get_array_type(result_type, current_expr, decl_context);
+        result_type = get_array_type(result_type,
+                nodecl_shallow_copy(current_expr),
+                decl_context);
     }
     xfree(list);
 
