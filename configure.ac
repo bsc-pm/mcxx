@@ -1952,6 +1952,11 @@ AC_SUBST([quadmath_LIBS])
 dnl Check for compliant const
 AC_C_CONST
 
+dnl Not all gccs support this
+NO_VAR_TRACKING_ASSIGNMENTS=""
+AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
+AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
+
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],

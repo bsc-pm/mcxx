@@ -365,7 +365,7 @@ src_frontend_libmcxx_la_CFLAGS = $(cfrontend_cflags)
 noinst_LTLIBRARIES += src/frontend/libgccbuiltins.la
 
 src_frontend_libgccbuiltins_la_LDFLAGS=-avoid-version $(no_undefined)
-src_frontend_libgccbuiltins_la_CFLAGS=-fno-var-tracking-assignments \
+src_frontend_libgccbuiltins_la_CFLAGS=@NO_VAR_TRACKING_ASSIGNMENTS@ \
 									  $(cfrontend_cflags)
 
 src_frontend_libgccbuiltins_la_SOURCES = \
