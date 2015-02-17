@@ -312,11 +312,6 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport-decls.h \
   src/frontend/cxx-gccsupport.h \
   src/frontend/cxx-gccsupport.c \
-  src/frontend/cxx-gccbuiltins.h \
-  src/frontend/cxx-gccbuiltins-ia32.h \
-  src/frontend/cxx-gccbuiltins.c \
-  src/frontend/cxx-gccspubuiltins.h \
-  src/frontend/cxx-gccspubuiltins.c \
   src/frontend/cxx-mssupport.h \
   src/frontend/cxx-mssupport.c \
   src/frontend/cxx-pragma.h \
@@ -341,6 +336,7 @@ src_frontend_libmcxx_la_SOURCES = \
 src_frontend_libmcxx_la_LIBADD = \
 					./lib/libmcxx-utils.la \
                     ./src/frontend/libmcxx-process.la \
+                    ./src/frontend/libgccbuiltins.la \
 					$(quadmath_LIBS) \
 					$(END)
 
@@ -349,7 +345,7 @@ EXTRA_DIST += src/frontend/dll-exports.def
 
 src_frontend_libmcxx_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
 
-src_frontend_libmcxx_la_CFLAGS = \
+cfrontend_cflags = \
 					-std=gnu99 \
 					-DLIBMCXX_DLL_EXPORT \
                     -Wall \
@@ -364,6 +360,21 @@ src_frontend_libmcxx_la_CFLAGS = \
 					-I./src/frontend/fortran \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
+src_frontend_libmcxx_la_CFLAGS = $(cfrontend_cflags)
+
+noinst_LTLIBRARIES += src/frontend/libgccbuiltins.la
+
+src_frontend_libgccbuiltins_la_LDFLAGS=-avoid-version $(no_undefined)
+src_frontend_libgccbuiltins_la_CFLAGS=-fno-var-tracking-assignments \
+									  $(cfrontend_cflags)
+
+src_frontend_libgccbuiltins_la_SOURCES = \
+  src/frontend/cxx-gccbuiltins.h \
+  src/frontend/cxx-gccbuiltins-ia32.h \
+  src/frontend/cxx-gccbuiltins.c \
+  src/frontend/cxx-gccspubuiltins.h \
+  src/frontend/cxx-gccspubuiltins.c \
+  $(END)
 
 
 EXTRA_DIST += src/frontend/cxx-lexer.l
