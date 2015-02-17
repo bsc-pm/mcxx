@@ -969,8 +969,6 @@ src_tl_libtl_la_SOURCES = \
     src/tl/tl-clauses-info.cpp \
     src/tl/tl-pragmasupport.hpp \
     src/tl/tl-pragmasupport.cpp \
-    src/tl/tl-datareference.hpp \
-    src/tl/tl-datareference.cpp \
     src/tl/tl-replace.hpp \
     src/tl/tl-replace.cpp \
     src/tl/tl-modules-fwd.hpp \
@@ -1097,6 +1095,23 @@ endif
 phases_LTLIBRARIES =
 
 ##########################################################################
+# src/tl/omp/common
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/omp/common/libtlomp-common.la
+
+src_tl_omp_common_libtlomp_common_la_CFLAGS = $(tl_cflags)
+src_tl_omp_common_libtlomp_common_la_CXXFLAGS = $(tl_cxxflags)
+
+src_tl_omp_common_libtlomp_common_la_LDFLAGS = $(tl_ldflags)
+src_tl_omp_common_libtlomp_common_la_LIBADD = $(tl_libadd)
+
+src_tl_omp_common_libtlomp_common_la_SOURCES = \
+   src/tl/omp/common/tl-datareference.hpp \
+   src/tl/omp/common/tl-datareference.cpp \
+   $(END)
+
+##########################################################################
 # src/tl/analysis
 ##########################################################################
 
@@ -1166,12 +1181,19 @@ lib_LTLIBRARIES += src/tl/analysis/pcfg/libpcfg.la
 
 PCFG_COMMON_FLAGS= $(tl_cflags) \
 		$(ANALYSIS_CFLAGS) \
-		-I $(srcdir)/src/tl/analysis/loops
+		-I $(srcdir)/src/tl/analysis/loops \
+		-I $(srcdir)/src/tl/omp/common \
+		$(END)
 
 src_tl_analysis_pcfg_libpcfg_la_CFLAGS = $(PCFG_COMMON_FLAGS)
 src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS)
 src_tl_analysis_pcfg_libpcfg_la_LDFLAGS = $(tl_ldflags)
-src_tl_analysis_pcfg_libpcfg_la_LIBADD = $(tl_libadd) src/tl/libtl.la src/tl/analysis/common/libanalysis_utils.la
+src_tl_analysis_pcfg_libpcfg_la_LIBADD = $(tl_libadd)\
+										 src/tl/libtl.la \
+										 src/tl/omp/common/libtlomp-common.la \
+										 src/tl/analysis/common/libanalysis_utils.la \
+										 $(END)
+
 
 src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
                     src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
@@ -1351,6 +1373,7 @@ src_tl_analysis_tdg_libtdg_la_SOURCES = src/tl/analysis/tdg/tl-task-dependency-g
 					src/tl/analysis/tdg/tl-task-dependency-graph.cpp \
 					$(END)
 
+##########################################################################
 # src/tl/analysis/range
 ##########################################################################
 
@@ -1407,6 +1430,7 @@ src_tl_analysis_interface_libanalysis_interface_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/analysis/tdg \
 				-I$(srcdir)/src/tl/analysis/range \
 				-I$(srcdir)/src/tl/analysis/complexity \
+				-I$(srcdir)/src/tl/omp/common \
 				-I$(srcdir)/src/tl/omp/core \
 				$(END)
 
@@ -1427,6 +1451,7 @@ src_tl_analysis_interface_libanalysis_interface_la_LIBADD= \
 				src/tl/analysis/tdg/libtdg.la \
 				src/tl/analysis/range/librange.la \
 				src/tl/analysis/complexity/libcomplexity.la \
+				src/tl/omp/common/libtlomp-common.la \
 				$(END)
 
 src_tl_analysis_interface_libanalysis_interface_la_SOURCES= \
@@ -1445,7 +1470,7 @@ src_tl_analysis_interface_libanalysis_interface_la_SOURCES= \
 phases_LTLIBRARIES += src/tl/analysis/test_phase/libtest_analysis.la
 
 src_tl_analysis_test_phase_libtest_analysis_la_CFLAGS = $(phases_cflags)
-src_tl_analysis_test_phase_libtest_analysis_la_CXXFLAGS = $(phases_cflags) \
+src_tl_analysis_test_phase_libtest_analysis_la_CXXFLAGS = $(phases_cxxflags) \
 							  $(ANALYSIS_CFLAGS) \
 							  -I$(srcdir)/src/tl/analysis/interface \
 							  -I$(srcdir)/src/tl/analysis/tdg
@@ -1469,7 +1494,7 @@ endif		# BUILD_ANALYSIS
 if BUILD_TL_COMPLEXITY
 phases_LTLIBRARIES += src/tl/complexity/libtlcomplexity.la
 
-src_tl_complexity_libtlcomplexity_la_CXXFLAGS = $(phases_cflags) \
+src_tl_complexity_libtlcomplexity_la_CXXFLAGS = $(phases_cxxflags) \
 						-I $(top_srcdir)/src/tl/analysis/pcfg \
 						-I $(top_srcdir)/src/tl/analysis/common \
 						-I $(top_srcdir)/src/tl/analysis/tdg \
@@ -1511,13 +1536,16 @@ HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
 
 HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
 			  -I $(srcdir)/src/tl/omp/core \
+			  -I $(srcdir)/src/tl/omp/common \
 			  $(HLT_ANALYSIS_CFLAGS) \
 			  $(END)
 
 src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
 src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
 src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
+src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD) \
+		$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+		$(END)
 
 src_tl_hlt_libtl_hlt_la_SOURCES = \
 	  src/tl/hlt/hlt-common.hpp \
@@ -1560,10 +1588,12 @@ src_tl_vectorization_common_libtlvectorization_common_la_CXXFLAGS = $(tl_cflags)
                               -I $(top_srcdir)/src/tl/analysis/pcfg \
                               -I $(top_srcdir)/src/tl/analysis/tdg \
                               -I $(top_srcdir)/src/tl/omp/core \
+                              -I $(top_srcdir)/src/tl/omp/common \
                               $(END)
 
 src_tl_vectorization_common_libtlvectorization_common_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_common_libtlvectorization_common_la_LIBADD = $(tl_libadd) \
+                          $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
                           $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
                           $(END)
 
@@ -1601,11 +1631,13 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/analysis/tdg \
                               -I $(top_srcdir)/src/tl/optimizations \
                               -I $(top_srcdir)/src/tl/omp/core \
+                              -I $(top_srcdir)/src/tl/omp/common \
                               -I $(top_srcdir)/src/tl/hlt \
                               $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
+                          $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
                           $(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
@@ -1660,17 +1692,26 @@ endif
 
 # Empty
 
+
 ##########################################################################
 # src/tl/omp/core
 ##########################################################################
 
+
 phases_LTLIBRARIES += src/tl/omp/core/libtlomp-core.la
 
-src_tl_omp_core_libtlomp_core_la_CFLAGS = $(phases_cflags)
-src_tl_omp_core_libtlomp_core_la_CXXFLAGS = $(phases_cflags)
+src_tl_omp_core_libtlomp_core_la_CFLAGS = $(phases_cflags) \
+                         -I $(srcdir)/src/tl/omp/common \
+						 $(END)
+
+src_tl_omp_core_libtlomp_core_la_CXXFLAGS = $(phases_cxxflags) \
+                         -I $(srcdir)/src/tl/omp/common \
+						 $(END)
 
 src_tl_omp_core_libtlomp_core_la_LDFLAGS = $(phases_ldflags)
-src_tl_omp_core_libtlomp_core_la_LIBADD = $(phases_libadd)
+src_tl_omp_core_libtlomp_core_la_LIBADD = $(phases_libadd) \
+		$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+		$(END)
 
 EXTRA_DIST += src/tl/omp/core/tl-omp-constructs.def
 
@@ -1700,7 +1741,8 @@ phases_LTLIBRARIES += src/tl/omp/base/libtlomp-base.la
 src_tl_omp_base_libtlomp_base_la_CFLAGS = $(phases_cflags) \
                           $(END)
 
-src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
+src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cxxflags) \
+                         -I $(srcdir)/src/tl/omp/common \
                          -I $(srcdir)/src/tl/omp/core \
                          -I $(srcdir)/src/tl/vectorization/common \
                          -I $(srcdir)/src/tl/vectorization/vectorizer \
@@ -1745,6 +1787,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
+                          -I $(srcdir)/src/tl/omp/common \
                           -I $(srcdir)/src/tl/omp/core \
                           $(END)
 
@@ -1753,12 +1796,15 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
+                          -I $(srcdir)/src/tl/omp/common \
                           -I $(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_LDFLAGS = $(tl_ldflags)
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_LIBADD = $(tl_libadd) \
-					 src/tl/analysis/interface/libanalysis_interface.la
+					$(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+					 src/tl/analysis/interface/libanalysis_interface.la \
+					 $(END)
 
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_SOURCES = \
@@ -1779,7 +1825,7 @@ phases_LTLIBRARIES += src/tl/omp/simd/libtlomp-simd.la
 src_tl_omp_simd_libtlomp_simd_la_CFLAGS = $(phases_cflags) \
                           $(END)
 
-src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
+src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cxxflags) \
                           -I $(top_srcdir)/src/tl/optimizations \
                           -I $(top_srcdir)/src/tl/vectorization/common \
                           -I $(top_srcdir)/src/tl/vectorization/vectorizer \
@@ -1788,6 +1834,7 @@ src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/omp/core \
+                          -I $(top_srcdir)/src/tl/omp/common \
                           $(END)
 
 src_tl_omp_simd_libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
@@ -1795,6 +1842,7 @@ src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
                           $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
+                          $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
                           $(END)
 
 
@@ -1849,14 +1897,17 @@ phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/libtlnanox-lowering.la
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_CFLAGS = $(phases_cflags) \
 														-I$(srcdir)/src/tl/omp/nanos-common \
 														-I$(srcdir)/src/tl/omp/core \
+														-I$(srcdir)/src/tl/omp/common \
                                                         -I@NANOX_INCLUDES@
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_CXXFLAGS = $(phases_cxxflags) \
 														-I$(srcdir)/src/tl/omp/nanos-common \
 														-I$(srcdir)/src/tl/omp/core \
+														-I$(srcdir)/src/tl/omp/common \
                                                         -I@NANOX_INCLUDES@
 
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_LIBADD = $(phases_libadd) \
 								src/tl/omp/core/libtlomp-core.la \
+								src/tl/omp/common/libtlomp-common.la \
 								src/tl/omp/nanos-common/libtlnanos-version.la
 src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_LDFLAGS = $(phases_ldflags)
 
@@ -1926,13 +1977,20 @@ phases_LTLIBRARIES += src/tl/omp/nanos-main/libtlnanox-nanosmain.la
 src_tl_omp_nanos_main_libtlnanox_nanosmain_la_CFLAGS = $(phases_cflags)\
 			 -I$(top_srcdir)/src/tl/omp/nanox-nodecl \
 			 -I$(top_srcdir)/src/tl/omp/nanos-common \
+			 -I$(top_srcdir)/src/tl/omp/common \
 			 -I$(top_srcdir)/src/tl/omp/core
 src_tl_omp_nanos_main_libtlnanox_nanosmain_la_CXXFLAGS = $(phases_cxxflags)\
 			 -I$(top_srcdir)/src/tl/omp/nanox-nodecl \
 			 -I$(top_srcdir)/src/tl/omp/nanos-common \
+			 -I$(top_srcdir)/src/tl/omp/common \
 			 -I$(top_srcdir)/src/tl/omp/core
 
-src_tl_omp_nanos_main_libtlnanox_nanosmain_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_nanos_main_libtlnanox_nanosmain_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+	$(END)
+
+src_tl_omp_nanos_main_libtlnanox_nanosmain_la_LDFLAGS = $(phases_ldflags) \
+	$(END)
 
 src_tl_omp_nanos_main_libtlnanox_nanosmain_la_SOURCES = \
        src/tl/omp/nanos-main/tl-omp-nanos-main.hpp \
@@ -1947,10 +2005,24 @@ endif
 
 # Empty
 
-device_flags=$(phases_cflags)\
+device_cflags=$(phases_cflags)\
 			 -I$(srcdir)/src/tl/omp/nanox-nodecl \
 			 -I$(srcdir)/src/tl/omp/nanos-common \
+			 -I$(srcdir)/src/tl/omp/common \
 			 -I$(srcdir)/src/tl/omp/core
+
+device_cxxflags=$(phases_cflags)\
+			 -I$(srcdir)/src/tl/omp/nanox-nodecl \
+			 -I$(srcdir)/src/tl/omp/nanos-common \
+			 -I$(srcdir)/src/tl/omp/common \
+			 -I$(srcdir)/src/tl/omp/core
+
+devices_ldflags = $(phases_ldflags) \
+                  src/tl/omp/common/libtlomp-common.la \
+				  $(END)
+
+devices_libadd = src/tl/omp/common/libtlomp-common.la \
+				 $(END)
 
 ##########################################################################
 # src/tl/omp/nanox-nodecl/devices/smp
@@ -1960,10 +2032,12 @@ if BUILD_NANOX_DEVICE_SMP
 
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/devices/smp/libtlnanox-smp.la
 
-src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_CFLAGS = $(device_flags)
-src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_CXXFLAGS = $(device_flags)
+src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_CFLAGS = $(device_cflags)
+src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_CXXFLAGS = $(device_cxxflags)
 
-src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_LDFLAGS = $(devices_ldflags)
+
+src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_LIBADD = $(devices_libadd)
 
 src_tl_omp_nanox_nodecl_devices_smp_libtlnanox_smp_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/smp/nanox-smp.hpp \
@@ -1980,10 +2054,12 @@ if BUILD_NANOX_DEVICE_CUDA
 
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/devices/cuda/libtlnanox-cuda.la
 
-src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_CFLAGS = $(device_flags)
-src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_CXXFLAGS = $(device_flags)
+src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_CFLAGS = $(device_cflags)
+src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_CXXFLAGS = $(device_cxxflags)
 
-src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_LDFLAGS = $(devices_ldflags)
+
+src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_LIBADD = $(devices_libadd)
 
 src_tl_omp_nanox_nodecl_devices_cuda_libtlnanox_cuda_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/cuda/nanox-cuda.hpp \
@@ -2000,10 +2076,12 @@ if BUILD_NANOX_DEVICE_FPGA
 
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/devices/fpga/libtlnanox-fpga.la
 
-src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_CFLAGS = $(device_flags)
-src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_CXXFLAGS = $(device_flags)
+src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_CFLAGS = $(device_cflags)
+src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_CXXFLAGS = $(device_cxxflags)
 
-src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_LDFLAGS = $(devices_ldflags)
+
+src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_LIBADD = $(devices_libadd)
 
 src_tl_omp_nanox_nodecl_devices_fpga_libtlnanox_fpga_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/fpga/nanox-fpga.hpp \
@@ -2020,10 +2098,12 @@ if BUILD_NANOX_DEVICE_MPI
 
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/devices/mpi/libtlnanox-mpi.la
 
-src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_CFLAGS = $(device_flags)
-src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_CXXFLAGS = $(device_flags)
+src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_CFLAGS = $(device_cflags)
+src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_CXXFLAGS = $(device_cxxflags)
 
-src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LDFLAGS = $(devices_ldflags)
+
+src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_LIBADD = $(devices_libadd)
 
 src_tl_omp_nanox_nodecl_devices_mpi_libtlnanox_mpi_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/mpi/nanox-mpi.hpp \
@@ -2040,10 +2120,12 @@ if BUILD_NANOX_DEVICE_OPENCL
 
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/devices/opencl/libtlnanox-opencl.la
 
-src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_CFLAGS = $(device_flags)
-src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_CXXFLAGS = $(device_flags)
+src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_CFLAGS = $(device_cflags)
+src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_CXXFLAGS = $(device_cxxflags)
 
-src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_LDFLAGS = $(phases_ldflags)
+src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_LDFLAGS = $(devices_ldflags)
+
+src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_LIBADD = $(devices_libadd)
 
 src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_SOURCES = \
        src/tl/omp/nanox-nodecl/devices/opencl/nanox-opencl.hpp \
@@ -2061,12 +2143,19 @@ if BUILD_OMP_INTEL
 phases_LTLIBRARIES += src/tl/omp/intel/libtlintel-omp-lowering.la
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_CFLAGS= $(phases_cflags)\
-													-I$(srcdir)/src/tl/omp/core
-src_tl_omp_intel_libtlintel_omp_lowering_la_CXXFLAGS= $(phases_cxxflags)\
-													  -I$(srcdir)/src/tl/omp/core
+													-I$(srcdir)/src/tl/omp/core \
+													-I$(srcdir)/src/tl/omp/common \
+													$(END)
+
+src_tl_omp_intel_libtlintel_omp_lowering_la_CXXFLAGS= $(phases_cxxflags) \
+													  -I$(srcdir)/src/tl/omp/core \
+													  -I$(srcdir)/src/tl/omp/common \
+													  $(END)
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_LIBADD= $(phases_libadd) \
-								src/tl/omp/core/libtlomp-core.la
+								src/tl/omp/common/libtlomp-common.la \
+								src/tl/omp/core/libtlomp-core.la \
+								$(END)
 
 src_tl_omp_intel_libtlintel_omp_lowering_la_LDFLAGS= $(phases_ldflags)
 
@@ -2097,7 +2186,8 @@ endif
 if BUILD_OMP_LINT
 phases_LTLIBRARIES += src/tl/omp/lint/libtlomp-lint.la
 
-src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
+src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cxxflags) \
+                          -I $(top_srcdir)/src/tl/omp/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg_tasks \
@@ -2107,11 +2197,12 @@ src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
 
 src_tl_omp_lint_libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_lint_libtlomp_lint_la_LIBADD = $(phases_libadd) \
+			  $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
 			  $(top_builddir)/src/tl/analysis/pcfg_tasks/libpcfg_tasks.la \
 			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
 			  $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
-		          $(END)
+              $(END)
 
 
 src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
@@ -2129,7 +2220,7 @@ if BUILD_ANALYSIS
 phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
 
 src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
-src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
+src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cxxflags) \
 						$(ANALYSIS_CFLAGS) \
 						-I$(srcdir)/src/tl/analysis/interface \
 						-I$(srcdir)/src/tl/analysis/tdg \
@@ -2157,7 +2248,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/omp/example/libtlomp-example.la
 
-src_tl_omp_example_libtlomp_example_la_CXXFLAGS = $(phases_cflags)
+src_tl_omp_example_libtlomp_example_la_CXXFLAGS = $(phases_cxxflags)
 src_tl_omp_example_libtlomp_example_la_SOURCES = \
 						src/tl/omp/example/tl-omp-example.hpp \
 						src/tl/omp/example/tl-omp-example.cpp
@@ -2183,7 +2274,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/examples/01_basic_phase/libtl_example_basic.la
 
-src_tl_examples_01_basic_phase_libtl_example_basic_la_CXXFLAGS = $(phases_cflags)
+src_tl_examples_01_basic_phase_libtl_example_basic_la_CXXFLAGS = $(phases_cxxflags)
 src_tl_examples_01_basic_phase_libtl_example_basic_la_SOURCES = \
 						src/tl/examples/01_basic_phase/tl-example-basic.hpp \
 						src/tl/examples/01_basic_phase/tl-example-basic.cpp
@@ -2204,7 +2295,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/examples/02_parameters/libtl_example_parameters.la
 
-src_tl_examples_02_parameters_libtl_example_parameters_la_CXXFLAGS = $(phases_cflags)
+src_tl_examples_02_parameters_libtl_example_parameters_la_CXXFLAGS = $(phases_cxxflags)
 
 src_tl_examples_02_parameters_libtl_example_parameters_la_SOURCES = \
 						src/tl/examples/02_parameters/tl-example-parameters.hpp \
@@ -2225,7 +2316,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/examples/03_visitor/libtl_example_visitor.la
 
-src_tl_examples_03_visitor_libtl_example_visitor_la_CXXFLAGS = $(phases_cflags)
+src_tl_examples_03_visitor_libtl_example_visitor_la_CXXFLAGS = $(phases_cxxflags)
 
 src_tl_examples_03_visitor_libtl_example_visitor_la_SOURCES = \
 						src/tl/examples/03_visitor/tl-example-visitor.hpp \
@@ -2233,6 +2324,7 @@ src_tl_examples_03_visitor_libtl_example_visitor_la_SOURCES = \
 
 src_tl_examples_03_visitor_libtl_example_visitor_la_LIBADD = $(phases_libadd)
 src_tl_examples_03_visitor_libtl_example_visitor_la_LDFLAGS = $(phases_ldflags)
+
 
 endif
 
@@ -2247,6 +2339,7 @@ vector_lowering_cflags = -I $(top_srcdir)/src/tl/vectorization/common \
                          -I $(top_srcdir)/src/tl/analysis/pcfg \
                          -I $(top_srcdir)/src/tl/analysis/tdg \
                          -I $(top_srcdir)/src/tl/omp/core \
+                         -I $(top_srcdir)/src/tl/omp/common \
                          -I $(top_srcdir)/src/tl/optimizations \
                          $(END)
 
@@ -2258,7 +2351,9 @@ src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_CXXFLAGS = 
     $(vector_lowering_cflags) \
     $(END)
 src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LDFLAGS = $(tl_ldflags)
-src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LIBADD = $(END)
+src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+	$(END)
 
 src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
 	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.hpp \
@@ -2281,6 +2376,7 @@ src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS 
 
 src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
 $(END)
 
@@ -2307,6 +2403,7 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = 
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LIBADD = \
+    $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
 	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
 $(END)
 
@@ -2328,7 +2425,7 @@ phases_LTLIBRARIES += src/tl/vectorization/vector-lowering/libtlvector-lowering.
 
 src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_cflags)
 
-src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cflags)\
+src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cxxflags)\
                  $(vector_lowering_cflags) \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/ \
                  -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/ \
@@ -2389,7 +2486,7 @@ src_tl_codegen_common_libcodegen_common_la_SOURCES = \
 phases_LTLIBRARIES += src/tl/codegen/base/cxx/libcodegen-cxx.la
 
 src_tl_codegen_base_cxx_libcodegen_cxx_la_CFLAGS = $(phases_cflags) -I$(srcdir)/src/tl/codegen/common
-src_tl_codegen_base_cxx_libcodegen_cxx_la_CXXFLAGS = $(phases_cflags) -I$(srcdir)/src/tl/codegen/common
+src_tl_codegen_base_cxx_libcodegen_cxx_la_CXXFLAGS = $(phases_cxxflags) -I$(srcdir)/src/tl/codegen/common
 
 src_tl_codegen_base_cxx_libcodegen_cxx_la_LDFLAGS = $(phases_ldflags)
 src_tl_codegen_base_cxx_libcodegen_cxx_la_LIBADD = src/tl/codegen/common/libcodegen-common.la \
@@ -2417,7 +2514,7 @@ src_tl_codegen_base_fortran_libcodegen_fortran_la_CFLAGS = $(phases_cflags) \
 							   -I$(top_builddir)/src/frontend \
 							   -I$(top_builddir)/src/frontend/fortran \
 							   -I$(srcdir)/src/tl/codegen/common
-src_tl_codegen_base_fortran_libcodegen_fortran_la_CXXFLAGS = $(phases_cflags) \
+src_tl_codegen_base_fortran_libcodegen_fortran_la_CXXFLAGS = $(phases_cxxflags) \
 							   -I$(top_srcdir)/src/frontend \
 							   -I$(top_srcdir)/src/frontend/fortran \
 							   -I$(top_builddir)/src/frontend \
@@ -2447,7 +2544,7 @@ src_tl_codegen_base_fortran_libcodegen_fortran_la_SOURCES = \
 phases_LTLIBRARIES += src/tl/codegen/gpu/cuda/libcodegen-cuda.la
 
 src_tl_codegen_gpu_cuda_libcodegen_cuda_la_CFLAGS = $(phases_cflags) -I$(srcdir)/src/tl/codegen/common
-src_tl_codegen_gpu_cuda_libcodegen_cuda_la_CXXFLAGS = $(phases_cflags) -I$(srcdir)/src/tl/codegen/common
+src_tl_codegen_gpu_cuda_libcodegen_cuda_la_CXXFLAGS = $(phases_cxxflags) -I$(srcdir)/src/tl/codegen/common
 
 src_tl_codegen_gpu_cuda_libcodegen_cuda_la_LDFLAGS = $(phases_ldflags)
 src_tl_codegen_gpu_cuda_libcodegen_cuda_la_LIBADD = src/tl/codegen/common/libcodegen-common.la \
