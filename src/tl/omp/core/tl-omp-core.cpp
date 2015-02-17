@@ -309,10 +309,7 @@ namespace TL
 
                     if (IS_FORTRAN_LANGUAGE
                             && (_data_attrib & DS_PRIVATE)
-                            && sym.is_parameter()
-                            && sym.get_type().no_ref().is_array()
-                            && !sym.get_type().no_ref().array_requires_descriptor()
-                            && sym.get_type().no_ref().array_get_size().is_null())
+                            && data_ref.is_assumed_size_array())
                     {
                         std::cerr << _ref_tree.get_locus_str()
                             << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;

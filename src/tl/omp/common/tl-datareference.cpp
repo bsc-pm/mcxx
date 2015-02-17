@@ -97,8 +97,7 @@ namespace TL
                             && sym.get_type().no_ref().array_get_size().is_null())
                     {
                         // This is a 'A' where A is an assumed size array.
-                        // We cannot accept this case
-                        _data_ref._is_valid = false;
+                        _data_ref._is_assumed_size = true;
                     }
                 }
             }
@@ -446,6 +445,7 @@ namespace TL
     DataReference::DataReference(Nodecl::NodeclBase expr)
         : Nodecl::NodeclBase(expr),
         _is_valid(true),
+        _is_assumed_size(false),
         _base_symbol(NULL),
         _data_type(NULL),
         _error_log("")
@@ -471,6 +471,11 @@ namespace TL
     bool DataReference::is_valid() const
     {
         return _is_valid;
+    }
+
+    bool DataReference::is_assumed_size_array() const
+    {
+        return _is_assumed_size;
     }
 
     //! Returns the warning log

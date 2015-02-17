@@ -76,6 +76,12 @@ namespace TL
               */
             bool is_valid() const;
 
+            //! States whether this expression refers to an assumed size
+            /*!
+             This is only relevant for Fortran
+             */
+            bool is_assumed_size_array() const;
+
             //! Returns the warning log
             /*!
               This is the same message as is_valid(std::string&) stores in its first parameter
@@ -143,6 +149,7 @@ namespace TL
             void module_read(ModuleReader& mw);
         private:
             bool _is_valid;
+            bool _is_assumed_size;
 
             TL::Symbol _base_symbol;
             TL::Type _data_type;
