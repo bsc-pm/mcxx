@@ -712,21 +712,21 @@ namespace TL
 
                 t = t.get_pointer_to();
 
-                Nodecl::NodeclBase reference = Nodecl::Reference::make(
+                Nodecl::NodeclBase new_reference = Nodecl::Reference::make(
                         rhs,
                         t,
                         rhs.get_locus());
 
                 // We need to propagate some flags from the expression to the new reference node
                 nodecl_expr_set_is_type_dependent(
-                        reference.get_internal_nodecl(),
+                        new_reference.get_internal_nodecl(),
                         nodecl_expr_is_type_dependent(expr.get_internal_nodecl()));
 
                 nodecl_expr_set_is_value_dependent(
-                        reference.get_internal_nodecl(),
+                        new_reference.get_internal_nodecl(),
                         nodecl_expr_is_value_dependent(expr.get_internal_nodecl()));
 
-                return reference;
+                return new_reference;
             }
         }
         else if (expr.is<Nodecl::ArraySubscript>())
