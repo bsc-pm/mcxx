@@ -1178,10 +1178,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             // This is a mcxx extension
             // that brings the power of Fortran 90 array-sections into C/C++ :-)
         case AST_ARRAY_SECTION :
-            {
-                check_array_section_expression(expression, decl_context, nodecl_output);
-                break;
-            }
         case AST_ARRAY_SECTION_SIZE :
             {
                 check_array_section_expression(expression, decl_context, nodecl_output);
