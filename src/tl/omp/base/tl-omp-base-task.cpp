@@ -499,6 +499,8 @@ namespace TL { namespace OpenMP {
                         if ((unsigned int)i < arguments.size())
                             arg = arguments[i];
 
+                        ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
+
                         warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
                                 "is SHARED because it does not have VALUE attribute\n",
                                 function_sym.get_locus_str().c_str(),
