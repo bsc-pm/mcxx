@@ -3217,6 +3217,11 @@ static void check_called_symbol_list(
         last_argument = last_argument < position ? position : last_argument;
     }
 
+    if (!function_type_get_lacking_prototype(no_ref(symbol->type_information)))
+    {
+        last_argument = function_type_get_num_parameters(no_ref(symbol->type_information)) - 1;
+    }
+
     // Copy back to nodecl_actual_arguments
     for (i = 0; i <= last_argument; i++)
     {
