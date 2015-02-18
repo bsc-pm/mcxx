@@ -386,6 +386,8 @@ typedef struct compilation_configuration_tag
 
     // Disable Fortran intrinsics
     char disable_intrinsics;
+    int num_disabled_intrinsics;
+    const char ** disabled_intrinsics_list;
 
     // Fortran module wrapping
     char do_not_wrap_fortran_modules;

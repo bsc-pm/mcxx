@@ -53,6 +53,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <regex.h>
 
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -228,7 +229,8 @@
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
-"  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
+"  --disable-intrinsics=comma-separated-list\n" \
+"                           Disable given Fortran intrinsics\n" \
 "  --integer-kind=N         Set the default kind of INTEGER\n" \
 "                           By default it is 4. Fortran only\n" \
 "  --real-kind=N            Set the default kind of REAL\n" \
@@ -457,7 +459,7 @@ struct command_line_long_options command_line_long_options[] =
     {"fixed-form-length", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_FIXED_FORM_LENGTH},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
-    {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
+    {"disable-intrinsics", CLP_REQUIRED_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
     {"integer-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_INTEGER_KIND},
     {"real-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_REAL_KIND},
@@ -555,6 +557,8 @@ static int parse_implicit_parameter_flag(int *should_advance, const char *specia
 static void list_environments(void);
 static void list_fortran_array_descriptors(void);
 static void list_vector_flavors(void);
+
+static void register_disable_intrinsics(const char* intrinsic_name);
 
 static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
@@ -1451,7 +1455,7 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_DISABLE_INTRINSICS:
                     {
-                        CURRENT_CONFIGURATION->disable_intrinsics = 1;
+                        register_disable_intrinsics(parameter_info.argument);
                         break;
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
@@ -5062,4 +5066,41 @@ static void list_vector_flavors(void)
     fprintf(stdout, "If not specified, default vector flavor is gnu\n");
 
     exit(EXIT_SUCCESS);
+}
+
+static void register_disable_intrinsics(const char* intrinsic_name)
+{
+    char *tmp = xstrdup(intrinsic_name);
+
+    char *current_name = strtok(tmp, ",");
+
+    int regex_code;
+    regex_t match_intrinsic;
+
+    if ((regex_code = regcomp(&match_intrinsic, "^[A-Z]([A-Z0-9_]*)$", REG_NOSUB | REG_ICASE | REG_EXTENDED)) != 0)
+    {
+        char error_message[120];
+        regerror(regex_code, &match_intrinsic, error_message, 120);
+        internal_error("Error when compiling regular expression (%s)\n", error_message);
+    }
+
+    while (current_name != NULL)
+    {
+        if (regexec(&match_intrinsic, current_name, 0, NULL, 0) == 0)
+        {
+            P_LIST_ADD(CURRENT_CONFIGURATION->disabled_intrinsics_list,
+                    CURRENT_CONFIGURATION->num_disabled_intrinsics,
+                    uniquestr(current_name));
+        }
+        else
+        {
+            fprintf(stderr, "warning: malformed intrinsic name '%s', skipping\n", current_name);
+        }
+
+        current_name = strtok(NULL, ",");
+    }
+
+    regfree(&match_intrinsic);
+
+    xfree(tmp);
 }
