@@ -506,12 +506,15 @@ namespace TL { namespace OpenMP {
                                 function_sym.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 function_sym.get_name().c_str());
-                        info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
-                                "the value that the actual argument '%s' had at task creation\n",
-                                function_sym.get_locus_str().c_str(),
-                                function_sym.get_name().c_str(),
-                                it->get_name().c_str(),
-                                arg.prettyprint().c_str());
+                        if (!arg.is_constant())
+                        {
+                            info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
+                                    "the value that the actual argument '%s' had at task creation\n",
+                                    function_sym.get_locus_str().c_str(),
+                                    function_sym.get_name().c_str(),
+                                    it->get_name().c_str(),
+                                    arg.prettyprint().c_str());
+                        }
                     }
 
                     assumed_shareds.append(symbol_ref);
