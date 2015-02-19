@@ -2826,15 +2826,6 @@ static void check_called_symbol_list(
     if (symbol_entity_specs_get_is_builtin(symbol)
             && is_computed_function_type(symbol->type_information))
     {
-        if (CURRENT_CONFIGURATION->disable_intrinsics)
-        {
-            error_printf("%s: error: call to intrinsic '%s' not implemented\n",
-                    ast_location(location),
-                    strtoupper(symbol->symbol_name));
-            *result_type = get_error_type();
-            return;
-        }
-
         scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol,
                 nodecl_actual_arguments,
                 explicit_num_actual_arguments,
