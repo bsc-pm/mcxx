@@ -2161,29 +2161,59 @@ static int solve_ambiguous_expression_choose_interpretation(
     //  previous_choice is an A and current_choice is a B
     //
     int either;
-    // This one covers cases like this one
-    //
-    // template <typename _T>
-    // void f(_T *t)
-    // {
-    //    _T::f(t);
-    // }
-    //
-    // here '_T::f' must be a function call and not an explicit type
-    // conversion. If you meant an explicit type conversion '_T::f'
-    // must be seen as a type, so 'typename' is mandatory
-    //
-    // template <typename _T>
-    // void f(_T *t)
-    // {
-    //    typename _T::f(t);
-    // }
-    //
-    // But this last case is not ambiguous at the expression level so it will
-    // never go through this desambiguation code
     if ((either = either_type(current_choice, previous_choice, 
                     AST_FUNCTION_CALL, AST_EXPLICIT_TYPE_CONVERSION)))
     {
+        // This one covers cases like this one
+        //
+        // template <typename _T>
+        // void f(_T *t)
+        // {
+        //    _T::f(t);
+        // }
+        //
+        // here '_T::f' must be a function call and not an explicit type
+        // conversion. If you meant an explicit type conversion '_T::f'
+        // must be seen as a type, so 'typename' is mandatory
+        //
+        // template <typename _T>
+        // void f(_T *t)
+        // {
+        //    typename _T::f(t);
+        // }
+        //
+        // But this last case is not ambiguous at the expression level so it will
+        // never go through this desambiguation code
+        if (either > 0)
+        {
+            if (data != NULL)
+            {
+                data->chosen = current_idx;
+            }
+            return -1;
+        }
+        else
+        {
+            if (data != NULL)
+            {
+                data->chosen = previous_idx;
+            }
+            return 1;
+        }
+    }
+    else if ((either = either_type(current_choice, previous_choice,
+                    AST_GREATER_THAN, AST_FUNCTION_CALL)))
+    {
+        // This one covers cases like this one
+        //
+        // template <int N>
+        // void f(int c)
+        // {
+        //    a.b<N  >  (c);
+        // }
+        //
+        // Must always be interpreted as AST_GREATER_THAN rather than a AST_FUNCTION_CALL
+        // (for the later the right syntax is "a.template b<N>(c)")
         if (either > 0)
         {
             if (data != NULL)
