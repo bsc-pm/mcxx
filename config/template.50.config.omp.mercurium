@@ -71,6 +71,7 @@ target_options[mfc] = no_sublink embed
 target_options[mf95] = no_sublink embed
 # ifort
 target_options[imfc] = no_sublink embed
+target_options[ismpfc] = no_sublink embed
 target_options[imf95] = no_sublink embed
 target_options[ifort-mfc] = no_sublink embed
 # xlf

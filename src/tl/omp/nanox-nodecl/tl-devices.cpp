@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -233,35 +233,6 @@ namespace TL { namespace Nanox {
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
             << "nanos_err = nanos_instrument_events(1, &event);"
             ;
-    }
-
-    void DeviceProvider::create_weak_device_symbol(
-            const std::string& symbol_name,
-            Nodecl::NodeclBase root)
-    {
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char " << symbol_name << " = 1;";
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::C;
-
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
-
-        Source::source_language = SourceLanguage::Current;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            _extra_c_code.prepend(functions_section_tree);
-        }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
-        }
-    }
-
-    bool DeviceProvider::is_gpu_device() const
-    {
-        return false;
     }
 
     // This is only for Fortran!

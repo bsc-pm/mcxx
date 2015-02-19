@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -484,12 +484,14 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
 %type<ast> nontype_specifier_but_SUSL
+%type<ast> nontype_specifier_but_SUSL_without_attribute
 %type<ast> nontype_specifier_for_named
 %type<ast> nontype_specifier_for_named_without_attribute
 %type<ast> nontype_specifier_seq
 %type<ast> nontype_specifier_seq_with_friend
 %type<ast> nontype_specifier_seq_but_SUSL
 %type<ast> nontype_specifier_seq_with_SUSL
+%type<ast> nontype_specifier_seq_with_SUSL_and_friend
 %type<ast> nontype_specifier_seq_for_named
 %type<ast> nontype_specifier_seq_for_named_with_friend
 %type<ast> nontype_specifier_without_attribute
@@ -1397,6 +1399,10 @@ decl_specifier_seq_0 : nontype_specifier_seq type_specifier_not_ended_with_ident
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
 }
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
 ;
 
 // This one ends with a named type specifier
@@ -1558,6 +1564,10 @@ decl_specifier_seq_friend : nontype_specifier_seq_with_friend type_specifier_not
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
 }
+| nontype_specifier_seq_with_SUSL_and_friend %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
 ;
 
 nontype_specifier_seq : nontype_specifier
@@ -1629,7 +1639,7 @@ friend_specifier : FRIEND
 }
 ;
 
-nontype_specifier_but_SUSL : storage_class_specifier
+nontype_specifier_but_SUSL_without_attribute : storage_class_specifier
 {
 	$$ = $1;
 }
@@ -1656,11 +1666,22 @@ nontype_specifier_but_SUSL : storage_class_specifier
 }
 ;
 
-nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL
+nontype_specifier_but_SUSL : nontype_specifier_but_SUSL_without_attribute
+{
+	$$ = $1;
+}
+| std_attribute_specifier
 {
     $$ = $1;
 }
-| type_specifier_SUSL
+// GNU extension
+| gcc_attribute
+{
+	$$ = $1;
+}
+;
+
+nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL_without_attribute
 {
     $$ = $1;
 }
@@ -1864,6 +1885,20 @@ nontype_specifier_seq_with_SUSL : nontype_specifier_seq type_specifier_SUSL nont
 | type_specifier_SUSL
 {
     $$ = ASTListLeaf($1);
+}
+;
+
+nontype_specifier_seq_with_SUSL_and_friend : nontype_specifier_seq_with_SUSL friend_specifier nontype_specifier_seq_with_SUSL
+{
+    $$ = ast_list_concat(ASTList($1, $2), $3);
+}
+| nontype_specifier_seq_with_SUSL friend_specifier
+{
+    $$ = ASTList($1, $2);
+}
+| friend_specifier nontype_specifier_seq_with_SUSL
+{
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
 }
 ;
 

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -127,7 +127,7 @@ namespace TL { namespace OpenMP {
 
             // Note that we alter the traversal here because we do not want to
             // traverse the iterators, only the dependence
-            void visit(const Nodecl::OmpSs::MultiDependence& node)
+            void visit(const Nodecl::MultiReference& node)
             {
                 _iterators.push_back(node.get_symbol());
                 walk(node.get_dependence());
@@ -702,7 +702,7 @@ namespace TL { namespace OpenMP {
                     return;
                 }
 
-                *nodecl_output = nodecl_make_omp_ss_multi_dependence(nodecl_range,
+                *nodecl_output = nodecl_make_multi_reference(nodecl_range,
                         nodecl_subexpr,
                         new_iterator,
                         nodecl_get_type(nodecl_subexpr),

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -459,6 +459,28 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
             NULL,
             solve_ambiguous_declaration_check_interpretation,
             solve_ambiguous_declaration_choose_interpretation,
+            NULL);
+}
+
+static char solve_ambiguous_member_declaration_check_interpretation(
+        AST declaration,
+        decl_context_t decl_context,
+        int option,
+        void* p)
+{
+    // solve_ambiguous_declaration_check_interpretation already supports member_declarations
+    return solve_ambiguous_declaration_check_interpretation(declaration,
+            decl_context,
+            option,
+            p);
+}
+
+void solve_ambiguous_member_declaration(AST a, decl_context_t decl_context)
+{
+    solve_ambiguity_generic(a, decl_context,
+            NULL,
+            solve_ambiguous_member_declaration_check_interpretation,
+            NULL,
             NULL);
 }
 

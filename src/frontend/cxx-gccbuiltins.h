@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -63,8 +63,11 @@ LIBMCXX_EXTERN scope_entry_t* get_m512i_typedef(void);
 
 LIBMCXX_EXTERN char is_intel_vector_struct_type(type_t* t, int *size);
 
+#if 0
 LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest);
+#endif
 LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest);
+LIBMCXX_EXTERN char intel_vector_struct_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest);
 
 LIBMCXX_EXTERN type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type);
 LIBMCXX_EXTERN type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type);

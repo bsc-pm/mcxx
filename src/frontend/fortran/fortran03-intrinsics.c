@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -1306,6 +1306,11 @@ static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
 static void fortran_finish_intrinsic_modules(decl_context_t decl_context);
 
+static int pstrcasecmp(const char** a, const char** b)
+{
+    return strcasecmp(*a, *b);
+}
+
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
     fortran_create_scope_for_intrinsics(decl_context);
@@ -1313,10 +1318,20 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
     decl_context_t fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
 
+    if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0)
+    {
+        // Sort the list of disabled intrinsics lists
+        qsort(CURRENT_CONFIGURATION->disabled_intrinsics_list,
+                CURRENT_CONFIGURATION->num_disabled_intrinsics,
+                sizeof(const char*),
+                (int (*)(const void*, const void*))pstrcasecmp);
+    }
+
 #define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
         decl_context_t relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
+        char disabled = 0; \
         if (module_name != NULL) \
         { \
             rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name); \
@@ -1324,6 +1339,16 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             module_sym = (scope_entry_t*)rb_node_get_info(query); \
             relevant_decl_context = module_sym->related_decl_context; \
         } \
+        else if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0) { \
+            const char* c = #name; \
+            disabled = (bsearch(&c,\
+                    CURRENT_CONFIGURATION->disabled_intrinsics_list, \
+                    CURRENT_CONFIGURATION->num_disabled_intrinsics, \
+                    sizeof(const char*), \
+                    (int (*)(const void*, const void*))pstrcasecmp) != NULL); \
+        } \
+        if (!disabled) \
+        { \
         scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, uniquestr(#name)); \
         new_intrinsic->locus = make_locus("(fortran-intrinsic)", 0, 0); \
         new_intrinsic->kind = SK_FUNCTION; \
@@ -1350,6 +1375,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             symbol_entity_specs_set_is_module_procedure(new_intrinsic, 1); \
             symbol_entity_specs_add_related_symbols(module_sym, \
                     new_intrinsic); \
+        } \
         } \
     }
 

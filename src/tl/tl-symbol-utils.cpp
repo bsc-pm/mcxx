@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -132,7 +132,7 @@ namespace SymbolUtils
 
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
-            it_ptypes->type_info = get_indirect_type(param);
+            it_ptypes->type_info = get_mutable_indirect_type(param);
         }
 
         type_t *function_type = get_new_function_type(
@@ -316,7 +316,7 @@ namespace SymbolUtils
 
             it_ptypes->is_ellipsis = 0;
             it_ptypes->nonadjusted_type_info = NULL;
-            it_ptypes->type_info = get_indirect_type(param);
+            it_ptypes->type_info = get_mutable_indirect_type(param);
         }
 
         if (has_return)

@@ -381,10 +381,6 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type const-value-opt
-# a[e:e]
-    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt, [stride] expression-opt) type const-value-opt
-# a[e;e]
-    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt, [stride] expression-opt) type const-value-opt
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)
@@ -533,7 +529,6 @@ target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [sym
 
 expression : task-call
             | task-expression
-            | ompss-multi-dep
 
 top-level: target-declaration
 
@@ -543,6 +538,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*LASTPRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*SHARED([symbols]name-seq)
+                 | NODECL_OPEN_M_P*THREADPRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
@@ -629,7 +625,8 @@ data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
 
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
 
-ompss-multi-dep : NODECL_OMP_SS*MULTI_DEPENDENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
+# extension used for multidependences/multicopies
+expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
 
 ##############################
 # SIMD                       #

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -2734,7 +2734,7 @@ static int get_type(void *datum,
 
             scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
-            *pt = get_indirect_type(symbol);
+            *pt = get_mutable_indirect_type(symbol);
             *pt = get_cv_qualified_type(*pt, cv_qualifier);
             insert_map_ptr(handle, current_oid, *pt);
             break;

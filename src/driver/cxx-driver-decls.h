@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -386,7 +386,8 @@ typedef struct compilation_configuration_tag
     int output_column_width;
 
     // Disable Fortran intrinsics
-    char disable_intrinsics;
+    int num_disabled_intrinsics;
+    const char ** disabled_intrinsics_list;
 
     // Fortran module wrapping
     char do_not_wrap_fortran_modules;

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -66,7 +66,7 @@ static char* quote_protect(const char *c)
         {
             *(q++) = '\\';
         }
-        else if (*p == '\n' 
+        else if (*p == '\n'
                 || *p == '\r')
         {
             *(q++) = '\\';
@@ -163,14 +163,14 @@ static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
     {
         symbol_dump_graphviz(f, scope->related_entry);
 
-        fprintf(f, "scope_%zd -> sym_%zd [layer=\"symbols\",label=\"%s\",fontcolor=\"/dark28/2\",color=\"/dark28/2\"]\n",
+        fprintf(f, "scope_%zd -> sym_%zd [label=\"%s\",fontcolor=\"/dark28/2\",color=\"/dark28/2\"]\n",
                 s, (size_t)scope->related_entry, "sym");
     }
 
     if (scope->contained_in != NULL)
     {
         scope_t_dump_graphviz(f, scope->contained_in);
-        fprintf(f, "scope_%zd -> scope_%zd [layer=\"symbols\",style=dashed,label=\"%s\",fontcolor=\"/dark28/1\",color=\"/dark28/1\"]\n",
+        fprintf(f, "scope_%zd -> scope_%zd [style=dashed,label=\"%s\",fontcolor=\"/dark28/1\",color=\"/dark28/1\"]\n",
                 s, (size_t)scope->contained_in, "contained_in");
     }
 }
@@ -207,7 +207,7 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
         fprintf(f, "<%s> %s", #name, #name); \
         num++; \
     }
-    fprintf(f, "decl_context_%d[shape=record, fontcolor=\"/dark28/1\", color=\"/dark28/1\", layer=\"scopes\", label=\"{<context> Context|{", i);
+    fprintf(f, "decl_context_%d[shape=record, fontcolor=\"/dark28/1\", color=\"/dark28/1\", label=\"{<context> Context|{", i);
     DUMP_ALL
     fprintf(f, "}}\"]\n");
 #undef DUMP_SCOPE
@@ -215,7 +215,7 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
 #define DUMP_SCOPE(name) \
     if (decl_context.name##_scope != NULL) \
     { \
-        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [layer=\"scopes\", color=\"/dark28/1\"]\n", i, (size_t)decl_context.name##_scope); \
+        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [color=\"/dark28/1\"]\n", i, (size_t)decl_context.name##_scope); \
     }
     DUMP_ALL
 #undef DUMP_SCOPE
@@ -284,7 +284,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                 && list_is_ok)
         {
             shape="record";
-            fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"{AST_NODE_LIST\\nNode=%p\\nParent=%p\\n%s|{",
+            fprintf(f, "n%zd[%s,shape=%s,label=\"{AST_NODE_LIST\\nNode=%p\\nParent=%p\\n%s|{",
                     current_node, color, shape, a, ASTParent(a), ast_location(a));
 
             AST it = NULL;
@@ -308,27 +308,31 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
 
                 if (item != NULL)
                 {
-                    fprintf(f, "n%zd:i%d -> n%zd[layer=\"trees\"]\n", current_node, i, (size_t)item);
+                    fprintf(f, "n%zd:i%d -> n%zd\n", current_node, i, (size_t)item);
                 }
                 i++;
             }
         }
         else if (ASTKind(a) != AST_AMBIGUITY)
         {
+            fprintf(f, "n%zd[%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s",
+                    current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a));
             if (ASTText(a) != NULL)
             {
                 char *quoted = quote_protect(ASTText(a));
-
-                fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
-                        current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a), quoted);
-
+                fprintf(f, "\\nText: \\\"%s\\\"", quoted);
                 xfree(quoted);
             }
-            else
+
+            type_t* t = nodecl_get_type(_nodecl_wrap(a));
+            if (t != NULL)
             {
-                fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
-                        current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a));
+                char *quoted = quote_protect(print_declarator(t));
+                fprintf(f, "\\nType: \\\"%s\\\"", quoted);
+                xfree(quoted);
             }
+
+            fprintf(f, "\"]\n");
 
             int i;
             for(i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
@@ -340,7 +344,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                     // Print this only for non extended referenced nodes
                     if (ASTChild(a, i) != NULL)
                     {
-                        fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", (size_t)a, (size_t)ASTChild(a, i), i);
+                        fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", (size_t)a, (size_t)ASTChild(a, i), i);
                     }
 
                 }
@@ -348,7 +352,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         }
         else if (ASTKind(a) == AST_AMBIGUITY)
         {
-            fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
+            fprintf(f, "n%zd[%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
                     current_node, color, shape, ast_print_node_type(ASTKind(a)), a, ASTParent(a), ast_location(a));
 
             int i;
@@ -356,7 +360,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 ast_dump_graphviz_rec(ast_get_ambiguity(a, i), f, current_node, i);
 
-                fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", (size_t)a, (size_t)ast_get_ambiguity(a, i), i);
+                fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", (size_t)a, (size_t)ast_get_ambiguity(a, i), i);
             }
         }
 
@@ -365,7 +369,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         {
             int k = decl_context_t_dump_graphviz(f, nodecl_get_decl_context(_nodecl_wrap(a)));
 
-            fprintf(f, "n%zd -> decl_context_%d:context:n [layer=\"scopes\", label=\"%s\",fontcolor=\"/dark28/1\",color=\"/dark28/1\"]\n",
+            fprintf(f, "n%zd -> decl_context_%d:context:n [label=\"%s\",fontcolor=\"/dark28/1\",color=\"/dark28/1\"]\n",
                     current_node, k,
                     "context");
         }
@@ -374,7 +378,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         if (entry != NULL)
         {
             symbol_dump_graphviz(f, entry);
-            fprintf(f, "n%zd -> sym_%zd [layer=\"symbols\",label=\"%s\",fontcolor=\"/dark28/2\",color=\"/dark28/2\"]\n",
+            fprintf(f, "n%zd -> sym_%zd [label=\"%s\",fontcolor=\"/dark28/2\",color=\"/dark28/2\"]\n",
                     current_node,
                     (size_t)entry,
                     "sym");
@@ -384,7 +388,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         if (cval != NULL)
         {
             cval_dump_graphviz(f, cval);
-            fprintf(f, "n%zd -> const_%zd [layer=\"constants\",label=\"%s\",fontcolor=\"/dark28/5\",color=\"/dark28/5\"]\n",
+            fprintf(f, "n%zd -> const_%zd [label=\"%s\",fontcolor=\"/dark28/5\",color=\"/dark28/5\"]\n",
                     current_node,
                     (size_t)cval,
                     "const");
@@ -392,7 +396,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
     }
     else
     {
-        fprintf(f, "n%zd[shape=circle,label=\"\",fixedsize=true,style=filled,fillcolor=black,height=0.1,width=0.1,layer=\"trees\"]\n", current_node);
+        fprintf(f, "n%zd[shape=circle,label=\"\",fixedsize=true,style=filled,fillcolor=black,height=0.1,width=0.1]\n", current_node);
         if (parent_node != 0)
         {
             fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", parent_node, current_node, position);
@@ -421,8 +425,6 @@ void ast_dump_graphviz(AST a, FILE* f)
     // fprintf(f, "   splines=polyline;\n");
     fprintf(f, "   ordering=out;\n");
     fprintf(f, "   colorscheme=ColorBrewer;\n");
-    fprintf(f, "   node [layer=\"all\"];\n");
-	fprintf(f, "   edge [layer=\"all\"];\n");
     ast_dump_graphviz_rec(a, f, 0, 0);
     fprintf(f, "}\n");
 }

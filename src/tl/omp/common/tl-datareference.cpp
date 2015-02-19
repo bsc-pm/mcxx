@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -97,8 +97,7 @@ namespace TL
                             && sym.get_type().no_ref().array_get_size().is_null())
                     {
                         // This is a 'A' where A is an assumed size array.
-                        // We cannot accept this case
-                        _data_ref._is_valid = false;
+                        _data_ref._is_assumed_size = true;
                     }
                 }
             }
@@ -303,20 +302,6 @@ namespace TL
                 }
             }
 
-            virtual void visit(const Nodecl::CxxArraySectionSize & array)
-            {
-               // We need to define this visitor because we want to keep these
-               // kind of expressions but, as they are dependent, we don't
-               // compute anything
-            }
-
-            virtual void visit(const Nodecl::CxxArraySectionRange & array)
-            {
-               // We need to define this visitor because we want to keep these
-               // kind of expressions but, as they are dependent, we don't
-               // compute anything
-            }
-
             virtual void visit(const Nodecl::Shaping& shaping_expr)
             {
                 walk(shaping_expr.get_postfix());
@@ -440,7 +425,7 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::OmpSs::MultiDependence& multi_deps)
+            virtual void visit(const Nodecl::MultiReference& multi_deps)
             {
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
@@ -460,6 +445,7 @@ namespace TL
     DataReference::DataReference(Nodecl::NodeclBase expr)
         : Nodecl::NodeclBase(expr),
         _is_valid(true),
+        _is_assumed_size(false),
         _base_symbol(NULL),
         _data_type(NULL),
         _error_log("")
@@ -485,6 +471,11 @@ namespace TL
     bool DataReference::is_valid() const
     {
         return _is_valid;
+    }
+
+    bool DataReference::is_assumed_size_array() const
+    {
+        return _is_assumed_size;
     }
 
     //! Returns the warning log
@@ -726,21 +717,21 @@ namespace TL
 
                 t = t.get_pointer_to();
 
-                Nodecl::NodeclBase reference = Nodecl::Reference::make(
+                Nodecl::NodeclBase new_reference = Nodecl::Reference::make(
                         rhs,
                         t,
                         rhs.get_locus());
 
                 // We need to propagate some flags from the expression to the new reference node
                 nodecl_expr_set_is_type_dependent(
-                        reference.get_internal_nodecl(),
+                        new_reference.get_internal_nodecl(),
                         nodecl_expr_is_type_dependent(expr.get_internal_nodecl()));
 
                 nodecl_expr_set_is_value_dependent(
-                        reference.get_internal_nodecl(),
+                        new_reference.get_internal_nodecl(),
                         nodecl_expr_is_value_dependent(expr.get_internal_nodecl()));
 
-                return reference;
+                return new_reference;
             }
         }
         else if (expr.is<Nodecl::ArraySubscript>())
@@ -865,6 +856,16 @@ namespace TL
                     element_size.get_locus());
 
             return array_size;
+        }
+        else if (relevant_type.is_dependent())
+        {
+            Nodecl::NodeclBase result = Nodecl::Sizeof::make(
+                    Nodecl::Type::make(relevant_type),
+                    Nodecl::NodeclBase::null(),
+                    get_size_t_type());
+
+            result.set_is_value_dependent(true);
+            return result;
         }
         else
         {
@@ -1222,13 +1223,13 @@ namespace TL
         mr.read(_base_address);
     }
 
-    bool DataReference::is_multidependence() const
+    bool DataReference::is_multireference() const
     {
         return !_iterators.empty();
     }
 
-    TL::ObjectList<DataReference::MultiDepIterator>
-        DataReference::multidependences() const
+    TL::ObjectList<DataReference::MultiRefIterator>
+        DataReference::multireferences() const
     {
         return _iterators;
     }

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -8654,4 +8654,10 @@ nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
     }
 
     return nodecl_null();
+}
+
+void symbol_clear_indirect_types(scope_entry_t* entry)
+{
+    entry->_indirect_type[0] = NULL;
+    entry->_indirect_type[1] = NULL;
 }

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -6570,12 +6570,13 @@ void CxxBase::declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Sy
                 /* without template id */ true);
     }
 
-    // Dirty trick to remove the firsts two colons if the name of the function has them
+    // Protect this declarator because the decl-specifier seq might end with an
+    // id-expression that would end being "pasted" to the declarator-name
     if (function_name.size() >= 2 &&
             function_name[0] == ':' &&
             function_name[1] == ':')
     {
-        function_name = function_name.substr(2);
+        function_name = "(" + function_name + ")";
     }
 
     indent();
@@ -8857,8 +8858,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_CLASS_MEMBER_ACCESS:
         case NODECL_CXX_ARROW:
         case NODECL_CXX_POSTFIX_INITIALIZER:
-        case NODECL_CXX_ARRAY_SECTION_RANGE:
-        case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
             {
@@ -9427,9 +9426,14 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9464,9 +9468,14 @@ std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9485,9 +9494,14 @@ std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
         std::stringstream ss_out;
         std::ostream *tmp_out = &ss_out;
 
+        bool b = this->is_file_output();
+        this->set_is_file_output(false);
         std::swap(file, tmp_out);
+
         walk(symbol.get_asm_specification());
+
         std::swap(file, tmp_out);
+        this->set_is_file_output(b);
 
         result = ss_out.str();
     }

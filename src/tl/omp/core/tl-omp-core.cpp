@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -250,6 +250,15 @@ namespace TL
                             continue;
                         }
 
+                        if (base_sym.is_thread()
+                                || base_sym.is_thread_local())
+                        {
+                            std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
+                                << "' since " << (base_sym.is_thread() ? "__thread" : "thread_local")
+                                <<  " variables cannot appear in data-sharing clauses" << std::endl;
+                            continue;
+                        }
+
                         data_ref_list.append(data_ref);
                         add_extra_symbols(data_ref, data_sharing, extra_symbols);
                     }
@@ -300,10 +309,7 @@ namespace TL
 
                     if (IS_FORTRAN_LANGUAGE
                             && (_data_attrib & DS_PRIVATE)
-                            && sym.is_parameter()
-                            && sym.get_type().no_ref().is_array()
-                            && !sym.get_type().no_ref().array_requires_descriptor()
-                            && sym.get_type().no_ref().array_get_size().is_null())
+                            && data_ref.is_assumed_size_array())
                     {
                         std::cerr << _ref_tree.get_locus_str()
                             << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;
@@ -803,6 +809,16 @@ namespace TL
                     data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE,
                             "internal saved-expression must have their value captured");
                     continue;
+                }
+
+                if (sym.is_thread()
+                        || sym.is_thread_local())
+                {
+                    std::stringstream reason;
+                    reason << (sym.is_thread() ? "__thread" : "thread_local")
+                           << " variables are threadprivate";
+
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
                 }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
@@ -1311,6 +1327,16 @@ namespace TL
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
                             "Cray pointee is private");
                     sym  = sym.get_cray_pointer();
+                }
+
+                if (sym.is_thread()
+                        || sym.is_thread_local())
+                {
+                    std::stringstream reason;
+                    reason << (sym.is_thread() ? "__thread" : "thread_local")
+                           << " variables are threadprivate";
+
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
                 }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
@@ -1896,8 +1922,6 @@ namespace TL
                 internal_error("Code unreachable", 0);
             }
         }
-        void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
-        void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 
         void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct)
         {
@@ -2214,18 +2238,26 @@ namespace TL
         void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
 
+#define EMPTY_HANDLERS_DECLARATION(_name) \
+        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
+        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { }
+
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_CONSTRUCT(atomic)
-        EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(critical)
-        EMPTY_HANDLERS_DIRECTIVE(flush)
+        EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-        EMPTY_HANDLERS_DIRECTIVE(taskyield)
+        EMPTY_HANDLERS_CONSTRUCT(simd_fortran)
+
+        EMPTY_HANDLERS_DECLARATION(simd)
+
+        EMPTY_HANDLERS_DIRECTIVE(barrier)
+        EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_DIRECTIVE(register)
+        EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

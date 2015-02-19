@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -2826,15 +2826,6 @@ static void check_called_symbol_list(
     if (symbol_entity_specs_get_is_builtin(symbol)
             && is_computed_function_type(symbol->type_information))
     {
-        if (CURRENT_CONFIGURATION->disable_intrinsics)
-        {
-            error_printf("%s: error: call to intrinsic '%s' not implemented\n",
-                    ast_location(location),
-                    strtoupper(symbol->symbol_name));
-            *result_type = get_error_type();
-            return;
-        }
-
         scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol,
                 nodecl_actual_arguments,
                 explicit_num_actual_arguments,
@@ -3215,6 +3206,11 @@ static void check_called_symbol_list(
 
         nodecl_actual_positional_arguments[position] = nodecl_argument;
         last_argument = last_argument < position ? position : last_argument;
+    }
+
+    if (!function_type_get_lacking_prototype(no_ref(symbol->type_information)))
+    {
+        last_argument = function_type_get_num_parameters(no_ref(symbol->type_information)) - 1;
     }
 
     // Copy back to nodecl_actual_arguments

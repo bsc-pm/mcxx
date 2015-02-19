@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -27,32 +27,13 @@
 
 #include "tl-lowering-visitor.hpp"
 
-// This is needed for NANOS_INIT_LOCK_FREE defined in nanox headers
-#include "nanos.h"
-
 namespace TL { namespace Nanox {
-
-    namespace {
-
-        std::string macro_expanded_handling(const std::string& str)
-        {
-            return std::string(str.begin() + 1, str.end() - 1);
-        }
-
-    }
 
     Nodecl::NodeclBase LoweringVisitor::emit_critical_region(
             const std::string lock_name,
             Nodecl::NodeclBase construct,
             Nodecl::NodeclBase statements)
     {
-        // We do this to use a macro from the code of nanox
-#define STR_(x) #x
-#define STR(x) STR_((x))
-        std::string initializer = macro_expanded_handling(STR(NANOS_INIT_LOCK_FREE));
-#undef STR
-#undef STR_
-
         TL::Symbol nanos_lock_t_name = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_lock_t");
         ERROR_CONDITION(!nanos_lock_t_name.is_valid(), "nanos_lock_t required but not found in the scope", 0);
 
@@ -62,18 +43,11 @@ namespace TL { namespace Nanox {
             // We need to sign in the global lock
             Source global_lock_decl, initialization_if_needed;
 
+            // Nanos locks are initialized to zero, so we can use common here
             global_lock_decl
-                << "__attribute__((weak)) "
+                << "__attribute__((common)) "
                 << as_type(nanos_lock_t_name.get_user_defined_type())
-                << " " << lock_name << initialization_if_needed << ";";
-
-            if (IS_C_LANGUAGE
-                    || IS_FORTRAN_LANGUAGE)
-            {
-                initialization_if_needed
-                    << " = " << initializer;
-            }
-            // For C++ there is a nice constructor doing what NANOS_INIT_LOCK_FREE does
+                << " " << lock_name << ";";
 
             FORTRAN_LANGUAGE()
             {

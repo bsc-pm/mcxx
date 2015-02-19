@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -1686,7 +1686,7 @@ static scope_entry_t* new_procedure_symbol(
 
             result_sym->type_information = return_type;
 
-            return_type = get_indirect_type(result_sym);
+            return_type = get_mutable_indirect_type(result_sym);
 
             symbol_entity_specs_set_result_var(entry, result_sym);
 
@@ -1717,7 +1717,7 @@ static scope_entry_t* new_procedure_symbol(
 
         add_untyped_symbol(program_unit_context, result_sym);
 
-        return_type = get_indirect_type(result_sym);
+        return_type = get_mutable_indirect_type(result_sym);
 
         symbol_entity_specs_set_result_var(entry, result_sym);
     }
@@ -1743,7 +1743,7 @@ static scope_entry_t* new_procedure_symbol(
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
+        parameter_info[i].type_info = get_mutable_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
@@ -1954,7 +1954,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 result_sym->type_information = get_lvalue_reference_type(return_type);
             }
 
-            return_type = get_indirect_type(result_sym);
+            return_type = get_mutable_indirect_type(result_sym);
 
             symbol_entity_specs_set_result_var(entry, result_sym);
 
@@ -1990,7 +1990,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             result_sym->type_information = get_lvalue_reference_type(return_type);
         }
 
-        return_type = get_indirect_type(result_sym);
+        return_type = get_mutable_indirect_type(result_sym);
 
         symbol_entity_specs_set_result_var(entry, result_sym);
     }
@@ -2015,7 +2015,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
+        parameter_info[i].type_info = get_mutable_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
@@ -7226,6 +7226,17 @@ static void copy_interface(scope_entry_t* orig, scope_entry_t* dest)
 
     symbol_entity_specs_copy_related_symbols_from(dest, orig);
 
+    // Mark parameters also parameters of the copied interface
+    int i, N = symbol_entity_specs_get_num_related_symbols(dest);
+    for (i = 0; i < N; i++)
+    {
+        scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(dest, i);
+
+        symbol_set_as_parameter_of_function(param, dest,
+                /* nesting */ 0,
+                /* position */ symbol_get_parameter_position_in_function(param, orig));
+    }
+
     symbol_entity_specs_set_is_implicit_basic_type(dest, 0);
 }
 
@@ -7293,7 +7304,9 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
     {
         if (ASTKind(proc_interface) == AST_SYMBOL)
         {
-            interface = get_symbol_for_name(decl_context, proc_interface, ASTText(proc_interface));
+            interface = fortran_query_name_str(decl_context,
+                    strtolower(ASTText(proc_interface)),
+                    ast_get_locus(proc_interface));
 
             if (interface == NULL
                     || interface->kind != SK_FUNCTION)
@@ -7638,7 +7651,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     int i;
     for (i = 0; i < num_dummy_arguments; i++)
     {
-        parameter_info[i].type_info = get_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
+        parameter_info[i].type_info = get_mutable_indirect_type(symbol_entity_specs_get_related_symbols_num(entry, i));
     }
 
     type_t* new_type = get_new_function_type(entry->type_information, 
@@ -8382,6 +8395,7 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 
     // Copy everything and restore the name
     *current_symbol = *entry;
+    symbol_clear_indirect_types(current_symbol);
 
     // Restore original context
     current_symbol->decl_context = decl_context;
