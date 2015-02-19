@@ -500,14 +500,17 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
                 induction_var.make_nodecl(true), /* needle */
                 lower_node /* replacement */);
 
-        prependix_code.prepend_sibling(
-                Nodecl::Utils::deep_copy(prependix, prependix_code, symbol_map));
+        Nodecl::NodeclBase prep =
+                Nodecl::Utils::deep_copy(prependix, prependix_code, symbol_map);
+        update_reduction_uses(prep, reduction_items, reduction_pack_symbol);
+        prependix_code.prepend_sibling(prep);
     }
 
     if (!appendix.is_null())
     {
-        appendix_code.prepend_sibling(
-                Nodecl::Utils::deep_copy(appendix, appendix_code, symbol_map));
+        Nodecl::NodeclBase appe = Nodecl::Utils::deep_copy(appendix, appendix_code, symbol_map);
+        update_reduction_uses(appe, reduction_items, reduction_pack_symbol);
+        appendix_code.prepend_sibling(appe);
     }
 
     // If we have to do a barrier, do it only if the reduction list is empty
