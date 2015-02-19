@@ -2919,6 +2919,7 @@ CONFIG_MCXX=\
 # see below
 CONFIG_FILES =  \
        config/00.config.plain \
+       config/01.config.intel-plain \
        config/10.config.analysis-base \
        config/10.config.hlt \
        config/10.config.omp-base \
