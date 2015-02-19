@@ -466,7 +466,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         reduction_src
             << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
             <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
-            <<               ", 1"
+            <<               ", " << reduction_items.size()
             <<               ", sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")"
             <<               ", &" << as_symbol(reduction_pack_symbol)
             <<               ", (void(*)(void*,void*))" << as_symbol(callback)
