@@ -148,7 +148,7 @@
 "                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
-"  --Wx:<profile>:<flags>,options\n" \
+"  --Wx:<profile>:<flags>,<options>\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
 "  --openmp                 Enables OpenMP support (default)\n" \
@@ -190,7 +190,8 @@
 "                           number of THREADS.\n" \
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
-"  --opencl-build-opts=<options> Options passed to OpenCL compiler\n" \
+"  --opencl-build-opts=<options>\n" \
+"                           Options passed to OpenCL compiler\n" \
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
 "                           phases, use this flag to avoid the\n" \
 "                           compiler to unload them.\n" \
@@ -229,7 +230,7 @@
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
-"  --disable-intrinsics=comma-separated-list\n" \
+"  --disable-intrinsics=<comma-separated-intrinsics>\n" \
 "                           Disable given Fortran intrinsics\n" \
 "  --integer-kind=N         Set the default kind of INTEGER\n" \
 "                           By default it is 4. Fortran only\n" \
@@ -241,7 +242,7 @@
 "                           By default it is 4. Fortran only\n" \
 "  --character-kind=N       Set the default kind of CHARACTER\n" \
 "                           By default it is 1. Fortran only\n" \
-"  --fortran-array-descriptor=name\n" \
+"  --fortran-array-descriptor=<name>\n" \
 "                           Selects Fortran array descriptor\n" \
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
@@ -260,7 +261,7 @@
 "                           Instead, keep 'x.mf03' and native 'x.mod'.\n" \
 "  --do-not-warn-config     Do not warn about wrong configuration\n" \
 "                           file names\n" \
-"  --vector-flavor=name     When emitting vector types use given\n" \
+"  --vector-flavor=<name>   When emitting vector types use given\n" \
 "                           flavor name. By default it is gnu.\n" \
 "                           See --vector-list-flavors\n" \
 "  --list-vector-flavors    Lists the supported vector flavors\n" \
