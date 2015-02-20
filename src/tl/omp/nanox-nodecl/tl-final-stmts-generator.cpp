@@ -183,7 +183,7 @@ namespace TL { namespace Nanox {
 
                             Nodecl::NodeclBase new_function_code = Nodecl::Utils::deep_copy(
                                     function_code,
-                                    function_code,
+                                    called_sym.get_scope(),
                                     _function_translation_map);
 
                             // Make it member if the enclosing function is member
@@ -195,16 +195,18 @@ namespace TL { namespace Nanox {
                                         new_function_sym.get_internal_symbol(),
                                         /* is_definition */ 1);
                             }
-
-                            // Prepend a declaration of the new function symbol to the enclosing function code
-                            CXX_LANGUAGE()
+                            else
                             {
-                                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                                        /* optative context */ nodecl_null(),
-                                        new_function_sym,
-                                        function_call.get_locus());
+                                // Prepend a declaration of the new function symbol to the enclosing function code
+                                CXX_LANGUAGE()
+                                {
+                                    Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                                            /* optative context */ nodecl_null(),
+                                            new_function_sym,
+                                            function_call.get_locus());
 
-                                Nodecl::Utils::prepend_items_before(_enclosing_function_code, nodecl_decl);
+                                    Nodecl::Utils::prepend_items_before(_enclosing_function_code, nodecl_decl);
+                                }
                             }
 
                             // Prepend the new function code to the tree
