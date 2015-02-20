@@ -53,6 +53,7 @@ namespace TL
                 virtual void visit(const Nodecl::BreakStatement& n);
                 virtual void visit(const Nodecl::ContinueStatement& n);
                 virtual void visit(const Nodecl::UnknownPragma& n);
+                virtual void visit(const Nodecl::EmptyStatement& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

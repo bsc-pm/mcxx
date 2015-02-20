@@ -452,9 +452,19 @@ namespace Vectorization
         _rightmost_group_vload = max_vload;
 
         if (aligned_strategy)
-            std::cerr << "ALIGNED STRATEGY: " << std::endl;
+        {
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "ALIGNED STRATEGY: " << std::endl;
+            }
+        }
         else
-            std::cerr << "UNALIGNED STRATEGY: " << std::endl;
+        {
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "UNALIGNED STRATEGY: " << std::endl;
+            }
+        }
 
         VECTORIZATION_DEBUG()
         {
@@ -581,33 +591,27 @@ namespace Vectorization
         }
 
         std::cerr << "Overlap Groups Summary:" << std::endl;
-        std::cerr << "    - Total groups: "
-            << ogroups.size() << " ";
+        std::cerr << "    - Total groups = " << ogroups.size() << ":" << std::endl;
 
-        for(objlist_ogroup_t::iterator it_ogroup =
-                ogroups.begin();
-                it_ogroup != ogroups.end();
-                it_ogroup++)
+        for(const auto& ogroup : ogroups)
         {
-            std::cerr << "(" << it_ogroup->_loads.size() << ") ";
+            std::cerr << ogroup._subscripted.get_name() <<
+                "(" << ogroup._loads.size() << ") ";
         }
  
+        // TODO: Merge overlaped groups
+        /*
         std::cerr << std::endl << 
             "    - Groups after merging: "
             << ogroups.size() << " ";
 
-        for(objlist_ogroup_t::iterator it_ogroup =
-                ogroups.begin();
-                it_ogroup != ogroups.end();
-                it_ogroup++)
+        for(const auto& ogroup : ogroups)
         {
-            std::cerr << "(" << it_ogroup->_loads.size() << ") ";
+            std::cerr << ogroup._subscripted.prettyprint() <<
+                "(" << ogroup->_loads.size() << ") ";
         }
+        */
  
-
-        // TODO: Merge overlaped groups
-        
-
         // TODO: Length
         //if (group._loads.size() >= min_group_size)
         //    result.append(group);
@@ -627,18 +631,16 @@ namespace Vectorization
             }
         }
 
-        std::cerr << std::endl << 
-            "    - Groups after min cardinality filtering: "
-            << ogroups.size() << " ";
+        std::cerr << std::endl << "    - Groups after cardinality (" <<
+           min_group_loads << ") = " << ogroups.size()
+            << ": " << std::endl;
 
-        for(objlist_ogroup_t::iterator it_ogroup =
-                ogroups.begin();
-                it_ogroup != ogroups.end();
-                it_ogroup++)
+        for(const auto& ogroup : ogroups)
         {
-            std::cerr << "(" << it_ogroup->_loads.size() << ") ";
+            std::cerr << ogroup._subscripted.get_name() <<
+                "(" << ogroup._loads.size() << ") ";
         }
-         std::cerr << std::endl;
+        std::cerr << std::endl;
 
         return ogroups;
     }

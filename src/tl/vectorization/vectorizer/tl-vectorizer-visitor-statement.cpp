@@ -795,6 +795,10 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorStatement::visit(const Nodecl::EmptyStatement& n)
+    {
+    }
+
 
     /*
        Nodecl::NodeclBase VectorizerVisitorStatement::process_return_inside(Nodecl::NodeclBase current_mask_nodecl)
