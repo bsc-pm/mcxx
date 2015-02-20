@@ -924,10 +924,15 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
+    // We cannot use the final stmts generated in the FinalStmtsGenerator
+    // because we need to introduce some extra function calls
+    bool has_task_reduction = false;
     Nodecl::NodeclBase final_statements;
     if(!environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::TaskReduction>().is_null())
     {
+
         // This final_statements will be used when we are generating the code for the 'final' clause
+        has_task_reduction = true;
         final_statements = Nodecl::Utils::deep_copy(statements, construct);
     }
 
@@ -1017,7 +1022,7 @@ void LoweringVisitor::visit_task(
         ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
 
         // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
-        if (!final_statements.is_null())
+        if (has_task_reduction)
             copied_statements_placeholder.replace(final_statements);
         else
             copied_statements_placeholder.replace(it->second);
@@ -1032,6 +1037,9 @@ void LoweringVisitor::visit_task(
         new_construct = construct;
     }
 
+    // Our implementation of reduction tasks forces them to be tied
+    bool is_untied = task_environment.is_untied && !has_task_reduction;
+
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
             new_construct,
@@ -1042,7 +1050,7 @@ void LoweringVisitor::visit_task(
             task_environment.if_condition,
             task_environment.final_condition,
             task_environment.task_label,
-            task_environment.is_untied,
+            is_untied,
 
             outline_info,
             /* parameter_outline_info */ NULL,
