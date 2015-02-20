@@ -36,34 +36,6 @@ namespace TaskAnalysis {
 
     // **************************************************************************************************** //
     // *************************** Class implementing task PCFG synchronization *************************** //
-    
-    #define SYNC_KIND_LIST \
-    SYNC_KIND(unknown) \
-    SYNC_KIND(strict) \
-    SYNC_KIND(static) \
-    SYNC_KIND(post) \
-    SYNC_KIND(maybe)
-
-    enum SyncKind
-    {
-#undef SYNC_KIND
-#define SYNC_KIND(X) Sync_##X,
-        SYNC_KIND_LIST
-#undef SYNC_KIND
-    };
-
-    inline const char* sync_kind_to_str(SyncKind sk)
-    {
-        switch (sk)
-        {
-#undef SYNC_KIND
-#define SYNC_KIND(X) case Sync_##X : return #X;
-        SYNC_KIND_LIST
-#undef SYNC_KIND
-            default: return "";
-        }
-        return "";
-    };
 
     typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
     typedef ObjectList<PointOfSyncInfo> PointOfSyncList;
@@ -75,9 +47,9 @@ namespace TaskAnalysis {
         ExtensibleGraph* _graph;
 
     public:
-        TaskSynchronizations( ExtensibleGraph* graph, bool is_ompss_enabled );
+        TaskSynchronizations(ExtensibleGraph* graph, bool is_ompss_enabled);
 
-        void compute_task_synchronizations( );
+        void compute_task_synchronizations();
     };
 
     // ************************* END class implementing task PCFG synchronization ************************* //
@@ -87,44 +59,34 @@ namespace TaskAnalysis {
     
     // **************************************************************************************************** //
     // *************************** Class implementing task concurrency analysis *************************** //
-    
+
     class LIBTL_CLASS TaskConcurrency
     {
     private:
         // *** Private members *** //
-        
         ExtensibleGraph* _graph;
-        
-        // There can be more that one _last_sync node when a task is inside a loop and
-        // there is taskwait / barrier after the task scheduling point inside the loop
-        // In that case, the first iteration _last_sync will be previous to the loop, 
-        // but for the next iterations, the _last_sync will be the one inside the loop
-        ObjectList<Node*> _last_sync_for_tasks;
-        ObjectList<Node*> _next_sync;
-        
-        
+
         // *** Private methods *** /
-        
-        void find_last_synchronization_point_in_parents( Node* current );
-        void find_last_synchronization_point_in_children( Node* current, Node* loop );
-        
+        void find_next_synchronization_points(Node* task);
+        void find_last_synchronization_points_for_sequential_code(Node* task_creation, Node* task);
+        void find_last_synchronization_points_for_tasks(Node* current, Node* task);
+
         //! This method calculates the next and last synchronization points of a task
-        void define_concurrent_regions_limits( Node* task );
-        
+        void define_concurrent_regions_limits(Node* task);
+
         /*!Computes the tasks that are concurrent with a given task
          * Also computes the last synchronization point in the encountering thread of the task
          */
-        void compute_concurrent_tasks( Node* task );
-        
+        void compute_concurrent_tasks(Node* task);
+
     public:
         // *** Constructor *** //
-        TaskConcurrency( ExtensibleGraph* graph );
-        
+        TaskConcurrency(ExtensibleGraph* graph);
+
         // *** Modifiers *** //
-        void compute_tasks_concurrency( );
-        void compute_task_concurrency( Node* task );
+        void compute_tasks_concurrency();
     };
-    
+
     // ************************* END class implementing task concurrency analysis ************************* //
     // **************************************************************************************************** //
 } 

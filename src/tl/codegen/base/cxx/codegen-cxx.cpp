@@ -189,9 +189,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
     BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
     BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
     BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  
@@ -1011,7 +1009,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
     this->push_scope(node.retrieve_context());
 
-    walk(node.get_in_context());
+    ERROR_CONDITION(!node.get_in_context().is<Nodecl::List>(), "invalid node", 0);
+    Nodecl::List l = node.get_in_context().as<Nodecl::List>();
+
+    // Transient kludge
+    bool emit_decls = 
+    (l.size() != 1
+           && !(l[0].is<Nodecl::CompoundStatement>()
+               || l[0].is<Nodecl::ForStatement>()
+               || l[0].is<Nodecl::WhileStatement>()
+               || l[0].is<Nodecl::SwitchStatement>()
+               || l[0].is<Nodecl::IfElseStatement>()));
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* << fake context >> { */\n";
+        define_local_entities_in_trees(l);
+    }
+
+    walk(l);
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* } << fake context >> */\n";
+    }
 
     this->pop_scope();
 }
@@ -3606,20 +3629,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     Nodecl::NodeclBase ub_expr = node.get_upper();
     Nodecl::NodeclBase step_expr = node.get_stride();
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     Nodecl::NodeclBase parent = node.get_parent();
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    bool enclose_in_square_brackets = (!parent.is<Nodecl::List>()
+            || !parent.get_parent().is<Nodecl::ArraySubscript>());
+
+    // Print the bracket when the range is not within an ArraySubscript (this is used by Analysis)
+    if(enclose_in_square_brackets)
     {
         *(file) << "[";
     }
-    
+
     walk(lb_expr);
     *(file) << ":";
     walk(ub_expr);
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    if(enclose_in_square_brackets)
     {
+        // When we enclose_in_square_brackets we also want to emit the stride,
+        // regardless of it being one
+        *(file) << ":";
+        walk(step_expr);
         *(file) << "]";
     }
     else
@@ -6541,12 +6570,13 @@ void CxxBase::declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Sy
                 /* without template id */ true);
     }
 
-    // Dirty trick to remove the firsts two colons if the name of the function has them
+    // Protect this declarator because the decl-specifier seq might end with an
+    // id-expression that would end being "pasted" to the declarator-name
     if (function_name.size() >= 2 &&
             function_name[0] == ':' &&
             function_name[1] == ':')
     {
-        function_name = function_name.substr(2);
+        function_name = "(" + function_name + ")";
     }
 
     indent();
@@ -8828,8 +8858,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_CLASS_MEMBER_ACCESS:
         case NODECL_CXX_ARROW:
         case NODECL_CXX_POSTFIX_INITIALIZER:
-        case NODECL_CXX_ARRAY_SECTION_RANGE:
-        case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
             {

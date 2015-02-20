@@ -131,6 +131,7 @@ tests/config/mercurium
 tests/config/mercurium-analysis
 tests/config/mercurium-cuda
 tests/config/mercurium-cxx11
+tests/config/mercurium-cxx14
 tests/config/mercurium-extensions
 tests/config/mercurium-fortran
 tests/config/mercurium-hlt

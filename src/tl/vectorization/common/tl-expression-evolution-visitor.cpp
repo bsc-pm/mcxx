@@ -81,14 +81,17 @@ namespace Vectorization
                 if (is_iv)
                 {
                     std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
-                            = get_iv_lower_bound_internal(scope_node, n);
+                            = get_linear_variable_lower_bound_internal(scope_node, n);
+                    Nodecl::NodeclBase step = get_linear_variable_increment_internal(scope_node, n);
+
                     ERROR_CONDITION(lower_bounds.size() != 1,
                                     "Induction variable '%s' has %d lower bounds. "
                                     "Only 1 lower bound supported.\n",
                                     n.get_symbol().get_name().c_str(), lower_bounds.size());
+
                     Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-                    if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
+                    if (step.is_constant() && nodecl_is_one(step))
                     {
                         is_iv_stride_one = true;
                     }
@@ -228,14 +231,17 @@ namespace Vectorization
         if (is_iv)
         {
             std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
-                    = get_iv_lower_bound_internal(_scope, n);
+                    = get_linear_variable_lower_bound_internal(_scope, n);
+            Nodecl::NodeclBase step = get_linear_variable_increment_internal(_scope, n);
+
             ERROR_CONDITION(lower_bounds.size() != 1,
                             "Induction variable '%s' has %d lower bounds. "
                             "Only 1 lower bound supported.\n",
                             n.prettyprint().c_str(), lower_bounds.size());
+
             Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-            if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
+            if (step.is_constant() && nodecl_is_one(step))
             {
                 is_iv_stride_one = true;
             }
@@ -440,14 +446,17 @@ namespace Vectorization
         if (is_iv)
         {
             std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
-                    = get_iv_lower_bound_internal(_scope, n);
+                    = get_linear_variable_lower_bound_internal(_scope, n);
+            Nodecl::NodeclBase step = get_linear_variable_increment_internal(_scope, n);
+
             ERROR_CONDITION(lower_bounds.size() != 1,
                             "Induction variable '%s' has %d lower bounds. "
                             "Only 1 lower bound supported.\n",
                             n.prettyprint().c_str(), lower_bounds.size());
+
             Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
 
-            if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
+            if (step.is_constant() && nodecl_is_one(step))
             {
                 is_iv_stride_one = true;
             }

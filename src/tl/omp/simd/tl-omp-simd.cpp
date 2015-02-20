@@ -41,9 +41,7 @@ namespace TL {
             : PragmaCustomCompilerPhase("omp-simd"),
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false),
             _avx2_enabled(false), _knc_enabled(false),
-            _prefer_gather_scatter(false),
-            _prefer_mask_gather_scatter(false),
-            _spml_enabled(false)
+            _spml_enabled(false), _only_adjacent_accesses_enabled(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -77,6 +75,16 @@ namespace TL {
                     "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
                     _spml_enabled_str,
                     "0").connect(std::bind(&Simd::set_spml, this, std::placeholders::_1));
+
+            register_parameter("only_adjacent_accesses",
+                    "If set to '1' disables emission of gather/scatter vector instructions",
+                    _only_adjacent_accesses_str,
+                    "0").connect(std::bind(&Simd::set_only_adjcent_accesses, this, std::placeholders::_1));
+
+            register_parameter("prefetch_distance",
+                    "Enables prefetching and sets prefetching distances",
+                    _prefetching_str,
+                    "0").connect(std::bind(&Simd::set_pref_distance, this, std::placeholders::_1));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -127,6 +135,32 @@ namespace TL {
             }
         }
 
+        void Simd::set_only_adjcent_accesses(
+                const std::string only_adjacent_accesses_str)
+        {
+            if (only_adjacent_accesses_str == "1")
+            {
+                _only_adjacent_accesses_enabled = true;
+            }
+        }
+
+        void Simd::set_pref_distance(
+                const std::string prefetching_str)
+        {
+            if (!prefetching_str.empty())
+            {
+                _pref_info.enabled = true;
+            }
+
+            _pref_info.L2_distance = atoi(std::strtok((char *)prefetching_str.c_str(),","));
+            _pref_info.L1_distance = atoi(std::strtok(NULL,","));
+
+            if (_pref_info.L2_distance <= _pref_info.L1_distance)
+            {
+                running_error("SIMD: Invalid prefetching distances. L2 distance is <= L1 distance");
+            }
+        }
+
         void Simd::pre_run(TL::DTO& dto)
         {
             this->PragmaCustomCompilerPhase::pre_run(dto);
@@ -164,20 +198,26 @@ namespace TL {
                 {
                     fprintf(stderr, " -- SPML OpenMP enabled -- \n");
                     SimdSPMLVisitor spml_visitor(
-                            simd_isa, _fast_math_enabled, _svml_enabled);
+                            simd_isa, _fast_math_enabled, _svml_enabled,
+                            _only_adjacent_accesses_enabled,
+                            _pref_info);
                     spml_visitor.walk(translation_unit);
                 }
                 else
                 {
                     SimdVisitor simd_visitor(
-                            simd_isa, _fast_math_enabled, _svml_enabled);
+                            simd_isa, _fast_math_enabled, _svml_enabled,
+                            _only_adjacent_accesses_enabled,
+                            _pref_info);
                     simd_visitor.walk(translation_unit);
                 }
             }
         }
 
         SimdVisitor::SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled)
+                bool fast_math_enabled, bool svml_enabled,
+                bool only_adjacent_accesses,
+                prefetch_info_t pref_info)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
             if (fast_math_enabled)
@@ -188,6 +228,11 @@ namespace TL {
             else
             {
                 _fast_math_enabled = false;
+            }
+
+            if (only_adjacent_accesses)
+            {
+                _vectorizer.disable_gathers_scatters();
             }
 
             switch (simd_isa)
@@ -228,6 +273,8 @@ namespace TL {
                             simd_isa);
 
             }
+
+            _pref_info = pref_info;
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_input_node)
@@ -355,6 +402,10 @@ namespace TL {
 
                     loop_statement.prepend_sibling(prependix);
                 }
+
+                if(_pref_info.enabled)
+                    _vectorizer.prefetcher(loop_statement,
+                            _pref_info, loop_environment);
             }
 
             // Add new vector symbols
@@ -642,6 +693,10 @@ namespace TL {
                             true /* simd for */, false /*epilog*/,
                             prependix_list);
                 }
+
+                if (_pref_info.enabled)
+                    _vectorizer.prefetcher(for_statement,
+                            _pref_info, for_environment);
             }
 
             // Add new vector symbols
@@ -985,8 +1040,11 @@ namespace TL {
         }
 
         SimdSPMLVisitor::SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled)
-            : SimdVisitor(simd_isa, fast_math_enabled, svml_enabled)
+                bool fast_math_enabled, bool svml_enabled,
+                bool only_adjacent_accesses,
+                prefetch_info_t pref_info)
+            : SimdVisitor(simd_isa, fast_math_enabled,
+                    svml_enabled, only_adjacent_accesses, pref_info)
         {
         }
  

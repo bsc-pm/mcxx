@@ -691,7 +691,7 @@ check_sync:
             TL::Analysis::ExtensibleGraph* pcfg,
             TL::Analysis::Node* task)
     {
-        const TL::ObjectList<TL::Analysis::Node*>& next_sync = pcfg->get_task_next_synchronization(task);
+        const TL::ObjectList<TL::Analysis::Node*>& next_sync = pcfg->get_task_next_sync_for_sequential_code(task);
         for (TL::ObjectList<TL::Analysis::Node*>::const_iterator itn = next_sync.begin();
              itn != next_sync.end(); ++itn)
         {

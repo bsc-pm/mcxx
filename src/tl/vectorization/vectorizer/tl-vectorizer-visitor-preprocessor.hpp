@@ -42,6 +42,8 @@ namespace Vectorization
             void visit_pre_post_increment(const Nodecl::Preincrement& n);
             void visit_pre_post_decrement(const Nodecl::Predecrement& n);
 
+            template <typename OpAssignment, typename Op> 
+                void visit_op_assignment(const OpAssignment& n);
 
         public:
             VectorizerVisitorPreprocessor();

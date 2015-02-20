@@ -37,7 +37,6 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
-dnl Check cc
 AC_PROG_CC
 AM_PROG_CC_C_O
 
@@ -111,9 +110,8 @@ AC_COMPILE_IFELSE(
      #endif
    ]])],
    [AC_MSG_RESULT([ok])],
-   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
+   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is requested])]
 )
-
 
 dnl --------------------- end check of old gcc ---
 
@@ -425,6 +423,29 @@ then
 else
     XLF=
 fi
+
+dnl --------------------- Support for plain profiles for Intel Compilers -------------
+if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 01.config.intel-plain"
+
+    # Intel C/C++/Fortran
+    if test x$ICC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicc"
+    fi
+
+    if test x$ICPC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicpc"
+    fi
+
+    if test -x$IFORT != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainifort plainimfc ifort-plainfc"
+    fi
+fi
+dnl --------------------- End support for plain profiles for Intel Compilers ---------
 
 dnl -- End of extra compiler checks ---
 
@@ -1275,7 +1296,7 @@ then
 
       if test -x$IFORT != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc ismpfc"
+          COMPILER_NAMES="${COMPILER_NAMES} imfc imf95 ifort-mfc ismpfc"
       fi
    fi
 
@@ -1395,27 +1416,34 @@ dnl ------------------------------------
 dnl ---------------------- TL Vectorization ----------------------------
 
 is_enabled_vectorization="yes"
-AC_MSG_CHECKING([if disabled Vectorization build and install])
-AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-      is_enabled_vectorization="yes"
-      AC_MSG_RESULT([no])
-    else if test x$enableval = xno;
-      then
-        is_enabled_vectorization="no"
-        AC_MSG_RESULT([yes])
-      else
-        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-      fi
-    fi
-  ],
-  [
-    is_enabled_vectorization="yes"
-    AC_MSG_RESULT([no])
-  ])
+AC_MSG_CHECKING([if enabling Vectorization build and install])
+if test x$HAVE_CXX11 = x1;
+then
+    AC_ARG_ENABLE([vectorization],
+        AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
+        [
+            if test x$enableval = xyes -o x$enableval = x;
+            then
+                is_enabled_vectorization="yes"
+                AC_MSG_RESULT([no])
+            else if test x$enableval = xno;
+                then
+                    is_enabled_vectorization="no"
+                    AC_MSG_RESULT([yes])
+                else
+                    AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                fi
+            fi
+        ],
+        [
+            is_enabled_vectorization="yes"
+            AC_MSG_RESULT([no2])
+        ])
+else
+    is_enabled_vectorization="no"
+    AC_MSG_RESULT([no (gcc 4.7 or higher is requested)])
+fi
+
 
 if test x$is_enabled_vectorization = xno;
 then
@@ -1429,7 +1457,7 @@ dnl ------------------------------------
 dnl ---------------------- TL Analysis ----------------------------
 
 is_enabled_analysis="yes"
-AC_MSG_CHECKING([if disabled Analysis build and install])
+AC_MSG_CHECKING([if enabling Analysis build and install])
 AC_ARG_ENABLE([analysis],
   AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
   [
@@ -1951,6 +1979,11 @@ AC_SUBST([quadmath_LIBS])
 
 dnl Check for compliant const
 AC_C_CONST
+
+dnl Not all gccs support this
+NO_VAR_TRACKING_ASSIGNMENTS=""
+AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
+AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
 
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter

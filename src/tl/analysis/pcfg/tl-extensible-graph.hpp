@@ -98,10 +98,12 @@ namespace Analysis {
         std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
         //! Map that relates each task with the previous points in the code 
         //! from where to look for sequential code concurrent with the task
-        std::map<Node*, ObjectList<Node*> > _last_sync;
+        std::map<Node*, ObjectList<Node*> > _last_sync_tasks;
+        std::map<Node*, ObjectList<Node*> > _last_sync_sequential;
         //! Map that relates each task with the posterior points in the code
         //! from where to look for sequential code concurrent with the task
-        std::map<Node*, ObjectList<Node*> > _next_sync;
+        std::map<Node*, ObjectList<Node*> > _next_sync_tasks;
+        std::map<Node*, ObjectList<Node*> > _next_sync_sequential;
         
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
@@ -210,15 +212,15 @@ namespace Analysis {
          * \return           The new node
         */
         Node* append_new_child_to_parent(ObjectList<Node*> parents, ObjectList<NBase> stmts,
-                                         Node_type ntype = __Normal, Edge_type etype = __Always);
+                                         NodeType ntype = __Normal, EdgeType etype = __Always);
 
         //! Overladed method for unique \p parent and unique \p statement
         Node* append_new_child_to_parent(Node* parent, NBase stmt,
-                                         Node_type ntype = __Normal, Edge_type etype = __Always);
+                                         NodeType ntype = __Normal, EdgeType etype = __Always);
 
         //! Overladed method for multiple \p parents and unique \p statement
         Node* append_new_child_to_parent(ObjectList<Node*> parents, NBase stmt,
-                                         Node_type ntype = __Normal, Edge_type etype = __Always);
+                                         NodeType ntype = __Normal, EdgeType etype = __Always);
 
         //! Connects two nodes by creating a new edge between them. Only if they were not connected.
         /*!
@@ -232,23 +234,23 @@ namespace Analysis {
          *                      In such case, the edge will have a special attribute Back_Edge.
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes(Node* parent, Node* child, Edge_type etype = __Always, 
+        Edge* connect_nodes(Node* parent, Node* child, EdgeType etype = __Always,
                             const NBase& label = NBase::null(),
                              bool is_task_edge = false, bool is_back_edge = false);
 
         //! Overloaded method for a set of \p parents and a set of \p children.
         void connect_nodes(const ObjectList<Node*>& parents, const ObjectList<Node*>& children,
-                           const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(), 
+                           const ObjectList<EdgeType>& etypes=ObjectList<EdgeType>(),
                            const ObjectList<NBase>& elabels=ObjectList<NBase>());
 
         //! Overloaded method for a \p parent and a set of \p children.
         void connect_nodes(Node* parent, const ObjectList<Node*>& children,
-                           const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(),
+                           const ObjectList<EdgeType>& etypes=ObjectList<EdgeType>(),
                            const ObjectList<NBase>& elabels=ObjectList<NBase>());
 
         //! Overloaded method for a set of \p parents and a \p children.
         void connect_nodes(const ObjectList<Node*>& parents, Node* child, 
-                           const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(), 
+                           const ObjectList<EdgeType>& etypes=ObjectList<EdgeType>(),
                            const ObjectList<NBase>& elabels=ObjectList<NBase>(), 
                             bool is_task_edge = false, bool is_back_edge = false);
 
@@ -280,7 +282,7 @@ namespace Analysis {
         * \return The new composite node.
         */
         Node* create_graph_node(Node* outer_node, NBase label,
-                                Graph_type graph_type, NBase context = NBase::null());
+                                GraphType graph_type, NBase context = NBase::null());
 
         //! Builds a Flush node and connects it with the existent graph
         Node* create_flush_node(Node* outer_node, NBase n = NBase::null());
@@ -289,7 +291,7 @@ namespace Analysis {
         /*!
         * \param nodecl Statement that will be added to the new node
         */
-        Node* create_unconnected_node(Node_type type, NBase nodecl);
+        Node* create_unconnected_node(NodeType type, NBase nodecl);
 
         //! Deletes a node from the graph
         /*!
@@ -403,13 +405,20 @@ namespace Analysis {
         // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
         ObjectList<Node*> get_task_concurrent_tasks(Node* task) const;
         void add_concurrent_task_group(Node* task, ObjectList<Node*> concurrent_tasks);
-        ObjectList<Node*> get_task_last_synchronization(Node* task) const;
-        void add_last_synchronization(Node* task, ObjectList<Node*> last_sync);
-        ObjectList<Node*> get_task_next_synchronization(Node* task) const;
-        void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
-        void remove_next_synchronization(Node* task, Node* next_sync);
+
+        ObjectList<Node*> get_task_last_sync_for_tasks(Node* task) const;
+        ObjectList<Node*> get_task_last_sync_for_sequential_code(Node* task) const;
+        void add_last_sync_for_tasks(Node* task, Node* last_sync);
+        void set_last_sync_for_tasks(Node* task, Node* last_sync);
+        void add_last_sync_for_sequential_code(Node* task, Node* last_sync);
+
+        ObjectList<Node*> get_task_next_sync_for_tasks(Node* task) const;
+        ObjectList<Node*> get_task_next_sync_for_sequential_code(Node* task) const;
+        void add_next_sync_for_tasks(Node* task, Node* next_sync);
+        void add_next_sync_for_sequential_code(Node* task, Node* next_sync);
+        void remove_next_sync_for_tasks(Node* task, Node* next_sync);
         void remove_concurrent_task(Node* task, Node* old_concurrent_task);
-        
+
         // *** Consultants *** //
         static Node* is_for_loop_increment(Node* node);
         static bool node_is_in_loop(Node* current);

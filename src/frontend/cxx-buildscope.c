@@ -16574,7 +16574,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declaration(a, inner_decl_context);
+                solve_ambiguous_member_declaration(a, inner_decl_context);
                 // Restart
                 build_scope_member_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, 
                         declared_symbols, gather_decl_spec_list);

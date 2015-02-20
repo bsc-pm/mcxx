@@ -168,6 +168,7 @@ typedef struct debug_options_tag
     char binary_check;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
+    char analysis_perf;
     char print_pcfg;
     char print_pcfg_w_context;
     char print_pcfg_w_analysis;
@@ -385,7 +386,8 @@ typedef struct compilation_configuration_tag
     int output_column_width;
 
     // Disable Fortran intrinsics
-    char disable_intrinsics;
+    int num_disabled_intrinsics;
+    const char ** disabled_intrinsics_list;
 
     // Fortran module wrapping
     char do_not_wrap_fortran_modules;

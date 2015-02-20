@@ -226,7 +226,7 @@ namespace Vectorization
             return alignment_info->second;
         }
 
-        _analysis->get_assume_aligned_attribute(
+        return _analysis->get_assume_aligned_attribute(
                 Nodecl::Utils::get_enclosing_function(_scope).
                 get_function_code(), n);
 
@@ -246,7 +246,6 @@ namespace Vectorization
 */
         // There is no alignment info about the subscripted symbol
         // Assume unaligned
-        return -1;
     }
 
     bool SuitableAlignmentVisitor::is_suitable_expression(

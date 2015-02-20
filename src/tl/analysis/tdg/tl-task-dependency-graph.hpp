@@ -83,23 +83,16 @@ namespace Analysis {
         friend struct TDG_Edge;
         friend class TaskDependencyGraph;
     };
-    
-    enum TDGEdgeType {
-        Strict,
-        Static,
-        Maybe,
-        Post
-    };
-    
+
     struct TDG_Edge {
         TDG_Node* _source;
         TDG_Node* _target;
-        TDGEdgeType _type;
+        SyncKind _kind;
         ObjectList<NBase> _source_clauses;
         ObjectList<NBase> _target_clauses;
         NBase _condition;
         
-        TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const NBase& condition);
+        TDG_Edge(TDG_Node* source, TDG_Node* target, SyncKind kind, const NBase& condition);
         TDG_Node* get_source();
         TDG_Node* get_target();
         
@@ -120,27 +113,28 @@ namespace Analysis {
         // *** Class members *** //
         ExtensibleGraph* _pcfg;                                 /*!< PCFG corresponding to the graph */
         ObjectList<TDG_Node*> _tdg_nodes;                       /*!< List of nodes in the TDG */
-        
+
         std::map<Symbol, unsigned int> _syms;                   /*!< Map of symbols appearing in the TDG associated to their identifier */
         std::map<Node*, int> _pcfg_control_structure_to_id;     /*!< Map of PCFG control structure nodes to their TDG identifier */
-        
+
         // *** Not allowed construction methods *** //
         TaskDependencyGraph(const TaskDependencyGraph& n);
         TaskDependencyGraph& operator=(const TaskDependencyGraph&);
-        
+
         // *** Private methods *** //
-        void connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
-                               NBase type, const NBase& condition);
-        
+        void connect_tdg_nodes(
+                TDG_Node* parent, TDG_Node* child,
+                SyncKind sync_type, const NBase& condition);
+
         TDG_Node* find_task_from_tdg_nodes_list(Node* task);
         void create_tdg_nodes_from_pcfg(Node* current);
         void set_tdg_nodes_control_structures();
         void connect_tdg_nodes_from_pcfg(Node* current);
         void store_condition_list_of_symbols(const NBase& condition);
-        
+
         void taskify_graph(Node* current);
         void create_tdg(Node* current);
-        
+
         void print_tdg_node_to_dot(TDG_Node* current, std::ofstream& dot_tdg);
         void print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent);
         void print_tdg_syms_to_json(std::ofstream& json_tdg);

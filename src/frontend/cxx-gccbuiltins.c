@@ -2309,10 +2309,7 @@ DEF_C99_BUILTIN        (BUILT_IN_CTANH, "ctanh", BT_FN_COMPLEX_DOUBLE_COMPLEX_DO
 DEF_C99_BUILTIN        (BUILT_IN_CTANHF, "ctanhf", BT_FN_COMPLEX_FLOAT_COMPLEX_FLOAT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_CTANHL, "ctanhl", BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_CTANL, "ctanl", BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-}
 
-static void gcc_sign_in_builtins_1(decl_context_t global_context)
-{
 /* Category: string/memory builtins.  */
 /* bcmp, bcopy and bzero have traditionally accepted NULL pointers
    when the length parameter is zero, so don't apply attribute "nonnull".  */
@@ -2559,10 +2556,7 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_VPRINTF_CHK, "__vprintf_chk", BT_FN_INT_INT_CON
 /* Profiling hooks.  */
 DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_ENTER, "profile_func_enter", NO_EXPAND_FUN)
 DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit", NO_EXPAND_FUN)
-}
 
-static void gcc_sign_in_builtins_2(decl_context_t global_context)
-{
 /* TLS emulation.  */
 //
 // Not supported in Mercurium: need to know the function for _tls and the register
@@ -3225,11 +3219,7 @@ static void sign_in_sse_builtins(decl_context_t global_context);
 static void sign_in_intel_builtins(decl_context_t global_context);
 void gcc_sign_in_builtins(decl_context_t global_context)
 {
-    // We split these functions to avoid -fvar-tracking to run
-    // out of memory, causing a massive slowdown in optimized builds
     gcc_sign_in_builtins_0(global_context);
-    gcc_sign_in_builtins_1(global_context);
-    gcc_sign_in_builtins_2(global_context);
 
     // Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
     sign_in_sse_builtins(global_context);

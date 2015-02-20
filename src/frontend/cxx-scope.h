@@ -298,6 +298,8 @@ LIBMCXX_EXTERN char is_dependent_function(scope_entry_t* entry);
 
 LIBMCXX_EXTERN void field_path_init(field_path_t* field_path);
 
+LIBMCXX_EXTERN void symbol_clear_indirect_types(scope_entry_t* entry);
+
 // Symbol helping routines
 LIBMCXX_EXTERN void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function,
         int nesting, int position);

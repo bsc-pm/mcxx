@@ -55,6 +55,7 @@ LIBMCXX_EXTERN void solve_parameter_declaration_vs_type_parameter_class(AST a, d
 
 // Contextual
 LIBMCXX_EXTERN void solve_ambiguous_declaration(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN void solve_ambiguous_member_declaration(AST a, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_declarator(AST a, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_statement(AST a, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context, gather_decl_spec_t* gather_info);

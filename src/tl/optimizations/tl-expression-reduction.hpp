@@ -75,11 +75,6 @@ namespace Optimizations {
     *         -    c2     =>    c1-c2     t            c1    -     =>  c1-c2     t
     *       /   \                                          /  \
     *     c1    t                                        c2   t
-    * R6i :      +                     +      
-    *          /   \                 /   \
-    *         +    c     =>         +    t1
-    *       /   \                  /  \
-    *     t1    t2                c   t2
     *
     * R7 :   *                                     R8 :    *                 *
     *      /   \          =>     c1 * c2                 /   \     =>      /   \
@@ -132,7 +127,36 @@ namespace Optimizations {
     *  +   t3 +   t4                    +  t3 +   t4
     * / \    / \                       / \   / \
     *t1 t2 t1  t2                    t1 t2  t1 t2
- 
+    *
+    * R50a : +                  +
+    *      /   \              /   \
+    *     +     t2        => c     + 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R50b : -                  -
+    *      /   \              /   \
+    *     -     t2        => c     + 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R50c : *                  *
+    *      /   \              /   \
+    *     *     t2        => c     * 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R51b : +                  -
+    *      /   \              /   \
+    *     -     t2        => c     - 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R51b : -                  +
+    *      /   \              /   \
+    *     +     t2        => c     - 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
     *
     */
     class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -161,9 +185,7 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::VectorBitwiseAnd& n );
         Ret visit_post( const Nodecl::VectorBitwiseOr& n );
         Ret visit_post( const Nodecl::VectorBitwiseShl& n );
-        Ret visit_post( const Nodecl::VectorBitwiseShlI& n );
         Ret visit_post( const Nodecl::VectorBitwiseShr& n );
-        Ret visit_post( const Nodecl::VectorBitwiseShrI& n );
         Ret visit_post( const Nodecl::VectorDiv& n );
         Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
         Ret visit_post( const Nodecl::VectorLowerThan& n );

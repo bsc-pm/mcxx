@@ -439,14 +439,13 @@ namespace Analysis {
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
+        Ret visit( const Nodecl::VectorArithmeticShr& n );
         Ret visit( const Nodecl::VectorAssignment& n );
         Ret visit( const Nodecl::VectorBitwiseAnd& n );
         Ret visit( const Nodecl::VectorBitwiseNot& n );
         Ret visit( const Nodecl::VectorBitwiseOr& n );
         Ret visit( const Nodecl::VectorBitwiseShl& n );
-        Ret visit( const Nodecl::VectorBitwiseShlI& n );
         Ret visit( const Nodecl::VectorBitwiseShr& n );
-        Ret visit( const Nodecl::VectorBitwiseShrI& n );
         Ret visit( const Nodecl::VectorBitwiseXor& n );
         Ret visit( const Nodecl::VectorConditionalExpression& n );
         Ret visit( const Nodecl::VectorConversion& n );
@@ -479,6 +478,7 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorMod& n );
         Ret visit( const Nodecl::VectorMul& n );
         Ret visit( const Nodecl::VectorNeg& n );
+        Ret visit( const Nodecl::VectorPrefetch& n );
         Ret visit( const Nodecl::VectorPromotion& n );
         Ret visit( const Nodecl::VectorReductionAdd& n );
         Ret visit( const Nodecl::VectorReductionMinus& n );

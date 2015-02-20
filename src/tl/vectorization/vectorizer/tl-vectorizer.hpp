@@ -35,6 +35,7 @@
 #include "tl-vectorization-common.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-function-versioning.hpp"
+#include "tl-vectorizer-prefetcher.hpp"
 
 namespace TL
 {
@@ -46,11 +47,8 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
                 static VectorizationAnalysisInterface* _vectorizer_analysis;
+                static bool _gathers_scatters_disabled;
 
-//                static VectorizationAnalysisInterface *_analysis_info;
-
-                bool _avx2_enabled;
-                bool _knc_enabled;
                 bool _svml_sse_enabled;
                 bool _svml_avx2_enabled;
                 bool _svml_knc_enabled;
@@ -82,6 +80,9 @@ namespace TL
                         const bool is_simd_for,
                         const bool is_epilog,
                         Nodecl::List& init_stmts);
+                void prefetcher(const Nodecl::NodeclBase& statements,
+                        const prefetch_info_t& pref_info,
+                        const VectorizerEnvironment& environment);
 
                 void process_epilog(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
@@ -126,13 +127,16 @@ namespace TL
                 void enable_svml_avx2();
                 void enable_svml_knc();
                 void enable_fast_math();
-
+                void disable_gathers_scatters();
+ 
                 friend class VectorizerVisitorExpression;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorLocalSymbol;
                 friend class VectorizerLoopInfo;
                 friend class VectorizerVisitorLoopCond;
                 friend class VectorizerVisitorLoopEpilog;
+                friend class Prefetcher;
+                friend class GenPrefetch;
         };
    }
 }

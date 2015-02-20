@@ -26,6 +26,7 @@
 
 /*
 <testinfo>
+test_CFLAGS=--only-adjacent-accesses
 test_generator=config/mercurium-serial-simd-mic
 test_ignore=yes
 test_ignore_reason="See ticket #2195"

@@ -205,11 +205,8 @@ expression : literal
            | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_SHL([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_BITWISE_SHL_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ARITHMETIC_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_ARITHMETIC_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_BITWISE_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt,[flags] vector-flags-seq-opt) type const-value-opt
@@ -217,6 +214,7 @@ expression : literal
            | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_PREFETCH([address] expression, [prefetch_kind] expression) type const-value-opt
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LANE_ID() type const-value
            | NODECL_VECTOR_CONVERSION([nest] expression, [mask]expression-opt) type const-value-opt
@@ -383,10 +381,6 @@ cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [memb
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type const-value-opt
-# a[e:e]
-    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt, [stride] expression-opt) type const-value-opt
-# a[e;e]
-    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt, [stride] expression-opt) type const-value-opt
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type const-value-opt
 # T(expr-list) (T being an expression)

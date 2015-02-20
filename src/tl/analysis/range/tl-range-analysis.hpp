@@ -143,7 +143,7 @@ namespace Analysis {
         
         //! Insert, if it is not yet there, a new node in the CG with the value #value
         CGNode* insert_node(const NBase& value);
-        CGNode* insert_node(CGNode_type type);
+        CGNode* insert_node(CGNodeType type);
         
         //! Connects nodes #source and #target with a directed edge extended with #predicate
         void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());

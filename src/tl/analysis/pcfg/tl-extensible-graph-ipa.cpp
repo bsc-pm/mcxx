@@ -84,13 +84,13 @@ namespace Analysis {
                                                                            ret_stmt.get_locus());
                     
                     // Modify the 'current' node with the new information
-                    current->set_type(NORMAL);
+                    current->set_type(__Normal);
                     current->set_statements(ObjectList<NBase>(1, tmp_stmt));
                 }
                 else
                 {   // We have to delete this node and connect its parent with the graph exit node
                     ObjectList<Node*> parents = current->get_parents();
-                    ObjectList<Edge_type> entry_types = current->get_entry_edge_types();
+                    ObjectList<EdgeType> entry_types = current->get_entry_edge_types();
                     ObjectList<std::string> entry_labels = current->get_entry_edge_labels();
                     delete_node(current);
                     connect_nodes(parents, graph_exit, entry_types, entry_labels);

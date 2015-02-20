@@ -34,6 +34,10 @@ namespace TL { namespace Intel {
 
     TL::Symbol new_global_ident_symbol(Nodecl::NodeclBase location);
     TL::Symbol new_private_symbol(TL::Symbol original_symbol, TL::Scope private_scope);
+    TL::Symbol new_private_symbol(const std::string& base_name,
+            TL::Type type,
+            enum cxx_symbol_kind kind,
+            TL::Scope private_scope);
 
     TL::Symbol get_global_lock_symbol(Nodecl::NodeclBase location, const std::string& name);
     TL::Symbol get_global_lock_symbol(Nodecl::NodeclBase location);
