@@ -323,7 +323,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     outline_src
         << "{"
         <<      instrument_before
-        <<      unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");"
+        <<      unpacked_function.get_qualified_name_for_expression(
+                   /* in_dependent_context */
+                   (current_function.get_type().is_template_specialized_type()
+                    && current_function.get_type().is_dependent())
+                ) << "(" << unpacked_arguments << ");"
         <<      instrument_after
         << "}"
         ;

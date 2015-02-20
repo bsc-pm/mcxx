@@ -5952,7 +5952,6 @@ const char* get_class_qualification_of_symbol_without_template(scope_entry_t* en
             NULL);
 }
 
-
 const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
 {
     int max_qualif_level = 0;
