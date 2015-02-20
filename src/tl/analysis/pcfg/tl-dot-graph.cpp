@@ -149,8 +149,8 @@ namespace {
         std::string ranges = "";
         if(_ranges)
         {
-            Utils::RangeValuesMap ranges_map = current->get_ranges();
-            for(Utils::RangeValuesMap::iterator it = ranges_map.begin(); it != ranges_map.end(); ++it)
+            RangeValuesMap ranges_map = current->get_ranges();
+            for(RangeValuesMap::iterator it = ranges_map.begin(); it != ranges_map.end(); ++it)
                 ranges += it->first.prettyprint() + " = " + it->second.prettyprint() + "\\n";
             
             int l_size = ranges.size();

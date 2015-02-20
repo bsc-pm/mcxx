@@ -40,42 +40,6 @@ namespace Utils {
     
     // ******************************************************************************************* //
     // *********************************** Ranges arithmetic ************************************* //
-    
-    struct CycleDirection
-    {
-        // Macros defining the analysis to be computed
-        enum CycleDirection_tag
-        {
-            NONE        = 1u << 1,
-            POSITIVE    = 1u << 2,
-            NEGATIVE    = 1u << 3,
-        } _cycle_direction;
-        
-        CycleDirection(CycleDirection_tag a)
-            : _cycle_direction(a)
-        {}
-        
-        CycleDirection(int a)
-            : _cycle_direction(CycleDirection_tag(a))
-        {}
-        
-        CycleDirection operator|(CycleDirection a)
-        {
-            return CycleDirection(int(this->_cycle_direction) | int(a._cycle_direction));
-        }
-        
-        std::string get_direction_as_str()
-        {
-            std::string result;
-            if(_cycle_direction & POSITIVE)
-                result = "Positive";
-            else if(_cycle_direction & NEGATIVE)
-                result = "Negative";
-            else
-                result = "None";
-            return result;
-        }
-    };
 
     bool nodecl_is_Z_range(const NBase& n);
 
@@ -85,48 +49,45 @@ namespace Utils {
     NBase range_subtraction(const NBase& r1, const NBase& r2);
     NBase range_multiplication(const NBase& r1, const NBase& r2);
     NBase range_division(const NBase& r1, const NBase& r2);
-    NBase range_intersection(const NBase& r, const NBase& r2, CycleDirection dir);
+    NBase range_intersection(const NBase& r, const NBase& r2);
     NBase range_union(const NBase& r1, const NBase& r2);
     Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_sub(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_mul(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_div(const Nodecl::Range& r, const NBase& v);
-    
+
     // ********************************* END Ranges arithmetic *********************************** //
     // ******************************************************************************************* //
-    
-    
-    
+
+
+
     // ******************************************************************************************* //
     // ******************************* Range Analysis Constraints ******************************** //
 
     /*! The possible constraints are:
      *  - Y = [lb, ub]
-     *  - Y = expr | c
+     *  - Y = X1 bin_op X2
      *  - Y = phi(X1, X2)
      *  - Y = X ∩ [lb, ub]
      */
     struct Constraint {
-        TL::Symbol _constr_sym;     /*!< symbol associated to a given variable at this point of the program */
-        NBase _constraint;          /*!< actual constraint applying to the variable */
+        TL::Symbol _ssa_sym;    /*!< symbol associated to a given variable at this point of the program */
+        NBase _value;           /*!< value applying to the variable */
 
         // *** Constructors *** //
-        Constraint();
-        Constraint(const TL::Symbol& constr_sym, const NBase& constraint);
+        Constraint();               // Required for std::map operations
+        Constraint(const TL::Symbol& constr_sym, const NBase& value);
 
         // *** Getters and Setters *** //
-        TL::Symbol get_symbol() const;
+        const TL::Symbol& get_symbol() const;
         void set_symbol(const TL::Symbol& s);
-        NBase get_constraint() const;
+        const NBase& get_value() const;
 
         // *** Comparators *** //
         bool operator!=(const Constraint& c) const;
         bool operator==(const Constraint& c) const;
     };
 
-    typedef std::map<NBase, Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
-    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> RangeValuesMap;
-    
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
     

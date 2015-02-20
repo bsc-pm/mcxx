@@ -413,7 +413,7 @@ namespace {
     
     // A[al, au] ∩ B[bl, bu] = (al<bl<au || al<bu<au) ? [max(al, bl), min(au, bu)]      -> overlap
     //                                                : ∅
-    NBase range_intersection(const NBase& n, const NBase& m, Utils::CycleDirection dir)
+    NBase range_intersection(const NBase& n, const NBase& m)
     {
         NBase result;
         // If one element is the empty range, then the intersection is that element
@@ -431,8 +431,8 @@ namespace {
         else if(n.is<Nodecl::Range>() && m.is<Nodecl::Analysis::RangeUnion>())
         {   // Try to intersect with one part or the other of the union
             Nodecl::Analysis::RangeUnion tmp = m.as<Nodecl::Analysis::RangeUnion>();
-            NBase intersect_lhs = range_intersection(n, tmp.get_lhs(), dir);
-            NBase intersect_rhs = range_intersection(n, tmp.get_rhs(), dir);
+            NBase intersect_lhs = range_intersection(n, tmp.get_lhs());
+            NBase intersect_rhs = range_intersection(n, tmp.get_rhs());
             if (intersect_lhs.is<Nodecl::Analysis::EmptyRange>())
                 result = intersect_rhs;
             else if (intersect_rhs.is<Nodecl::Analysis::EmptyRange>())
@@ -449,13 +449,9 @@ namespace {
         {
             if (RANGES_DEBUG)
                 std::cerr << "        Range Intersection " << n.prettyprint() << " ∩ " << m.prettyprint()
-                          << " (" << dir.get_direction_as_str() << ") = " << result.prettyprint() << std::endl;
+                          << " = " << result.prettyprint() << std::endl;
             return result;
         }
-
-        ERROR_CONDITION((dir._cycle_direction & Utils::CycleDirection::POSITIVE) && 
-                        (dir._cycle_direction & Utils::CycleDirection::NEGATIVE), 
-                        "Cannot resolve the intersection of two ranges when positive and negative paths appear simultaneously\n", 0);
 
         ERROR_CONDITION((!n.is<Nodecl::Range>() || !m.is<Nodecl::Range>()),
                         "range_intersection operation can only be applied to ranges at this point, but parameters are '%s' and '%s'.\n",
@@ -466,22 +462,8 @@ namespace {
         NBase lb_m = m.as<Nodecl::Range>().get_lower();
         NBase ub_m = m.as<Nodecl::Range>().get_upper();
         TL::Type t = lb_n.get_type();
-        NBase lb, ub;
-        if(dir._cycle_direction & Utils::CycleDirection::POSITIVE)
-        {
-            lb = get_max(lb_n, lb_m);
-            ub = (ub_m.is<Nodecl::Analysis::PlusInfinity>() ? ub_n : ub_m);
-        }
-        else if(dir._cycle_direction & Utils::CycleDirection::NEGATIVE)
-        {
-            lb = (lb_m.is<Nodecl::Analysis::MinusInfinity>() ? lb_n : lb_m);
-            ub = get_min(ub_n, ub_m);
-        }
-        else
-        {
-            lb = get_max(lb_n, lb_m);
-            ub = get_min(ub_n, ub_m);
-        }
+        NBase lb = get_max(lb_n, lb_m);
+        NBase ub = get_min(ub_n, ub_m);
 
         if (lb.is_constant() && ub.is_constant() && 
             const_value_is_positive(const_value_sub(lb.get_constant(), ub.get_constant())))
@@ -496,7 +478,7 @@ namespace {
 
         if (RANGES_DEBUG)
             std::cerr << "        Range Intersection " << n.prettyprint() << " ∩ " << m.prettyprint()
-                      << " (" << dir.get_direction_as_str() << ") = " << result.prettyprint() << std::endl;
+                      << " = " << result.prettyprint() << std::endl;
 
         return result;
     }
@@ -672,6 +654,18 @@ namespace {
     //                                                : [al, au] ∪ [bl, bu]         -> cannot synthesize the result as a unique range
     NBase range_union(const NBase& n, const NBase& m)
     {
+        // Base case : some node is null
+        // One Nodecl may be null when computing a Phi node the first time
+        // => the back edge with have a null valuation
+        // FIXME We may want to implement the top element, ⊤
+        ERROR_CONDITION(n.is_null() && m.is_null(),
+                        "Computing the union of two null ranges. Only one may be null.",
+                        0);
+        if (n.is_null())
+            return m;
+        else if (m.is_null())
+            return n;
+
         NBase result;
         // If one element is the empty range, then the union is the other element
         if (n.is<Nodecl::Analysis::EmptyRange>())
@@ -868,38 +862,40 @@ namespace {
     // ******************************* Range Analysis Constraints ******************************** //
 
     Constraint::Constraint()
-        : _constr_sym(Symbol()), _constraint(NBase::null())
+        : _ssa_sym(Symbol()), _value(NBase::null())
     {}
 
-    Constraint::Constraint(const TL::Symbol& constr_sym, const NBase& constraint)
-        : _constr_sym(constr_sym), _constraint(constraint)
+    Constraint::Constraint(const TL::Symbol& ssa_sym, const NBase& value)
+        : _ssa_sym(ssa_sym), _value(value)
     {}
 
-    TL::Symbol Constraint::get_symbol() const 
+    const TL::Symbol& Constraint::get_symbol() const
     {
-        return _constr_sym;
+        return _ssa_sym;
     }
 
     void Constraint::set_symbol(const TL::Symbol& s)
     {
-        _constr_sym = s;
+        _ssa_sym = s;
     }
 
-    NBase Constraint::get_constraint() const 
+    const NBase& Constraint::get_value() const
     {
-        return _constraint;
+        return _value;
     }
 
     bool Constraint::operator!=(const Constraint& c) const
     {
-        return ((this->_constr_sym != c._constr_sym)
-                || !Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversions*/true));
+        return ((this->_ssa_sym != c._ssa_sym)
+                    || !Nodecl::Utils::structurally_equal_nodecls(this->_value, c._value,
+                                                                  /*skip_conversions*/true));
     }
 
     bool Constraint::operator==(const Constraint& c) const
     {
-        return ((this->_constr_sym == c._constr_sym)
-                && Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversions*/true));
+        return ((this->_ssa_sym == c._ssa_sym)
+                    && Nodecl::Utils::structurally_equal_nodecls(this->_value, c._value,
+                                                                 /*skip_conversions*/true));
     }
 
     // ***************************** END Range Analysis Constraints ****************************** //

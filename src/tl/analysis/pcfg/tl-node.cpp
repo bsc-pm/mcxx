@@ -1661,19 +1661,19 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
-    Utils::RangeValuesMap Node::get_ranges()
+    RangeValuesMap Node::get_ranges()
     {
-        Utils::RangeValuesMap ranges;
+        RangeValuesMap ranges;
         if (has_key(_RANGES))
-            ranges = get_data<Utils::RangeValuesMap>(_RANGES);
+            ranges = get_data<RangeValuesMap>(_RANGES);
         return ranges;
     }
     
     NBase Node::get_range(const NBase& var)
     {
         NBase res;
-        Utils::RangeValuesMap ranges = get_ranges();
-        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        RangeValuesMap ranges = get_ranges();
+        RangeValuesMap::iterator it = ranges.find(var);
         if (it != ranges.end())
             res = it->second;
         return res;
@@ -1681,8 +1681,8 @@ namespace Analysis {
     
     void Node::set_range(const NBase& var, const NBase& value)
     {
-        Utils::RangeValuesMap ranges = get_ranges();
-        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        RangeValuesMap ranges = get_ranges();
+        RangeValuesMap::iterator it = ranges.find(var);
         if (it != ranges.end())
         {   // Check whether the value already in the set is the same we are trying to insert here
             // - If it is different, something wrong happened. In this case, abort here

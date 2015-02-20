@@ -40,6 +40,8 @@ namespace Analysis {
 
 //     class LatticeCellValue;
 
+    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> RangeValuesMap;
+
     //! Class representing a Node in the Extensible Graph
     class LIBTL_CLASS Node : public LinkData {
 
@@ -728,10 +730,10 @@ namespace Analysis {
 
             // ****************************************************************************** //
             // ******************* Getters and setters for range analysis ******************* //
-            
+
             //! Returns the map of variables and their range values associated 
             //! at the exit point of the node
-            Utils::RangeValuesMap get_ranges();
+            RangeValuesMap get_ranges();
 
             //! Returns the range values \p var if there is any in the node
             NBase get_range(const NBase& var);

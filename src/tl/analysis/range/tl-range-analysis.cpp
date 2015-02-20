@@ -27,13 +27,12 @@ Cambridge, MA 02139, USA.
 #include "cxx-cexpr.h"
 #include "cxx-process.h"
 #include "tl-expression-reduction.hpp"
-#include "tl-nodecl-calc.hpp"
 #include "tl-range-analysis.hpp"
 
 #include <algorithm>
+#include <limits.h>
 #include <fstream>
 #include <list>
-#include <queue>
 #include <set>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -42,24 +41,20 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
-    // **************************************************************************************************** //
-    // **************************** Visitor implementing constraint building ****************************** //
-
 namespace {
-    
     // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
     unsigned int non_sym_constraint_id = 0;
-    
+
     std::map<Symbol, NBase> ssa_to_original_var;
-    
+
     //! This maps stores the relationship between each variable in a given node and 
     //! the last identifier used to create a constraint for that variable
     std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
-    
+
     unsigned int get_next_id(const NBase& n)
     {
         unsigned int next_id = 0;
-        if(!n.is_null())
+        if (!n.is_null())
         {
             if(var_to_last_constraint_id.find(n) != var_to_last_constraint_id.end())
                 next_id = var_to_last_constraint_id[n] + 1;
@@ -71,61 +66,65 @@ namespace {
         }
         return next_id;
     }
-    
+
     // *** Convenient global constants to create the ranges *** //
     const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
     const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
     const_value_t* minus_one = const_value_get_minus_one(/*num_bytes*/ 4, /*sign*/1);
-    
-    Optimizations::Calculator calc;
+    const_value_t* int_max = const_value_get_integer(LONG_MAX, /*num_bytes*/4, /*sign*/1);
+    const NBase& plus_inf = Nodecl::Analysis::PlusInfinity::make(Type::get_long_int_type(), int_max);
+    const_value_t* int_min = const_value_get_integer(LONG_MIN, /*num_bytes*/4, /*sign*/1);
+    const NBase& minus_inf = Nodecl::Analysis::MinusInfinity::make(Type::get_long_int_type(), int_min);
 }
-    
+
+    // ***************************************************************************** //
+    // ************ Class replacing original variables with ssa symbols ************ //
+
     ConstraintReplacement::ConstraintReplacement(
-            Utils::VarToConstraintMap* constraints_map,
-            Node* n,
-            SSAVarToValue_map *constraints,
+            VarToConstraintMap* input_constraints,
+            Constraints *constraints,
             NodeclList *ordered_constraints)
-        : _constraints_map(constraints_map),
-          _n(n),
+        : _input_constraints(input_constraints),
           _constraints(constraints),
           _ordered_constraints(ordered_constraints) // Attributes needed to create new constraints
     {}
-    
+
     void ConstraintReplacement::visit(const Nodecl::ArraySubscript& n)
     {
-        if (_constraints_map->find(n) != _constraints_map->end())
-            n.replace((*_constraints_map)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
+        if (_input_constraints->find(n) != _input_constraints->end())
+            n.replace((*_input_constraints)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
         else
         {
-            // Create a new ssa variable here to use it from now on in the current function
             // 1. Build a symbol for the new constraint based on the name of the original variable
             std::stringstream ss; ss << get_next_id(n);
-            Symbol orig_s(Utils::get_nodecl_base(n).get_symbol());
+            Symbol s(Utils::get_nodecl_base(n).get_symbol());
             std::string subscripts_str;
             const Nodecl::List& subscripts = n.get_subscripts().as<Nodecl::List>();
             for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
             {
-                if (_constraints_map->find(*it) != _constraints_map->end())
-                    subscripts_str += (*_constraints_map)[*it].get_symbol().get_name();
+                if (_input_constraints->find(*it) != _input_constraints->end())
+                    subscripts_str += (*_input_constraints)[*it].get_symbol().get_name();
                 else    // The subscript is a global variable
                     subscripts_str += it->prettyprint();
                 subscripts_str += "_";
             }
-            std::string constr_name = orig_s.get_name() + "_" + subscripts_str + ss.str();
-            Symbol s(n.retrieve_context().new_symbol(constr_name));
-            Type t = orig_s.get_type();
-            s.set_type(t);
-            ssa_to_original_var[s] = n;
-            // 2. Get the value for the constraint
-            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t),
-                                            Nodecl::Analysis::PlusInfinity::make(t),
-                                            const_value_to_nodecl(zero), t);
-            // 3. Build the constraint and insert it in the constraints map
-            ConstraintBuilderVisitor cbv(_n, *_constraints_map, _constraints, _ordered_constraints);
-            Utils::Constraint c = cbv.build_constraint(s, val, t, __GlobalVar);
-            (*_constraints_map)[n] = c;
+            std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
+            Symbol ssa_sym(n.retrieve_context().new_symbol(ssa_name));
+            Type t = s.get_type();
+            ssa_sym.set_type(t);
+            ssa_to_original_var[ssa_sym] = n;
 
-            n.replace(s.make_nodecl(/*set_ref_type*/false));
+            // 2. Build the value for the constraint
+            NBase val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                            plus_inf.shallow_copy(),
+                                            const_value_to_nodecl(zero), t);
+
+            // 3. Build the constraint and insert it in the constraints map
+            ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
+            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, t, __GlobalVar);
+            (*_input_constraints)[n] = c;
+
+            n.replace(ssa_sym.make_nodecl(/*set_ref_type*/false));
         }
     }
 
@@ -137,25 +136,41 @@ namespace {
 
     void ConstraintReplacement::visit(const Nodecl::ClassMemberAccess& n)
     {
-        if (_constraints_map->find(n) != _constraints_map->end())
-            n.replace((*_constraints_map)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
+        if (_input_constraints->find(n) != _input_constraints->end())
+            n.replace((*_input_constraints)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
         else
         {
-            walk(n.get_lhs());
-            walk(n.get_member());
+            // Create a new ssa variable here to use it from now on in the current function
+            // 1. Build a symbol for the new constraint based on the name of the original variable
+            std::stringstream ss; ss << get_next_id(n);
+            std::string ssa_name = n.prettyprint() + "_" + ss.str();
+            Symbol ssa_sym(n.retrieve_context().new_symbol(ssa_name));
+            Type t = n.get_type();
+            ssa_sym.set_type(t);
+            ssa_to_original_var[ssa_sym] = n;
+            // 2. Build the value of the constraint
+            NBase val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                            plus_inf.shallow_copy(),
+                                            const_value_to_nodecl(zero), t);
+            // 3. Build the constraint and insert it in the constraints map
+            ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
+            Utils::Constraint c = cbv.build_constraint(ssa_sym, val, t, __GlobalVar);
+            (*_input_constraints)[n] = c;
+
+            n.replace(ssa_sym.make_nodecl(/*set_ref_type*/false));
         }
     }
 
     void ConstraintReplacement::visit(const Nodecl::FunctionCall& n)
     {
-        if (_constraints_map->find(n) != _constraints_map->end())
-            n.replace((*_constraints_map)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
+        if (_input_constraints->find(n) != _input_constraints->end())
+            n.replace((*_input_constraints)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
         else
         {
-            Type t(Type::get_int_type());
+            Type t(Type::get_long_int_type());
             NBase val = Nodecl::Range::make(
-                    Nodecl::Analysis::MinusInfinity::make(t),
-                    Nodecl::Analysis::PlusInfinity::make(t),
+                    minus_inf.shallow_copy(),
+                    plus_inf.shallow_copy(),
                     const_value_to_nodecl(zero), t);
             n.replace(val);
         }
@@ -163,7 +178,7 @@ namespace {
 
     void ConstraintReplacement::visit(const Nodecl::Symbol& n)
     {
-        if (_constraints_map->find(n) == _constraints_map->end())
+        if (_input_constraints->find(n) == _input_constraints->end())
         {
             // FunctionCalls are replaced with the value [-inf, +inf]
             if (n.get_symbol().is_function())
@@ -177,13 +192,13 @@ namespace {
                 s.set_type(t);
                 ssa_to_original_var[s] = n;
                 // 2. Get the value for the constraint
-                NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t),
-                                                Nodecl::Analysis::PlusInfinity::make(t),
+                NBase val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                plus_inf.shallow_copy(),
                                                 const_value_to_nodecl(zero), t);
                 // 3. Build the constraint and insert it in the constraints map
-                ConstraintBuilderVisitor cbv(_n, *_constraints_map, _constraints, _ordered_constraints);
+                ConstraintBuilder cbv(*_input_constraints, _constraints, _ordered_constraints);
                 Utils::Constraint c = cbv.build_constraint(s, val, t, __GlobalVar);
-                (*_constraints_map)[n] = c;
+                (*_input_constraints)[n] = c;
                 return;
             }
 
@@ -197,103 +212,104 @@ namespace {
             return;
         }
 
-        n.replace((*_constraints_map)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
+        n.replace((*_input_constraints)[n].get_symbol().make_nodecl(/*set_ref_type*/false));
     }
-    
-    ConstraintBuilderVisitor::ConstraintBuilderVisitor(
-            Node* n,
-            Utils::VarToConstraintMap input_constraints_map,
-            Utils::VarToConstraintMap current_constraints,
-            SSAVarToValue_map *constraints,
+
+    // ************ Class replacing original variables with ssa symbols ************ //
+    // ***************************************************************************** //
+
+
+
+    // ***************************************************************************** //
+    // **************** Visitor building constraints from statements *************** //
+
+    ConstraintBuilder::ConstraintBuilder(
+            const VarToConstraintMap& input_constraints_map,
+            Constraints *constraints,
             NodeclList *ordered_constraints)
-        : _n(n), _input_constraints_map(input_constraints_map), _output_constraints_map(current_constraints),
-          _output_true_constraints_map(), _output_false_constraints_map(), 
-          _constraints(constraints), _ordered_constraints(ordered_constraints),
-          _cr(ConstraintReplacement(&_input_constraints_map, n, constraints, ordered_constraints))
+        : _input_constraints(input_constraints_map), _output_constraints(), 
+          _output_true_constraints(), _output_false_constraints(), 
+          _constraints(constraints), _ordered_constraints(ordered_constraints)
     {}
-    
-    ConstraintBuilderVisitor::ConstraintBuilderVisitor(
-            Node* n,
-            Utils::VarToConstraintMap input_constraints_map,
-            SSAVarToValue_map *constraints,
+
+    ConstraintBuilder::ConstraintBuilder(
+            const VarToConstraintMap& input_constraints_map,
+            const VarToConstraintMap& current_constraints,
+            Constraints *constraints,
             NodeclList *ordered_constraints)
-        : _n(n), _input_constraints_map(input_constraints_map), _output_constraints_map(), 
-          _output_true_constraints_map(), _output_false_constraints_map(), 
-          _constraints(constraints), _ordered_constraints(ordered_constraints),
-          _cr(ConstraintReplacement(&_input_constraints_map, n, constraints, ordered_constraints))
+        : _input_constraints(input_constraints_map), _output_constraints(current_constraints),
+          _output_true_constraints(), _output_false_constraints(), 
+          _constraints(constraints), _ordered_constraints(ordered_constraints)
     {}
-    
-    Utils::Constraint ConstraintBuilderVisitor::build_constraint(
-            const Symbol& s, 
-            const NBase& val, 
-            const Type& t, 
+
+    Utils::Constraint ConstraintBuilder::build_constraint(
+            const Symbol& s,
+            const NBase& val,
+            const Type& t,
             ConstraintKind c_kind)
     {
         // Create the constraint
         Utils::Constraint c(s, val);
-        
+
         // Insert the constraint in the global structures that will allow us building the Constraint Graph
         Nodecl::Symbol s_n = s.make_nodecl(/*set_ref_type*/false);
-        if(_constraints->find(s_n) == _constraints->end())
+        if (_constraints->find(s_n) == _constraints->end())
             _ordered_constraints->push_back(s_n);
-        (*_constraints)[s_n] = val.no_conv();
-        
+        (*_constraints)[s_n] = val;
+
         // Print the constraint in the standard error
         print_constraint(c_kind, s, val, t);
-        
+
         return c;
     }
-    
-    void ConstraintBuilderVisitor::compute_stmt_constraints(const NBase& n)
+
+    void ConstraintBuilder::compute_parameters_constraints(const ObjectList<Symbol>& params)
     {
-        walk(n);
-    }
-    
-    void ConstraintBuilderVisitor::compute_parameters_constraints(const ObjectList<Symbol>& params)
-    {
-        for(ObjectList<Symbol>::const_iterator it = params.begin(); it != params.end(); ++it)
+        for (ObjectList<Symbol>::const_iterator it = params.begin(); it != params.end(); ++it)
         {
+            Symbol param = *it;
+
             // Avoid function pointers
-            if (it->get_type().is_pointer()
-                    && it->get_type().points_to().is_function())
+            if (param.get_type().is_pointer()
+                    && param.get_type().points_to().is_function())
                 continue;
 
-            Nodecl::Symbol param_s = it->make_nodecl(/*set_ref_type*/false);
-            Type t = it->get_type();
-            
+            Nodecl::Symbol param_n = param.make_nodecl(/*set_ref_type*/false);
+            Type t = param.get_type();
+
             // Build a symbol for the new constraint based on the name of the original variable
-            std::stringstream ss; ss << get_next_id(param_s);
-            std::string constr_name = it->get_name() + "_" + ss.str();
-            Symbol s(it->get_scope().new_symbol(constr_name));
-            s.set_type(t);
-            ssa_to_original_var[s] = param_s;
-            
+            std::stringstream ss; ss << get_next_id(param_n);
+            std::string ssa_name = param.get_name() + "_" + ss.str();
+            Symbol ssa_sym(param.get_scope().new_symbol(ssa_name));
+            ssa_sym.set_type(t);
+            ssa_to_original_var[ssa_sym] = param_n;
+
             // Get the value for the constraint
-            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                            Nodecl::Analysis::PlusInfinity::make(t), 
+            NBase val = Nodecl::Range::make(minus_inf.shallow_copy(), 
+                                            plus_inf.shallow_copy(), 
                                             const_value_to_nodecl(zero), t);
-            
+
             // Build the constraint and insert it in the constraints map
-            Utils::Constraint c = build_constraint(s, val, t, __Parameter);
-            _output_constraints_map[param_s] = c;
+            Utils::Constraint c = build_constraint(ssa_sym, val, t, __Parameter);
+            _output_constraints[param_n] = c;
         }
     }
-    
-    void ConstraintBuilderVisitor::set_false_constraint_to_inf(const NBase& n)
+
+    void ConstraintBuilder::set_false_constraint_to_inf(const NBase& n)
     {
         if (n.is<Nodecl::Equal>()
-            || n.is<Nodecl::LowerThan>() || n.is<Nodecl::LowerOrEqualThan>()
-            || n.is<Nodecl::GreaterThan>() || n.is<Nodecl::GreaterOrEqualThan>())
+                || n.is<Nodecl::LowerThan>() || n.is<Nodecl::LowerOrEqualThan>()
+                || n.is<Nodecl::GreaterThan>() || n.is<Nodecl::GreaterOrEqualThan>())
         {
             // False constraints are not just the negation of the condition,
             // because LHS fulfilling is not enough for the whole condition to fulfill
             const NBase& lhs = n.as<Nodecl::Equal>().get_lhs();
-            ERROR_CONDITION(_output_false_constraints_map.find(lhs) == _output_false_constraints_map.end(),
+            ERROR_CONDITION(_output_false_constraints.find(lhs) == _output_false_constraints.end(),
                             "Nodecl %s not found in the set of 'output false constraints' while replacing constraint",
                             lhs.prettyprint().c_str());
-            Utils::Constraint old_c_false = _output_false_constraints_map[lhs];
+            Utils::Constraint old_c_false = _output_false_constraints[lhs];
             TL::Symbol old_s = old_c_false.get_symbol();
-            const NBase& old_val = old_c_false.get_constraint();
+            const NBase& old_val = old_c_false.get_value();
             ERROR_CONDITION(!old_val.is<Nodecl::Analysis::RangeIntersection>(),
                             "Constraint value of a 'false' flow edge has type '%s' when RangeIntersection expected.\n",
                             ast_print_node_type(old_val.get_kind()));
@@ -301,18 +317,16 @@ namespace {
             ERROR_CONDITION(ssa_to_original_var.find(old_val_input_ssa_var.get_symbol()) == ssa_to_original_var.end(),
                             "Constraint value of a 'false' flow edge does not contain ssa variable, but '%s' instead",
                             old_val_input_ssa_var.prettyprint().c_str());
-            Type t(Type::get_int_type());
+            Type t(Type::get_long_int_type());
             NBase val_false = Nodecl::Analysis::RangeIntersection::make(
                     old_val_input_ssa_var,
                     Nodecl::Range::make(
-                            Nodecl::Analysis::MinusInfinity::make(t),
-                            Nodecl::Analysis::PlusInfinity::make(t),
+                            minus_inf.shallow_copy(),
+                            plus_inf.shallow_copy(),
                             const_value_to_nodecl(zero), t),
-                    t
-            );
-            Utils::Constraint new_c_false = build_constraint(
-                    old_s, val_false, t, __Replace);
-            _output_false_constraints_map[lhs] = new_c_false;
+                    t);
+            Utils::Constraint new_c_false = build_constraint(old_s, val_false, t, __Replace);
+            _output_false_constraints[lhs] = new_c_false;
         }
         else if (n.is<Nodecl::LogicalAnd>() || n.is<Nodecl::Different>())
         {}  // Nothing to be done because the infinite range is set to the edge recursively
@@ -323,57 +337,31 @@ namespace {
         }
     }
 
-    Utils::VarToConstraintMap ConstraintBuilderVisitor::get_output_constraints_map()
+    VarToConstraintMap ConstraintBuilder::get_output_constraints() const
     {
-        return _output_constraints_map;
+        return _output_constraints;
     }
 
-    Utils::VarToConstraintMap ConstraintBuilderVisitor::get_output_true_constraints_map()
+    VarToConstraintMap ConstraintBuilder::get_output_true_constraints() const
     {
-        return _output_true_constraints_map;
+        return _output_true_constraints;
     }
-    
-    Utils::VarToConstraintMap ConstraintBuilderVisitor::get_output_false_constraints_map()
+
+    VarToConstraintMap ConstraintBuilder::get_output_false_constraints() const
     {
-        return _output_false_constraints_map;
+        return _output_false_constraints;
     }
-    
-    void ConstraintBuilderVisitor::join_list(TL::ObjectList<Utils::Constraint>& list)
+
+    void ConstraintBuilder::join_list(TL::ObjectList<Utils::Constraint>& list)
     {
         WARNING_MESSAGE("join_list of a list of constraint is not yet supported. Doing nothing.", 0);
     }
-    
-    Symbol ConstraintBuilderVisitor::get_condition_node_constraints(
-            const NBase& lhs, const Type& t,
-            std::string s_str, ConstraintKind c_kind)
+
+    void ConstraintBuilder::visit_assignment(const NBase& lhs, const NBase& rhs)
     {
-        Utils::Constraint c;
-        NBase val;
-
-        // 1. Compute the second constraint that corresponds to the current node: x COMP_OP c
-        // -->    X1 = X0
-        // 1.1 Get a new symbol for the constraint
-        std::stringstream ss_tmp; ss_tmp << get_next_id(lhs);
-        Symbol s(lhs.retrieve_context().new_symbol(s_str + "_" + ss_tmp.str()));
-        s.set_type(t);
-        ssa_to_original_var[s] = lhs;
-
-        // 1.2 Build the value of the constraints
-        val = _input_constraints_map[lhs].get_symbol().make_nodecl(/*set_ref_type*/false);
-
-        // 1.3 Build the actual constraint and insert it in the corresponding map
-        c = build_constraint(s, val, t, c_kind);
-        _input_constraints_map[lhs] = c;
-        _output_constraints_map[lhs] = c;
-        
-        return s;
-    }
-
-    void ConstraintBuilderVisitor::visit_assignment(const NBase& lhs, const NBase& rhs)
-    {
-        // Build a symbol for the new constraint based on the name of the original variable
+        // 1.- Build a symbol for the new constraint based on the name of the original variable
         std::stringstream ss; ss << get_next_id(lhs);
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
+        Symbol s(Utils::get_nodecl_base(lhs).get_symbol());
 
         std::string subscripts_str;
         if (lhs.no_conv().is<Nodecl::ArraySubscript>())
@@ -381,69 +369,465 @@ namespace {
             const Nodecl::List& subscripts = lhs.no_conv().as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
             for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
             {
-                if (_input_constraints_map.find(*it) != _input_constraints_map.end())
-                    subscripts_str += _input_constraints_map[*it].get_symbol().get_name();
+                if (_input_constraints.find(*it) != _input_constraints.end())
+                    subscripts_str += _input_constraints[*it].get_symbol().get_name();
                 else    // The subscript is a global variable
                     subscripts_str += it->prettyprint();
                 subscripts_str += "_";
             }
         }
-        std::string constr_name = orig_s.get_name() + "_" + subscripts_str + ss.str();
-        Symbol s(lhs.retrieve_context().new_symbol(constr_name));
-        Type t = orig_s.get_type();
-        s.set_type(t);
-        ssa_to_original_var[s] = lhs;
-        
-        // Build the value of the constraint
+        std::string ssa_name = s.get_name() + "_" + subscripts_str + ss.str();
+        Symbol ssa_sym(lhs.retrieve_context().new_symbol(ssa_name));
+        Type t = s.get_type();
+        ssa_sym.set_type(t);
+        ssa_to_original_var[ssa_sym] = lhs;
+
+        // 2.- Build the value of the constraint
         NBase val;
-        if(rhs.is_constant())       // x = c;    -->    X1 = c
+        if (rhs.is_constant())       // x = c;    -->    X1 = c
             val = Nodecl::Range::make(rhs.shallow_copy(), rhs.shallow_copy(), const_value_to_nodecl(zero), t);
         else 
         {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            val = rhs.shallow_copy();
-            _cr.walk(val);
+            val = rhs.no_conv().shallow_copy();
+            ConstraintReplacement cr(&_input_constraints, _constraints, _ordered_constraints);
+            cr.walk(val);
         }
-        
-        // Build the constraint and insert it in the corresponding maps
-        Utils::Constraint c = build_constraint(s, val, t, __BinaryOp);
-        _input_constraints_map[lhs] = c;
-        _output_constraints_map[lhs] = c;
+
+        // 3.- Build the constraint and insert it in the corresponding maps
+        Utils::Constraint c = build_constraint(ssa_sym, val, t, __BinaryOp);
+        _input_constraints[lhs] = c;
+        _output_constraints[lhs] = c;
     }
     
     
-    void ConstraintBuilderVisitor::visit_increment(const NBase& rhs, bool positive)
+    void ConstraintBuilder::visit_increment(const NBase& rhs, bool positive)
     {
-        ERROR_CONDITION(_input_constraints_map.find(rhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the increment's RHS %s (%s).\n",
+        // 1.- Check the integrity of the analysis
+        ERROR_CONDITION(_input_constraints.find(rhs) == _input_constraints.end(),
+                        "Some input constraint required for the increment's RHS '%s' (%s).\n",
                         rhs.prettyprint().c_str(),
                         ast_print_node_type(rhs.get_kind()));
         
-        // Build a symbol for the new constraint based on the name of the original variable
+        // 2.- Build a symbol for the new constraint based on the name of the original variable
         std::stringstream ss; ss << get_next_id(rhs);
-        Symbol orig_s(Utils::get_nodecl_base(rhs).get_symbol());
-        Type t(orig_s.get_type());
-        std::string constr_name = orig_s.get_name() + "_" + ss.str();
-        Symbol s(rhs.retrieve_context().new_symbol(constr_name));
-        s.set_type(t);
-        ssa_to_original_var[s] = rhs;
-        
+        Symbol s(Utils::get_nodecl_base(rhs).get_symbol());
+        Type t(s.get_type());
+        std::string constr_name = s.get_name() + "_" + ss.str();
+        Symbol ssa_sym(rhs.retrieve_context().new_symbol(constr_name));
+        ssa_sym.set_type(t);
+        ssa_to_original_var[ssa_sym] = rhs;
+
         NBase val;
-        if(positive)
+        Symbol entry_ssa_sym = _input_constraints[rhs].get_symbol();
+        if (positive)
         {
-            val = Nodecl::Add::make(_input_constraints_map[rhs].get_symbol().make_nodecl(/*set_ref_type*/false),
+            val = Nodecl::Add::make(entry_ssa_sym.make_nodecl(/*set_ref_type*/false),
                                     const_value_to_nodecl(one), t);
         }
         else
         {
-            val = Nodecl::Minus::make(_input_constraints_map[rhs].get_symbol().make_nodecl(/*set_ref_type*/false),
+            val = Nodecl::Minus::make(entry_ssa_sym.make_nodecl(/*set_ref_type*/false),
                                       const_value_to_nodecl(one), t);
         }
-        Utils::Constraint c = build_constraint(s, val, t, __UnaryOp);
-        _input_constraints_map[rhs] = c;
-        _output_constraints_map[rhs] = c;
+        Utils::Constraint c = build_constraint(ssa_sym, val, t, __UnaryOp);
+        _input_constraints[rhs] = c;
+        _output_constraints[rhs] = c;
     }
-    
-    void ConstraintBuilderVisitor::visit(const Nodecl::AddAssignment& n)
+
+    void ConstraintBuilder::visit_comparison_side(
+            const NBase& n,
+            const NBase& val,
+            char side /*l:left, r:right*/,
+            node_t comparison_kind)
+    {
+        // 1.- Check the input is something we expect: 'side' is a symbol
+        ERROR_CONDITION(_input_constraints.find(n) == _input_constraints.end(),
+                        "Some input constraint required for the variable '%s' when parsing a %s nodecl",
+                        n.prettyprint().c_str(), ast_print_node_type(comparison_kind));
+        if (!val.is_constant())
+        {
+            ERROR_CONDITION(_input_constraints.find(val) == _input_constraints.end(),
+                            "Some input constraint required for the variable '%s' when parsing a %s nodecl",
+                            val.prettyprint().c_str(), ast_print_node_type(comparison_kind));
+        }
+
+        // 2.- Get the original symbol of the lhs
+        const NBase& base_n = Utils::get_nodecl_base(n);
+        Symbol s(base_n.get_symbol());
+        Type t = s.get_type();
+        std::string s_name = s.get_name();
+
+        // 3.- Get the last ssa symbol related to the original symbol
+        std::string last_ssa_name = _input_constraints.find(n)->second.get_symbol().get_name();
+        Scope ctx = n.retrieve_context();
+        Symbol last_ssa = ctx.get_symbol_from_name(last_ssa_name);
+        ERROR_CONDITION(!last_ssa.is_valid(),
+                        "No symbol '%s' found while building constraint for variable '%s'",
+                        last_ssa_name.c_str(), n.prettyprint().c_str());
+
+        // 4.- Compute the constraints generated from the condition
+        //     to the possible TRUE and FALSE exit edges
+        // =========================================================
+
+        // 4.1.- Replace, if necessary, all memory accesses
+        //       by the corresponding SSA symbols arriving to the current node
+        if (!val.is_constant())
+        {
+            ConstraintReplacement cr(&_input_constraints, _constraints, _ordered_constraints);
+            cr.walk(val);
+        }
+
+        // 4.2.- Build the symbols created for the TRUE and FALSE edges
+        // 4.2.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(n);
+        Symbol s_true(ctx.new_symbol(s_name + "_" + ss_true.str()));
+        s_true.set_type(t);
+        ssa_to_original_var[s_true] = n;
+        // 4.2.2.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(n);
+        Symbol s_false(ctx.new_symbol(s_name + "_" + ss_false.str()));
+        s_false.set_type(t);
+        ssa_to_original_var[s_false] = n;
+
+        // 4.3.- Build the values created for the TRUE and FALSE edges
+        NBase val_true, val_false;
+        switch (comparison_kind)
+        {
+            case NODECL_EQUAL:
+            {   
+                switch (side)
+                {
+                    case 'l':
+                    case 'r':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value
+                        // v == x;   --TRUE--->   v1 = v0 ∩ [x, x]
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(val.shallow_copy(),
+                                                    val.shallow_copy(), 
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value
+                        // v == x;   --FALSE-->   v2 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
+                        NBase lb, ub;
+                        if (val.is_constant())
+                        {
+                            lb = const_value_to_nodecl(const_value_add(val.get_constant(), one));
+                            ub = const_value_to_nodecl(const_value_sub(val.get_constant(), one));
+                        }
+                        else
+                        {
+                            lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
+                            ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
+                        }
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Analysis::RangeUnion::make(
+                                        Nodecl::Range::make(minus_inf.shallow_copy(), ub, 
+                                                            const_value_to_nodecl(zero), t),
+                                        Nodecl::Range::make(lb, plus_inf.shallow_copy(), 
+                                                            const_value_to_nodecl(zero), t),
+                                        t),
+                                t);
+                        break;
+                    }
+                    default:
+                        internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                };
+            }
+            case NODECL_DIFFERENT:
+            {
+                switch (side)
+                {
+                    case 'l':
+                    case 'r':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value
+                        // v != x;   --TRUE--->   v1 = v0 ∩ ([-∞, x-1] U [x+1, -∞])
+                        NBase lb, ub;
+                        if (val.is_constant())
+                        {
+                            lb = const_value_to_nodecl(const_value_add(val.get_constant(), one));
+                            ub = const_value_to_nodecl(const_value_sub(val.get_constant(), one));
+                        }
+                        else
+                        {
+                            lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
+                            ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
+                        }
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Analysis::RangeUnion::make(
+                                        Nodecl::Range::make(minus_inf.shallow_copy(), ub,
+                                                            const_value_to_nodecl(zero), t),
+                                        Nodecl::Range::make(lb, plus_inf.shallow_copy(),
+                                                            const_value_to_nodecl(zero), t),
+                                        t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value
+                        // v != x;   --FALSE-->   v2 = v0 ∩ [x, x]
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(val.shallow_copy(),
+                                                    val.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    default:
+                        internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                };
+            }
+            case NODECL_LOWER_OR_EQUAL_THAN:
+            {   
+                switch (side)
+                {
+                    case 'l':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value
+                        // v <= x;   --TRUE--->   v1 = v0 ∩ [-∞, x]
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(minus_inf.shallow_copy(), 
+                                                    val.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value
+                        // v <= x;   --FALSE-->   v2 = v0 ∩ [x+1, +∞]
+                        NBase lb = (val.is_constant() ? const_value_to_nodecl(const_value_add(val.get_constant(), one)) 
+                                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(lb,
+                                                    plus_inf.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    case 'r':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value
+                        // x <= v;   --TRUE--->   v1 = v0 ∩ [x, +∞]
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(val.shallow_copy(),
+                                                    plus_inf.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value
+                        // x <= v;   --FALSE-->   v2 = v0 ∩ [-∞, x-1]
+                        NBase ub = (val.is_constant() ? const_value_to_nodecl(const_value_sub(val.get_constant(), one)) 
+                                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(plus_inf.shallow_copy(),
+                                                    ub,
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    default:
+                        internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                }
+            }
+            case NODECL_LOWER_THAN:
+            {
+                switch (side)
+                {
+                    case 'l':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value for the LHS
+                        // v < x;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
+                        NBase ub = (val.is_constant() ? const_value_to_nodecl(const_value_sub(val.get_constant(), one)) 
+                                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                    ub,
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value for the LHS
+                        // v < x;   --FALSE-->  v2 = v0 ∩ [x, +∞]
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(val.shallow_copy(),
+                                                    plus_inf.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    case 'r':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value for the RHS
+                        // x < v   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
+                        NBase lb = (val.is_constant() ? const_value_to_nodecl(const_value_add(val.get_constant(), one))
+                                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(lb,
+                                                    plus_inf.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value for the RHS
+                        // x < v   --FALSE-->  v2 = v0 ∩ [-∞, x]
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                    val.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    default:
+                        internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                };
+                break;
+            }
+            case NODECL_GREATER_OR_EQUAL_THAN:
+            {
+                switch (side)
+                {
+                    case 'l':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value for the LHS
+                        // v >= x;   --TRUE--->  v1 = v0 ∩ [x, +∞]
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(val.shallow_copy(),
+                                                    plus_inf.shallow_copy(), 
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value for the LHS
+                        // v >= x;   --FALSE-->  v2 = v0 ∩ [-∞, x-1]
+                        NBase ub = (val.is_constant() ? const_value_to_nodecl(const_value_sub(val.get_constant(), one)) 
+                                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(minus_inf.shallow_copy(), 
+                                                    ub, 
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    case 'r':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value for the RHS
+                        // x >= v;   --TRUE--->  v1 = v0 ∩ [-∞, x]
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                    val.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value for the RHS
+                        // x >= v;   --FALSE--->  v1 = v0 ∩ [x+1, +∞]
+                        NBase lb = (val.is_constant() ? const_value_to_nodecl(const_value_add(val.get_constant(), one))
+                                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(lb,
+                                                    plus_inf.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    default:
+                        internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                };
+                break;
+            }
+            case NODECL_GREATER_THAN:
+            {
+                switch (side)
+                {
+                    case 'l':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value for the LHS
+                        // v > x;   --TRUE--->  v1 = v0 ∩ [x+1, +∞]
+                        NBase lb = (val.is_constant() ? const_value_to_nodecl(const_value_add(val.get_constant(), one)) 
+                                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(lb,
+                                                    plus_inf.shallow_copy(), 
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value for the LHS
+                        // v > x;   --FALSE-->  v2 = v0 ∩ [-∞, x]
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(minus_inf.shallow_copy(), 
+                                                    val.shallow_copy(), 
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    case 'r':
+                    {
+                        // 4.3.1.- Build the TRUE constraint value for the RHS
+                        // x > v;   --TRUE--->  v1 = v0 ∩ [-∞, x-1]
+                        NBase ub = (val.is_constant() ? const_value_to_nodecl(const_value_sub(val.get_constant(), one))
+                                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                        val_true = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false),
+                                Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                    ub,
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+
+                        // 4.3.2.- Build the FALSE constraint value for the RHS
+                        // x > v;   --FALSE--->  v1 = v0 ∩ [x, +∞]
+                        val_false = Nodecl::Analysis::RangeIntersection::make(
+                                last_ssa.make_nodecl(/*set_ref_type*/false), 
+                                Nodecl::Range::make(val.shallow_copy(),
+                                                    plus_inf.shallow_copy(),
+                                                    const_value_to_nodecl(zero), t),
+                                t);
+                        break;
+                    }
+                    default:
+                        internal_error("Unexpected side value '%s'. Expecting 'l' or 'r'.\n", side);
+                };
+                break;
+            }
+            default:
+                internal_error("Unexpected node kind %s while building constraint for a comparison.\n",
+                               ast_print_node_type(comparison_kind));
+        };
+
+        // 4.4.- Build the TRUE and FALSE constraints and store them
+        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
+        _output_true_constraints[n] = c_true;
+        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
+        _output_false_constraints[n] = c_false;
+    }
+
+    // This method assumes the lhs is always a variable and the rhs may be a constant or a variable
+    void ConstraintBuilder::visit_comparison(
+            const NBase& lhs,
+            const NBase& rhs,
+            node_t comparison_kind)
+    {
+        // Create the constraints for the LHS, if necessary
+        if (!lhs.is_constant())
+            visit_comparison_side(lhs, rhs.shallow_copy(), /*LHS*/'l', comparison_kind);
+
+        // Create the constraints for the RHS, if necessary
+        if (!rhs.is_constant())
+            visit_comparison_side(rhs, lhs.shallow_copy(), /*RHS*/'r', comparison_kind);
+    }
+
+    void ConstraintBuilder::visit(const Nodecl::AddAssignment& n)
     {
         NBase lhs = n.get_lhs();
         NBase rhs = n.get_rhs();
@@ -454,294 +838,48 @@ namespace {
         visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
     }
 
-    void ConstraintBuilderVisitor::visit(const Nodecl::Assignment& n)
+    void ConstraintBuilder::visit(const Nodecl::Assignment& n)
     {
         visit_assignment(n.get_lhs().no_conv(), n.get_rhs().no_conv());
     }
 
     // x != c;   ---TRUE-->    X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
     //           --FALSE-->    X1 = X0 ∩ [c, c]
-    void ConstraintBuilderVisitor::visit(const Nodecl::Different& n)
+    void ConstraintBuilder::visit(const Nodecl::Different& n)
     {
-        NBase lhs = n.get_lhs().no_conv();
-        NBase rhs = n.get_rhs().no_conv();
-
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl",
-                        ast_print_node_type(n.get_kind()));
-
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
-
-        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
-        NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
-        }
-        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < x;       --TRUE-->       X1 = X0 ∩ [c, c]
-        // 2.1.1.- Build the TRUE constraint symbol
-        std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
-        s_true.set_type(t);
-        ssa_to_original_var[s_true] = lhs;
-        // 2.1.2.- Build the TRUE constraint value
-        NBase lb, ub;
-        if(rhs.is_constant())
-        {
-            lb = const_value_to_nodecl(const_value_add(rhs.get_constant(), one));
-            ub = const_value_to_nodecl(const_value_sub(rhs.get_constant(), one));
-        }
-        else
-        {
-            lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-            ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-        }
-        NBase val_true =
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false),
-                Nodecl::Analysis::RangeUnion::make(Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub,
-                                                                       const_value_to_nodecl(zero), t),
-                                                   Nodecl::Range::make(lb, Nodecl::Analysis::PlusInfinity::make(t),
-                                                                       const_value_to_nodecl(zero), t),
-                                                   t),
-                t);
-        // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
-        _output_true_constraints_map[lhs] = c_true;
-        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
-        // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
-        // 2.2.1.- Build the FALSE constraint symbol
-        std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
-        s_false.set_type(t);
-        ssa_to_original_var[s_false] = lhs;
-        // 2.2.2.- Build the FALSE constraint value
-        NBase val_false =
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false),
-                Nodecl::Range::make(val.shallow_copy(),
-                                    val.shallow_copy(),
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
-        _output_false_constraints_map[lhs] = c_false;
+        visit_comparison(n.get_lhs().no_conv(),
+                         n.get_rhs().no_conv(),
+                         NODECL_DIFFERENT); 
     }
 
     // x == c;   ---TRUE-->    X1 = X0 ∩ [c, c]
     //           --FALSE-->    X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
-    void ConstraintBuilderVisitor::visit(const Nodecl::Equal& n)
+    void ConstraintBuilder::visit(const Nodecl::Equal& n)
     {
-        NBase lhs = n.get_lhs().no_conv();
-        NBase rhs = n.get_rhs().no_conv();
-        
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl",
-                        ast_print_node_type(n.get_kind()));
-        
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-        
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
-        
-        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
-        NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
-        }
-        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < x;       --TRUE-->       X1 = X0 ∩ [c, c]
-        // 2.1.1.- Build the TRUE constraint symbol
-        std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
-        s_true.set_type(t);
-        ssa_to_original_var[s_true] = lhs;
-        // 2.1.2.- Build the TRUE constraint value
-        NBase val_true = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(val.shallow_copy(),
-                                    val.shallow_copy(), 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
-        _output_true_constraints_map[lhs] = c_true;
-        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
-        // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, c-1] U [c+1, -∞])
-        // 2.2.1.- Build the FALSE constraint symbol
-        std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
-        s_false.set_type(t);
-        ssa_to_original_var[s_false] = lhs;
-        // 2.2.2.- Build the FALSE constraint value
-        NBase lb, ub;
-        if(rhs.is_constant())
-        {
-            lb = const_value_to_nodecl(const_value_add(rhs.get_constant(), one));
-            ub = const_value_to_nodecl(const_value_sub(rhs.get_constant(), one));
-        }
-        else
-        {
-            lb = Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-            ub = Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t);
-        }
-        NBase val_false = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false),
-                Nodecl::Analysis::RangeUnion::make(Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub, 
-                                                                       const_value_to_nodecl(zero), t),
-                                                   Nodecl::Range::make(lb, Nodecl::Analysis::PlusInfinity::make(t), 
-                                                                       const_value_to_nodecl(zero), t),
-                                                   t),
-                t);
-        // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
-        _output_false_constraints_map[lhs] = c_false;
+        visit_comparison(n.get_lhs().no_conv(),
+                         n.get_rhs().no_conv(),
+                         NODECL_EQUAL);
     }
 
     // x > c;   ---TRUE-->    X1 = X0 ∩ [ c+1, +∞ ]
     //          --FALSE-->    X1 = X0 ∩ [-∞, c]
-    void ConstraintBuilderVisitor::visit(const Nodecl::GreaterThan& n)
+    void ConstraintBuilder::visit(const Nodecl::GreaterThan& n)
     {
-        NBase lhs = n.get_lhs().no_conv();
-        NBase rhs = n.get_rhs().no_conv();
-        
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl",
-                        ast_print_node_type(n.get_kind()));
-        
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-        
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
-        
-        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
-        NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
-        }
-        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < x;       --TRUE-->       X1 = X0 ∩ [ c+1, +∞ ]
-        // 2.1.1.- Build the TRUE constraint symbol
-        std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
-        s_true.set_type(t);
-        ssa_to_original_var[s_true] = lhs;
-        // 2.1.2.- Build the TRUE constraint value
-        NBase lb = (rhs.is_constant() ? const_value_to_nodecl(const_value_add(rhs.get_constant(), one)) 
-                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
-        NBase val_true = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(lb,
-                                    Nodecl::Analysis::PlusInfinity::make(t), 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
-        _output_true_constraints_map[lhs] = c_true;
-        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
-        // x < c;       --FALSE-->      X1 = X0 ∩ [-∞, c]
-        // 2.2.1.- Build the FALSE constraint symbol
-        std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
-        s_false.set_type(t);
-        ssa_to_original_var[s_false] = lhs;
-        // 2.2.2.- Build the FALSE constraint value
-        NBase val_false = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false),
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                    val.shallow_copy(), 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
-        _output_false_constraints_map[lhs] = c_false;
-    }
-    
-    // x >= c;   ---TRUE-->    X1 = X0 ∩ [ c, +∞ ]
-    //           --FALSE-->    X1 = X0 ∩ [-∞, c-1]
-    void ConstraintBuilderVisitor::visit(const Nodecl::GreaterOrEqualThan& n)
-    {
-        NBase lhs = n.get_lhs().no_conv();
-        NBase rhs = n.get_rhs().no_conv();
-        
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl",
-                        ast_print_node_type(n.get_kind()));
-        
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-        
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
-        
-        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
-        NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
-        }
-        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < x;       --TRUE-->       X1 = X0 ∩ [ c, +∞ ]
-        // 2.1.1.- Build the TRUE constraint symbol
-        std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
-        s_true.set_type(t);
-        ssa_to_original_var[s_true] = lhs;
-        // 2.1.2.- Build the TRUE constraint value
-        NBase val_true = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(val.shallow_copy(),
-                                    Nodecl::Analysis::PlusInfinity::make(t), 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
-        _output_true_constraints_map[lhs] = c_true;
-        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
-        // x < c;       --FALSE-->      X1 = X0 ∩ [-∞, c-1]
-        // 2.2.1.- Build the FALSE constraint symbol
-        std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
-        s_false.set_type(t);
-        ssa_to_original_var[s_false] = lhs;
-        // 2.2.2.- Build the FALSE constraint value
-        NBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
-                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
-        NBase val_false = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false),
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                    ub, 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
-        _output_false_constraints_map[lhs] = c_false;
+        visit_comparison(n.get_lhs().no_conv(),
+                         n.get_rhs().no_conv(),
+                         NODECL_GREATER_THAN);
     }
 
-    void ConstraintBuilderVisitor::visit(const Nodecl::LogicalAnd& n)
+    // x >= c;   ---TRUE-->    X1 = X0 ∩ [ c, +∞ ]
+    //           --FALSE-->    X1 = X0 ∩ [-∞, c-1]
+    void ConstraintBuilder::visit(const Nodecl::GreaterOrEqualThan& n)
+    {
+        visit_comparison(n.get_lhs().no_conv(),
+                         n.get_rhs().no_conv(),
+                         NODECL_GREATER_OR_EQUAL_THAN);
+    }
+
+    void ConstraintBuilder::visit(const Nodecl::LogicalAnd& n)
     {
         // 1.- Compute the constraints for the LSH
         const NBase& lhs = n.get_lhs();
@@ -753,170 +891,60 @@ namespace {
         walk(rhs);
         set_false_constraint_to_inf(rhs);
     }
-    
+
     // x <= c;    ---TRUE-->    X1 = X0 ∩ [-∞, c]
     //            --FALSE-->    X1 = X0 ∩ [ c+1,  +∞]
-    void ConstraintBuilderVisitor::visit(const Nodecl::LowerOrEqualThan& n)
+    void ConstraintBuilder::visit(const Nodecl::LowerOrEqualThan& n)
     {
-        NBase lhs = n.get_lhs().no_conv();
-        NBase rhs = n.get_rhs().no_conv();
-        
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl",
-                        ast_print_node_type(n.get_kind()));
-        
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-        
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
-        
-        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
-        NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
-        }
-        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < c;       --TRUE-->       X1 = X0 ∩ [-∞, c]
-        // 2.1.1.- Build the TRUE constraint symbol
-        std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_true.str()));
-        s_true.set_type(t);
-        ssa_to_original_var[s_true] = lhs;
-        // 2.1.2.- Build the TRUE constraint value
-        NBase val_true = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                    val.shallow_copy(), 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.1.3.- Build the TRUE constraint and store it
-        Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
-        _output_true_constraints_map[lhs] = c_true;
-        
-        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
-        // x < c;       --FALSE-->      X1 = X0 ∩ [c+1, +∞]
-        // 2.2.1.- Build the FALSE constraint symbol
-        std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_false.str()));
-        s_false.set_type(t);
-        ssa_to_original_var[s_false] = lhs;
-        // 2.2.2.- Build the FALSE constraint value
-        NBase lb = (rhs.is_constant() ? const_value_to_nodecl(const_value_add(rhs.get_constant(), one)) 
-                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
-        NBase val_false = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(lb,
-                                    Nodecl::Analysis::PlusInfinity::make(t), 
-                                    const_value_to_nodecl(zero), t), 
-                t);
-        // 2.2.3.- Build the FALSE constraint and store it
-        Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
-        _output_false_constraints_map[lhs] = c_false;
+        visit_comparison(n.get_lhs().no_conv(),
+                         n.get_rhs().no_conv(),
+                         NODECL_LOWER_OR_EQUAL_THAN);
     }
-    
+
     // x < c;    ---TRUE-->    X1 = X0 ∩ [-∞, c-1]
     //           --FALSE-->    X1 = X0 ∩ [ c,  +∞]
-    void ConstraintBuilderVisitor::visit(const Nodecl::LowerThan& n)
+    void ConstraintBuilder::visit(const Nodecl::LowerThan& n)
     {
-        NBase lhs = n.get_lhs().no_conv();
-        NBase rhs = n.get_rhs().no_conv();
-        
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
-                        "Some input constraint required for the LHS when parsing a %s nodecl",
-                        ast_print_node_type(n.get_kind()));
-        
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-        
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Comparator);
-        
-        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
-        NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
-        }
-        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < c;       --TRUE-->       X1 = X0 ∩ [-∞, c-1]
-        // 2.1.1.- Build the TRUE constraint symbol
-        std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_true.str()));
-        s_true.set_type(t);
-        ssa_to_original_var[s_true] = lhs;
-        // 2.1.2.- Build the TRUE constraint value
-        NBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
-                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
-        NBase val_true = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                    ub, 
-                                    const_value_to_nodecl(zero), t),
-                t);
-        // 2.1.3.- Build the TRUE constraint and store it
-            Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ComparatorTrue);
-        _output_true_constraints_map[lhs] = c_true;
-        
-        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
-        // x < c;       --FALSE-->      X1 = X0 ∩ [ c, +∞]
-        // 2.2.1.- Build the FALSE constraint symbol
-        std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_false.str()));
-        s_false.set_type(t);
-        ssa_to_original_var[s_false] = lhs;
-        // 2.2.2.- Build the FALSE constraint value
-        NBase val_false = 
-            Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(val.shallow_copy(),
-                                    Nodecl::Analysis::PlusInfinity::make(t), 
-                                    const_value_to_nodecl(zero), t), 
-                t);
-        // 2.2.3.- Build the FALSE constraint and store it
-            Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ComparatorFalse);
-        _output_false_constraints_map[lhs] = c_false;
+        visit_comparison(n.get_lhs().no_conv(),
+                         n.get_rhs().no_conv(),
+                         NODECL_LOWER_THAN);
     }
-    
+
     // x % c;   ---TRUE-->    X1 = X0 ∩ [0, c-1]
     //          --FALSE-->    X1 = X0 ∩ ([-∞, -1] U [c, -∞])
-    void ConstraintBuilderVisitor::visit(const Nodecl::Mod& n)
+    void ConstraintBuilder::visit(const Nodecl::Mod& n)
     {
         NBase lhs = n.get_lhs().no_conv();
         NBase rhs = n.get_rhs().no_conv();
-        
-        // Check the input is something we expect: LHS has a constraint or is a parameter
-        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
+
+        // 1.- Check the input is something we expect: LHS has a constraint or is a parameter
+        ERROR_CONDITION(_input_constraints.find(lhs) == _input_constraints.end(),
                         "Some input constraint required for the LHS when parsing a %s nodecl",
                         ast_print_node_type(n.get_kind()));
-        
-        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
-        Type t = orig_s.get_type();
-        std::string orig_s_str = orig_s.get_name();
-        
-        // 1.- Compute the conditions associated with the current node
-        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, __Mod);
-        
+
+        Symbol s(Utils::get_nodecl_base(lhs).get_symbol());
+        Type t = s.get_type();
+        std::string s_name = s.get_name();
+        // Get the last ssa symbol related to the original symbol
+        std::string last_ssa_name = _input_constraints.find(n)->second.get_symbol().get_name();
+        Symbol last_ssa_s = n.retrieve_context().get_symbol_from_name(last_ssa_name);
+        ERROR_CONDITION(!s.is_valid(),
+                        "No symbol '%s' found while building constraint for node '%s'",
+                        s.get_name().c_str(), n.prettyprint().c_str());
+
         // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
         NBase val = rhs.shallow_copy();
-        if(!rhs.is_constant())
-        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            _cr.walk(val);
+        if (!val.is_constant())
+        {   // Replace all the memory accesses by the ssa symbols arriving to the current node
+            ConstraintReplacement cr(&_input_constraints, _constraints, _ordered_constraints);
+            cr.walk(val);
         }
-        
+
         // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
         // x < x;       --TRUE-->       X1 = X0 ∩ [0, c-1]
         // 2.1.1.- Build the TRUE constraint symbol
         std::stringstream ss_true; ss_true << get_next_id(lhs);
-        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
+        Symbol s_true(n.retrieve_context().new_symbol(s_name + "_" + ss_true.str()));
         s_true.set_type(t);
         ssa_to_original_var[s_true] = lhs;
         // 2.1.2.- Build the TRUE constraint value
@@ -924,89 +952,88 @@ namespace {
                                       : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
         NBase val_true = 
             Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false), 
+                last_ssa_s.make_nodecl(/*set_ref_type*/false), 
                 Nodecl::Range::make(const_value_to_nodecl(zero),
                                     ub, 
                                     const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
         Utils::Constraint c_true = build_constraint(s_true, val_true, t, __ModTrue);
-        _output_true_constraints_map[lhs] = c_true;
+        _output_true_constraints[lhs] = c_true;
         // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
         // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, -1] U [c, -∞])
         // 2.2.1.- Build the FALSE constraint symbol
         std::stringstream ss_false; ss_false << get_next_id(lhs);
-        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
+        Symbol s_false(n.retrieve_context().new_symbol(s_name + "_" + ss_false.str()));
         s_false.set_type(t);
         ssa_to_original_var[s_false] = lhs;
         // 2.2.2.- Build the FALSE constraint value
         NBase val_false = 
             Nodecl::Analysis::RangeIntersection::make(
-                s.make_nodecl(/*set_ref_type*/false),
+                last_ssa_s.make_nodecl(/*set_ref_type*/false),
                 Nodecl::Analysis::RangeUnion::make(
-                    Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t),
+                    Nodecl::Range::make(minus_inf.shallow_copy(),
                                         const_value_to_nodecl(minus_one),
                                         const_value_to_nodecl(zero), t),
                     Nodecl::Range::make(val.shallow_copy(),
-                                        Nodecl::Analysis::PlusInfinity::make(t),
+                                        plus_inf.shallow_copy(),
                                         const_value_to_nodecl(zero), t),
                     t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
         Utils::Constraint c_false = build_constraint(s_false, val_false, t, __ModFalse);
-        _output_false_constraints_map[lhs] = c_false;
+        _output_false_constraints[lhs] = c_false;
     }
-    
-    void ConstraintBuilderVisitor::visit(const Nodecl::ObjectInit& n)
+
+    void ConstraintBuilder::visit(const Nodecl::ObjectInit& n)
     {
         Symbol s(n.get_symbol());
         Nodecl::Symbol lhs = s.make_nodecl(/*set_ref_type*/false);
         NBase rhs = s.get_value();
         visit_assignment(lhs, rhs);
     }
-    
+
     // FIXME Check the order of creation of constraints depending on whether the op. is pre-in/decrement or post-in/decrement
     //       Example: x = y++;              Wrong: 
     //                X0 = Y0;                     Y1 = Y0 + 1;
     //                Y1 = Y0 + 1;                 X0 = Y1;
-    
-    
+
     // x--;    -->    X1 = X0 + 1
-    void ConstraintBuilderVisitor::visit(const Nodecl::Postdecrement& n)
+    void ConstraintBuilder::visit(const Nodecl::Postdecrement& n)
     {
         visit_increment(n.get_rhs(), /*positive*/ false);
     }
-    
+
     // x++;    -->    X1 = X0 + 1
-    void ConstraintBuilderVisitor::visit(const Nodecl::Postincrement& n)
+    void ConstraintBuilder::visit(const Nodecl::Postincrement& n)
     {
         visit_increment(n.get_rhs(), /*positive*/ true);
     }
-    
+
     // --x;    -->    X1 = X0 - 1
-    void ConstraintBuilderVisitor::visit(const Nodecl::Predecrement& n)
+    void ConstraintBuilder::visit(const Nodecl::Predecrement& n)
     {
         visit_increment(n.get_rhs(), /*positive*/ false);
     }
-    
+
     // ++x;    -->    X1 = X0 + 1
-    void ConstraintBuilderVisitor::visit(const Nodecl::Preincrement& n)
+    void ConstraintBuilder::visit(const Nodecl::Preincrement& n)
     {
         visit_increment(n.get_rhs(), /*positive*/ true);
     }
-    
-    // ************************** END Visitor implementing constraint building **************************** //
-    // **************************************************************************************************** //
-    
-    
-    
-    // **************************************************************************************************** //
-    // ******************************* Class implementing constraint graph ******************************** //
-    
+
+    // ************** END visitor building constraints from statements ************* //
+    // ***************************************************************************** //
+
+
+
+    // ***************************************************************************** //
+    // ******************* Class implementing constraint graph ********************* //
+
     ConstraintGraph::ConstraintGraph(std::string name)
         : _name(name), _nodes(), _node_to_scc_map()
     {}
-    
+
     CGNode* ConstraintGraph::get_node_from_ssa_var(const NBase& n)
     {
         CGValueToCGNode_map::iterator it = _nodes.find(n);
@@ -1015,40 +1042,35 @@ namespace {
                         n.prettyprint().c_str(), _name.c_str());
         return it->second;
     }
-    
-    CGNode* ConstraintGraph::insert_node(const NBase& value)
+
+    CGNode* ConstraintGraph::insert_node(const NBase& value, CGNodeType type)
     {
-        CGNode* node = ((_nodes.find(value) == _nodes.end()) ? NULL 
-                                                             : _nodes[value]);
-        if(node==NULL)
-        {
-            node = new CGNode(__Sym, value);
-            _nodes[value] = node;
-        }
+        // If the node already existed, return it
+        if (_nodes.find(value) != _nodes.end())
+            return _nodes[value];
+
+        // Otherwise, create the node and return it
+        CGNode* node = new CGNode(type, value);
+        _nodes[value] = node;
         return node;
     }
 
-    CGNode* ConstraintGraph::insert_node(CGOpType type)
+    CGNode* ConstraintGraph::insert_node(CGNodeType type)
     {
         CGNode* node = new CGNode(type, NBase::null());
-        NBase value = Nodecl::IntegerLiteral::make(Type::get_int_type(), 
+        NBase value = Nodecl::IntegerLiteral::make(Type::get_long_int_type(), 
                                                    const_value_get_integer(node->get_id(), /*num_bytes*/4, /*sign*/1));
         _nodes[value] = node;
         return node;
     }
-    
-    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target,
-            CGOpType edge_type, NBase predicate, bool is_back_edge)
+
+    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target, bool is_back_edge)
     {
-        ObjectList<CGNode*> children = source->get_children();
-        if(!children.contains(target))
-        {
-            CGEdge* e = source->add_child(target, edge_type, predicate, is_back_edge);
-            target->add_entry(e);
-        }
+        CGEdge* e = source->add_child(target, is_back_edge);
+        target->add_entry(e);
     }
 
-    static CGOpType get_op_type_from_value(const NBase& val)
+    static CGNodeType get_op_type_from_value(const NBase& val)
     {
         switch(val.get_kind())
         {
@@ -1064,9 +1086,21 @@ namespace {
         }
     }
 
+    static NBase generate_range_from_constant(const NBase& constant)
+    {
+        Optimizations::ReduceExpressionVisitor rev;
+        rev.walk(constant);
+        Nodecl::Range const_range = Nodecl::Range::make(
+                constant.shallow_copy(),
+                constant.shallow_copy(),
+                const_value_to_nodecl(zero),
+                Type::get_long_int_type());
+        return const_range;
+    }
+
     CGNode* ConstraintGraph::fill_cg_with_binary_op_rec(
             const NBase& val,
-            CGOpType n_type)
+            CGNodeType n_type)
     {
         ERROR_CONDITION(!Nodecl::Utils::nodecl_is_arithmetic_op(val),
                         "Expected arithmetic operation in constraint, but found '%s'.\n",
@@ -1076,12 +1110,12 @@ namespace {
         // all binary operation structurally have the same tree
         const NBase& lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
         const NBase& rhs = val.as<Nodecl::Add>().get_rhs().no_conv();
-        CGOpType val_type = get_op_type_from_value(val);
+        CGNodeType val_type = get_op_type_from_value(val);
 
         CGNode* target_op = NULL;
-        if(lhs.is<Nodecl::Symbol>())
+        if (lhs.is<Nodecl::Symbol>())
         {
-            if(rhs.is<Nodecl::Symbol>())
+            if (rhs.is<Nodecl::Symbol>())
             {   // var1 OP var2
                 CGNode* source1 = insert_node(lhs);                 // var1
                 CGNode* source2 = insert_node(rhs);                 // var2
@@ -1090,23 +1124,26 @@ namespace {
                 connect_nodes(source1, target_op);                  // var1 -> OP
                 connect_nodes(source2, target_op);                  // var2 -> OP
             }
-            else if(rhs.is_constant())
+            else if (rhs.is_constant())
             {   // var OP const
-                CGNode* source = insert_node(lhs);                          // var
-                target_op = insert_node(n_type);                            // outerOP
-                NBase predicate = rhs.shallow_copy();                       // const
-                Optimizations::ReduceExpressionVisitor rev;
-                rev.walk(predicate);
-                connect_nodes(source, target_op, val_type, predicate);      // var --val_type--> outerOP
+                CGNode* source1 = insert_node(lhs);                 // var
+
+                NBase const_range = generate_range_from_constant(rhs.shallow_copy());
+                CGNode* source2 = insert_node(const_range, __Const);// const
+
+                target_op = insert_node(n_type);                    // outerOP
+
+                connect_nodes(source1, target_op);                  // var -> outerOP
+                connect_nodes(source2, target_op);                  // const -> outerOP
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
             {   // var OP (...)
-                CGNode* source1 = insert_node(lhs);                         // var
-                CGNode* source2 = fill_cg_with_binary_op_rec(rhs, val_type);// (...)
-                target_op = insert_node(val_type);                          // OP
+                CGNode* source1 = insert_node(lhs);                             // var
+                CGNode* source2 = fill_cg_with_binary_op_rec(rhs, val_type);    // (...)
+                target_op = insert_node(val_type);                              // OP
 
-                connect_nodes(source1, target_op);                         // var -> OP
-                connect_nodes(source2, target_op);                         // (...) -> OP
+                connect_nodes(source1, target_op);                              // var -> OP
+                connect_nodes(source2, target_op);                              // (...) -> OP
             }
             else
             {
@@ -1127,13 +1164,15 @@ namespace {
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
             {   // const OP (...)
-                CGNode* source = fill_cg_with_binary_op_rec(rhs, val_type); // (...)
-                target_op = insert_node(n_type);                            // OP
+                CGNode* source1 = fill_cg_with_binary_op_rec(rhs, val_type);    // (...)
 
-                NBase predicate = lhs.shallow_copy();                       // const
-                Optimizations::ReduceExpressionVisitor rev;
-                rev.walk(predicate);
-                connect_nodes(source, target_op, val_type, predicate);      // (...) --const--> OP
+                NBase const_range = generate_range_from_constant(lhs.shallow_copy());
+                CGNode* source2 = insert_node(const_range, __Const);            // const
+
+                target_op = insert_node(n_type);                                // OP
+
+                connect_nodes(source1, target_op);                              // (...) -> OP
+                connect_nodes(source2, target_op);                              // const -> OP
             }
             else
             {
@@ -1145,18 +1184,20 @@ namespace {
             CGNode* source1 = fill_cg_with_binary_op_rec(lhs, val_type);
             if (rhs.is<Nodecl::Symbol>())
             {   // (...) OP var
-                CGNode* source2 = insert_node(rhs);                 // var
-                target_op = insert_node(val_type);                  // OP
-                connect_nodes(source1, target_op);                  // var -> OP
-                connect_nodes(source2, target_op);                  // var -> OP
+                CGNode* source2 = insert_node(rhs);             // var
+                target_op = insert_node(val_type);              // OP
+                connect_nodes(source1, target_op);              // var -> OP
+                connect_nodes(source2, target_op);              // var -> OP
             }
             else if (rhs.is_constant())
             {   // var OP const
-                target_op = insert_node(n_type);                                // outerOP
-                NBase predicate = rhs.shallow_copy();                           // const
-                Optimizations::ReduceExpressionVisitor rev;
-                rev.walk(predicate);
-                connect_nodes(source1, target_op, val_type, predicate);         // var --val_type--> outerOP
+                NBase const_range = generate_range_from_constant(rhs.shallow_copy());
+                CGNode* source2 = insert_node(const_range, __Const);    // const
+
+                target_op = insert_node(n_type);                        // outerOP
+
+                connect_nodes(source1, target_op);                      // var -> outerOP
+                connect_nodes(source2, target_op);                      // const -> outerOP
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(rhs))
             {   // (.x.) OP (.y.)
@@ -1181,7 +1222,7 @@ namespace {
     void ConstraintGraph::fill_cg_with_binary_op(
             const NBase& s,
             const NBase& val,
-            CGOpType op_type)
+            CGNodeType op_type)
     {
         // res = (...) OP (...)
         CGNode* target_op = fill_cg_with_binary_op_rec(val, op_type);   // OP
@@ -1205,7 +1246,7 @@ namespace {
      *    - H. Constraint : c1 = c0                                                 Edge    c0 ---------------> c1
      */
     void ConstraintGraph::fill_constraint_graph(
-        const SSAVarToValue_map& constraints,
+        const Constraints& constraints,
         const NodeclList& ordered_constraints)
     {
         std::map<NBase, CGNode*> back_edges;
@@ -1263,22 +1304,24 @@ namespace {
                 
                 CGNode* source = insert_node(lhs);
                 CGNode* target = insert_node(s);  // A.
-                NBase predicate = rhs.shallow_copy();
+                NBase range = rhs.shallow_copy();
                 Optimizations::ReduceExpressionVisitor rev;
-                rev.walk(predicate);
-                connect_nodes(source, target, __Intersection, predicate);
+                rev.walk(range);
+                CGNode* range_node = insert_node(range, __Intersection);
+                connect_nodes(source, range_node);
+                connect_nodes(range_node, target);
             }
             else if (val.is<Nodecl::Range>())
             {
                 // B. Create a new node if the Constraint Value is a Range
-                CGNode* source = insert_node(val);
+                CGNode* source = insert_node(val, __Const);
                 CGNode* target = insert_node(s);  // A.
                 // F. Create edge between the Range node and the Constraint node
                 connect_nodes(source, target);
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(val))
             {
-                CGOpType type = get_op_type_from_value(val);
+                CGNodeType type = get_op_type_from_value(val);
                 fill_cg_with_binary_op(s, val, type);
             }
             else
@@ -1287,17 +1330,17 @@ namespace {
                                ast_print_node_type(val.get_kind()), val.prettyprint().c_str());
             }
         }
-        
+
         // Connect now the back edges
-        for(std::map<NBase, CGNode*>::iterator it = back_edges.begin(); it != back_edges.end(); ++it)
+        for (std::map<NBase, CGNode*>::iterator it = back_edges.begin(); it != back_edges.end(); ++it)
         {   // Both source and target must exist already
             CGNode* source = insert_node(it->first);
             CGNode* target = it->second;
-            connect_nodes(source, target, __Flow, NBase::null(), /*is_back_edge*/true);
+            connect_nodes(source, target, /*is_back_edge*/true);
         }
     }
-    
-    void ConstraintGraph::print_graph()
+
+    void ConstraintGraph::print_graph() const
     {
         // Get a file to print a DOT with the Constraint Graph
         // Create the directory of dot files if it has not been previously created
@@ -1307,38 +1350,37 @@ namespace {
             internal_error ("An error occurred while getting the path of the current directory", 0);
         struct stat st;
         std::string directory_name = std::string(buffer) + "/dot/";
-        if(stat(directory_name.c_str(), &st) != 0)
+        if (stat(directory_name.c_str(), &st) != 0)
         {
             int dot_directory = mkdir(directory_name.c_str(), S_IRWXU);
-            if(dot_directory != 0)
+            if (dot_directory != 0)
                 internal_error ("An error occurred while creating the dot directory in '%s'", 
                                 directory_name.c_str());
         }
-        
+
         // Create the file where we will store the DOT CG
         std::string dot_file_name = directory_name + _name + "_cg.dot";
         std::ofstream dot_cg;
         dot_cg.open(dot_file_name.c_str());
-        if(!dot_cg.good())
+        if (!dot_cg.good())
             internal_error ("Unable to open the file '%s' to store the CG.", dot_file_name.c_str());
-        if(VERBOSE)
+        if (VERBOSE)
             std::cerr << "- CG DOT file '" << dot_file_name << "'" << std::endl;
         dot_cg << "digraph CG {\n";
         dot_cg << "\tcompound=true;\n";
-        for(CGValueToCGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
+        for (CGValueToCGNode_map::const_iterator it = _nodes.begin(); it != _nodes.end(); ++it)
         {
             CGNode* n = it->second;
             unsigned int source = n->get_id();
-            
+
             // 1.- Print the Constraint Node
-            CGOpType node_t = n->get_type();
-            // 1.1.- The node has a constraint associated
-            if(node_t == __Sym)
-            {
+            CGNodeType t = n->get_type();
+            if (t == __Sym || t == __Const || t == __Intersection)
+            {   // Print nodes with a valuation associated
                 NBase constraint = n->get_constraint();
-                dot_cg << "\t" << source << " [label=\"[" << source << "] " << constraint.prettyprint() << "\"];\n";
+                dot_cg << "\t" << source << " [label=\"[" << source << "] " << constraint.prettyprint() << "\", shape=\"polygon\"];\n";
                 NBase val = n->get_valuation();
-                if(!constraint.is<Nodecl::Range>() && !val.is_null())
+                if (!constraint.is<Nodecl::Range>() && !val.is_null())
                 {
                     // Print a node containing the valuation
                     dot_cg << "\t0" << source << " [label=\"" << val.prettyprint() << "\", "
@@ -1350,25 +1392,23 @@ namespace {
                 }
             }
             else
-            {
-                dot_cg << "\t" << source << " [label=\"[" << source << "] " << n->get_type_as_string() << "\"];\n";
+            {   // Print operation nodes
+                dot_cg << "\t" << source << " [label=\"[" << source << "] " << n->get_type_as_string() << "\", shape=\"polygon\"];\n";
             }
-            
+
             // Print the node relations
-            ObjectList<CGEdge*> exits = n->get_exits();
-            for(ObjectList<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
+            const std::set<CGEdge*>& exits = n->get_exits();
+            for (std::set<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
             {
                 unsigned int target = (*ite)->get_target()->get_id();
-                const NBase predicate = (*ite)->get_predicate();
                 bool back_edge = (*ite)->is_back_edge();
-                std::string attrs = " [label=\"" + (predicate.is_null() ? "" : predicate.prettyprint()) + "\","
-                                  + " style=\"" + (back_edge ? "dotted" : "solid") + "\"]";
+                std::string attrs = " [label=\"\", style=\"" + std::string(back_edge ? "dotted" : "solid") + "\"]";
                 dot_cg << "\t" << source << "->" << target << attrs << ";\n";
             }
         }
         dot_cg << "}\n";
         dot_cg.close();
-        if(!dot_cg.good())
+        if (!dot_cg.good())
             internal_error ("Unable to close the file '%s' where CG has been stored.", dot_file_name.c_str());
     }
     
@@ -1388,47 +1428,47 @@ namespace {
 }
     
     void ConstraintGraph::strong_connect(CGNode* n, unsigned int& scc_current_index, 
-                                         std::stack<CGNode*>& s, std::vector<SCC*>& scc_list, 
-                                         std::map<CGNode*, int>& scc_lowlink_index,
-                                         std::map<CGNode*, int>& scc_index)
+            std::stack<CGNode*>& s, std::vector<SCC*>& scc_list, 
+            std::map<CGNode*, int>& scc_lowlink_index,
+            std::map<CGNode*, int>& scc_index)
     {
         // Set the depth index for 'n' to the smallest unused index
         scc_index[n] = scc_current_index;
         scc_lowlink_index[n] = scc_current_index;
         ++scc_current_index;
         s.push(n);
-        
+
         // Consider the successors of 'n'
-        ObjectList<CGNode*> succ = n->get_children();
-        for(ObjectList<CGNode*>::iterator it = succ.begin(); it != succ.end(); ++it)
+        std::set<CGNode*> succ = n->get_children();
+        for (std::set<CGNode*>::iterator it = succ.begin(); it != succ.end(); ++it)
         {
             CGNode* m = *it;
-            if(scc_index.find(m)==scc_index.end())
+            if (scc_index.find(m)==scc_index.end())
             {   // Initialize values for this node if it has not yet been initialized
                 scc_index[m] = -1;
                 scc_lowlink_index[m] = -1;
             }
-            if(scc_index[m] == -1)
+            if (scc_index[m] == -1)
             {   // Successor 'm' has not yet been visited: recurse on it
                 strong_connect(m, scc_current_index, s, scc_list, scc_lowlink_index, scc_index);
                 scc_lowlink_index[n] = std::min(scc_lowlink_index[n], scc_lowlink_index[m]);
             }
-            else if(stack_contains_cgnode(s, m))
+            else if (stack_contains_cgnode(s, m))
             {   // Successor 'm' is in the current SCC
                 scc_lowlink_index[n] = std::min(scc_lowlink_index[n], scc_index[m]);
             }
         }   
-        
+
         // If 'n' is a root node, pop the set and generate an SCC
-        if((scc_lowlink_index[n] == scc_index[n]) && !s.empty())
+        if ((scc_lowlink_index[n] == scc_index[n]) && !s.empty())
         {
             SCC* scc = new SCC(&_node_to_scc_map);
-            while(!s.empty() && s.top()!=n)
+            while (!s.empty() && s.top()!=n)
             {
                 scc->add_node(s.top());
                 s.pop();
             }
-            if(!s.empty() && s.top()==n)
+            if (!s.empty() && s.top()==n)
             {
                 scc->add_node(s.top());
                 s.pop();
@@ -1443,243 +1483,573 @@ namespace {
         std::vector<SCC*> scc_list;
         std::stack<CGNode*> s;
         unsigned int scc_current_index = 0;
-        
+
         // 1.- Collect each set of nodes that form a SCC
         std::map<CGNode*, int> scc_lowlink_index;
         std::map<CGNode*, int> scc_index;
-        for(CGValueToCGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
+        for (CGValueToCGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
         {
             CGNode* n = it->second;
-            if((scc_index.find(n) == scc_index.end()) || (scc_index[n] == -1))
+            if ((scc_index.find(n) == scc_index.end()) || (scc_index[n] == -1))
                 strong_connect(n, scc_current_index, s, scc_list, scc_lowlink_index, scc_index);
         }
 
         // 2.- Compute the directionality of each scc_current_index
         // 3.- Create a map between the Constraint Graph nodes and their SCC
-        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        for (std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
         {
             std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
-            for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); ++itt)
+            for (std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); ++itt)
             {
                 _node_to_scc_map.insert(std::pair<CGNode*, SCC*>(*itt, *it));
             }
         }
-        
+
         // Compute the root of each SCC
-        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        for (std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
         {
             SCC* scc = *it;
-            std::vector<CGNode*> nodes = scc->get_nodes();
-            if(scc->is_trivial())
+            const std::vector<CGNode*>& nodes = scc->get_nodes();
+            if (scc->is_trivial())
             {
-                scc->set_root(nodes[0]);
+                scc->add_root(nodes[0]);
             }
             else
             {
-                for(std::vector<CGNode*>::iterator itt = nodes.begin(); itt != nodes.end(); ++itt)
-                {
-                    ObjectList<CGNode*> parents = (*itt)->get_parents();
-                    for(ObjectList<CGNode*>::iterator ittt = parents.begin(); ittt != parents.end(); ++ittt)
+                for (std::vector<CGNode*>::const_iterator itt = nodes.begin();
+                     itt != nodes.end(); ++itt)
+                {   // In a cycle, the root is the Phi node
+                    if ((*itt)->get_type() == __Phi)
                     {
-                        if(_node_to_scc_map[*ittt] != scc)
-                        {
-                            scc->set_root(*itt);
-                            goto root_done;
-                        }
+                        scc->add_root(*itt);
                     }
                 }
             }
-root_done:  ;
         }
-        
+
         print_sccs(scc_list);
-        
+
         // Collect the roots of each SCC tree
         std::vector<SCC*> roots;
-        for(std::map<CGNode*, SCC*>::iterator it = _node_to_scc_map.begin(); it != _node_to_scc_map.end(); ++it)
+        for (std::map<CGNode*, SCC*>::iterator it = _node_to_scc_map.begin();
+             it != _node_to_scc_map.end(); ++it)
         {
-            if(it->first->get_entries().empty())
+            if (it->first->get_entries().empty())
                 roots.push_back(it->second);
         }
-        
+
         return roots;
     }
-    
-    void ConstraintGraph::evaluate_cgnode(CGNode* const node, bool &changes)
+
+    void ConstraintGraph::evaluate_cgnode(CGNode* const n)
     {
-        const NBase& old_valuation = node->get_valuation();
-        NBase valuation;
-        CGOpType type = node->get_type();
-        NBase constraint = node->get_constraint();
-        if (constraint.is<Nodecl::Range>())
-        {   // The node is a constant value
-            valuation = constraint;
-        }
-        else
-        {   // The node is an SSA symbol
-            NodeclList entry_valuations;
-            const ObjectList<CGEdge*>& entries = node->get_entries();
-            ERROR_CONDITION(entries.empty(), 
-                            "CG node %d representing symbol or operation has no entries. Expected at least one entry.\n", 
-                            node->get_id());
-            for (ObjectList<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
-            {
-                if ((*it)->is_back_edge())
-                    continue;
-                Nodecl::Range last_valuation = (*it)->get_source()->get_valuation().as<Nodecl::Range>();
-                CGOpType edge_type = (*it)->get_edge_type();
-                const NBase& predicate = (*it)->get_predicate();
-                if (edge_type == __Flow)
-                    valuation = last_valuation;
-                else if (edge_type == __Add)
-                    valuation = Utils::range_value_add(last_valuation, predicate);
-                else if (edge_type == __Sub)
-                    valuation = Utils::range_value_sub(last_valuation, predicate);
-                else if (edge_type == __Mul)
-                    valuation = Utils::range_value_mul(last_valuation, predicate);
-                else if (edge_type == __Div)
-                    valuation = Utils::range_value_div(last_valuation, predicate);
-                else if(edge_type == __Intersection)
+        const NBase& old_valuation = n->get_valuation();
+        NBase new_valuation;
+        CGNodeType node_type = n->get_type();
+        switch (node_type)
+        {
+            case __Const:
+            {   // The node is a range => its valuation is the constraint itself
+                new_valuation = n->get_constraint();
+                break;
+            }
+            case __Sym:
+            {   // The node is an SSA symbol => its valuation depend on the entry operation
+                // 1.- Check the integrity of the Constraint Graph at this point
+                const std::set<CGNode*>& parents = n->get_parents();
+                ERROR_CONDITION(parents.size() != 1,
+                                "A symbol node is expected to have one unique entry, "
+                                "but node %d has %d entries.\n",
+                                n->get_id(), parents.size());
+                // 2.- Evaluate the node
+                CGNode* parent = *parents.begin();
+                const std::set<CGNode*>& grandparents = parent->get_parents();
+                CGNodeType parent_type = parent->get_type();
+                NBase op1, op2;     // Variables defined and used in different cases of the following switch case
+                switch (parent_type)
                 {
-                    // Check whether the cycle is positive or negative
-                    SCC* scc = _node_to_scc_map[node];
-                    // FIXME First approach: cyle directionality could be unique and compute only once for each SCC
-                    Utils::CycleDirection cycle_direction = scc->get_cycle_direction(*it);
-                    valuation = Utils::range_intersection(last_valuation, predicate, cycle_direction);
+                    case __Const:
+                    {   // For a __Const node already evaluated, the methods 'get_valuation' and
+                        // 'get_constraint' return the same, the range
+                        new_valuation = parent->get_valuation();
+                        break;
+                    }
+                    case __Sym:
+                    {   // FIXME We should try to avoid redounding SSA variables when they surely have the same valuation
+                        // Two consecutive __Sym nodes will always have the same valuation
+                        new_valuation = parent->get_valuation();
+                        break;
+                    }
+                    case __Intersection:
+                    {
+                        // 2.1.- Check the integrity of the Constraint Graph at this point
+                        ERROR_CONDITION(grandparents.size() != 1, 
+                                        "An intersection node is expected to have exactly 1 entry, "
+                                        "but node %d has %d entries.\n", 
+                                        parent->get_id(), grandparents.size());
+
+                        // 2.2.- Compute the intersection
+                        op1 = (*grandparents.begin())->get_valuation();
+                        op2 = parent->get_constraint();
+                        new_valuation = Utils::range_intersection(op1, op2);
+                        break;
+                    }
+                    case __Phi:
+                    {
+                        // 2.1.- Check the integrity of the Constraint Graph at this point
+                        ERROR_CONDITION(grandparents.size() < 2, 
+                                        "A phi node is expected to have at least 2 entries, "
+                                        "but node %d has %d entries.\n", 
+                                        parent->get_id(), grandparents.size());
+                        
+                        // 2.2.- Join all entry valuations into the phi node
+                        ObjectList<NBase> entry_valuations;
+                        std::set<CGNode*>::const_iterator it = grandparents.begin();
+                        op1 = (*it)->get_valuation();
+                        ++it;
+                        for (; it != grandparents.end(); ++it)
+                        {
+                            op2 = (*it)->get_valuation();
+                            op1 = Utils::range_union(op1, op2);
+                        }
+                        new_valuation = op1;
+                        break;
+                    }
+                    // Any other operation must be a binary operation
+                    default:
+                    {
+                        ERROR_CONDITION(grandparents.size() != 2, 
+                                        "A binary operation node is expected to have exactly 2 entries, "
+                                        "but node %d has %d entries.\n", 
+                                        parent->get_id(), grandparents.size());
+                        std::set<CGNode*>::iterator it = grandparents.begin();
+                        op1 = (*it)->get_valuation(); ++it;
+                        op2 = (*it)->get_valuation();
+                        switch (parent_type)
+                        {
+                            case __Add:
+                            {
+                                new_valuation = Utils::range_addition(op1, op2);
+                                break;
+                            }
+                            case __Sub:
+                            {
+                                new_valuation = Utils::range_subtraction(op1, op2);
+                                break;
+                            }
+                            case __Mul:
+                            {
+                                new_valuation = Utils::range_multiplication(op1, op2);
+                                break;
+                            }
+                            case __Div:
+                            {
+                                new_valuation = Utils::range_division(op1, op2);
+                                break;
+                            }
+                            default:
+                            {
+                                internal_error("Unexpected parent type %d while evaluating node %d. "
+                                               "Expecting binary operation.\n",
+                                               parent->get_type_as_string().c_str(), n->get_id());
+                            }
+                        };
+                        break;
+                    }
+                };
+
+                // Check that we indeed compute some valuation
+                ERROR_CONDITION(new_valuation.is_null(),
+                                "Unexpected node %d of type %s.\n",
+                                parent->get_id(), parent->get_type_as_string().c_str());
+                break;
+            }
+            default:
+                internal_error("Unexpected node type %d while evaluating node %d.\n",
+                                n->get_type_as_string().c_str(), n->get_id());
+        };
+
+        if (RANGES_DEBUG)
+            std::cerr << "    EVALUATE " << n->get_id()
+                      << "  ::  " << n->get_constraint().prettyprint()
+                      << "  ::  " << (old_valuation.is_null() ? "[⊥, ⊥]" : old_valuation.prettyprint())
+                      << " -> " << new_valuation.prettyprint() << std::endl;
+        n->set_valuation(new_valuation);
+    }
+
+    static NBase get_next_lower(const std::set<const_value_t*>& const_values, const_value_t* c)
+    {
+        for (std::set<const_value_t*>::const_reverse_iterator it = const_values.rbegin();
+             it != const_values.rend(); ++it)
+        {
+            const_value_t* diff = const_value_sub(c, *it);
+            if (const_value_is_positive(diff) || const_value_is_zero(diff))
+                return const_value_to_nodecl(*it);
+        }
+        return minus_inf.shallow_copy();
+    }
+
+    static NBase get_next_greater(const std::set<const_value_t*>& const_values, const_value_t* c)
+    {
+        for (std::set<const_value_t*>::const_iterator it = const_values.begin();
+             it != const_values.end(); ++it)
+        {
+            const_value_t* diff = const_value_sub(*it, c);
+            if (const_value_is_positive(diff) || const_value_is_zero(diff))
+                return const_value_to_nodecl(*it);
+        }
+        return plus_inf.shallow_copy();
+    }
+
+    static void gather_constants_from_const_node(CGNode* n, std::set<const_value_t*>& const_values)
+    {
+        const Nodecl::Range& range = n->get_constraint().as<Nodecl::Range>();
+        const NBase& lb = range.get_lower(); 
+        const NBase& ub = range.get_upper();
+        if (lb.is_constant())
+            const_values.insert(lb.get_constant());
+        if (ub.is_constant())
+            const_values.insert(ub.get_constant());
+    }
+
+    std::set<const_value_t*> ConstraintGraph::gather_scc_constants(SCC* scc)
+    {
+        std::set<const_value_t*> const_values;     // Result
+
+        // 1.- Start looking for the values from the root of the component
+        const std::list<CGNode*>& roots = scc->get_roots();
+        std::queue<CGNode*,std::list<CGNode*> > worklist(roots);
+
+        // 2.- Iterate until all nodes in the component have been visited
+        while (!worklist.empty())
+        {
+            // 2.1.- Get the first node in the queue
+            CGNode* n = worklist.front();
+            worklist.pop();
+
+            // 2.2.- Base case: we are exiting the component
+            if (_node_to_scc_map[n] != scc)
+                continue;
+
+            // 2.3.- Evaluate the current node: if it contains a constant, store it
+            CGNodeType type = n->get_type();
+            if (type == __Const || type == __Intersection)
+            {
+                gather_constants_from_const_node(n, const_values);
+            }
+            // 2.4.- It may happen that an operation node receives a constant from outside the component
+            else if (type != __Sym && type != __Intersection)
+            {
+                const std::set<CGNode*> parents = n->get_parents();
+                for (std::set<CGNode*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                {
+                    CGNode* p = *it;
+                    // Only check node form outside the component
+                    // since the ones inside are already checked in the normal work-flow
+                    if (_node_to_scc_map[p] != scc
+                            && (p->get_type() == __Const || type == __Intersection))
+                    {
+                        gather_constants_from_const_node(p, const_values);
+                    }
+                }
+            }
+
+            // 2.5.- Prepare the following iterations
+            const std::set<CGEdge*>& exits = n->get_exits();
+            for (std::set<CGEdge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
+            {
+                if (!(*it)->is_back_edge())     // Avoid cycles
+                    worklist.push((*it)->get_target());
+            }
+        }
+        return const_values;
+    }
+
+    // The widen operator used is a generalization of the Cousot and Cousot's widening operator:
+    //     I[Y] = | [⊥, ⊥]                            -> e(Y)
+    //            | e(Y)_ < I[Y]_ && e(Y)^ > I[Y]^   -> [-inf , +inf ]
+    //            | e(Y)_ < I[Y]_                    -> [-inf , I[Y]^]
+    //            | e(Y)^ > I[Y]^                    -> [I[Y]_, +inf ]
+    void ConstraintGraph::widen(SCC* scc)
+    {
+        const std::list<CGNode*> roots = scc->get_roots();     // This is the phi node with an entry back edge
+
+        // 1.- Gather all constants in this component
+        std::set<const_value_t*> const_values = gather_scc_constants(scc);
+
+        // 2.- Traverse the component applying the widen operation
+        std::queue<CGNode*,std::list<CGNode*> > worklist(roots);
+        while (!worklist.empty())
+        {
+            // 2.1.- Get the next node to be treated
+            CGNode* n = worklist.front();
+            worklist.pop();
+
+            // 2.2.- Base case: if the node is not in the same SCC, then we will treat it later
+            if (_node_to_scc_map[n] != scc)
+                continue;
+
+            // 2.3.- Keep the old valuation to be able to compare if there has been some change
+            //     We make a copy because otherwise the pointer may be modified
+            const NBase& old_valuation = n->get_valuation().shallow_copy();
+            NBase widen_valuation = old_valuation;
+            // 2.4.- Calculate the current node, only if it is a symbol, because:
+            //        - __Const nodes will n ever change their valuation since it is the constraint itself
+            //        - Operation nodes are never evaluated
+            if (n->get_type() == __Sym)
+            {
+                // 2.4.1.- Compute the new valuation of the node
+                evaluate_cgnode(n);
+
+                // 2.4.2.- Apply the widen operation
+                const NBase& new_valuation = n->get_valuation();
+                ERROR_CONDITION(!new_valuation.is<Nodecl::Range>(),
+                                "Non-range interval '%s' found for CG-Node %d. Range expected\n",
+                                new_valuation.prettyprint().c_str(), n->get_id());
+                widen_valuation = new_valuation;
+                if (!old_valuation.is_null())
+                {   // Note that I_old[Y] = [⊥, ⊥] -> I_new[Y] = e(Y)
+                    const Nodecl::Range& last_range = old_valuation.as<Nodecl::Range>();
+                    const NBase& old_lb = last_range.get_lower();
+                    const NBase& old_ub = last_range.get_upper();
+                    const Nodecl::Range& new_range = new_valuation.as<Nodecl::Range>();
+                    const NBase& new_lb = new_range.get_lower();
+                    const NBase& new_ub = new_range.get_upper();
+                    if (old_lb.is_constant() && new_lb.is_constant())
+                    {
+                        const_value_t* old_lb_c = old_lb.get_constant();
+                        const_value_t* new_lb_c = new_lb.get_constant();
+                        const_value_t* lb_diff = const_value_sub(new_lb_c, old_lb_c);
+                        if (const_value_is_negative(lb_diff))
+                        {   // e(Y)_ < I[Y]_
+                            if (old_ub.is_constant() && new_ub.is_constant())
+                            {
+                                const_value_t* old_ub_c = old_ub.get_constant();
+                                const_value_t* new_ub_c = new_ub.get_constant();
+                                const_value_t* ub_diff = const_value_sub(new_ub_c, old_ub_c);
+                                if (const_value_is_positive(ub_diff))
+                                {   // e(Y)^ > I[Y]^ -> [-inf , +inf]
+                                    const NBase& next_lower = get_next_lower(const_values, new_lb_c);
+                                    const NBase& next_upper = get_next_greater(const_values, new_ub_c);
+                                    widen_valuation = Nodecl::Range::make(
+                                            next_lower,
+                                            next_upper,
+                                            const_value_to_nodecl(zero),
+                                            Type::get_long_int_type());
+                                }
+                                else
+                                {   // e(Y)^ <= I[Y]^ -> [-inf , I[Y]^]
+                                    const NBase& next_lower = get_next_lower(const_values, new_lb_c);
+                                    widen_valuation = Nodecl::Range::make(
+                                            next_lower,
+                                            old_ub,
+                                            const_value_to_nodecl(zero),
+                                            Type::get_long_int_type());
+                                }
+                            }
+                            else
+                            {
+                                WARNING_MESSAGE("Mixing UBs '%s' and '%s' is not implemented yet "
+                                                "because they are not constant values.\n",
+                                                old_ub.prettyprint().c_str(), new_ub.prettyprint().c_str());
+                            }
+                        }
+                        else if (old_ub.is_constant() && new_ub.is_constant())
+                        {   // e(Y)_ > I[Y]_
+                            const_value_t* old_ub_c = old_ub.get_constant();
+                            const_value_t* new_ub_c = new_ub.get_constant();
+                            const_value_t* ub_diff = const_value_sub(new_ub_c, old_ub_c);
+                            if (const_value_is_positive(ub_diff))
+                            {
+                                const NBase& next_upper = 
+                                        (new_ub.is_constant() ? get_next_greater(const_values, new_ub.get_constant())
+                                                              : plus_inf.shallow_copy());
+                                widen_valuation = Nodecl::Range::make(
+                                        old_lb,
+                                        next_upper,
+                                        const_value_to_nodecl(zero),
+                                        Type::get_long_int_type());
+                            }
+                        }
+                        else
+                        {
+                            WARNING_MESSAGE("Mixing UBs '%s' and '%s' is not implemented yet "
+                                            "because they are not constant values.\n",
+                                            old_ub.prettyprint().c_str(), new_ub.prettyprint().c_str());
+                        }
+                    }
+                    else
+                    {
+                        WARNING_MESSAGE("Mixing valuations '%s' and '%s' is not implemented yet "
+                                        "because they are not constant values.\n",
+                                        old_lb.prettyprint().c_str(), new_lb.prettyprint().c_str());
+                    }
+
+                    // Set the new valuation after widening
+                    if (RANGES_DEBUG)
+                    {
+                        const NBase& constraint = n->get_constraint();
+                        std::cerr << "    WIDEN " << n->get_id()
+                                  << "  ::  " << (constraint.is_null() ? n->get_type_as_string() : constraint.prettyprint())
+                                  << " = " << widen_valuation.prettyprint() << std::endl;
+                    }
+                    n->set_valuation(widen_valuation);
+                }
+            }
+
+            // 2.5.- Prepare next iteration by adding to the worklist the children nodes
+            // only if the new valuation is different from the previous one
+            // Since at the beginning all evaluation are null, we are sure we pass through all nodes
+            // in the component at least once
+            if (n->get_type() != __Sym      // Nothing can change
+                || !Nodecl::Utils::structurally_equal_nodecls(old_valuation, widen_valuation,
+                                                              /*skip_conversions*/true))
+            {
+                const std::set<CGNode*>& children = n->get_children();
+                for (std::set<CGNode*>::const_iterator it = children.begin();
+                     it != children.end(); ++it)
+                    worklist.push(*it);
+            }
+        }
+    }
+
+    // The narrow operator used is the one proposed by Cousot and Cousot's:
+    //     I[Y] = | I[Y]_ = -inf && e(Y)_ > -inf     -> [e(Y)_, I[Y]^]
+    //            | I[Y]^ = +inf && e(Y)^ < +inf     -> [I[Y]_, e(Y)^]
+    //            | I[Y]_ > e(Y)_                    -> [e(Y)_, I[Y]^]
+    //            | I[Y]^ < e(Y)^                    -> [I[Y]_, e(Y)^]
+    void ConstraintGraph::narrow(SCC* scc)
+    {
+        // 1.- Traverse the component applying the narrow operation
+        const std::list<CGNode*> roots = scc->get_roots();     // This is the phi node with an entry back edge
+        std::queue<CGNode*,std::list<CGNode*> > worklist(roots);
+        std::set<CGNode*> visited;
+        while (!worklist.empty())
+        {
+            // 1.1.- Get the next node to be treated
+            CGNode* n = worklist.front();
+            worklist.pop();
+
+            // 1.2.- Base case: if the node is not in the same SCC, then we will treat it later
+            if (_node_to_scc_map[n] != scc)
+                continue;
+
+            // 1.3.- Keep the old valuation to be able to compare if there has been some change
+            //     We make a copy because otherwise the pointer may be modified
+            const NBase& old_valuation = n->get_valuation().shallow_copy();
+            NBase narrow_valuation = old_valuation;
+
+            // 1.4.- Calculate the current node, only if it is a symbol, because:
+            //        - __Const nodes will n ever change their valuation since it is the constraint itself
+            //        - Operation nodes are never evaluated
+            if (n->get_type() == __Sym)
+            {
+                // 1.4.1.- Compute the new valuation of the node
+                evaluate_cgnode(n);
+
+                // 1.4.2.- Apply the narrow operation
+                const NBase& new_valuation = n->get_valuation();
+                ERROR_CONDITION(!new_valuation.is<Nodecl::Range>(),
+                                "Non-range interval '%s' found for CG-Node %d. Range expected\n",
+                                new_valuation.prettyprint().c_str(), n->get_id());
+                narrow_valuation = new_valuation;
+
+                const Nodecl::Range& last_range = old_valuation.as<Nodecl::Range>();
+                const NBase& old_lb = last_range.get_lower();
+                const NBase& old_ub = last_range.get_upper();
+                const Nodecl::Range& new_range = new_valuation.as<Nodecl::Range>();
+                const NBase& new_lb = new_range.get_lower();
+                const NBase& new_ub = new_range.get_upper();
+                if (Nodecl::Utils::structurally_equal_nodecls(old_lb, minus_inf)
+                        && new_lb.is_constant()
+                        && const_value_is_positive(const_value_sub(new_lb.get_constant(),
+                                                                   minus_inf.get_constant())))
+                {
+                    narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
+                                                           Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                           Type::get_long_int_type());
+                }
+                else if (Nodecl::Utils::structurally_equal_nodecls(old_ub, plus_inf)
+                        && new_ub.is_constant()
+                        && const_value_is_positive(const_value_sub(plus_inf.get_constant(),
+                                                                   new_ub.get_constant())))
+                {
+                    narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
+                                                           Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                           Type::get_long_int_type());
                 }
                 else
                 {
-                    internal_error("Unexpected CG edge %s with predicate %s of type %s.\n",
-                                   (*it)->get_type_as_string().c_str(),
-                                   predicate.prettyprint().c_str(),
-                                   ast_print_node_type(predicate.get_kind()));
+                    if (old_lb.is_constant() && new_lb.is_constant())
+                    {
+                        const_value_t* old_lb_c = old_lb.get_constant();
+                        const_value_t* new_lb_c = new_lb.get_constant();
+                        const_value_t* diff = const_value_sub(old_lb_c, new_lb_c);
+                        if (const_value_is_positive(diff))
+                        {
+                            narrow_valuation = Nodecl::Range::make(new_lb, old_ub,
+                                                                   Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                                   Type::get_long_int_type());
+                        }
+                        else if (const_value_is_negative(diff))
+                        {
+                            narrow_valuation = Nodecl::Range::make(old_lb, new_ub,
+                                                                   Nodecl::NodeclBase(const_value_to_nodecl(zero)),
+                                                                   Type::get_long_int_type());
+                        }
+                    }
+                    else
+                    {
+                        WARNING_MESSAGE("Mixing valuations '%s' and '%s' is not implemented yet "
+                                        "because they contain non-constant values.\n",
+                                        old_valuation.prettyprint().c_str(), new_valuation.prettyprint().c_str());
+                    }
                 }
 
-                if (!valuation.is_null())
-                    entry_valuations.append(valuation);
+                // Set the new valuation after narrowing
+                if (RANGES_DEBUG)
+                {
+                    const NBase& constraint = n->get_constraint();
+                    std::cerr << "    NARROW " << n->get_id()
+                              << "  ::  " << (constraint.is_null() ? n->get_type_as_string() : constraint.prettyprint())
+                              << " = " << narrow_valuation.prettyprint() << std::endl;
+                }
             }
 
-            if(type == __Sym)
+            // 1.5.- Prepare next iteration by adding to the worklist the children nodes
+            // only if the new valuation is different from the previous one
+            // or it is the first time we try to narrow this node
+            if (n->get_type() != __Sym      // Nothing can change
+                    || !Nodecl::Utils::structurally_equal_nodecls(old_valuation, narrow_valuation,
+                                                                  /*skip_conversions*/true)
+                    || visited.find(n) == visited.end())
             {
-                ERROR_CONDITION(entry_valuations.size()>1, 
-                                "Only one entry valuation expected for a Sym CGNode but %d found.\n", 
-                                entry_valuations.size());
-                valuation = *entry_valuations.begin();
+                const std::set<CGNode*>& children = n->get_children();
+                for (std::set<CGNode*>::const_iterator it = children.begin();
+                    it != children.end(); ++it)
+                    worklist.push(*it);
             }
-            else
-            {
-                if (type == __Phi)
-                    valuation = join_valuations(Utils::range_union, entry_valuations);          // RANGE_UNION
-                else if (type == __Add)
-                    valuation = join_valuations(Utils::range_addition, entry_valuations);       // RANGE_ADD
-                else if (type == __Sub)
-                    valuation = join_valuations(Utils::range_subtraction, entry_valuations);    // RANGE_SUB
-                else if (type == __Mul)
-                    valuation = join_valuations(Utils::range_division, entry_valuations);       // RANGE_MUL
-                else if (type == __Div)
-                    valuation = join_valuations(Utils::range_multiplication, entry_valuations); // RANGE_DIV
-            }
-        }
 
-        if (RANGES_DEBUG)
-            std::cerr << "    EVALUATE " << node->get_id() << "  ::  " << valuation.prettyprint() << std::endl;
-
-        if (Nodecl::Utils::structurally_equal_nodecls(old_valuation, valuation, /*skip_conversions*/ true))
-        {
-            changes = changes || false;
-        }
-        else
-        {
-            changes = true;
-            node->set_valuation(valuation);
+            // Mark the node as visited: from now on, if the valuation in this node does not change,
+            // then we will not keep iterating over its children
+            visited.insert(n);
         }
     }
-    
+
     void ConstraintGraph::resolve_cycle(SCC* scc)
     {
-        // Evaluate the root of the SCC
-        CGNode* root = scc->get_root();
-        bool changes = true;
-        evaluate_cgnode(root, changes);
-        
-        // Saturate all non-saturated edges in the SCC
-        // Propagate the rest of edges
-        std::queue<CGNode*> next_nodes;
-        const ObjectList<CGNode*>& root_children = root->get_children();
-        std::set<CGNode*> visited;
-        ObjectList<CGEdge*> back_edges;
-        while (changes)
-        {
-            // Prepare the next traversal
-            changes = false;
-            for (ObjectList<CGNode*>::const_iterator it = root_children.begin();
-                 it != root_children.end(); ++it)
-                 next_nodes.push(*it);
-            visited.clear();
-            back_edges.clear();
+        // Widening operation
+        widen(scc);
 
-            while (!next_nodes.empty())
-            {
-                // Get the next node to be treated
-                CGNode* n = next_nodes.front();
-                next_nodes.pop();
+        // Future resolution
+        // TODO This part cannot be implemented until the CG support futures
 
-                // If the node is not in the same SCC, then we will treat it later
-                if (_node_to_scc_map[n] != scc)
-                    continue;
-
-                // If the node was already treated, there is nothing to be done (in this iteration)
-                if (visited.find(n) != visited.end())
-                    continue;
-
-                // Treat the node and insert it in the list of treated nodes
-                evaluate_cgnode(n, changes);
-                visited.insert(n);
-
-                // Prepare following iterations
-                const ObjectList<CGEdge*>& exits = n->get_exits();
-                for (ObjectList<CGEdge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
-                {
-                    CGNode* tgt = (*it)->get_target();
-                    if ((*it)->is_back_edge())
-                        back_edges.append(*it);
-                    else if (visited.find(tgt) == visited.end())
-                        next_nodes.push(tgt);
-                }
-            }
-
-            // Propagate back edges valuations
-            for (ObjectList<CGEdge*>::iterator it = back_edges.begin(); it != back_edges.end(); ++it)
-            {
-                NBase predicate = (*it)->get_predicate();
-                ERROR_CONDITION(!predicate.is_null(),
-                                "Propagation in back edges with a predicate is not yet implemented.\n", 0);
-                NBase source_valuation = (*it)->get_source()->get_valuation();
-                if (!source_valuation.is_null())
-                {
-                    CGNode* target = (*it)->get_target();
-                    NBase target_valuation = target->get_valuation();
-                    const NBase& valuation = (target_valuation.is_null() ? source_valuation
-                                                                         : Utils::range_union(source_valuation, target_valuation));
-                    target->set_valuation(valuation);
-                    ObjectList<CGEdge*> exits = target->get_exits();
-                    ERROR_CONDITION(exits.size() != 1,
-                                    "The number of children of a Phi node is expected to be one, but %d found for node %d.\n",
-                                    exits.size(), target->get_id());
-                    ERROR_CONDITION(!exits[0]->get_predicate().is_null(),
-                                    "Null predicate expected for a back-edge, but %s found for edge %d->%d.\n",
-                                    exits[0]->get_predicate().prettyprint().c_str(), target->get_id(), exits[0]->get_target()->get_id());
-                    exits[0]->get_target()->set_valuation(valuation);
-
-                    if (RANGES_DEBUG)
-                        std::cerr << "        PROPAGATE back edge to " << target->get_id() << " and " << exits[0]->get_target()->get_id()
-                                  << "  ::  " << valuation.prettyprint() << std::endl;
-                }
-            }
-        }
+        // Narrowing operation
+        narrow(scc);
     }
-    
-    void ConstraintGraph::solve_constraints(const std::vector<SCC*>& roots)
+
+    // Only __Sym nodes are evaluated!
+    void ConstraintGraph::solve_constraints(const std::vector<SCC*>& root_sccs)
     {
         if (RANGES_DEBUG)
         {
@@ -1688,42 +2058,63 @@ root_done:  ;
             std::cerr << "------------------" << std::endl;
         }
 
+        // Are suitable to be solved those nodes that are roots
+        // because they do not depend on the previous evaluation of any other node
         std::queue<SCC*> next_scc;
-        for(std::vector<SCC*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
+        for (std::vector<SCC*>::const_iterator it = root_sccs.begin(); it != root_sccs.end(); ++it)
             next_scc.push(*it);
+
+        // Keep track of those SCC already solved, so we do not solve them again
         std::set<SCC*> visited;
-        while(!next_scc.empty())
+
+        // Iterate until there is no SCC to be solved
+        while (!next_scc.empty())
         {
+            // 1.- Get the next SCC to be solved
             SCC* scc = next_scc.front();
             next_scc.pop();
-            
-            // Check whether this scc is ready to be solved
-            CGNode* root = scc->get_root();
-            ObjectList<CGEdge*> entries = root->get_entries();
-            bool is_ready = true;
-            for(ObjectList<CGEdge*>::iterator it = entries.begin(); it != entries.end(); ++it)
+
+            // 2.- Base case: the SCC has already been solved
+            if (visited.find(scc) != visited.end())
+                continue;
+
+            // 2.- Check whether this SCC is ready to be solved:
+            //     All its entries, but those coming from back edges, must have been already solved
+            const std::list<CGNode*>& roots = scc->get_roots();
+            std::set<CGEdge*> entries;
+            for (std::list<CGNode*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
             {
-                if((*it)->is_back_edge())
-                    continue;
-                if((*it)->get_source()->get_valuation().is_null())
+                const std::set<CGEdge*> tmp = (*it)->get_entries();
+                entries.insert(tmp.begin(), tmp.end());
+            }
+            bool is_ready = true;
+            for (std::set<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+            {
+                CGNode* parent = (*it)->get_source();
+                SCC* parent_scc = _node_to_scc_map[parent];
+                if (scc != parent_scc                           // This parent belongs to a different component
+                        && visited.find(parent_scc) == visited.end())  // That other component has not been solved yet
                 {
                     is_ready = false;
                     break;
                 }
             }
-            if(!is_ready)
+            if (!is_ready)
             {
                 next_scc.push(scc);
                 continue;
             }
-            
-            // Treat the current SCC
-            if(scc->is_trivial())
-            {   // Evaluate the only node within the SCC
-                if (RANGES_DEBUG)
-                    std::cerr << "  SCC " << scc->get_id() << "  ->  TRIVIAL" << std::endl;
-                bool changes;   // Unnecessary when calling evaluate_cgnode from here
-                evaluate_cgnode(scc->get_nodes()[0], changes);
+
+            // Solve the current SCC
+            if (scc->is_trivial())
+            {   // Evaluate the only node within the SCC, if necessary (operation nodes are not evaluated)
+                CGNode* n = scc->get_nodes()[0];
+                if (n->get_type() == __Sym || n->get_type() == __Const)
+                {
+                    if (RANGES_DEBUG)
+                        std::cerr << "  SCC " << scc->get_id() << "  ->  TRIVIAL" << std::endl;
+                    evaluate_cgnode(n);
+                }
             }
             else
             {   // Cycle resolution
@@ -1732,27 +2123,23 @@ root_done:  ;
                 resolve_cycle(scc);
             }
             visited.insert(scc);
-            
+
             // Prepare next iterations, if there are
             // We will add more than one child here when a single node generates more than one constraint
-            ObjectList<SCC*> scc_exits = scc->get_scc_exits();
-            for(ObjectList<SCC*>::iterator it = scc_exits.begin(); it != scc_exits.end(); ++it)
-            {
-                if(visited.find(*it) == visited.end())
-                {
-                    next_scc.push(*it);
-                }
-            }
+            const ObjectList<SCC*>& scc_exits = scc->get_scc_exits();
+            for (ObjectList<SCC*>::const_iterator it = scc_exits.begin();
+                 it != scc_exits.end(); ++it)
+                next_scc.push(*it);
         }
     }
-    
-    // ***************************** END class implementing constraint graph ****************************** //
-    // **************************************************************************************************** //
-    
-    
-    
-    // **************************************************************************************************** //
-    // ******************************** Class implementing range analysis ********************************* //
+
+    // ***************** END Class implementing constraint graph ******************* //
+    // ***************************************************************************** //
+
+
+
+    // ***************************************************************************** //
+    // ********************* Class implementing range analysis ********************* //
     
     RangeAnalysis::RangeAnalysis(ExtensibleGraph* pcfg)
         : _pcfg(pcfg), _cg(new ConstraintGraph(pcfg->get_name())), 
@@ -1761,11 +2148,11 @@ root_done:  ;
     
     void RangeAnalysis::compute_range_analysis()
     {   
-        std::map<Node*, Utils::VarToConstraintMap> constr_map;
-        std::map<Node*, Utils::VarToConstraintMap> propagated_constr_map;
+        std::map<Node*, VarToConstraintMap> pcfg_constraints;
+        std::map<Node*, VarToConstraintMap> pcfg_propagated_constraints;
         
         // 1.- Compute the constraints of the current PCFG
-        compute_constraints(constr_map, propagated_constr_map);
+        compute_constraints(pcfg_constraints, pcfg_propagated_constraints);
 
         // 2.- Build the Constraint Graph (CG) from the computed constraints
         build_constraint_graph();
@@ -1781,20 +2168,24 @@ root_done:  ;
             _cg->print_graph();
 
         // 5.- Insert computed ranges in the PCFG
-        set_ranges_to_pcfg(constr_map);
-        set_ranges_to_pcfg(propagated_constr_map);
+        set_ranges_to_pcfg(pcfg_constraints);
+        set_ranges_to_pcfg(pcfg_propagated_constraints);
     }
     
     void RangeAnalysis::compute_constraints(
-        std::map<Node*, Utils::VarToConstraintMap>& constr_map,
-        std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map)
+        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints,
+        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_propagated_constraints)
     {
-        compute_parameters_constraints(constr_map);
-        
-        Node* entry = _pcfg->get_graph()->get_graph_entry_node();
-        std::set<Node*> treated;
-        compute_constraints_rec(entry, constr_map, propagated_constr_map, treated);
+        // 1.- Create constraint [-∞, +∞] for each parameter
+        compute_parameters_constraints(pcfg_constraints);
 
+        // 2.- Compute constraints for the function statements
+        Node* entry = _pcfg->get_graph()->get_graph_entry_node();
+        std::queue<Node*> worklist; worklist.push(entry);
+        std::set<Node*> treated;
+        compute_constraints_rec(worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
+
+        //3.- Print in std out the constraints, if requested
         if (RANGES_DEBUG)
             print_constraints();
     }
@@ -1806,37 +2197,37 @@ root_done:  ;
     
     // Set an constraint to the graph entry node for each parameter of the function
     void RangeAnalysis::compute_parameters_constraints(
-            std::map<Node*, Utils::VarToConstraintMap>& constr_map)
+        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
         Symbol func_sym = _pcfg->get_function_symbol();
-        if(!func_sym.is_valid())    // The PCFG have been built for something other than a FunctionCode
+        if (!func_sym.is_valid())    // The PCFG have been built for something other than a FunctionCode
             return;
 
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
         const ObjectList<Symbol>& params = func_sym.get_function_parameters();
-        ConstraintBuilderVisitor cbv(
-                entry,
-                /*unnecessary for parameters*/constr_map[entry],
+        ConstraintBuilder cbv(
+                /*unnecessary for parameters*/pcfg_constraints[entry],
                 &_constraints, &_ordered_constraints);
         cbv.compute_parameters_constraints(params);
-        constr_map[entry] = cbv.get_output_constraints_map();
+        pcfg_constraints[entry] = cbv.get_output_constraints();
     }
 
 namespace {
 
     void create_recomputed_constraint(
-            const Utils::VarToConstraintMap& new_constrs,
-            Utils::VarToConstraintMap& constrs,
-            SSAVarToValue_map *constraints,
+            const VarToConstraintMap& new_constrs,
+            VarToConstraintMap& constrs,
+            Constraints *constraints,
             NodeclList *ordered_constraints,
-            ConstraintBuilderVisitor& cbv)
+            ConstraintBuilder& cbv,
+            bool is_propagated_set)
     {
         // Example:
         //     we had:      i1 = i0
         //     we have:     i3 = phi(i1,i2)
         //     but we want: i3 = i0
         //                  i1 = phi(i3,i2)
-        for (Utils::VarToConstraintMap::const_iterator it = new_constrs.begin();
+        for (VarToConstraintMap::const_iterator it = new_constrs.begin();
              it != new_constrs.end(); ++it)
         {
             const NBase& orig_var = it->first;
@@ -1856,7 +2247,7 @@ namespace {
                 Symbol old_ssa_var = old_c.get_symbol();
                 NBase old_ssa_nodecl = old_ssa_var.make_nodecl(/*set_ref_type*/false);
                 NBase new_ssa_nodecl = ssa_var.make_nodecl(/*set_ref_type*/false);
-                NBase old_val = old_c.get_constraint();
+                NBase old_val = old_c.get_value();
                 (*constraints)[new_ssa_nodecl] = old_val;
                 // Look for the position to insert the new constraint
                 NodeclList::iterator ito = ordered_constraints->begin();
@@ -1872,7 +2263,7 @@ namespace {
                 NBase e2 = it->second.get_symbol().make_nodecl(/*set_ref_type*/false);
                 Nodecl::List exprs = Nodecl::List::make(e1, e2);
                 NBase val = Nodecl::Analysis::Phi::make(exprs, t);
-                // 3.- Build the new constraint and insert it in the proper list
+                // 4.- Build the new constraint and insert it in the proper list
                 Utils::Constraint new_c = cbv.build_constraint(old_ssa_var, val, t, __BackEdge);
                 constrs[orig_var] = new_c;
             }
@@ -1881,39 +2272,49 @@ namespace {
     
     void compute_constraint_from_back_edge(
             Node* n,
-            const Utils::VarToConstraintMap& new_constraint_map,
-            const Utils::VarToConstraintMap& new_propagated_constraint_map,
-            SSAVarToValue_map *constraints,
+            const VarToConstraintMap& new_constraint_map,
+            const VarToConstraintMap& new_propagated_constraint_map,
+            Constraints *constraints,
             NodeclList *ordered_constraints,
-            std::map<Node*, Utils::VarToConstraintMap>& constr_map,
-            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map)
+            std::map<Node*, VarToConstraintMap>& pcfg_constraints,
+            std::map<Node*, VarToConstraintMap>& pcfg_propagated_constraints)
     {
-        Utils::VarToConstraintMap& constrs = constr_map[n];
-        ConstraintBuilderVisitor cbv(n, constrs, constraints, ordered_constraints);
-
-        // 1.- constr_map must contain the combination of both new_constraint_map and new_propagated_constraint_map
-        Utils::VarToConstraintMap all_new_constraint_map = new_constraint_map;
+        VarToConstraintMap& constrs = pcfg_constraints[n];
+        ConstraintBuilder cbv(constrs, constraints, ordered_constraints);
+        // 1.- pcfg_constraints must contain the combination of both new_constraint_map and new_propagated_constraint_map
+        VarToConstraintMap all_new_constraint_map = new_constraint_map;
         all_new_constraint_map.insert(new_propagated_constraint_map.begin(), new_propagated_constraint_map.end());
-        create_recomputed_constraint(all_new_constraint_map, constrs, constraints, ordered_constraints, cbv);
+        create_recomputed_constraint(
+                all_new_constraint_map,
+                constrs,
+                constraints,
+                ordered_constraints,
+                cbv,
+                /*is_propagated_set*/false);
 
-        // 2.- propagated_constr_map must contain only new_propagated_constraint_map
-        Utils::VarToConstraintMap& propagated_constrs = propagated_constr_map[n];
-        create_recomputed_constraint(new_propagated_constraint_map, propagated_constrs, constraints, ordered_constraints, cbv);
+        // 2.- pcfg_propagated_constraints must contain only new_propagated_constraint_map
+        VarToConstraintMap& propagated_constrs = pcfg_propagated_constraints[n];
+        create_recomputed_constraint(
+                new_propagated_constraint_map,
+                propagated_constrs,
+                constraints,
+                ordered_constraints,
+                cbv,
+                /*is_propagated_set*/true);
     }
 }
 
     // This is a breadth-first search because for a given node we need all its parents 
+    // Since the graph has loops, we have to solve first the loops,
+    // so we can properly propagate the inner loop constraints
     void RangeAnalysis::compute_constraints_rec(
-            Node* entry, 
-            std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
-            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map,
-            std::set<Node*>& treated)
+        /*inout*/ std::queue<Node*>& worklist,
+        /*inout*/ std::set<Node*>& treated,
+        /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints,
+        /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_propagated_constraints)
     {
-        ERROR_CONDITION(!entry->is_entry_node(), 
-                        "Expected ENTRY node but found %s node.", entry->get_type_as_string().c_str());
+        std::queue<Node*> next_worklist;
 
-        std::queue<Node*> worklist;
-        worklist.push(entry);
         while (!worklist.empty())
         {
             Node* n = worklist.front();
@@ -1923,15 +2324,21 @@ namespace {
                 continue;
 
             // 1.- Check whether all n parents (coming from non-back-edges) are already computed
+            //     Also save whether the node has back-edges (needed to order the computation of the next steps)
+            bool n_has_backedge = false;
             const ObjectList<Edge*>& entries = n->get_entry_edges();
             bool ready = true;
-            for (ObjectList<Edge*>::const_iterator it = entries.begin(); it != entries.end() && ready; ++it)
+            for (ObjectList<Edge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
             {
-                if (!(*it)->is_back_edge()                                  // *it is a dominator of n
-                        && treated.find((*it)->get_source())==treated.end() // *it is not yet visited
-                        && !(*it)->get_source()->is_omp_task_node())        // *it is not a task node
+                Edge* e = *it;
+                if (e->is_back_edge())
+                    n_has_backedge = true;
+                if (!e->is_back_edge()                                      // *it is a dominator of n
+                        && !e->get_source()->is_omp_task_node()             // *it is not a task node
+                        && treated.find(e->get_source())==treated.end())    // *it is not yet visited
                 {
                     ready = false;
+                    break;
                 }
             }
             if (!ready)
@@ -1940,40 +2347,43 @@ namespace {
                 continue;
             }
 
-            // 2.- The element is ready to be computed
+            // 2.- The element is ready to be computed, let's do it
             if (n->is_graph_node())
-            {   // 2.1.- For graph nodes, call recursively to compute inner nodes constraints
+            {
+                std::queue<Node*> inner_worklist;
+                inner_worklist.push(n->get_graph_entry_node());
+                // 2.1.- For graph nodes, call recursively to compute inner nodes constraints
                 // 2.1.1.- Recursive call with the graph entry node
-                compute_constraints_rec(n->get_graph_entry_node(), constr_map, propagated_constr_map, treated);
+                compute_constraints_rec(inner_worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
                 // 2.1.2.- Propagate the information form the exit node to the graph node
                 Node* graph_exit = n->get_graph_exit_node();
-                Utils::VarToConstraintMap exit_constrs = constr_map[graph_exit];
-                propagated_constr_map[n] = propagated_constr_map[graph_exit];
-                propagated_constr_map[n].insert(exit_constrs.begin(), exit_constrs.end());
+                VarToConstraintMap exit_constrs = pcfg_constraints[graph_exit];
+                pcfg_propagated_constraints[n] = pcfg_propagated_constraints[graph_exit];
+                pcfg_propagated_constraints[n].insert(exit_constrs.begin(), exit_constrs.end());
             }
             else
             {
                 // 2.2.- For the rest of nodes,
-                //       - merge information from parents
-                //       - compute current node information
-                //       - merge parents' info with current node's info
+                //   - merge information from parents
+                //   - compute current node information
+                //   - merge parents' info with current node's info
 
                 // 2.2.1.- Collect and join constraints computed for all the parents
-                Utils::VarToConstraintMap input_constrs;            // Constraint coming directly from parents
-                Utils::VarToConstraintMap new_input_constrs;        // Constraints resulting from the join of parents' constraints
-                ConstraintBuilderVisitor cbv_propagated(n, input_constrs, &_constraints, &_ordered_constraints);
+                VarToConstraintMap input_constrs;            // Constraint coming directly from parents
+                VarToConstraintMap new_input_constrs;        // Constraints resulting from the join of parents' constraints
+                ConstraintBuilder cbv_propagated(input_constrs, &_constraints, &_ordered_constraints);
 
                 const ObjectList<Node*>& parents = (n->is_entry_node() ? n->get_outer_node()->get_parents()
                                                                        : n->get_parents());
                 NodeclSet treated_omp_private_vars;
                 for (ObjectList<Node*>::const_iterator itp = parents.begin(); itp != parents.end(); ++itp)
                 {
-                    Utils::VarToConstraintMap itp_all_constrs = constr_map[*itp];
-                    Utils::VarToConstraintMap itp_propagated_constrs = propagated_constr_map[*itp];
-                    // We use the 'insert' method because when a constraint is already in the 'constr_map', we
+                    VarToConstraintMap itp_all_constrs = pcfg_constraints[*itp];
+                    VarToConstraintMap itp_propagated_constrs = pcfg_propagated_constraints[*itp];
+                    // We use the 'insert' method because when a constraint is already in the 'pcfg_constraints', we
                     // do not take into account the constraints being propagated from the parents
                     itp_all_constrs.insert(itp_propagated_constrs.begin(), itp_propagated_constrs.end());
-                    for (Utils::VarToConstraintMap::iterator itc = itp_all_constrs.begin();
+                    for (VarToConstraintMap::iterator itc = itp_all_constrs.begin();
                         itc != itp_all_constrs.end(); ++itc)
                     {
                         const NBase& orig_var = itc->first;
@@ -2009,8 +2419,8 @@ namespace {
                                 ssa_var.set_type(t);
                                 ssa_to_original_var[ssa_var] = orig_var;
                                 // 2.2.1.1.2.- Build the value of the new constraint
-                                NBase new_constraint_val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t),
-                                                                               Nodecl::Analysis::PlusInfinity::make(t),
+                                NBase new_constraint_val = Nodecl::Range::make(minus_inf.shallow_copy(),
+                                                                               plus_inf.shallow_copy(),
                                                                                const_value_to_nodecl(zero), t);
                                 // 2.2.1.1.3.- Remove the old constraint from the input_constrs
                                 //         If it was in the new_input_constrs map, it will be deleted with the insertion
@@ -2040,10 +2450,10 @@ namespace {
                             Utils::Constraint old_c =
                                     ((input_constrs.find(orig_var) != input_constrs.end()) ? input_constrs[orig_var]
                                                                                            : new_input_constrs[orig_var]);
-                            NBase old_c_val = old_c.get_constraint();
+                            NBase old_c_val = old_c.get_value();
 
                             // 2.2.1.2.2.- If the new constraint is different from the old one, compute the combination of both
-                            NBase c_nodecl = c.get_constraint();
+                            NBase c_nodecl = c.get_value();
                             if (!Nodecl::Utils::structurally_equal_nodecls(old_c_val, c_nodecl,
                                 /*skip_conversion_nodes*/true))
                             {
@@ -2086,21 +2496,21 @@ namespace {
                 }
 
                 // 3.- Propagate constraints from parent nodes to the current node
-                constr_map[n].insert(new_input_constrs.begin(), new_input_constrs.end());
+                pcfg_constraints[n].insert(new_input_constrs.begin(), new_input_constrs.end());
 
                 // 4.- Compute the constraints generated in the current node
                 if (n->has_statements())
                 {
                     // 4.1.- Compute the constraints of the current node
                     // Note: take into account the constraints the node may already have (if it is the TRUE or FALSE child of a conditional)
-                    Utils::VarToConstraintMap& current_constraints_map = constr_map[n];
-                    ConstraintBuilderVisitor cbv(n, input_constrs, current_constraints_map,
-                                                &_constraints, &_ordered_constraints);
+                    VarToConstraintMap& current_constraints_map = pcfg_constraints[n];
+                    ConstraintBuilder cbv(input_constrs, current_constraints_map,
+                                          &_constraints, &_ordered_constraints);
                     NodeclList stmts = n->get_statements();
                     for (NodeclList::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
-                        cbv.compute_stmt_constraints(*itt);
+                        cbv.walk(*itt);
 
-                    Utils::VarToConstraintMap output_constrs = cbv.get_output_constraints_map();
+                    VarToConstraintMap output_constrs = cbv.get_output_constraints();
                     current_constraints_map.insert(output_constrs.begin(), output_constrs.end());
 
                     // 4.2.- Set true/false output constraints to current children, if applies
@@ -2108,8 +2518,8 @@ namespace {
                     if (exits.size()==2 &&
                         ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
                     {
-                        Utils::VarToConstraintMap out_true_constrs = cbv.get_output_true_constraints_map();
-                        Utils::VarToConstraintMap out_false_constrs = cbv.get_output_false_constraints_map();
+                        VarToConstraintMap out_true_constrs = cbv.get_output_true_constraints();
+                        VarToConstraintMap out_false_constrs = cbv.get_output_false_constraints();
 
                         // 4.2.1.- We always propagate to the TRUE edge
                         Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
@@ -2118,7 +2528,7 @@ namespace {
                             true_node = true_node->get_outer_node()->get_children()[0];
                         if (true_node->is_graph_node())
                             true_node = true_node->get_graph_entry_node();
-                        constr_map[true_node].insert(out_true_constrs.begin(), out_true_constrs.end());
+                        pcfg_constraints[true_node].insert(out_true_constrs.begin(), out_true_constrs.end());
 
                         // 4.2.2.- For the if_else cases, we only propagate to the FALSE edge when it contains statements ('else' statements)
                         Node* false_node = (exits[0]->is_true_edge() ? exits[1]->get_target() : exits[0]->get_target());
@@ -2142,7 +2552,7 @@ namespace {
                             {
                                 if (false_node->is_graph_node())
                                     false_node = false_node->get_graph_entry_node();
-                                constr_map[false_node].insert(out_false_constrs.begin(), out_false_constrs.end());
+                                pcfg_constraints[false_node].insert(out_false_constrs.begin(), out_false_constrs.end());
                             }
                         }
                     }
@@ -2151,48 +2561,81 @@ namespace {
                 // 5.- Purge propagated constraints:
                 // When the node generates a constraint for a given variable
                 // any propagated constraint from parents for that variable is deleted here
-                for (Utils::VarToConstraintMap::iterator itt = constr_map[n].begin();
-                    itt != constr_map[n].end(); ++itt)
+                for (VarToConstraintMap::iterator itt = pcfg_constraints[n].begin();
+                     itt != pcfg_constraints[n].end(); ++itt)
                 {
-                    Utils::VarToConstraintMap::iterator ittt = input_constrs.find(itt->first);
+                    VarToConstraintMap::iterator ittt = input_constrs.find(itt->first);
                     if (ittt != input_constrs.end())
                         input_constrs.erase(ittt);
                 }
-                propagated_constr_map[n] = input_constrs;
+                pcfg_propagated_constraints[n] = input_constrs;
             }
+
             treated.insert(n);
 
             if (!n->is_omp_task_node())
             {
                 const ObjectList<Edge*>& exits = n->get_exit_edges();
-                for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
-                {
-                    Node* t = (*it)->get_target();
-                    if ((*it)->is_back_edge())
-                    {   // Propagate here constraints from the back edge
-                        compute_constraint_from_back_edge(
-                                t, constr_map[n], propagated_constr_map[n],
-                                &_constraints, &_ordered_constraints,
-                                constr_map, propagated_constr_map);
+                if (n_has_backedge)
+                {   // This means the node is the condition of a loop
+                    //     - first compute the loop constraints (the TRUE edge)
+                    //     - then compute the other children (store the nodes in next_worklist)
+                    Node* next_in_loop = NULL;
+                    for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
+                    {
+                        Node* t = (*it)->get_target();
+                        if (treated.find(t) == treated.end())
+                        {
+                            if ((*it)->is_true_edge())
+                                next_in_loop = t;
+                            else
+                                next_worklist.push(t);
+                        }
                     }
 
-                    if (treated.find(t) == treated.end())
-                        worklist.push(t);
+                    ERROR_CONDITION(next_in_loop==NULL,
+                                    "Node %d has a back edge, but we have not found any 'true' edge.\n",
+                                    n->get_id());
+
+                    std::queue<Node*> loop_worklist;
+                    loop_worklist.push(next_in_loop);
+                    compute_constraints_rec(loop_worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
+                }
+                else
+                {   // Otherwise,
+                    //    - first propagate information to back edges, if there are
+                    //    - then compute the other children (store the nodes in next_worklist)
+                    for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
+                    {
+                        Node* t = (*it)->get_target();
+                        if ((*it)->is_back_edge())
+                        {   // Propagate here constraints from the back edge
+                            compute_constraint_from_back_edge(
+                                    t, pcfg_constraints[n], pcfg_propagated_constraints[n],
+                                    &_constraints, &_ordered_constraints,
+                                    pcfg_constraints, pcfg_propagated_constraints);
+                        }
+
+                        if (treated.find(t) == treated.end())
+                            next_worklist.push(t);
+                    }
                 }
             }
+
+            compute_constraints_rec(next_worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
         }
     }
 
     void RangeAnalysis::set_ranges_to_pcfg(
-        const std::map<Node*, Utils::VarToConstraintMap>& constr_map)
+        const std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
-        for (std::map<Node*, Utils::VarToConstraintMap>::const_iterator it = constr_map.begin();
-             it != constr_map.end(); ++it)
+        for (std::map<Node*, VarToConstraintMap>::const_iterator it = pcfg_constraints.begin();
+             it != pcfg_constraints.end(); ++it)
         {
-            const Utils::VarToConstraintMap constraints = it->second;
+            const VarToConstraintMap constraints = it->second;
             if(!constraints.empty())
             {
-                for(Utils::VarToConstraintMap::const_iterator itt = constraints.begin(); itt != constraints.end(); ++itt)
+                for(VarToConstraintMap::const_iterator itt = constraints.begin(); itt != constraints.end(); ++itt)
                 {
                     Symbol s(itt->second.get_symbol());
                     std::map<Symbol, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator ssa_to_var_it;
@@ -2206,7 +2649,7 @@ namespace {
             }
         }
     }
-    
+
     void RangeAnalysis::print_constraints()
     {
         std::cerr << "________________________________________________" << std::endl;
@@ -2218,8 +2661,8 @@ namespace {
             std::cerr << "    " << c.first.prettyprint() << "  ->  " << c.second.prettyprint() << std::endl;
         }
     }
-    
-    // ****************************** End class implementing range analysis ******************************* //
-    // **************************************************************************************************** //
+
+    // ********************* END Class implementing range analysis ********************* //
+    // ********************************************************************************* //
 }
 }
