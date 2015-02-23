@@ -300,6 +300,7 @@ namespace Vectorization
                             flags,
                             ogroup._vector_type),
                         Utils::get_null_mask(),
+                        Nodecl::NodeclBase::null(), // HasBeenDefinedFlag
                         ogroup._vector_type);
 
             Nodecl::ExpressionStatement exp_stmt =
@@ -341,6 +342,7 @@ namespace Vectorization
                         flags,
                         ogroup._vector_type),
                     Utils::get_null_mask(),
+                    Nodecl::NodeclBase::null(), // HasBeenDefinedFlag
                     ogroup._vector_type);
 
         Nodecl::ExpressionStatement exp_stmt =
@@ -369,6 +371,7 @@ namespace Vectorization
                             ogroup._registers[i].make_nodecl(true),
                             ogroup._registers[i+1].make_nodecl(true),
                             Utils::get_null_mask(),
+                            Nodecl::NodeclBase::null(), //HasBeenDefinedFlag
                             ogroup._registers[i].get_type()));
 
             result_list.append(exp_stmt);

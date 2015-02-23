@@ -24,13 +24,15 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "tl-source.hpp"
+#include "tl-vector-legalization-knc.hpp"
 
 #include "tl-vectorization-common.hpp"
 #include "tl-vectorization-utils.hpp"
-#include "tl-vector-legalization-knc.hpp"
 
+#include "tl-optimizations.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-source.hpp"
+
 
 #define NUM_8B_ELEMENTS 8
 #define NUM_4B_ELEMENTS 16
@@ -45,6 +47,33 @@ namespace Vectorization
         _prefer_mask_gather_scatter(prefer_mask_gather_scatter)
     {
         std::cerr << "--- KNC legalization phase ---" << std::endl;
+
+    }
+
+    void KNCVectorLegalization::visit(const Nodecl::FunctionCode& n)
+    {
+        // TODO: Do it more efficiently!
+        bool contains_vector_nodes =
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAssignment>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAdd>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMul>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConversion>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCode>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMaskAssignment>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
+
+        if (contains_vector_nodes)
+        {
+            // Initialize analisys
+            TL::Optimizations::canonicalize_and_fold(
+                    n, /*_fast_math_enabled*/ false);
+
+            _analysis = new VectorizationAnalysisInterface(
+                    n, Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
+
+            walk(n.get_statements());
+        }
     }
 
     void KNCVectorLegalization::visit(const Nodecl::ObjectInit& n)
@@ -125,6 +154,21 @@ namespace Vectorization
                 n.replace(n.get_nest());
             }
         }
+    }
+
+    void KNCVectorLegalization::visit(const Nodecl::VectorAssignment& n)
+    {
+        if (n.get_mask() != Nodecl::NodeclBase::null() &&
+                _analysis->has_been_defined(n.get_lhs()))
+        {
+            ((Nodecl::VectorAssignment)n).set_has_been_defined(
+                Nodecl::HasBeenDefinedFlag::make());
+        }
+
+        walk(n.get_lhs());
+        walk(n.get_rhs());
+        walk(n.get_mask());
+        walk(n.get_has_been_defined());
     }
 
     void KNCVectorLegalization::visit(const Nodecl::VectorLoad& n)

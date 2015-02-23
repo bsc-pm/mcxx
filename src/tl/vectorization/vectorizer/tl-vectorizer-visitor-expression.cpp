@@ -800,6 +800,7 @@ namespace Vectorization
                                 lhs.shallow_copy(),
                                 rhs.shallow_copy(),
                                 mask.shallow_copy(),
+                                Nodecl::NodeclBase::null(), // HasBeenDefinedFlag
                                 vector_type,
                                 n.get_locus());
 

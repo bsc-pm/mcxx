@@ -654,6 +654,7 @@ namespace Vectorization
                             _environment._function_return.make_nodecl(true, n.get_locus()),
                             return_value.shallow_copy(),
                             mask.shallow_copy(),
+                            Nodecl::NodeclBase::null(), // HasBeenDefinedFlag
                             _environment._function_return.get_type(),
                             n.get_locus()),
                         n.get_locus());

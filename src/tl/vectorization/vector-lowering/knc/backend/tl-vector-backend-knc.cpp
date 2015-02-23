@@ -27,7 +27,6 @@
 #include "tl-vector-backend-knc.hpp"
 
 #include "tl-vectorization-prefetcher-common.hpp"
-#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-optimizations.hpp"
@@ -226,12 +225,7 @@ namespace Vectorization
             TL::Optimizations::canonicalize_and_fold(
                     n, /*_fast_math_enabled*/ false);
 
-            _analysis = new VectorizationAnalysisInterface(
-                    n, Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
-
             walk(n.get_statements());
-
-            delete (_analysis);
         }
     }
 
@@ -1377,6 +1371,7 @@ namespace Vectorization
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
+        bool lhs_has_been_defined = !n.get_has_been_defined().is_null();
 
         TL::Type type = n.get_type().basic_type();
 
@@ -1390,9 +1385,6 @@ namespace Vectorization
             << args
             << ")"
             ;
-
-        bool lhs_has_been_defined = 
-            _analysis->has_been_defined(lhs);
 
         walk(lhs);
 

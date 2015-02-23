@@ -27,6 +27,8 @@
 #ifndef KNC_VECTOR_LEGALIZATION_HPP
 #define KNC_VECTOR_LEGALIZATION_HPP
 
+#include "tl-vectorization-analysis-interface.hpp"
+
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include <list>
@@ -43,6 +45,7 @@ namespace TL
             private:
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
+                VectorizationAnalysisInterface* _analysis;
 
                 std::list<Nodecl::NodeclBase> _old_m512;
 
@@ -51,10 +54,13 @@ namespace TL
                 KNCVectorLegalization(bool prefer_gather_scatter,
                         bool prefer_mask_gather_scatter);
 
+                virtual void visit(const Nodecl::FunctionCode& n);
+
                 virtual void visit(const Nodecl::ObjectInit& n);
 
                 virtual void visit(const Nodecl::VectorConversion& n);
 
+                virtual void visit(const Nodecl::VectorAssignment& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
                 virtual void visit(const Nodecl::VectorStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);
