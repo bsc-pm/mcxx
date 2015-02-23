@@ -71,6 +71,8 @@
 
 %parse-param {AST* parsed_tree}
 
+%locations
+
 %{
 extern int yylex(void);
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);

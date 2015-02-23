@@ -45,6 +45,21 @@ struct token_atrib_tag
     unsigned int token_line;
 } token_atrib_t;
 
+typedef struct parser_location_tag
+{
+    /* DEFAULT */
+    int first_line;
+    int first_column;
+    int last_line;
+    int last_column;
+
+    // const char* filename;
+    // int start_line, start_column;
+    // int end_line, end_column;
+} parser_location_t;
+
+LIBMCXX_EXTERN void update_parser_location(const char* current_text, parser_location_t* loc);
+
 struct scan_file_descriptor 
 {
     char in_include_file;
@@ -63,6 +78,8 @@ struct scan_file_descriptor
     FILE* file_descriptor;
     struct yy_buffer_state* scanning_buffer;
 };
+
+#define YYLTYPE parser_location_t
 
 LIBMCXX_EXTERN struct scan_file_descriptor scanning_now;
 
