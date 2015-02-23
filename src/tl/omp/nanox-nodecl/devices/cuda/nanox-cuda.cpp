@@ -51,11 +51,6 @@ static std::string cuda_outline_name(const std::string & name)
     return "gpu_" + name;
 }
 
-bool DeviceCUDA::is_gpu_device() const
-{
-    return true;
-}
-
 void DeviceCUDA::generate_ndrange_additional_code(
         const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
         TL::Source& code_ndrange)
@@ -272,14 +267,14 @@ class NanosGetCublasHandleVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-void DeviceCUDA::is_nanos_get_cublas_handle_present(Nodecl::NodeclBase task_code)
+void DeviceCUDA::is_nanos_get_cublas_handle_present(Lowering* lowering, Nodecl::NodeclBase task_code)
 {
-    if (_is_nanos_get_cublas_handle)
+    if (lowering->seen_gpu_cublas_handle)
         return;
 
     NanosGetCublasHandleVisitor visitor;
     visitor.walk(task_code);
-    _is_nanos_get_cublas_handle = visitor.get_is_nanos_get_cublas_handle();
+    lowering->seen_gpu_cublas_handle = visitor.get_is_nanos_get_cublas_handle();
 }
 
 void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
@@ -293,9 +288,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
-    _cuda_tasks_processed = true;
-
     // Unpack DTO
+    Lowering *lowering = info._lowering;
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const TargetInformation& target_info = info._target_info;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -303,6 +297,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     const TL::Symbol& called_task = info._called_task; // This symbol is only valid for function tasks
     bool is_function_task = called_task.is_valid();
     output_statements = task_statements;
+
+    lowering->seen_cuda_task = true;
 
     symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_cuda_functions);
 
@@ -323,7 +319,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 
     if (!task_code.is_null())
     {
-        is_nanos_get_cublas_handle_present(task_code);
+        is_nanos_get_cublas_handle_present(lowering, task_code);
         update_all_kernel_configurations(task_code);
     }
 
@@ -703,7 +699,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions(), _is_nanos_get_cublas_handle(false)
+    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions()
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -838,37 +834,6 @@ void DeviceCUDA::generate_outline_events_after(
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
-    if (_cuda_tasks_processed)
-    {
-        create_weak_device_symbol("ompss_uses_cuda",
-                *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]));
-        _cuda_tasks_processed = false;
-    }
-
-    if (_is_nanos_get_cublas_handle)
-    {
-        Nodecl::NodeclBase root = *std::static_pointer_cast<Nodecl::NodeclBase>(data_flow["nodecl"]);
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char gpu_cublas_init = 1;";
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::C;
-
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::Current;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            _extra_c_code.prepend(functions_section_tree);
-        }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
-        }
-    }
-
     if (!_cuda_file_code.is_null())
     {
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
@@ -960,7 +925,6 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
 void DeviceCUDA::pre_run(DTO& dto)
 {
-    _cuda_tasks_processed = false;
 }
 
 void DeviceCUDA::run(DTO& dto)

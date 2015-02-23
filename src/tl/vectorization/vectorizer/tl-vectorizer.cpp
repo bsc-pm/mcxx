@@ -30,7 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
 
-#include "tl-vectorizer-overlap.hpp"
+#include "tl-vectorizer-overlap-optimizer.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-target-type-heuristic.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
@@ -223,6 +223,25 @@ namespace Vectorization
             fprintf(stderr, "\n");
         }
     }
+
+    void Vectorizer::prefetcher(const Nodecl::NodeclBase& statements,
+            const prefetch_info_t& pref_info,
+            const VectorizerEnvironment& environment)
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Prefetcher -----\n");
+        }
+
+        Prefetcher vector_prefetcher(pref_info, environment);
+        vector_prefetcher.walk(statements);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
+    }
+
 
     void Vectorizer::process_epilog(Nodecl::NodeclBase& loop_statement,
             VectorizerEnvironment& environment,

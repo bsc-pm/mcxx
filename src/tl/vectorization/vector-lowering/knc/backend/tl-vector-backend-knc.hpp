@@ -151,6 +151,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorPromotion& n);
                 virtual void visit(const Nodecl::VectorLiteral& n);
                 virtual void visit(const Nodecl::VectorAssignment& n);
+                virtual void visit(const Nodecl::VectorPrefetch& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
                 virtual void visit(const Nodecl::VectorStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);

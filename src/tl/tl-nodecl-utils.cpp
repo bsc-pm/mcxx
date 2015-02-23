@@ -998,6 +998,50 @@ namespace Nodecl
         }
     }
 
+    bool Utils::is_nodecl_statement(const Nodecl::NodeclBase& n)
+    {
+        //TODO
+        // ObjectInit is considered a special kind of Statement
+        return n.is<Nodecl::ExpressionStatement>() ||
+            n.is<Nodecl::IfElseStatement>() ||
+            n.is<Nodecl::ForStatement>() ||
+            n.is<Nodecl::WhileStatement>() ||
+            n.is<Nodecl::CompoundStatement>() ||
+            n.is<Nodecl::CaseStatement>() ||
+            n.is<Nodecl::SwitchStatement>() ||
+            n.is<Nodecl::DefaultStatement>() ||
+            n.is<Nodecl::CaseStatement>() ||
+            n.is<Nodecl::GotoStatement>() ||
+            n.is<Nodecl::ReturnStatement>() ||
+            n.is<Nodecl::ObjectInit>();
+    }
+
+    //It does not work if 'n' is nested in the value of an ObjectInit!
+    void Utils::prepend_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt)
+    {
+        Nodecl::NodeclBase target_stmt = n;
+        while (!is_nodecl_statement(target_stmt))
+        {
+            target_stmt = target_stmt.get_parent();
+        }
+
+        target_stmt.prepend_sibling(new_stmt);
+    }
+
+    //It does not work if 'n' is nested in the value of an ObjectInit!
+    void Utils::append_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt)
+    {
+        Nodecl::NodeclBase target_stmt = n;
+        while (!is_nodecl_statement(target_stmt))
+        {
+            target_stmt = target_stmt.get_parent();
+        }
+
+        target_stmt.append_sibling(new_stmt);
+    }
+
     void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
         if (!Utils::is_in_list(n))
@@ -1038,7 +1082,8 @@ namespace Nodecl
         Nodecl::List stmts_list =
             node.get_statements().as<List>();
 
-        stmts_list.prepend(items);
+        stmts_list.prepend_ordered(items);
+        //stmts_list.prepend(items);
     }
 
     void Nodecl::Utils::append_items_in_nested_compound_statement(

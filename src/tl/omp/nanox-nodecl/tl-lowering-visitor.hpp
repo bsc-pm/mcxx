@@ -69,6 +69,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
         virtual void visit(const Nodecl::OpenMP::Register& construct);
 
+
+        // This typedef should be public because It's used by some local functions
+        typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
+        typedef std::map<OpenMP::Reduction*, std::pair<TL::Symbol, TL::Symbol> > reduction_task_map_t;
     private:
 
         Lowering* _lowering;
@@ -102,6 +106,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
             OutlineDataItem& outline_data_item);
         void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
+
+        void handle_reductions_on_task(
+                Nodecl::NodeclBase construct,
+                OutlineInfo& outline_info,
+                Nodecl::NodeclBase statements,
+                Nodecl::NodeclBase& final_statements);
 
         void fill_arguments(
                 Nodecl::NodeclBase ctr,
@@ -221,6 +231,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 int num_static_dependences,
                 int num_dynamic_dependences,
                 Source num_dependences,
+                // out
+                Source& result_src);
+
+        void register_reductions(
+                Nodecl::NodeclBase ctr,
+                OutlineInfo& outline_info,
                 // out
                 Source& result_src);
 
@@ -424,16 +440,20 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
-        typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
         reduction_map_t _basic_reduction_map_openmp;
         reduction_map_t _vector_reduction_map_openmp;
 
         reduction_map_t _reduction_map_ompss;
+
+        reduction_task_map_t _reduction_on_tasks_red_map;
+        reduction_map_t _reduction_on_tasks_ini_map;
+
         void create_reduction_function(OpenMP::Reduction* red,
                 Nodecl::NodeclBase construct,
                 TL::Type reduction_type,
                 TL::Symbol& basic_reduction_function,
                 TL::Symbol& vector_reduction_function);
+
         TL::Symbol create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
         TL::Symbol create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 

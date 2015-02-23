@@ -739,12 +739,31 @@ namespace Nodecl {
                     this->push_back_(n);
             }
 
+            // This method performs several push_fronts if 'n' is a list which
+            // effectively prepends the items of 'n' in reverse order.
+            // Use prepend_ordered if you want the items of 'n' be prepended
+            // in the same order as they appear in 'n'
             void prepend(Nodecl::NodeclBase n)
             {
                 if (n.is<Nodecl::List>())
                 {
                     Nodecl::List l = n.as<Nodecl::List>();
                     for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+                    {
+                        this->push_front_(*it);
+                    }
+                }
+                else
+                    this->push_front_(n);
+            }
+
+            // See prepend for an explanation of this function
+            void prepend_ordered(Nodecl::NodeclBase n)
+            {
+                if (n.is<Nodecl::List>())
+                {
+                    Nodecl::List l = n.as<Nodecl::List>();
+                    for (Nodecl::List::reverse_iterator it = l.rbegin(); it != l.rend(); it++)
                     {
                         this->push_front_(*it);
                     }

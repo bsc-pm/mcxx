@@ -499,17 +499,22 @@ namespace TL { namespace OpenMP {
                         if ((unsigned int)i < arguments.size())
                             arg = arguments[i];
 
+                        ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
+
                         warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
                                 "is SHARED because it does not have VALUE attribute\n",
                                 function_sym.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 function_sym.get_name().c_str());
-                        info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
-                                "the value that the actual argument '%s' had at task creation\n",
-                                function_sym.get_locus_str().c_str(),
-                                function_sym.get_name().c_str(),
-                                it->get_name().c_str(),
-                                arg.prettyprint().c_str());
+                        if (!arg.is_constant())
+                        {
+                            info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
+                                    "the value that the actual argument '%s' had at task creation\n",
+                                    function_sym.get_locus_str().c_str(),
+                                    function_sym.get_name().c_str(),
+                                    it->get_name().c_str(),
+                                    arg.prettyprint().c_str());
+                        }
                     }
 
                     assumed_shareds.append(symbol_ref);

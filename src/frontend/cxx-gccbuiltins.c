@@ -2309,10 +2309,7 @@ DEF_C99_BUILTIN        (BUILT_IN_CTANH, "ctanh", BT_FN_COMPLEX_DOUBLE_COMPLEX_DO
 DEF_C99_BUILTIN        (BUILT_IN_CTANHF, "ctanhf", BT_FN_COMPLEX_FLOAT_COMPLEX_FLOAT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_CTANHL, "ctanhl", BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_CTANL, "ctanl", BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-}
 
-static void gcc_sign_in_builtins_1(decl_context_t global_context)
-{
 /* Category: string/memory builtins.  */
 /* bcmp, bcopy and bzero have traditionally accepted NULL pointers
    when the length parameter is zero, so don't apply attribute "nonnull".  */
@@ -2559,10 +2556,7 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_VPRINTF_CHK, "__vprintf_chk", BT_FN_INT_INT_CON
 /* Profiling hooks.  */
 DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_ENTER, "profile_func_enter", NO_EXPAND_FUN)
 DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit", NO_EXPAND_FUN)
-}
 
-static void gcc_sign_in_builtins_2(decl_context_t global_context)
-{
 /* TLS emulation.  */
 //
 // Not supported in Mercurium: need to know the function for _tls and the register
@@ -3225,11 +3219,7 @@ static void sign_in_sse_builtins(decl_context_t global_context);
 static void sign_in_intel_builtins(decl_context_t global_context);
 void gcc_sign_in_builtins(decl_context_t global_context)
 {
-    // We split these functions to avoid -fvar-tracking to run
-    // out of memory, causing a massive slowdown in optimized builds
     gcc_sign_in_builtins_0(global_context);
-    gcc_sign_in_builtins_1(global_context);
-    gcc_sign_in_builtins_2(global_context);
 
     // Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
     sign_in_sse_builtins(global_context);
@@ -3708,6 +3698,7 @@ type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type)
 
 // This function allows conversion between logically equivalent vector types
 // and Intel structs
+#if 0
 char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
 {
     if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
@@ -3744,6 +3735,7 @@ char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
                         && equivalent_types(dest_struct, get_m512i_struct_type())))));
 
 }
+#endif
 
 // This function allows conversion between vector types of the same size as an Intel struct
 char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest)
@@ -3773,6 +3765,45 @@ char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* d
             return (equivalent_types(dest_struct, get_m512_struct_type())
                     || equivalent_types(dest_struct, get_m512d_struct_type())
                     || equivalent_types(dest_struct, get_m512i_struct_type()));
+    }
+
+    return 0;
+}
+
+char intel_vector_struct_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+    struct vector_kinds_tag {
+        type_t* (*v[3])(void); 
+    } vector_list[] = {
+        { { get_m128_struct_type, get_m128d_struct_type, get_m128i_struct_type } },
+        { { get_m256_struct_type, get_m256d_struct_type, get_m256i_struct_type } } ,
+        { { get_m512_struct_type, get_m512d_struct_type, get_m512i_struct_type } },
+        { { NULL, NULL, NULL } },
+    };
+
+    int i;
+    for (i = 0; vector_list[i].v[0] != NULL; i++)
+    {
+        int j;
+        for (j = 0; j < 3; j++)
+        {
+            if (equivalent_types((vector_list[i].v[j])(), orig))
+            {
+                int k;
+                for (k = 0; k < 3; k++)
+                {
+                    // Note that when k == j this function should not have been used
+                    if (equivalent_types((vector_list[i].v[k])(), dest))
+                    {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+        }
     }
 
     return 0;

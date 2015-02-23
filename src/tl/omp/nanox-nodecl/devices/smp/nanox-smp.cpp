@@ -465,6 +465,7 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         // // Pass the original reduced variable as if it were a shared
                         Source argument;
@@ -504,16 +505,22 @@ namespace TL { namespace Nanox {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
            Source unpacked_function_call;
-            if (IS_CXX_LANGUAGE
-                    && !is_function_task
-                    && current_function.is_member()
-                    && !current_function.is_static())
-            {
-                unpacked_function_call << "args.this_->";
-            }
+           if (IS_CXX_LANGUAGE
+                   && !is_function_task
+                   && current_function.is_member()
+                   && !current_function.is_static())
+           {
+               unpacked_function_call
+                   << "args.this_->"
+                   ;
 
-           unpacked_function_call
-               << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
+           }
+
+           unpacked_function_call << unpacked_function.get_qualified_name_for_expression(
+                   /* in_dependent_context */ 
+                   (current_function.get_type().is_template_specialized_type()
+                    && current_function.get_type().is_dependent())
+                   ) << "(" << unpacked_arguments << ");";
 
             outline_src
                 << "{"

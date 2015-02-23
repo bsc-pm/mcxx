@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2014 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,9 +24,20 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_OVERLAP_FWD_HPP
-#define TL_VECTORIZER_OVERLAP_FWD_HPP
+#ifndef TL_VECTORIZATION_PREFETCHER_COMMON_HPP
+#define TL_VECTORIZATION_PREFETCHER_COMMON_HPP
 
-namespace TL { namespace Vectorization { class VectorizerOverlap; } }
+namespace TL
+{
+    namespace Vectorization
+    {
+        enum PrefetchKind{
+            L1_READ = 1,
+            L2_READ = 2,
+            L1_WRITE = 3,
+            L2_WRITE = 4
+        };
+    }
+}
 
-#endif // TL_VECTORIZER_OVERLAP_FWD_HPP
+#endif //TL_VECTORIZATION_PREFETCHER_COMMON_HPP

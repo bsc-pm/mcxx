@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorization-three-addresses.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL
 {
@@ -108,12 +109,6 @@ namespace Vectorization
         return tl_sym;
     }
 
-    bool is_nodecl_statement(const Nodecl::NodeclBase& n)
-    {
-        return n.is<Nodecl::ExpressionStatement>() ||
-            n.is<Nodecl::ReturnStatement>();
-    }
-
     void VectorizationThreeAddresses::decomp(
             const Nodecl::NodeclBase& n)
     {
@@ -131,17 +126,9 @@ namespace Vectorization
                     tmp_sym.get_type()));
 
         if (!_object_init.is_null())
-            _object_init.prepend_sibling(new_stmt);
+            Nodecl::Utils::prepend_statement(_object_init, new_stmt);
         else
-        {
-            Nodecl::NodeclBase expr_stmt = n;
-            while (!is_nodecl_statement(expr_stmt))
-            {
-                expr_stmt = expr_stmt.get_parent();
-            }
-
-            expr_stmt.prepend_sibling(new_stmt);
-        }
+            Nodecl::Utils::prepend_statement(n, new_stmt);
     }
  
     void VectorizationThreeAddresses::visit_vector_unary(

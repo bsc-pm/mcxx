@@ -33,6 +33,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-source.hpp"
 #include "tl-outline-info.hpp"
+#include "tl-nanox-nodecl.hpp"
 #include "tl-target-information.hpp"
 
 namespace TL { namespace Nanox {
@@ -74,6 +75,7 @@ namespace TL { namespace Nanox {
     // This DTO stores information used in 'create_outline' function
     struct CreateOutlineInfo
     {
+        Lowering* _lowering;
         const std::string& _outline_name;
         ObjectList<OutlineDataItem*> _data_items;
         TargetInformation& _target_info;
@@ -102,7 +104,9 @@ namespace TL { namespace Nanox {
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task;
 
-        CreateOutlineInfo(std::string& outline_name,
+        CreateOutlineInfo(
+                Lowering* lowering,
+                std::string& outline_name,
                 ObjectList<OutlineDataItem*> data_items,
                 TargetInformation& target_info,
                 Nodecl::NodeclBase original_statements,
@@ -111,6 +115,7 @@ namespace TL { namespace Nanox {
                 TL::Symbol& args_struct,
                 TL::Symbol& called_task)
             :
+                _lowering(lowering),
                 _outline_name(outline_name),
                 _data_items(data_items),
                 _target_info(target_info),
@@ -195,18 +200,11 @@ namespace TL { namespace Nanox {
                      Source& extra_cast,
                      Source& instrumentation_after);
 
-             virtual void create_weak_device_symbol(
-                     const std::string& symbol_name,
-                     Nodecl::NodeclBase root);
+             // virtual void create_weak_device_symbol(
+             //         const std::string& symbol_name,
+             //         Nodecl::NodeclBase root);
 
              virtual bool remove_function_task_from_original_source() const = 0;
-
-             /*!
-               This function returns true if the current device is a gpu
-               accelerator. Otherwise It returns false.  The gpu devices
-               must redefine this function
-               */
-             virtual bool is_gpu_device() const;
 
              /*!
                This function is called when pragma omp target device(...) is

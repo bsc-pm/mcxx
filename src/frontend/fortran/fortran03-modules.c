@@ -2734,7 +2734,7 @@ static int get_type(void *datum,
 
             scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
-            *pt = get_indirect_type(symbol);
+            *pt = get_mutable_indirect_type(symbol);
             *pt = get_cv_qualified_type(*pt, cv_qualifier);
             insert_map_ptr(handle, current_oid, *pt);
             break;

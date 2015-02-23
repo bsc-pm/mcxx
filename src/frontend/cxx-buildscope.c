@@ -786,8 +786,27 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         __uint128_t_type->locus = make_locus("(global scope)", 0, 0);
     }
 #endif
-    // Mercurium limit constants
+    // Mercurium basic types
+    struct {
+        const char* type_name;
+        type_t* related_type;
+    } mercurium_basic_types[] = {
+        { "mercurium_size_t", get_size_t_type() },
+        { "mercurium_ptrdiff_t", get_ptrdiff_t_type() },
+        { NULL, NULL }
+    };
+    int i;
+    for (i = 0; mercurium_basic_types[i].type_name != NULL; i++)
+    {
+        scope_entry_t* typedef_sym = new_symbol(decl_context, decl_context.global_scope,
+                mercurium_basic_types[i].type_name);
+        typedef_sym->kind = SK_TYPEDEF;
+        typedef_sym->type_information = mercurium_basic_types[i].related_type;
+        typedef_sym->locus = make_locus("(global scope)", 0, 0);
+        symbol_entity_specs_set_is_user_declared(typedef_sym, 1);
+    }
 
+    // Mercurium limit constants
     struct {
         const char* base_name;
         type_t* related_type;
@@ -813,7 +832,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         { NULL, NULL }
     };
 
-    int i;
     for (i = 0; mercurium_constant_limits[i].base_name != NULL; i++)
     {
         const char* base_name = mercurium_constant_limits[i].base_name;
@@ -11483,6 +11501,55 @@ static void update_function_specifiers(scope_entry_t* entry,
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
 
+    C_LANGUAGE()
+    {
+        if (entry->decl_context.current_scope
+                == entry->decl_context.global_scope)
+        {
+            // If this function is global, and previously declared not static,
+            // extern or inline and now is going to be inline, make it extern
+            // otherwise the function will not be emitted in C99
+            //
+            // So, the input source (case A)
+            //
+            //   void f();
+            //   inline void f() { }
+            //
+            // must be emitted as
+            //
+            //   extern inline void f() { }
+            //
+            // Note that, the input source
+            //
+            //   inline void f();
+            //   inline void f() { }
+            //
+            // must NOT add extern: a definition of 'f' does not have to be emitted
+            // in this case (the use may provide it elsewhere by using extern, or
+            // not using inline)
+            //
+            // The dual case (case B)
+            //
+            //   inline void f();
+            //   void f() { }
+            //
+            // must be emitted also as
+            //
+            //   extern inline void f()
+            //
+            // Note that in general we do not force extern to functions, this is a
+            // special case required by the subtle C99 semantics regarding inline
+            if (!symbol_entity_specs_get_is_extern(entry)
+                    && !symbol_entity_specs_get_is_static(entry)
+                    // This covers cases A and B shown above
+                    && (symbol_entity_specs_get_is_inline(entry)
+                        != gather_info->is_inline))
+            {
+                symbol_entity_specs_set_is_extern(entry, 1);
+            }
+        }
+    }
+
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
@@ -16507,7 +16574,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declaration(a, inner_decl_context);
+                solve_ambiguous_member_declaration(a, inner_decl_context);
                 // Restart
                 build_scope_member_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, 
                         declared_symbols, gather_decl_spec_list);

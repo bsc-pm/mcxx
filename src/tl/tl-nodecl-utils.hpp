@@ -108,6 +108,12 @@ namespace Utils {
     bool is_in_list(Nodecl::NodeclBase n);
     void remove_from_enclosing_list(Nodecl::NodeclBase n);
 
+    bool is_nodecl_statement(const Nodecl::NodeclBase& n);
+    void prepend_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt);
+    void append_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt);
+ 
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 

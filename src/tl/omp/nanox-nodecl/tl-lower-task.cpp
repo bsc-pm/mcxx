@@ -491,7 +491,8 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           dependences_info;
+           dependences_info,
+           register_reductions_opt;
 
     TL::Symbol xlate_function_symbol;
 
@@ -579,7 +580,7 @@ void LoweringVisitor::emit_async_common(
     }
     else
     {
-        _lowering->set_seen_a_task_with_priorities(true);
+        _lowering->seen_task_with_priorities = true;
     }
 
     if (final_condition.is_null())
@@ -674,6 +675,7 @@ void LoweringVisitor::emit_async_common(
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             CreateOutlineInfo info_implementor(
+                    _lowering,
                     implementor_outline_name,
                     outline_info.get_data_items(),
                     target_info,
@@ -759,6 +761,7 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
+        <<     register_reductions_opt
         <<     if_condition_begin_opt
         <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
@@ -877,6 +880,8 @@ void LoweringVisitor::emit_async_common(
             num_dependences,
             dependences_info);
 
+    register_reductions(construct, outline_info, register_reductions_opt);
+
     FORTRAN_LANGUAGE()
     {
         // Parse in C
@@ -919,6 +924,18 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
+    // We cannot use the final stmts generated in the FinalStmtsGenerator
+    // because we need to introduce some extra function calls
+    bool has_task_reduction = false;
+    Nodecl::NodeclBase final_statements;
+    if(!environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::TaskReduction>().is_null())
+    {
+
+        // This final_statements will be used when we are generating the code for the 'final' clause
+        has_task_reduction = true;
+        final_statements = Nodecl::Utils::deep_copy(statements, construct);
+    }
+
     walk(statements);
 
     TaskEnvironmentVisitor task_environment;
@@ -928,6 +945,9 @@ void LoweringVisitor::visit_task(
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     OutlineInfo outline_info(*_lowering, environment, function_symbol);
+
+    // If the current task contains a reduction clause, the final statements will be modified
+    handle_reductions_on_task(construct, outline_info, statements, final_statements);
 
     // Handle the special object 'this'
     if (IS_CXX_LANGUAGE
@@ -1002,7 +1022,10 @@ void LoweringVisitor::visit_task(
         ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
 
         // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
-        copied_statements_placeholder.replace(it->second);
+        if (has_task_reduction)
+            copied_statements_placeholder.replace(final_statements);
+        else
+            copied_statements_placeholder.replace(it->second);
 
         ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
 
@@ -1014,6 +1037,9 @@ void LoweringVisitor::visit_task(
         new_construct = construct;
     }
 
+    // Our implementation of reduction tasks forces them to be tied
+    bool is_untied = task_environment.is_untied && !has_task_reduction;
+
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
             new_construct,
@@ -1024,7 +1050,7 @@ void LoweringVisitor::visit_task(
             task_environment.if_condition,
             task_environment.final_condition,
             task_environment.task_label,
-            task_environment.is_untied,
+            is_untied,
 
             outline_info,
             /* parameter_outline_info */ NULL,
@@ -1303,7 +1329,9 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
+                // Reductions are passed as if they were shared
+                case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         // 'this' is special in C++
                         if (IS_CXX_LANGUAGE
@@ -1464,7 +1492,9 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
-                case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared variables
+                // Reductions are passed as if they were shared variables
+                case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         TL::Type t = sym.get_type();
                         if (t.is_any_reference())

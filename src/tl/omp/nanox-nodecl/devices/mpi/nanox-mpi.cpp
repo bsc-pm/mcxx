@@ -701,8 +701,11 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             unpacked_function_call << "args.this_->";
         }
 
-        unpacked_function_call
-           << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
+       unpacked_function_call << unpacked_function.get_qualified_name_for_expression(
+               /* in_dependent_context */
+               (current_function.get_type().is_template_specialized_type()
+                && current_function.get_type().is_dependent())
+               ) << "(" << unpacked_arguments << ");";
 
         //TODO: Test this and check what it does (fsainz)
         if (IS_CXX_LANGUAGE)

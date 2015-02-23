@@ -43,11 +43,8 @@ namespace TL
                 Nodecl::List _cuda_file_code;
                 Nodecl::Utils::SimpleSymbolMap _copied_cuda_functions;
 
-                bool _cuda_tasks_processed,
-                     // Used to initialize CUBLAS automatically on runtime
-                     _is_nanos_get_cublas_handle;
-
-                void is_nanos_get_cublas_handle_present(Nodecl::NodeclBase task_code);
+                void is_nanos_get_cublas_handle_present(Lowering* lowering,
+                        Nodecl::NodeclBase task_code);
                 void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 
                 void update_ndrange_and_shmem_arguments(
@@ -96,8 +93,6 @@ namespace TL
                         const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
                 bool allow_mandatory_creation();
-
-                virtual bool is_gpu_device() const;
 
                 virtual void generate_outline_events_before(
                         Source& function_name_instr,

@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.6],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.7],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -424,6 +424,29 @@ else
     XLF=
 fi
 
+dnl --------------------- Support for plain profiles for Intel Compilers -------------
+if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 01.config.intel-plain"
+
+    # Intel C/C++/Fortran
+    if test x$ICC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicc"
+    fi
+
+    if test x$ICPC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicpc"
+    fi
+
+    if test -x$IFORT != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainifort plainimfc ifort-plainfc"
+    fi
+fi
+dnl --------------------- End support for plain profiles for Intel Compilers ---------
+
 dnl -- End of extra compiler checks ---
 
 dnl --------------------- Support for OMPSS ------------------------------------------
@@ -541,30 +564,50 @@ then
    )
 
    AC_MSG_CHECKING([linking mechanism of Nanos++])
-   for nanox_version in performance debug instrumentation instrumentation-debug;
-   do
-       if test -d $nanox_lib/$nanox_version;
-       then
+
+    AC_ARG_ENABLE([nanos-new-link-mechanism],
+      AS_HELP_STRING([--enable-nanos-new-link-mechanism], [Override nanos++ linking mechanism autodetection]),
+      [
+        if test x$enableval = xyes -o x$enableval = x;
+        then
+            nanox_pm_selection="new"
+        else if test x$enableval = xno;
+             then
+                nanox_pm_selection="old"
+             else
+                AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+             fi
+        fi
+      ])
+
+   if test "$nanox_pm_selection" = "none"; then
+       for nanox_version in performance debug instrumentation instrumentation-debug;
+       do
            if test -f $nanox_lib/$nanox_version/libnanox-ompss.so;
            then
                if test "$nanox_pm_selection" = "none";
                then
                    nanox_pm_selection="new"
-               elif test "$nanox_pm_selection" != "new";
+               elif test "$nanox_pm_selection" != "new"
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken])
+                   AC_MSG_ERROR([Nanos++ installation is broken, new library found but old library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
-           else
+               if test -f $nanox_lib/$nanox_version/libnanox-ss.so;
+               then
+                   AC_MSG_ERROR([Nanos++ installation is broken, new and old libraries found. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
+               fi
+           elif test -f $nanox_lib/$nanox_version/libnanox-ss.so;
+           then
                if test "$nanox_pm_selection" = "none";
                then
                    nanox_pm_selection="old"
                elif test "$nanox_pm_selection" != "old";
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken])
+                   AC_MSG_ERROR([Nanos++ installation is broken, old library found but new library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
            fi
-       fi
-   done
+       done
+   fi
 
    if test "$nanox_pm_selection" = "none";
    then
@@ -1253,7 +1296,7 @@ then
 
       if test -x$IFORT != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc ismpfc"
+          COMPILER_NAMES="${COMPILER_NAMES} imfc imf95 ifort-mfc ismpfc"
       fi
    fi
 
@@ -1936,6 +1979,11 @@ AC_SUBST([quadmath_LIBS])
 
 dnl Check for compliant const
 AC_C_CONST
+
+dnl Not all gccs support this
+NO_VAR_TRACKING_ASSIGNMENTS=""
+AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
+AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
 
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter

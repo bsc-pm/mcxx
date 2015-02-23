@@ -119,10 +119,21 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
 
 TL::Symbol Intel::new_private_symbol(TL::Symbol original_symbol, TL::Scope private_scope)
 {
+    return new_private_symbol(original_symbol.get_name(),
+            original_symbol.get_type(),
+            original_symbol.get_internal_symbol()->kind,
+            private_scope);
+}
+
+TL::Symbol Intel::new_private_symbol(const std::string& base_name,
+        TL::Type type,
+        enum cxx_symbol_kind kind,
+        TL::Scope private_scope)
+{
     TL::Counter &private_num = TL::CounterManager::get_counter("intel-omp-privates");
 
     std::stringstream new_name;
-    new_name << "p_" << original_symbol.get_name() << (int)private_num;
+    new_name << "p_" << base_name << (int)private_num;
     private_num++;
 
     scope_entry_t* new_private_sym = ::new_symbol(
@@ -130,8 +141,8 @@ TL::Symbol Intel::new_private_symbol(TL::Symbol original_symbol, TL::Scope priva
             private_scope.get_decl_context().current_scope,
             uniquestr(new_name.str().c_str()));
 
-    new_private_sym->kind = original_symbol.get_internal_symbol()->kind;
-    new_private_sym->type_information = original_symbol.get_internal_symbol()->type_information;
+    new_private_sym->kind = kind;
+    new_private_sym->type_information = type.get_internal_type();
     symbol_entity_specs_set_is_user_declared(new_private_sym, 1);
     new_private_sym->defined = 1;
 

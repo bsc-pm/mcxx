@@ -58,6 +58,7 @@ static scope_entry_t* add_duplicate_member_to_class(
             member_of_template->symbol_name);
 
     *new_member = *member_of_template;
+    symbol_clear_indirect_types(new_member);
 
     symbol_entity_specs_set_is_member(new_member, 1);
     symbol_entity_specs_set_is_instantiable(new_member, 0);
@@ -1338,6 +1339,7 @@ static void instantiate_dependent_friend_function(
 
                     scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
                     memcpy(new_entry, current_temp_param->entry, sizeof(*current_temp_param->entry));
+                    symbol_clear_indirect_types(new_entry);
                     symbol_entity_specs_set_template_parameter_nesting(new_entry, 1);
                     current_temp_param->entry = new_entry;
                 }

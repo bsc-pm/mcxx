@@ -5952,7 +5952,6 @@ const char* get_class_qualification_of_symbol_without_template(scope_entry_t* en
             NULL);
 }
 
-
 const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
 {
     int max_qualif_level = 0;
@@ -8654,4 +8653,10 @@ nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
     }
 
     return nodecl_null();
+}
+
+void symbol_clear_indirect_types(scope_entry_t* entry)
+{
+    entry->_indirect_type[0] = NULL;
+    entry->_indirect_type[1] = NULL;
 }

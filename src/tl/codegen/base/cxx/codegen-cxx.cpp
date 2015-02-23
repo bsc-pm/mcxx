@@ -6570,12 +6570,13 @@ void CxxBase::declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Sy
                 /* without template id */ true);
     }
 
-    // Dirty trick to remove the firsts two colons if the name of the function has them
+    // Protect this declarator because the decl-specifier seq might end with an
+    // id-expression that would end being "pasted" to the declarator-name
     if (function_name.size() >= 2 &&
             function_name[0] == ':' &&
             function_name[1] == ':')
     {
-        function_name = function_name.substr(2);
+        function_name = "(" + function_name + ")";
     }
 
     indent();
@@ -8857,8 +8858,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_CLASS_MEMBER_ACCESS:
         case NODECL_CXX_ARROW:
         case NODECL_CXX_POSTFIX_INITIALIZER:
-        case NODECL_CXX_ARRAY_SECTION_RANGE:
-        case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
             {
