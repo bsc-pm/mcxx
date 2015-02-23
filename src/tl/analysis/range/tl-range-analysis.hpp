@@ -185,7 +185,7 @@ namespace Analysis {
     public:
         // *** Constructor *** //
         ConstraintGraph(std::string name);
-        
+
         // *** Getters and setters *** //
         //! Retrieves the Constraint Graph node given a SSA variable
         CGNode* get_node_from_ssa_var(const NBase& n);
@@ -205,29 +205,29 @@ namespace Analysis {
         
         //! Use the different rules to topologically solve and propagate the constraints over the CG
         void solve_constraints(const std::vector<SCC*>& roots);
-        
+
         // *** Utils *** //
         //! Generates a dot file with the structure of the graph
         void print_graph() const;
     };
-    
+
     // **************************** END classes implementing constraint graph ***************************** //
     // **************************************************************************************************** //
-    
-    
-    
+
+
+
     // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
-    
+
     class LIBTL_CLASS RangeAnalysis
     {
     private:
         ExtensibleGraph* _pcfg;
         ConstraintGraph* _cg;
-        
+
         Constraints _constraints;
         NodeclList _ordered_constraints;
-        
+
         //! Method computing constraints for the parameters of a function
         //! \param[out] constr_map Map where constraints are stored for each PCFG node
         void compute_parameters_constraints(
@@ -245,10 +245,10 @@ namespace Analysis {
         void compute_constraints(
                 std::map<Node*, VarToConstraintMap>& constr_map,
                 std::map<Node*, VarToConstraintMap>& propagated_constr_map);
-        
+
         //! Method building a Constraint Graph from a set of constraints
         void build_constraint_graph();
-        
+
         //! Method propagating ranges information from the #cg to the #pcfg
         void set_ranges_to_pcfg(
             const std::map<Node*, VarToConstraintMap>& constr_map);
@@ -256,10 +256,10 @@ namespace Analysis {
     public:
         //! Constructor
         RangeAnalysis(ExtensibleGraph* pcfg);
-        
+
         //! Method computing the Ranges information on the #pcfg
         void compute_range_analysis();
-        
+
         //! Method printing all constraint found so far in the #pcfg
         void print_constraints();
     };
