@@ -593,10 +593,13 @@ namespace Vectorization
         std::cerr << "Overlap Groups Summary:" << std::endl;
         std::cerr << "    - Total groups = " << ogroups.size() << ":" << std::endl;
 
-        for(const auto& ogroup : ogroups)
+        VECTORIZATION_DEBUG()
         {
-            std::cerr << ogroup._subscripted.get_name() <<
-                "(" << ogroup._loads.size() << ") ";
+            for(const auto& ogroup : ogroups)
+            {
+                std::cerr << ogroup._subscripted.get_name() <<
+                    "(" << ogroup._loads.size() << ") ";
+            }
         }
  
         // TODO: Merge overlaped groups
@@ -635,12 +638,15 @@ namespace Vectorization
            min_group_loads << ") = " << ogroups.size()
             << ": " << std::endl;
 
-        for(const auto& ogroup : ogroups)
+        VECTORIZATION_DEBUG()
         {
-            std::cerr << ogroup._subscripted.get_name() <<
-                "(" << ogroup._loads.size() << ") ";
+            for(const auto& ogroup : ogroups)
+            {
+                std::cerr << ogroup._subscripted.get_name() <<
+                    "(" << ogroup._loads.size() << ") ";
+            }
+            std::cerr << std::endl;
         }
-        std::cerr << std::endl;
 
         return ogroups;
     }
