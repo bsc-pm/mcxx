@@ -238,13 +238,11 @@ namespace Analysis {
         void compute_constraints_rec(
                 std::queue<Node*>& worklist,
                 std::set<Node*>& treated,
-                std::map<Node*, VarToConstraintMap>& constr_map,
-                std::map<Node*, VarToConstraintMap>& propagated_constr_map);
+                std::map<Node*, VarToConstraintMap>& constr_map);
 
         //! Method generating all constraints of the #pcfg
         void compute_constraints(
-                std::map<Node*, VarToConstraintMap>& constr_map,
-                std::map<Node*, VarToConstraintMap>& propagated_constr_map);
+                std::map<Node*, VarToConstraintMap>& constr_map);
 
         //! Method building a Constraint Graph from a set of constraints
         void build_constraint_graph();

@@ -2148,11 +2148,9 @@ namespace {
     
     void RangeAnalysis::compute_range_analysis()
     {   
-        std::map<Node*, VarToConstraintMap> pcfg_constraints;
-        std::map<Node*, VarToConstraintMap> pcfg_propagated_constraints;
-        
         // 1.- Compute the constraints of the current PCFG
-        compute_constraints(pcfg_constraints, pcfg_propagated_constraints);
+        std::map<Node*, VarToConstraintMap> pcfg_constraints;
+        compute_constraints(pcfg_constraints);
 
         // 2.- Build the Constraint Graph (CG) from the computed constraints
         build_constraint_graph();
@@ -2169,12 +2167,10 @@ namespace {
 
         // 5.- Insert computed ranges in the PCFG
         set_ranges_to_pcfg(pcfg_constraints);
-        set_ranges_to_pcfg(pcfg_propagated_constraints);
     }
     
     void RangeAnalysis::compute_constraints(
-        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints,
-        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_propagated_constraints)
+        /*out*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
         // 1.- Create constraint [-∞, +∞] for each parameter
         compute_parameters_constraints(pcfg_constraints);
@@ -2183,9 +2179,9 @@ namespace {
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
         std::queue<Node*> worklist; worklist.push(entry);
         std::set<Node*> treated;
-        compute_constraints_rec(worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
+        compute_constraints_rec(worklist, treated, pcfg_constraints);
 
-        //3.- Print in std out the constraints, if requested
+        // 3.- Print in std out the constraints, if requested
         if (RANGES_DEBUG)
             print_constraints();
     }
@@ -2219,8 +2215,7 @@ namespace {
             VarToConstraintMap& constrs,
             Constraints *constraints,
             NodeclList *ordered_constraints,
-            ConstraintBuilder& cbv,
-            bool is_propagated_set)
+            ConstraintBuilder& cbv)
     {
         // Example:
         //     we had:      i1 = i0
@@ -2273,34 +2268,19 @@ namespace {
     void compute_constraint_from_back_edge(
             Node* n,
             const VarToConstraintMap& new_constraint_map,
-            const VarToConstraintMap& new_propagated_constraint_map,
             Constraints *constraints,
             NodeclList *ordered_constraints,
-            std::map<Node*, VarToConstraintMap>& pcfg_constraints,
-            std::map<Node*, VarToConstraintMap>& pcfg_propagated_constraints)
+            std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
         VarToConstraintMap& constrs = pcfg_constraints[n];
         ConstraintBuilder cbv(constrs, constraints, ordered_constraints);
-        // 1.- pcfg_constraints must contain the combination of both new_constraint_map and new_propagated_constraint_map
-        VarToConstraintMap all_new_constraint_map = new_constraint_map;
-        all_new_constraint_map.insert(new_propagated_constraint_map.begin(), new_propagated_constraint_map.end());
         create_recomputed_constraint(
-                all_new_constraint_map,
+                new_constraint_map,
                 constrs,
                 constraints,
                 ordered_constraints,
-                cbv,
-                /*is_propagated_set*/false);
+                cbv);
 
-        // 2.- pcfg_propagated_constraints must contain only new_propagated_constraint_map
-        VarToConstraintMap& propagated_constrs = pcfg_propagated_constraints[n];
-        create_recomputed_constraint(
-                new_propagated_constraint_map,
-                propagated_constrs,
-                constraints,
-                ordered_constraints,
-                cbv,
-                /*is_propagated_set*/true);
     }
 
     // Utility method: for printing the constraints map if debugging is necessary
@@ -2320,8 +2300,7 @@ namespace {
     void RangeAnalysis::compute_constraints_rec(
         /*inout*/ std::queue<Node*>& worklist,
         /*inout*/ std::set<Node*>& treated,
-        /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints,
-        /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_propagated_constraints)
+        /*inout*/ std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
         std::queue<Node*> next_worklist;
 
@@ -2364,13 +2343,10 @@ namespace {
                 inner_worklist.push(n->get_graph_entry_node());
                 // 2.1.- For graph nodes, call recursively to compute inner nodes constraints
                 // 2.1.1.- Recursive call with the graph entry node
-                compute_constraints_rec(inner_worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
+                compute_constraints_rec(inner_worklist, treated, pcfg_constraints);
                 // 2.1.2.- Propagate the information from the exit node to the graph node
                 Node* graph_exit = n->get_graph_exit_node();
-                VarToConstraintMap pcfg_constraints_from_exit = pcfg_constraints[graph_exit];
-                VarToConstraintMap pcfg_propagated_constraints_from_exit = pcfg_propagated_constraints[graph_exit];
-                pcfg_propagated_constraints_from_exit.insert(pcfg_constraints_from_exit.begin(), pcfg_constraints_from_exit.end());
-                pcfg_propagated_constraints[n] = pcfg_propagated_constraints_from_exit;
+                pcfg_constraints[n] = pcfg_constraints[graph_exit];
             }
             else
             {
@@ -2392,13 +2368,9 @@ namespace {
                 NodeclSet treated_omp_private_vars;
                 for (ObjectList<Node*>::const_iterator itp = parents.begin(); itp != parents.end(); ++itp)
                 {
-                    VarToConstraintMap parent_all_constrs = pcfg_constraints[*itp];
-                    VarToConstraintMap parent_propagated_constrs = pcfg_propagated_constraints[*itp];
-                    // We use the 'insert' method because when a constraint is already in the 'pcfg_constraints',
-                    // we do not take into account the constraints being propagated from the parents
-                    parent_all_constrs.insert(parent_propagated_constrs.begin(), parent_propagated_constrs.end());
-                    for (VarToConstraintMap::iterator itc = parent_all_constrs.begin();
-                         itc != parent_all_constrs.end(); ++itc)
+                    VarToConstraintMap parent_constrs = pcfg_constraints[*itp];
+                    for (VarToConstraintMap::iterator itc = parent_constrs.begin();
+                         itc != parent_constrs.end(); ++itc)
                     {
                         const NBase& orig_var = itc->first;
                         // 2.2.1.1.- Treat omp nodes depending on the data-sharing of the variables
@@ -2584,7 +2556,7 @@ namespace {
                     if (ittt != input_constrs.end())
                         input_constrs.erase(ittt);
                 }
-                pcfg_propagated_constraints[n] = input_constrs;
+                pcfg_constraints[n].insert(input_constrs.begin(), input_constrs.end());
             }
 
             treated.insert(n);
@@ -2615,7 +2587,7 @@ namespace {
 
                     std::queue<Node*> loop_worklist;
                     loop_worklist.push(next_in_loop);
-                    compute_constraints_rec(loop_worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
+                    compute_constraints_rec(loop_worklist, treated, pcfg_constraints);
                 }
                 else
                 {   // Otherwise,
@@ -2627,9 +2599,9 @@ namespace {
                         if ((*it)->is_back_edge())
                         {   // Propagate here constraints from the back edge
                             compute_constraint_from_back_edge(
-                                    t, pcfg_constraints[n], pcfg_propagated_constraints[n],
+                                    t, pcfg_constraints[n],
                                     &_constraints, &_ordered_constraints,
-                                    pcfg_constraints, pcfg_propagated_constraints);
+                                    pcfg_constraints);
                         }
 
                         if (treated.find(t) == treated.end())
@@ -2638,12 +2610,12 @@ namespace {
                 }
             }
 
-            compute_constraints_rec(next_worklist, treated, pcfg_constraints, pcfg_propagated_constraints);
+            compute_constraints_rec(next_worklist, treated, pcfg_constraints);
         }
     }
 
     void RangeAnalysis::set_ranges_to_pcfg(
-        const std::map<Node*, VarToConstraintMap>& pcfg_constraints)
+            const std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
         for (std::map<Node*, VarToConstraintMap>::const_iterator it = pcfg_constraints.begin();
              it != pcfg_constraints.end(); ++it)
