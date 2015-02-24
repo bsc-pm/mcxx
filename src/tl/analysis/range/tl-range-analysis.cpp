@@ -83,7 +83,7 @@ namespace {
     ConstraintReplacement::ConstraintReplacement(
             VarToConstraintMap* input_constraints,
             Constraints *constraints,
-            NodeclList *ordered_constraints)
+            std::vector<Symbol> *ordered_constraints)
         : _input_constraints(input_constraints),
           _constraints(constraints),
           _ordered_constraints(ordered_constraints) // Attributes needed to create new constraints
@@ -226,7 +226,7 @@ namespace {
     ConstraintBuilder::ConstraintBuilder(
             const VarToConstraintMap& input_constraints_map,
             Constraints *constraints,
-            NodeclList *ordered_constraints)
+            std::vector<Symbol> *ordered_constraints)
         : _input_constraints(input_constraints_map), _output_constraints(), 
           _output_true_constraints(), _output_false_constraints(), 
           _constraints(constraints), _ordered_constraints(ordered_constraints)
@@ -236,7 +236,7 @@ namespace {
             const VarToConstraintMap& input_constraints_map,
             const VarToConstraintMap& current_constraints,
             Constraints *constraints,
-            NodeclList *ordered_constraints)
+            std::vector<Symbol> *ordered_constraints)
         : _input_constraints(input_constraints_map), _output_constraints(current_constraints),
           _output_true_constraints(), _output_false_constraints(), 
           _constraints(constraints), _ordered_constraints(ordered_constraints)
@@ -252,10 +252,9 @@ namespace {
         Utils::Constraint c(s, val);
 
         // Insert the constraint in the global structures that will allow us building the Constraint Graph
-        Nodecl::Symbol s_n = s.make_nodecl(/*set_ref_type*/false);
-        if (_constraints->find(s_n) == _constraints->end())
-            _ordered_constraints->push_back(s_n);
-        (*_constraints)[s_n] = val;
+        if (_constraints->find(s) == _constraints->end())
+            _ordered_constraints->push_back(s);
+        (*_constraints)[s] = val;
 
         // Print the constraint in the standard error
         print_constraint(c_kind, s, val, t);
@@ -1247,23 +1246,25 @@ namespace {
      */
     void ConstraintGraph::fill_constraint_graph(
         const Constraints& constraints,
-        const NodeclList& ordered_constraints)
+        const std::vector<Symbol>& ordered_constraints)
     {
         std::map<NBase, CGNode*> back_edges;
-        for (NodeclList::const_iterator oit = ordered_constraints.begin(); oit != ordered_constraints.end(); ++oit)
+        for (std::vector<Symbol>::const_iterator ito = ordered_constraints.begin();
+             ito != ordered_constraints.end(); ++ito)
         {
-            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::const_iterator it = constraints.find(*oit);
+            Symbol ssa_sym = *ito;
+            Constraints::const_iterator it = constraints.find(ssa_sym);
             ERROR_CONDITION(it == constraints.end(), 
-                            "Constraint %s not found in the constraints map.\n", 
-                            oit->prettyprint().c_str());
-            const NBase& s = it->first;
-            NBase val = it->second;
+                            "SSA constraint symbol %s not found in the constraints' container.\n",
+                            ssa_sym.get_name().c_str());
+            const NBase& val = it->second;
 
             // Insert in the CG the edges corresponding to the current Constraint
+            const NBase& ssa_var = ssa_sym.make_nodecl(/*set_ref_type*/false);
             if (val.is<Nodecl::Symbol>())
             {   // H. 
                 CGNode* source = insert_node(val);
-                CGNode* target = insert_node(s);  // A.
+                CGNode* target = insert_node(ssa_var);  // A.
                 connect_nodes(source, target);
             }
             else if (val.is<Nodecl::Analysis::Phi>())
@@ -1287,7 +1288,7 @@ namespace {
                         sources.push(source);
                     }
                 }
-                CGNode* target = insert_node(s);  // A.
+                CGNode* target = insert_node(ssa_var);  // A.
                 // Connect them
                 while (!sources.empty())
                 {
@@ -1303,7 +1304,7 @@ namespace {
                 const NBase& rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs().no_conv();
                 
                 CGNode* source = insert_node(lhs);
-                CGNode* target = insert_node(s);  // A.
+                CGNode* target = insert_node(ssa_var);  // A.
                 NBase range = rhs.shallow_copy();
                 Optimizations::ReduceExpressionVisitor rev;
                 rev.walk(range);
@@ -1315,14 +1316,14 @@ namespace {
             {
                 // B. Create a new node if the Constraint Value is a Range
                 CGNode* source = insert_node(val, __Const);
-                CGNode* target = insert_node(s);  // A.
+                CGNode* target = insert_node(ssa_var);  // A.
                 // F. Create edge between the Range node and the Constraint node
                 connect_nodes(source, target);
             }
             else if (Nodecl::Utils::nodecl_is_arithmetic_op(val))
             {
                 CGNodeType type = get_op_type_from_value(val);
-                fill_cg_with_binary_op(s, val, type);
+                fill_cg_with_binary_op(ssa_var, val, type);
             }
             else
             {
@@ -1367,13 +1368,18 @@ namespace {
         if (VERBOSE)
             std::cerr << "- CG DOT file '" << dot_file_name << "'" << std::endl;
         dot_cg << "digraph CG {\n";
+
+        // 1.- Print the general information of the graph
         dot_cg << "\tcompound=true;\n";
+        dot_cg << "\tlabel=\"Constraint Graph of function '" << _name << "'\"";
+        dot_cg << "\tnode [shape=record, fontname=\"Times-Roman\", fontsize=14];\n";
+
         for (CGValueToCGNode_map::const_iterator it = _nodes.begin(); it != _nodes.end(); ++it)
         {
             CGNode* n = it->second;
             unsigned int source = n->get_id();
 
-            // 1.- Print the Constraint Node
+            // 2.- Print the Node
             CGNodeType t = n->get_type();
             if (t == __Sym || t == __Const || t == __Intersection)
             {   // Print nodes with a valuation associated
@@ -1411,7 +1417,7 @@ namespace {
         if (!dot_cg.good())
             internal_error ("Unable to close the file '%s' where CG has been stored.", dot_file_name.c_str());
     }
-    
+
 namespace {
     bool stack_contains_cgnode(const std::stack<CGNode*>& s, CGNode* n)
     {
@@ -2181,7 +2187,7 @@ namespace {
         std::set<Node*> treated;
         compute_constraints_rec(worklist, treated, pcfg_constraints);
 
-        // 3.- Print in std out the constraints, if requested
+        //3.- Print in std out the constraints, if requested
         if (RANGES_DEBUG)
             print_constraints();
     }
@@ -2214,7 +2220,7 @@ namespace {
             const VarToConstraintMap& new_constrs,
             VarToConstraintMap& constrs,
             Constraints *constraints,
-            NodeclList *ordered_constraints,
+            std::vector<Symbol> *ordered_constraints,
             ConstraintBuilder& cbv)
     {
         // Example:
@@ -2240,21 +2246,18 @@ namespace {
                 // 2.- Rebuild the old constraint               (i1 = i0   =>   i3 = i0)
                 Utils::Constraint& old_c = constrs[orig_var];
                 Symbol old_ssa_var = old_c.get_symbol();
-                NBase old_ssa_nodecl = old_ssa_var.make_nodecl(/*set_ref_type*/false);
-                NBase new_ssa_nodecl = ssa_var.make_nodecl(/*set_ref_type*/false);
                 NBase old_val = old_c.get_value();
-                (*constraints)[new_ssa_nodecl] = old_val;
+                (*constraints)[ssa_var] = old_val;
                 // Look for the position to insert the new constraint
-                NodeclList::iterator ito = ordered_constraints->begin();
-                while (!Nodecl::Utils::structurally_equal_nodecls(*ito, old_ssa_nodecl)
-                        && ito != ordered_constraints->end())
+                std::vector<Symbol>::iterator ito = ordered_constraints->begin();
+                while (*ito != old_ssa_var && ito != ordered_constraints->end())
                     ++ito;
                 ERROR_CONDITION(ito == ordered_constraints->end(),
                                 "SSA variable %s not found in the list of ordered constraints\n",
-                                new_ssa_nodecl.prettyprint().c_str());
-                ordered_constraints->std::vector<NBase>::insert(ito, new_ssa_nodecl);
+                                ssa_var.get_name().c_str());
+                ordered_constraints->insert(ito, ssa_var);
                 // 3.- Build the value of the new constraint    (i1 = phi(i3,i2))
-                NBase e1 = new_ssa_nodecl;
+                NBase e1 = ssa_var.make_nodecl(/*set_ref_type*/false);
                 NBase e2 = it->second.get_symbol().make_nodecl(/*set_ref_type*/false);
                 Nodecl::List exprs = Nodecl::List::make(e1, e2);
                 NBase val = Nodecl::Analysis::Phi::make(exprs, t);
@@ -2269,7 +2272,7 @@ namespace {
             Node* n,
             const VarToConstraintMap& new_constraint_map,
             Constraints *constraints,
-            NodeclList *ordered_constraints,
+            std::vector<Symbol> *ordered_constraints,
             std::map<Node*, VarToConstraintMap>& pcfg_constraints)
     {
         VarToConstraintMap& constrs = pcfg_constraints[n];
@@ -2643,10 +2646,11 @@ namespace {
         std::cerr << "________________________________________________" << std::endl;
         std::cerr << "CONSTRAINT MAP:" << std::endl;
         std::cerr << "---------------" << std::endl;
-        for(NodeclList::iterator it = _ordered_constraints.begin(); it != _ordered_constraints.end(); ++it)
+        for (std::vector<Symbol>::iterator it = _ordered_constraints.begin();
+             it != _ordered_constraints.end(); ++it)
         {
-            std::pair<NBase, NBase> c = *_constraints.find(*it);
-            std::cerr << "    " << c.first.prettyprint() << "  ->  " << c.second.prettyprint() << std::endl;
+            std::pair<Symbol, NBase> c = *_constraints.find(*it);
+            std::cerr << "    " << c.first.get_name() << "  ->  " << c.second.prettyprint() << std::endl;
         }
     }
 

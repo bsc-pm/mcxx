@@ -35,7 +35,7 @@
 namespace TL {
 namespace Analysis {
 
-    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> Constraints;
+    typedef std::map<Symbol, NBase> Constraints;
     typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
     typedef std::map<NBase, Utils::Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
 
@@ -55,14 +55,14 @@ namespace Analysis {
 
         // Necessary members for storing those constraints built in place
         Constraints *_constraints;
-        NodeclList *_ordered_constraints;
+        std::vector<Symbol> *_ordered_constraints;
 
     public:
         // *** Constructor *** //
         ConstraintReplacement(
                 VarToConstraintMap* constraints_map,
                 Constraints *constraints,
-                NodeclList *ordered_constraints);
+                std::vector<Symbol> *ordered_constraints);
 
         // *** Visiting methods *** //
         Ret visit(const Nodecl::ArraySubscript& n);
@@ -82,7 +82,7 @@ namespace Analysis {
         VarToConstraintMap _output_false_constraints; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
 
         Constraints *_constraints;
-        NodeclList *_ordered_constraints;
+        std::vector<Symbol> *_ordered_constraints;
 
         // ************ Private visiting methods ************ //
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
@@ -99,13 +99,13 @@ namespace Analysis {
         ConstraintBuilder(
                 const VarToConstraintMap& input_constraints,
                 Constraints *constraints,
-                NodeclList *ordered_constraints);
+                std::vector<Symbol> *ordered_constraints);
 
         ConstraintBuilder(
                 const VarToConstraintMap& input_constraints,
                 const VarToConstraintMap& current_constraints,
                 Constraints *constraints,
-                NodeclList *ordered_constraints);
+                std::vector<Symbol> *ordered_constraints);
 
         // *** Modifiers *** //
         Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, ConstraintKind c_kind);
@@ -196,9 +196,13 @@ namespace Analysis {
                 const NBase& val,
                 CGNodeType op_type);
 
+        /*!Create a Constraint Graph from a list of constraints
+         * \param[in] constraints map relating the SSA symbols and their value
+         * \param[in] ordered_constraints vector with the SSA symbols created during constraints generation
+         */
         void fill_constraint_graph(
                 const Constraints& constraints,
-                const NodeclList& ordered_constraints);
+                const std::vector<Symbol>& ordered_constraints);
 
         //! Decompose the Constraint Graph in a set of Strongly Connected Components
         std::vector<SCC*> topologically_compose_strongly_connected_components();
@@ -226,7 +230,7 @@ namespace Analysis {
         ConstraintGraph* _cg;
 
         Constraints _constraints;
-        NodeclList _ordered_constraints;
+        std::vector<Symbol> _ordered_constraints;
 
         //! Method computing constraints for the parameters of a function
         //! \param[out] constr_map Map where constraints are stored for each PCFG node
