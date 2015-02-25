@@ -179,7 +179,8 @@ typedef struct statements_information_tag statements_information_t;
     STATEMENT_INFO(ST_CASE, 0, 1, "case") \
     STATEMENT_INFO(ST_END, 0, 1, "end") \
     STATEMENT_INFO(ST_IF_STMT, 0, 1, "if") \
-    STATEMENT_INFO(DC_INCLUDE, 0, 1, "include")
+    STATEMENT_INFO(ST_BIND, 1, 0, "bind") \
+    STATEMENT_INFO(DC_INCLUDE, 0, 1, "include") \
 
 statements_information_t statements_info[] =
 {
