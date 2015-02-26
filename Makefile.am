@@ -396,6 +396,7 @@ AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-opencl.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-xl.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-ms.def
+AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-intel.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-fortran.def
 # Generated
 AST_NODE_TYPE_FILES_GEN =
