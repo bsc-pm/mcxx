@@ -49,6 +49,7 @@
 #include "cxx-diagnostic.h"
 #include "cxx-codegen.h"
 #include "cxx-instantiation.h"
+#include "cxx-intelsupport.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -1228,6 +1229,17 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_MCC_ARRAY_SUBSCRIPT_CHECK:
             {
                 check_mcc_debug_array_subscript(expression, decl_context, nodecl_output);
+                break;
+            }
+            // Intel support
+        case AST_INTEL_ASSUME:
+            {
+                intel_check_assume(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_INTEL_ASSUME_ALIGNED:
+            {
+                intel_check_assume_aligned(expression, decl_context, nodecl_output);
                 break;
             }
         default :

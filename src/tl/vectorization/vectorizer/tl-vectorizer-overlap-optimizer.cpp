@@ -961,7 +961,7 @@ namespace Vectorization
 
                 if(is_simd_loop)
                 {
-                    _prependix_stmts.prepend_ordered(init_stmts);
+                    _prependix_stmts.prepend(init_stmts);
                 }
                 else
                 {

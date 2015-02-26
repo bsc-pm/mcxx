@@ -116,6 +116,7 @@ enum statement_type_t {
     ST_SELECTCASE,
     ST_CASE,
     ST_END,
+    ST_BIND,
     DC_INCLUDE
 };
 

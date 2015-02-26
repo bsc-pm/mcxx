@@ -4869,6 +4869,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PreprocessorLine& node)
     *(file) << node.get_text() << "\n";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::IntelAssume& node)
+{
+    *(file) << "__assume(";
+    walk(node.get_assumed());
+    *(file) << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::IntelAssumeAligned& node)
+{
+    *(file) << "__assume_aligned(";
+    walk(node.get_pointer());
+    *(file) << ", ";
+    walk(node.get_alignment());
+    *(file) << ")";
+}
+
+
 bool CxxBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
 {
     if (symbol == class_sym)
@@ -9945,6 +9962,7 @@ std::string CxxBase::end_inline_comment()
         return "";
     ERROR_CONDITION(state._inline_comment_nest < 0, "Wrong nesting of comments", 0);
 }
+
 
 } // Codegen
 

@@ -1109,7 +1109,7 @@ task_synchronized:      break;
     }
     
     //! Returns the most outer parallel node of a given \p task, or NULL, if no parallel exists
-    Node* get_most_outer_parallel(Node* task)
+    UNUSED_FUNCTION Node* get_most_outer_parallel(Node* task)
     {
         Node* parallel = NULL;
         Node* outer = task->get_outer_node();
@@ -1124,7 +1124,7 @@ task_synchronized:      break;
     
     //! Returns the immediately inner parallel node of a given node \p n, 
     //! before reaching an inner \p task node
-    Node* get_inner_parallel(Node* parallel, Node* task)
+    UNUSED_FUNCTION Node* get_inner_parallel(Node* parallel, Node* task)
     {
         Node* inner_parallel = NULL;
         Node* outer = task->get_outer_node();
