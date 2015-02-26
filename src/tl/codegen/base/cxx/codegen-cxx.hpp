@@ -254,6 +254,9 @@ namespace Codegen
             Ret visit(const Nodecl::SourceComment& node);
             Ret visit(const Nodecl::PreprocessorLine& node);
 
+            Ret visit(const Nodecl::IntelAssume& node);
+            Ret visit(const Nodecl::IntelAssumeAligned& node);
+
             template <typename Node>
                 CxxBase::Ret visit_function_call(const Node&, bool is_virtual_call);
 

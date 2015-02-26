@@ -463,6 +463,7 @@ compatibility: unknown-pragma
           | gcc-builtin-va-arg
           | gxx-traits
           | text
+          | intel-expressions
 
 gcc-builtin-va-arg: NODECL_GCC_BUILTIN_VA_ARG([expr] expression, [va_type]type) type
 
@@ -483,6 +484,9 @@ upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
 gxx-traits: NODECL_GXX_TRAIT([lhs]type, [rhs]type-opt) text type const-value-opt
 
 text : NODECL_TEXT() text
+
+intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment] expression) type const-value-opt
+                  | NODECL_INTEL_ASSUME([assumed] expression) type const-value-opt
 
 ##############################
 # OpenMP                     #

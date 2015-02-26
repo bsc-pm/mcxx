@@ -314,6 +314,8 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-mssupport.h \
   src/frontend/cxx-mssupport.c \
+  src/frontend/cxx-intelsupport.h \
+  src/frontend/cxx-intelsupport.c \
   src/frontend/cxx-pragma.h \
   src/frontend/cxx-pragma.c \
   src/frontend/cxx-upc.c \
@@ -427,6 +429,7 @@ ADDITIONAL_GRAMMARS += src/frontend/cxx-cuda.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-opencl.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-xl.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-ms.y
+ADDITIONAL_GRAMMARS += src/frontend/cxx-intel.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-extensions.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-fortran-compat.y
 
