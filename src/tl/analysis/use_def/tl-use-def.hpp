@@ -253,6 +253,8 @@ namespace Analysis {
         Ret visit(const Nodecl::Dereference& n);
         Ret visit(const Nodecl::DivAssignment& n);
         Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::IntelAssume& n);
+        Ret visit(const Nodecl::IntelAssumeAligned& n);
         Ret visit(const Nodecl::MinusAssignment& n);
         Ret visit(const Nodecl::ModAssignment& n);
         Ret visit(const Nodecl::MulAssignment& n);

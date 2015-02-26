@@ -1586,6 +1586,18 @@ next_it:    ;
         return visit_literal_node( n );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntelAssume& n )
+    {
+        Node* basic_node = new Node(_utils->_nid, __Builtin, _utils->_outer_nodes.top(), n);
+        return ObjectList<Node*>(1, basic_node);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntelAssumeAligned& n )
+    {
+        Node* basic_node = new Node(_utils->_nid, __Builtin, _utils->_outer_nodes.top(), n);
+        return ObjectList<Node*>(1, basic_node);
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
     {
         bool is_vector = _utils->_is_vector;

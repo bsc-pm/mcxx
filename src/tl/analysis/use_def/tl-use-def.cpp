@@ -1003,6 +1003,12 @@ namespace {
         visit_function(n.get_called(), n.get_arguments().as<Nodecl::List>());
     }
 
+    void UsageVisitor::visit(const Nodecl::IntelAssume& n)
+    {}  // Do nothing
+
+    void UsageVisitor::visit(const Nodecl::IntelAssumeAligned& n)
+    {}  // Do nothing
+
     void UsageVisitor::visit(const Nodecl::MinusAssignment& n)
     {
         visit_binary_assignment(n.get_lhs(), n.get_rhs());

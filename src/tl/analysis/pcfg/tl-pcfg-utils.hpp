@@ -49,6 +49,7 @@ namespace Analysis {
     NODE_TYPE(UnclassifiedNode) \
     NODE_TYPE(AsmOp) \
     NODE_TYPE(Break) \
+    NODE_TYPE(Builtin) \
     NODE_TYPE(Continue) \
     NODE_TYPE(Entry) \
     NODE_TYPE(Exit) \
