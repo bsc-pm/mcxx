@@ -402,6 +402,7 @@ typedef enum
     OPTION_DISABLE_FILE_LOCKING,
     OPTION_XL_COMPATIBILITY,
     OPTION_LINE_MARKERS,
+    OPTION_PARALLEL,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -485,6 +486,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
+    {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1573,6 +1575,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_LINE_MARKERS:
                     {
                         CURRENT_CONFIGURATION->line_markers = 1;
+                        break;
+                    }
+                case OPTION_PARALLEL:
+                    {
+                        compilation_process.parallel_process = 1;
                         break;
                     }
                 default:
@@ -3474,6 +3481,31 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
+
+        if (compilation_process.parallel_process)
+        {
+            const char * ext = strrchr(output_filename_basename, '.');
+            ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
+
+            char c[strlen(output_filename_basename) + 1];
+            memset(c, 0, sizeof(c));
+
+            strncpy(c, output_filename_basename, (size_t)(ext - output_filename_basename));
+            c[ext - output_filename_basename + 1] = '\0';
+
+            const char* pid_str = 0;
+            // We assume that pid_t can be represented by signed int
+            uniquestr_sprintf(&pid_str, "_%d", (int)getpid());
+            // append _pid
+            output_filename_basename = strappend(c, pid_str);
+            // append original extension
+            output_filename_basename = strappend(output_filename_basename, ext);
+
+            if (CURRENT_CONFIGURATION->keep_files)
+            {
+                fprintf(stderr, "Generated file will be left in '%s'\n", output_filename_basename);
+            }
+        }
 
         if (CURRENT_CONFIGURATION->output_directory != NULL)
         {

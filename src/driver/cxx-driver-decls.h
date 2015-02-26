@@ -258,6 +258,9 @@ typedef struct compilation_process_tag
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_file_process_tag* current_file_process;
     struct compilation_configuration_tag *current_compilation_configuration;
+
+    // Flags
+    char parallel_process; // enables features allowing parallel compilation
 } compilation_process_t;
 
 typedef struct compilation_configuration_conditional_flags
