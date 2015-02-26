@@ -93,6 +93,47 @@ namespace TL
         }
     }
 
+    std::string Symbol::get_qualified_name_for_expression(bool in_dependent_context) const
+    {
+        return get_qualified_name_for_expression(this->get_scope(), in_dependent_context);
+    }
+
+    std::string Symbol::get_qualified_name_for_expression(TL::Scope sc, bool in_dependent_context) const
+    {
+        std::stringstream ss;
+
+        if (this->is_member())
+        {
+            ss << this->get_class_type().get_symbol().get_qualified_name(sc);
+
+            if (this->get_type().is_template_specialized_type()
+                    && !this->is_conversion_function()
+                    && in_dependent_context)
+            {
+                ss << "::template ";
+            }
+            else
+            {
+                ss << "::";
+            }
+
+            ss << this->get_name();
+
+            if (this->get_type().is_template_specialized_type()
+                    && !this->is_conversion_function())
+            {
+                ss << get_template_arguments_str(this->get_internal_symbol(),
+                            this->get_scope().get_decl_context());
+            }
+        }
+        else
+        {
+            ss << this->get_qualified_name(sc);
+        }
+
+        return ss.str();
+    }
+
     std::string Symbol::get_class_qualification(bool without_template_id) const
     {
         return this->get_class_qualification(_symbol->decl_context, without_template_id);

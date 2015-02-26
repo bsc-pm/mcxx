@@ -24,8 +24,10 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
+#include <queue>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -36,16 +38,33 @@
 namespace TL { 
 namespace Analysis {
     
-    typedef ObjectList<TDG_Node*> TDG_Node_list;
+    typedef std::map<unsigned int, TDG_Node*> TDG_Node_map;
     typedef ObjectList<TDG_Edge*> TDG_Edge_list;
     typedef ObjectList<Node*> Node_list;
     typedef ObjectList<Edge*> Edge_list;
+    typedef std::multimap<Node*, NBase> Node_to_NBase_map;
+
+    static int node_id = 0;
+    static int control_id = 0;
     
-    static int id = 0;
-    std::map<Node*, int> control_struct_node_to_id;
-    
-namespace{
-    
+namespace {
+
+    Node_to_NBase_map _reported_offset_vars;
+
+    std::string get_list_as_string(const ObjectList<std::string>& list)
+    {
+        std::stringstream ids;
+        for(ObjectList<std::string>::const_iterator it = list.begin(); it != list.end(); )
+        {
+            ids << *it;
+            ++it;
+            if(it != list.end())
+                ids << ", ";
+        }
+        return ids.str();
+    }
+
+    // FIXME We should get this information from the PCFGPragmaInfo instead of getting it from the related AST
     //! TDG_Edge :: This method returns the clauses associated to a Nodecl::OpenMP::Task node
     NodeclList get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
     {
@@ -91,8 +110,14 @@ namespace{
             return false;
         
         // Return true only when we find the task traversing the current path
-        if(current == task)
-            return true;
+        if(current->is_omp_task_node())
+        {
+            if(current == task)
+                return true;
+            else
+                return false;   // Return false because we do not want to traverse tasks depending on other tasks
+                                // but only reach a tasks when traversing its corresponding task creation node
+        }
         
         bool result = false;
         
@@ -127,38 +152,37 @@ namespace{
     
     //! TaskDependencyGraph :: Returns a nodecl containing the condition that must fulfill 
     //! to follow the branch of an ifelse that takes to 'task'
-    NBase get_ifelse_condition_from_path(Node* control_structure, Node* task)
+    NBase get_ifelse_condition_and_path(Node* control_structure, Node* task, ObjectList<std::string>& taken_branches)
     {
         NBase condition;
         
         // Get the statements that form the condition
-        NBase cond_stmt = get_condition_stmts(control_structure->get_condition_node());
+        Node* cond_node = control_structure->get_condition_node();
+        NBase cond_stmt = get_condition_stmts(cond_node);
         
         // Find which path (TRUE|FALSE) takes to the task and compute the condition accordingly
-        ObjectList<Edge*> exit_edges = control_structure->get_condition_node()->get_exit_edges();
+        ObjectList<Edge*> exit_edges = cond_node->get_exit_edges();
         for(ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
         {
             if(task_is_in_path(control_structure, (*it)->get_target(), task))
             {
-                // Compute the condition depending on the branch taken in the IfElseStatement
-                if((*it)->is_true_edge())
-                    condition = cond_stmt;
-                else
-                    condition = Nodecl::LogicalNot::make(cond_stmt.shallow_copy(), cond_stmt.get_type());
+                condition = cond_stmt;
+                taken_branches.append((*it)->is_true_edge() ? "1" : "2");
                 
-                // Stop iterating, for we already found the task
-                break;
+                break;  // Stop iterating, for we already found the task
             }
         }
+        
+        // Clean up the graph from the visits
+        ObjectList<Node*> children = cond_node->get_children();
+        for(ObjectList<Node*>::iterator itt = children.begin(); itt != children.end(); ++itt)
+            ExtensibleGraph::clear_visits_in_level(*itt, control_structure);
         
         return condition;
     }
     
-    void get_cases_leading_to_task(Node* control_structure, Node* current, NodeclList& cases)
+    void get_cases_leading_to_task(Node* switch_node, Node* control_structure, Node* current, NodeclList& cases)
     {
-        if(current->is_visited())
-            return;
-        
         if(current->is_switch_case_node())
         {
             ObjectList<Edge*> entry_edges = current->get_entry_edges();
@@ -170,75 +194,580 @@ namespace{
             if(entry_edges.size()==1)
                 return;
         }
+        else if(current == switch_node)
+        {
+            return;
+        }
         
         ObjectList<Node*> parents = (current->is_entry_node() ? ObjectList<Node*>(1, current->get_outer_node())
                                                               : current->get_parents());
         for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-            get_cases_leading_to_task(control_structure, *it, cases);
+            get_cases_leading_to_task(switch_node, control_structure, *it, cases);
     }
     
-    NBase get_switch_condition_from_path(Node* control_structure, Node* task)
+    NBase get_switch_condition_from_path(Node* switch_node, Node* control_structure, Node* task, ObjectList<std::string>& taken_branches)
     {
-        NBase condition;
-        
         // Get the statements that form the condition
         Node* cond = NULL;
         ObjectList<Node*> control_parents = control_structure->get_parents();
         for(ObjectList<Node*>::iterator it = control_parents.begin(); it != control_parents.end(); ++it)
             if((*it)->is_entry_node())
             {
-                Node* switch_node = (*it);
-                while(!switch_node->is_switch_statement() && switch_node != NULL)
-                    switch_node = switch_node->get_outer_node();
-                ERROR_CONDITION(switch_node==NULL, "No switch node found for case node %d.", control_structure->get_id());
+                Node* p = (*it);
+                while(!p->is_switch_statement() && (p != NULL))
+                    p = p->get_outer_node();
+                ERROR_CONDITION(p==NULL, "No switch node found for case node %d.", control_structure->get_id());
                 
-                cond = switch_node->get_condition_node();
+                cond = p->get_condition_node();
                 break;
             }
-        NBase cond_stmt = get_condition_stmts(cond);
+        NBase condition = get_condition_stmts(cond);
         
         NodeclList cases;
-        get_cases_leading_to_task(control_structure, task->get_parents()[0], cases);
+        get_cases_leading_to_task(switch_node, control_structure, task->get_parents()[0], cases);
         ERROR_CONDITION(cases.empty(), "No case leading to task %d has been found in control structure %d.\n", 
                         task->get_id(), control_structure->get_id());
         
-        // Create the nodecl for the first case
-        TL::Type cond_type = cond_stmt.get_type();
-        NodeclList::iterator it = cases.begin();
-        condition = Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type);
-        // Build the others, if there is some
-        ++it;
-        for(; it != cases.end(); ++it)
-            condition = Nodecl::LogicalOr::make(condition.shallow_copy(), 
-                                                Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type), 
-                                                cond_type);
+        // Create the condition for each case leading to the task
+        for(NodeclList::iterator it = cases.begin(); it != cases.end(); ++it)
+            taken_branches.append("\"" + it->prettyprint() + "\"");
         
         return condition;
     }
-}
- 
-     
+
+    void report_default_offset(Node* n, Node* loop, const NBase& var)
+    {
+        // Check whether the variable has already been reported
+        if (_reported_offset_vars.find(n) != _reported_offset_vars.end())
+        {
+            std::pair<Node_to_NBase_map::iterator, Node_to_NBase_map::iterator> n_reported_vars = _reported_offset_vars.equal_range(n);
+            for (Node_to_NBase_map::iterator it = n_reported_vars.first; it != n_reported_vars.second; ++it)
+            {
+                if (Nodecl::Utils::structurally_equal_nodecls(it->second, var, /*skip_conversion_nodes*/true))
+                    return;
+            }
+        }
+
+        // Report the variable and store to avoid reporting it again
+        WARNING_MESSAGE("Retrieving values for variable %s in node %d which is the IV of loop %d."
+                        "This is not yet implemented. We set the offset '0' by default.\n",
+                        var.prettyprint().c_str(), n->get_id(), loop->get_id());
+        _reported_offset_vars.insert(std::pair<Node*, NBase>(n, var));
+    }
+
+    struct StructuralCompareBind1
+    {
+        NBase n1;
+
+        StructuralCompareBind1(const NBase n1_) : n1(n1_) { }
+
+        virtual bool operator()(const NBase& n2) const
+        {
+            return Nodecl::Utils::structurally_equal_nodecls(n1, n2);
+        }
+    };
+
+    std::string transform_expression_to_json_expression(
+            ControlStructure* cs_node,
+            const NBase& expression,
+            VarToValueMap& var_to_value_map,
+            VarToIdMap& var_to_id_map,
+            ObjectList<NBase>& ordered_vars,
+            unsigned int& last_var_id);
+
+    void get_variable_values(
+            ControlStructure* cs_node,
+            const NBase& var,
+            VarToValueMap& var_to_value_map,
+            VarToIdMap& var_to_id_map,
+            ObjectList<NBase>& ordered_vars,
+            unsigned int& last_var_id)
+    {
+        std::string range_str = "";
+        ControlStructure* current_cs_node = cs_node;
+check_ivs:
+        // 1.- Check whether the variable is an Induction Variable
+        if(current_cs_node->get_type() == Loop)
+        {
+            bool is_loop_iv = false;
+            Utils::InductionVarList ivs = current_cs_node->get_pcfg_node()->get_induction_variables();
+            for (Utils::InductionVarList::iterator it = ivs.begin(); it != ivs.end(); ++it)
+            {
+                if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/true))
+                {
+                    is_loop_iv = true;
+                    break;
+                }
+            }
+
+            if(is_loop_iv)
+            {   // The variable is an IV: 
+                // If we are parsing the original Control Structure, get the values of the Induction Variable
+                if(cs_node == current_cs_node)
+                {
+                    Utils::InductionVar* iv = get_induction_variable_from_list(ivs, var);
+                    //             range_str = iv->print_iv_as_range();
+                    std::string lb_str;
+                    const NodeclSet& lb = iv->get_lb();
+                    for (NodeclSet::const_iterator it = lb.begin(); it != lb.end(); )
+                    {
+                        lb_str += transform_expression_to_json_expression(
+                                        current_cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+                        ++it;
+                        if (it != lb.end())
+                            lb_str += ",";
+                    }
+                    std::string ub_str;
+                    const NodeclSet& ub = iv->get_ub();
+                    for (NodeclSet::const_iterator it = ub.begin(); it != ub.end(); )
+                    {
+                        ub_str += transform_expression_to_json_expression(
+                                        current_cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+                        ++it;
+                        if (it != ub.end())
+                            ub_str += ",";
+                    }
+                    range_str = "[" + lb_str
+                              + ":" + ub_str
+                              + ":" + transform_expression_to_json_expression(
+                                            current_cs_node, iv->get_increment(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
+                              + "]";
+                }
+                else
+                {   // TODO We should compute the offset here
+                    report_default_offset(cs_node->get_pcfg_node(), current_cs_node->get_pcfg_node(), var);
+                    range_str = "0";
+                }
+                goto end_get_vars;
+            }
+        }
+
+        // 2.- The variable is not an IV: 
+        // 2.1.- it may be an IV from an outer loop => get the proper offset
+        current_cs_node = current_cs_node->get_enclosing_cs();
+        while(current_cs_node!=NULL && current_cs_node->get_type()!=Loop)
+            current_cs_node = current_cs_node->get_enclosing_cs();
+        if(current_cs_node != NULL)
+        {
+            goto check_ivs;
+        }
+        // 2.2.- it is not an IV from an outer loop => get its values from Range Analysis
+        {
+            NBase range = cs_node->get_pcfg_node()->get_range(var);
+            ERROR_CONDITION(range.is_null(), 
+                            "No range found for non-induction_variable %s involved in loop condition.\n", 
+                            var.prettyprint().c_str());
+            range_str = transform_expression_to_json_expression(
+                                cs_node, range, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+        }
+
+end_get_vars:
+        ;
+
+        var_to_value_map[var] = range_str;
+    }
     
+    std::string transform_expression_to_json_expression(
+            ControlStructure* cs_node,
+            const NBase& expression,
+            VarToValueMap& var_to_value_map,
+            VarToIdMap& var_to_id_map,
+            ObjectList<NBase>& ordered_vars,
+            unsigned int& last_var_id)
+    {
+        // This may happen when calling recursively (i.e. boundaries of an IV)
+        if(expression.is_null())
+            return "";
+
+        std::string json_expr = expression.prettyprint();
+
+        NodeclList new_vars;
+        NodeclList vars_accesses = Nodecl::Utils::get_all_memory_accesses(expression);
+        for (NodeclList::iterator it = vars_accesses.begin(); it != vars_accesses.end(); ++it)
+        {
+            // Check whether the variable has not been replaced yet
+            unsigned int current_var_id;
+            if(ordered_vars.filter(StructuralCompareBind1(*it)).empty())
+            {
+                new_vars.append(*it);
+                
+                // Get the identifier corresponding to this variable
+                current_var_id = ++last_var_id;
+                ordered_vars.append(*it);
+                var_to_id_map[*it] = current_var_id;
+            }
+            else
+            {
+                current_var_id = var_to_id_map[*it];
+            }
+
+            std::stringstream id_ss; id_ss << "$" << current_var_id;
+
+            // Replace all occurrences of that variable with the corresponding identifier
+            size_t pos = 0;
+            std::string var_name = it->prettyprint();   // We don't access the symbol here 
+            // because we may have accesses to arrays or structs
+            while((pos=json_expr.find(var_name, pos)) != std::string::npos)
+            {
+                std::string id_str = id_ss.str();
+                json_expr.replace(pos, var_name.length(), id_str);
+                pos += id_str.length();
+            }
+        }
+
+        // Get the values of the involved variables
+        for (NodeclList::iterator it = new_vars.begin(); it != new_vars.end(); ++it)
+        {
+            get_variable_values(cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+        }
+
+        return json_expr;
+    }
+
+    // FIXME This replacement does not take into account that input values of the variables
+    // may be different on the left and right hand of the condition (for example, variables within a loop)
+    std::string transform_node_condition_into_json_expr(
+            ControlStructure* cs_node, 
+            const NBase& condition, 
+            VarToValueMap& var_to_value_map,
+            ObjectList<NBase>& ordered_vars)
+    {
+        unsigned int last_var_id = 0;
+        VarToIdMap var_to_id_map;
+        return transform_expression_to_json_expression(
+                    cs_node, condition, 
+                    var_to_value_map, var_to_id_map, 
+                    ordered_vars, last_var_id);
+    }
+
+    /*! This class gathers information of the variables in a dependency condition
+     * in order to translate it into its JSON form */
+    struct ConditionVisitor : public Nodecl::NodeclVisitor<std::string> 
+    {
+        // *** Class members *** //
+        TDG_Edge* _edge;
+        int _id;
+        VarToValueMap _source_var_to_value_map;
+        VarToValueMap _target_var_to_value_map;
+        NBase _dependecy_size;
+        
+        // *** Constructor *** //
+        ConditionVisitor(TDG_Edge* edge)
+            : _edge(edge), _id(0),
+              _source_var_to_value_map(), _target_var_to_value_map(),
+              _dependecy_size(NBase::null())
+        {}
+        
+        VarToValueMap get_source_var_to_value_map() const
+        {
+            return _source_var_to_value_map;
+        }
+
+        VarToValueMap get_target_var_to_value_map() const
+        {
+            return _target_var_to_value_map;
+        }
+
+        NBase get_dependency_size() const
+        {
+            return _dependecy_size;
+        }
+
+        void collect_condition_info(TDG_Node* n, const NBase& cond_expr, bool is_source)
+        {
+            // 1.- Get all the variables involved in cond_expr
+            NodeclList tmp = Nodecl::Utils::get_all_memory_accesses(cond_expr);
+            std::queue<NBase, std::deque<NBase> > vars(std::deque<NBase>(tmp.begin(), tmp.end()));
+
+            // 2.- For each variable involved in the condition, gather its values
+            Node* pcfg_n = n->get_pcfg_node();
+            NodeclSet already_treated;
+            while (!vars.empty())
+            {
+                // 2.1.- Get the current variable
+                NBase v = vars.front();
+                vars.pop();
+
+                // 2.2.- Compute the value(s) of the variable
+                NBase values;
+
+                // 2.2.1.- First check whether this is an induction variable of any loop enclosing the task
+                const ControlStList& cs_list = n->get_control_structures();
+                for (ControlStList::const_iterator it = cs_list.begin(); it != cs_list.end(); ++it)
+                {
+                    ControlStructure* cs = it->first;
+                    if(cs->get_type() == Loop)
+                    {
+                        bool is_loop_iv = false;
+                        Utils::InductionVarList ivs = cs->get_pcfg_node()->get_induction_variables();
+                        for (Utils::InductionVarList::iterator itt = ivs.begin(); itt != ivs.end(); ++itt)
+                        {
+                            if (Nodecl::Utils::structurally_equal_nodecls((*itt)->get_variable(), v, /*skip_conversions*/true))
+                            {
+                                is_loop_iv = true;
+                                break;
+                            }
+                        }
+
+                        if (is_loop_iv)
+                        {   // The variable is an IV
+                            report_default_offset(pcfg_n, cs->get_pcfg_node(), v);
+                            values = Nodecl::IntegerLiteral::make(Type::get_int_type(), const_value_get_zero(/* bytes */ 4, /* signed */ 1));
+                            goto insert_values;
+                        }
+                    }
+                }
+
+                // 2.2.2.- The variable is not an induction variable. Retrieve values from range analysis
+                {
+                    // 2.2.2.1.-  Make sure we have some value for the variable
+                    values = pcfg_n->get_range(v);
+                    ERROR_CONDITION(values.is_null(),
+                                    "No range computed in node %d for variable '%s', in condition's %s expression '%s'.\n",
+                                    pcfg_n->get_id(), v.prettyprint().c_str(), (is_source ? "LHS" : "RHS"), cond_expr.prettyprint().c_str());
+
+                    // 2.2.2.2.- Store the variable so we do not treat it again (to avoid recursive definitions)
+                    if (already_treated.find(v) == already_treated.end())
+                        already_treated.insert(v);
+
+                    // 2.2.2.3.- Add to 'vars' all the symbols involved in 'values' that has not yet been treated
+                    NodeclSet to_treat;
+                    tmp = Nodecl::Utils::get_all_memory_accesses(values);
+                    for (NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
+                    {
+                        NBase var = *itt;
+                        if ((already_treated.find(var) == already_treated.end())
+                            && (to_treat.find(var) == to_treat.end()))
+                        {
+                            vars.push(var);
+                            to_treat.insert(var);
+                        }
+                    }
+                }
+
+insert_values:
+                // 2.5.- Store the reaching definition related with the identifier of the variable defined
+                if (is_source)
+                    _source_var_to_value_map[v] = values.prettyprint();
+                else
+                    _target_var_to_value_map[v] = values.prettyprint();
+            }
+        }
+
+        std::string unhandled_node(const NBase& n)
+        {
+            internal_error( "Unhandled node of type '%s' while visiting TDG condition.\n '%s' ",
+            ast_print_node_type( n.get_kind( ) ), n.prettyprint( ).c_str( ) );
+            return "";
+        }
+        
+        std::string join_list( ObjectList<std::string>& list )
+        {
+            WARNING_MESSAGE("Called method join_list in ConditionVisitor. This is not yet implemented", 0);
+            return "";
+        }
+        
+        // The only supported expression is Range1 ∩ Range2 != ∅
+        std::string visit(const Nodecl::Different& n)
+        {
+            NBase lhs = n.get_lhs();
+            NBase rhs = n.get_rhs();
+            ERROR_CONDITION(!lhs.is<Nodecl::Analysis::RangeIntersection>(), 
+                            "RangeIntersection expected but %s '%s' found.\n", 
+                            ast_print_node_type(lhs.get_kind()), lhs.prettyprint().c_str());
+            ERROR_CONDITION(!rhs.is<Nodecl::Analysis::EmptyRange>(), 
+                            "EmptyRange expected but %s '%s' found.\n", 
+                            ast_print_node_type(rhs.get_kind()), rhs.prettyprint().c_str());
+            
+            // Get the size of the data flow
+            Type t = lhs.get_type();
+            Nodecl::Analysis::RangeIntersection intersec = lhs.as<Nodecl::Analysis::RangeIntersection>();
+            Nodecl::Range r1 = intersec.get_lhs().as<Nodecl::Range>();
+            Nodecl::Range r2 = intersec.get_rhs().as<Nodecl::Range>();
+            NBase current_size = 
+                Nodecl::Mul::make(
+                    Nodecl::Minus::make(
+                        Nodecl::Analysis::Maximum::make(Nodecl::List::make(r1.get_lower(), r2.get_lower()), t),
+                        Nodecl::Analysis::Minimum::make(Nodecl::List::make(r1.get_upper(), r2.get_upper()), t),
+                        t
+                    ),
+                    Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type().no_ref()), 
+                                         NBase::null(), t),
+                    t
+                );
+            if(_dependecy_size.is_null())
+                _dependecy_size = current_size;
+            else
+                _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, t);
+            
+            // Transform the variables of the inequality into its corresponding identifiers
+            collect_condition_info(_edge->get_source(), lhs, /*is_source*/true);
+            return (lhs.prettyprint() + " != ∅");
+        }
+        
+        // The variables on the LHS correspond to the source of the 'edge'
+        // and the variables on the RHS correspond to the target of the 'edge'
+        std::string visit(const Nodecl::Equal& n)
+        {
+            NBase lhs = n.get_lhs();
+            NBase rhs = n.get_rhs();
+            
+            // Get the size of the data flow
+            NBase current_size = Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type().no_ref()), 
+                                                      NBase::null(), lhs.get_type());
+            if(_dependecy_size.is_null())
+                _dependecy_size = current_size;
+            else
+                _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, lhs.get_type());
+            
+            // Recursively call with the LHS and RHS of the condition
+            collect_condition_info(_edge->get_source(), lhs, /*is_source*/true);
+            collect_condition_info(_edge->get_target(), rhs, /*is_source*/false);
+            return (lhs.prettyprint() + " == " + rhs.prettyprint());
+        }
+        
+        std::string visit(const Nodecl::LogicalAnd& n)
+        {
+            std::string lhs_result = walk(n.get_lhs());
+            std::string rhs_result = walk(n.get_rhs());
+            return ("(" + lhs_result + ") && (" + rhs_result + ")");
+        }
+
+        std::string visit(const Nodecl::LogicalOr& n)
+        {
+            std::string lhs_result = walk(n.get_lhs());
+            std::string rhs_result = walk(n.get_rhs());
+            return ("(" + lhs_result + ") || (" + rhs_result + ")");
+        }
+
+        std::string visit(const Nodecl::Analysis::RangeIntersection& n)
+        {
+            std::string lhs_result = walk(n.get_lhs());
+            std::string rhs_result = walk(n.get_rhs());
+            return ("[" + lhs_result + "] ∩ [" + rhs_result + "]");
+        }
+    };
+    
+    static void replace_vars_with_ids(
+            const VarToValueMap& var_to_values_map,
+            VarToIdMap& var_to_id_map,
+            std::string& cond,
+            unsigned int& id,
+            bool is_source)
+    {
+        for (VarToValueMap::const_iterator it = var_to_values_map.begin(); it != var_to_values_map.end(); ++it)
+        {
+            std::string var = it->first.prettyprint();
+            std::stringstream ss; ss << "$" << id;
+
+            size_t init = cond.find(var, 0);
+            // Replace the variables with their id
+            while (init != std::string::npos)
+            {
+                // check whether this occurrence belongs to the LHS or the RHS of the condition
+                size_t tmp_or = cond.find("||", init);
+                size_t tmp_and = cond.find("&&", init);
+                size_t min_op = (tmp_or < tmp_and ? tmp_or : tmp_and);
+                size_t tmp_eq = cond.find("==", init);
+                if ((is_source && (tmp_eq < min_op))
+                        || (!is_source && ((min_op < tmp_eq) || (min_op == std::string::npos))))
+                {   // It is a LHS occurrence => replace
+                    cond.replace(init, var.size(), ss.str());
+                }
+                // prepare the next iteration
+                init = cond.find(var, min_op);
+            }
+
+            var_to_id_map[it->first] = id;
+
+            // Identifier must always be incremented because
+            // it defined the order in which the variables will be printed in the JSON
+            ++id;
+        }
+    }
+
+    // This method returns a string corresponding to the prettyprinted version of a nodecl
+    // where each symbol occurrence is replaced by a $id
+    // Example:
+    //     The expression :         'i == j'
+    //     Will return the string:  '$1 == $2'
+    std::string transform_edge_condition_into_json_expr(
+            TDG_Edge* edge,
+            const NBase& condition,
+            VarToValueMap& source_var_to_values_map,
+            VarToValueMap& target_var_to_values_map,
+            VarToIdMap& source_var_to_id_map,
+            VarToIdMap& target_var_to_id_map,
+            NBase& dependency_size)
+    {
+        ConditionVisitor cv(edge);
+        // Traverse the condition to store information necessary for the transformation
+        std::string condition_str = cv.walk(condition);
+
+        // Set the output parameters
+        source_var_to_values_map = cv.get_source_var_to_value_map();
+        target_var_to_values_map = cv.get_target_var_to_value_map();
+        dependency_size = cv.get_dependency_size();
+
+        // LHS and RHS variables must be treated separately
+        unsigned int id = 1;
+        replace_vars_with_ids(source_var_to_values_map, source_var_to_id_map, condition_str, id, /*is_source*/true);
+        replace_vars_with_ids(target_var_to_values_map, target_var_to_id_map, condition_str, id, /*is_source*/false);
+        
+        return condition_str;
+    }
+}
+
     // ******************************************************************* //
     // ************ Task Dependency Graph Control Structures ************* //
     
-    ControlStructure::ControlStructure(int cs_id, ControlStructureType type, const NBase condition)
-        : _id(cs_id), _type(type), _condition(condition)
+    ControlStructure::ControlStructure(int cs_id, ControlStructureType type, 
+                                       const NBase& condition, Node* pcfg_node)
+        : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node), _enclosing(NULL)
     {}
     
-    int ControlStructure::get_id()
+    int ControlStructure::get_id() const
     {
         return _id;
     }
     
-    ControlStructureType ControlStructure::get_type()
+    ControlStructureType ControlStructure::get_type() const
     {
         return _type;
     }
     
-    NBase ControlStructure::get_condition()
+    std::string ControlStructure::get_type_as_string() const
+    {
+        std::string result;
+        switch(_type)
+        {
+            case Implicit:  result = "Implicit"; break;
+            case Loop:      result = "Loop";     break;
+            case IfElse:    result = "IfElse";   break;
+            case Switch:    result = "Switch";   break;
+            default:        result = "Blank";
+        };
+        return result;
+    }
+    
+    NBase ControlStructure::get_condition() const
     {
         return _condition;
+    }
+    
+    Node* ControlStructure::get_pcfg_node() const
+    {
+        return _pcfg_node;
+    }
+    
+    ControlStructure* ControlStructure::get_enclosing_cs() const
+    {
+        return _enclosing;
+    }
+    
+    void ControlStructure::set_enclosing_cs(ControlStructure* cs)
+    {
+        _enclosing = cs;
     }
     
     // ************ Task Dependency Graph Control Structures ************* //
@@ -249,15 +778,25 @@ namespace{
     // ************** Task Dependency Graph Edges and Nodes ************** //
     
     TDG_Node::TDG_Node(Node* n, TDGNodeType type)
-        : _id(++id), _pcfg_node(n), _type(type), _entries(), _exits(), _control_structures()
+        : _id(++node_id), _pcfg_node(n), _type(type), _entries(), _exits(), _control_structures()
     {}
     
-    void TDG_Node::add_control_structure(ControlStructure cs)
+    unsigned int TDG_Node::get_id() const
     {
-        _control_structures.append(cs);
+        return _id;
     }
     
-    ObjectList<ControlStructure> TDG_Node::get_control_structures()
+    Node* TDG_Node::get_pcfg_node() const
+    {
+        return _pcfg_node;
+    }
+    
+    void TDG_Node::add_control_structure(ControlStructure* cs, const ObjectList<std::string>& taken_branches)
+    {
+        _control_structures.push_back(std::pair<ControlStructure*, ObjectList<std::string> >(cs, taken_branches));
+    }
+    
+    ControlStList TDG_Node::get_control_structures() const
     {
         return _control_structures;
     }
@@ -279,12 +818,12 @@ namespace{
         }
     }
     
-    TDG_Node* TDG_Edge::get_source()
+    TDG_Node* TDG_Edge::get_source() const
     {
         return _source;
     }
     
-    TDG_Node* TDG_Edge::get_target()
+    TDG_Node* TDG_Edge::get_target() const
     {
         return _target;
     }
@@ -297,7 +836,7 @@ namespace{
     // ********************** Task Dependency Graph ********************** //
     
     TaskDependencyGraph::TaskDependencyGraph(ExtensibleGraph* pcfg)
-        : _pcfg(pcfg), _tdg_nodes(), _syms(), _pcfg_control_structure_to_id()
+            : _pcfg(pcfg), _tdg_nodes(), _syms(), _pcfg_to_cs_map()
     {
         Node* pcfg_node = _pcfg->get_graph();
         
@@ -315,7 +854,7 @@ namespace{
             name = _pcfg->get_name();
         return name;
     }
-    
+
     void TaskDependencyGraph::connect_tdg_nodes(
             TDG_Node* parent, TDG_Node* child,
             SyncKind sync_type, const NBase& condition)
@@ -328,10 +867,10 @@ namespace{
     TDG_Node* TaskDependencyGraph::find_task_from_tdg_nodes_list(Node* task)
     {
         TDG_Node* result = NULL;
-        for(TDG_Node_list::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
-            if((*it)->_pcfg_node == task)
+        for(TDG_Node_map::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+            if(it->second->_pcfg_node == task)
             {
-                result = *it;
+                result = it->second;
                 break;
             }
         return result;
@@ -361,17 +900,26 @@ namespace{
             if(current->is_graph_node())
                 create_tdg_nodes_from_pcfg(current->get_graph_entry_node());
             
-            // Create the TDG task node
+            // Create the TDG task|taskwait|barrier node if applies
             TDG_Node* tdg_current = NULL;
+            unsigned int tdg_node_id;
             if(current->is_omp_task_node())
+            {
+                tdg_node_id = current->get_graph_related_ast().get_line();
                 tdg_current = new TDG_Node(current, Task);
+            }
             else if(current->is_omp_taskwait_node())
+            {
+                tdg_node_id = current->get_statements()[0].get_line();
                 tdg_current = new TDG_Node(current, Taskwait);
+            }
             else if(current->is_omp_barrier_graph_node())   // We do not need to traverse the Graph Barrier Node
+            {
+                tdg_node_id = current->get_statements()[0].get_line();
                 tdg_current = new TDG_Node(current, Barrier);
-            
+            }
             if(tdg_current != NULL)
-                _tdg_nodes.insert(tdg_current);
+                _tdg_nodes.insert(std::pair<unsigned int, TDG_Node*>(tdg_node_id, tdg_current));
             
             // Iterate over the children
             Node_list children = current->get_children();
@@ -382,16 +930,30 @@ namespace{
     
     void TaskDependencyGraph::set_tdg_nodes_control_structures()
     {
-        for(ObjectList<TDG_Node*>::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+        for(TDG_Node_map::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
         {
-            Node* node = (*it)->_pcfg_node;
+            TDG_Node* tdg_node = it->second;
+            Node* node = tdg_node->_pcfg_node;
+            ControlStructure* last_cs = NULL;
             
+            // 1.- Add the implicit control structure: 
+            //     this is necessary to set the values of the variables reaching a task
+            {
+                ObjectList<std::string> taken_branches;
+                ControlStructure* cs = new ControlStructure(++control_id, Implicit, NBase::null(), NULL);
+                _pcfg_to_cs_map[node] = cs;
+                tdg_node->add_control_structure(cs, taken_branches);
+                last_cs = cs;
+            }
+            
+            // 2.- Add the real control structures
             Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(node);
             while(control_structure != NULL)
             {
-                // Get control structure type and condition
+                // 1.- Get control structure type and condition
                 ControlStructureType cs_t;
                 NBase condition;
+                ObjectList<std::string> taken_branches;
                 if(control_structure->is_loop_node())
                 {
                     // get the type of the Control Structure
@@ -407,22 +969,27 @@ namespace{
                 else if(control_structure->is_ifelse_statement())
                 {
                     // get the type of the Control Structure
-                    cs_t = Select;
+                    cs_t = IfElse;
                     
                     // Check whether the statement is in the TRUE or the FALSE branch of the condition
-                    condition = get_ifelse_condition_from_path(control_structure, node);
-                    ObjectList<Node*> children = control_structure->get_condition_node()->get_children();
-                    for(ObjectList<Node*>::iterator itt = children.begin(); itt != children.end(); ++itt)
-                        ExtensibleGraph::clear_visits_in_level(*itt, control_structure);
+                    condition = get_ifelse_condition_and_path(control_structure, node, taken_branches);
                 }
                 else if(control_structure->is_switch_case_node())
                 {
+                    // Get the switch containing the current case
+                    Node* outer_switch = control_structure->get_outer_node();
+                    while((outer_switch!=NULL) && !outer_switch->is_switch_statement())
+                        outer_switch = outer_switch->get_outer_node();
+
+                    ERROR_CONDITION(outer_switch==NULL, 
+                                    "No switch previously found for switch case %d\n", 
+                                    control_structure->get_id());
+                    
                     // get the type of the Control Structure
-                    cs_t = Select;
+                    cs_t = Switch;
                     
                     // Build the condition depending on the branch where the task is created
-                    condition = get_switch_condition_from_path(control_structure, node);
-                    std::cerr << "Condition of switch to node " << node->get_id() << " is " << condition.prettyprint() << std::endl;
+                    condition = get_switch_condition_from_path(outer_switch, control_structure, node, taken_branches);
                 }
                 else
                 {
@@ -430,91 +997,135 @@ namespace{
                                    control_structure->get_type_as_string().c_str())
                 }
                 
-                // Store the symbols involved in the condition in the list of used symbols in the graph
+                // 2.- Store the symbols involved in the condition in the list of used symbols in the graph
                 ERROR_CONDITION(condition.is_null(), "No condition has been computed for task %d in control structure %d.\n", 
                                 node->get_id(), control_structure->get_id());
-                store_condition_list_of_symbols(condition);
+                store_condition_list_of_symbols(condition, node->get_reaching_definitions_in());
                 
-                // Crete the ControlStruct object and set it to the node
-                int cs_id;
-                if(control_struct_node_to_id.find(control_structure)!=control_struct_node_to_id.end())
-                    cs_id = control_struct_node_to_id[control_structure];
-                else
+                // 3.- Crete the ControlStructure object and set it to the node
+                // For switch cases, the control structure is the 'case' because 
+                // we need the path to the 'case' currently being treated to build the condition
+                // However, the control structure to which we associate an identifier is the switch, not the particular case
+                Node* real_control_structure = control_structure;
+                if(control_structure->is_switch_case_node())
                 {
-                    cs_id = ++id;
-                    control_struct_node_to_id[control_structure] = cs_id;
+                    while(real_control_structure!=NULL && !real_control_structure->is_switch_statement())
+                        real_control_structure = real_control_structure->get_outer_node();
+                    ERROR_CONDITION(real_control_structure==NULL, 
+                                    "No Switch node found wrapping Case node %d.\n", control_structure->get_id());
                 }
-                ControlStructure cs(cs_id, cs_t, condition);
-                (*it)->add_control_structure(cs);
+                
+                ControlStructure* cs;
+                if(_pcfg_to_cs_map.find(real_control_structure) != _pcfg_to_cs_map.end())
+                    cs = _pcfg_to_cs_map[real_control_structure];
+                else
+                {   // The control structure did not exist yet
+                    cs = new ControlStructure(++control_id, cs_t, condition, real_control_structure);
+                    _pcfg_to_cs_map[real_control_structure] = cs;
+                }
+                last_cs->set_enclosing_cs(cs);
+                tdg_node->add_control_structure(cs, taken_branches);
                 
                 // Prepare next iteration
+                last_cs = cs;
                 control_structure = ExtensibleGraph::get_enclosing_control_structure(control_structure);
             }
         }
     }
     
-    void TaskDependencyGraph::store_condition_list_of_symbols(const NBase& condition)
+    void TaskDependencyGraph::store_condition_list_of_symbols(const NBase& condition, const NodeclMap& reach_defs)
     {
-        ObjectList<Nodecl::Symbol> cond_syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
-        for(ObjectList<Nodecl::Symbol>::iterator it = cond_syms.begin(); it != cond_syms.end(); ++it)
-            _syms.insert(std::pair<Symbol, unsigned int>(it->get_symbol(), 0));
+        NodeclSet already_treated;
+        NodeclList tmp = Nodecl::Utils::get_all_memory_accesses(condition);
+        std::queue<NBase, std::deque<NBase> > vars(std::deque<NBase>(tmp.begin(), tmp.end()));
+        while(!vars.empty())
+        {
+            NBase n = vars.front();         
+            vars.pop();
+            already_treated.insert(n);
+            _syms.insert(std::pair<NBase, unsigned int>(n, 0));
+            
+            // Add all the variables found in the reaching definitions of the current variable
+            ERROR_CONDITION(reach_defs.find(n) == reach_defs.end(), 
+                            "No reaching definition found for variable '%s' while gathering all necessary symbols.\n", 
+                            n.prettyprint().c_str());
+            
+            std::pair<NodeclMap::const_iterator, NodeclMap::const_iterator> reach_defs_map = reach_defs.equal_range(n);
+            NodeclSet to_treat;
+            for(NodeclMap::const_iterator it = reach_defs_map.first; it != reach_defs_map.second; ++it)
+            {
+                tmp = Nodecl::Utils::get_all_memory_accesses(it->second.first);
+                for(NodeclList::iterator itt = tmp.begin(); itt != tmp.end(); ++itt)
+                {
+                    NBase var = *itt;
+                    if ((already_treated.find(var) == already_treated.end()) && 
+                        (to_treat.find(var) == to_treat.end()))
+                    {
+                        to_treat.insert(var);
+                        vars.push(var);
+                    }
+                }
+            }
+        }
     }
     
     void TaskDependencyGraph::connect_tdg_nodes_from_pcfg(Node* current)
     {
-        if(!current->is_visited())
+        if (!current->is_visited())
         {
             current->set_visited(true);
             
-            if(current->is_omp_task_node())
+            if (current->is_omp_task_node())
             {
                 // Connect all tasks synchronized here with the new Taskwait/Barrier TDG_Node
                 TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(current);
-                Edge_list sync_exits = current->get_exit_edges();
-                for(Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
+                const Edge_list& sync_exits = current->get_exit_edges();
+                for (Edge_list::const_iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
                 {
                     Node* child = (*it)->get_target();
-                    if(child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
+                    if (child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), (*it)->get_condition());
-                        store_condition_list_of_symbols((*it)->get_condition());
+                        const NBase& cond = (*it)->get_condition();
+                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
+                        store_condition_list_of_symbols(cond, current->get_reaching_definitions_out());
                     }
                 }
             }
-            else if(current->is_omp_taskwait_node() || current->is_omp_barrier_graph_node())
+            else if (current->is_omp_taskwait_node() || current->is_omp_barrier_graph_node())
             {
                 TDG_Node* tdg_sync = find_task_from_tdg_nodes_list(current);
                 // Look for the real node to whom the current synchronization is connected
                 Edge_list sync_exits = current->get_exit_edges();
-                while(sync_exits.size()==1 && 
+                while (sync_exits.size()==1 &&
                       (sync_exits[0]->get_target()->is_omp_flush_node() || sync_exits[0]->get_target()->is_exit_node()))
                 {
                     Node* child = sync_exits[0]->get_target();
-                    if(child->is_exit_node())
+                    if (child->is_exit_node())
                         sync_exits = child->get_outer_node()->get_exit_edges();
                     else
                         sync_exits = child->get_exit_edges();
                 }
                 // Connect the synchronization to the exit node if it is a task or another synchronization
-                for(Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
+                for (Edge_list::iterator it = sync_exits.begin(); it != sync_exits.end(); ++it)
                 {
                     Node* child = (*it)->get_target();
-                    if(child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
+                    if (child->is_omp_task_node() || child->is_omp_taskwait_node() || child->is_omp_barrier_graph_node())
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list(child);
-                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), (*it)->get_condition());
-                        store_condition_list_of_symbols((*it)->get_condition());
+                        const NBase& cond = (*it)->get_condition();
+                        connect_tdg_nodes(tdg_sync, tdg_child_task, (*it)->get_sync_kind(), cond);
+                        store_condition_list_of_symbols(cond, current->get_reaching_definitions_out());
                     }
                 }
             }
             
-            if(current->is_graph_node())
+            if (current->is_graph_node())
                 connect_tdg_nodes_from_pcfg(current->get_graph_entry_node());
             
             // Iterate over the children
-            Node_list children = current->get_children();
-            for(Node_list::iterator it = children.begin(); it != children.end(); ++it)
+            const Node_list& children = current->get_children();
+            for (Node_list::const_iterator it = children.begin(); it != children.end(); ++it)
                 connect_tdg_nodes_from_pcfg(*it);
         }
     }
@@ -563,22 +1174,28 @@ namespace{
 //         return result;
 //     }
     
-    void TaskDependencyGraph::print_tdg_node_to_dot(TDG_Node* current, std::ofstream& dot_tdg)
+    void TaskDependencyGraph::print_tdg_node_to_dot(TDG_Node* current, std::ofstream& dot_tdg) const
     {
         std::stringstream ss; ss << current->_id;
         std::string current_id = ss.str();
         Node* n = current->_pcfg_node;
         
         // Print the control structures (subgraphs) where the node is enclosed in
-        ObjectList<ControlStructure> control_structures = current->get_control_structures();
+        ControlStList control_structures = current->get_control_structures();
         std::string indent = "\t";
-        for(ObjectList<ControlStructure>::iterator it = control_structures.begin(); it != control_structures.end(); ++it)
+        unsigned int n_cs = 0;
+        for(ControlStList::const_reverse_iterator it = control_structures.rbegin(); it != control_structures.rend(); ++it)
         {
-            dot_tdg << indent << "subgraph cluster" << ++id << "{\n";
-            indent += "\t";
-            dot_tdg << indent << "label=\"" << it->get_condition().prettyprint() << "\";\n";
-            dot_tdg << indent << "color=\"" << (it->get_type()==Loop ? "deeppink" : "deepskyblue1" ) << "\";\n";
-            dot_tdg << indent << "style=\"dashed\";\n";
+            ControlStructure* cs = it->first;
+            if(cs->get_type() != Implicit)
+            {
+                dot_tdg << indent << "subgraph cluster_" << ++node_id << "{\n";
+                indent += "\t";
+                dot_tdg << indent << "label=\"" << cs->get_condition().prettyprint() << "\";\n";
+                dot_tdg << indent << "color=\"" << (cs->get_type()==Loop ? "deeppink" : "deepskyblue1") << "\";\n";
+                dot_tdg << indent << "style=\"dashed\";\n";
+                ++n_cs;
+            }
         }
         
         // Create the node
@@ -609,11 +1226,11 @@ namespace{
         }
         
         // print the node
-        dot_tdg << indent << current_id << " [label=\"" << task_label << "\"];\n";
+        dot_tdg << indent << current_id << " [label=\"[" << current_id << "] " << task_label << "\"];\n";
         
         
         // Close the subgraphs of the control structures
-        for(ObjectList<ControlStructure>::iterator it = control_structures.begin(); it != control_structures.end(); ++it)
+        for(unsigned int i = 0; i < n_cs; ++i)
         {
             indent = indent.substr(0, indent.size()-1);
             dot_tdg << indent << "}\n";
@@ -630,7 +1247,7 @@ namespace{
             if(!(*it)->_condition.is_null())
                 condition = ", label=\"" + (*it)->_condition.prettyprint() + "\"";
             else
-                condition = "true";
+                condition = ", label=\"true\"";
             // Create the dot edge
             std::stringstream child_id; child_id << (*it)->_target->_id;
             dot_tdg << "\t" << current_id << " -> " << child_id.str() 
@@ -638,7 +1255,7 @@ namespace{
         }
     }
     
-    void TaskDependencyGraph::print_tdg_to_dot()
+    void TaskDependencyGraph::print_tdg_to_dot() const
     {
         // Create the directory of dot files if it has not been previously created
         char buffer[1024];
@@ -667,8 +1284,8 @@ namespace{
             std::cerr << "- TDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph TDG {\n";
             dot_tdg << "\tcompound=true;\n";
-            for(TDG_Node_list::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
-                print_tdg_node_to_dot(*it, dot_tdg);
+            for(TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+                print_tdg_node_to_dot(it->second, dot_tdg);
         dot_tdg << "}\n";
         dot_tdg.close();
         if(!dot_tdg.good())
@@ -676,24 +1293,90 @@ namespace{
         ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
     
+    void TaskDependencyGraph::print_tdg_control_structs_to_json(std::ofstream& json_tdg) const
+    {
+        json_tdg << "\t\t\"control_structures\" : [\n";
+        
+        // Print the Controls Structures involved in the tasks instantiation
+        if(!_pcfg_to_cs_map.empty())
+        {
+            NBase dependency_size;
+
+            for(PCFG_to_CS::const_iterator it = _pcfg_to_cs_map.begin(); it != _pcfg_to_cs_map.end(); )
+            {
+                ControlStructure* cs = it->second;
+                json_tdg << "\t\t\t{\n";
+                
+                    json_tdg << "\t\t\t\t\"id\" : " << cs->get_id() << ",\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << cs->get_type_as_string();
+                    if(cs->get_pcfg_node() != NULL)
+                    {
+                        json_tdg << "\",\n";
+                        json_tdg << "\t\t\t\t\"locus\" : \"" << cs->get_pcfg_node()->get_graph_related_ast().get_locus_str() << "\",\n";
+                        json_tdg << "\t\t\t\t\"when\" : {\n";
+                        print_condition(NULL, cs, json_tdg, "\t\t\t\t\t", 
+                                        /*unnecessary param for a control structure's condition*/dependency_size);
+                        json_tdg << "\t\t\t\t}";
+                        if((cs->get_type() == IfElse) || (cs->get_type() == Switch))
+                        {
+                            json_tdg << ",\n";
+                            unsigned int nbranches = 0;
+                            ObjectList<Node*> branches = cs->get_pcfg_node()->get_condition_node()->get_children();
+                            if(cs->get_type() == IfElse)
+                            {   // branches list contains 2 elements
+                                if(!branches[0]->is_exit_node())
+                                    nbranches++;
+                                if(!branches[1]->is_exit_node())
+                                    nbranches++;
+                            }
+                            else    // Switch
+                            {
+                                // The children of the condition in a Switch node is the Context
+                                branches = branches[0]->get_graph_entry_node()->get_children();
+                                nbranches = branches.size();
+                            }
+                            json_tdg << "\t\t\t\t\"nbranches\" : " << nbranches << "\n";
+                        }
+                        else
+                        {
+                            json_tdg << "\n";
+                        }
+                    }
+                    else
+                    {
+                        // If the task has some dependency with variables involved,
+                        // add here the values of those variables
+                        json_tdg << "\"\n";
+                    }
+                    
+                ++it;
+                if(it != _pcfg_to_cs_map.end())
+                    json_tdg << "\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t}\n";
+            }
+        }
+        
+        json_tdg << "\t\t],\n" ;
+    }
+    
     void TaskDependencyGraph::print_tdg_syms_to_json(std::ofstream& json_tdg)
     {
-        if(!_syms.empty())
+        if (!_syms.empty())
         {
-            json_tdg << "\t\t\"defvars\" : [\n" ;
+            json_tdg << "\t\t\"variables\" : [\n";
             unsigned int i = 1;
-            for(std::map<Symbol, unsigned int>::iterator it = _syms.begin(); it != _syms.end(); ++i)
+            for (std::map<NBase, unsigned int>::iterator it = _syms.begin(); it != _syms.end(); ++i)
             {
-                TL::Symbol s = it->first;
+                NBase n = it->first;
                 json_tdg << "\t\t\t{\n";
                     json_tdg << "\t\t\t\t\"id\" : " << i << ",\n";
-                    json_tdg << "\t\t\t\t\"name\" : \"" << s.get_name() << "\",\n";
-                    json_tdg << "\t\t\t\t\"locus\" : \"" << s.get_locus_str() << "\",\n";
-                    json_tdg << "\t\t\t\t\"type\" : \"" << s.get_type().get_declaration(s.get_scope(), 
-                                    /*no name for the symbol, so we print only the type name*/"") << "\"\n";
-                _syms[it->first] = i;
+                    json_tdg << "\t\t\t\t\"name\" : \"" << n.prettyprint() << "\",\n";
+                    json_tdg << "\t\t\t\t\"locus\" : \"" << n.get_locus_str() << "\",\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << n.get_type().no_ref().get_declaration(n.retrieve_context(), /*no symbol name*/"") << "\"\n";
+                _syms[n] = i;
                 ++it;
-                if(it != _syms.end())
+                if (it != _syms.end())
                     json_tdg << "\t\t\t},\n";
                 else
                     json_tdg << "\t\t\t}\n";
@@ -701,104 +1384,135 @@ namespace{
             json_tdg << "\t\t],\n" ;
         }
     }
-    
-    // This method returns a string corresponding to the prettyprinted version of a nodecl
-    // where each symbol occurrence is replaced by a $id
-    // Example:
-    //     The expression :         'i == j'
-    //     Will return the string:  '$1 == $2'
-    static std::string transform_condition_into_json_expr(const NBase& condition)
+
+    static void replace_vars_values_with_ids(const VarToIdMap& var_to_id_map, std::string& value)
     {
-        std::string result = condition.prettyprint();
-        
-        // Get the name of each symbol and 
-        // store a map that represents the position of the last replacement
-        ObjectList<std::string> sym_names;
-        std::map<std::string, int> symbol_position_map;
-        ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
-        for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+        for (VarToIdMap::const_iterator it = var_to_id_map.begin(); it != var_to_id_map.end(); ++it)
         {
-            std::string s_name = it->get_symbol().get_name();
-            sym_names.append(s_name);
-            symbol_position_map[s_name] = 0;
+            std::string var_name = it->first.prettyprint();
+            std::stringstream ss; ss << "$" << it->second;
+            std::string id = ss.str();
+            size_t pos = value.find(var_name, 0);
+            while (pos != std::string::npos)
+            {
+                value.replace(pos, var_name.length(), id);
+                pos = value.find(var_name, pos);
+            }
         }
-        
-        // Transform the condition expression into the json expression
-        int i = 1;
-        for(ObjectList<std::string>::iterator it = sym_names.begin(); it != sym_names.end(); ++it, ++i)
-        {
-            // Find the position to be replaced
-            int pos = result.find(*it, symbol_position_map[*it]);
-            // Replace it
-            std::stringstream id_str; id_str << "$" << i;
-            result.replace(pos, it->size(), id_str.str());
-            // Modify the base position
-            symbol_position_map[*it] = pos + (id_str.str().size() - 1);
-        }
-        
-        return result;
     }
     
-    void TaskDependencyGraph::print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent)
+    void TaskDependencyGraph::print_dependency_variables_to_json(
+            std::ofstream& json_tdg,
+            const VarToValueMap& var_to_value_map,
+            const VarToIdMap& var_to_id_map,
+            const NBase& condition,
+            std::string indent,
+            bool is_source,
+            bool add_final_comma) const
+    {
+        for (VarToValueMap::const_iterator it = var_to_value_map.begin(); it != var_to_value_map.end(); )
+        {
+            std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
+            ERROR_CONDITION(its == _syms.end(),
+                            "Variable %s, found in condition %s, "
+                            "has not been found during the phase of gathering the variables",
+                            it->first.prettyprint().c_str(), condition.prettyprint().c_str());
+            json_tdg << indent << "\t{\n";
+            json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
+            std::string value = it->second;
+            replace_vars_values_with_ids(var_to_id_map, value);
+            json_tdg << indent << "\t\t\"values\" : \""<< value << "\",\n";
+            json_tdg << indent << "\t\t\"side\" : \"" << (is_source ? "source" : "target") << "\"\n";
+            ++it;
+            if (it != var_to_value_map.end() || add_final_comma)
+                json_tdg << indent << "\t},\n";
+            else
+                json_tdg << indent << "\t}\n";
+        }
+    }
+
+    void TaskDependencyGraph::print_condition(
+            TDG_Edge* edge,
+            ControlStructure* node_cs,
+            std::ofstream& json_tdg,
+            std::string indent,
+            NBase& dependency_size) const
     {
         json_tdg << indent << "\"expression\" : ";
         assert(edge!=NULL || node_cs!=NULL);
-        if((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
-        {   
-            // Get the condition
+        if ((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
+        {
             NBase condition;
-            if(node_cs != NULL)
-                condition = node_cs->get_condition();
-            else
-                condition = edge->_condition;
-            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
-            json_tdg << "\"" << transform_condition_into_json_expr(condition) << "\",\n";
-            
-            // Generate the list of involved variables
-            if(syms.size() > 1)
-                json_tdg << indent << "\"vars\" : [\n";
-            else
-                json_tdg << indent << "\"vars\" : \n";
-            for(ObjectList<Nodecl::Symbol>::iterator its = syms.begin(); its != syms.end();)
+            // 1.- This condition belongs to a control structure
+            if (node_cs != NULL)
             {
-                if(_syms.find(its->get_symbol()) == _syms.end())
+                // Get the condition
+                condition = node_cs->get_condition();
+                VarToValueMap var_to_value_map;
+                ObjectList<NBase> ordered_vars;
+                json_tdg << "\"" << transform_node_condition_into_json_expr(
+                                            node_cs, condition, 
+                                            var_to_value_map, ordered_vars) << "\",\n";
+                // Generate the list of involved variables
+                json_tdg << indent << "\"vars\" : [\n";
+                for (ObjectList<NBase>::iterator itt = ordered_vars.begin(); itt != ordered_vars.end(); )
                 {
-                    internal_error("Variable %s, found in condition %s, "
-                                   "has not been found during the phase of gathering the variables", 
-                                   its->prettyprint().c_str(), condition.prettyprint().c_str());
-                }
-                json_tdg << indent << "\t{\n";
-                    json_tdg << indent << "\t\t\"id\" : " << _syms[its->get_symbol()] << ",\n";
-                    json_tdg << indent << "\t\t\"values\" : \"TODO\"\n";
-                    
-                    // TODO: values!
-                    
-                    ++its;
-                    if(its != syms.end())
+                    VarToValueMap::iterator it = var_to_value_map.find(*itt);
+                    std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
+                    ERROR_CONDITION(its == _syms.end(),
+                                    "Variable %s, found in condition %s, "
+                                    "has not been found during the phase of gathering the variables",
+                                    it->first.prettyprint().c_str(), condition.prettyprint().c_str());
+                    json_tdg << indent << "\t{\n";
+                        json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
+                        json_tdg << indent << "\t\t\"values\" : \""<< it->second << "\"\n";
+                    ++itt;
+                    if (itt != ordered_vars.end())
                         json_tdg << indent << "\t},\n";
                     else
                         json_tdg << indent << "\t}\n";
+                }
             }
-            if(syms.size() > 1)
-                json_tdg << indent << "]\n";
+            // 2.- This condition belongs to a dependency expression
+            else
+            {
+                // Get the condition
+                condition = edge->_condition;
+                VarToValueMap source_var_to_value_map, target_var_to_value_map;
+                VarToIdMap source_var_to_id_map, target_var_to_id_map;
+                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition,
+                                            source_var_to_value_map, target_var_to_value_map,
+                                            source_var_to_id_map, target_var_to_id_map,
+                                            dependency_size) << "\",\n";
+                // Generate the list of involved variables
+                json_tdg << indent << "\"vars\" : [\n";
+                print_dependency_variables_to_json(json_tdg, source_var_to_value_map, source_var_to_id_map,
+                                                   condition, indent, /*is_source*/true, /*add_final_comma*/true);
+                print_dependency_variables_to_json(json_tdg, target_var_to_value_map, target_var_to_id_map,
+                                                   condition, indent, /*is_source*/false, /*add_final_comma*/false);
+            }
+            
+            json_tdg << indent << "]\n";
         }
-        else    // There is no condition => TRUE
+        else
+        {   // There is no condition => TRUE
             json_tdg << "true\n";
+        }
     }
-    
-    void TaskDependencyGraph::print_tdg_nodes_to_json(std::ofstream& json_tdg)
+
+    void TaskDependencyGraph::print_tdg_nodes_to_json(std::ofstream& json_tdg) const
     {
         json_tdg << "\t\t\"nodes\" : [\n";
-        for(TDG_Node_list::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end();)
+        for (TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); )
         {
-            TDG_Node* n = *it;
+            TDG_Node* n = it->second;
             json_tdg << "\t\t\t{\n";
                 
             // node identifier
-                json_tdg << "\t\t\t\t\"id\" : " << n->_id << ",\n";
+            json_tdg << "\t\t\t\t\"id\" : " << n->_id << ",\n";
                 
             // node locus and type
-            if(n->_type == Task) 
+            if (n->_type == Task)
             {
                 json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_graph_related_ast().get_locus_str() << "\",\n";
                 json_tdg << "\t\t\t\t\"type\" : \"Task\"";
@@ -806,64 +1520,86 @@ namespace{
             else
             {
                 json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_statements()[0].get_locus_str() << "\",\n";
-                if(n->_type == Taskwait)
-                    json_tdg << "\t\t\t\t\"type\" : \"Taskwait\"";
-                else
-                    json_tdg << "\t\t\t\t\"type\" : \"Barrier\"";
-            }
-            
-            // node exit edges
-            if(!n->_exits.empty())
-            {
-                json_tdg << ",\n";
-                json_tdg << "\t\t\t\t\"edges\" : [\n";
-                for(ObjectList<TDG_Edge*>::iterator ite = n->_exits.begin(); ite != n->_exits.end();)
-                {
-                    json_tdg << "\t\t\t\t\t{\n";
-                    // The target node
-                    json_tdg << "\t\t\t\t\t\t\"node\" : " << (*ite)->_target->_id << ",\n";
-                    // The condition
-                    json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
-                    print_condition(*ite, NULL, json_tdg, "\t\t\t\t\t\t\t");
-                    json_tdg << "\t\t\t\t\t\t}\n";
-                        
-                    ++ite;
-                    if(ite != n->_exits.end())
-                        json_tdg << "\t\t\t\t\t},\n";
-                    else
-                        json_tdg << "\t\t\t\t\t}\n";
-                }
-                json_tdg << "\t\t\t\t]\n";
+                json_tdg << "\t\t\t\t\"type\" : \"" << ((n->_type == Taskwait) ? "Taskwait" : "Barrier") << "\"";
             }
             
             // node control structures
-            ObjectList<ControlStructure> control_structures = n->get_control_structures();
-            if(!control_structures.empty())
+            ControlStList control_structures = n->get_control_structures();
+            json_tdg << ",\n";
+            json_tdg << "\t\t\t\t\"control\" : [\n";
+            for (ControlStList::iterator itt = control_structures.begin(); itt != control_structures.end(); )
             {
-                json_tdg << ",\n";
-                json_tdg << "\t\t\t\t\"control\" : [\n";
-                for(ObjectList<ControlStructure>::iterator itt = control_structures.begin(); itt != control_structures.end(); ++itt)
+                json_tdg << "\t\t\t\t\t{\n";
+                json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->first->get_id();
+                if (itt->first->get_type() == IfElse)
                 {
-                    json_tdg << "\t\t\t\t\t{\n";
-                    json_tdg << "\t\t\t\t\t\t\"type\" : \"" << ((itt->get_type()==Loop) ? "loop" : "select") << "\",\n";
-                    json_tdg << "\t\t\t\t\t\t\"id\" : \"" << itt->get_id() << "\",\n";
-                    json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
-                    print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t");
-                    json_tdg << "\t\t\t\t\t\t}\n";
-                    json_tdg << "\t\t\t\t\t}\n";
+                    json_tdg << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << get_list_as_string(itt->second) << "]\n";
                 }
-                json_tdg << "\t\t\t\t]\n";
+                else if (itt->first->get_type() == Switch)
+                {
+                    json_tdg << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"branch_cond\" : [" << get_list_as_string(itt->second) << "]\n";
+                }
+                else
+                {
+                    json_tdg << "\n";
+                }
+                ++itt;
+                if (itt != control_structures.end())
+                    json_tdg << "\t\t\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t\t\t}\n";
             }
-            else
-                json_tdg << "\n";
+            json_tdg << "\t\t\t\t]\n";
             
             ++it;
-            if(it != _tdg_nodes.end())
+            if (it != _tdg_nodes.end())
                 json_tdg << "\t\t\t},\n";
             else
                 json_tdg << "\t\t\t}\n";
         }
-        json_tdg << "\t\t]\n";
+        json_tdg << "\t\t]";
+    }
+    
+    void TaskDependencyGraph::print_tdg_edges_to_json(std::ofstream& json_tdg) const
+    {
+        // Get all edges in the graph
+        TDG_Edge_list edges;
+        for(TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+            edges.append(it->second->_exits);
+        
+        // Print the edges into the dot file
+        if(!edges.empty())
+        {
+            json_tdg << ",\n";
+            json_tdg << "\t\t\"dependencies\" : [\n";
+            for(TDG_Edge_list::iterator it = edges.begin(); it != edges.end(); )
+            {
+                json_tdg << "\t\t\t{\n";
+                    json_tdg << "\t\t\t\t\"source\" : " << (*it)->_source->_id << ",\n";
+                    json_tdg << "\t\t\t\t\"target\" : " << (*it)->_target->_id << ",\n";
+                    json_tdg << "\t\t\t\t\"when\" : {\n";
+                        NBase dependency_size;
+                        print_condition(*it, NULL, json_tdg, "\t\t\t\t\t", dependency_size);
+                    json_tdg << "\t\t\t\t}";
+                    if(!dependency_size.is_null())
+                    {
+                        json_tdg << ",\n";
+                        json_tdg << "\t\t\t\t\"size\" : \"" << dependency_size.prettyprint() << "\"\n";
+                    }
+                    else
+                        json_tdg << "\n";
+                ++it;
+                if(it != edges.end())
+                    json_tdg << "\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t}\n";
+            }
+            json_tdg << "\t\t]\n";
+        }
+        else
+            json_tdg << "\n";
     }
     
     void TaskDependencyGraph::print_tdg_to_json()
@@ -899,7 +1635,9 @@ namespace{
                 json_tdg << "\t\t\"function\" : \"" << (sym.is_valid() ? sym.get_name() : "") << "\",\n";
                 json_tdg << "\t\t\"locus\" : \"" << _pcfg->get_nodecl().get_locus_str() << "\",\n";
                 print_tdg_syms_to_json(json_tdg);
+                print_tdg_control_structs_to_json(json_tdg);
                 print_tdg_nodes_to_json(json_tdg);
+                print_tdg_edges_to_json(json_tdg);
             json_tdg << "\t}\n";
         json_tdg << "}\n";
         json_tdg.close();

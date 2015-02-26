@@ -312,6 +312,7 @@
 "  -m<name>\n" \
 "  -MP\n" \
 "  -MT <target>\n" \
+"  -pie\n" \
 "  -pipe\n" \
 "  -pthread\n" \
 "  -rdynamic\n" \
@@ -2130,6 +2131,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 {
                 }
                 else if (strcmp(argument, "-pipe") == 0)
+                {
+                }
+                else if (strcmp(argument, "-pie") == 0)
                 {
                 }
                 else if ((strcmp(argument, "-print-search-dirs") == 0)

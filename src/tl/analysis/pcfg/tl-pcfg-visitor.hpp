@@ -61,7 +61,7 @@ namespace Analysis {
          * (We don't refer a node of BASIC_ENTRY_NODE type, but the first node in the sub-graph)
          * \param actual_node Node we are computing in this moment
          * \return The entry node of a sub-graph
-         */
+            */
         ObjectList<Node*> get_first_nodes( Node* actual_node );
 
         //! This method merges a list of nodes containing an Expression into one
@@ -321,6 +321,8 @@ namespace Analysis {
         Ret visit( const Nodecl::IfElseStatement& n );
         Ret visit( const Nodecl::IndexDesignator& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::IntelAssume& n );
+        Ret visit( const Nodecl::IntelAssumeAligned& n );
         Ret visit( const Nodecl::LabeledStatement& n );
         Ret visit( const Nodecl::LogicalAnd& n );
         Ret visit( const Nodecl::LogicalNot& n );

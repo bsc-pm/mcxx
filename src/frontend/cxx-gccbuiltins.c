@@ -3216,16 +3216,13 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 }
 
 static void sign_in_sse_builtins(decl_context_t global_context);
-static void sign_in_intel_builtins(decl_context_t global_context);
+
 void gcc_sign_in_builtins(decl_context_t global_context)
 {
     gcc_sign_in_builtins_0(global_context);
 
     // Intel SSE, SSE2, SSE3, SSE4, SSE4.1, AVX
     sign_in_sse_builtins(global_context);
-
-    // Intel builtins
-    sign_in_intel_builtins(global_context);
 }
 
 static type_t* replace_generic_0_with_type(type_t* t, type_t* replacement)
@@ -3807,45 +3804,4 @@ char intel_vector_struct_to_intel_vector_struct_reinterpret_type(type_t* orig, t
     }
 
     return 0;
-}
-
-static nodecl_t simplify_assume_aligned(scope_entry_t* entry UNUSED_FUNCTION, int num_arguments, nodecl_t* arguments)
-{
-    if (num_arguments == 2)
-    {
-        nodecl_t pointer_arg = arguments[0];
-        while (nodecl_get_kind(pointer_arg) == NODECL_CONVERSION)
-            pointer_arg = nodecl_get_child(pointer_arg, 0);
-
-        if (!is_pointer_type(no_ref(nodecl_get_type(pointer_arg))))
-        {
-            error_printf("%s: error: first argument of __assume_aligned must be a pointer\n",
-                    nodecl_locus_to_str(arguments[0]));
-        }
-
-        if (!nodecl_is_constant(arguments[1]) || !const_value_is_integer(nodecl_get_constant(arguments[1])))
-        {
-            error_printf("%s: error: second argument of __assume_aligned argument must be an integer constant\n",
-                    nodecl_locus_to_str(arguments[1]));
-        }
-        else
-        {
-            int v = const_value_cast_to_signed_int(nodecl_get_constant(arguments[1]));
-            char is_power_of_two = (v && !(v & (v - 1))); // Bithack
-            if (!is_power_of_two)
-            {
-                error_printf("%s: error: second argument of __assume_aligned argument must be a power of two constant\n",
-                        nodecl_locus_to_str(arguments[1]));
-            }
-        }
-    }
-    return nodecl_null();
-}
-
-DEF_FUNCTION_TYPE_2(BUILTIN_ASSUME_ALIGNED_TYPE, BT_VOID, BT_PTR_VOID, BT_INT)
-
-static void sign_in_intel_builtins(decl_context_t global_context)
-{
-    DEF_BUILTIN(BUILTIN_INTEL_ASSUME_ALIGNED, "__assume_aligned", BUILT_IN_NORMAL, BUILTIN_ASSUME_ALIGNED_TYPE,
-            0, 0, 0, 0, ATTR_NULL, 0, CURRENT_CONFIGURATION->enable_intel_builtins, simplify_assume_aligned);
 }

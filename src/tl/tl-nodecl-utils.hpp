@@ -38,7 +38,7 @@
 
 namespace Nodecl {
 namespace Utils {
-    
+
     TL::ObjectList<TL::Symbol> get_all_symbols(Nodecl::NodeclBase);
     TL::ObjectList<TL::Symbol> get_nonlocal_symbols(Nodecl::NodeclBase);
     TL::ObjectList<TL::Symbol> get_local_symbols(Nodecl::NodeclBase);
@@ -87,7 +87,6 @@ namespace Utils {
     struct Nodecl_structural_less {
         bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
     };
-    
 
     // Basic replacement
     //

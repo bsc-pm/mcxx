@@ -568,7 +568,8 @@ namespace TL { namespace OpenMP {
         Nodecl::List environment = this->make_execution_environment(
                 data_sharing,
                 pragma_line,
-                /* ignore_target_info */ true);
+                /* ignore_target_info */ true,
+                /* is_inline_task */ false);
 
         PragmaCustomClause noflush_clause = pragma_line.get_clause("noflush");
         if (noflush_clause.is_defined())
@@ -660,7 +661,8 @@ namespace TL { namespace OpenMP {
                 ;
         }
 
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line, /* ignore_target_info */ false);
+        Nodecl::List execution_environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ true);
 
         PragmaCustomClause tied = pragma_line.get_clause("tied");
         PragmaCustomClause untied = pragma_line.get_clause("untied");
@@ -900,7 +902,8 @@ namespace TL { namespace OpenMP {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line, /* ignore_target_info */ false);
+        Nodecl::List execution_environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
         PragmaCustomClause label_clause = pragma_line.get_clause("label");
         {
@@ -1046,7 +1049,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ true);
+                ds, pragma_line, /* ignore_target_info */ true, /* is_inline_task */ false);
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
@@ -1106,7 +1109,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ true);
+                ds, pragma_line, /* ignore_target_info */ true, /* is_inline_task */ false);
 
         if (!pragma_line.get_clause("nowait").is_defined())
         {
@@ -1184,7 +1187,9 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
-        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line, /* ignore_target_info */ false);
+
+        Nodecl::List execution_environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false );
 
         // Set the implicit OpenMP flush / barrier nodes to the environment
         if (barrier_at_end)
@@ -1264,8 +1269,9 @@ namespace TL { namespace OpenMP {
     {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
+
         Nodecl::List execution_environment = this->make_execution_environment(
-                ds, pragma_line, /* ignore_target_info */ false);
+                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
         PragmaCustomClause label_clause = pragma_line.get_clause("label");
         {
@@ -2045,7 +2051,9 @@ namespace TL { namespace OpenMP {
             // SIMD Clauses
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
             OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(stmt);
-            Nodecl::List environment = this->make_execution_environment(ds, pragma_line, /* ignore_target_info */ false);
+
+            Nodecl::List environment = this->make_execution_environment(ds,
+                    pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
             process_common_simd_clauses(pragma_line, stmt, environment);
 
@@ -2090,7 +2098,9 @@ namespace TL { namespace OpenMP {
             // SIMD Clauses
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
             OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(decl);
-            Nodecl::List environment = this->make_execution_environment(ds, pragma_line, /* ignore_target_info */ false);
+
+            Nodecl::List environment = this->make_execution_environment(ds,
+                pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
 
             process_common_simd_clauses(pragma_line, 
                     decl.get_context_of_parameters(), environment);
@@ -3124,7 +3134,8 @@ namespace TL { namespace OpenMP {
     Nodecl::List Base::make_execution_environment(
             OpenMP::DataSharingEnvironment &data_sharing_env,
             PragmaCustomLine pragma_line,
-            bool ignore_target_info)
+            bool ignore_target_info,
+            bool is_inline_task)
     {
         const locus_t* locus = pragma_line.get_locus();
 
@@ -3180,10 +3191,16 @@ namespace TL { namespace OpenMP {
                 reductions.map(ReportReductions(locus, this->_omp_report_file));
             }
 
-            result_list.append(
-                    Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes),
-                        locus)
-                    );
+            if (is_inline_task)
+            {
+                result_list.append(
+                        Nodecl::OpenMP::TaskReduction::make(Nodecl::List::make(reduction_nodes), locus));
+            }
+            else
+            {
+                result_list.append(
+                        Nodecl::OpenMP::Reduction::make(Nodecl::List::make(reduction_nodes), locus));
+            }
         }
 
         TL::ObjectList<ReductionSymbol> simd_reductions;

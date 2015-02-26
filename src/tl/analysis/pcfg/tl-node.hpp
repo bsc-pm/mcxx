@@ -40,6 +40,8 @@ namespace Analysis {
 
 //     class LatticeCellValue;
 
+    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> RangeValuesMap;
+
     //! Class representing a Node in the Extensible Graph
     class LIBTL_CLASS Node : public LinkData {
 
@@ -497,6 +499,10 @@ namespace Analysis {
             //! This only makes sense for OpenMP nodes
             NodeclSet get_private_vars();
 
+            //! Returns a list of all symbols that have firstprivate data-sharing within the node
+            //! This only makes sense for OpenMP nodes
+            NodeclSet get_firstprivate_vars();
+
             //! Returns a list of all symbols that have private or firstprivate data-sharing within the node
             //! This only makes sense for OpenMP nodes
             NodeclSet get_all_private_vars();
@@ -724,10 +730,10 @@ namespace Analysis {
 
             // ****************************************************************************** //
             // ******************* Getters and setters for range analysis ******************* //
-            
+
             //! Returns the map of variables and their range values associated 
             //! at the exit point of the node
-            Utils::RangeValuesMap get_ranges();
+            RangeValuesMap get_ranges();
 
             //! Returns the range values \p var if there is any in the node
             NBase get_range(const NBase& var);

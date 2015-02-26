@@ -314,6 +314,8 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-gccsupport.c \
   src/frontend/cxx-mssupport.h \
   src/frontend/cxx-mssupport.c \
+  src/frontend/cxx-intelsupport.h \
+  src/frontend/cxx-intelsupport.c \
   src/frontend/cxx-pragma.h \
   src/frontend/cxx-pragma.c \
   src/frontend/cxx-upc.c \
@@ -394,6 +396,7 @@ AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-opencl.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-xl.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-ms.def
+AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-intel.def
 AST_NODE_TYPE_FILES += src/frontend/cxx-asttype-fortran.def
 # Generated
 AST_NODE_TYPE_FILES_GEN =
@@ -427,6 +430,7 @@ ADDITIONAL_GRAMMARS += src/frontend/cxx-cuda.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-opencl.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-xl.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-ms.y
+ADDITIONAL_GRAMMARS += src/frontend/cxx-intel.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-extensions.y
 ADDITIONAL_GRAMMARS += src/frontend/cxx-fortran-compat.y
 
@@ -1964,6 +1968,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-devices.hpp \
 								 src/tl/omp/nanox-nodecl/tl-target-information.cpp \
 								 src/tl/omp/nanox-nodecl/tl-target-information.hpp \
+								 src/tl/omp/nanox-nodecl/tl-reduction-task.cpp \
 								 $(END)
 
 nanoxdatadir = $(pkgdatadir)/nanos
@@ -2921,6 +2926,7 @@ CONFIG_MCXX=\
 # see below
 CONFIG_FILES =  \
        config/00.config.plain \
+       config/01.config.intel-plain \
        config/10.config.analysis-base \
        config/10.config.hlt \
        config/10.config.omp-base \

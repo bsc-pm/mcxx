@@ -99,6 +99,15 @@ namespace TL
              */
             std::string get_qualified_name(Scope sc, bool without_template_id = false) const;
 
+            //! Returns a fully qualified name suitable for expressions
+            std::string get_qualified_name_for_expression(bool in_dependent_context = false) const;
+
+            //! Returns a fully qualified name suitable for expressions
+            /*!
+             * \param sc Scope used to lookup template parameter names
+             */
+            std::string get_qualified_name_for_expression(TL::Scope sc, bool in_dependent_context = false) const;
+
             //! Returns the part of the qualified name that involves classes
             std::string get_class_qualification(bool without_template_id = false) const;
 

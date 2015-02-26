@@ -464,6 +464,7 @@ compatibility: unknown-pragma
           | gcc-builtin-va-arg
           | gxx-traits
           | text
+          | intel-expressions
 
 gcc-builtin-va-arg: NODECL_GCC_BUILTIN_VA_ARG([expr] expression, [va_type]type) type
 
@@ -484,6 +485,9 @@ upc-sync-statement : NODECL_UPC_SYNC_STATEMENT([expr]expression) text
 gxx-traits: NODECL_GXX_TRAIT([lhs]type, [rhs]type-opt) text type const-value-opt
 
 text : NODECL_TEXT() text
+
+intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment] expression) type const-value-opt
+                  | NODECL_INTEL_ASSUME([assumed] expression) type const-value-opt
 
 ##############################
 # OpenMP                     #
@@ -543,6 +547,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
+                 | NODECL_OPEN_M_P*TASK_REDUCTION([reductions]reduction-item-seq)
                  | NODECL_OPEN_M_P*ALLOCA([exprs] expression-seq)
                  | NODECL_OPEN_M_P*SHARED_AND_ALLOCA([exprs]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
@@ -660,8 +665,8 @@ constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
                       | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*EMPTY_RANGE()
-                      | NODECL_ANALYSIS*MINUS_INFINITY() type
-                      | NODECL_ANALYSIS*PLUS_INFINITY() type
+                      | NODECL_ANALYSIS*MINUS_INFINITY() type const-value
+                      | NODECL_ANALYSIS*PLUS_INFINITY() type const-value
                       | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
                       | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 

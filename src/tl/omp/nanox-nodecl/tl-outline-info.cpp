@@ -997,10 +997,11 @@ namespace TL { namespace Nanox {
 
     void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol,
             TL::Type reduction_type,
-            OpenMP::Reduction* reduction)
+            OpenMP::Reduction* reduction,
+            OutlineDataItem::Sharing kind)
     {
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-        outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
+        outline_info.set_sharing(kind);
         outline_info.set_reduction_info(reduction, reduction_type);
 
         TL::Type t = symbol.get_type();
@@ -1268,16 +1269,59 @@ namespace TL { namespace Nanox {
                 // We don't want to do anything in the case of threadprivate variables
             }
 
-            void visit(const Nodecl::OpenMP::ReductionItem& reduction)
+            void visit(const Nodecl::OpenMP::Reduction& reduction)
             {
-                TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
-                TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
-                TL::Type reduction_type = reduction.get_reduction_type().get_type();
+                Nodecl::List reductions = reduction.get_reductions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = reductions.begin();
+                        it != reductions.end();
+                        it++)
+                {
+                    Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
 
-                OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
-                ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
-                add_reduction(symbol, reduction_type, red);
+                    TL::Symbol reduction_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Type reduction_type = red_item.get_reduction_type().get_type();
+
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+                    ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
+                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_REDUCTION);
+                }
             }
+
+            void visit(const Nodecl::OpenMP::TaskReduction& reduction)
+            {
+                Nodecl::List reductions = reduction.get_reductions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = reductions.begin();
+                        it != reductions.end();
+                        it++)
+                {
+                    Nodecl::OpenMP::ReductionItem red_item = it->as<Nodecl::OpenMP::ReductionItem>();
+
+                    TL::Symbol reduction_sym = red_item.get_reductor().get_symbol();
+                    TL::Symbol symbol = red_item.get_reduced_symbol().get_symbol();
+                    TL::Type reduction_type = red_item.get_reduction_type().get_type();
+
+                    OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+                    ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
+                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_CONCURRENT_REDUCTION);
+
+                    OutlineDataItem &outline_data_item = _outline_info.get_entity_for_symbol(symbol);
+
+                    TL::DataReference data_ref(red_item.get_reduced_symbol());
+                    outline_data_item.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_CONCURRENT));
+                }
+            }
+
+            // void visit(const Nodecl::OpenMP::ReductionItem& reduction)
+            // {
+            //     TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
+            //     TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
+            //     TL::Type reduction_type = reduction.get_reduction_type().get_type();
+
+            //     OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
+            //     ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
+            //     add_reduction(symbol, reduction_type, red);
+            // }
 
             void visit(const Nodecl::OpenMP::Target& target)
             {

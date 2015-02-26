@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.6],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.7],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -423,6 +423,29 @@ then
 else
     XLF=
 fi
+
+dnl --------------------- Support for plain profiles for Intel Compilers -------------
+if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 01.config.intel-plain"
+
+    # Intel C/C++/Fortran
+    if test x$ICC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicc"
+    fi
+
+    if test x$ICPC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicpc"
+    fi
+
+    if test -x$IFORT != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainifort plainimfc ifort-plainfc"
+    fi
+fi
+dnl --------------------- End support for plain profiles for Intel Compilers ---------
 
 dnl -- End of extra compiler checks ---
 
@@ -1273,7 +1296,7 @@ then
 
       if test -x$IFORT != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc ismpfc"
+          COMPILER_NAMES="${COMPILER_NAMES} imfc imf95 ifort-mfc ismpfc"
       fi
    fi
 

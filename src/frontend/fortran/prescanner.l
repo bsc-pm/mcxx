@@ -120,6 +120,7 @@ NAMELIST namelist
 EQUIVALENCE equivalence
 FORALL forall
 IF if
+BIND bind
 ELSE else
 ELSEIF elseif
 SELECTCASE selectcase
@@ -420,6 +421,10 @@ THEN then
 
 ^{IF} {
     return (ST_IF_STMT);
+}
+
+^{BIND} {
+    return (ST_BIND);
 }
 
 ^{ELSEIF} {
