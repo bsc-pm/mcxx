@@ -1631,6 +1631,7 @@ lib_LTLIBRARIES += src/tl/vectorization/vectorizer/libtlvectorizer.la
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
+                              -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knc/backend \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer/spml \

@@ -32,10 +32,11 @@
 
 #include "tl-nodecl-base.hpp"
 
-#include "tl-vectorization-common.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-function-versioning.hpp"
 #include "tl-vectorizer-prefetcher.hpp"
+#include "tl-vectorization-common.hpp"
+
 
 namespace TL
 {
@@ -137,6 +138,7 @@ namespace TL
                 friend class VectorizerVisitorLoopEpilog;
                 friend class Prefetcher;
                 friend class GenPrefetch;
+                friend class HasBeenDefinedVisitor;
         };
    }
 }

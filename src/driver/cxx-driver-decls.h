@@ -168,6 +168,7 @@ typedef struct debug_options_tag
     char binary_check;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
+    char ranges_verbose;
     char analysis_perf;
     char print_pcfg;
     char print_pcfg_w_context;
@@ -175,6 +176,7 @@ typedef struct debug_options_tag
     char print_pcfg_full;
     char print_tdg;
     char tdg_to_json;
+    // Others
     char do_not_codegen;
     char show_template_packs;
     char vectorization_verbose;
@@ -258,6 +260,9 @@ typedef struct compilation_process_tag
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_file_process_tag* current_file_process;
     struct compilation_configuration_tag *current_compilation_configuration;
+
+    // Flags
+    char parallel_process; // enables features allowing parallel compilation
 } compilation_process_t;
 
 typedef struct compilation_configuration_conditional_flags

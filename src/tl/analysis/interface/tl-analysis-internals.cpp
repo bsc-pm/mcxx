@@ -161,24 +161,19 @@ namespace Analysis {
             }
             else
             {
-                if (current->is_function_call_node())
+                if (current->is_builtin_node())
                 {
                     const ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
-                    ERROR_CONDITION(stmts.size() != 1, "Unexpected number of statements in a FunctionCall node\n", 0);
+                    ERROR_CONDITION(stmts.size() != 1, "Unexpected number of statements in a Builtin node\n", 0);
 
-                    const Nodecl::FunctionCall& func_nodecl = stmts.front().as<Nodecl::FunctionCall>();
+                    const Nodecl::NodeclBase& builtin = stmts.front();
 
-                    TL::Symbol func_sym = func_nodecl.get_called().get_symbol();
-                    if (func_sym.get_name() == "__assume_aligned")
+                    if (builtin.is<Nodecl::IntelAssumeAligned>())
                     {
-                        const ObjectList<Nodecl::NodeclBase> args_list = 
-                            func_nodecl.get_arguments().as<Nodecl::List>().to_object_list();
+                        const Nodecl::IntelAssumeAligned& assume_aligned = builtin.as<Nodecl::IntelAssumeAligned>();
 
-                        ERROR_CONDITION(args_list.size() != 2,
-                                "Two arguments expected for '__assume_aligned'", 0);
-
-                        Nodecl::NodeclBase aligned_expr = args_list.begin()->no_conv();
-                        Nodecl::NodeclBase alignment_node = (++args_list.begin())->no_conv();
+                        Nodecl::NodeclBase aligned_expr = assume_aligned.get_pointer().no_conv();
+                        Nodecl::NodeclBase alignment_node = assume_aligned.get_alignment().no_conv();
 
                         ERROR_CONDITION(!aligned_expr.is<Nodecl::Symbol>(),
                                 "Only Symbols are currently supported in '__assume_aligned'", 0);

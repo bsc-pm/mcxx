@@ -74,8 +74,6 @@ namespace TL
                 const unsigned int _vector_length;
                 std::list<Nodecl::NodeclBase> _old_m512;
 
-                VectorizationAnalysisInterface* _analysis;
-
                 void common_binary_op_lowering(const Nodecl::NodeclBase& node,
                         const std::string& intrin_op_name);
                 void common_unary_op_lowering(const Nodecl::NodeclBase& node,
