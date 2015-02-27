@@ -682,6 +682,11 @@ namespace Analysis {
         return (outer_node != NULL);
     }
 
+    bool Node::is_builtin_node()
+    {
+        return (get_type() == __Builtin);
+    }
+
     bool Node::is_graph_node()
     {
         return (get_type() == __Graph);
