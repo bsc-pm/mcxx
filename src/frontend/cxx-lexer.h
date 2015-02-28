@@ -62,21 +62,23 @@ LIBMCXX_EXTERN void update_parser_location(const char* current_text, parser_loca
 
 struct scan_file_descriptor 
 {
-    char in_include_file;
+    // This is the (physical) filename being scanned
     const char* filename;
+    FILE* file_descriptor;
 
-    // Current filename due to include lines
+    // This is the logical filename that we are scanning.
+    // current_filename != filename only in Fortran fixed-form because we scan
+    // the output of prescanner
     const char* current_filename;
+
+    // flex buffer
+    struct yy_buffer_state* scanning_buffer;
+
     unsigned int line_number;
-    
     // Fortran: After a joined line we have to move to this line if new_line > 0 
     unsigned int new_line; 
-
     // Fortran: Number of joined lines so far
     unsigned int joined_lines;
-
-    FILE* file_descriptor;
-    struct yy_buffer_state* scanning_buffer;
 };
 
 #define YYLTYPE parser_location_t
