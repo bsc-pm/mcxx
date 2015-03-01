@@ -80,6 +80,7 @@ namespace TL
                         VectorizerEnvironment& environment,
                         const bool is_simd_for,
                         const bool is_epilog,
+                        const bool overlap_in_place,
                         Nodecl::List& init_stmts);
                 void prefetcher(const Nodecl::NodeclBase& statements,
                         const prefetch_info_t& pref_info,

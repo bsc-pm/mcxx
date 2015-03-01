@@ -41,6 +41,7 @@ namespace Vectorization
 
         _vector_type = front_load.get_type().no_ref().get_unqualified_type();
         _basic_type = front_load.get_type().no_ref().basic_type();
+        _is_set_in_place_update_pre = false;
 
         compute_inter_iteration_overlap();
     }

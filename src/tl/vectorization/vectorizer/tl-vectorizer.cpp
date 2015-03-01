@@ -26,10 +26,6 @@
 
 #include "tl-vectorizer.hpp"
 
-#include "cxx-cexpr.h"
-#include "tl-source.hpp"
-#include "tl-optimizations.hpp"
-
 #include "tl-vectorizer-overlap-optimizer.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-target-type-heuristic.hpp"
@@ -41,8 +37,13 @@
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-vectorization-utils.hpp"
-
 #include "tl-vectorizer-report.hpp"
+
+#include "tl-optimizations.hpp"
+
+#include "cxx-cexpr.h"
+#include "tl-source.hpp"
+
 
 namespace TL
 {
@@ -206,6 +207,7 @@ namespace Vectorization
             VectorizerEnvironment& environment,
             const bool is_simd_for,
             const bool is_epilog,
+            const bool overlap_in_place,
             Nodecl::List& init_stmts)
     {
         VECTORIZATION_DEBUG()
@@ -215,7 +217,7 @@ namespace Vectorization
 
         OverlappedAccessesOptimizer overlap_visitor(environment,
                 Vectorizer::_vectorizer_analysis, is_simd_for,
-                is_epilog, init_stmts);
+                is_epilog, overlap_in_place, init_stmts);
         overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()

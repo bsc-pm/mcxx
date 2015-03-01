@@ -110,7 +110,8 @@ namespace Utils {
 
     bool is_nodecl_statement(const Nodecl::NodeclBase& n);
     void prepend_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt);
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context = Nodecl::NodeclBase::null());
     void append_statement(const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& new_stmt);
  

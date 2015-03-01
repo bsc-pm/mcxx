@@ -56,6 +56,7 @@ namespace TL
                 std::string _only_adjacent_accesses_str;
                 std::string _prefetching_str;
                 std::string _prefetch_in_place_str;
+                std::string _overlap_in_place_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
@@ -64,6 +65,7 @@ namespace TL
                 bool _knc_enabled;
                 bool _spml_enabled;
                 bool _only_adjacent_accesses_enabled;
+                bool _overlap_in_place;
                 TL::Vectorization::prefetch_info_t _pref_info;
 
                 void set_simd(const std::string simd_enabled_str);
@@ -72,12 +74,10 @@ namespace TL
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
                 void set_spml(const std::string spml_enabled_str);
-                void set_only_adjcent_accesses(
-                        const std::string only_adjacent_accesses_str);
-                void set_pref_distance(
-                        const std::string prefetching_enabled_str);
-                void set_prefetch_in_place(
-                        const std::string prefetch_in_place_str);
+                void set_only_adjcent_accesses(const std::string only_adjacent_accesses_str);
+                void set_pref_distance(const std::string prefetching_enabled_str);
+                void set_prefetch_in_place(const std::string prefetch_in_place_str);
+                void set_overlap_in_place(const std::string overlap_in_place_str);
         };
 
         class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -90,6 +90,7 @@ namespace TL
                 bool _support_masking;
                 unsigned int _mask_size;
                 bool _fast_math_enabled;
+                bool _overlap_in_place;
                 TL::Vectorization::prefetch_info_t _pref_info;
 
                 void process_aligned_clause(const Nodecl::List& environment,
@@ -122,6 +123,7 @@ namespace TL
                 SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
+                        bool overlap_in_place,
                         TL::Vectorization::prefetch_info_t pref_info);
 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
@@ -134,7 +136,7 @@ namespace TL
             public:
                 SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
                         bool fast_math_enabled, bool svml_enabled,
-                        bool only_adjacent_accesses,
+                        bool only_adjacent_accesses, bool overlap_in_place,
                         TL::Vectorization::prefetch_info_t pref_info);
 
                 using SimdVisitor::visit;

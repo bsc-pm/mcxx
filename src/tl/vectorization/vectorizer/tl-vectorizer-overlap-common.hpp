@@ -53,6 +53,7 @@ namespace TL
             int _num_registers;
             bool _aligned_strategy;
             bool _inter_it_overlap;
+            bool _is_set_in_place_update_pre;
 
             bool overlaps(const Nodecl::VectorLoad& vector_load,
                     const bool consider_aligned_adjacent_accesses);
