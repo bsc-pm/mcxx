@@ -53,7 +53,7 @@ ompss_iterated_dep_body : ompss_single_dependency ',' ompss_iterator_dep
 
 ompss_iterator_dep : identifier_token '=' ompss_iterator_range
 {
-    AST symbol = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    AST symbol = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
     $$ = ASTMake2(AST_OMPSS_ITERATOR, symbol, $3, ast_get_locus(symbol), NULL);
 }
 ;

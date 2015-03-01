@@ -163,8 +163,11 @@ static lexer_keyword_t intel_builtins[] =
 
 static int yywrap(void);
 
-static void parse_token_text(void);
+static void update_location_str(const char*);
+static void update_location();
+
 static void parse_token_text_str(const char*);
+static void parse_token_text(void);
 
 static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* keyword, char predicate);
 
@@ -175,20 +178,6 @@ static const char* main_input_filename = NULL;
 static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
-
-static unsigned int num_new_lines(const char* c)
-{
-    unsigned int result = 0;
-
-    while (*c)
-    {
-        if (*c == '\n') 
-            result++;
-        c++;
-    }
-
-    return result;
-}
 
 static int include_counter = 0;
 
@@ -335,6 +324,9 @@ idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
 binprefix   0[bB]
 
+newline ([\n]|[\r]|([\r][\n]))
+notnewline ([^\n\r])
+
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
 binary_exponent_part ([pP]([+-])?{digit}+)
@@ -377,20 +369,20 @@ identifier {idnondigit}({idnondigit}|{digit})*
 	BEGIN(pragma_line);
 }
 
-<pragma_line>mcc[ ]+enable_debug[ ]*\n {
+<pragma_line>mcc[ ]+enable_debug[ ]*{newline} {
     // This is only for debugging Mercurium itself
     extern void _enable_debug(void);
     _enable_debug();
-    scanning_now.line_number++;
+    update_location();
     // Do not return anything
     BEGIN(INITIAL);
 }
 
-<pragma_line>mcc[ ]+disable_debug[ ]*\n {
+<pragma_line>mcc[ ]+disable_debug[ ]*{newline} {
     // This is only for debugging Mercurium itself
     extern void _disable_debug(void);
     _disable_debug();
-    scanning_now.line_number++;
+    update_location();
     // Do not return anything
     BEGIN(INITIAL);
 }
@@ -398,6 +390,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 <pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]* {
     BEGIN(verbatim_clauses);
     parse_token_text();
+    update_location();
     return VERBATIM_PRAGMA;
 }
 
@@ -405,15 +398,18 @@ identifier {idnondigit}({idnondigit}|{digit})*
     
 type {
     parse_token_text();
+    update_location();
     BEGIN(verbatim_clauses_args);
     return VERBATIM_TYPE;
 }
 
-[ \t] { } 
+[ \t] {
+    update_location();
+}
 
-[\n] {
+{newline} {
     BEGIN(verbatim_text);
-    scanning_now.line_number++;
+    update_location();
 }
 
 }
@@ -422,11 +418,13 @@ type {
 
 [(] {
     parse_token_text();
+    update_location();
     return '(';
 }
 
 [)] {
     parse_token_text();
+    update_location();
     BEGIN(verbatim_clauses);
     return ')';
 }
@@ -435,35 +433,36 @@ type {
 
 {identifier} { 
     parse_token_text();
+    update_location();
     return IDENTIFIER;
 }
 
-[\n] 
-{
-    BEGIN(verbatim);
-    scanning_now.line_number++;
+{newline} {
+    BEGIN(verbatim_text);
+    update_location();
 }
 
 }
 
 <verbatim_text>{
 
-[^\n] {
+{notnewline} {
     verbatim_buffer_append(yytext);
+    update_location();
 }
 
-[\n] {
+{newline} {
     verbatim_buffer_append(yytext);
-    scanning_now.line_number++;
+    update_location();
 }
 
-#pragma[ ]+((mcxx)|(mcc))[ ]+verbatim[ ]+end[ ]*\n {
+#pragma[ ]+((mcxx)|(mcc))[ ]+verbatim[ ]+end[ ]*{newline} {
     BEGIN(INITIAL);
 
     parse_token_text_str(verbatim_buffer_get());
     verbatim_buffer_free();
     
-    scanning_now.line_number++;
+    update_location();
     return VERBATIM_TEXT;
 }
 
@@ -507,9 +506,10 @@ type {
 
 		if (!found)
 		{
-			warn_printf("%s:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf("%s:%d:%d: warning: unknown '#pragma %s'\n", 
 					scanning_now.current_filename,
 					scanning_now.line_number,
+					scanning_now.column_number,
 					yytext);
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
@@ -519,6 +519,7 @@ type {
 		{
 			BEGIN(pragma_custom_directive);
 			parse_token_text();
+            update_location();
             current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
 			return PRAGMA_CUSTOM;
 		}
@@ -528,7 +529,7 @@ type {
 <gcc_pragma>{
   /* This will catch #pragma gcc */
 
-[^\n]* {
+{notnewline}* {
 
     char ignore_gcc_header = 0;
 
@@ -564,18 +565,23 @@ type {
     if (!ignore_gcc_header)
     {
         parse_token_text();
+        update_location();
         BEGIN(preprocess);
         return UNKNOWN_PRAGMA;
     }
+    else
+    {
+        update_location();
+    }
 }
 
-[\n] {
+{newline} {
 
     // Degenerate case. This either '#pragma gcc' probably due to wrong input or a 
-    // removed "#pragma GCC system_header"
+    // skipped "#pragma GCC system_header"
 
     // Do not lose track of the line
-    unput('\n');
+    unput_string(yytext);
 
 	BEGIN(INITIAL);
 }
@@ -585,23 +591,16 @@ type {
 <unknown_pragma>{
   /* Besides unknown pragmas this will also catch #pragma ident */
 
-[^\n]* {
+{notnewline}* {
 	parse_token_text();
+    update_location();
 	BEGIN(preprocess);
 	return UNKNOWN_PRAGMA;
 }
 
-[\n] {
-
-    // Degenerate case. Our yytext is now "unknownpragma\n". We do not want the "\n"
-    int len = strlen(yytext);
-    char c[len + 1];
-    strncpy(c, yytext, len);
-    c[len] = '\0';
-    ERROR_CONDITION(c[len - 1] != '\n', "There should be a newline here", 0);
-    c[len-1] = '\0';
-
-	parse_token_text_str(c);
+{newline} {
+	parse_token_text_str("");
+    unput_string(yytext);
 
 	BEGIN(INITIAL);
 	return UNKNOWN_PRAGMA;
@@ -623,16 +622,20 @@ type {
     /* const char* longest_match = */ return_pragma_prefix_longest_match(
             current_pragma_prefix, yytext, &directive_kind, original_directive);
 
+    int line_number = scanning_now.line_number;
+    int column_number = scanning_now.column_number;
     if (directive_kind == PDK_NONE)
     {
         // Give a chance to the empty "directive" since some ill-designed
         // pragmas might need this
         directive_kind = lookup_pragma_directive(current_pragma_prefix, "");
         parse_token_text(); 
+        update_location();
     }
     else
     {
         parse_token_text_str(original_directive);
+        update_location_str(original_directive);
     }
 
 
@@ -651,9 +654,10 @@ type {
             }
         case PDK_NONE :
             {
-                running_error("%s:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
+                running_error("%s:%d:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
                         scanning_now.current_filename, 
-                        scanning_now.line_number,
+                        line_number,
+                        column_number,
                         yytext,
                         current_pragma_prefix);
             }
@@ -665,24 +669,25 @@ type {
     return token;
 }
 
-\n {
+{newline} {
     // This will cause a fail in the parser, but better this way than a silent \n mislexed
-    scanning_now.line_number++;
+    update_location();
 	BEGIN(INITIAL);
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
 [ \t] {
 	// This blank must be eaten and should be mandatory
+    update_location();
 }
 
 }
 
 <pragma_custom_clause_first>{
 
-\n {
-    scanning_now.line_number++;
+{newline} {
 	BEGIN(INITIAL);
+    update_location();
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
@@ -690,17 +695,20 @@ type {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
+    update_location();
 	return PRAGMA_CUSTOM_CLAUSE; 
 }
 
 [ \t] {
 	// This blank must be eaten
+    update_location();
 }
 
 [(] {
         // Parameter
 	pragma_custom_var_list_parentheses = 1;
     BEGIN(pragma_custom_var_list);
+    update_location();
     return '(';
 }
 
@@ -708,9 +716,9 @@ type {
 
 <pragma_custom_clause>{
 
-\n {
-    scanning_now.line_number++;
+{newline} {
 	BEGIN(INITIAL);
+    update_location();
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
@@ -718,11 +726,13 @@ type {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
+    update_location();
 	return PRAGMA_CUSTOM_CLAUSE; 
 }
 
 [ \t] {
 	// This blank must be eaten
+    update_location();
 }
 
 }
@@ -731,6 +741,7 @@ type {
 
 [(] {
 	parse_token_text();
+    update_location();
 	if (pragma_custom_var_list_parentheses == 0)
     {
         pragma_custom_var_list_parentheses++;
@@ -745,6 +756,7 @@ type {
 
 [)] {
 	parse_token_text();
+    update_location();
 	pragma_custom_var_list_parentheses--;
 	if (pragma_custom_var_list_parentheses == 0)
 	{
@@ -759,6 +771,7 @@ type {
 
 [ \t]+ {
     // Ignore the blank if we are not yet within any parentheses
+    update_location();
 	if (pragma_custom_var_list_parentheses > 0)
     {
         parse_token_text();
@@ -767,6 +780,7 @@ type {
 }
 
 {identifier} {
+    update_location();
     if (pragma_custom_var_list_parentheses > 0)
     {
         parse_token_text();
@@ -783,32 +797,35 @@ type {
     }
 }
 
-\n {
+{newline} {
     // We found a newline
     if (pragma_custom_var_list_parentheses != 0)
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        warn_printf("%s:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf("%s:%d:%d: warning: unended custom clause. Skipping.\n",
                 scanning_now.current_filename,
-                scanning_now.line_number);
+                scanning_now.line_number,
+                scanning_now.column_number);
     }
     // Head back to initial state and finish this pragma
-    scanning_now.line_number++;
     BEGIN(INITIAL);
+    update_location();
     return PRAGMA_CUSTOM_NEWLINE;
 }
 
   /* Catch all rule */
 [^\n] {
     parse_token_text();
+    update_location();
     return PRAGMA_CLAUSE_ARG_TEXT;
 }
 
 }
 
  /* _Pragma */
-
+ /* Note: we do not update location when lexing here
+    because we will reintroduce a #pragma */
 "_Pragma"[ \t]*"("[ \t]* {
         BEGIN(inline_pragma);
         xfree(inline_pragma_str);
@@ -841,10 +858,11 @@ type {
                 scanning_now.current_filename);
         if (s == MCXX_MAX_FILENAME - 1)
         {
-            internal_error("Inline pragma is too long (> %d) at %s:%d",
+            internal_error("Inline pragma is too long (> %d) at %s:%d:%d",
                     MCXX_MAX_FILENAME,
                     scanning_now.current_filename,
-                    scanning_now.line_number);
+                    scanning_now.line_number,
+                    scanning_now.column_number);
         }
         whole_pragma_line[MCXX_MAX_FILENAME - 1] = '\0';
 
@@ -895,6 +913,7 @@ type {
    // Update the line number, note that it is line_num - 1 
    // because \n is not handled here, but in another rule
  scanning_now.line_number = (line_num - 1);
+ scanning_now.column_number = 1;
 
  // Jump blanks (if any)
  while (*p == ' ')
@@ -1033,9 +1052,10 @@ type {
     {
         if (extern_c_block)
         {
-            warn_printf("%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf("%s:%d:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
                     scanning_now.current_filename,
-                    scanning_now.line_number);
+                    scanning_now.line_number,
+                    scanning_now.column_number);
         }
     }
 #endif
@@ -1082,220 +1102,222 @@ type {
     // Update the line number, note that it is line_num - 1 
     // because \n is not handled here, but in another rule
 	scanning_now.line_number = (line_num - 1);
+	scanning_now.column_number = 1;
     // Update file
 	scanning_now.current_filename = uniquestr(filename);
 }
 
-<preprocess>.       { /* ignore line */  }
-<preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
+<preprocess>.       { update_location(); /* ignore line */  }
+<preprocess>\n  { update_location(); BEGIN(INITIAL); }
 
  /* C comments ( 6.4.9 ) */
 
  /* // comments. // can be splitted across different lines */
 
 "/"(\\\n)*"/"       { 
-    scanning_now.line_number += num_new_lines(yytext); 
+    update_location();
     BEGIN(linecomment); 
 }
 
  /* escaped new line does not end comment */
-<linecomment>\\\n   { scanning_now.line_number++; }
-<linecomment>.      { /* ignore comment */  }
-<linecomment>\n     { scanning_now.line_number++; BEGIN(INITIAL); }
+<linecomment>\\\n   { update_location(); }
+<linecomment>.      { update_location(); }
+<linecomment>\n     { update_location(); BEGIN(INITIAL); }
 
  /* long C comments. tags can be splitted across diferent lines */
 
 "/"(\\\n)*"*"               { 
-    scanning_now.line_number += num_new_lines(yytext);
+    update_location();
     BEGIN(longcomment); 
 }
-<longcomment>\n             { scanning_now.line_number++; }
-<longcomment>.              { /* ignore comment */ }
+<longcomment>\n             { update_location(); }
+<longcomment>.              { update_location(); }
 <longcomment>"*"(\\\n)*"/"  { 
-    scanning_now.line_number += num_new_lines(yytext);
+    update_location();
     BEGIN(INITIAL); 
 }
 
 
  /* A.2.11 */
-"char"          { parse_token_text(); return TOKEN_CHAR; }
+"char"          { parse_token_text(); update_location(); return TOKEN_CHAR; }
  /*!if CPLUSPLUS*/
-"wchar_t"       { parse_token_text(); return TOKEN_WCHAR_T; }
-"bool"          { parse_token_text(); return TOKEN_BOOL; }
-"char16_t"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR16_T; else return IDENTIFIER; }
-"char32_t"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR32_T; else return IDENTIFIER; }
+"wchar_t"       { parse_token_text(); update_location(); return TOKEN_WCHAR_T; }
+"bool"          { parse_token_text(); update_location(); return TOKEN_BOOL; }
+"char16_t"      { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR16_T; else return IDENTIFIER; }
+"char32_t"      { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR32_T; else return IDENTIFIER; }
  /*!endif*/
  /*!if C99*/
-"_Bool"          { parse_token_text(); return TOKEN_BOOL; }
+"_Bool"          { parse_token_text(); update_location(); return TOKEN_BOOL; }
  /*!endif*/
-"short"         { parse_token_text(); return TOKEN_SHORT; }
-"int"           { parse_token_text(); return TOKEN_INT; }
-"long"          { parse_token_text(); return TOKEN_LONG; }
-"signed"        { parse_token_text(); return TOKEN_SIGNED; }
-"__signed"        { parse_token_text(); return TOKEN_SIGNED; }
-"__signed__"        { parse_token_text(); return TOKEN_SIGNED; }
-"unsigned"      { parse_token_text(); return TOKEN_UNSIGNED; }
-"float"         { parse_token_text(); return TOKEN_FLOAT; }
-"double"        { parse_token_text(); return TOKEN_DOUBLE; }
-"void"          { parse_token_text(); return TOKEN_VOID; }
+"short"         { parse_token_text(); update_location(); return TOKEN_SHORT; }
+"int"           { parse_token_text(); update_location(); return TOKEN_INT; }
+"long"          { parse_token_text(); update_location(); return TOKEN_LONG; }
+"signed"        { parse_token_text(); update_location(); return TOKEN_SIGNED; }
+"__signed"        { parse_token_text(); update_location(); return TOKEN_SIGNED; }
+"__signed__"        { parse_token_text(); update_location(); return TOKEN_SIGNED; }
+"unsigned"      { parse_token_text(); update_location(); return TOKEN_UNSIGNED; }
+"float"         { parse_token_text(); update_location(); return TOKEN_FLOAT; }
+"double"        { parse_token_text(); update_location(); return TOKEN_DOUBLE; }
+"void"          { parse_token_text(); update_location(); return TOKEN_VOID; }
 
-"typedef"       { parse_token_text(); return TYPEDEF; }
-"enum"          { parse_token_text(); return ENUM; } 
-"struct"        { parse_token_text(); return STRUCT; } 
+"typedef"       { parse_token_text(); update_location(); return TYPEDEF; }
+"enum"          { parse_token_text(); update_location(); return ENUM; } 
+"struct"        { parse_token_text(); update_location(); return STRUCT; } 
  /*!if C99*/
-"auto"          { parse_token_text(); return TOKEN_AUTO_STORAGE; }
+"auto"          { parse_token_text(); update_location(); return TOKEN_AUTO_STORAGE; }
  /*!endif*/
  /*!if CPLUSPLUS*/
 "auto"          { parse_token_text();
+                  update_location();
                   if (IS_CXX11_LANGUAGE)
                       return TOKEN_AUTO_TYPE;
                   else
                       return TOKEN_AUTO_STORAGE;
                 } 
  /*!endif*/
-"register"      { parse_token_text(); return REGISTER; } 
-"static"        { parse_token_text(); return STATIC; } 
-"extern"        { parse_token_text(); return EXTERN; } 
-"inline"        { parse_token_text(); return INLINE; } 
-"const"         { parse_token_text(); return TOKEN_CONST; } 
-"volatile"      { parse_token_text(); return TOKEN_VOLATILE; } 
-"union"         { parse_token_text(); return UNION; } 
-"asm"           { parse_token_text(); return ASM; } 
+"register"      { parse_token_text(); update_location(); return REGISTER; } 
+"static"        { parse_token_text(); update_location(); return STATIC; } 
+"extern"        { parse_token_text(); update_location(); return EXTERN; } 
+"inline"        { parse_token_text(); update_location(); return INLINE; } 
+"const"         { parse_token_text(); update_location(); return TOKEN_CONST; } 
+"volatile"      { parse_token_text(); update_location(); return TOKEN_VOLATILE; } 
+"union"         { parse_token_text(); update_location(); return UNION; } 
+"asm"           { parse_token_text(); update_location(); return ASM; } 
 
  /*!if CPLUSPLUS*/
-"decltype"      { parse_token_text(); return DECLTYPE; }
-"__decltype"      { parse_token_text(); return DECLTYPE; }
-"explicit"      { parse_token_text(); return EXPLICIT; } 
-"private"       { parse_token_text(); return PRIVATE; } 
-"protected"     { parse_token_text(); return PROTECTED; } 
-"public"        { parse_token_text(); return PUBLIC; } 
-"throw"         { parse_token_text(); return THROW; } 
-"operator"      { parse_token_text(); return OPERATOR; } 
-"operator[ \t\n]+\"\""  { parse_token_text(); return OPERATOR_LITERAL; } 
-"new"           { parse_token_text(); return TOKEN_NEW; } 
-"new"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); return TOKEN_NEW_ARRAY; }
-"delete"        { parse_token_text(); return TOKEN_DELETE; }
-"delete"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); return TOKEN_DELETE_ARRAY; }
-"typename"      { parse_token_text(); return TYPENAME; } 
-"export"        { parse_token_text(); return EXPORT; } 
-"class"         { parse_token_text(); return CLASS; }
-"template"      { parse_token_text(); return TEMPLATE; } 
-"friend"        { parse_token_text(); return FRIEND; } 
-"mutable"       { parse_token_text(); return MUTABLE; } 
-"virtual"       { parse_token_text(); return VIRTUAL; } 
-"using"         { parse_token_text(); return USING; } 
-"namespace"     { parse_token_text(); return NAMESPACE; } 
-"this"          { parse_token_text(); return TOKEN_THIS; }
-"dynamic_cast"      { parse_token_text(); return DYNAMIC_CAST; }
-"static_cast"       { parse_token_text(); return STATIC_CAST; }
-"reinterpret_cast"      { parse_token_text(); return REINTERPRET_CAST; }
-"const_cast"        { parse_token_text(); return CONST_CAST; }
-"typeid"        { parse_token_text(); return TYPEID; }
-"try"           { parse_token_text(); return TRY; }
-"catch"         { parse_token_text(); return CATCH; }
+"decltype"      { parse_token_text(); update_location(); return DECLTYPE; }
+"__decltype"    { parse_token_text(); update_location(); return DECLTYPE; }
+"explicit"      { parse_token_text(); update_location(); return EXPLICIT; } 
+"private"       { parse_token_text(); update_location(); return PRIVATE; } 
+"protected"     { parse_token_text(); update_location(); return PROTECTED; } 
+"public"        { parse_token_text(); update_location(); return PUBLIC; } 
+"throw"         { parse_token_text(); update_location(); return THROW; } 
+"operator"      { parse_token_text(); update_location(); return OPERATOR; } 
+"operator[ \t\n]+\"\""  { parse_token_text(); update_location(); return OPERATOR_LITERAL; } 
+"new"           { parse_token_text(); update_location(); return TOKEN_NEW; } 
+"new"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); update_location(); return TOKEN_NEW_ARRAY; }
+"delete"        { parse_token_text(); update_location(); return TOKEN_DELETE; }
+"delete"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); update_location(); return TOKEN_DELETE_ARRAY; }
+"typename"      { parse_token_text(); update_location(); return TYPENAME; } 
+"export"        { parse_token_text(); update_location(); return EXPORT; } 
+"class"         { parse_token_text(); update_location(); return CLASS; }
+"template"      { parse_token_text(); update_location(); return TEMPLATE; } 
+"friend"        { parse_token_text(); update_location(); return FRIEND; } 
+"mutable"       { parse_token_text(); update_location(); return MUTABLE; } 
+"virtual"       { parse_token_text(); update_location(); return VIRTUAL; } 
+"using"         { parse_token_text(); update_location(); return USING; } 
+"namespace"     { parse_token_text(); update_location(); return NAMESPACE; } 
+"this"          { parse_token_text(); update_location(); return TOKEN_THIS; }
+"dynamic_cast"      { parse_token_text(); update_location(); return DYNAMIC_CAST; }
+"static_cast"       { parse_token_text(); update_location(); return STATIC_CAST; }
+"reinterpret_cast"      { parse_token_text(); update_location(); return REINTERPRET_CAST; }
+"const_cast"        { parse_token_text(); update_location(); return CONST_CAST; }
+"typeid"        { parse_token_text(); update_location(); return TYPEID; }
+"try"           { parse_token_text(); update_location(); return TRY; }
+"catch"         { parse_token_text(); update_location(); return CATCH; }
 
-"constexpr"     { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CONSTEXPR; else return IDENTIFIER; }
-"thread_local"  { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_THREAD_LOCAL; else return IDENTIFIER; }
+"constexpr"     { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_CONSTEXPR; else return IDENTIFIER; }
+"thread_local"  { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_THREAD_LOCAL; else return IDENTIFIER; }
 "noexcept"/[ \t\n]*[(] {
-                  parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT; else return IDENTIFIER; }
-"noexcept"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT_ALONE; else return IDENTIFIER; }
-"nullptr"       { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NULLPTR; else return IDENTIFIER; }
+                  parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT; else return IDENTIFIER; }
+"noexcept"      { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT_ALONE; else return IDENTIFIER; }
+"nullptr"       { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_NULLPTR; else return IDENTIFIER; }
  /*!endif*/
 
-"sizeof"        { parse_token_text(); return SIZEOF; }
-"case"          { parse_token_text(); return CASE; }
-"default"       { parse_token_text(); return DEFAULT; }
-"if"            { parse_token_text(); return IF; }
-"else"          { parse_token_text(); return ELSE; }
-"switch"        { parse_token_text(); return SWITCH; }
-"while"         { parse_token_text(); return WHILE; }
-"do"            { parse_token_text(); return DO; }
-"for"           { parse_token_text(); return FOR; }
-"break"         { parse_token_text(); return BREAK; }
-"continue"      { parse_token_text(); return CONTINUE; }
-"goto"          { parse_token_text(); return GOTO; }
-"return"        { parse_token_text(); return RETURN; }
+"sizeof"        { parse_token_text(); update_location(); return SIZEOF; }
+"case"          { parse_token_text(); update_location(); return CASE; }
+"default"       { parse_token_text(); update_location(); return DEFAULT; }
+"if"            { parse_token_text(); update_location(); return IF; }
+"else"          { parse_token_text(); update_location(); return ELSE; }
+"switch"        { parse_token_text(); update_location(); return SWITCH; }
+"while"         { parse_token_text(); update_location(); return WHILE; }
+"do"            { parse_token_text(); update_location(); return DO; }
+"for"           { parse_token_text(); update_location(); return FOR; }
+"break"         { parse_token_text(); update_location(); return BREAK; }
+"continue"      { parse_token_text(); update_location(); return CONTINUE; }
+"goto"          { parse_token_text(); update_location(); return GOTO; }
+"return"        { parse_token_text(); update_location(); return RETURN; }
 
  /*!if CPLUSPLUS*/
  /* A.2.41 */
-"false"         { parse_token_text(); return BOOLEAN_LITERAL; }
-"true"          { parse_token_text(); return BOOLEAN_LITERAL; }
+"false"         { parse_token_text(); update_location(); return BOOLEAN_LITERAL; }
+"true"          { parse_token_text(); update_location(); return BOOLEAN_LITERAL; }
  /*!endif*/
 
  /*!if CPLUSPLUS*/
  /* C++2011 keywords that are not reserved words */
-"final"         { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_FINAL; else return IDENTIFIER; }
-"override"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_OVERRIDE; else return IDENTIFIER; }
+"final"         { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOK_FINAL; else return IDENTIFIER; }
+"override"      { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOK_OVERRIDE; else return IDENTIFIER; }
  /*!endif*/
 
  /*!if CPLUSPLUS*/
  /* Alternative tokens */
-"<%" { parse_token_text(); return '{'; }
-"%>" { parse_token_text(); return '}'; }
-"<:" { parse_token_text(); return '['; }
-":>" { parse_token_text(); return ']'; }
-"and" { parse_token_text(); return ANDAND; }
-"bitor" { parse_token_text(); return '|'; }
-"or" { parse_token_text(); return OROR; }
-"xor" { parse_token_text(); return '^'; }
-"compl" { parse_token_text(); return '~'; }
-"bitand" { parse_token_text(); return '&'; }
-"and_eq" { parse_token_text(); return AND_ASSIGN; }
-"or_eq" { parse_token_text(); return OR_ASSIGN; }
-"xor_eq" { parse_token_text(); return XOR_ASSIGN; }
-"not" { parse_token_text(); return '!'; }
-"not_eq" { parse_token_text(); return NOT_EQUAL; }
+"<%" { parse_token_text(); update_location(); return '{'; }
+"%>" { parse_token_text(); update_location(); return '}'; }
+"<:" { parse_token_text(); update_location(); return '['; }
+":>" { parse_token_text(); update_location(); return ']'; }
+"and" { parse_token_text(); update_location(); return ANDAND; }
+"bitor" { parse_token_text(); update_location(); return '|'; }
+"or" { parse_token_text(); update_location(); return OROR; }
+"xor" { parse_token_text(); update_location(); return '^'; }
+"compl" { parse_token_text(); update_location(); return '~'; }
+"bitand" { parse_token_text(); update_location(); return '&'; }
+"and_eq" { parse_token_text(); update_location(); return AND_ASSIGN; }
+"or_eq" { parse_token_text(); update_location(); return OR_ASSIGN; }
+"xor_eq" { parse_token_text(); update_location(); return XOR_ASSIGN; }
+"not" { parse_token_text(); update_location(); return '!'; }
+"not_eq" { parse_token_text(); update_location(); return NOT_EQUAL; }
  /*!endif*/
 
  /* GNU Extensions */
-"__builtin_va_arg" { parse_token_text(); return BUILTIN_VA_ARG; }
-"__builtin_offsetof" { parse_token_text(); return BUILTIN_OFFSETOF; }
+"__builtin_va_arg" { parse_token_text(); update_location(); return BUILTIN_VA_ARG; }
+"__builtin_offsetof" { parse_token_text(); update_location(); return BUILTIN_OFFSETOF; }
  /*!if C99*/
-"__builtin_choose_expr" { parse_token_text(); return BUILTIN_CHOOSE_EXPR; }
-"__builtin_types_compatible_p" { parse_token_text(); return BUILTIN_TYPES_COMPATIBLE_P; }
+"__builtin_choose_expr" { parse_token_text(); update_location(); return BUILTIN_CHOOSE_EXPR; }
+"__builtin_types_compatible_p" { parse_token_text(); update_location(); return BUILTIN_TYPES_COMPATIBLE_P; }
  /*!endif*/
-"__extension__" { parse_token_text(); return EXTENSION; }
-"__alignof" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
-"__alignof__" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
-"__ALIGNOF__" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+"__extension__" { parse_token_text(); update_location(); return EXTENSION; }
+"__alignof" { parse_token_text(); update_location(); return TOKEN_GCC_ALIGNOF; }
+"__alignof__" { parse_token_text(); update_location(); return TOKEN_GCC_ALIGNOF; }
+"__ALIGNOF__" { parse_token_text(); update_location(); return TOKEN_GCC_ALIGNOF; }
  /*!if CPLUSPLUS*/
-"alignof" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNOF; else return IDENTIFIER; }
+"alignof" { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNOF; else return IDENTIFIER; }
  /*!endif*/
  /*!if CPLUSPLUS*/
-"alignas" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNAS; else return IDENTIFIER; }
+"alignas" { parse_token_text(); update_location(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNAS; else return IDENTIFIER; }
  /*!endif*/
-"__real" { parse_token_text(); return REAL; }
-"__real__" { parse_token_text(); return REAL; }
-"__imag__" { parse_token_text(); return IMAG; }
-"__label__" { parse_token_text(); return LABEL; }
-"__complex" { parse_token_text(); return COMPLEX; }
-"__complex__" { parse_token_text(); return COMPLEX; }
-"_Complex" { parse_token_text(); return COMPLEX; }
+"__real" { parse_token_text(); update_location(); return REAL; }
+"__real__" { parse_token_text(); update_location(); return REAL; }
+"__imag__" { parse_token_text(); update_location(); return IMAG; }
+"__label__" { parse_token_text(); update_location(); return LABEL; }
+"__complex" { parse_token_text(); update_location(); return COMPLEX; }
+"__complex__" { parse_token_text(); update_location(); return COMPLEX; }
+"_Complex" { parse_token_text(); update_location(); return COMPLEX; }
  /*!if C99*/
-"_Imaginary" { parse_token_text(); return IMAGINARY; }
+"_Imaginary" { parse_token_text(); update_location(); return IMAGINARY; }
  /*!endif*/
-"typeof" { parse_token_text(); return TYPEOF; }
-"__typeof" { parse_token_text(); return TYPEOF; }
-"__typeof__" { parse_token_text(); return TYPEOF; }
-"restrict" { parse_token_text(); return RESTRICT; /* This should be only for C99 but we will be lax here */ }
-"__restrict" { parse_token_text(); return RESTRICT; }
-"__restrict__" { parse_token_text(); return RESTRICT; }
-"__const" { parse_token_text(); return TOKEN_CONST; }
-"__const__" { parse_token_text(); return TOKEN_CONST; }
-"__declspec" { parse_token_text(); return TOKEN_DECLSPEC; }
-"__attribute" { parse_token_text(); return TOKEN_GCC_ATTRIBUTE; }
-"__attribute__" { parse_token_text(); return TOKEN_GCC_ATTRIBUTE; }
-"__thread" { parse_token_text(); return THREAD; } 
-"__inline"        { parse_token_text(); return INLINE; } 
-"__inline__"        { parse_token_text(); return INLINE; } 
-"__volatile"        { parse_token_text(); return TOKEN_VOLATILE; } 
-"__volatile__"        { parse_token_text(); return TOKEN_VOLATILE; } 
-"__asm" { parse_token_text(); return ASM; }
-"__asm__" { parse_token_text(); return ASM; }
+"typeof" { parse_token_text(); update_location(); return TYPEOF; }
+"__typeof" { parse_token_text(); update_location(); return TYPEOF; }
+"__typeof__" { parse_token_text(); update_location(); return TYPEOF; }
+"restrict" { parse_token_text(); update_location(); return RESTRICT; /* This should be only for C99 but we will be lax here */ }
+"__restrict" { parse_token_text(); update_location(); return RESTRICT; }
+"__restrict__" { parse_token_text(); update_location(); return RESTRICT; }
+"__const" { parse_token_text(); update_location(); return TOKEN_CONST; }
+"__const__" { parse_token_text(); update_location(); return TOKEN_CONST; }
+"__declspec" { parse_token_text(); update_location(); return TOKEN_DECLSPEC; }
+"__attribute" { parse_token_text(); update_location(); return TOKEN_GCC_ATTRIBUTE; }
+"__attribute__" { parse_token_text(); update_location(); return TOKEN_GCC_ATTRIBUTE; }
+"__thread" { parse_token_text(); update_location(); return THREAD; } 
+"__inline"        { parse_token_text(); update_location(); return INLINE; } 
+"__inline__"        { parse_token_text(); update_location(); return INLINE; } 
+"__volatile"        { parse_token_text(); update_location(); return TOKEN_VOLATILE; } 
+"__volatile__"        { parse_token_text(); update_location(); return TOKEN_VOLATILE; } 
+"__asm" { parse_token_text(); update_location(); return ASM; }
+"__asm__" { parse_token_text(); update_location(); return ASM; }
  /* XL Compiler extensions */
- "_Builtin" { parse_token_text(); return XL_BUILTIN_SPEC; }
+ "_Builtin" { parse_token_text(); update_location(); return XL_BUILTIN_SPEC; }
  /*!if CPLUSPLUS*/
-"static_assert" { parse_token_text(); return STATIC_ASSERT; }
+"static_assert" { parse_token_text(); update_location(); return STATIC_ASSERT; }
  /* g++ 4.3 extensions */
 "__has_nothrow_assign" |
 "__has_nothrow_constructor" |
@@ -1371,6 +1393,7 @@ type {
 
 "__int128" {
     parse_token_text();
+    update_location();
 #if HAVE_INT128
     return TOKEN_INT128;
 #else
@@ -1380,6 +1403,7 @@ type {
 
 "__float128" {
     parse_token_text();
+    update_location();
 #ifdef HAVE_QUADMATH_H
     return TOKEN_FLOAT128;
 #else
@@ -1388,22 +1412,22 @@ type {
 }
 
  /* Special tokens for subparsing */
-@EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
-@EXPRESSION-LIST@ { parse_token_text(); return SUBPARSE_EXPRESSION_LIST; }
-@STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
-@DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
-@TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
-@TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
-@ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
-@OMP-DECLARE-REDUCTION@ { parse_token_text(); return SUBPARSE_OPENMP_DECLARE_REDUCTION; }
-@OMP-DEPEND-ITEM@ { parse_token_text(); return SUBPARSE_OPENMP_DEPEND_ITEM; }
-@NODECL-LITERAL-EXPR@ { parse_token_text(); return NODECL_LITERAL_EXPR; }
-@NODECL-LITERAL-STMT@ { parse_token_text(); return NODECL_LITERAL_STMT; }
-@SYMBOL-LITERAL-REF@ { parse_token_text(); return SYMBOL_LITERAL_REF; }
-@TYPE-LITERAL-REF@ { parse_token_text(); return TYPE_LITERAL_REF; }
-@OMPSS-DEPENDENCY-EXPR@ { parse_token_text(); return SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION; }
+@EXPRESSION@ { parse_token_text(); update_location(); return SUBPARSE_EXPRESSION; }
+@EXPRESSION-LIST@ { parse_token_text(); update_location(); return SUBPARSE_EXPRESSION_LIST; }
+@STATEMENT@ { parse_token_text(); update_location(); return SUBPARSE_STATEMENT; }
+@DECLARATION@ { parse_token_text(); update_location(); return SUBPARSE_DECLARATION; }
+@TYPE@ { parse_token_text(); update_location(); return SUBPARSE_TYPE; }
+@TYPE-LIST@ { parse_token_text(); update_location(); return SUBPARSE_TYPE_LIST; }
+@ID_EXPRESSION@ { parse_token_text(); update_location(); return SUBPARSE_ID_EXPRESSION; }
+@OMP-DECLARE-REDUCTION@ { parse_token_text(); update_location(); return SUBPARSE_OPENMP_DECLARE_REDUCTION; }
+@OMP-DEPEND-ITEM@ { parse_token_text(); update_location(); return SUBPARSE_OPENMP_DEPEND_ITEM; }
+@NODECL-LITERAL-EXPR@ { parse_token_text(); update_location(); return NODECL_LITERAL_EXPR; }
+@NODECL-LITERAL-STMT@ { parse_token_text(); update_location(); return NODECL_LITERAL_STMT; }
+@SYMBOL-LITERAL-REF@ { parse_token_text(); update_location(); return SYMBOL_LITERAL_REF; }
+@TYPE-LITERAL-REF@ { parse_token_text(); update_location(); return TYPE_LITERAL_REF; }
+@OMPSS-DEPENDENCY-EXPR@ { parse_token_text(); update_location(); return SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION; }
  /*!if CPLUSPLUS*/
-@MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
+@MEMBER@ { parse_token_text(); update_location(); return SUBPARSE_MEMBER; }
  /*!endif*/
  /* Special tokens for prettyprinted comments and preprocessor elements */
 @-C-@[^@]*@-CC-@ { 
@@ -1416,6 +1440,8 @@ type {
 
     parse_token_text_str(p); 
     xfree(t);
+
+    update_location();
 
     return PP_COMMENT; 
 }
@@ -1430,84 +1456,86 @@ type {
     parse_token_text_str(p); 
     xfree(t);
 
+    update_location();
+
     return PP_TOKEN; 
 }
  /* Special tokens for placeholders */
-@STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); return STATEMENT_PLACEHOLDER; }
+@STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); update_location(); return STATEMENT_PLACEHOLDER; }
  /* Special tokens for parsing superscalar related things */
-@SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
-@SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
-@SUPERSCALAR_EXPRESSION@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_EXPRESSION; }
+@SUPERSCALAR_DECLARATOR@ { parse_token_text(); update_location(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
+@SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); update_location(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
+@SUPERSCALAR_EXPRESSION@ { parse_token_text(); update_location(); return SUBPARSE_SUPERSCALAR_EXPRESSION; }
 
-@FORTRAN_ALLOCATE@  { parse_token_text(); return C_FORTRAN_ALLOCATE; }
+@FORTRAN_ALLOCATE@  { parse_token_text(); update_location(); return C_FORTRAN_ALLOCATE; }
 
  /*!if C99*/
-@ref@ { parse_token_text(); return MCC_REFERENCE; }
+@ref@ { parse_token_text(); update_location(); return MCC_REFERENCE; }
  /*!endif*/
  /*!if CPLUSPLUS*/
-@ref@ { parse_token_text(); return '&'; }
+@ref@ { parse_token_text(); update_location(); return '&'; }
  /*!endif*/
 
-@mcc_byte@ { parse_token_text(); return MCC_BYTE; }
+@mcc_byte@ { parse_token_text(); update_location(); return MCC_BYTE; }
 @byte@     { /* Deprecated */
-             parse_token_text(); return MCC_BYTE; }
-@mcc_bool@ { parse_token_text(); return MCC_BOOL; }
-@mcc_mask@ { parse_token_text(); return MCC_MASK; }
+             parse_token_text(); update_location(); return MCC_BYTE; }
+@mcc_bool@ { parse_token_text(); update_location(); return MCC_BOOL; }
+@mcc_mask@ { parse_token_text(); update_location(); return MCC_MASK; }
 
-@reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
+@reb-ref@ { parse_token_text(); update_location(); return MCC_REBINDABLE_REFERENCE; }
 
-@array-subscript-check@ { parse_token_text(); return MCC_ARRAY_SUBSCRIPT_CHECK; }
-@const-value-check@ { parse_token_text(); return MCC_CONST_VALUE_CHECK; }
+@array-subscript-check@ { parse_token_text(); update_location(); return MCC_ARRAY_SUBSCRIPT_CHECK; }
+@const-value-check@ { parse_token_text(); update_location(); return MCC_CONST_VALUE_CHECK; }
 
  /* A plain identifier */
-{identifier} {parse_token_text(); return IDENTIFIER; }
+{identifier} {parse_token_text(); update_location(); return IDENTIFIER; }
 
  /* A.2.17 */
-{nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+{nonzero}({digit})*{integersuffix}?     { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
  /*!if CPLUSPLUS*/
-{nonzero}[']({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+{nonzero}[']({digit})*{integersuffix}?     { parse_token_text(); update_location(); return DECIMAL_LITERAL; }
  /*!endif*/
 
  /* A.2.18 */
-0{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+0{octaldigit}*{integersuffix}?         { parse_token_text(); update_location(); return OCTAL_LITERAL; }
  /*!if CPLUSPLUS*/
-0[']{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+0[']{octaldigit}*{integersuffix}?         { parse_token_text(); update_location(); return OCTAL_LITERAL; }
  /*!endif*/
 
  /* A.2.19 */
-{hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); return HEXADECIMAL_LITERAL; }
+{hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); update_location(); return HEXADECIMAL_LITERAL; }
 
-{binprefix}{bindigit}+{integersuffix}? { parse_token_text(); return BINARY_LITERAL; }
+{binprefix}{bindigit}+{integersuffix}? { parse_token_text(); update_location(); return BINARY_LITERAL; }
 
  /* A.2.26 */
  /*!if CPLUSPLUS*/
-[LUu]?'{cchar}*'        { parse_token_text(); return CHARACTER_LITERAL; }
+[LUu]?'{cchar}*'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
  /*!endif*/
  /*!if C99*/
-L?'{cchar}*'        { parse_token_text(); return CHARACTER_LITERAL; }
+L?'{cchar}*'        { parse_token_text(); update_location(); return CHARACTER_LITERAL; }
  /*!endif*/
 
  /* A.2.33 */
-{fractconst}{exponent}?{floatingsuffix}?        { parse_token_text();
+{fractconst}{exponent}?{floatingsuffix}?        { parse_token_text(); update_location();
 return FLOATING_LITERAL; }
 
  /* C99 additional */
 {hexprefix}{hexadecimal_fractional_constant}{binary_exponent_part}({floatingsuffix})? { 
-    parse_token_text(); 
+    parse_token_text(); update_location(); 
     return HEXADECIMAL_FLOAT; 
 }
 
 {hexprefix}{hexdigit}+{binary_exponent_part}({floatingsuffix})? { 
-    parse_token_text(); 
+    parse_token_text(); update_location(); 
     return HEXADECIMAL_FLOAT; 
 }
 
  /* A.2.39 */
  /*!if C99*/
-L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITERAL; }
  /*!endif*/
  /*!if CPLUSPLUS*/
-((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITERAL; }
  /*!endif*/
  /*!if CPLUSPLUS*/
 ((u8)|[uUL])?R["]{dchar}*[(]      {
@@ -1537,6 +1565,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     raw_string_delimiter = uniquestr(c);
     raw_string_delimiter_length = strlen(raw_string_delimiter);
 
+    update_location();
     BEGIN(raw_string_body);
 }
 
@@ -1545,11 +1574,13 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 {rchar} {
    // Note, this does not include the right parenthesis
    RAW_STRING_APPEND_CHAR(yytext[0]);
+   update_location();
  }
 
  ")" {
     BEGIN(raw_string_potential_suffix);
     raw_string_delimiter_index = 0;
+    update_location();
 }
 
 }
@@ -1572,6 +1603,8 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
                  xfree(raw_string_buffer);
                  raw_string_buffer = NULL;
 
+                 update_location();
+
                  BEGIN(0);
 
                  return STRING_LITERAL;
@@ -1588,6 +1621,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
              }
              // And the mismatch one
              RAW_STRING_APPEND_CHAR(yytext[0]);
+             update_location();
              BEGIN(raw_string_body);
          }
 }
@@ -1612,6 +1646,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
         raw_string_delimiter_index = 0;
         // Start again, this is potentially another suffix
     }
+    update_location();
 }
 
 }
@@ -1624,6 +1659,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
      if (IS_CXX11_LANGUAGE)
      {
          parse_token_text();
+         update_location();
          BEGIN(std_attribute);
          return STD_ATTRIBUTE_START;
      }
@@ -1638,6 +1674,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 
 {identifier} { 
       parse_token_text();
+      update_location();
       BEGIN(std_attribute_clause);
       std_attribute_parenthesis_nesting = 0;
       return IDENTIFIER; 
@@ -1661,18 +1698,24 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     parse_token_text_str(tok);
     BEGIN(std_attribute_clause);
     std_attribute_parenthesis_nesting = 0;
+    update_location();
     return IDENTIFIER;
 }
 
 "]"[ \t]*"]" {
     parse_token_text();
+    update_location();
     BEGIN(0);
     return STD_ATTRIBUTE_END; 
 }
 
-"," { parse_token_text(); return ','; }
+"," { parse_token_text();
+    update_location();
+    return ','; }
 
-[ \t] { /* skip blanks */ }
+[ \t] { 
+    update_location();
+    /* skip blanks */ }
 
 }
 
@@ -1686,21 +1729,22 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     else
     {
          parse_token_text();
+         update_location();
          BEGIN(0);
          return STD_ATTRIBUTE_END; 
     }
 }
 
-"," { parse_token_text(); return ','; }
-"[" { parse_token_text(); return '['; }
-"]" { parse_token_text(); return ']'; }
-"{" { parse_token_text(); return '{'; }
-"}" { parse_token_text(); return '}'; }
-"(" { parse_token_text();
+"," { parse_token_text(); update_location(); return ','; }
+"[" { parse_token_text(); update_location(); return '['; }
+"]" { parse_token_text(); update_location(); return ']'; }
+"{" { parse_token_text(); update_location(); return '{'; }
+"}" { parse_token_text(); update_location(); return '}'; }
+"(" { parse_token_text(); update_location();
       std_attribute_parenthesis_nesting++;
       return '(';
     }
-")" { parse_token_text();
+")" { parse_token_text(); update_location();
       std_attribute_parenthesis_nesting--;
       if (std_attribute_parenthesis_nesting == 0)
       {
@@ -1709,32 +1753,33 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
       return ')'; 
     }
 
-[^\[\]{}()\n]* { parse_token_text(); return STD_ATTRIBUTE_TEXT; }
+[^\[\]{}()\n]* { parse_token_text(); update_location(); return STD_ATTRIBUTE_TEXT; }
 
 }
  /*!endif*/
 
-"["         { parse_token_text(); return '['; }
-"]"         { parse_token_text(); return ']'; }
-")"         { parse_token_text(); return ')'; }
-"("         { parse_token_text(); return '('; }
-"->"        { parse_token_text(); return PTR_OP; }
+"["         { parse_token_text(); update_location(); return '['; }
+"]"         { parse_token_text(); update_location(); return ']'; }
+")"         { parse_token_text(); update_location(); return ')'; }
+"("         { parse_token_text(); update_location(); return '('; }
+"->"        { parse_token_text(); update_location(); return PTR_OP; }
  /*!if CPLUSPLUS*/
-"->*"       { parse_token_text(); return PTR_OP_MUL; }
+"->*"       { parse_token_text(); update_location(); return PTR_OP_MUL; }
  /*!endif*/
-"++"        { parse_token_text(); return PLUSPLUS; }
-"--"        { parse_token_text(); return MINUSMINUS; }
-"+"         { parse_token_text(); return '+'; }
-"-"         { parse_token_text(); return '-'; }
-"~"         { parse_token_text(); return '~'; }
-"!"         { parse_token_text(); return '!'; }
-"/"         { parse_token_text(); return '/'; }
-"%"         { parse_token_text(); return '%'; }
-"<<"        { parse_token_text(); return LEFT; }
+"++"        { parse_token_text(); update_location(); return PLUSPLUS; }
+"--"        { parse_token_text(); update_location(); return MINUSMINUS; }
+"+"         { parse_token_text(); update_location(); return '+'; }
+"-"         { parse_token_text(); update_location(); return '-'; }
+"~"         { parse_token_text(); update_location(); return '~'; }
+"!"         { parse_token_text(); update_location(); return '!'; }
+"/"         { parse_token_text(); update_location(); return '/'; }
+"%"         { parse_token_text(); update_location(); return '%'; }
+"<<"        { parse_token_text(); update_location(); return LEFT; }
 "<<<"       { 
      if (CURRENT_CONFIGURATION->enable_cuda)
      {
          parse_token_text();
+         update_location();
          return CUDA_KERNEL_LEFT;
      }
      REJECT;
@@ -1745,48 +1790,49 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     if (CURRENT_CONFIGURATION->enable_cuda)
     {
         parse_token_text();
+         update_location();
         return CUDA_KERNEL_RIGHT;
     }
     REJECT;
 }
-">>"        { parse_token_text(); return RIGHT; }
+">>"        { parse_token_text(); update_location(); return RIGHT; }
  /*!endif*/
-"<="        { parse_token_text(); return LESS_OR_EQUAL; }
+"<="        { parse_token_text(); update_location(); return LESS_OR_EQUAL; }
  /* There is no '>=' token in C++11 but AB2 followed by '=', see below */
  /*!if C99*/
-">="        { parse_token_text(); return GREATER_OR_EQUAL; }
+">="        { parse_token_text(); update_location(); return GREATER_OR_EQUAL; }
  /*!endif*/
-"=="        { parse_token_text(); return EQUAL; }
-"!="        { parse_token_text(); return NOT_EQUAL; }
-"^"         { parse_token_text(); return '^'; }
-"|"         { parse_token_text(); return '|'; }
-"&&"        { parse_token_text(); return ANDAND; }
-"||"        { parse_token_text(); return OROR; }
-"="         { parse_token_text(); return '='; }
-"*="        { parse_token_text(); return MUL_ASSIGN; }
-"/="        { parse_token_text(); return DIV_ASSIGN; }
-"%="        { parse_token_text(); return MOD_ASSIGN; }
-"+="        { parse_token_text(); return ADD_ASSIGN; }
-"-="        { parse_token_text(); return SUB_ASSIGN; }
-"<<="       { parse_token_text(); return LEFT_ASSIGN; }
+"=="        { parse_token_text(); update_location(); return EQUAL; }
+"!="        { parse_token_text(); update_location(); return NOT_EQUAL; }
+"^"         { parse_token_text(); update_location(); return '^'; }
+"|"         { parse_token_text(); update_location(); return '|'; }
+"&&"        { parse_token_text(); update_location(); return ANDAND; }
+"||"        { parse_token_text(); update_location(); return OROR; }
+"="         { parse_token_text(); update_location(); return '='; }
+"*="        { parse_token_text(); update_location(); return MUL_ASSIGN; }
+"/="        { parse_token_text(); update_location(); return DIV_ASSIGN; }
+"%="        { parse_token_text(); update_location(); return MOD_ASSIGN; }
+"+="        { parse_token_text(); update_location(); return ADD_ASSIGN; }
+"-="        { parse_token_text(); update_location(); return SUB_ASSIGN; }
+"<<="       { parse_token_text(); update_location(); return LEFT_ASSIGN; }
  /* There is no '>>=' in C++11 but AB1 followed by 'AB2' and '=', see below */
  /*!if C99*/
-">>="       { parse_token_text(); return RIGHT_ASSIGN; }
+">>="       { parse_token_text(); update_location(); return RIGHT_ASSIGN; }
  /*!endif*/
-"&="        { parse_token_text(); return AND_ASSIGN; }
-"^="        { parse_token_text(); return XOR_ASSIGN; }
-"|="        { parse_token_text(); return OR_ASSIGN; }
+"&="        { parse_token_text(); update_location(); return AND_ASSIGN; }
+"^="        { parse_token_text(); update_location(); return XOR_ASSIGN; }
+"|="        { parse_token_text(); update_location(); return OR_ASSIGN; }
 
 
 
-";"         { parse_token_text(); return ';'; } 
-":"         { parse_token_text(); return ':'; }
-"."         { parse_token_text(); return '.'; }
-","         { parse_token_text(); return ','; }
-"?"         { parse_token_text(); return '?'; }
-"{"         { parse_token_text(); return '{'; }
-"}"         { parse_token_text(); return '}'; } 
-"<"         { parse_token_text(); return '<'; }
+";"         { parse_token_text(); update_location(); return ';'; } 
+":"         { parse_token_text(); update_location(); return ':'; }
+"."         { parse_token_text(); update_location(); return '.'; }
+","         { parse_token_text(); update_location(); return ','; }
+"?"         { parse_token_text(); update_location(); return '?'; }
+"{"         { parse_token_text(); update_location(); return '{'; }
+"}"         { parse_token_text(); update_location(); return '}'; } 
+"<"         { parse_token_text(); update_location(); return '<'; }
  /*!if CPLUSPLUS*/
  /* In C++2003 these three tokens behave like in C99 
     REJECT is used to let the input be matched by later rules
@@ -1797,6 +1843,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
                    && IS_CXX03_LANGUAGE)
               {
                   parse_token_text();
+                  update_location();
                   return CUDA_KERNEL_RIGHT;
               }
               REJECT;
@@ -1805,6 +1852,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
               if (IS_CXX03_LANGUAGE)
               {
                 parse_token_text();
+                update_location();
                 return RIGHT;
               }
               REJECT;
@@ -1813,6 +1861,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
               if (IS_CXX03_LANGUAGE)
               {
                 parse_token_text();
+                update_location();
                 return RIGHT_ASSIGN;
               }
               REJECT;
@@ -1821,46 +1870,52 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
               if (IS_CXX03_LANGUAGE)
               {
                   parse_token_text();
+                  update_location();
                   return GREATER_OR_EQUAL;
               }
               REJECT;
             }
  /* In C++2011 these three tokens behave different */
->/>         { parse_token_text(); return AB1; }
->/=         { parse_token_text(); return AB2; }
->/[^>=]     { parse_token_text(); return '>'; }
+>/>         { parse_token_text(); update_location(); return AB1; }
+>/=         { parse_token_text(); update_location(); return AB2; }
+>/[^>=]     { parse_token_text(); update_location(); return '>'; }
  /* Pathological case (EOF and such) */
->           { parse_token_text(); return '>'; }
+>           { parse_token_text(); update_location(); return '>'; }
  /*!endif*/
  /*!if C99*/
-">"         { parse_token_text(); return '>'; } 
+">"         { parse_token_text(); update_location(); return '>'; } 
  /*!endif*/
-"&"         { parse_token_text(); return '&'; }
-"*"         { parse_token_text(); return '*'; }
-"\""        { parse_token_text(); return '"'; }
+"&"         { parse_token_text(); update_location(); return '&'; }
+"*"         { parse_token_text(); update_location(); return '*'; }
+"\""        { parse_token_text(); update_location(); return '"'; }
  /*!if CPLUSPLUS*/
-"::"        { parse_token_text(); return TWO_COLONS; }
+"::"        { parse_token_text(); update_location(); return TWO_COLONS; }
  /*!endif*/
-"..."       { parse_token_text(); return ELLIPSIS; }
+"..."       { parse_token_text(); update_location(); return ELLIPSIS; }
 
-".."        { parse_token_text(); return TWO_DOTS; }
+".."        { parse_token_text(); update_location(); return TWO_DOTS; }
 
-[\n]        { scanning_now.line_number++; }
-[ \t\v\f]   {  }
+{newline}   { update_location(); }
+[ \t\v\f]   { update_location(); }
 <*>.           { 
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        error_printf("%s:%d: error: invalid character '%c' (%#x)\n", 
-				scanning_now.current_filename, scanning_now.line_number,
+        error_printf("%s:%d:%d: error: invalid character '%c' (%#x)\n", 
+				scanning_now.current_filename,
+                scanning_now.line_number,
+                scanning_now.column_number,
                 *yytext, *yytext);
     }
     else
     {
-        error_printf("%s:%d: error: invalid character %#x\n", 
-				scanning_now.current_filename, scanning_now.line_number,
+        error_printf("%s:%d:%d: error: invalid character %#x\n", 
+				scanning_now.current_filename,
+                scanning_now.line_number,
+                scanning_now.column_number,
                 *yytext);
     }
+    update_location();
 }
 
 
@@ -1873,25 +1928,54 @@ static int yywrap(void)
 
 /*!if CPLUSPLUS*/
 #define FLEX_LVAL mcxxlval
+#define FLEX_LLOC mcxxlloc
 /*!endif*/
 /*!if C99*/
 #define FLEX_LVAL mc99lval
+#define FLEX_LLOC mc99lloc
 /*!endif*/
 
-static void parse_token_text(void)
+static void update_location_str(const char* c)
 {
-    FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
-    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
-    FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
+    while (*c != '\0')
+    {
+        if (*c == '\n'
+                || *c == '\r')
+        {
+            scanning_now.line_number++;
+            scanning_now.column_number = 1;
+
+            c++;
+            // DOS endings are \r\n, skip \n
+            if (*c == '\n')
+                c++;
+        }
+        else
+        {
+            scanning_now.column_number++;
+            c++;
+        }
+    }
+}
+
+static void update_location(void)
+{
+    update_location_str(yytext);
 }
 
 static void parse_token_text_str(const char* c)
 {
-    FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
-    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
     FLEX_LVAL.token_atrib.token_text = uniquestr(c);
+
+    FLEX_LLOC.first_filename = uniquestr(scanning_now.current_filename);
+    FLEX_LLOC.first_line = scanning_now.line_number;
+    FLEX_LLOC.first_column = scanning_now.column_number;
 }
 
+static void parse_token_text(void)
+{
+    parse_token_text_str(yytext);
+}
 
 /*!if CPLUSPLUS*/
 #define OPEN_FILE_FOR_SCANNING mcxx_open_file_for_scanning
@@ -1917,6 +2001,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	}
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
+	scanning_now.column_number = 1;
 
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
 
@@ -1952,6 +2037,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 	scanning_now.filename = uniquestr(scanned_filename);
 	scanning_now.file_descriptor = file;
 	scanning_now.line_number = 1;
+	scanning_now.column_number = 1;
 
 	main_input_filename = uniquestr(input_filename);
     scanning_now.current_filename = main_input_filename;
@@ -2284,6 +2370,7 @@ static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* k
     if (!predicate)
     {
         parse_token_text();
+        update_location();
         return IDENTIFIER;
     }
 
@@ -2293,14 +2380,16 @@ static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* k
         if (strcmp(keyword_table[i].keyword, keyword) == 0)
         {
             parse_token_text();
+            update_location();
             return keyword_table[i].token;
         }
         i++;
     }
 
-    internal_error("%s:%d: error: unhandled lookup token '%s'", 
+    internal_error("%s:%d:%d: error: unhandled lookup token '%s'", 
             scanning_now.filename,
             scanning_now.line_number,
+            scanning_now.column_number,
             keyword);
 }
 

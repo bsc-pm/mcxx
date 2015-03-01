@@ -56,6 +56,9 @@ static inline void ast_set_parent(AST a, AST parent);
 // Returns the line of the node
 static inline unsigned int ast_get_line(const_AST a);
 
+// Returns the column of the node
+static inline unsigned int ast_get_column(const_AST a);
+
 // Returns the related bit of text of the node
 static inline const char* ast_get_text(const_AST a);
 

@@ -38,7 +38,7 @@ const locus_t* make_locus(const char* filename, unsigned int line, unsigned int 
 static inline const char* locus_to_str(const locus_t*);
 static inline const char* locus_get_filename(const locus_t*);
 static inline unsigned int locus_get_line(const locus_t*);
-static inline unsigned int locus_get_col(const locus_t*);
+static inline unsigned int locus_get_column(const locus_t*);
 
 #include "cxx-locus-inline.h"
 

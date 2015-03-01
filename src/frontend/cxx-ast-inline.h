@@ -84,6 +84,11 @@ static inline unsigned int ast_get_line(const_AST a)
     return locus_get_line(a->locus);
 }
 
+static inline unsigned int ast_get_column(const_AST a)
+{
+    return locus_get_column(a->locus);
+}
+
 static inline const char* ast_get_text(const_AST a)
 {
     return a->text;
@@ -323,7 +328,7 @@ static inline AST ast_list(AST list, AST last_elem)
     }
 
     AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            make_locus(filename, ast_get_line(last_elem), 0), ast_get_text(last_elem));
+            make_locus(filename, ast_get_line(last_elem), ast_get_column(last_elem)), ast_get_text(last_elem));
 
     return a;
 }

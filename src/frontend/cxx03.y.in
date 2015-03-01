@@ -771,15 +771,15 @@ declaration : block_declaration
 
 linkage_specification : EXTERN string_literal '{' declaration_sequence '}'
 {
-	$$ = ASTMake2(AST_LINKAGE_SPEC, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_LINKAGE_SPEC, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | EXTERN string_literal '{' '}'
 {
-	$$ = ASTMake2(AST_LINKAGE_SPEC, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_LINKAGE_SPEC, $2, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | EXTERN string_literal declaration
 {
-	$$ = ASTMake2(AST_LINKAGE_SPEC_DECL, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_LINKAGE_SPEC_DECL, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -795,7 +795,7 @@ namespace_definition : named_namespace_definition
 
 namespace_inline : INLINE
 {
-    $$ = ASTLeaf(AST_INLINE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_INLINE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -813,15 +813,15 @@ namespace_inline_opt : /* empty */
 // so it is not repeated
 named_namespace_definition : namespace_inline_opt NAMESPACE identifier_token gcc_attributes_opt '{' declaration_sequence_opt '}'
 {
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+	AST identif = ASTLeaf(AST_SYMBOL, make_locus(@3.first_filename, @3.first_line, @3.first_column), $3.token_text);
 
-	$$ = ASTMake4(AST_NAMESPACE_DEFINITION, identif, $6, $4, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NAMESPACE_DEFINITION, identif, $6, $4, $1, make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 ;
 
 unnamed_namespace_definition : NAMESPACE '{' declaration_sequence_opt '}'
 {
-	$$ = ASTMake3(AST_NAMESPACE_DEFINITION, NULL, $3, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_NAMESPACE_DEFINITION, NULL, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -875,23 +875,23 @@ common_block_declaration : asm_definition
 }
 | EXTENSION block_declaration
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // Prettyprinted comments
 | PP_COMMENT
 {
-	$$ = ASTLeaf(AST_PP_COMMENT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_PP_COMMENT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // Prettyprinted preprocessor elements
 | PP_TOKEN
 {
-	$$ = ASTLeaf(AST_PP_TOKEN, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_PP_TOKEN, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 alias_declaration : USING identifier_token attribute_specifier_seq_opt '=' type_id ';'
 {
-    AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
     $$ = ASTMake3(AST_ALIAS_DECLARATION, identifier, $5, $3, ast_get_locus(identifier), NULL);
 }
@@ -900,18 +900,18 @@ alias_declaration : USING identifier_token attribute_specifier_seq_opt '=' type_
 /* GNU Extension */
 label_declaration : LABEL label_declarator_seq ';'
 {
-	$$ = ASTMake1(AST_GCC_LABEL_DECL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_LABEL_DECL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 label_declarator_seq : identifier_token 
 {
-    AST symbol_holder = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    AST symbol_holder = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	$$ = ASTListLeaf(symbol_holder);
 }
 | label_declarator_seq ',' identifier_token
 {
-	AST label = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+	AST label = ASTLeaf(AST_SYMBOL, make_locus(@3.first_filename, @3.first_line, @3.first_column), $3.token_text);
 	$$ = ASTList($1, label);
 }
 ;
@@ -940,11 +940,11 @@ gcc_attributes_opt : gcc_attributes
 
 gcc_attribute : TOKEN_GCC_ATTRIBUTE '(' '(' gcc_attribute_list ')' ')'
 {
-	$$ = ASTMake1(AST_GCC_ATTRIBUTE, $4, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_ATTRIBUTE, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_GCC_ATTRIBUTE '(''(' ')'')'
 {
-	$$ = ASTMake1(AST_GCC_ATTRIBUTE, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_ATTRIBUTE, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -961,21 +961,21 @@ gcc_attribute_list : gcc_attribute_value
 // Why on earth ASTSon1 is always null ?
 gcc_attribute_value : identifier_token
 {
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identif = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_CONST
 {
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identif = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | identifier_token '(' expression_list ')'
 {
-	AST identif1 = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identif1 = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	
-	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif1, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif1, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 /* End of GNU extension */
@@ -988,14 +988,14 @@ gcc_attribute_value : identifier_token
 // that AST_ASM_DEFINITION never have additional colons
 asm_definition : ASM volatile_optional '(' string_literal ')' ';'
 {
-	$$ = ASTMake2(AST_ASM_DEFINITION, $4, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_ASM_DEFINITION, $4, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // From here, none of these asm-definitions are standard but gcc only
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, NULL, NULL, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // ( string_literal : asm_operand_list : asm_operand_list )
 // ( string_literal : asm_operand_list : )
@@ -1007,21 +1007,21 @@ asm_definition : ASM volatile_optional '(' string_literal ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, NULL, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // [1] and [2]
 | ASM volatile_optional '(' string_literal TWO_COLONS asm_operand_list ')'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, NULL, NULL, $6, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // ( string_literal : asm_operand_list : asm_operand_list : asm_operand_list )
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, $10, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // ( string_literal :: asm_operand_list ) 
 // ( string_literal :: ) 
@@ -1029,7 +1029,7 @@ asm_definition : ASM volatile_optional '(' string_literal ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, NULL, $6, NULL, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // ( string_literal :: asm_operand_list : asm_operand_list ) 
 // ( string_literal :: : asm_operand_list )
@@ -1040,7 +1040,7 @@ asm_definition : ASM volatile_optional '(' string_literal ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, NULL, $6, $8, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // ( string_literal : asm_operand_list :: asm_operand_list ) 
 // ( string_literal : :: asm_operand_list ) 
@@ -1050,7 +1050,7 @@ asm_definition : ASM volatile_optional '(' string_literal ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, NULL, $8, ast_get_locus($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1060,7 +1060,7 @@ volatile_optional : /* empty */
 }
 | TOKEN_VOLATILE
 {
-	$$ = ASTLeaf(AST_VOLATILE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_VOLATILE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1091,9 +1091,9 @@ asm_operand : string_literal '(' expression ')'
 }
 | '[' identifier_token ']' string_literal '(' expression ')'
 {
-    AST symbol_tree = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST symbol_tree = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake3(AST_GCC_ASM_OPERAND, symbol_tree, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_GCC_ASM_OPERAND, symbol_tree, $4, $6, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | string_literal
 {
@@ -1114,7 +1114,7 @@ asm_operand : string_literal '(' expression ')'
 
 std_attribute_specifier : STD_ATTRIBUTE_START std_attribute_list STD_ATTRIBUTE_END
 {
-    $$ = ASTMake1(AST_ATTRIBUTE_SPECIFIER, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ATTRIBUTE_SPECIFIER, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | alignment_specifier
 {
@@ -1124,16 +1124,16 @@ std_attribute_specifier : STD_ATTRIBUTE_START std_attribute_list STD_ATTRIBUTE_E
 
 alignment_specifier : TOKEN_ALIGNAS '(' type_id ')' %merge<ambiguityHandler>
 {
-    $$ = ASTMake1(AST_ALIGNAS_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ALIGNAS_TYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_ALIGNAS '(' assignment_expression ')' %merge<ambiguityHandler>
 {
-    $$ = ASTMake1(AST_ALIGNAS, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ALIGNAS, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_ALIGNAS '(' assignment_expression ELLIPSIS ')' %merge<ambiguityHandler>
 {
     AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
-    $$ = ASTMake1(AST_ALIGNAS, pack_expansion, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ALIGNAS, pack_expansion, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -1171,17 +1171,17 @@ std_attribute_item : std_attribute_token std_attribute_argument_clause
 std_attribute_token : IDENTIFIER
 {
     // The lexer will lex both unscoped and scoped names here
-    $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 std_attribute_argument_clause : '(' std_attribute_content_balanced_seq ')'
 {
-    $$ = ASTMake1(AST_ATTRIBUTE_ARG_PARENTHESES, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ATTRIBUTE_ARG_PARENTHESES, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '(' ')'
 {
-    $$ = ASTMake1(AST_ATTRIBUTE_ARG_PARENTHESES, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ATTRIBUTE_ARG_PARENTHESES, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -1197,19 +1197,19 @@ std_attribute_content_balanced_seq : std_attribute_content_balanced
 
 std_attribute_content_balanced : '(' std_attribute_content_balanced_seq ')'
 {
-    $$ = ASTMake1(AST_ATTRIBUTE_ARG_PARENTHESES, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ATTRIBUTE_ARG_PARENTHESES, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '[' std_attribute_content_balanced_seq ']'
 {
-    $$ = ASTMake1(AST_ATTRIBUTE_ARG_BRACKET, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ATTRIBUTE_ARG_BRACKET, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' std_attribute_content_balanced_seq '}'
 {
-    $$ = ASTMake1(AST_ATTRIBUTE_ARG_BRACE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_ATTRIBUTE_ARG_BRACE, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | STD_ATTRIBUTE_TEXT
 {
-    $$ = ASTLeaf(AST_ATTRIBUTE_ARG_TOKEN, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_ATTRIBUTE_ARG_TOKEN, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1267,31 +1267,31 @@ attribute_specifier_seq_opt : /* empty */
 
 static_assert_declaration : STATIC_ASSERT '(' constant_expression ',' string_literal ')' ';'
 {
-    $$ = ASTMake2(AST_STATIC_ASSERT, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake2(AST_STATIC_ASSERT, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 namespace_alias_definition : NAMESPACE identifier_token '=' id_expression ';'
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake2(AST_NAMESPACE_ALIAS, identifier, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_NAMESPACE_ALIAS, identifier, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 using_declaration : USING qualified_id ';'
 {
-	$$ = ASTMake1(AST_USING_DECLARATION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_USING_DECLARATION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | USING TYPENAME qualified_id_type_expr ';'
 {
-	$$ = ASTMake1(AST_USING_DECLARATION_TYPENAME, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_USING_DECLARATION_TYPENAME, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 using_directive : USING NAMESPACE id_expression gcc_attributes_opt ';'
 {
-	$$ = ASTMake2(AST_USING_NAMESPACE_DIRECTIVE, $3, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_USING_NAMESPACE_DIRECTIVE, $3, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -1302,7 +1302,7 @@ simple_declaration : non_empty_simple_declaration
 | ';'
 {
     // This is an error but also a common extension
-    $$ = ASTLeaf(AST_EMPTY_DECL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_EMPTY_DECL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | attribute_specifier_seq ';'
 {
@@ -1640,7 +1640,7 @@ nontype_specifier : nontype_specifier_without_attribute
 
 friend_specifier : FRIEND
 {
-	$$ = ASTLeaf(AST_FRIEND_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_FRIEND_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1654,7 +1654,7 @@ nontype_specifier_but_SUSL_without_attribute : storage_class_specifier
 }
 | TYPEDEF
 {
-	$$ = ASTLeaf(AST_TYPEDEF_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_TYPEDEF_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | cv_qualifier
 {
@@ -1662,12 +1662,12 @@ nontype_specifier_but_SUSL_without_attribute : storage_class_specifier
 }
 | TOKEN_CONSTEXPR
 {
-	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // GNU Extension
 | COMPLEX
 {
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1694,19 +1694,19 @@ nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL_witho
 
 type_specifier_SUSL : TOKEN_SIGNED
 {
-	$$ = ASTLeaf(AST_SIGNED_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_SIGNED_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_UNSIGNED
 {
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_UNSIGNED_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_SHORT
 {
-	$$ = ASTLeaf(AST_SHORT_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_SHORT_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_LONG
 {
-	$$ = ASTLeaf(AST_LONG_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_LONG_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1735,7 +1735,7 @@ nontype_specifier_without_attribute : storage_class_specifier
 }
 | TYPEDEF
 {
-	$$ = ASTLeaf(AST_TYPEDEF_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_TYPEDEF_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | cv_qualifier
 {
@@ -1743,7 +1743,7 @@ nontype_specifier_without_attribute : storage_class_specifier
 }
 | TOKEN_CONSTEXPR
 {
-	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | type_specifier_SUSL
 {
@@ -1752,52 +1752,52 @@ nontype_specifier_without_attribute : storage_class_specifier
 // GNU Extension
 | COMPLEX
 {
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 storage_class_specifier : TOKEN_AUTO_STORAGE
 {
-	$$ = ASTLeaf(AST_AUTO_STORAGE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_AUTO_STORAGE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | REGISTER
 {
-	$$ = ASTLeaf(AST_REGISTER_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_REGISTER_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | STATIC
 {
-	$$ = ASTLeaf(AST_STATIC_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_STATIC_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | EXTERN
 {
-	$$ = ASTLeaf(AST_EXTERN_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_EXTERN_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | MUTABLE
 {
-	$$ = ASTLeaf(AST_MUTABLE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_MUTABLE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_THREAD_LOCAL
 {
-	$$ = ASTLeaf(AST_THREAD_LOCAL_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_THREAD_LOCAL_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // GNU Extension
 | THREAD
 {
-	$$ = ASTLeaf(AST_THREAD_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_THREAD_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 function_specifier : INLINE
 {
-	$$ = ASTLeaf(AST_INLINE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_INLINE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | VIRTUAL
 {
-	$$ = ASTLeaf(AST_VIRTUAL_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | EXPLICIT
 {
-	$$ = ASTLeaf(AST_EXPLICIT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_EXPLICIT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -1960,12 +1960,12 @@ simple_type_specifier_not_ended_with_identifier : builtin_types
 // c++11
 | DECLTYPE '(' expression ')'
 {
-    $$ = ASTMake1(AST_DECLTYPE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake1(AST_DECLTYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // c++14
 | DECLTYPE '(' TOKEN_AUTO_TYPE ')'
 {
-    $$ = ASTLeaf(AST_DECLTYPE_AUTO, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_DECLTYPE_AUTO, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | typeof_type_specifier
 {
@@ -1973,68 +1973,68 @@ simple_type_specifier_not_ended_with_identifier : builtin_types
 }
 | GXX_UNDERLYING_TYPE '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_UNDERLYING_TYPE, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_UNDERLYING_TYPE, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 // GNU Extension (difficult to ensure that this does not end with an identifier..., use parentheses)
 typeof_type_specifier : TYPEOF unary_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TYPEOF '(' type_id ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_GCC_TYPEOF, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_TYPEOF, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 builtin_types : TOKEN_CHAR
 {
-	$$ = ASTLeaf(AST_CHAR_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CHAR_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_WCHAR_T
 {
-	$$ = ASTLeaf(AST_WCHAR_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_WCHAR_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_BOOL
 {
-	$$ = ASTLeaf(AST_BOOL_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_BOOL_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_INT
 {
-	$$ = ASTLeaf(AST_INT_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_INT_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_FLOAT
 {
-	$$ = ASTLeaf(AST_FLOAT_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_FLOAT_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_DOUBLE
 {
-	$$ = ASTLeaf(AST_DOUBLE_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_DOUBLE_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_VOID
 {
-	$$ = ASTLeaf(AST_VOID_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_VOID_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_INT128
 {
-	$$ = ASTLeaf(AST_GCC_INT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_GCC_INT128, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_FLOAT128
 {
-	$$ = ASTLeaf(AST_GCC_FLOAT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_GCC_FLOAT128, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_CHAR16_T
 {
-	$$ = ASTLeaf(AST_CHAR16_T, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CHAR16_T, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_CHAR32_T
 {
-	$$ = ASTLeaf(AST_CHAR32_T, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CHAR32_T, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_AUTO_TYPE
 {
-	$$ = ASTLeaf(AST_AUTO_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_AUTO_TYPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -2048,7 +2048,7 @@ elaborated_type_specifier : class_key attribute_specifier_seq_opt id_type_expr
 }
 | TYPENAME qualified_id_type_expr
 {
-	$$ = ASTMake1(AST_ELABORATED_TYPENAME_SPEC, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_ELABORATED_TYPENAME_SPEC, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2132,7 +2132,7 @@ nonglobal_init_declarator_first : nonglobal_declarator_not_started_with_attribut
 /* GNU Extension */
 asm_specification : ASM '(' string_literal ')'
 {
-	$$ = ASTMake1(AST_GCC_ASM_SPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_ASM_SPEC, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 /* End of GNU Extension */
@@ -2209,7 +2209,7 @@ nonglobal_non_functional_direct_declarator : nonglobal_declarator_id
 }
 | '(' non_functional_main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2263,11 +2263,11 @@ main_declarator : direct_declarator
 
 nonglobal_ptr_operator : '*'
 {
-	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '*' cv_qualifier_seq
 {
-	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | nonglobal_id_type_expr TWO_COLONS '*'
 {
@@ -2279,32 +2279,32 @@ nonglobal_ptr_operator : '*'
 }
 | '&'
 {
-	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // C++11
 | ANDAND
 {
-    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // Mercurium extension
 | MCC_REBINDABLE_REFERENCE
 {
-	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extensions
 | '&' cv_qualifier_seq
 {
-	$$ = ASTMake1(AST_GCC_REFERENCE_SPEC, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_REFERENCE_SPEC, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 ptr_operator : '*'
 {
-	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '*' cv_qualifier_seq
 {
-	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | id_type_expr TWO_COLONS '*'
 {
@@ -2316,22 +2316,22 @@ ptr_operator : '*'
 }
 | '&'
 {
-	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // C++11
 | ANDAND
 {
-    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // Mercurium extension
 | MCC_REBINDABLE_REFERENCE
 {
-	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_REBINDABLE_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extensions
 | '&' cv_qualifier_seq
 {
-	$$ = ASTMake1(AST_GCC_REFERENCE_SPEC, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_REFERENCE_SPEC, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2401,7 +2401,7 @@ non_functional_direct_declarator : declarator_id
 }
 | '(' non_functional_main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2459,10 +2459,10 @@ parameters_and_qualifiers : '(' parameter_declaration_clause ')'
     $$ = ASTMake4(AST_PARAMETERS_AND_QUALIFIERS,
             $2,
             ASTMake4(AST_PARAMETERS_AND_QUALIFIERS_EXTRA, $4, $5, $6, $7,
-                    make_locus($1.token_file, $1.token_line, 0),
+                    make_locus(@1.first_filename, @1.first_line, @1.first_column),
                     NULL),
             NULL, NULL,
-            make_locus($1.token_file, $1.token_line, 0),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
             NULL);
 }
 ;
@@ -2479,12 +2479,12 @@ ref_qualifier_opt : /* empty */
 
 ref_qualifier : '&'
 {
-	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // C++11
 | ANDAND
 {
-    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2502,7 +2502,7 @@ functional_direct_declarator : functional_declarator_id
 }
 | '(' functional_main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2519,7 +2519,7 @@ functional_final_declarator_id : declarator_id
 }
 | '(' functional_final_declarator_id ')'
 {
-    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2557,7 +2557,7 @@ nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id
 }
 | '(' functional_main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2574,13 +2574,13 @@ nonglobal_functional_final_declarator_id : nonglobal_declarator_id
 }
 | '(' functional_final_declarator_id ')'
 {
-    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 trailing_return_type : PTR_OP type_id_not_ellipsis
 {
-    $$ = ASTMake1(AST_TRAILING_RETURN, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_TRAILING_RETURN, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2616,16 +2616,16 @@ cv_qualifier_seq : cv_qualifier
 
 cv_qualifier : TOKEN_CONST
 {
-	$$ = ASTLeaf(AST_CONST_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CONST_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_VOLATILE
 {
-	$$ = ASTLeaf(AST_VOLATILE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_VOLATILE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // GNU Extension
 | RESTRICT
 {
-	$$ = ASTLeaf(AST_GCC_RESTRICT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_GCC_RESTRICT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -2647,7 +2647,7 @@ nonglobal_direct_declarator : nonglobal_declarator_id
 }
 | '(' main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2683,7 +2683,7 @@ direct_declarator : declarator_id
 }
 | '(' main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2708,7 +2708,7 @@ enum_head : enum_key attribute_specifier_seq_opt identifier_opt enum_base_opt
 | enum_key attribute_specifier_seq_opt nested_name_specifier identifier_token enum_base_opt
 {
 	AST name = ASTMake3(AST_QUALIFIED_ID, NULL, $3, 
-                ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text),
+                ASTLeaf(AST_SYMBOL, make_locus(@4.first_filename, @4.first_line, @4.first_column), $4.token_text),
                 ast_get_locus($3), NULL);
 
     $$ = ASTMake4(AST_ENUM_HEAD, $1, $2, name, $5, ast_get_locus($1), NULL);
@@ -2717,15 +2717,15 @@ enum_head : enum_key attribute_specifier_seq_opt identifier_opt enum_base_opt
 
 enum_key : ENUM
 {
-    $$ = ASTLeaf(AST_UNSCOPED_ENUM_KEY, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_UNSCOPED_ENUM_KEY, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | ENUM STRUCT
 {
-    $$ = ASTLeaf(AST_SCOPED_ENUM_KEY, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_SCOPED_ENUM_KEY, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | ENUM CLASS
 {
-    $$ = ASTLeaf(AST_SCOPED_ENUM_KEY, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_SCOPED_ENUM_KEY, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -2751,7 +2751,7 @@ enum_base_type_specifier_seq : type_specifier_seq_0
 
 identifier_opt : identifier_token
 {
-	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | /* empty */
 {
@@ -2791,15 +2791,15 @@ enumeration_list: enumeration_list ',' enumeration_definition
 
 enumeration_definition : identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | identifier_token '=' constant_expression
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3005,7 +3005,7 @@ abstract_main_declarator_not_ellipsis : ptr_operator
 
 abstract_direct_declarator : '(' abstract_main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | parameters_and_qualifiers
 {
@@ -3017,7 +3017,7 @@ abstract_direct_declarator : '(' abstract_main_declarator ')'
 }
 | '[' constant_expression_opt ']'
 {
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | abstract_direct_declarator '[' constant_expression_opt ']'
 {
@@ -3025,13 +3025,13 @@ abstract_direct_declarator : '(' abstract_main_declarator ')'
 }
 | ELLIPSIS
 {
-    $$ = ASTMake1(AST_DECLARATOR_ID_PACK, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_DECLARATOR_ID_PACK, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 abstract_direct_declarator_not_ellipsis : '(' abstract_main_declarator_not_ellipsis ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | parameters_and_qualifiers
 {
@@ -3043,7 +3043,7 @@ abstract_direct_declarator_not_ellipsis : '(' abstract_main_declarator_not_ellip
 }
 | '[' constant_expression_opt ']'
 {
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | abstract_direct_declarator_not_ellipsis '[' constant_expression_opt ']'
 {
@@ -3057,19 +3057,19 @@ parameter_declaration_clause : parameter_declaration_clause_nonempty %merge<ambi
 }
 | parameter_declaration_clause_nonempty ',' ELLIPSIS
 {
-    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus(@3.first_filename, @3.first_line, @3.first_column), $3.token_text);
 	$$ = ASTList($1, variadic_tree);
 } 
 | parameter_declaration_clause_nonempty ELLIPSIS %merge<ambiguityHandler>
 {
-    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 	$$ = ASTList($1, variadic_tree);
 } 
 // C++ "T f(...)" is the same as C "T f()" since
 // C++ "T f()" is the same as C "T f(void)"
 | ELLIPSIS
 {
-    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	$$ = ASTListLeaf(variadic_tree);
 }
 // I don't like these kind of rules but we will make an exception here
@@ -3245,12 +3245,12 @@ nonabstract_main_declarator : nonabstract_direct_declarator
 
 nonabstract_direct_declarator : identifier_token std_attribute_specifier_seq_opt
 {
-	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST symbol = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
     $$ = ASTMake2(AST_DECLARATOR_ID_EXPR, symbol, $2, ast_get_locus(symbol), NULL);
 }
 | ELLIPSIS identifier_token std_attribute_specifier_seq_opt
 {
-	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST symbol = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
     AST declarator_id_expr = ASTMake2(AST_DECLARATOR_ID_EXPR, symbol, $3, ast_get_locus(symbol), NULL);
 
     $$ = ASTMake1(AST_DECLARATOR_ID_PACK, declarator_id_expr, ast_get_locus(declarator_id_expr), NULL);
@@ -3265,13 +3265,13 @@ nonabstract_direct_declarator : identifier_token std_attribute_specifier_seq_opt
 }
 | '(' nonabstract_main_declarator ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 equal_initializer : '=' initializer_clause
 {
-    $$ = ASTMake1(AST_EQUAL_INITIALIZER, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_EQUAL_INITIALIZER, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3287,17 +3287,17 @@ equal_or_parent_initializer : equal_initializer
 
 parent_initializer : '(' expression_list ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 parent_initializer_ctor : '(' expression_list ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '(' ')'
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3327,15 +3327,15 @@ initializer_clause : assignment_expression
 
 braced_init_list : '{' initializer_list '}'
 {
-	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' initializer_list ',' '}'
 {
-	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' '}'
 {
-	$$ = ASTMake1(AST_INITIALIZER_BRACES, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_INITIALIZER_BRACES, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3374,15 +3374,15 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 // GNU Extensions
 | identifier_token ':' initializer_clause %merge<ambiguityHandler>
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	AST gcc_initializer_clause = ASTMake2(AST_GCC_INITIALIZER_CLAUSE, identifier, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST gcc_initializer_clause = ASTMake2(AST_GCC_INITIALIZER_CLAUSE, identifier, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
 	$$ = ASTListLeaf(gcc_initializer_clause);
 }
 | initializer_list ',' identifier_token ':' initializer_clause %merge<ambiguityHandler>
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@3.first_filename, @3.first_line, @3.first_column), $3.token_text);
 
 	AST gcc_initializer_clause = ASTMake2(AST_GCC_INITIALIZER_CLAUSE, identifier, $5, ast_get_locus($1), NULL);
 
@@ -3408,13 +3408,13 @@ designator_list : designator
 
 designator : '[' constant_expression ']'
 {
-    $$ = ASTMake1(AST_INDEX_DESIGNATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_INDEX_DESIGNATOR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '.' identifier_token
 {
-    AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST symbol = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-    $$ = ASTMake1(AST_FIELD_DESIGNATOR, symbol, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_FIELD_DESIGNATOR, symbol, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3475,7 +3475,7 @@ function_definition : non_extension_function_definition
 }
 | EXTENSION function_definition
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -3553,25 +3553,25 @@ class_virt_specifier_seq : class_virt_specifier
 
 class_virt_specifier : EXPLICIT
 {
-    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOK_FINAL
 {
-    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
 class_key : CLASS
 {
-	$$ = ASTLeaf(AST_CLASS_KEY_CLASS, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CLASS_KEY_CLASS, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | STRUCT
 {
-	$$ = ASTLeaf(AST_CLASS_KEY_STRUCT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CLASS_KEY_STRUCT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | UNION
 {
-	$$ = ASTLeaf(AST_CLASS_KEY_UNION, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CLASS_KEY_UNION, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -3650,12 +3650,12 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 // This is a common tolerated error
 | ';' 
 {
-	$$ = ASTLeaf(AST_EMPTY_DECL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_EMPTY_DECL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extension
 | EXTENSION member_declaration
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -3774,16 +3774,16 @@ member_declarator_first : declarator_not_started_with_attributes gcc_attr_or_vir
 | attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 1
 {
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
-        $1, make_locus($2.token_file, $2.token_line, 0), NULL);
+        $1, make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 | identifier_token attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR,
         declarator_id_expr, $4,
-        $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+        $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3802,16 +3802,16 @@ member_declarator : declarator gcc_attr_or_virt_specifier_seq_opt
 | attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 1
 {
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
-        $1, make_locus($2.token_file, $2.token_line, 0), NULL);
+        $1, make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 | identifier_token attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR,
         declarator_id_expr, $4,
-        $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+        $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3827,15 +3827,15 @@ virt_specifier_seq : virt_specifier
 
 virt_specifier : TOK_FINAL
 {
-    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOK_OVERRIDE
 {
-    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_NEW
 {
-    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -3884,16 +3884,16 @@ nonglobal_member_declarator_first : nonglobal_declarator_not_started_with_attrib
 | attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 1
 {
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
-        $1, make_locus($2.token_file, $2.token_line, 0), NULL);
+        $1, make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 | identifier_token attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR,
         declarator_id_expr, $4,
-        $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+        $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3903,7 +3903,7 @@ nonglobal_member_declarator_first : nonglobal_declarator_not_started_with_attrib
 
 base_clause : ':' base_specifier_list
 {
-	$$ = ASTMake1(AST_BASE_CLAUSE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_BASE_CLAUSE, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -3941,33 +3941,33 @@ base_specifier : id_type_expr
 // with virtual and optionally access_specifier
 | VIRTUAL id_type_expr
 {
-    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | VIRTUAL access_specifier id_type_expr
 {
-    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // with access_specifier and then virtual
 | access_specifier VIRTUAL id_type_expr
 {
-    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $1, $3, ast_get_locus($1), NULL);
 }
 ;
 
 access_specifier : PRIVATE
 {
-	$$ = ASTLeaf(AST_PRIVATE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_PRIVATE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | PROTECTED
 {
-	$$ = ASTLeaf(AST_PROTECTED_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_PROTECTED_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | PUBLIC
 {
-	$$ = ASTLeaf(AST_PUBLIC_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_PUBLIC_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -4022,22 +4022,22 @@ nondeclarating_statement : labeled_statement
 
 labeled_statement : identifier_token ':' statement
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 	
-	$$ = ASTMake2(AST_LABELED_STATEMENT, identifier, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_LABELED_STATEMENT, identifier, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CASE constant_expression ':' statement
 {
-	$$ = ASTMake2(AST_CASE_STATEMENT, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_CASE_STATEMENT, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | DEFAULT ':' statement
 {
-	$$ = ASTMake1(AST_DEFAULT_STATEMENT, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_DEFAULT_STATEMENT, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extension
 | CASE constant_expression ELLIPSIS constant_expression ':' statement
 {
-	$$ = ASTMake3(AST_GCC_CASE_STATEMENT, $2, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_GCC_CASE_STATEMENT, $2, $4, $6, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4048,7 +4048,7 @@ expression_statement : expression ';'
 | ';'
 {
 	// Empty statement ...
-	$$ = ASTLeaf(AST_EMPTY_STATEMENT, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_EMPTY_STATEMENT, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4060,11 +4060,11 @@ declaration_statement : non_empty_block_declaration
 
 compound_statement : '{' statement_seq '}'
 {
-	$$ = ASTMake1(AST_COMPOUND_STATEMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_COMPOUND_STATEMENT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' '}'
 {
-	$$ = ASTMake1(AST_COMPOUND_STATEMENT, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_COMPOUND_STATEMENT, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4089,17 +4089,17 @@ statement_seq : statement
 // (although it seems it should be the other way round)
 if_statement : IF '(' condition ')' statement %dprec 2
 {
-	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | IF '(' condition ')' statement ELSE statement %dprec 1
 {
-	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, $7, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 selection_statement : SWITCH '(' condition ')' statement
 {
-	$$ = ASTMake3(AST_SWITCH_STATEMENT, $3, $5, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_SWITCH_STATEMENT, $3, $5, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4151,26 +4151,26 @@ gcc_extra_bits_init_declarator : asm_specification
 
 iteration_statement : WHILE '(' condition ')' statement
 {
-	$$ = ASTMake2(AST_WHILE_STATEMENT, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_WHILE_STATEMENT, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | DO statement WHILE '(' expression ')' ';'
 {
-	$$ = ASTMake2(AST_DO_STATEMENT, $2, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DO_STATEMENT, $2, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | FOR '(' for_init_statement condition_opt ';' expression_opt ')' statement
 {
-    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $3, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
-	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $3, $4, $6, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | FOR '(' for_range_declaration ':' expression ')' statement
 {
-    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
-	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | FOR '(' for_range_declaration ':' braced_init_list ')' statement
 {
-    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
-	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4217,34 +4217,34 @@ for_init_statement : expression_statement %merge<ambiguityHandler>
 
 jump_statement : BREAK ';'
 {
-	$$ = ASTLeaf(AST_BREAK_STATEMENT, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BREAK_STATEMENT, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CONTINUE ';'
 {
-	$$ = ASTLeaf(AST_CONTINUE_STATEMENT, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_CONTINUE_STATEMENT, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | RETURN ';'
 {
-	$$ = ASTMake1(AST_RETURN_STATEMENT, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_RETURN_STATEMENT, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | RETURN expression ';'
 {
-	$$ = ASTMake1(AST_RETURN_STATEMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_RETURN_STATEMENT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | RETURN braced_init_list ';'
 {
-	$$ = ASTMake1(AST_RETURN_STATEMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_RETURN_STATEMENT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | GOTO identifier_token ';'
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 	
-	$$ = ASTMake1(AST_GOTO_STATEMENT, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GOTO_STATEMENT, identifier, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extension
 | GOTO '*' expression ';'
 {
-	$$ = ASTMake1(AST_GCC_GOTO_STATEMENT, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_GOTO_STATEMENT, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4254,7 +4254,7 @@ jump_statement : BREAK ';'
 
 conversion_function_id : OPERATOR conversion_type_id
 {
-	$$ = ASTMake1(AST_CONVERSION_FUNCTION_ID, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_CONVERSION_FUNCTION_ID, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4298,7 +4298,7 @@ nonglobal_conversion_declarator : nonglobal_ptr_operator
 
 ctor_initializer : ':' mem_initializer_list
 {
-	$$ = ASTMake1(AST_CTOR_INITIALIZER, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_CTOR_INITIALIZER, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4353,11 +4353,11 @@ primary_expression : literal
 }
 | TOKEN_THIS
 {
-	$$ = ASTLeaf(AST_THIS_VARIABLE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_THIS_VARIABLE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '(' expression ')' 
 {
-	$$ = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | id_expression_no_destructor
 {
@@ -4375,15 +4375,15 @@ primary_expression : literal
 */
 | '(' compound_statement ')'
 {
-	$$ = ASTMake1(AST_GCC_PARENTHESIZED_EXPRESSION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_PARENTHESIZED_EXPRESSION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | BUILTIN_VA_ARG '(' assignment_expression ',' type_id ')'
 {
-	$$ = ASTMake2(AST_GCC_BUILTIN_VA_ARG, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_GCC_BUILTIN_VA_ARG, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | BUILTIN_OFFSETOF '(' type_id ',' offsetof_member_designator ')'
 {
-    $$ = ASTMake2(AST_GCC_BUILTIN_OFFSETOF, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake2(AST_GCC_BUILTIN_OFFSETOF, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | gnu_type_traits
 {
@@ -4416,87 +4416,87 @@ primary_expression : literal
 */
 gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_NOTHROW_CONSTRUCTOR '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_NOTHROW_COPY '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_TRIVIAL_ASSIGN '(' type_id ')'   
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_TRIVIAL_CONSTRUCTOR '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_TRIVIAL_COPY '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_TRIVIAL_DESTRUCTOR '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_HAS_VIRTUAL_DESTRUCTOR '(' type_id ')'     
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_ABSTRACT '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_BASE_OF '(' type_id ',' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, $5, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_CLASS '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_CONVERTIBLE_TO '(' type_id ',' type_id ')'     
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, $5, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_EMPTY '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_ENUM '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_LITERAL_TYPE '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_POD '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_POLYMORPHIC '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_STANDARD_LAYOUT '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_TRIVIAL '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_UNION '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | GXX_IS_FINAL '(' type_id ')'
 {
-    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -4510,14 +4510,14 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
 offsetof_member_designator :  identifier_token designator_list
 {
     $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
-            ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text),
-            $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text),
+            $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | identifier_token
 {
     $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
-            ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text),
-            NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+            ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text),
+            NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4695,15 +4695,15 @@ qualified_id_type_name : global_qualified_id_type_no_template
 
 global_unqualified_id : TWO_COLONS unqualified_name
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 };
 
 global_qualified_id_no_template : TWO_COLONS nested_name_specifier unqualified_id
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | global_unqualified_id
 {
@@ -4713,9 +4713,9 @@ global_qualified_id_no_template : TWO_COLONS nested_name_specifier unqualified_i
 
 global_qualified_id_type_no_template : TWO_COLONS nested_name_specifier unqualified_id_type_name
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | global_unqualified_id
 {
@@ -4725,9 +4725,9 @@ global_qualified_id_type_no_template : TWO_COLONS nested_name_specifier unqualif
 
 global_qualified_id_no_template_no_destructor : TWO_COLONS nested_name_specifier unqualified_id_no_destructor
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | global_unqualified_id
 {
@@ -4737,25 +4737,25 @@ global_qualified_id_no_template_no_destructor : TWO_COLONS nested_name_specifier
 
 global_qualified_id_operator : TWO_COLONS operator_function_id
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 global_qualified_id_template : TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
     ast_set_text($4, "template ");
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS template_id
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -4854,7 +4854,7 @@ unqualified_id_type_name : unqualified_name
 
 unqualified_name : identifier_token
 {
-	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -4884,9 +4884,9 @@ destructor_id : '~' identifier_token
     const char* destructor_name = NULL;
     uniquestr_sprintf(&destructor_name, "~%s", $2.token_text);
 
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), destructor_name);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), destructor_name);
 
-	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | destructor_template_id
 {
@@ -4903,7 +4903,7 @@ destructor_template_id : '~' template_id
     const char* destructor_name = NULL;
     uniquestr_sprintf(&destructor_name, "~%s", ASTText(symbol));
 
-	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, make_locus($1.token_file, $1.token_line, 0), destructor_name);
+	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), destructor_name);
 }
 ;
 
@@ -4933,7 +4933,7 @@ postfix_expression : primary_expression
 }
 | TYPENAME qualified_id_type_expr explicit_type_initializer
 {
-	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | postfix_expression '.' id_expression %merge<ambiguityHandler>
 {
@@ -4961,32 +4961,32 @@ postfix_expression : primary_expression
 }
 | DYNAMIC_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_DYNAMIC_CAST, $3, ASTListLeaf($6), make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DYNAMIC_CAST, $3, ASTListLeaf($6), make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | STATIC_CAST '<' type_id '>' '(' expression ')' 
 {
-	$$ = ASTMake2(AST_STATIC_CAST, $3, ASTListLeaf($6), make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_STATIC_CAST, $3, ASTListLeaf($6), make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | REINTERPRET_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_REINTERPRET_CAST, $3, ASTListLeaf($6), make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_REINTERPRET_CAST, $3, ASTListLeaf($6), make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CONST_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_CONST_CAST, $3, ASTListLeaf($6), make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_CONST_CAST, $3, ASTListLeaf($6), make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPEID '(' expression ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_TYPEID_EXPR, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_TYPEID_EXPR, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPEID '(' type_id ')'  %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_TYPEID_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_TYPEID_TYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extensions
 | '(' type_id ')' braced_init_list
 {
-	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5012,11 +5012,11 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 }
 | PLUSPLUS cast_expression
 {
-	$$ = ASTMake1(AST_PREINCREMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PREINCREMENT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MINUSMINUS cast_expression
 {
-	$$ = ASTMake1(AST_PREDECREMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_PREDECREMENT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | unary_operator cast_expression %merge<ambiguityHandler>
 {
@@ -5024,17 +5024,17 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 }
 | SIZEOF unary_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_SIZEOF, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_SIZEOF, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | SIZEOF '(' type_id ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_SIZEOF_TYPEID, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_SIZEOF_TYPEID, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | SIZEOF ELLIPSIS '(' identifier_token ')'
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@4.first_filename, @4.first_line, @4.first_column), $4.token_text);
 
-    $$ = ASTMake1(AST_SIZEOF_PACK, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_SIZEOF_PACK, identifier, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | new_expression
 {
@@ -5046,38 +5046,38 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 }
 | TOKEN_ALIGNOF '(' type_id ')'
 {
-	$$ = ASTMake1(AST_ALIGNOF_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_ALIGNOF_TYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_NOEXCEPT '(' expression ')'
 {
-    $$ = ASTMake1(AST_NOEXCEPT_EXPRESSION, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake1(AST_NOEXCEPT_EXPRESSION, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 // GNU Extensions
 | EXTENSION cast_expression
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_GCC_ALIGNOF unary_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | TOKEN_GCC_ALIGNOF '(' type_id ')' %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | REAL cast_expression
 {
-	$$ = ASTMake1(AST_GCC_REAL_PART, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_REAL_PART, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | IMAG cast_expression
 {
-	$$ = ASTMake1(AST_GCC_IMAG_PART, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_IMAG_PART, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | ANDAND identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake1(AST_GCC_LABEL_ADDR, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_GCC_LABEL_ADDR, identifier, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5109,89 +5109,89 @@ unary_operator : '*'
 
 new_expression : TOKEN_NEW new_type_id 
 {
-	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, NULL, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, NULL, $2, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW new_type_id new_initializer
 {
-	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, NULL, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, NULL, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW new_placement new_type_id 
 {
-	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW new_placement new_type_id new_initializer
 {
-	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW new_type_id 
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, NULL, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW new_type_id new_initializer
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, $3, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, $3, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW new_placement new_type_id 
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW new_placement new_type_id new_initializer
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW '(' type_id ')' 
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW '(' type_id ')' new_initializer
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW new_placement '(' type_id ')' 
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW new_placement '(' type_id ')' new_initializer
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, $6, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW '(' type_id ')' 
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW '(' type_id ')' new_initializer
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, $6, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW new_placement '(' type_id ')' 
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_NEW new_placement '(' type_id ')' new_initializer
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, $7, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, $7, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 new_placement : '(' expression_list ')'
 {
-	$$ = ASTMake1(AST_NEW_PLACEMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_NEW_PLACEMENT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5243,7 +5243,7 @@ nonglobal_new_declarator : nonglobal_ptr_operator
 
 direct_new_declarator : '[' expression ']'
 {
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | direct_new_declarator '[' constant_expression ']'
 {
@@ -5259,23 +5259,23 @@ new_initializer : explicit_type_initializer
 
 delete_expression : TOKEN_DELETE cast_expression
 {
-	$$ = ASTMake2(AST_DELETE_EXPR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_EXPR, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_DELETE_ARRAY cast_expression
 {
-	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_DELETE cast_expression
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake2(AST_DELETE_EXPR, global_op, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_EXPR, global_op, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TWO_COLONS TOKEN_DELETE_ARRAY cast_expression
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, global_op, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, global_op, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5285,7 +5285,7 @@ cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST, $2, ASTListLeaf($4), make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_CAST, $2, ASTListLeaf($4), make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5572,11 +5572,11 @@ lambda_capture : lambda_capture_default
 
 lambda_capture_default : '&'
 {
-    $$ = ASTLeaf(AST_LAMBDA_CAPTURE_DEFAULT_ADDR, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_LAMBDA_CAPTURE_DEFAULT_ADDR, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | '='
 {
-    $$ = ASTLeaf(AST_LAMBDA_CAPTURE_DEFAULT_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_LAMBDA_CAPTURE_DEFAULT_VALUE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -5612,25 +5612,25 @@ lambda_capture_item : lambda_capture_item_simple
 
 lambda_capture_item_simple : identifier_token
 {
-	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_VALUE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | '&' identifier_token
 {
-	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_ADDRESS, make_locus($1.token_file, $1.token_line, 0), $2.token_text);
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_ADDRESS, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text);
 }
 | TOKEN_THIS
 {
-	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_THIS, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_THIS, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 lambda_capture_item_init : identifier_token initializer
 {
-	$$ = ASTMake1(AST_LAMBDA_CAPTURE_VALUE_INIT, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTMake1(AST_LAMBDA_CAPTURE_VALUE_INIT, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | '&' identifier_token initializer
 {
-	$$ = ASTMake1(AST_LAMBDA_CAPTURE_ADDRESS_INIT, $3, make_locus($1.token_file, $1.token_line, 0), $2.token_text);
+	$$ = ASTMake1(AST_LAMBDA_CAPTURE_ADDRESS_INIT, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $2.token_text);
 }
 ;
 
@@ -5650,21 +5650,21 @@ lambda_declarator : '(' parameter_declaration_clause ')' mutable_opt exception_s
     AST parameters = ASTMake4(AST_PARAMETERS_AND_QUALIFIERS,
             $2,
             ASTMake4(AST_PARAMETERS_AND_QUALIFIERS_EXTRA, $6, NULL, NULL, $5,
-                    make_locus($1.token_file, $1.token_line, 0),
+                    make_locus(@1.first_filename, @1.first_line, @1.first_column),
                     NULL),
             NULL, NULL,
-            make_locus($1.token_file, $1.token_line, 0),
+            make_locus(@1.first_filename, @1.first_line, @1.first_column),
             NULL);
 
     // mutable and trailing_return_type go here
     $$ = ASTMake3(AST_LAMBDA_DECLARATOR, parameters, $4, $7,
-            make_locus($1.token_file, $1.token_line, 0), NULL);
+            make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 mutable_opt : MUTABLE
 {
-    $$ = ASTLeaf(AST_MUTABLE_SPEC, make_locus($1.token_file, $1.token_line, 0), 0);
+    $$ = ASTLeaf(AST_MUTABLE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), 0);
 }
 | /* empty */
 {
@@ -5678,35 +5678,35 @@ mutable_opt : MUTABLE
 
 literal : DECIMAL_LITERAL
 {
-	$$ = ASTLeaf(AST_DECIMAL_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_DECIMAL_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | OCTAL_LITERAL
 {
-	$$ = ASTLeaf(AST_OCTAL_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_OCTAL_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | HEXADECIMAL_LITERAL
 {
-	$$ = ASTLeaf(AST_HEXADECIMAL_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_HEXADECIMAL_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | BINARY_LITERAL
 {
-	$$ = ASTLeaf(AST_BINARY_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_BINARY_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | HEXADECIMAL_FLOAT
 {
-    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | FLOATING_LITERAL
 {
-	$$ = ASTLeaf(AST_FLOATING_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_FLOATING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | BOOLEAN_LITERAL
 {
-	$$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_BOOLEAN_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | CHARACTER_LITERAL
 {
-	$$ = ASTLeaf(AST_CHARACTER_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_CHARACTER_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | string_literal
 {
@@ -5714,7 +5714,7 @@ literal : DECIMAL_LITERAL
 }
 | TOKEN_NULLPTR
 {
-    $$ = ASTLeaf(AST_POINTER_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_POINTER_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -5734,45 +5734,45 @@ operator_function_id : operator_function_id_name
 
 operator_function_id_name : OPERATOR operator
 {
-	$$ = ASTMake1(AST_OPERATOR_FUNCTION_ID, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_OPERATOR_FUNCTION_ID, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | OPERATOR_LITERAL identifier_token
 {
     $$ = ASTMake1(AST_LITERAL_OPERATOR_ID,
-            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
-            make_locus($2.token_file, $2.token_line, 0), NULL);
+            ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text),
+            make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 ;
 
 operator_function_id_name_and_template_args : OPERATOR operator '<' template_argument_list '>'
 {
-	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | OPERATOR operator '<' '>'
 {
-	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | OPERATOR_LITERAL identifier_token '<' '>'
 {
     $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE,
-            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
+            ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text),
             NULL,
-            make_locus($2.token_file, $2.token_line, 0), NULL);
+            make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 | OPERATOR_LITERAL identifier_token '<' template_argument_list '>'
 {
     $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE,
-            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
+            ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text),
             $4,
-            make_locus($2.token_file, $2.token_line, 0), NULL);
+            make_locus(@2.first_filename, @2.first_line, @2.first_column), NULL);
 }
 ;
 
 global_qualified_operator_function_id_name_and_template_args : TWO_COLONS nested_name_specifier operator_function_id_name_and_template_args
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5784,171 +5784,171 @@ nonglobal_qualified_operator_function_id_name_and_template_args : nested_name_sp
 
 operator : TOKEN_NEW
 {
-	$$ = ASTLeaf(AST_NEW_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_NEW_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_DELETE
 {
-	$$ = ASTLeaf(AST_DELETE_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_DELETE_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NEW_ARRAY
 {
-	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_DELETE_ARRAY
 {
-	$$ = ASTLeaf(AST_DELETE_ARRAY_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_DELETE_ARRAY_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '+'
 {
-	$$ = ASTLeaf(AST_ADD_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_ADD_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '-'
 {
-	$$ = ASTLeaf(AST_MINUS_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_MINUS_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '*'
 {
-	$$ = ASTLeaf(AST_MUL_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_MUL_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '/'
 {
-	$$ = ASTLeaf(AST_DIV_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_DIV_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '%' 
 {
-	$$ = ASTLeaf(AST_MOD_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_MOD_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '^'
 {
-	$$ = ASTLeaf(AST_BITWISE_XOR_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_XOR_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '&'
 {
-	$$ = ASTLeaf(AST_BITWISE_AND_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_AND_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '|'
 {
-	$$ = ASTLeaf(AST_BITWISE_OR_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_OR_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '~'
 {
-	$$ = ASTLeaf(AST_BITWISE_NEG_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_NEG_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '!'
 {
-	$$ = ASTLeaf(AST_LOGICAL_NOT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LOGICAL_NOT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '='
 {
-	$$ = ASTLeaf(AST_ASSIGNMENT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_ASSIGNMENT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '<'
 {
-	$$ = ASTLeaf(AST_LOWER_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LOWER_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '>'
 {
-	$$ = ASTLeaf(AST_GREATER_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_GREATER_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | ADD_ASSIGN
 {
-	$$ = ASTLeaf(AST_ADD_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_ADD_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | SUB_ASSIGN
 {
-	$$ = ASTLeaf(AST_SUB_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_SUB_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MUL_ASSIGN
 {
-	$$ = ASTLeaf(AST_MUL_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_MUL_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | DIV_ASSIGN
 {
-	$$ = ASTLeaf(AST_DIV_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_DIV_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MOD_ASSIGN
 {
-	$$ = ASTLeaf(AST_MOD_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_MOD_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | XOR_ASSIGN
 {
-	$$ = ASTLeaf(AST_BITWISE_XOR_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_XOR_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | AND_ASSIGN
 {
-	$$ = ASTLeaf(AST_BITWISE_AND_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_AND_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | OR_ASSIGN
 {
-	$$ = ASTLeaf(AST_BITWISE_OR_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_BITWISE_OR_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | LEFT
 {
-	$$ = ASTLeaf(AST_LEFT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LEFT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | right_token
 {
-	$$ = ASTLeaf(AST_RIGHT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_RIGHT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | LEFT_ASSIGN
 {
-	$$ = ASTLeaf(AST_LEFT_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LEFT_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | right_assign_token
 {
-	$$ = ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | EQUAL
 {
-	$$ = ASTLeaf(AST_EQUAL_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_EQUAL_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | NOT_EQUAL
 {
-	$$ = ASTLeaf(AST_DIFFERENT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_DIFFERENT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | LESS_OR_EQUAL
 {
-	$$ = ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | greater_equal_token
 {
-	$$ = ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | ANDAND
 {
-	$$ = ASTLeaf(AST_LOGICAL_AND_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LOGICAL_AND_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | OROR
 {
-	$$ = ASTLeaf(AST_LOGICAL_OR_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_LOGICAL_OR_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | PLUSPLUS
 {
-	$$ = ASTLeaf(AST_INCREMENT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_INCREMENT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MINUSMINUS
 {
-	$$ = ASTLeaf(AST_DECREMENT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_DECREMENT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | ','
 {
-	$$ = ASTLeaf(AST_COMMA_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_COMMA_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | PTR_OP
 {
-	$$ = ASTLeaf(AST_POINTER_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_POINTER_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | PTR_OP_MUL
 {
-	$$ = ASTLeaf(AST_POINTER_DERREF_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_POINTER_DERREF_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '(' ')'
 {
-	$$ = ASTLeaf(AST_FUNCTION_CALL_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_FUNCTION_CALL_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '[' ']'
 {
-	$$ = ASTLeaf(AST_SUBSCRIPT_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_SUBSCRIPT_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -5958,15 +5958,15 @@ operator : TOKEN_NEW
 
 template_id : identifier_token '<' template_argument_list right_bracket_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	$$ = ASTMake2(AST_TEMPLATE_ID, identifier, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TEMPLATE_ID, identifier, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | identifier_token '<' right_bracket_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 
-	$$ = ASTMake2(AST_TEMPLATE_ID, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TEMPLATE_ID, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -6005,23 +6005,23 @@ template_argument : template_assignment_expression %merge<ambiguityHandler>
 
 template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
-	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | EXPORT TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
-	$$ = ASTMake2(AST_EXPORT_TEMPLATE_DECLARATION, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_EXPORT_TEMPLATE_DECLARATION, $4, $6, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 template_member_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
-	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 template_friend_declaration : TEMPLATE '<' template_parameter_list '>' friend_templated_declaration
 {
-	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -6047,116 +6047,116 @@ template_parameter : type_parameter %dprec 2
 
 type_parameter : CLASS
 {
-	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CLASS identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CLASS '=' type_id
 {
-	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, NULL, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CLASS identifier_token '=' type_id
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, identifier, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, identifier, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPENAME
 {
-	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPENAME identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPENAME '=' type_id
 {
-	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPENAME identifier_token '=' type_id
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 
-	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, identifier, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, identifier, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS
 {
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($6.token_file, $6.token_line, 0), $6.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@6.first_filename, @6.first_line, @6.first_column), $6.token_text);
 
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS '=' id_expression
 {
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, $7, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, $7, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS identifier_token '=' id_expression
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($6.token_file, $6.token_line, 0), $6.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@6.first_filename, @6.first_line, @6.first_column), $6.token_text);
 
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, identifier, $8, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, identifier, $8, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // Template pack syntax
 | CLASS ELLIPSIS
 {
-	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | CLASS ELLIPSIS identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@3.first_filename, @3.first_line, @3.first_column), $3.token_text);
 
-	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPENAME ELLIPSIS
 {
-	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TYPENAME ELLIPSIS identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@3.first_filename, @3.first_line, @3.first_column), $3.token_text);
 
-	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS
 {
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, NULL, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS identifier_token
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($7.token_file, $7.token_line, 0), $7.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus(@7.first_filename, @7.first_line, @7.first_column), $7.token_text);
 
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, identifier, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 explicit_instantiation : TEMPLATE decl_specifier_seq_0 declarator ';' %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE decl_specifier_seq_ended_with_named_type_spec nonglobal_declarator ';' %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE decl_specifier_seq_0 ';' %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE decl_specifier_seq_ended_with_named_type_spec ';' %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE declarator ';' %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, NULL, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // GNU Extensions
 | storage_class_specifier TEMPLATE decl_specifier_seq_0 declarator ';' %merge<ambiguityHandler>
@@ -6203,16 +6203,16 @@ explicit_instantiation : TEMPLATE decl_specifier_seq_0 declarator ';' %merge<amb
 
 explicit_specialization : TEMPLATE '<' '>' templated_declaration
 {
-	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TEMPLATE '<' '>' explicit_specialization
 {
-	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 // This is invalid, all enclosed things must be explicitly specialized
 // | TEMPLATE '<' '>' template_declaration
 // {
-// 	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+// 	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 // }
 ;
 
@@ -6445,7 +6445,7 @@ template_expression : template_assignment_expression %merge<ambiguityHandler>
 
 try_block : TRY compound_statement handler_seq
 {
-	$$ = ASTMake2(AST_TRY_BLOCK, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_TRY_BLOCK, $2, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -6461,7 +6461,7 @@ handler_seq : handler
 
 handler : CATCH '(' exception_declaration ')' compound_statement
 {
-	$$ = ASTMake2(AST_CATCH_HANDLER, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_CATCH_HANDLER, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -6491,7 +6491,7 @@ exception_declaration : type_specifier_seq_0 nonabstract_declarator
 }
 | ELLIPSIS
 {
-	$$ = ASTLeaf(AST_ANY_EXCEPTION, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_ANY_EXCEPTION, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -6508,11 +6508,11 @@ exception_specification : dynamic_exception_specification
 
 dynamic_exception_specification : THROW '(' ')' 
 {
-	$$ = ASTMake1(AST_EXCEPTION_SPECIFICATION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_EXCEPTION_SPECIFICATION, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | THROW '(' throw_type_id_list ')'
 {
-	$$ = ASTMake1(AST_EXCEPTION_SPECIFICATION, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_EXCEPTION_SPECIFICATION, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -6538,28 +6538,28 @@ throw_type_id_list : type_id
 
 noexcept_specification : TOKEN_NOEXCEPT_ALONE
 {
-    $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | TOKEN_NOEXCEPT '(' constant_expression ')'
 {
-    $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 throw_expression : THROW
 {
-	$$ = ASTMake1(AST_THROW_EXPRESSION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_THROW_EXPRESSION, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | THROW assignment_expression
 {
-	$$ = ASTMake1(AST_THROW_EXPRESSION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_THROW_EXPRESSION, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 // This eases parsing, though it should be viewed as a lexical issue
 string_literal : STRING_LITERAL
 {
-	$$ = ASTLeaf(AST_STRING_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_STRING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | string_literal STRING_LITERAL
 {
@@ -6598,7 +6598,6 @@ identifier_token : IDENTIFIER
 right_token : AB1 '>'
 {
     // C++2011
-    $$.token_line = $1.token_line;
     $$.token_text = UNIQUESTR_LITERAL(">>");
 }
 | RIGHT
@@ -6611,7 +6610,6 @@ right_token : AB1 '>'
 right_assign_token : AB1 AB2 '='
 {
     // C++2011
-    $$.token_line = $1.token_line;
     $$.token_text = UNIQUESTR_LITERAL(">>=");
 }
 | RIGHT_ASSIGN
@@ -6624,7 +6622,6 @@ right_assign_token : AB1 AB2 '='
 greater_equal_token : AB2 '='
 {
     // C++2011
-    $$.token_line = $1.token_line;
     $$.token_text = UNIQUESTR_LITERAL(">=");
 }
 | GREATER_OR_EQUAL
@@ -6637,19 +6634,16 @@ greater_equal_token : AB2 '='
 right_bracket_token : '>'
 {
     // C++2003 and C++2011
-    $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 | AB1
 {
     // C++2011
-    $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 | AB2
 {
     // C++2011
-    $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 ;

@@ -41,22 +41,33 @@ typedef
 struct token_atrib_tag 
 {
     const char* token_text;
-    const char* token_file;
-    unsigned int token_line;
 } token_atrib_t;
 
 typedef struct parser_location_tag
 {
-    /* DEFAULT */
+    const char* first_filename;
     int first_line;
     int first_column;
-    int last_line;
-    int last_column;
-
-    // const char* filename;
-    // int start_line, start_column;
-    // int end_line, end_column;
 } parser_location_t;
+
+# define YYLLOC_DEFAULT(Current, Rhs, N)                                \
+    do                                                                  \
+      if (N)                                                            \
+        {                                                               \
+          (Current).first_filename = YYRHSLOC (Rhs, 1).first_filename;  \
+          (Current).first_line     = YYRHSLOC (Rhs, 1).first_line;      \
+          (Current).first_column   = YYRHSLOC (Rhs, 1).first_column;    \
+        }                                                               \
+      else                                                              \
+        {                                                               \
+          (Current).first_filename   =                                  \
+            YYRHSLOC (Rhs, 0).first_filename;                           \
+          (Current).first_line =                                        \
+            YYRHSLOC (Rhs, 0).first_line;                               \
+          (Current).first_column =                                      \
+            YYRHSLOC (Rhs, 0).first_column;                             \
+        }                                                               \
+    while (0)
 
 LIBMCXX_EXTERN void update_parser_location(const char* current_text, parser_location_t* loc);
 
@@ -74,7 +85,10 @@ struct scan_file_descriptor
     // flex buffer
     struct yy_buffer_state* scanning_buffer;
 
+    // Line of current token
     unsigned int line_number;
+    // Column where the current token starts
+    unsigned column_number;
     // Fortran: After a joined line we have to move to this line if new_line > 0 
     unsigned int new_line; 
     // Fortran: Number of joined lines so far
