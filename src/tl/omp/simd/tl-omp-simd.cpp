@@ -85,6 +85,11 @@ namespace TL {
                     "Enables prefetching and sets prefetching distances",
                     _prefetching_str,
                     "0").connect(std::bind(&Simd::set_pref_distance, this, std::placeholders::_1));
+
+            register_parameter("prefetch_in_place",
+                    "Enables prefetching in place and not at the beginning of the BB",
+                    _prefetch_in_place_str,
+                    "0").connect(std::bind(&Simd::set_prefetch_in_place, this, std::placeholders::_1));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -158,6 +163,15 @@ namespace TL {
             if (_pref_info.L2_distance <= _pref_info.L1_distance)
             {
                 running_error("SIMD: Invalid prefetching distances. L2 distance is <= L1 distance");
+            }
+        }
+
+        void Simd::set_prefetch_in_place(
+                const std::string prefetch_in_place_str)
+        {
+            if (prefetch_in_place_str == "1")
+            {
+                _pref_info.in_place = true;
             }
         }
 

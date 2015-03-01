@@ -265,8 +265,24 @@ namespace Vectorization
             Nodecl::NodeclBase pref_memory_address = vload_it->second.
                 as<Nodecl::VectorLoad>().get_rhs();
 
-            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
-            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+            if (_pref_info.in_place)
+            {
+                if (_object_init.is_null())
+                {
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+                }
+                else
+                {
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+                }
+            }
+            else
+            {
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+            }
         }
     }
 
@@ -277,7 +293,7 @@ namespace Vectorization
         
         walk(lhs);
         walk(rhs);
-        walk(n.get_flags());
+        //walk(n.get_flags());
 
         const auto& vstore_it = _vaccesses.find(n);
 
@@ -286,14 +302,31 @@ namespace Vectorization
             Nodecl::NodeclBase pref_memory_address = vstore_it->second.
                 as<Nodecl::VectorStore>().get_lhs();
 
-            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
-            _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+            if (_pref_info.in_place)
+            {
+                if (_object_init.is_null())
+                {
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+                }
+                else
+                {
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+                }
+            }
+            else
+            {
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+
+            }
         }
     }
 
     void GenPrefetch::visit(const Nodecl::ObjectInit& n)
     {
-        //_object_init = n;
+        _object_init = n;
 
         TL::Symbol sym = n.get_symbol();
         Nodecl::NodeclBase init = sym.get_value();
@@ -303,7 +336,7 @@ namespace Vectorization
             walk(init);
         }
 
-        //_object_init = Nodecl::NodeclBase::null(); 
+        _object_init = Nodecl::NodeclBase::null(); 
     }
 
     objlist_nodecl_t GenPrefetch::get_prefetch_instructions()

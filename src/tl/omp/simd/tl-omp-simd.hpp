@@ -55,6 +55,7 @@ namespace TL
                 std::string _spml_enabled_str;
                 std::string _only_adjacent_accesses_str;
                 std::string _prefetching_str;
+                std::string _prefetch_in_place_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
@@ -75,7 +76,8 @@ namespace TL
                         const std::string only_adjacent_accesses_str);
                 void set_pref_distance(
                         const std::string prefetching_enabled_str);
-
+                void set_prefetch_in_place(
+                        const std::string prefetch_in_place_str);
         };
 
         class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
