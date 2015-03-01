@@ -240,9 +240,22 @@ namespace Vectorization
 
         TL::Scope scope = for_stmt.retrieve_context();
         Nodecl::List result_list;
+        Nodecl::List prefetching_list;
 
-        int num_init_registers = (ogroup._inter_it_overlap == 1) ? 
-            ogroup._num_registers -1 : ogroup._num_registers;
+        int num_init_registers;
+        bool gen_init_prefetching;
+        
+        if (ogroup._inter_it_overlap == 1)
+        {
+            num_init_registers = ogroup._num_registers -1;
+            gen_init_prefetching = false; //true &;
+#warning false false
+        }
+        else
+        {  
+            num_init_registers = ogroup._num_registers;
+            gen_init_prefetching = false;
+        }
 
         for (int i = 0; i < num_init_registers; i++)
         {
@@ -286,23 +299,37 @@ namespace Vectorization
                 flags = Nodecl::List::make(
                         Nodecl::AlignedFlag::make());
 
+            Nodecl::Reference reference = Nodecl::Reference::make(
+                    Nodecl::ArraySubscript::make(
+                        ogroup._subscripted.make_nodecl(),
+                        Nodecl::List::make(
+                            vload_index),
+                        ogroup._basic_type),
+                    ogroup._basic_type.get_pointer_to());
+
             Nodecl::VectorAssignment vassignment =
                 Nodecl::VectorAssignment::make(
                         ogroup._registers[i].make_nodecl(true),
                         Nodecl::VectorLoad::make(
-                            Nodecl::Reference::make(
-                                Nodecl::ArraySubscript::make(
-                                    ogroup._subscripted.make_nodecl(),
-                                    Nodecl::List::make(
-                                        vload_index),
-                                    ogroup._basic_type),
-                                ogroup._basic_type.get_pointer_to()),
+                            reference.shallow_copy(),
                             Utils::get_null_mask(),
                             flags,
                             ogroup._vector_type),
                         Utils::get_null_mask(),
                         Nodecl::NodeclBase::null(), // HasBeenDefinedFlag
                         ogroup._vector_type);
+
+            if (gen_init_prefetching)
+            {
+                Nodecl::ExpressionStatement prefetch_stmt =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorPrefetch::make(
+                                reference.shallow_copy(),
+                                const_value_to_nodecl(const_value_get_signed_int(PrefetchKind::L1_READ)),
+                                reference.get_type()));
+
+                prefetching_list.append(prefetch_stmt);
+            }
 
             Nodecl::ExpressionStatement exp_stmt =
                 Nodecl::ExpressionStatement::make(vassignment);
@@ -311,6 +338,8 @@ namespace Vectorization
 
             result_list.append(exp_stmt);
         }
+
+        result_list.prepend(prefetching_list);
 
         return result_list;
     }
