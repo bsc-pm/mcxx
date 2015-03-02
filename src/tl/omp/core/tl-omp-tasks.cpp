@@ -583,6 +583,16 @@ namespace TL
             return _parsing_scope;
         }
 
+        void FunctionTaskInfo::set_shared_closure(const TL::ObjectList<TL::Symbol>& shared_symbols)
+        {
+            _shared_closure = shared_symbols;
+        }
+
+        TL::ObjectList<TL::Symbol> FunctionTaskInfo::get_shared_closure() const
+        {
+            return _shared_closure;
+        }
+
         ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
         {
             ObjectList<Symbol> result;
@@ -1157,6 +1167,14 @@ namespace TL
 
             Symbol function_sym = construct.get_symbol();
 
+            if (!function_sym.is_function())
+            {
+                warn_printf("%s: warning: '#pragma omp task' cannot be applied to this declaration "
+                        "since it does not declare a function, skipping",
+                        construct.get_locus_str().c_str());
+                return;
+            }
+
             PragmaCustomClause input_clause = pragma_line.get_clause("in",
                     /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
@@ -1226,12 +1244,51 @@ namespace TL
                 commutative_arguments = update_clauses(commutative_arguments, function_sym);
             }
 
-            if (!function_sym.is_function())
+            TL::ObjectList<TL::Symbol> shared_vars;
+            // Free variables of nested functions
+            if (function_sym.is_nested_function())
             {
-                warn_printf("%s: warning: '#pragma omp task' cannot be applied to this declaration "
-                        "since it does not declare a function, skipping",
-                        construct.get_locus_str().c_str());
-                return;
+                Nodecl::NodeclBase function_code = function_sym.get_function_code();
+                if (function_code.is_null())
+                {
+                    warn_printf("%s: warning: nested function '%s' has not been defined\n",
+                            construct.get_locus_str().c_str(),
+                            function_sym.get_name().c_str());
+                }
+                else
+                {
+                    struct FreeVariablesOfNestedVisitor : public Nodecl::ExhaustiveVisitor<void>
+                    {
+                        TL::Symbol _current_function;
+                        TL::ObjectList<TL::Symbol> &_freevars;
+
+                        FreeVariablesOfNestedVisitor(TL::Symbol current_function,
+                                TL::ObjectList<TL::Symbol> &freevars)
+                            : _current_function(current_function),
+                            _freevars(freevars)
+                        {
+                        }
+
+                        virtual void visit(const Nodecl::Symbol& n)
+                        {
+                            TL::Symbol sym = n.get_symbol();
+                            if (sym.is_variable()
+                                    && sym.get_scope().is_block_scope()
+                                    && sym.get_scope().get_related_symbol() != _current_function)
+                            {
+                                _freevars.insert(sym);
+                            }
+                        }
+                    };
+
+                    TL::ObjectList<TL::Symbol> freevars;
+                    FreeVariablesOfNestedVisitor v(function_sym, freevars);
+
+                    v.walk(function_code);
+
+                    // Now add freevars as ""shared""
+                    shared_vars.insert(freevars);
+                }
             }
 
             Type function_type = function_sym.get_type();
@@ -1306,6 +1363,7 @@ namespace TL
             ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
+            task_info.set_shared_closure(shared_vars);
 
             // Now gather target information
             TargetInfo target_info;

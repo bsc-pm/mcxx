@@ -471,8 +471,16 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
+        // Variables that have to be closed as shared
+        TL::ObjectList<TL::Symbol> shared_closure = function_task_info.get_shared_closure();
+        for (TL::ObjectList<TL::Symbol>::iterator it = shared_closure.begin();
+                it != shared_closure.end();
+                it++)
+        {
+            assumed_shareds.append(it->make_nodecl(it->get_locus()));
+        }
 
+        TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
 
         Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
         int i = 0;
