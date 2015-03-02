@@ -52,7 +52,8 @@ namespace TL { namespace OpenMP {
             void visit(const Nodecl::Symbol& n)
             {
                 sym_to_argument_expr_t::iterator it = _sym_to_arg.find(n.get_symbol());
-                if (it == _sym_to_arg.end())
+                if (it == _sym_to_arg.end()
+                        || it->second.is<Nodecl::FortranNotPresent>())
                     return;
 
                 n.replace(it->second.shallow_copy());
@@ -498,6 +499,10 @@ namespace TL { namespace OpenMP {
                         Nodecl::NodeclBase arg;
                         if ((unsigned int)i < arguments.size())
                             arg = arguments[i];
+
+                        // Skip missing arguments
+                        if (arg.is<Nodecl::FortranNotPresent>())
+                            continue;
 
                         ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
 

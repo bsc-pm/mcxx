@@ -1323,9 +1323,13 @@ static TL::Symbol new_function_symbol_adapter(
 
         new_parameter_symbol->locus = construct.get_locus();
 
-        // Do not forget the ALLOCATABLE attributes
+        // Propagate ALLOCATABLE
         symbol_entity_specs_set_is_allocatable(new_parameter_symbol,
                 symbol_entity_specs_get_is_allocatable(it->get_internal_symbol()));
+
+        // Propagate OPTIONAL
+        symbol_entity_specs_set_is_optional(new_parameter_symbol,
+                symbol_entity_specs_get_is_optional(it->get_internal_symbol()));
 
         parameters_of_new_function.append(new_parameter_symbol);
 
