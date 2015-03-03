@@ -293,6 +293,14 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             << "kmp_int32 " << lastiter << " = 0;"
             ;
 
+    Source pragma_noprefetch;
+    Nodecl::OpenMP::NoPrefetch no_prefetch_node = environment.find_first<Nodecl::OpenMP::NoPrefetch>();
+    if (!no_prefetch_node.is_null())
+    {
+        pragma_noprefetch
+            << "#pragma noprefetch\n";
+    }
+
     TL::Symbol private_induction_var = symbol_map.map(induction_var);
     ERROR_CONDITION(private_induction_var == induction_var, "Induction variable was not privatized", 0);
 
@@ -346,6 +354,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             <<                ", " << step
             <<                ", " << chunk_size << ");"
             << statement_placeholder(prependix_code)
+            << pragma_noprefetch
             << "for (" << as_symbol(private_induction_var) << " = " << lower << "; "
             <<            as_symbol(private_induction_var) << "<=" << upper << ";"
             <<            as_symbol(private_induction_var) << "+=" << step << ")"
@@ -400,6 +409,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             <<                "," << upper
             <<                "," << step
             <<                "," << chunk_size << ");"
+            << pragma_noprefetch
             << "while (__kmpc_dispatch_next_" << type_kind << "(&" << as_symbol(ident_symbol)
             <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
             <<                ",&" << lastiter
