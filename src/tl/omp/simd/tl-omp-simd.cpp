@@ -718,8 +718,20 @@ namespace TL {
                 }
 
                 if (_pref_info.enabled)
-                    _vectorizer.prefetcher(for_statement,
-                            _pref_info, for_environment);
+                {
+                    _vectorizer.prefetcher(for_statement, _pref_info,
+                            for_environment);
+
+                    // Remove 'pragma noprefetch' and add it as a clause
+                    Nodecl::NodeclBase previous_sibling = Nodecl::Utils::get_previous_sibling(for_statement);
+                    if (!previous_sibling.is_null() && previous_sibling.is<Nodecl::UnknownPragma>() &&
+                            previous_sibling.as<Nodecl::UnknownPragma>().get_text() == "noprefetch")
+                    {
+                        Nodecl::Utils::remove_from_enclosing_list(previous_sibling);
+                        omp_for_environment.append(Nodecl::OpenMP::NoPrefetch::make());
+                    }
+                }
+
             }
 
             // Add new vector symbols

@@ -971,6 +971,23 @@ namespace Nodecl
                 && n.get_parent().is<Nodecl::List>());
     }
 
+    Nodecl::NodeclBase Utils::get_previous_sibling(const Nodecl::NodeclBase& n)
+    {
+        if (n.is_null()) return n;
+        
+        const Nodecl::NodeclBase parent = n.get_parent();
+
+        if (parent.is_null()) return parent;
+        else if (parent.is<Nodecl::List>())
+        {
+            Nodecl::NodeclBase child0 = parent.children()[0];
+            if (child0.is<Nodecl::List>())
+                return child0.as<Nodecl::List>().children()[1];
+        }
+
+        return Nodecl::NodeclBase::null();
+    }
+
     void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
         if (!Utils::is_in_list(n))
