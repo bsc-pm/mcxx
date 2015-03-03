@@ -298,6 +298,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
     if (!no_prefetch_node.is_null())
     {
         pragma_noprefetch
+            << "\n"
             << "#pragma noprefetch\n";
     }
 
