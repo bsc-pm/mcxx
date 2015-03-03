@@ -81,16 +81,6 @@ namespace TL {
                     _only_adjacent_accesses_str,
                     "0").connect(std::bind(&Simd::set_only_adjcent_accesses, this, std::placeholders::_1));
 
-            register_parameter("prefetch_distance",
-                    "Enables prefetching and sets prefetching distances",
-                    _prefetching_str,
-                    "0").connect(std::bind(&Simd::set_pref_distance, this, std::placeholders::_1));
-
-            register_parameter("prefetch_in_place",
-                    "Enables prefetching in place and not at the beginning of the BB",
-                    _prefetch_in_place_str,
-                    "0").connect(std::bind(&Simd::set_prefetch_in_place, this, std::placeholders::_1));
-
             register_parameter("overlap_in_place",
                     "Enables overlap register cache update in place and not at the beginning of the BB",
                     _overlap_in_place_str,
@@ -155,31 +145,6 @@ namespace TL {
             }
         }
 
-        void Simd::set_pref_distance(
-                const std::string prefetching_str)
-        {
-            if (!prefetching_str.empty())
-            {
-                _pref_info.enabled = true;
-            }
-
-            _pref_info.L2_distance = atoi(std::strtok((char *)prefetching_str.c_str(),","));
-            _pref_info.L1_distance = atoi(std::strtok(NULL,","));
-
-            if (_pref_info.L2_distance <= _pref_info.L1_distance)
-            {
-                running_error("SIMD: Invalid prefetching distances. L2 distance is <= L1 distance");
-            }
-        }
-
-        void Simd::set_prefetch_in_place(const std::string prefetch_in_place_str)
-        {
-            if (prefetch_in_place_str == "1")
-            {
-                _pref_info.in_place = true;
-            }
-        }
-
         void Simd::set_overlap_in_place(const std::string overlap_in_place_str)
         {
             if (overlap_in_place_str == "1")
@@ -226,16 +191,14 @@ namespace TL {
                     fprintf(stderr, " -- SPML OpenMP enabled -- \n");
                     SimdSPMLVisitor spml_visitor(
                             simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled, _overlap_in_place,
-                            _pref_info);
+                            _only_adjacent_accesses_enabled, _overlap_in_place);
                     spml_visitor.walk(translation_unit);
                 }
                 else
                 {
                     SimdVisitor simd_visitor(
                             simd_isa, _fast_math_enabled, _svml_enabled,
-                            _only_adjacent_accesses_enabled, _overlap_in_place,
-                            _pref_info);
+                            _only_adjacent_accesses_enabled, _overlap_in_place);
                     simd_visitor.walk(translation_unit);
                 }
             }
@@ -243,11 +206,9 @@ namespace TL {
 
         SimdVisitor::SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
                 bool fast_math_enabled, bool svml_enabled,
-                bool only_adjacent_accesses,
-                bool overlap_in_place,
-                prefetch_info_t pref_info)
+                bool only_adjacent_accesses, bool overlap_in_place)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()), _fast_math_enabled(fast_math_enabled),
-                    _overlap_in_place(overlap_in_place), _pref_info(pref_info)
+                    _overlap_in_place(overlap_in_place)
         {
             if (fast_math_enabled)
             {
@@ -336,6 +297,11 @@ namespace TL {
             // Overlap clause
             map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(simd_environment, overlap_symbols);
+
+            // Prefetch clause
+            Vectorization::prefetch_info_t prefetch_info;
+            process_prefetch_clause(simd_environment, prefetch_info);
+
 
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
@@ -426,9 +392,9 @@ namespace TL {
                     loop_statement.prepend_sibling(prependix);
                 }
 
-                if(_pref_info.enabled)
+                if(prefetch_info.enabled)
                     _vectorizer.prefetcher(loop_statement,
-                            _pref_info, loop_environment);
+                            prefetch_info, loop_environment);
             }
 
             // Add new vector symbols
@@ -641,6 +607,11 @@ namespace TL {
             map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_for_environment, overlap_symbols);
 
+            // Prefetch clause
+            Vectorization::prefetch_info_t prefetch_info;
+            process_prefetch_clause(omp_simd_for_environment, prefetch_info);
+
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(omp_simd_for_environment, vectorlengthfor_type);
@@ -717,10 +688,9 @@ namespace TL {
                             _overlap_in_place, prependix_list);
                 }
 
-                if (_pref_info.enabled)
+                if (prefetch_info.enabled)
                 {
-                    _vectorizer.prefetcher(for_statement, _pref_info,
-                            for_environment);
+                    _vectorizer.prefetcher(for_statement, prefetch_info, for_environment);
 
                     // Remove 'pragma noprefetch' and add it as a clause
                     Nodecl::NodeclBase previous_sibling = Nodecl::Utils::get_previous_sibling(for_statement);
@@ -1019,6 +989,11 @@ namespace TL {
             process_overlap_clause(omp_environment, overlap_symbols);
 //            VectorizerOverlap vectorizer_overlap(overlap_symbols);
 
+            // Prefetch clause
+            prefetch_info_t prefetch_info;
+            process_prefetch_clause(omp_environment, prefetch_info);
+
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
@@ -1076,10 +1051,9 @@ namespace TL {
 
         SimdSPMLVisitor::SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
                 bool fast_math_enabled, bool svml_enabled,
-                bool only_adjacent_accesses, bool overlap_in_place,
-                prefetch_info_t pref_info)
+                bool only_adjacent_accesses, bool overlap_in_place)
             : SimdVisitor(simd_isa, fast_math_enabled, svml_enabled,
-                    only_adjacent_accesses, overlap_in_place,  pref_info)
+                    only_adjacent_accesses, overlap_in_place)
         {
         }
  
@@ -1122,6 +1096,10 @@ namespace TL {
             // Overlap clause
             map_tlsym_objlist_int_t overlap_symbols;
             process_overlap_clause(omp_simd_parallel_environment, overlap_symbols);
+
+            // Prefetch clause
+            Vectorization::prefetch_info_t prefetch_info;
+            process_prefetch_clause(omp_simd_parallel_environment, prefetch_info);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -1466,6 +1444,46 @@ namespace TL {
                         running_error("SIMD: multiple instances of the same variable in the 'overlap' clause detected\n");
                     }
                 }
+            }
+        }
+
+        void SimdVisitor::process_prefetch_clause(const Nodecl::List& environment,
+                Vectorization::prefetch_info_t& prefetch_info)
+        {
+            TL::ObjectList<Nodecl::OpenMP::Prefetch> omp_prefetch_list =
+                environment.find_all<Nodecl::OpenMP::Prefetch>();
+
+            ERROR_CONDITION(omp_prefetch_list.size() > 1, "Too many OpenMP::Prefetch nodes", 0);
+
+            if (omp_prefetch_list.size() == 1)
+            {
+                Nodecl::OpenMP::Prefetch& omp_prefetch = *omp_prefetch_list.begin();
+
+                objlist_nodecl_t prefetch_distances_list =
+                    omp_prefetch.get_distances().as<Nodecl::List>().to_object_list();
+
+                ERROR_CONDITION(prefetch_distances_list.size() != 2, "Prefetch distances must be 2", 0);
+
+                prefetch_info.enabled = true;
+
+                prefetch_info.distances[1] = const_value_cast_to_signed_int(prefetch_distances_list[0].get_constant()); // L2 distance
+                prefetch_info.distances[0] = const_value_cast_to_signed_int(prefetch_distances_list[1].get_constant()); // L1 distance
+
+                Nodecl::NodeclBase strategy = omp_prefetch.get_strategy();
+
+                if (strategy.is<Nodecl::OnTopFlag>())
+                    prefetch_info.in_place = false;
+                else if (strategy.is<Nodecl::InPlaceFlag>())
+                    prefetch_info.in_place = true;
+                else
+                {
+                   internal_error("Prefetch strategy is neither OnTopFlag nor InPlaceFlag\n", 0); 
+                }
+
+            }
+            else
+            {
+                prefetch_info.enabled = false;
             }
         }
 

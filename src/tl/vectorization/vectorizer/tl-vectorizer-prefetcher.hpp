@@ -41,12 +41,11 @@ namespace TL
     {
         typedef struct prefetch_info
         {
-            int L1_distance;
-            int L2_distance;
+            int distances[2];
             bool enabled;
             bool in_place;
 
-            prefetch_info() : L1_distance(0), L2_distance(0), enabled(false), in_place(false) {}
+            prefetch_info() : enabled(false), in_place(false) {}
         } prefetch_info_t;        
 
 

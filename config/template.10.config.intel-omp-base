@@ -35,5 +35,4 @@ linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -lio
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
 {only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
-{prefetch-in-place} options = --variable=prefetch_in_place:1
 {overlap-in-place} options = --variable=overlap_in_place:1

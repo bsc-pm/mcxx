@@ -269,19 +269,19 @@ namespace Vectorization
             {
                 if (_object_init.is_null())
                 {
-                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
-                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.distances[1]));
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.distances[0]));
                 }
                 else
                 {
-                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
-                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.distances[1]));
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.distances[0]));
                 }
             }
             else
             {
-                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.L2_distance));
-                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.L1_distance));
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_READ, _pref_info.distances[1]));
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_READ, _pref_info.distances[0]));
             }
         }
     }
@@ -306,19 +306,19 @@ namespace Vectorization
             {
                 if (_object_init.is_null())
                 {
-                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
-                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.distances[1]));
+                    n.prepend_sibling(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.distances[0]));
                 }
                 else
                 {
-                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
-                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.distances[1]));
+                    _object_init.prepend_sibling(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.distances[0]));
                 }
             }
             else
             {
-                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.L2_distance));
-                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.L1_distance));
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L2_WRITE, _pref_info.distances[1]));
+                _pref_instr.push_back(get_prefetch_node(pref_memory_address, L1_WRITE, _pref_info.distances[0]));
 
             }
         }
