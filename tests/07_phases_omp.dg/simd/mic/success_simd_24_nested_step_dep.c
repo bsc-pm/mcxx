@@ -26,6 +26,7 @@
 
 /*
 <testinfo>
+test_CFLAGS="--variable=prefetch_distance:4,1 --prefetch-in-place"
 test_generator=config/mercurium-serial-simd-mic
 </testinfo>
 */
