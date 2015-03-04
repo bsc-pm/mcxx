@@ -298,12 +298,16 @@ namespace TL
 
     namespace {
 
-        struct SIMDizeCombiner : Nodecl::ExhaustiveVisitor<void>
+        struct SIMDizeCombiner : Nodecl::NodeclVisitor<void>
         {
             TL::Symbol _field;
             TL::Symbol _orig_omp_in, _new_omp_in;
             TL::Symbol _orig_omp_out, _new_omp_out;
             TL::Symbol _new_omp_mask;
+
+            ReplaceInOut * _replace_inout;
+
+            SIMDizeCombiner() : _replace_inout(NULL) { }
 
             void init(
                     TL::Symbol field,
@@ -317,17 +321,115 @@ namespace TL
                 _orig_omp_out = orig_omp_out;
                 _new_omp_out = new_omp_out;
                 _new_omp_mask = new_omp_mask;
+
+                delete _replace_inout;
+                _replace_inout = new ReplaceInOut(field,
+                        orig_omp_in, new_omp_in,
+                        orig_omp_out, new_omp_out);
+            }
+
+            virtual ~SIMDizeCombiner()
+            {
+                delete _replace_inout;
+            }
+
+            TL::Type vector_type_of_scalar(TL::Type t)
+            {
+                t = t.no_ref().get_unqualified_type();
+                return t.get_vector_to(64);
+            }
+
+            private:
+                // Do not copy
+                SIMDizeCombiner(const SIMDizeCombiner&);
+                // Do not assign
+                SIMDizeCombiner& operator=(const SIMDizeCombiner&);
+        };
+
+        struct SIMDizeVerticalCombiner : SIMDizeCombiner
+        {
+            virtual void visit(const Nodecl::ExpressionStatement& node)
+            {
+                walk(node.get_nest());
+            }
+
+            virtual void visit(const Nodecl::AddAssignment& node)
+            {
+                _replace_inout->walk(node.get_lhs());
+                _replace_inout->walk(node.get_rhs());
+
+                Nodecl::NodeclBase vector_add = Nodecl::VectorAdd::make(
+                        Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                node.get_lhs().shallow_copy(),
+                                node.get_lhs().get_type().no_ref().get_pointer_to()),
+                            _new_omp_mask.make_nodecl(),
+                            Nodecl::List::make(
+                                Nodecl::AlignedFlag::make()),
+                            vector_type_of_scalar(node.get_lhs().get_type()).get_lvalue_reference_to()),
+                        Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                node.get_rhs().shallow_copy(),
+                                node.get_rhs().get_type().no_ref().get_pointer_to()),
+                            _new_omp_mask.make_nodecl(),
+                            Nodecl::List::make(
+                                Nodecl::AlignedFlag::make()),
+                            vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
+                        _new_omp_mask.make_nodecl(),
+                        vector_type_of_scalar(node.get_type()));
+
+                Nodecl::NodeclBase vector_store = Nodecl::VectorStore::make(
+                        Nodecl::Reference::make(
+                            node.get_lhs().shallow_copy(),
+                            vector_type_of_scalar(node.get_type()).get_pointer_to()),
+                        vector_add,
+                        _new_omp_mask.make_nodecl(),
+                        Nodecl::List::make(
+                            Nodecl::AlignedFlag::make()),
+                        vector_type_of_scalar(node.get_type()));
+
+                node.replace(vector_store);
+            }
+
+            virtual void unhandled_node(const Nodecl::NodeclBase& n)
+            {
+                internal_error("Unhandled node '%s'\n", ast_print_node_type(n.get_kind()));
             }
         };
 
         struct SIMDizeHorizontalCombiner : SIMDizeCombiner
         {
-            // TODO
-        };
+            virtual void visit(const Nodecl::ExpressionStatement& node)
+            {
+                walk(node.get_nest());
+            }
 
-        struct SIMDizeVerticalCombiner : SIMDizeCombiner
-        {
-            // TODO
+            virtual void visit(const Nodecl::AddAssignment& node)
+            {
+                _replace_inout->walk(node.get_lhs());
+                _replace_inout->walk(node.get_rhs());
+
+                Nodecl::NodeclBase vector_reduction_add =
+                    Nodecl::VectorReductionAdd::make(
+                            node.get_lhs().shallow_copy(),
+                            Nodecl::VectorLoad::make(
+                                Nodecl::Reference::make(
+                                    node.get_rhs().shallow_copy(),
+                                    node.get_rhs().get_type().no_ref().get_pointer_to()),
+                                _new_omp_mask.make_nodecl(),
+                                Nodecl::List::make(
+                                    Nodecl::AlignedFlag::make()),
+                                vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
+                            _new_omp_mask.make_nodecl(),
+                            node.get_type());
+
+                node.replace(vector_reduction_add);
+            }
+
+            virtual void unhandled_node(const Nodecl::NodeclBase& n)
+            {
+                internal_error("Unhandled node '%s'\n", ast_print_node_type(n.get_kind()));
+            }
         };
 
         TL::Symbol generate_simd_combiner_knc(SIMDizeCombiner &simdizer,
@@ -345,8 +447,11 @@ namespace TL
             parameter_names.append("red_omp_in");
             parameter_types.append(reduction_pack_type.get_lvalue_reference_to());
 
+            TL::Symbol mmask_16_typedef = current_function.get_scope().get_symbol_from_name("__mmask16");
+            ERROR_CONDITION(!mmask_16_typedef.is_valid(), "__mmask16 not found in the scope", 0);
+
             parameter_names.append("red_omp_mask");
-            parameter_types.append(TL::Type(::get_mask_type(16)));
+            parameter_types.append(mmask_16_typedef.get_user_defined_type());
 
             TL::Counter &counters = TL::CounterManager::get_counter("intel-omp-reduction");
             std::stringstream ss;
@@ -391,14 +496,12 @@ namespace TL
                         red_omp_mask);
                 simdizer.walk(combiner_expr);
 
-#warning Enable when the simdizer does something useful
-                // combiner << as_expression(combiner_expr) << ";"
-                //     ;
+                combiner << as_expression(combiner_expr) << ";"
+                    ;
             }
 
-#warning Enable when the simdizer does something useful
-            // Nodecl::NodeclBase new_body_tree = combiner.parse_statement(empty_stmt);
-            // empty_stmt.replace(new_body_tree);
+            Nodecl::NodeclBase new_body_tree = combiner.parse_statement(empty_stmt);
+            empty_stmt.replace(new_body_tree);
 
             Nodecl::Utils::prepend_to_enclosing_top_level_location(location, function_code);
 
