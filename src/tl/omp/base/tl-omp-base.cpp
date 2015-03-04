@@ -270,6 +270,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(atomic)
         INVALID_DECLARATION_HANDLER(master)
+        INVALID_DECLARATION_HANDLER(taskloop)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
@@ -1494,6 +1495,32 @@ namespace TL { namespace OpenMP {
         }
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
         pragma_line.diagnostic_unused_clauses();
+        directive.replace(code);
+    }
+
+    void Base::taskloop_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::taskloop_handler_post(TL::PragmaCustomStatement directive)
+    {
+        Nodecl::NodeclBase statement = directive.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        Nodecl::List execution_environment = this->make_execution_environment(
+                ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+
+        Nodecl::OpenMP::TaskLoop distribute =
+            Nodecl::OpenMP::TaskLoop::make(
+                    execution_environment,
+                    statement,
+                    directive.get_locus());
+
+        Nodecl::NodeclBase code = Nodecl::List::make(distribute);
+        pragma_line.diagnostic_unused_clauses();
+
         directive.replace(code);
     }
 

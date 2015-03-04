@@ -75,3 +75,5 @@ OMP_CONSTRUCT_NOEND("simd", simd_fortran, IS_FORTRAN_LANGUAGE)
 OMP_CONSTRUCT("simd|for", simd_for, true)
 OMP_CONSTRUCT("parallel|simd|for", parallel_simd_for, true)
 OMP_CONSTRUCT("simd|parallel", simd_parallel, true)
+
+OMP_CONSTRUCT_NOEND("taskloop", taskloop, true)
