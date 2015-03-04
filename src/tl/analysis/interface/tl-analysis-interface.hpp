@@ -133,16 +133,6 @@ namespace Analysis {
 
             bool is_ompss_reduction( const Nodecl::NodeclBase& n,
                     std::shared_ptr<OpenMP::FunctionTaskSet> function_tasks ) const;
-
-            /*
-            DEPRECATED bool reach_defs_depend_on_iv(
-                    const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n);
-            */
-            /*
-            virtual bool nodecl_is_constant_at_statement(
-                    const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n); */
     };
 }
 }
