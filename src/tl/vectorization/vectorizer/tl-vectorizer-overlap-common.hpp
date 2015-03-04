@@ -38,7 +38,7 @@ namespace TL
     {
         struct OverlapGroup
         {
-            TL::Symbol _subscripted;
+            Nodecl::NodeclBase _subscripted;
             objlist_tlsym_t _registers;
             objlist_nodecl_t _registers_indexes;
             objlist_nodecl_t _loads;

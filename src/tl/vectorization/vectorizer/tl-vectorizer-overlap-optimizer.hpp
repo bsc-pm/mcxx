@@ -103,9 +103,9 @@ namespace TL
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment,
                         VectorizationAnalysisInterface* analysis,
-                        const bool overlap_in_place,
                         const bool is_omp_simd_for,
                         const bool is_epilog,
+                        const bool overlap_in_place,
                         Nodecl::List& prependix_stmts);
                 
                 void visit(const Nodecl::ForStatement&);

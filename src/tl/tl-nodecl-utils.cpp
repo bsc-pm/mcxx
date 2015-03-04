@@ -1051,8 +1051,7 @@ namespace Nodecl
                 internal_error("Nodecl::Utils::prepend_statement: target_stmt is null and obj_init_context is null", 0);
 
             TL::ObjectList<Nodecl::NodeclBase> obj_init_list =
-                nodecl_get_all_nodecls_of_kind<Nodecl::Add>(obj_init_context);
-#warning is not Add is ObjectInit            
+                nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
 
             for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = obj_init_list.begin();
                     it != obj_init_list.end();

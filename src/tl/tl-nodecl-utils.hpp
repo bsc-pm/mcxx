@@ -371,21 +371,37 @@ namespace Utils {
             }
     };
 
-    template <typename Kind>
-    struct CollectKindFinderVisitor : ExhaustiveVisitor<void>
+    struct CollectKindFinderBaseVisitor : ExhaustiveVisitor<void>
     {
-            TL::ObjectList<Nodecl::NodeclBase> found_nodes;
-            CollectKindFinderVisitor() {}
+        TL::ObjectList<Nodecl::NodeclBase> found_nodes;
+        CollectKindFinderBaseVisitor() { }
+    };
 
-            virtual void visit_pre(const Nodecl::ObjectInit& n)
-            {
-                walk(n.get_symbol().get_value());
-            }
+    template <typename Kind>
+    struct CollectKindFinderVisitor : CollectKindFinderBaseVisitor
+    {
+        CollectKindFinderVisitor() {}
 
-            virtual void visit_pre(const Kind& k)
-            {
-                found_nodes.append(k);
-            }
+        virtual void visit_pre(const Nodecl::ObjectInit& n)
+        {
+            walk(n.get_symbol().get_value());
+        }
+
+        virtual void visit_pre(const Kind& k)
+        {
+            found_nodes.append(k);
+        }
+    };
+
+    template <>
+    struct CollectKindFinderVisitor<Nodecl::ObjectInit> : CollectKindFinderBaseVisitor
+    {
+        CollectKindFinderVisitor() {}
+
+        virtual void visit_pre(const Nodecl::ObjectInit& k)
+        {
+            found_nodes.append(k);
+        }
     };
 
     bool nodecl_contains_nodecl_by_structure(

@@ -384,10 +384,8 @@ namespace TL {
                     
                     _vectorizer.opt_overlapped_accesses(
                             loop_statement, loop_environment,
-                            false, /* simd for */
-                            false, /* epilog */
-                            _overlap_in_place,
-                            prependix);
+                            false /* simd for */, false /* epilog */,
+                            _overlap_in_place, prependix);
 
                     loop_statement.prepend_sibling(prependix);
                 }

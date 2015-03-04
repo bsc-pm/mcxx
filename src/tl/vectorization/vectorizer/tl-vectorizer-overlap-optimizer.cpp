@@ -45,13 +45,13 @@ namespace Vectorization
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment,
             VectorizationAnalysisInterface *analysis,
-            const bool overlap_in_place,
             const bool is_omp_simd_for,
             const bool is_epilog,
+            const bool overlap_in_place,
             Nodecl::List& prependix_stmts)
-        : _environment(environment), _in_place(overlap_in_place), _is_omp_simd_for(is_omp_simd_for),
-        _is_simd_epilog(is_epilog), _prependix_stmts(prependix_stmts),
-        _first_analysis(analysis)
+        : _environment(environment), _is_omp_simd_for(is_omp_simd_for),
+        _is_simd_epilog(is_epilog), _in_place(overlap_in_place),
+        _prependix_stmts(prependix_stmts), _first_analysis(analysis)
     {
         _analysis = analysis;
     }
@@ -301,7 +301,7 @@ namespace Vectorization
 
             Nodecl::Reference reference = Nodecl::Reference::make(
                     Nodecl::ArraySubscript::make(
-                        ogroup._subscripted.make_nodecl(),
+                        ogroup._subscripted.shallow_copy(),
                         Nodecl::List::make(
                             vload_index),
                         ogroup._basic_type),
@@ -361,7 +361,7 @@ namespace Vectorization
                     Nodecl::VectorLoad::make(
                         Nodecl::Reference::make(
                             Nodecl::ArraySubscript::make(
-                                ogroup._subscripted.make_nodecl(),
+                                ogroup._subscripted.shallow_copy(),
                                 Nodecl::List::make(
                                     ogroup._registers_indexes[size-1].shallow_copy()),
                                 ogroup._basic_type),
@@ -912,7 +912,7 @@ namespace Vectorization
         {
             std::stringstream new_sym_name;
             new_sym_name << "__overlap_" 
-                << ogroup._subscripted.get_name() << "_"
+                << Utils::get_subscripted_symbol(ogroup._subscripted).get_name() << "_"
                 << num_group << "_"
                 << i;
 
@@ -1094,6 +1094,7 @@ namespace Vectorization
                         uses_last_register = true;
                 }
 
+                std::cerr << "Overlap in place: " << _in_place << " " << uses_last_register << std::endl;
 
                 // In place strategy and overlap among iterations
                 if (_in_place && uses_last_register && ogroup._inter_it_overlap && !ogroup._is_set_in_place_update_pre)
