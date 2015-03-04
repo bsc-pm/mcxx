@@ -359,13 +359,29 @@ namespace TL
                 _replace_inout->walk(node.get_rhs());
 
                 Nodecl::NodeclBase vector_add = Nodecl::VectorAdd::make(
-                        node.get_lhs().shallow_copy(),
-                        node.get_rhs().shallow_copy(),
+                        Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                node.get_lhs().shallow_copy(),
+                                node.get_lhs().get_type().no_ref().get_pointer_to()),
+                            _new_omp_mask.make_nodecl(),
+                            Nodecl::List::make(
+                                Nodecl::AlignedFlag::make()),
+                            vector_type_of_scalar(node.get_lhs().get_type()).get_lvalue_reference_to()),
+                        Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                node.get_rhs().shallow_copy(),
+                                node.get_rhs().get_type().no_ref().get_pointer_to()),
+                            _new_omp_mask.make_nodecl(),
+                            Nodecl::List::make(
+                                Nodecl::AlignedFlag::make()),
+                            vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
                         _new_omp_mask.make_nodecl(),
                         vector_type_of_scalar(node.get_type()));
 
                 Nodecl::NodeclBase vector_store = Nodecl::VectorStore::make(
-                        node.get_lhs().shallow_copy(),
+                        Nodecl::Reference::make(
+                            node.get_lhs().shallow_copy(),
+                            vector_type_of_scalar(node.get_type()).get_pointer_to()),
                         vector_add,
                         _new_omp_mask.make_nodecl(),
                         Nodecl::List::make(
@@ -395,10 +411,17 @@ namespace TL
 
                 Nodecl::NodeclBase vector_reduction_add =
                     Nodecl::VectorReductionAdd::make(
-                        node.get_lhs().shallow_copy(),
-                        node.get_rhs().shallow_copy(),
-                        _new_omp_mask.make_nodecl(),
-                        node.get_type());
+                            node.get_lhs().shallow_copy(),
+                            Nodecl::VectorLoad::make(
+                                Nodecl::Reference::make(
+                                    node.get_rhs().shallow_copy(),
+                                    node.get_rhs().get_type().no_ref().get_pointer_to()),
+                                _new_omp_mask.make_nodecl(),
+                                Nodecl::List::make(
+                                    Nodecl::AlignedFlag::make()),
+                                vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
+                            _new_omp_mask.make_nodecl(),
+                            node.get_type());
 
                 node.replace(vector_reduction_add);
             }
