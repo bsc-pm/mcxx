@@ -1509,18 +1509,58 @@ namespace TL { namespace OpenMP {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
+        PragmaCustomClause grainsize = pragma_line.get_clause("grainsize");
+        PragmaCustomClause numtasks = pragma_line.get_clause("numtasks");
+
+        Nodecl::NodeclBase num_blocks;
+        if (grainsize.is_defined() == numtasks.is_defined())
+        {
+            if (grainsize.is_defined())
+            {
+                error_printf("%s: error: cannot define 'grainsize' and 'numtasks' clauses at the same time\n",
+                        pragma_line.get_locus_str().c_str());
+            }
+            else
+            {
+                // Not sure if we should choose a default instead
+                error_printf("%s: error: missing a 'grainsize' or a 'numtasks' clauses\n",
+                        pragma_line.get_locus_str().c_str());
+            }
+        }
+        else
+        {
+            if (grainsize.is_defined())
+            {
+                TL::ObjectList<Nodecl::NodeclBase> args = grainsize.get_arguments_as_expressions();
+                int num_args = args.size();
+                if (num_args >= 1)
+                {
+                    num_blocks = grainsize.get_arguments_as_expressions()[0];
+                    if (num_args != 1)
+                    {
+                        error_printf("%s: error: too many expressions in 'grainsize' clause\n",
+                                pragma_line.get_locus_str().c_str());
+                    }
+                }
+                else
+                {
+                    error_printf("%s: error: missing expression in 'grainsize' clause\n",
+                            pragma_line.get_locus_str().c_str());
+                }
+            }
+            else
+            {
+                internal_error("numtasks clause not yet implemented", 0);
+            }
+        }
+
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
-
-        Nodecl::OpenMP::TaskLoop distribute =
-            Nodecl::OpenMP::TaskLoop::make(
-                    execution_environment,
-                    statement,
-                    directive.get_locus());
-
-        Nodecl::NodeclBase code = Nodecl::List::make(distribute);
         pragma_line.diagnostic_unused_clauses();
 
+        taskloop_block_loop(directive, statement, execution_environment, num_blocks);
+
+        Nodecl::NodeclBase code = Nodecl::List::make(statement);
         directive.replace(code);
     }
 
@@ -3320,6 +3360,285 @@ namespace TL { namespace OpenMP {
         return Nodecl::List::make(result_list);
     }
 
-    } }
+    void Base::taskloop_block_loop(
+            Nodecl::NodeclBase directive,
+            Nodecl::NodeclBase statement,
+            Nodecl::NodeclBase execution_environment,
+            Nodecl::NodeclBase num_blocks)
+    {
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid node", 0);
+
+        TL::ForStatement for_statement(
+                statement.as<Nodecl::Context>()
+                .get_in_context()
+                .as<Nodecl::List>().front()
+                .as<Nodecl::ForStatement>());
+
+        ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
+
+        TL::Scope scope_of_directive = directive.retrieve_context();
+        // statement is a Nodecl::Context
+        TL::Scope scope_created_by_statement = statement.retrieve_context();
+
+        Counter &c = TL::CounterManager::get_counter("taskloop");
+        std::stringstream ss;
+        ss << "omp_taskloop_" << (int)c;
+        c++;
+        TL::Symbol taskloop_ivar = scope_of_directive.new_symbol(ss.str());
+        taskloop_ivar.get_internal_symbol()->kind = SK_VARIABLE;
+        taskloop_ivar.set_type(for_statement.get_induction_variable().get_type());
+        symbol_entity_specs_set_is_user_declared(taskloop_ivar.get_internal_symbol(), 1);
+
+        TL::Scope new_loop_context = new_block_context(scope_of_directive.get_decl_context());
+        // Properly nest the existing context to be contained in
+        // new_loop_body_context because we will put it inside a new compound
+        // statement
+        TL::Scope new_loop_body_context = new_block_context(new_loop_context.get_decl_context());
+        scope_created_by_statement.get_decl_context().current_scope->contained_in = 
+            new_loop_body_context.get_decl_context().current_scope;
+
+        ss.str("");
+        ss << "omp_block_" << (int)c;
+        c++;
+        TL::Symbol block_extent = new_loop_body_context.new_symbol(ss.str());
+        block_extent.get_internal_symbol()->kind = SK_VARIABLE;
+        block_extent.set_type(for_statement.get_induction_variable().get_type());
+        symbol_entity_specs_set_is_user_declared(block_extent.get_internal_symbol(), 1);
+
+        Nodecl::NodeclBase init_block_extent
+            = Nodecl::ExpressionStatement::make(
+                    Nodecl::Assignment::make(
+                        block_extent.make_nodecl(),
+                        Nodecl::Minus::make( // B - 1
+                            Nodecl::Add::make(
+                                taskloop_ivar.make_nodecl(),
+                                num_blocks,
+                                taskloop_ivar.get_type()
+                                ),
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
+                            taskloop_ivar.get_type()),
+                        block_extent.get_type().get_lvalue_reference_to()));
+
+        // FIXME - Negative steps
+        Nodecl::NodeclBase adjust_block_extent =
+            Nodecl::IfElseStatement::make(
+                    Nodecl::LowerThan::make(
+                        for_statement.get_upper_bound().shallow_copy(),
+                        block_extent.make_nodecl(),
+                        get_bool_type()),
+                    Nodecl::List::make(
+                        Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                block_extent.make_nodecl(),
+                                for_statement.get_upper_bound().shallow_copy(),
+                                block_extent.get_type().get_lvalue_reference_to()))),
+                    Nodecl::NodeclBase::null());
+
+        Nodecl::NodeclBase new_inner_loop = statement.shallow_copy();
+        Nodecl::ForStatement new_inner_for_statement(
+                new_inner_loop.as<Nodecl::Context>()
+                .get_in_context()
+                .as<Nodecl::List>().front()
+                .as<Nodecl::ForStatement>());
+
+        new_inner_for_statement.set_loop_header(
+                Nodecl::RangeLoopControl::make(
+                    for_statement.get_induction_variable().make_nodecl(),
+                    taskloop_ivar.make_nodecl(),
+                    block_extent.make_nodecl(),
+                    for_statement.get_step(),
+                    statement.get_locus()));
+
+        Nodecl::NodeclBase new_inner_task = 
+            Nodecl::OpenMP::Task::make(
+                    execution_environment,
+                    Nodecl::List::make(new_inner_loop),
+                    statement.get_locus());
+
+        // Add new vars as firstprivate
+        execution_environment.as<Nodecl::List>().append(
+                Nodecl::OpenMP::Firstprivate::make(
+                    Nodecl::List::make(
+                        Nodecl::Symbol::make(taskloop_ivar),
+                        Nodecl::Symbol::make(block_extent))));
+
+        // Update dependences
+        taskloop_extend_dependences(
+                execution_environment,
+                for_statement.get_induction_variable(),
+                taskloop_ivar,
+                block_extent);
+
+        Nodecl::Mul blocked_step =
+            Nodecl::Mul::make(
+                    num_blocks.shallow_copy(),
+                    for_statement.get_step().shallow_copy(),
+                    for_statement.get_induction_variable().get_type());
+        if (blocked_step.get_lhs().is_constant()
+                && blocked_step.get_rhs().is_constant())
+        {
+            blocked_step.set_constant(
+                    const_value_mul(
+                        blocked_step.get_lhs().get_constant(),
+                        blocked_step.get_rhs().get_constant()));
+        }
+
+        Nodecl::RangeLoopControl new_loop_control =
+            Nodecl::RangeLoopControl::make(
+                        taskloop_ivar.make_nodecl(),
+                        for_statement.get_lower_bound(),
+                        for_statement.get_upper_bound(),
+                        blocked_step,
+                        statement.get_locus());
+
+        Nodecl::List inner_loop_body_statements;
+
+        inner_loop_body_statements.append(init_block_extent);
+        inner_loop_body_statements.append(adjust_block_extent);
+        inner_loop_body_statements.append(new_inner_task);
+
+        Nodecl::List new_loop_body = Nodecl::List::make(
+                Nodecl::Context::make(
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            inner_loop_body_statements,
+                            /* finally */ Nodecl::NodeclBase::null())
+                        ),
+                    new_loop_body_context)
+                );
+
+        Nodecl::NodeclBase new_statement =
+            Nodecl::Context::make(
+                    Nodecl::List::make(
+                        Nodecl::ForStatement::make(
+                            new_loop_control,
+                            new_loop_body,
+                            /* loop_name */ Nodecl::NodeclBase::null(),
+                            statement.get_locus())),
+                    new_loop_context,
+                    statement.get_locus());
+
+        statement.replace(new_statement);
+    }
+
+    struct UpdateDependences : public Nodecl::ExhaustiveVisitor<void>
+    {
+        TL::Symbol _orig_induction_var,
+            _new_induction_var,
+            _block_extent_var;
+
+        UpdateDependences(TL::Symbol orig_induction_var,
+                TL::Symbol new_induction_var,
+                TL::Symbol block_extent_var)
+             : _orig_induction_var(orig_induction_var),
+             _new_induction_var(new_induction_var),
+             _block_extent_var(block_extent_var) { }
+
+        virtual void visit(const Nodecl::Symbol& n)
+        {
+            if (n.get_symbol() == _orig_induction_var)
+            {
+                // Kludge
+                const_cast<Nodecl::Symbol&>(n).set_symbol(_new_induction_var);
+            }
+        }
+
+        virtual void visit(const Nodecl::ArraySubscript& n)
+        {
+            Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = subscripts.begin();
+                    it != subscripts.end();
+                    it++)
+            {
+                TL::ObjectList<TL::Symbol> all_syms = Nodecl::Utils::get_all_symbols(*it);
+
+                if (all_syms.contains(_orig_induction_var))
+                {
+                    walk(*it);
+
+                    if (it->is<Nodecl::Range>())
+                    {
+                        internal_error("Not yet implemented", 0);
+                    }
+                    else
+                    {
+                        it->replace(
+                                Nodecl::Range::make(
+                                    it->shallow_copy(),
+                                    Nodecl::Minus::make(
+                                        _block_extent_var.make_nodecl(),
+                                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                                        _block_extent_var.get_type()),
+                                    const_value_to_nodecl(const_value_get_signed_int(1)),
+                                    get_signed_int_type()));
+                    }
+                }
+            }
+        }
+    };
+
+    struct UpdateDependencesEnvironment : public Nodecl::ExhaustiveVisitor<void>
+    {
+        TL::Symbol _orig_induction_var,
+            _new_induction_var,
+            _block_extent_var;
+
+        virtual void visit(const Nodecl::OpenMP::DepIn& n)
+        {
+            common_dependency_handler(n);
+        }
+
+        virtual void visit(const Nodecl::OpenMP::DepOut& n)
+        {
+            common_dependency_handler(n);
+        }
+
+        virtual void visit(const Nodecl::OpenMP::DepInout& n)
+        {
+            common_dependency_handler(n);
+        }
+
+        virtual void visit(const Nodecl::OpenMP::Concurrent& n)
+        {
+            common_dependency_handler(n);
+        }
+
+        virtual void visit(const Nodecl::OpenMP::Commutative& n)
+        {
+            common_dependency_handler(n);
+        }
+
+        virtual void common_dependency_handler(Nodecl::NodeclBase n)
+        {
+            UpdateDependences update_dependences(
+                    _orig_induction_var,
+                    _new_induction_var,
+                    _block_extent_var);
+            update_dependences.walk(n);
+        }
+
+        UpdateDependencesEnvironment(TL::Symbol orig_induction_var,
+                TL::Symbol new_induction_var,
+                TL::Symbol block_extent_var)
+             : _orig_induction_var(orig_induction_var),
+             _new_induction_var(new_induction_var),
+             _block_extent_var(block_extent_var) { }
+    };
+
+    void Base::taskloop_extend_dependences(
+                Nodecl::NodeclBase execution_environment,
+                TL::Symbol orig_induction_var,
+                TL::Symbol new_induction_var,
+                TL::Symbol block_extent_var)
+    {
+        UpdateDependencesEnvironment w(orig_induction_var,
+                new_induction_var,
+                block_extent_var);
+
+        w.walk(execution_environment);
+    }
+
+} }
 
 EXPORT_PHASE(TL::OpenMP::Base)
