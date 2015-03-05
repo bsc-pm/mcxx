@@ -1401,7 +1401,7 @@ namespace TL { namespace Nanox {
             if (data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
             {
                 TL::Symbol sym = data_item.get_symbol();
-                ERROR_CONDITION(!sym.is_saved_expression(), "Symbol %s is missing a data sharing", sym.get_name().c_str());
+                ERROR_CONDITION(!sym.is_saved_expression(), "Symbol '%s' is missing a data sharing", sym.get_name().c_str());
 
                 _outline_info.remove_entity(data_item);
             }
