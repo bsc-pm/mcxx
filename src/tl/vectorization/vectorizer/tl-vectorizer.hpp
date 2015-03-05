@@ -53,7 +53,10 @@ namespace TL
                 bool _svml_sse_enabled;
                 bool _svml_avx2_enabled;
                 bool _svml_knc_enabled;
+                bool _svml_knl_enabled;
                 bool _fast_math_enabled;
+                
+                void enable_svml_common_avx512(std::string device);
 
                 Vectorizer();
 
@@ -128,6 +131,7 @@ namespace TL
                 void enable_svml_sse();
                 void enable_svml_avx2();
                 void enable_svml_knc();
+                void enable_svml_knl();
                 void enable_fast_math();
                 void disable_gathers_scatters();
  

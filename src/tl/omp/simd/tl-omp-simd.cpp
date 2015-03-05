@@ -40,7 +40,7 @@ namespace TL {
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false),
-            _avx2_enabled(false), _knc_enabled(false),
+            _avx2_enabled(false), _knc_enabled(false), _knl_enabled(false),
             _spml_enabled(false), _only_adjacent_accesses_enabled(false), _overlap_in_place(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
@@ -65,6 +65,10 @@ namespace TL {
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
                     _knc_enabled_str,
                     "0").connect(std::bind(&Simd::set_knc, this, std::placeholders::_1));
+            register_parameter("knl_enabled",
+                    "If set to '1' enables compilation for KNL architecture, otherwise it is disabled",
+                    _knl_enabled_str,
+                    "0").connect(std::bind(&Simd::set_knl, this, std::placeholders::_1));
 
             register_parameter("avx2_enabled",
                     "If set to '1' enables compilation for AVX2 instruction set, otherwise it is disabled",
@@ -117,6 +121,14 @@ namespace TL {
             if (knc_enabled_str == "1")
             {
                 _knc_enabled = true;
+            }
+        }
+
+        void Simd::set_knl(const std::string knl_enabled_str)
+        {
+            if (knl_enabled_str == "1")
+            {
+                _knl_enabled = true;
             }
         }
 
@@ -176,6 +188,10 @@ namespace TL {
                 {
                     simd_isa = KNC_ISA;
                 }
+                else if (_knl_enabled)
+                {
+                    simd_isa = KNL_ISA;
+                }
                 else
                 {
                     simd_isa = SSE4_2_ISA;
@@ -185,6 +201,15 @@ namespace TL {
                 {
                     running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
                 }
+                else if (_knl_enabled && _knc_enabled)
+                {
+                    running_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
+                }
+                else if (_avx2_enabled && _knl_enabled)
+                {
+                    running_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
+                }
+
 
                 if (_spml_enabled)
                 {
@@ -230,6 +255,16 @@ namespace TL {
 
                     if (svml_enabled)
                         _vectorizer.enable_svml_knc();
+                    break;
+
+                case KNL_ISA:
+                    _vector_length = 64;
+                    _device_name = "knl";
+                    _support_masking = true;
+                    _mask_size = 16;
+
+                    if (svml_enabled)
+                        _vectorizer.enable_svml_knl();
                     break;
 
                 case AVX2_ISA:

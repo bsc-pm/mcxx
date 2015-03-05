@@ -46,9 +46,10 @@ namespace TL
         {
             private:
                 const VectorizerEnvironment& _environment;
-                const bool _in_place;
                 const bool _is_omp_simd_for;
                 const bool _is_simd_epilog;
+                const bool _in_place;
+
                 Nodecl::List& _prependix_stmts;
                 
                 VectorizationAnalysisInterface* _first_analysis;
