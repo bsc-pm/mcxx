@@ -1579,15 +1579,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
             indent();
             *(file) << "if (";
             walk(step);
-            *(file) << "> 0)\n;";
+            *(file) << "> 0)\n";
 
             inc_indent();
             indent();
             *(file) << "{\n";
 
+            // We need to keep the codegen status because we will emit two loops
+            std::map<TL::Symbol, codegen_status_t> old_codegen_status = _codegen_status;
             inc_indent();
             emit_range_loop_header(lc, statement, " <= ");
             dec_indent();
+            _codegen_status.swap(old_codegen_status);
 
             indent();
             *(file) << "}\n";
