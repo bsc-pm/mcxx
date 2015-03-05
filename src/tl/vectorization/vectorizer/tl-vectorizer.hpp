@@ -44,11 +44,14 @@ namespace TL
     {
         class Vectorizer
         {
-            private:
+            public:
+
+            //private:
+                static VectorizationAnalysisInterface* _vectorizer_analysis;
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
-                static VectorizationAnalysisInterface* _vectorizer_analysis;
                 static bool _gathers_scatters_disabled;
+                static std::string _analysis_func_name;
 
                 bool _svml_sse_enabled;
                 bool _svml_avx2_enabled;
@@ -57,7 +60,7 @@ namespace TL
 
                 Vectorizer();
 
-            public:
+            //public:
                 static Vectorizer& get_vectorizer();
                 static void initialize_analysis(
                         const Nodecl::NodeclBase& function_code);
@@ -130,16 +133,6 @@ namespace TL
                 void enable_svml_knc();
                 void enable_fast_math();
                 void disable_gathers_scatters();
- 
-                friend class VectorizerVisitorExpression;
-                friend class VectorizerVisitorStatement;
-                friend class VectorizerVisitorLocalSymbol;
-                friend class VectorizerLoopInfo;
-                friend class VectorizerVisitorLoopCond;
-                friend class VectorizerVisitorLoopEpilog;
-                friend class Prefetcher;
-                friend class GenPrefetch;
-                friend class HasBeenDefinedVisitor;
         };
    }
 }

@@ -53,6 +53,7 @@ namespace Vectorization
     FunctionVersioning Vectorizer::_function_versioning;
     VectorizationAnalysisInterface *Vectorizer::_vectorizer_analysis = 0;
     bool Vectorizer::_gathers_scatters_disabled(false);
+    std::string Vectorizer::_analysis_func_name;
 
 
     Vectorizer& Vectorizer::get_vectorizer()
@@ -66,14 +67,30 @@ namespace Vectorization
     void Vectorizer::initialize_analysis(
             const Nodecl::NodeclBase& enclosing_function)
     {
-        _vectorizer_analysis = new VectorizationAnalysisInterface(
-                enclosing_function,
-                TL::Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
+        std::string func_name = enclosing_function.as<Nodecl::FunctionCode>().
+            get_symbol().get_name();
+
+        if (_analysis_func_name != func_name)
+        {
+            _analysis_func_name = func_name;
+
+            if (_vectorizer_analysis != NULL)
+                delete _vectorizer_analysis;
+
+            _vectorizer_analysis = new VectorizationAnalysisInterface(
+                    enclosing_function,
+                    TL::Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
+        }
+        else
+        {
+            std::cerr << "Reusing analysis for function " << _analysis_func_name << std::endl;
+        }
     }
 
     void Vectorizer::finalize_analysis()
     {
         delete(_vectorizer_analysis);
+        _vectorizer_analysis = NULL;
     }
 
 

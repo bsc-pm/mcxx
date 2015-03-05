@@ -342,10 +342,20 @@ namespace TL {
                     simd_node_main_loop, simd_enclosing_node)
                 .as<Nodecl::OpenMP::Simd>();
 
+            // Initialize analysis info
+            Nodecl::NodeclBase enclosing_func =
+                Nodecl::Utils::get_enclosing_function(simd_node_main_loop).get_function_code();
+
+            _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
+
             // OUTPUT CODE STRUCTURE
             Nodecl::List output_code_list;
             output_code_list.append(simd_node_main_loop);// Main For
             output_code_list.append(simd_node_epilog);   // Epilog
+
+            // Register epilog as an identical copy of the Main For
+            Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+                    simd_node_main_loop, simd_node_epilog);
 
             Nodecl::CompoundStatement output_code =
                 Nodecl::CompoundStatement::make(
@@ -354,12 +364,6 @@ namespace TL {
             // Replace input code by output and update output pointer
             simd_input_node.replace(output_code);
             output_code = simd_input_node.as<Nodecl::CompoundStatement>();
-
-            // Initialize analysis info
-            Nodecl::NodeclBase enclosing_func =
-                Nodecl::Utils::get_enclosing_function(output_code).get_function_code();
-
-            _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
 
             // Get epilog information
             bool only_epilog;
