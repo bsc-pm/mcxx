@@ -25,46 +25,61 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_CFLAGS="--no-copy-deps"
 </testinfo>
 */
-#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-#pragma omp task  inout([1] var)
-void f(int * var, int cnst)
-{
-    int i = 0;
-    double x = 1;
-    for (i = 0; i < 10000; ++i)
-    {
-        x = x * 2.0;
-    }
-    assert(*var == cnst);
-    (*var) = (*var) + 1;
-}
+enum { N = 10000 };
 
-#pragma omp task  concurrent([1] var)
-void g(int * var)
-{
-    (*var) = 0;
-}
+char check[N] = { };
 
-int main()
+void f(int *a, int n)
 {
     int i;
-    int result = 0;
-    int *ptrResult = &result;
-    for (i = 0; i < 10; i++)
-        f(ptrResult, i);
+#pragma omp taskloop out(a[i]) grainsize(10) shared(check)
+    for (i = 0; i < n; i++)
+    {
+        if (check[i] != 0)
+            abort();
+        a[i] = i;
+        check[i] = 1;
+    }
 
-    g(ptrResult);
+#pragma omp taskloop inout(a[i]) grainsize(10) shared(check)
+    for (i = 0; i < n; i++)
+    {
+        if (check[i] != 1)
+            abort();
+        a[i]++;
+        check[i] = 0;
+    }
 
-    for (i = 0; i < 10; i++)
-        f(ptrResult, i);
+#pragma omp taskloop in(a[i]) grainsize(10) shared(check)
+    for (i = 0; i < n; i++)
+    {
+        if (check[i] != 0)
+            abort();
+    }
+
 #pragma omp taskwait
-
 }
 
+int w[N];
+
+int main(int argc, char* argv[])
+{
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        w[i] = i;
+    }
+
+    f(w, N);
+
+    return 0;
+}
