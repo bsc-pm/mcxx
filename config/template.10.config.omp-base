@@ -26,16 +26,20 @@ linker_name = @GCC@
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
-{simd, !mmic, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !mmic, !avx2} compiler_options = @SIMD_FLAGS@
+{simd, !mmic, !knl, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !mmic, !knl, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {mmic} linker_options = -mmic
+{knl} preprocessor_options = -xMIC-AVX512
+{knl} compiler_options = -xMIC-AVX512
+{knl} linker_options = -xMIC-AVX512 -lifcore -limf -lirng -lintlc
 {fast-math} options = --variable=fast_math_enabled:1
+{simd, knl} options = --variable=knl_enabled:1
 {simd, mmic} options = --variable=mic_enabled:1
 {simd, avx2} options = --variable=avx2_enabled:1
-{mmic} preprocessor_options = -include immintrin.h
+{(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 {cluster} options = --variable=nanos_main_enabled:1
 {ompss} options = --variable=ompss_mode:1

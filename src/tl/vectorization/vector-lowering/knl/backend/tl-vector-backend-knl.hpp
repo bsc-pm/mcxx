@@ -24,37 +24,31 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZATION_COMMON_HPP
-#define TL_VECTORIZATION_COMMON_HPP
+#ifndef KNL_VECTOR_BACKEND_HPP
+#define KNL_VECTOR_BACKEND_HPP
 
-#include <list>
-#include <map>
-
-#include "tl-symbol.hpp"
-
-#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
+#include "tl-vector-backend-knc.hpp"
 
 namespace TL
 {
-    namespace Vectorization
+namespace Vectorization
+{
+    class KNLVectorBackend : public KNCVectorBackend
     {
-        typedef std::map<TL::Symbol, int> map_tlsym_int_t;
-        typedef std::map<Nodecl::NodeclBase, int> map_nodecl_int_t;
-        typedef std::pair<Nodecl::NodeclBase, int> pair_nodecl_int_t;
-        // To be replaced by std::tuple<int, int, int> in C++11
-        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > map_tlsym_objlist_t;
-        typedef std::map<TL::Symbol, TL::ObjectList<int> > map_tlsym_objlist_int_t;
-        typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
-        typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;
-        typedef TL::ObjectList<TL::Symbol> objlist_tlsym_t;
-        typedef TL::ObjectList<int> objlist_int_t;
+        private:
+            void visit_common_vector_store(
+                    const Nodecl::VectorStore& node,
+                    const bool aligned);
+            void visit_aligned_vector_stream_store(
+                    const Nodecl::VectorStore& node);
 
-        typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
-        typedef std::list<TL::Scope> stdlist_scope_t;
+        public:
+            KNLVectorBackend();
 
-        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA, KNL_ISA};
-    }
+            virtual void visit(const Nodecl::VectorLoad& n);
+            virtual void visit(const Nodecl::VectorStore& n);
+    };
+}
 }
 
-#endif //TL_VECTORIZATION_COMMON_HPP
-
+#endif // KNL_VECTOR_BACKEND_HPP

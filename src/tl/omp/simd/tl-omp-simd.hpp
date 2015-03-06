@@ -52,6 +52,7 @@ namespace TL
                 std::string _fast_math_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _knc_enabled_str;
+                std::string _knl_enabled_str;
                 std::string _spml_enabled_str;
                 std::string _only_adjacent_accesses_str;
                 std::string _overlap_in_place_str;
@@ -61,6 +62,7 @@ namespace TL
                 bool _fast_math_enabled;
                 bool _avx2_enabled;
                 bool _knc_enabled;
+                bool _knl_enabled;
                 bool _spml_enabled;
                 bool _only_adjacent_accesses_enabled;
                 bool _overlap_in_place;
@@ -70,6 +72,7 @@ namespace TL
                 void set_fast_math(const std::string fast_math_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
+                void set_knl(const std::string knl_enabled_str);
                 void set_spml(const std::string spml_enabled_str);
                 void set_only_adjcent_accesses(const std::string only_adjacent_accesses_str);
                 void set_overlap_in_place(const std::string overlap_in_place_str);
