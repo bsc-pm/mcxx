@@ -28,7 +28,6 @@
 
 #include "tl-vectorizer-overlap-optimizer.hpp"
 #include "tl-vectorizer-loop-info.hpp"
-#include "tl-vectorizer-target-type-heuristic.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-postprocessor.hpp"
 #include "tl-vectorizer-visitor-loop.hpp"
@@ -67,8 +66,22 @@ namespace Vectorization
     void Vectorizer::initialize_analysis(
             const Nodecl::NodeclBase& enclosing_function)
     {
-        std::string func_name = enclosing_function.as<Nodecl::FunctionCode>().
-            get_symbol().get_name();
+        std::string func_name;
+
+        if (enclosing_function.is<Nodecl::FunctionCode>())
+        {
+            func_name = enclosing_function.as<Nodecl::FunctionCode>().
+                get_symbol().get_name();
+        }
+        else if (enclosing_function.is<Nodecl::OpenMP::SimdFunction>())
+        {
+            func_name = enclosing_function.as<Nodecl::OpenMP::SimdFunction>().
+                get_statement().as<Nodecl::FunctionCode>().get_symbol().get_name();
+        }            
+        else
+        {
+            running_error("Vectorizer::initialize_analysis: expected FunctionCode or SimdFunction", 0);
+        }
 
         if (_analysis_func_name != func_name)
         {
@@ -104,23 +117,12 @@ namespace Vectorization
     {
     }
 
-    void Vectorizer::preprocess_code(const Nodecl::NodeclBase& n,
-            VectorizerEnvironment& environment)
+    void Vectorizer::preprocess_code(const Nodecl::NodeclBase& n)
     {
-        if (!environment._target_type.is_valid())
-        {
-            VectorizerTargetTypeHeuristic target_type_heuristic;
-
-            environment.set_target_type(
-                    target_type_heuristic.get_target_type(n));
-        }
-
         VectorizerVisitorPreprocessor vectorizer_preproc;//environment);
         vectorizer_preproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
-        TL::Optimizations::canonicalize_and_fold(environment._suitable_exprs_list,
-                _fast_math_enabled);
     }
 
     void Vectorizer::postprocess_code(const Nodecl::NodeclBase& n)

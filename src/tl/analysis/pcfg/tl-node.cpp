@@ -2192,7 +2192,7 @@ namespace Analysis {
         else if (n->is_function_code_node())
         {
             n = n->get_outer_node();
-            if (!n->is_omp_simd_function_node())
+            if (n != NULL && !n->is_omp_simd_function_node())
             {
                 if (VERBOSE)
                 {

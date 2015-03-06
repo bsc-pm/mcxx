@@ -71,8 +71,7 @@ namespace TL
 
                 ~Vectorizer();
 
-                void preprocess_code(const Nodecl::NodeclBase& n,
-                        VectorizerEnvironment& environment);
+                void preprocess_code(const Nodecl::NodeclBase& n);
                 void postprocess_code(const Nodecl::NodeclBase& n);
 
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,

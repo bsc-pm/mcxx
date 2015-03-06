@@ -123,7 +123,9 @@ namespace TL
                         bool fast_math_enabled, bool svml_enabled,
                         bool only_adjacent_accesses,
                         bool overlap_in_place);
+                ~SimdVisitor();
 
+                virtual void visit(const Nodecl::FunctionCode& func_code);
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);

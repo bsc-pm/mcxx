@@ -25,6 +25,7 @@
   --------------------------------------------------------------------*/
 
 #include "tl-omp-simd.hpp"
+#include "tl-vectorizer-target-type-heuristic.hpp"
 
 #include "tl-vectorization-common.hpp"
 #include "tl-omp.hpp"
@@ -221,10 +222,10 @@ namespace TL {
                 }
                 else
                 {
-                    SimdVisitor simd_visitor(
-                            simd_isa, _fast_math_enabled, _svml_enabled,
+                    SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
                             _only_adjacent_accesses_enabled, _overlap_in_place);
                     simd_visitor.walk(translation_unit);
+                    
                 }
             }
         }
@@ -293,6 +294,40 @@ namespace TL {
                             simd_isa);
 
             }
+        }
+
+        SimdVisitor::~SimdVisitor()
+        {
+            _vectorizer.finalize_analysis();
+        }
+
+        void SimdVisitor::visit(const Nodecl::FunctionCode& n)
+        {
+            // Note that SimdFunction is treated specially in its visit
+
+            // TODO::Improve! 
+
+            TL::ObjectList<Nodecl::NodeclBase> omp_simd_list = 
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::OpenMP::Simd>(n);
+            TL::ObjectList<Nodecl::NodeclBase> omp_simd_for_list = 
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::OpenMP::SimdFor>(n);
+            TL::ObjectList<Nodecl::NodeclBase> omp_simd_parallel_list =
+                Nodecl::Utils::nodecl_get_all_nodecls_of_kind<Nodecl::OpenMP::SimdParallel>(n);
+
+            for (const auto& node : omp_simd_list) _vectorizer.preprocess_code(node);
+            for (const auto& node : omp_simd_for_list) _vectorizer.preprocess_code(node);
+            for (const auto& node : omp_simd_parallel_list) _vectorizer.preprocess_code(node);
+
+            if (!omp_simd_list.empty() || !omp_simd_for_list.empty()
+                    || !omp_simd_parallel_list.empty())
+            {
+                _vectorizer.initialize_analysis(n);
+                walk(n.get_statements());
+            }
+
+            for (const auto& node : omp_simd_list) _vectorizer.postprocess_code(node);
+            for (const auto& node : omp_simd_for_list) _vectorizer.postprocess_code(node);
+            for (const auto& node : omp_simd_parallel_list) _vectorizer.postprocess_code(node);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_input_node)
@@ -368,29 +403,29 @@ namespace TL {
 
             // Add scopes, default masks, etc.
             loop_environment.load_environment(loop_statement);
-
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(loop_statement, loop_environment);
+            // Set target type
+            if (!loop_environment._target_type.is_valid())
+            {
+                VectorizerTargetTypeHeuristic target_type_heuristic;
+                loop_environment.set_target_type(
+                        target_type_heuristic.get_target_type(loop_statement));
+            }
 
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
                     simd_node_main_loop, simd_enclosing_node)
                 .as<Nodecl::OpenMP::Simd>();
 
-            // Initialize analysis info
-            Nodecl::NodeclBase enclosing_func =
-                Nodecl::Utils::get_enclosing_function(simd_node_main_loop).get_function_code();
-
-            _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
-
             // OUTPUT CODE STRUCTURE
             Nodecl::List output_code_list;
             output_code_list.append(simd_node_main_loop);// Main For
             output_code_list.append(simd_node_epilog);   // Epilog
-
-            // Register epilog as an identical copy of the Main For
+            
+            // Register new simd nodes in analysis
             Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
-                    simd_node_main_loop, simd_node_epilog);
+                    simd_input_node, simd_node_main_loop);
+            Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+                    simd_input_node, simd_node_epilog);
 
             Nodecl::CompoundStatement output_code =
                 Nodecl::CompoundStatement::make(
@@ -399,7 +434,7 @@ namespace TL {
             // Replace input code by output and update output pointer
             simd_input_node.replace(output_code);
             output_code = simd_input_node.as<Nodecl::CompoundStatement>();
-
+            
             // Get epilog information
             bool only_epilog;
             int epilog_iterations = _vectorizer.get_epilog_info(loop_statement,
@@ -586,12 +621,6 @@ namespace TL {
                     simd_node_main_loop.prepend_sibling(unroll_and_jam_pragma);
                 }
             }
-
-            // Free analysis
-            _vectorizer.finalize_analysis();
-
-            // Prostprocess code
-            _vectorizer.postprocess_code(output_code);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_input_node)
@@ -685,9 +714,13 @@ namespace TL {
 
             // Add scopes, default masks, etc.
             for_environment.load_environment(for_statement);
-
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(for_statement, for_environment);
+            // Set target type
+            if (!for_environment._target_type.is_valid())
+            {
+                VectorizerTargetTypeHeuristic target_type_heuristic;
+                for_environment.set_target_type(
+                        target_type_heuristic.get_target_type(for_statement));
+            }
 
             // Add epilog before vectorization
             Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
@@ -695,11 +728,10 @@ namespace TL {
 
             simd_node_for.append_sibling(simd_node_epilog);
 
-            // Initialize analysis info
-            Nodecl::NodeclBase enclosing_func =
-                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
-
-            _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
+            // Register new simd nodes in analysis
+            // Note that simd_node_for has not been shallow copied
+            Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+                    simd_node_for, simd_node_epilog);
 
             // Get epilog information
             bool only_epilog;
@@ -910,17 +942,17 @@ namespace TL {
             simd_node_for.replace(for_epilog);
 
             // Free analysis
-            _vectorizer.finalize_analysis();
-
-            // Prostprocess code
-            _vectorizer.postprocess_code(
-                    Nodecl::Utils::get_enclosing_list(simd_node_for));
+            //_vectorizer.finalize_analysis();
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
         {
             Nodecl::FunctionCode function_code = simd_node.get_statement()
                 .as<Nodecl::FunctionCode>();
+
+            // Preprocess SimdFunction
+            _vectorizer.preprocess_code(simd_node);
+            _vectorizer.initialize_analysis(simd_node);
 
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
 
@@ -987,8 +1019,7 @@ namespace TL {
             func_sym_map.add_map(func_sym, new_func_sym);
 
             Nodecl::OpenMP::SimdFunction simd_node_copy =
-                Nodecl::Utils::deep_copy(simd_node,
-                        simd_node,
+                Nodecl::Utils::deep_copy(simd_node, simd_node,
                         func_sym_map).as<Nodecl::OpenMP::SimdFunction>();
 
             Nodecl::FunctionCode vector_func_code =
@@ -996,6 +1027,10 @@ namespace TL {
 
             FunctionDeepCopyFixVisitor fix_deep_copy_visitor(func_sym, new_func_sym);
             fix_deep_copy_visitor.walk(vector_func_code.get_statements());
+
+            // Register new simd nodes in analysis
+            Vectorization::Vectorizer::_vectorizer_analysis->register_identical_copy(
+                    function_code, vector_func_code);
 
             // Process clauses FROM THE COPY
             Nodecl::List omp_environment = simd_node_copy.
@@ -1058,9 +1093,13 @@ namespace TL {
 
             // Add scopes, default masks, etc.
             function_environment.load_environment(vector_func_code);
-
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(vector_func_code, function_environment);
+            // Set target type
+            if (!function_environment._target_type.is_valid())
+            {
+                VectorizerTargetTypeHeuristic target_type_heuristic;
+                function_environment.set_target_type(
+                        target_type_heuristic.get_target_type(vector_func_code));
+            }
 
             // Add SIMD version to vector function versioning
             TL::Type function_return_type = func_sym.get_type().returns();
@@ -1071,16 +1110,13 @@ namespace TL {
                     function_return_type, masked_version,
                     TL::Vectorization::SIMD_FUNC_PRIORITY, false);
 
-            // Initialize analysis info
-            _vectorizer.initialize_analysis(simd_node_copy);
-
             _vectorizer.vectorize_function(vector_func_code,
                     function_environment, masked_version);
 
             function_environment.unload_environment();
 
             // Free analysis
-            _vectorizer.finalize_analysis();
+            //_vectorizer.finalize_analysis();
 
             // Prostprocess code
             _vectorizer.postprocess_code(simd_node);
@@ -1093,7 +1129,7 @@ namespace TL {
                     only_adjacent_accesses, overlap_in_place)
         {
         }
- 
+        
         void SimdSPMLVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
         {
             Nodecl::OpenMP::Parallel omp_parallel = simd_node.
@@ -1171,18 +1207,15 @@ namespace TL {
 
             // Add scopes, default masks, etc.
             parallel_environment.load_environment(parallel_statements);
+            // Set target type
+            if (!parallel_environment._target_type.is_valid())
+            {
+                VectorizerTargetTypeHeuristic target_type_heuristic;
+                parallel_environment.set_target_type(
+                        target_type_heuristic.get_target_type(parallel_statements));
+            }
 
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(parallel_statements, 
-                    parallel_environment);
-
-            // Initialize analysis info
-            Nodecl::NodeclBase enclosing_func =
-                Nodecl::Utils::get_enclosing_function(parallel_statements)
-                .get_function_code();
-
-            _vectorizer.initialize_analysis(
-                    enclosing_func.as<Nodecl::FunctionCode>());
+            // Register new simd nodes in analysis //TODO?
 
             // Overlap init
 //            vectorizer_overlap.declare_overlap_symbols(
@@ -1257,10 +1290,7 @@ namespace TL {
             simd_node.replace(omp_parallel);
 
             // Free analysis
-            _vectorizer.finalize_analysis();
-
-            // Prostprocess code
-            _vectorizer.postprocess_code(simd_node);
+            //_vectorizer.finalize_analysis();
         }
 
         void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
