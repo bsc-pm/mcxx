@@ -1303,7 +1303,7 @@ namespace TL { namespace Nanox {
 
                     OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
-                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_CONCURRENT_REDUCTION);
+                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_TASK_REDUCTION);
 
                     OutlineDataItem &outline_data_item = _outline_info.get_entity_for_symbol(symbol);
 

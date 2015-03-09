@@ -465,7 +465,7 @@ namespace TL { namespace Nanox {
                     it != data_items.end();
                     it++)
             {
-                if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+                if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
                     continue;
 
                 TL::Symbol reduction_item = (*it)->get_symbol();
@@ -805,7 +805,7 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+            if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
                 continue;
 
             std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
