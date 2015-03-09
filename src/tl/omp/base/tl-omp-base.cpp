@@ -602,6 +602,12 @@ namespace TL { namespace OpenMP {
         data_sharing.get_all_dependences(dependences);
         if (!dependences.empty())
         {
+            if (!this->in_ompss_mode())
+            {
+                error_printf("%s: error: a 'taskwait' construct with a 'on' clause is valid only in OmpSs\n",
+                        directive.get_locus_str().c_str());
+            }
+
             directive.replace(
                     Nodecl::OpenMP::WaitOnDependences::make(
                         environment,
