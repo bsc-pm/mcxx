@@ -638,6 +638,21 @@ namespace TL
                     }
                 }
 
+                virtual Ret visit(const Nodecl::ObjectInit &n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
+
+                    if (sym.is_saved_expression()
+                            && is_local_to_current_function(sym))
+                    {
+                        symbols.insert(sym);
+                    }
+                }
+
                 virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
                 {
                     TL::Type t = n.get_type();
