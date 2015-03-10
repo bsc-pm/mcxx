@@ -227,6 +227,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nested_block_declaration
 %type<ast> nested_function_definition
 %type<ast> builtin_types
+%type<ast> typeof_type_specifier
 %type<ast> cast_expression
 %type<ast> class_head
 %type<ast> class_key
@@ -349,6 +350,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> old_style_decl_specifier_seq
 
 %type<ast> decl_specifier_alone_seq
+%type<ast> declarating_type_specifier
 %type<ast> type_specifier_alone
 
 %type<node_type> unary_operator
@@ -872,8 +874,9 @@ function_specifier : INLINE
 }
 ;
 
-type_specifier : type_specifier_alone
+type_specifier : declarating_type_specifier
 {
+    $$ = $1;
 }
 | simple_type_specifier
 {
@@ -881,7 +884,21 @@ type_specifier : type_specifier_alone
 }
 ;
 
-type_specifier_alone : class_specifier
+type_specifier_alone : declarating_type_specifier
+{
+    $$ = $1;
+}
+| builtin_types
+{
+    $$ = $1;
+}
+| typeof_type_specifier
+{
+    $$ = $1;
+}
+;
+
+declarating_type_specifier : class_specifier
 {
 	$$ = $1;
 }
@@ -925,8 +942,14 @@ simple_type_specifier : type_name
 {
 	$$ = $1;
 }
+| typeof_type_specifier
+{
+    $$ = $1;
+}
+;
+
 // GNU Extension. Somebody decided that this had to be different in gcc and g++
-| TYPEOF '(' expression ')' %merge<ambiguityHandler>
+typeof_type_specifier : TYPEOF '(' expression ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }

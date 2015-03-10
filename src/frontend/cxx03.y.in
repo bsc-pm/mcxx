@@ -583,6 +583,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_specifier_alone
 %type<ast> type_specifier_seq_0
 %type<ast> type_specifier_seq_ended_with_identifier
+%type<ast> declarating_type_specifier
+%type<ast> typeof_type_specifier
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
@@ -1821,7 +1823,7 @@ type_specifier_ended_with_identifier : named_simple_type_specifier
 }
 ;
 
-type_specifier_alone : class_specifier
+declarating_type_specifier : class_specifier
 {
 	$$ = $1;
 }
@@ -1832,6 +1834,20 @@ type_specifier_alone : class_specifier
 | elaborated_type_specifier
 {
 	$$ = $1;
+}
+;
+
+type_specifier_alone : declarating_type_specifier
+{
+    $$ = $1;
+}
+| builtin_types
+{
+    $$ = $1;
+}
+| typeof_type_specifier
+{
+    $$ = $1;
 }
 ;
 
@@ -1949,18 +1965,24 @@ simple_type_specifier_not_ended_with_identifier : builtin_types
 {
     $$ = ASTLeaf(AST_DECLTYPE_AUTO, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+| typeof_type_specifier
+{
+    $$ = $1;
+}
+| GXX_UNDERLYING_TYPE '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_UNDERLYING_TYPE, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
 // GNU Extension (difficult to ensure that this does not end with an identifier..., use parentheses)
-| TYPEOF unary_expression %merge<ambiguityHandler>
+typeof_type_specifier : TYPEOF unary_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | TYPEOF '(' type_id ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-}
-| GXX_UNDERLYING_TYPE '(' type_id ')'
-{
-    $$ = ASTMake2(AST_GXX_UNDERLYING_TYPE, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
