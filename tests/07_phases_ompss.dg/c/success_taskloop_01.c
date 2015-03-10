@@ -31,17 +31,55 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include <stdlib.h>
+#include <stdio.h>
 
-int main()
+enum { N = 10000 };
+
+char check[N] = { };
+
+void f(int *a, int n)
 {
-    const int ntasks = 4;
-    int out[4];
-#pragma omp target device(smp) copy_out(out[0:ntasks-1])
-#pragma omp task inout(out[0:ntasks-1])
+    int i;
+#pragma omp taskloop out(a[i]) grainsize(10) shared(check)
+    for (i = 0; i < n; i++)
     {
-        ntasks;
+        if (check[i] != 0)
+            abort();
+        a[i] = i;
+        check[i] = 1;
     }
+
+#pragma omp taskloop inout(a[i]) grainsize(10) shared(check)
+    for (i = 0; i < n; i++)
+    {
+        if (check[i] != 1)
+            abort();
+        a[i]++;
+        check[i] = 0;
+    }
+
+#pragma omp taskloop in(a[i]) grainsize(10) shared(check)
+    for (i = 0; i < n; i++)
+    {
+        if (check[i] != 0)
+            abort();
+    }
+
 #pragma omp taskwait
+}
+
+int w[N];
+
+int main(int argc, char* argv[])
+{
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        w[i] = i;
+    }
+
+    f(w, N);
 
     return 0;
 }

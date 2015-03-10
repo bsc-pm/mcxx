@@ -32,16 +32,16 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
+
 int main()
 {
-    const int ntasks = 4;
-    int out[4];
-#pragma omp target device(smp) copy_out(out[0:ntasks-1])
-#pragma omp task inout(out[0:ntasks-1])
-    {
-        ntasks;
-    }
-#pragma omp taskwait
+    size_t dim = 10;
+    int (*a)[dim];
 
-    return 0;
+    #pragma omp task inout(*a)
+    {
+        int i = 1;
+        int elem = (*a)[i];
+    }
+    #pragma omp taskwait
 }

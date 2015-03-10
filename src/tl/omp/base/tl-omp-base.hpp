@@ -152,6 +152,18 @@ namespace TL
 
                 void nest_context_in_pragma(TL::PragmaCustomStatement directive);
 
+                void taskloop_block_loop(
+                        Nodecl::NodeclBase directive,
+                        Nodecl::NodeclBase statement,
+                        Nodecl::NodeclBase execution_environment,
+                        Nodecl::NodeclBase num_blocks);
+
+                void taskloop_extend_dependences(
+                        Nodecl::NodeclBase execution_environment,
+                        TL::Symbol orig_induction_var,
+                        TL::Symbol new_induction_var,
+                        TL::Symbol block_extent_var);
+
             public:
                 template <typename T>
                 void make_data_sharing_list(

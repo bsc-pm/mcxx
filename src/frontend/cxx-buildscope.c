@@ -2151,7 +2151,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, gather_info);
     }
 
-
     // There are declarators ahead
     if (declarator_list != NULL)
     {
@@ -2625,6 +2624,19 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         {
             scope_entry_t* named_type = named_type_get_symbol(simple_type_info);
             finish_anonymous_class(named_type, decl_context);
+        }
+        else if (decl_specifier_seq != NULL)
+        {
+            AST type_spec = ASTSon1(decl_specifier_seq);
+            if (type_spec != NULL
+                    && ASTKind(type_spec) != AST_CLASS_SPECIFIER
+                    && ASTKind(type_spec) != AST_ELABORATED_TYPE_CLASS_SPEC
+                    && ASTKind(type_spec) != AST_ENUM_SPECIFIER
+                    && ASTKind(type_spec) != AST_ELABORATED_TYPE_ENUM_SPEC)
+            {
+                warn_printf("%s: warning: declaration does not declare anything\n",
+                        ast_location(a));
+            }
         }
     }
     else

@@ -660,7 +660,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
         set_indent_level(0);
 
         state.in_condition = 1;
-        state.condition_top = name;
+        state.condition_top = name.no_conv();
 
         walk(name);
 
@@ -1579,15 +1579,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
             indent();
             *(file) << "if (";
             walk(step);
-            *(file) << "> 0)\n;";
+            *(file) << "> 0)\n";
 
             inc_indent();
             indent();
             *(file) << "{\n";
 
+            // We need to keep the codegen status because we will emit two loops
+            std::map<TL::Symbol, codegen_status_t> old_codegen_status = _codegen_status;
             inc_indent();
             emit_range_loop_header(lc, statement, " <= ");
             dec_indent();
+            _codegen_status.swap(old_codegen_status);
 
             indent();
             *(file) << "}\n";
@@ -2950,7 +2953,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
 
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = condition;
+    state.condition_top = condition.no_conv();
 
     walk(condition);
 
@@ -3267,7 +3270,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     *(file) << "; ";
 
     Nodecl::NodeclBase old_condition_top = state.condition_top;
-    state.condition_top = cond;
+    state.condition_top = cond.no_conv();
 
     // But it is desirable for the condition in "for( ... ; (i = x) ; ...)"
     walk(cond);
@@ -4227,7 +4230,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
 
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = expression;
+    state.condition_top = expression.no_conv();
 
     walk(expression);
 
@@ -4492,7 +4495,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     int old_indent = get_indent_level();
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = condition;
+    state.condition_top = condition.no_conv();
 
     emit_line_marker(condition);
     walk(condition);
@@ -9071,8 +9074,10 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
             || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
             // a + b & c -> (a + b) & c
             || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
-            // a #1 b #2 c -> (a #1 b) #2 c     [where #1 and #2 are ==, <, <=, >=, >, !=]
+            // a #1 b #2 c -> (a #1 b) #2 c   [where #1 and #2 are ==, <, <=, >=, >, !=]
             || (is_relational_operator(current_kind) && is_relational_operator(operand_kind))
+            // a #1 b #2 c -> (a #1 b) #2 c   [where #1 is |, &  #2 is ==, <, <=, >=, >, !=]
+            || (is_bitwise_bin_operator(current_kind) && is_relational_operator(operand_kind))
             )
     {
         return 1;

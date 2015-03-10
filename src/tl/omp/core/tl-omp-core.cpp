@@ -638,6 +638,21 @@ namespace TL
                     }
                 }
 
+                virtual Ret visit(const Nodecl::ObjectInit &n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
+
+                    if (sym.is_saved_expression()
+                            && is_local_to_current_function(sym))
+                    {
+                        symbols.insert(sym);
+                    }
+                }
+
                 virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
                 {
                     TL::Type t = n.get_type();
@@ -1705,6 +1720,17 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::taskloop_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
+            loop_handler_pre(construct, loop, &Core::common_for_handler);
+        }
+
+        void Core::taskloop_handler_post(TL::PragmaCustomStatement construct)
+        {
+            _openmp_info->pop_current_data_sharing();
+        }
+
         void Core::single_handler_pre(TL::PragmaCustomStatement construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
@@ -2231,6 +2257,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(single)
         INVALID_DECLARATION_HANDLER(workshare)
+        INVALID_DECLARATION_HANDLER(taskloop)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
