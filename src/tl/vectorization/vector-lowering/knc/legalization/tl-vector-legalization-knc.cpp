@@ -24,13 +24,15 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "tl-source.hpp"
+#include "tl-vector-legalization-knc.hpp"
 
 #include "tl-vectorization-common.hpp"
 #include "tl-vectorization-utils.hpp"
-#include "tl-vector-legalization-knc.hpp"
 
+#include "tl-optimizations.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-source.hpp"
+
 
 #define NUM_8B_ELEMENTS 8
 #define NUM_4B_ELEMENTS 16
@@ -45,6 +47,33 @@ namespace Vectorization
         _prefer_mask_gather_scatter(prefer_mask_gather_scatter)
     {
         std::cerr << "--- KNC legalization phase ---" << std::endl;
+
+    }
+
+    void KNCVectorLegalization::visit(const Nodecl::FunctionCode& n)
+    {
+        // TODO: Do it more efficiently!
+        bool contains_vector_nodes =
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAssignment>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAdd>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMul>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConversion>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCode>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMaskAssignment>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
+
+        if (contains_vector_nodes)
+        {
+            // Initialize analisys
+            TL::Optimizations::canonicalize_and_fold(
+                    n, /*_fast_math_enabled*/ false);
+
+            _analysis = new VectorizationAnalysisInterface(
+                    n, Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
+
+            walk(n.get_statements());
+        }
     }
 
     void KNCVectorLegalization::visit(const Nodecl::ObjectInit& n)
@@ -127,6 +156,21 @@ namespace Vectorization
         }
     }
 
+    void KNCVectorLegalization::visit(const Nodecl::VectorAssignment& n)
+    {
+        if (n.get_mask() != Nodecl::NodeclBase::null() &&
+                _analysis->has_been_defined(n.get_lhs()))
+        {
+            ((Nodecl::VectorAssignment)n).set_has_been_defined(
+                Nodecl::HasBeenDefinedFlag::make());
+        }
+
+        walk(n.get_lhs());
+        walk(n.get_rhs());
+        walk(n.get_mask());
+        walk(n.get_has_been_defined());
+    }
+
     void KNCVectorLegalization::visit(const Nodecl::VectorLoad& n)
     {
         const Nodecl::NodeclBase rhs = n.get_rhs();
@@ -137,9 +181,12 @@ namespace Vectorization
         walk(mask);
         walk(flags);
 
+        bool explicitly_aligned = !flags.find_first<Nodecl::AlignedFlag>().is_null();
+
         // Turn unaligned load into gather
-        if (_prefer_gather_scatter ||
-                (_prefer_mask_gather_scatter && !mask.is_null()))
+        if (!explicitly_aligned
+                && (_prefer_gather_scatter ||
+                    (_prefer_mask_gather_scatter && !mask.is_null())))
         {
             VECTORIZATION_DEBUG()
             {
@@ -176,51 +223,45 @@ namespace Vectorization
         const Nodecl::NodeclBase mask = n.get_mask();
         const Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
-        TL::ObjectList<Nodecl::NodeclBase> flags_obj_list = 
-            flags.to_object_list();
-
-        bool aligned = Nodecl::Utils::list_contains_nodecl_by_structure(
-                flags_obj_list, Nodecl::AlignedFlag());
+        bool explicitly_aligned = !flags.find_first<Nodecl::AlignedFlag>().is_null();
 
         walk(lhs);
         walk(rhs);
         walk(mask);
         walk(flags);
 
-        if (!aligned)
+        if (!explicitly_aligned
+                && (_prefer_gather_scatter ||
+                    (_prefer_mask_gather_scatter
+                     && !mask.is_null())))
         {
-            // Turn unaligned store into scatter
-            if (_prefer_gather_scatter ||
-                    (_prefer_mask_gather_scatter && !mask.is_null()))
+            VECTORIZATION_DEBUG()
             {
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
-                            "into adjacent scatter\n",
-                            lhs.prettyprint().c_str());
-                }
-
-                Nodecl::VectorScatter vector_scatter = flags.
-                    find_first<Nodecl::VectorScatter>();
-
-                ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
-                        "legalization of unaligned load with mask", 0);
-
-                // Visit Scatter
-                walk(vector_scatter);
-
-                VECTORIZATION_DEBUG()
-                {
-                    /*                fprintf(stderr, "    Scatter '%s' "\
-                                      "(base: %s strides: %s\n",
-                                      lhs.prettyprint().c_str(),
-                                      vector_scatter.get_base().prettyprint().c_str(),
-                                      vector_scatter.get_strides().prettyprint().c_str());
-                     */     
-                }
-
-                n.replace(vector_scatter);
+                fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
+                        "into adjacent scatter\n",
+                        lhs.prettyprint().c_str());
             }
+
+            Nodecl::VectorScatter vector_scatter = flags.
+                find_first<Nodecl::VectorScatter>();
+
+            ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
+                    "legalization of unaligned load with mask", 0);
+
+            // Visit Scatter
+            walk(vector_scatter);
+
+            VECTORIZATION_DEBUG()
+            {
+                /*                fprintf(stderr, "    Scatter '%s' "\
+                                  "(base: %s strides: %s\n",
+                                  lhs.prettyprint().c_str(),
+                                  vector_scatter.get_base().prettyprint().c_str(),
+                                  vector_scatter.get_strides().prettyprint().c_str());
+                 */     
+            }
+
+            n.replace(vector_scatter);
         }
     }
 

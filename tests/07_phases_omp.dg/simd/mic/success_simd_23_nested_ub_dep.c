@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_CFLAGS=--only-adjacent-accesses
+test_CFLAGS="--only-adjacent-accesses"
 test_generator=config/mercurium-serial-simd-mic
 </testinfo>
 */

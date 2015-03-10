@@ -74,8 +74,6 @@ namespace TL
                 const unsigned int _vector_length;
                 std::list<Nodecl::NodeclBase> _old_m512;
 
-                VectorizationAnalysisInterface* _analysis;
-
                 void common_binary_op_lowering(const Nodecl::NodeclBase& node,
                         const std::string& intrin_op_name);
                 void common_unary_op_lowering(const Nodecl::NodeclBase& node,
@@ -89,13 +87,7 @@ namespace TL
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
-                std::string get_casting_to_scalar_pointer(const TL::Type& type_to);
                 std::string get_undef_intrinsic(const TL::Type& type);
-
-                void process_mask_component(const Nodecl::NodeclBase& mask,
-                        TL::Source& mask_prefix, TL::Source& mask_params,
-                        const TL::Type& type,
-                        KNCConfigMaskProcessing conf = KNCConfigMaskProcessing::MASK_DEFAULT );
 
                 void visit_aligned_vector_load(
                         const Nodecl::VectorLoad& node);
@@ -109,6 +101,12 @@ namespace TL
                 void visit_unaligned_vector_store(
                         const Nodecl::VectorStore& node,
                         const int hint);
+            protected:
+                void process_mask_component(const Nodecl::NodeclBase& mask,
+                        TL::Source& mask_prefix, TL::Source& mask_params,
+                        const TL::Type& type,
+                        KNCConfigMaskProcessing conf = KNCConfigMaskProcessing::MASK_DEFAULT );
+                std::string get_casting_to_scalar_pointer(const TL::Type& type_to);
 
             public:
 

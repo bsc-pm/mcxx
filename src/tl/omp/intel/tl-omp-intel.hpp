@@ -44,12 +44,18 @@ namespace TL { namespace Intel {
 
             bool instrumentation_enabled() const;
 
+            bool simd_reductions_knc() const;
+
         private:
             std::string _openmp_dry_run;
 
             std::string _instrumentation_str;
             bool _instrumentation_enabled;
             void set_instrumentation(const std::string& str);
+
+            std::string _simd_reductions_knc_str;
+            bool _simd_reductions_knc;
+            void set_simd_reduction_knc(const std::string &str);
     };
 
 } }

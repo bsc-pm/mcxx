@@ -24,62 +24,30 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef KNC_VECTOR_LEGALIZATION_HPP
-#define KNC_VECTOR_LEGALIZATION_HPP
+#ifndef KNL_VECTOR_LEGALIZATION_HPP
+#define KNL_VECTOR_LEGALIZATION_HPP
 
+#include "tl-vector-legalization-knc.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 
-#include "tl-nodecl-base.hpp"
-#include "tl-nodecl-visitor.hpp"
-#include <list>
-
 #define MASK_BIT_SIZE 16
-#define KNC_VECTOR_LENGTH 64
+#define KNL_VECTOR_LENGTH 64
 
 namespace TL
 {
     namespace Vectorization
     {
-        class KNCVectorLegalization : public Nodecl::ExhaustiveVisitor<void>
+        class KNLVectorLegalization : public KNCVectorLegalization
         {
-            private:
-                bool _prefer_gather_scatter;
-                bool _prefer_mask_gather_scatter;
-                VectorizationAnalysisInterface* _analysis;
-
-                std::list<Nodecl::NodeclBase> _old_m512;
-
             public:
 
-                KNCVectorLegalization(bool prefer_gather_scatter,
+                KNLVectorLegalization(bool prefer_gather_scatter,
                         bool prefer_mask_gather_scatter);
 
-                virtual void visit(const Nodecl::FunctionCode& n);
-
-                virtual void visit(const Nodecl::ObjectInit& n);
-
-                virtual void visit(const Nodecl::VectorConversion& n);
-
-                virtual void visit(const Nodecl::VectorAssignment& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
                 virtual void visit(const Nodecl::VectorStore& n);
-                virtual void visit(const Nodecl::VectorGather& n);
-                virtual void visit(const Nodecl::VectorScatter& n);
-
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
-
-        class KNCStrideVisitorConv : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                unsigned int _vector_num_elements;
-
-            public:
-                KNCStrideVisitorConv(unsigned int vector_num_elements);
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-
         };
     }
 }
 
-#endif // KNC_VECTOR_LEGALIZATION_HPP
+#endif // KNL_VECTOR_LEGALIZATION_HPP

@@ -329,6 +329,9 @@ namespace Analysis {
             //! States if the current node is strictly enclosed into a potential encloser node
             bool node_is_enclosed_by(Node* potential_encloser);
 
+            //! Returns true when the node contains a BUILTIN nodecl
+            bool is_builtin_node();
+
             //! Returns true when the node is a composite node (contains nodes inside)
             bool is_graph_node();
 

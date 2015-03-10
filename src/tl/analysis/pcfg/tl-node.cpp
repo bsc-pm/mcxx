@@ -682,6 +682,11 @@ namespace Analysis {
         return (outer_node != NULL);
     }
 
+    bool Node::is_builtin_node()
+    {
+        return (get_type() == __Builtin);
+    }
+
     bool Node::is_graph_node()
     {
         return (get_type() == __Graph);
@@ -2131,7 +2136,7 @@ namespace Analysis {
         else if (n->is_function_code_node())
         {
             n = n->get_outer_node();
-            if (!n->is_omp_simd_function_node())
+            if (n != NULL && !n->is_omp_simd_function_node())
             {
                 if (VERBOSE)
                 {

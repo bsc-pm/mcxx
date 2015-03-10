@@ -14,24 +14,29 @@ linker_options = -Xlinker --add-needed
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} compiler_phase = libtlomp-base.so
 {openmp, simd} compiler_phase = libtlomp-simd.so
-{openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
-{simd, !mmic, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !mmic, !avx2} compiler_options = @SIMD_FLAGS@
+{simd, !mmic, !knl, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !mmic, !knl, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {simd, spml} options = --variable=spml_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {fast-math} options = --variable=fast_math_enabled:1
+{knl} preprocessor_options = -xMIC-AVX512
+{knl} compiler_options = -xMIC-AVX512
+{knl} linker_options = -xMIC-AVX512 -lifcore -limf -lirng -lintlc
+{simd, knl} options = --variable=knl_enabled:1
 {simd, mmic} options = --variable=mic_enabled:1
 {simd, avx2} options = --variable=avx2_enabled:1
-{simd, mmic} preprocessor_options = -include immintrin.h
+{simd, (mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5
 {openmp} compiler_phase = libtlintel-omp-lowering.so
+{openmp, simd} compiler_phase = libtlvector-lowering.so
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
 {only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
+{overlap-in-place} options = --variable=overlap_in_place:1

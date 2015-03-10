@@ -150,16 +150,13 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
         lastprivate_symbols.insert(tmp);
     }
 
-    TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items;
-    if (!reduction_list.empty())
-    {
-        reduction_items = reduction_list
-            .map(&Nodecl::OpenMP::Reduction::get_reductions)
-            .map(&Nodecl::NodeclBase::as<Nodecl::List>)
-            .map(&Nodecl::List::to_object_list)
-            .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
-            .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
-    }
+    TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items
+        = reduction_list
+        .map(&Nodecl::OpenMP::Reduction::get_reductions)
+        .map(&Nodecl::NodeclBase::as<Nodecl::List>)
+        .map(&Nodecl::List::to_object_list)
+        .reduction((&TL::append_two_lists<Nodecl::NodeclBase>))
+        .map(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>);
 
     Source loop_construct;
     Nodecl::NodeclBase stmt_placeholder;
@@ -293,6 +290,15 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             << "kmp_int32 " << lastiter << " = 0;"
             ;
 
+    Source pragma_noprefetch;
+    Nodecl::OpenMP::NoPrefetch no_prefetch_node = environment.find_first<Nodecl::OpenMP::NoPrefetch>();
+    if (!no_prefetch_node.is_null())
+    {
+        pragma_noprefetch
+            << "\n"
+            << "#pragma noprefetch\n";
+    }
+
     TL::Symbol private_induction_var = symbol_map.map(induction_var);
     ERROR_CONDITION(private_induction_var == induction_var, "Induction variable was not privatized", 0);
 
@@ -346,6 +352,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             <<                ", " << step
             <<                ", " << chunk_size << ");"
             << statement_placeholder(prependix_code)
+            << pragma_noprefetch
             << "for (" << as_symbol(private_induction_var) << " = " << lower << "; "
             <<            as_symbol(private_induction_var) << "<=" << upper << ";"
             <<            as_symbol(private_induction_var) << "+=" << step << ")"
@@ -400,6 +407,7 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             <<                "," << upper
             <<                "," << step
             <<                "," << chunk_size << ");"
+            << pragma_noprefetch
             << "while (__kmpc_dispatch_next_" << type_kind << "(&" << as_symbol(ident_symbol)
             <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
             <<                ",&" << lastiter
@@ -434,59 +442,64 @@ void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
             nowait << "_nowait";
         }
 
-        TL::Symbol callback = emit_callback_for_reduction(reduction_items,
+        TL::Symbol callback = emit_callback_for_reduction(
+                _lowering->simd_reductions_knc(),
+                reduction_items,
                 reduction_pack_symbol.get_type(),
                 construct, enclosing_function);
 
-        Source master_combiner;
-        TL::ObjectList<TL::Symbol> reduction_fields = reduction_pack_symbol.get_type().get_fields();
-        TL::ObjectList<TL::Symbol>::iterator it_fields = reduction_fields.begin();
-        for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
-                it != reduction_items.end();
-                it++, it_fields++)
+        if (callback.is_valid())
         {
-            Nodecl::OpenMP::ReductionItem &current(*it);
-            TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
-            TL::Symbol reductor = current.get_reductor().get_symbol();
-            OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+            Source master_combiner;
+            TL::ObjectList<TL::Symbol> reduction_fields = reduction_pack_symbol.get_type().get_fields();
+            TL::ObjectList<TL::Symbol>::iterator it_fields = reduction_fields.begin();
+            for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+                    it != reduction_items.end();
+                    it++, it_fields++)
+            {
+                Nodecl::OpenMP::ReductionItem &current(*it);
+                TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
+                TL::Symbol reductor = current.get_reductor().get_symbol();
+                OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
 
-            Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
+                Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 
-            ReplaceInOutMaster replace_inout(
-                    *it_fields,
-                    reduction->get_omp_in(), reduction_pack_symbol,
-                    reduction->get_omp_out(), reduced_symbol);
-            replace_inout.walk(combiner_expr);
+                ReplaceInOutMaster replace_inout(
+                        *it_fields,
+                        reduction->get_omp_in(), reduction_pack_symbol,
+                        reduction->get_omp_out(), reduced_symbol);
+                replace_inout.walk(combiner_expr);
 
-            master_combiner << as_expression(combiner_expr) << ";"
+                master_combiner << as_expression(combiner_expr) << ";"
+                    ;
+            }
+
+            Source reduction_src;
+            reduction_src
+                << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
+                <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                <<               ", " << reduction_items.size()
+                <<               ", sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")"
+                <<               ", &" << as_symbol(reduction_pack_symbol)
+                <<               ", (void(*)(void*,void*))" << as_symbol(callback)
+                <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << "))"
+                << "{"
+                <<    "case 1:"
+                <<    "{"
+                <<       master_combiner
+                <<       "__kmpc_end_reduce" << nowait << "(&" << as_symbol(ident_symbol)
+                <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << ");"
+                <<       "break;"
+                <<    "}"
+                <<    "case 0: break;"
+                <<    "default: __builtin_abort();"
+                << "}"
                 ;
+
+            Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
+            reduction_code.prepend_sibling(reduction_tree);
         }
-
-        Source reduction_src;
-        reduction_src
-            << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
-            <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
-            <<               ", " << reduction_items.size()
-            <<               ", sizeof(" << as_type(reduction_pack_symbol.get_type()) << ")"
-            <<               ", &" << as_symbol(reduction_pack_symbol)
-            <<               ", (void(*)(void*,void*))" << as_symbol(callback)
-            <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << "))"
-            << "{"
-            <<    "case 1:"
-            <<    "{"
-            <<       master_combiner
-            <<       "__kmpc_end_reduce" << nowait << "(&" << as_symbol(ident_symbol)
-            <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
-            <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << ");"
-            <<       "break;"
-            <<    "}"
-            <<    "case 0: break;"
-            <<    "default: __builtin_abort();"
-            << "}"
-            ;
-
-        Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
-        reduction_code.prepend_sibling(reduction_tree);
     }
 
     if (!prependix.is_null())

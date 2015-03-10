@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_CFLAGS=--only-adjacent-accesses
+test_CFLAGS="--only-adjacent-accesses --variable=prefetch_distance:4,1 --prefetch-in-place"
 test_generator=config/mercurium-parallel-simd-mic
 </testinfo>
 */
@@ -156,7 +156,7 @@ void __attribute__((noinline)) stencil_14(
                 __assume((thread_its%16) == 0);
 
 
-#pragma omp simd aligned(Anext_p, A0_p: 64) suitable(thread_its) overlap(A0_p:4,0,0) 
+#pragma omp simd suitable(thread_its) overlap(A0_p:4,0,0) 
                 for (i = 0; i < thread_its; i++)
                 {
                     float tmp = coeffs[0] * (A0_p[i + 1 ] + A0_p[i - 1]) ;

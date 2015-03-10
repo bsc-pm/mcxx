@@ -35,13 +35,20 @@ namespace TL { namespace Intel {
     TL::Symbol declare_reduction_pack(const TL::ObjectList<TL::Symbol> &sym,
             Nodecl::NodeclBase location);
 
-    DEPRECATED
     TL::Symbol emit_callback_for_reduction(
-            OpenMP::Reduction* reduction,
+            bool simd_reduction,
+            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
-    TL::Symbol emit_callback_for_reduction(
+    TL::Symbol emit_callback_for_reduction_scalar(
+            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::Type reduction_pack_type,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function);
+
+    TL::Symbol emit_callback_for_reduction_simd_knc(
             TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,

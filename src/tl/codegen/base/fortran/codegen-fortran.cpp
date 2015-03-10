@@ -1358,7 +1358,9 @@ OPERATOR_TABLE
                 *(file) << "(";
 
             long long tiniest_of_its_type = (~0LL);
-            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
+            // This number is actually -1 so it cannot be shifted left
+            (reinterpret_cast<unsigned long long &>(tiniest_of_its_type))
+                <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
 
             std::string suffix;
             if (num_bytes != fortran_get_default_integer_type_kind())

@@ -9,6 +9,9 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-intel-bui
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+{knl} preprocessor_options = -xMIC-AVX512
+{knl} compiler_options = -xMIC-AVX512
+{knl} linker_options = -xMIC-AVX512 -lifcore -limf -lirng -lintlc -lsvml
 {avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
 {avx2} linker_options = -march=core-avx2 -mtune=core-avx2
 {avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
