@@ -936,7 +936,7 @@ namespace {
         // 1.1.- Compute all data-flow analysis
         // FIXME We should launch the analyses depending on the clauses in the assert directives
         AnalysisBase analysis(_ompss_mode_enabled);
-        analysis.all_analyses(ast);
+        analysis.all_analyses(ast, /*propagate_graph_nodes*/ true);
         // 1.2.- Execute correctness phase, which can also be checked
         // FIXME We should only execute this is there are assert clauses checking this information
         TL::OpenMP::launch_correctness(analysis, _correctness_log_path);

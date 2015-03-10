@@ -34,7 +34,43 @@ namespace TL {
 namespace Analysis {
 
     std::set<Symbol> _warned_unreach_funcs;
-    
+    struct Usage {
+        NodeclSet _ue_vars;
+        NodeclSet _def_vars;
+        NodeclSet _undef_vars;
+    };
+    std::set<Symbol> _known_called_funcs_usage;
+
+    //! This method computes on the fly the usage information of a graph node
+    //! Necessary for IPA analysis
+    void gather_graph_usage_rec(Node* n)
+    {
+        // 1.- Gather info for the current node, if it is a graph node
+        if (n->is_graph_node())
+        {
+            // 1.1.- Make sure we solve the graphs from inside to outside
+            Node* entry = n->get_graph_entry_node();
+            gather_graph_usage_rec(entry);
+
+            // 1.2.- Compute the usage of the current graph
+            n->set_visited(false);
+            ExtensibleGraph::clear_visits_in_level_no_nest(entry, n);
+            set_graph_node_use_def(n);
+        }
+
+        // 2.- Keep iterating with the children
+        const ObjectList<Node*>& children = n->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            gather_graph_usage_rec(*it);
+    }
+
+    void gather_graph_usage(ExtensibleGraph* graph)
+    {
+        Node* n = graph->get_graph();
+        gather_graph_usage_rec(n);
+        ExtensibleGraph::clear_visits(n);
+    }
+
     // ******************************************************************************************** //
     // ********************* Known function code IP usage propagation methods ********************* //
     
@@ -157,11 +193,12 @@ namespace Analysis {
         }
     }
     
-    void UsageVisitor::ipa_propagate_known_function_usage(ExtensibleGraph* called_pcfg, 
-                                                          const Nodecl::List& args)
+    void UsageVisitor::ipa_propagate_known_function_usage(
+            ExtensibleGraph* called_pcfg,
+            const Nodecl::List& args)
     {
         Node* pcfg_node = called_pcfg->get_graph();
-                    
+
         // 1.- Check the usage of the parameters
         //     They all will be UE, but additionally we may have KILLED and UNDEF 
         //     if assignments or function calls appear in the arguments
@@ -184,18 +221,28 @@ namespace Analysis {
             if (n.is<Nodecl::Reference>() || n.get_type().is_pointer())
                 _node->add_used_address(n);
         }
-        
+
         // 2.- Pointer and reference parameters can also be KILLED | UNDEFINED
         // 2.1.- Map parameters to arguments in the current function call
-        const ObjectList<Symbol>& called_params = called_pcfg->get_function_symbol().get_function_parameters();
+        Symbol func_sym = called_pcfg->get_function_symbol();
+        const ObjectList<Symbol>& called_params = func_sym.get_function_parameters();
         const SymToNodeclMap& param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
 
         // 2.2.- Get the usage computed for the called function
+        if (!_propagate_graph_nodes
+                && _known_called_funcs_usage.find(func_sym) == _known_called_funcs_usage.end())
+        {   // The function usage has already been computed, retrieve it
+            // Compute the graph usage
+            gather_graph_usage(called_pcfg);
+
+            // Insert the usage in the cache
+            _known_called_funcs_usage.insert(func_sym);
+        }
         const NodeclSet& called_ue_vars = pcfg_node->get_ue_vars();
         const NodeclSet& called_killed_vars = pcfg_node->get_killed_vars();
         const NodeclSet& called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
-        // 2.3.- Propagate pointer parameters usage to the current node
 
+        // 2.3.- Propagate pointer parameters usage to the current node
         if (any_parameter_is_pointer(called_params))
         {
             propagate_called_func_pointed_values_usage_to_func_call(
@@ -222,9 +269,12 @@ namespace Analysis {
         const NodeclSet& ipa_global_vars = called_pcfg->get_global_variables();
         _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
-        propagate_global_variables_usage(called_ue_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
-        propagate_global_variables_usage(called_killed_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
-        propagate_global_variables_usage(called_undef_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
+        propagate_global_variables_usage(called_ue_vars, ipa_global_vars,
+                                         param_to_arg_map, Utils::UsageKind::USED);
+        propagate_global_variables_usage(called_killed_vars, ipa_global_vars,
+                                         param_to_arg_map, Utils::UsageKind::DEFINED);
+        propagate_global_variables_usage(called_undef_vars, ipa_global_vars,
+                                         param_to_arg_map, Utils::UsageKind::UNDEFINED);
     }
     
     // ******************* END Known function code IP usage propagation methods ******************* //

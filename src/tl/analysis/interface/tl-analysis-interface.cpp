@@ -76,20 +76,20 @@ namespace Analysis {
         }
         if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
-            analysis.reaching_definitions(n);
+            analysis.reaching_definitions(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            analysis.induction_variables(n);
+            analysis.induction_variables(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {
-            analysis.liveness(n);
+            analysis.liveness(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS |
                                               WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
-            analysis.use_def(n);
+            analysis.use_def(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
         {

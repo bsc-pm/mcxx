@@ -446,6 +446,400 @@ namespace Analysis {
         }
         return param_to_arg_map;
     }
-    
+
+
+    /*!This method computes the usage of a node in two different cases:
+     * - we are merging the usage of the children nodes with a parent node to set the usage of the enclosing graph node
+     * - we are computing the usage of a node: since there may be more than one statement within the same node,
+     *                                         we need to take into account the usage computed for the already treated statements
+     */
+    void propagate_usage_to_ancestor(
+            Node* ancestor,
+            NodeclSet& ue_vars, NodeclSet& killed_vars,
+            NodeclSet& undef_vars, NodeclSet& used_addresses,
+            const NodeclSet& ue_children, const NodeclSet& killed_children,
+            const NodeclSet& undef_children, const NodeclSet& used_addresses_children)
+    {
+        // Propagate the upwards exposed variables
+        NBase ue_previously_killed_subobject, ue_previously_undef_subobject;
+        for (NodeclSet::iterator it = ue_children.begin(); it != ue_children.end(); ++it)
+        {
+            NBase n_it = *it;
+
+            // There is a special case when dealing with Tasks: even though a task may kill a variable
+            // (and this usage is propagated to its task creation node), we still have to propagate the usage of the children,
+            // because we do not know what is happening first
+            bool is_task_creation_context = (ancestor->is_context_node()
+                    && ancestor->get_graph_entry_node()->get_children().size()==1
+                    && ancestor->get_graph_entry_node()->get_children()[0]->is_omp_task_creation_node());
+
+            // UE vars can only be upwards propagated if the are not already KILLED in the parent
+            // or they (or an enclosing nodecl) are not yet in the result set
+            if (!is_task_creation_context
+                    && (!Utils::nodecl_set_contains_enclosing_nodecl(n_it, killed_vars).is_null()
+                            || !Utils::nodecl_set_contains_enclosing_nodecl(n_it, ue_vars).is_null()))
+                continue;
+
+            ue_previously_killed_subobject = Utils::nodecl_set_contains_enclosed_nodecl(n_it, killed_vars);
+            ue_previously_undef_subobject = Utils::nodecl_set_contains_enclosed_nodecl(n_it, undef_vars);
+            if (is_task_creation_context
+                || (ue_previously_killed_subobject.is_null()
+                    && ue_previously_undef_subobject.is_null()))
+            {   // Neither killed nor undef var sets contain the current ue var
+                // Or the ancestor is a task creation node, in which case we have to be conservative and propagate its children usage
+                NBase tmp = Utils::nodecl_set_contains_enclosed_nodecl(n_it, ue_vars);
+                if (!tmp.is_null())
+                    ue_vars.erase(tmp);   // Delete the enclosed var from the list
+                ue_vars.insert(*it);      // Insert the new containing var
+            }
+            else
+            {   // Here a part of the nodecl is KILLED|UNDEF and a part is UE
+                NBase non_killed_ue_vars, non_undef_ue_vars;
+                if (!ue_previously_killed_subobject.is_null())
+                    non_killed_ue_vars = split_var_depending_on_usage(n_it, ue_previously_killed_subobject);
+                if (!ue_previously_undef_subobject.is_null())
+                {   // A variable marked as UNDEF can still be UE
+                    if (Utils::nodecl_set_contains_nodecl(n_it, undef_vars))
+                        non_undef_ue_vars = n_it;
+                    else
+                        non_undef_ue_vars = split_var_depending_on_usage(n_it, ue_previously_undef_subobject);
+                }
+
+                if ((!ue_previously_killed_subobject.is_null() && non_killed_ue_vars.is_null())
+                        || (!ue_previously_undef_subobject.is_null() && non_undef_ue_vars.is_null()))
+                {   // When the two sets are empty is because the separation has not been possible
+                    // Then, we set to undef the whole object and remove the partial object from the corresponding list(s)
+                    if (!ue_previously_killed_subobject.is_null())
+                        killed_vars.erase(ue_previously_killed_subobject);
+                    if (!ue_previously_undef_subobject.is_null())
+                        undef_vars.erase(ue_previously_undef_subobject);
+                    undef_vars.insert(n_it);
+                }
+                else
+                {   // new_ue_varsX may be the union of different array ranges. We may want to split the union into separated nodecls
+                    if (!non_killed_ue_vars.is_null())
+                        ue_vars.insert(non_killed_ue_vars);
+                    if (!non_undef_ue_vars.is_null())
+                        ue_vars.insert(non_undef_ue_vars);
+                }
+            }
+        }
+
+        // Propagate the killed variables
+        NBase non_killed_var;
+        for (NodeclSet::iterator it = killed_children.begin(); it != killed_children.end(); ++it)
+        {
+            NBase n_it = *it;
+            if (!Utils::nodecl_set_contains_enclosing_nodecl(n_it, undef_vars).is_null()
+                    || !Utils::nodecl_set_contains_enclosing_nodecl(n_it, killed_vars).is_null())
+                continue;
+
+            non_killed_var = Utils::nodecl_set_contains_enclosed_nodecl(n_it, undef_vars);
+            if (non_killed_var.is_null())
+            {   // Undef var set does not contain the current killed var
+                NBase already_killed_var = Utils::nodecl_set_contains_enclosed_nodecl(n_it, killed_vars);
+                if (!already_killed_var.is_null())
+                    killed_vars.erase(already_killed_var);    // A part of the variable was already killed: remove the subobject
+                killed_vars.insert(*it);                      // Insert the whole enclosing object
+            }
+            else
+            {   // Here a part of the nodecl has already been marked as undefined
+                NBase new_killed_vars;
+                new_killed_vars = split_var_depending_on_usage(n_it, non_killed_var);
+                if (new_killed_vars.is_null())
+                {   // When the set is null is because the separation has not been possible
+                    // Then, we set to undefined the whole object and remove the partial object from the killed list
+                    NBase already_killed_var = Utils::nodecl_set_contains_enclosed_nodecl(n_it, killed_vars);
+                    if (!already_killed_var.is_null())
+                        killed_vars.erase(already_killed_var);    // A part of the variable was already killed: remove the subobject
+                    undef_vars.insert(*it);                       // Insert the whole enclosing object
+                }
+                else
+                {   // Insert the computed killed parts in the corresponding list
+                    // new_killed_vars may be the union of different array ranges. We may want to split the union into separated nodecls
+                    killed_vars.insert(new_killed_vars);
+                }
+            }
+        }
+
+        // Propagate the undefined behavior variables of the children
+        NBase undef_previously_ue_subobject, undef_previously_killed_subobject;
+        for (NodeclSet::iterator it = undef_children.begin(); it != undef_children.end(); ++it)
+        {
+            NBase n_it = *it;
+            // Variables marked as KILLED cannot be UNDEF
+            if (!Utils::nodecl_set_contains_enclosing_nodecl(n_it, killed_vars).is_null())
+                continue;
+
+            undef_previously_ue_subobject = Utils::nodecl_set_contains_enclosed_nodecl(n_it, ue_vars);
+            undef_previously_killed_subobject = Utils::nodecl_set_contains_enclosed_nodecl(n_it, killed_vars);
+            if (undef_previously_ue_subobject.is_null() && undef_previously_killed_subobject.is_null())
+            {   // Neither ue nor killed var sets contain the current ue var
+                if (!Utils::nodecl_set_contains_enclosing_nodecl(n_it, undef_vars).is_null())
+                    continue;
+                else
+                {
+                    NBase tmp = Utils::nodecl_set_contains_enclosed_nodecl(n_it, undef_vars);
+                    if (!tmp.is_null())
+                        undef_vars.erase(tmp);        // Delete the enclosed var from the list
+                    undef_vars.insert(*it);           // Insert the new containing var
+                }
+            }
+            else
+            {
+                NBase non_ue_undef_vars, non_killed_undef_vars;
+                if (!undef_previously_ue_subobject.is_null())
+                {
+                    if (Utils::nodecl_set_contains_nodecl(n_it, ue_vars))
+                        non_ue_undef_vars = n_it;
+                    else
+                        non_ue_undef_vars = split_var_depending_on_usage(n_it, undef_previously_ue_subobject);
+                }
+                if (!undef_previously_killed_subobject.is_null())
+                    non_killed_undef_vars = split_var_depending_on_usage(n_it, undef_previously_killed_subobject);
+
+                if (non_ue_undef_vars.is_null() && non_killed_undef_vars.is_null())
+                {   // When the two sets are null is because the separation has not been possible
+                    // Then, we set to undef the whole object and remove the partial object from the corresponding list(s)
+                    if (!undef_previously_ue_subobject.is_null())
+                        ue_vars.erase(undef_previously_ue_subobject);
+                    if (!undef_previously_killed_subobject.is_null())
+                        killed_vars.erase(undef_previously_killed_subobject);
+                    undef_vars.insert(n_it);
+                }
+                else
+                {   // new_undef_varsX may be the union of different array ranges. We may want to split the union into separated nodecls
+                    if (!non_ue_undef_vars.is_null())
+                        undef_vars.insert(non_ue_undef_vars);
+                    if (!non_killed_undef_vars.is_null())
+                        undef_vars.insert(non_killed_undef_vars);
+                }
+            }
+        }
+
+        // Propagate the used addresses of the children
+        used_addresses.insert(used_addresses_children.begin(), used_addresses_children.end());
+    }
+
+    // **************************************************************************************************** //
+    // ******************************** Usage computing methods for graphs ******************************** //
+
+    void merge_children_usage(
+            NodeclSet& ue_vars, NodeclSet& killed_vars,
+            NodeclSet& undef_vars, int node_id)
+    {
+        // Purge UNDEF vars from those vars that are in both UE and KILLED lists
+        for (NodeclSet::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
+        {
+            if ((!Utils::nodecl_set_contains_enclosing_nodecl(*it, killed_vars).is_null()
+                    || !Utils::nodecl_set_contains_enclosed_nodecl(*it, killed_vars).is_null())
+                && !Utils::nodecl_set_contains_enclosing_nodecl(*it, undef_vars).is_null())
+            {
+                undef_vars.erase(*it);
+            }
+        }
+    }
+
+    /*!Recursive method that returns a list with three elements:
+     * - The first is the list of upper exposed variables of the graph node;
+     * - The second is the list of killed variables of the graph node
+     * - The third is the list of undefined variables of the graph
+     */
+    void get_use_def_over_nodes(Node* current, ObjectList<NodeclSet>& use_def)
+    {
+        // 1.- Base case: the node has already been visited
+        if (current->is_visited())
+            return;
+
+        current->set_visited(true);
+
+        // 2.- Task nodes information has already been propagated to its corresponding task_creation node
+        if (current->is_omp_task_node())
+            return;
+
+        // 3.- Compute the information from the children
+        // 3.1.- Concatenate info from children nodes
+        ObjectList<NodeclSet> use_def_aux;
+        const ObjectList<Node*>& children = current->get_children();
+        NodeclSet ue_children, killed_children, undef_children, used_addresses_children;
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        {
+            get_use_def_over_nodes(*it, use_def_aux);
+            if (!use_def_aux.empty())
+            {
+                ue_children.insert(use_def_aux[0].begin(), use_def_aux[0].end());
+                killed_children.insert(use_def_aux[1].begin(), use_def_aux[1].end());
+                undef_children.insert(use_def_aux[2].begin(), use_def_aux[2].end());
+                used_addresses_children.insert(use_def_aux[3].begin(), use_def_aux[3].end());
+            }
+        }
+        // 3.2.- Merge children (make the different sets to be consistent)
+        merge_children_usage(ue_children, killed_children, undef_children, current->get_id());
+
+        // 4.- Gather the Use-Def info of the current node
+        const NodeclSet& ue_vars = current->get_ue_vars();
+        const NodeclSet& killed_vars = current->get_killed_vars();
+        const NodeclSet& undef_vars = current->get_undefined_behaviour_vars();
+        const NodeclSet& used_addresses = current->get_used_addresses();
+
+        // 5.- Merge current node and its children usage information
+        NodeclSet new_ue_vars(ue_vars.begin(), ue_vars.end());
+        NodeclSet new_killed_vars(killed_vars.begin(), killed_vars.end());
+        NodeclSet new_undef_vars(undef_vars.begin(), undef_vars.end());
+        NodeclSet new_used_addresses(used_addresses.begin(), used_addresses.end());
+        propagate_usage_to_ancestor(
+                current,
+                new_ue_vars, new_killed_vars, new_undef_vars, new_used_addresses,
+                ue_children, killed_children, undef_children, used_addresses_children);
+
+        // 6.- Append the new usage information to the output parameter
+        if (!new_ue_vars.empty() || !new_killed_vars.empty()
+                || !new_undef_vars.empty() || !new_used_addresses.empty())
+        {
+            use_def.append(new_ue_vars);
+            use_def.append(new_killed_vars);
+            use_def.append(new_undef_vars);
+            use_def.append(new_used_addresses);
+        }
+    }
+
+    void purge_local_variables(Scope graph_sc, NodeclSet& vars_set)
+    {
+        NodeclSet::iterator it = vars_set.begin();
+        while (it != vars_set.end())
+        {
+            const NBase& n = it->no_conv();
+            const NBase& n_base = Utils::get_nodecl_base(n);
+            if (!n_base.is_null())
+            {
+//                 const ObjectList<Symbol>& func_params = _graph->get_function_parameters();
+                Scope var_sc(n_base.get_symbol().get_scope());
+                if (!n_base.get_symbol().get_type().is_pointer()
+                        && !n_base.get_symbol().get_type().is_array()
+                        && !n_base.get_symbol().get_type().is_any_reference()
+                        /* && !func_params.contains(n_base.get_symbol()) */     // Do we really need to purge this?
+                        && var_sc.scope_is_enclosed_by(graph_sc))
+                {
+                    vars_set.erase(it++);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    void set_graph_node_use_def(Node* n)
+    {
+        // 1.- Base cases: the node is not a graph or the node has already been visited
+        if (!n->is_graph_node())
+            return;
+        if (n->is_visited())
+            return;
+
+        n->set_visited(true);
+
+        // 2.- Get the information from the inner nodes of the graph
+        NodeclSet ue_vars, killed_vars, undef_vars, used_addresses;
+        ObjectList<NodeclSet> usage;
+        get_use_def_over_nodes(n->get_graph_entry_node(), usage);
+        if (!usage.empty())
+        {
+            ue_vars = usage[0];
+            killed_vars = usage[1];
+            undef_vars = usage[2];
+            used_addresses = usage[3];
+        }
+
+        NodeclSet private_ue_vars, private_killed_vars, private_undef_vars;
+        if (n->is_omp_loop_node() || n->is_omp_sections_node() || n->is_omp_single_node()
+            || n->is_omp_parallel_node() || n->is_omp_task_node())
+        {   // Take into account data-sharing clauses in Use-Def Task node computation
+            const Nodecl::List& environ =
+            n->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
+            for (Nodecl::List::iterator it = environ.begin(); it != environ.end(); ++it)
+            {
+                if (it->is<Nodecl::OpenMP::Private>())
+                {   // Remove any usage computed in the inner nodes,
+                    // because is the usage of a copy of this variable
+                    const Nodecl::List& private_syms =
+                    it->as<Nodecl::OpenMP::Private>().get_symbols().as<Nodecl::List>();
+                    for (Nodecl::List::const_iterator itp = private_syms.begin();
+                         itp != private_syms.end(); ++itp)
+                    {
+                        const NBase& n_itp = *itp;
+                        if (Utils::nodecl_set_contains_nodecl(n_itp, undef_vars))
+                        {
+                            undef_vars.erase(n_itp);
+                            private_undef_vars.insert(n_itp);
+                        }
+                        else
+                        {
+                            if (Utils::nodecl_set_contains_nodecl(n_itp, ue_vars))
+                            {
+                                ue_vars.erase(n_itp);
+                                private_ue_vars.insert(n_itp);
+                            }
+                            if (Utils::nodecl_set_contains_nodecl(n_itp, killed_vars))
+                            {
+                                killed_vars.erase(n_itp);
+                                private_killed_vars.insert(n_itp);
+                            }
+                        }
+                    }
+                }
+                if (it->is<Nodecl::OpenMP::Firstprivate>())
+                {   // This variable is Upper Exposed in the task
+                    const Nodecl::List& firstprivate_syms =
+                    it->as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
+                    for (Nodecl::List::const_iterator itfp = firstprivate_syms.begin();
+                         itfp != firstprivate_syms.end(); ++itfp)
+                    {
+                        const NBase& n_itfp = *itfp;
+                        if (Utils::nodecl_set_contains_nodecl(n_itfp, undef_vars))
+                        {
+                            undef_vars.erase(n_itfp);
+                            private_undef_vars.insert(n_itfp);
+                        }
+                        else if (Utils::nodecl_set_contains_nodecl(n_itfp, killed_vars))
+                        {
+                            killed_vars.erase(n_itfp);
+                            private_killed_vars.insert(n_itfp);
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {   // Purge variables local to the current graph
+            const Nodecl::NodeclBase& ast = n->get_graph_related_ast();
+            Scope graph_sc(ast.retrieve_context());
+            purge_local_variables(graph_sc, ue_vars);
+            purge_local_variables(graph_sc, killed_vars);
+            purge_local_variables(graph_sc, undef_vars);
+            purge_local_variables(graph_sc, used_addresses);
+            purge_local_variables(graph_sc, private_ue_vars);
+            purge_local_variables(graph_sc, private_killed_vars);
+            purge_local_variables(graph_sc, private_undef_vars);
+        }
+
+        // 3.- Set the info to the node
+        n->set_ue_var(ue_vars);
+        n->set_killed_var(killed_vars);
+        n->set_undefined_behaviour_var(undef_vars);
+        n->set_used_addresses(used_addresses);
+
+        n->set_private_ue_var(private_ue_vars);
+        n->set_private_killed_var(private_killed_vars);
+        n->set_private_undefined_behaviour_var(private_undef_vars);
+    }
+
+    // ****************************** END Usage computing methods for graphs ****************************** //
+    // **************************************************************************************************** //
 }    
 }
