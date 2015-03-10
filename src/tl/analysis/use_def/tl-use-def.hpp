@@ -77,7 +77,7 @@ namespace Analysis {
          * - The second is the list of killed variables of the graph node
          * - The third is the list of undefined variables of the graph
          */
-        ObjectList<NodeclSet> get_use_def_over_nodes(Node* current);
+        void get_use_def_over_nodes(Node* current, ObjectList<NodeclSet>& use_def);
 
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def(Node* graph_node);

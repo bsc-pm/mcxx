@@ -191,9 +191,9 @@ namespace Analysis {
         const SymToNodeclMap& param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
 
         // 2.2.- Get the usage computed for the called function
-        NodeclSet called_ue_vars = pcfg_node->get_ue_vars();
-        NodeclSet called_killed_vars = pcfg_node->get_killed_vars();
-        NodeclSet called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
+        const NodeclSet& called_ue_vars = pcfg_node->get_ue_vars();
+        const NodeclSet& called_killed_vars = pcfg_node->get_killed_vars();
+        const NodeclSet& called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
         // 2.3.- Propagate pointer parameters usage to the current node
 
         if (any_parameter_is_pointer(called_params))
@@ -219,7 +219,7 @@ namespace Analysis {
 
         // 3. Usage of the global variables must be propagated too
         // 3.1 Add the global variables used in the called graph to the current graph
-        NodeclSet ipa_global_vars = called_pcfg->get_global_variables();
+        const NodeclSet& ipa_global_vars = called_pcfg->get_global_variables();
         _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
         propagate_global_variables_usage(called_ue_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
@@ -261,7 +261,7 @@ namespace Analysis {
         // 2.- Check for the usage in the graph of the function to propagate Usage 
         //     until the point we are currently (only for reference parameters and global variables)
         SymToNodeclMap param_to_arg_map = get_parameters_to_arguments_map(params, args);
-        NodeclSet global_vars = _pcfg->get_global_variables();
+        const NodeclSet& global_vars = _pcfg->get_global_variables();
         for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
         {
             NBase var = it->first;
@@ -346,7 +346,7 @@ namespace Analysis {
                     // Only examine the arguments (and global variables in 'pure' case)
                     side_effects = false;
 
-                    NodeclSet ue_vars;
+                    NodeclSet& ue_vars = _node->get_ue_vars();
                     NodeclSet killed_vars;
                     NodeclSet undef_vars;
                     // Set all parameters as used (if not previously killed or undefined)
@@ -361,8 +361,8 @@ namespace Analysis {
 
                     if(attr_name == "pure")
                     {   // Set all global variables variables as upper exposed (if not previously killed or undefined)
-                        NodeclSet global_vars = _pcfg->get_global_variables();
-                        for(NodeclSet::iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
+                        const NodeclSet& global_vars = _pcfg->get_global_variables();
+                        for(NodeclSet::const_iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
                         {
                             if (Utils::nodecl_set_contains_enclosing_nodecl(*it_g, killed_vars).is_null() && 
                                 Utils::nodecl_set_contains_enclosing_nodecl(*it_g, undef_vars).is_null())
@@ -372,7 +372,6 @@ namespace Analysis {
                             // FIXME If an enclosed part is in some set, we should be splitting the usage here
                         }
                     }
-                    _node->add_ue_var(ue_vars);
                     if(attr_name == "pure")
                         break;
                 }
@@ -768,9 +767,9 @@ namespace Analysis {
                     }
                     
                     // Set all global variables to undefined
-                    NodeclSet killed = _node->get_killed_vars();
-                    NodeclSet global_vars = _pcfg->get_global_variables();
-                    for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+                    const NodeclSet& killed = _node->get_killed_vars();
+                    const NodeclSet& global_vars = _pcfg->get_global_variables();
+                    for(NodeclSet::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
                     {
                         if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
                             Utils::nodecl_set_contains_enclosed_nodecl(*it, killed).is_null())
@@ -788,7 +787,7 @@ namespace Analysis {
     {
         // All parameters as UNDEFINED, we do not know whether they are passed by value or by reference
         // All global variables as UNDEFINED
-        NodeclSet killed = _node->get_killed_vars();
+        const NodeclSet& killed = _node->get_killed_vars();
         for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
         {
             if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
@@ -798,8 +797,8 @@ namespace Analysis {
             }
         }
         
-        NodeclSet global_vars = _pcfg->get_global_variables();
-        for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+        const NodeclSet& global_vars = _pcfg->get_global_variables();
+        for (NodeclSet::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
             if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
                 Utils::nodecl_set_contains_enclosed_nodecl(*it, killed).is_null())

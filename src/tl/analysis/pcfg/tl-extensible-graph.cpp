@@ -558,7 +558,7 @@ namespace Analysis {
         {
             current->set_visited_extgraph(true);
 
-            NodeclSet killed = current->get_killed_vars();
+            const NodeclSet& killed = current->get_killed_vars();
             if(Utils::nodecl_set_contains_nodecl(n, killed))
                 return true;
 
@@ -852,7 +852,7 @@ namespace Analysis {
         return _sc;
     }
 
-    NodeclSet ExtensibleGraph::get_global_variables() const
+    const NodeclSet& ExtensibleGraph::get_global_variables() const
     {
         return _global_vars;
     }

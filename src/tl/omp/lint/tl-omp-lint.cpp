@@ -679,7 +679,7 @@ check_sync:
             const Nodecl::NodeclBase& v,
             TL::Analysis::ExtensibleGraph* pcfg)
     {
-        TL::Analysis::NodeclSet global_vars = pcfg->get_global_variables();
+        const TL::Analysis::NodeclSet& global_vars = pcfg->get_global_variables();
         Nodecl::NodeclBase v_base = TL::Analysis::Utils::get_nodecl_base(v);
         return (global_vars.find(v) != global_vars.end()
                     || (!v_base.is_null()
@@ -946,7 +946,7 @@ check_sync:
 
         // 1.4.- Get the set of variables defined within the task
         //     To be conservative, the undefined behavior variables count as definitions
-        TL::Analysis::NodeclSet task_defs = task->get_killed_vars();
+        TL::Analysis::NodeclSet& task_defs = task->get_killed_vars();
 //         const TL::Analysis::NodeclSet& task_undef = task->get_undefined_behaviour_vars();
 //         task_defs.insert(task_undef.begin(), task_undef.end());
 
@@ -1333,7 +1333,6 @@ skip_current_var: ;
         TL::Analysis::Node* task_entry = task->get_graph_entry_node();
         TL::Analysis::Node* task_exit = task->get_graph_exit_node();
         TL::ObjectList<TL::Analysis::Edge*> entries = task_exit->get_entry_edges();
-        TL::Analysis::NodeclSet killed_vars;
         std::set<TL::Analysis::Node*> visited_nodes;
         while (!entries.empty())
         {
@@ -1352,9 +1351,8 @@ skip_current_var: ;
 
                 // When a variable has pointer or array type, only the variable itself is included in the data-sharing attributes list
                 // Nonetheless, we also need to check the usage of the pointed values
-                killed_vars = src->get_killed_vars();
                 const Nodecl::List& killed_subparts =
-                        TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(n, killed_vars);
+                        TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(n, src->get_killed_vars());
                 if (!killed_subparts.is_null())
                 {
                     for (Nodecl::List::iterator itk = killed_subparts.begin(); itk != killed_subparts.end(); ++itk)
@@ -1553,17 +1551,20 @@ skip_current_var: ;
         }
         
         // 2.- Collect usage of variables inside the task
-        TL::Analysis::NodeclSet all_ue_vars = task->get_ue_vars();
-        const TL::Analysis::NodeclSet& private_ue_vars = task->get_private_ue_vars( );
+        const TL::Analysis::NodeclSet& ue_vars = task->get_ue_vars();
+        const TL::Analysis::NodeclSet& private_ue_vars = task->get_private_ue_vars();
+        TL::Analysis::NodeclSet all_ue_vars(ue_vars.begin(), ue_vars.end());
         all_ue_vars.insert(private_ue_vars.begin(), private_ue_vars.end());
-        
-        TL::Analysis::NodeclSet all_killed_vars = task->get_killed_vars();
-        const TL::Analysis::NodeclSet& private_killed_vars = task->get_private_killed_vars( );
+
+        const TL::Analysis::NodeclSet& killed_vars = task->get_killed_vars();
+        const TL::Analysis::NodeclSet& private_killed_vars = task->get_private_killed_vars();
+        TL::Analysis::NodeclSet all_killed_vars(killed_vars.begin(), killed_vars.end());
         all_killed_vars.insert(private_killed_vars.begin(), private_killed_vars.end());
 
         // FIXME We must distinguish here certain incoherencies from uncertain ones
-//         TL::Analysis::NodeclSet all_undef_vars = task->get_undefined_behaviour_vars( );
-//         const TL::Analysis::NodeclSet& private_undef_vars = task->get_private_undefined_behaviour_vars( );
+//         const TL::Analysis::NodeclSet& undef_vars = task->get_undefined_behaviour_vars();
+//         const TL::Analysis::NodeclSet& private_undef_vars = task->get_private_undefined_behaviour_vars();
+//         TL::Analysis::NodeclSet all_undef_vars(undef_vars.begin);
 //         all_undef_vars.insert(private_undef_vars.begin(), private_undef_vars.end());
         
         TL::Analysis::NodeclSet all_vars = all_ue_vars;
@@ -1680,8 +1681,8 @@ skip_current_var: ;
         }
         
         // 2.- Collect the use-definition information of the task
-        TL::Analysis::NodeclSet ue_vars = task->get_ue_vars();
-        TL::Analysis::NodeclSet killed_vars = task->get_killed_vars();
+        const TL::Analysis::NodeclSet& ue_vars = task->get_ue_vars();
+        const TL::Analysis::NodeclSet& killed_vars = task->get_killed_vars();
         
         // 3.1.- Check whether all input dependencies are read within the task
         std::string incoherent_depin_vars;

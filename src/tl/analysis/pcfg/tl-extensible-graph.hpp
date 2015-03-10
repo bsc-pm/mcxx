@@ -374,7 +374,7 @@ namespace Analysis {
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope() const;
 
-        NodeclSet get_global_variables() const;
+        const NodeclSet& get_global_variables() const;
         void set_global_vars(const NodeclSet& global_vars);
 
         //! Returns the symbol of the function contained in the graph
