@@ -135,8 +135,8 @@ namespace {
     {
         SyncModification modification_type = Keep;
 
-        NodeclMap m_reaching_defs_in = m_node->get_reaching_definitions_in();
-        NodeclSet m_killed_vars = m_node->get_killed_vars();
+        const NodeclMap& m_reaching_defs_in = m_node->get_reaching_definitions_in();
+        const NodeclSet& m_killed_vars = m_node->get_killed_vars();
         if((m_reaching_defs_in.count(m) == 1) && (m_killed_vars.find(m) == m_killed_vars.end()))
         {   // There is a unique reaching definition of the subscript and it is not defined inside the m_node node
             NBase m_reach_def = m_reaching_defs_in.find(m)->second.first;

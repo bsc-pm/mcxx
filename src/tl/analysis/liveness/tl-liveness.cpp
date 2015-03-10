@@ -175,7 +175,10 @@ namespace Analysis {
         for (ObjectList<Node*>::const_iterator it = tc_children.begin(); it != tc_children.end(); ++it)
         {
             if(*it != task)
-                succ_live_in = Utils::nodecl_set_union(succ_live_in, (*it)->get_live_in_vars());
+            {
+                const NodeclSet& li = (*it)->get_live_in_vars();
+                succ_live_in.insert(li.begin(), li.end());
+            }
         }
 
         // 3.- Remove from the set of successors LI those variables private to the task
@@ -245,14 +248,20 @@ namespace Analysis {
         NodeclSet live_out;
         const ObjectList<Node*>& parents = n->get_graph_exit_node()->get_parents();
         for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-            live_out = Utils::nodecl_set_union(live_out, (*it)->get_live_out_vars());
+        {
+            const NodeclSet& lo = (*it)->get_live_out_vars();
+            live_out.insert(lo.begin(), lo.end());
+        }
         n->set_live_out(live_out);
 
         // 2.- LI(graph) = U LI(inner entries)
         NodeclSet all_live_in;
         const ObjectList<Node*>& children = n->get_graph_entry_node()->get_children();
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-            all_live_in = Utils::nodecl_set_union(all_live_in, (*it)->get_live_in_vars());
+        {
+            const NodeclSet& li = (*it)->get_live_in_vars();
+            all_live_in.insert(li.begin(), li.end());
+        }
         // 2.1.- Delete those variables which are local to the graph
         NodeclSet live_in;
         if (n->is_context_node())

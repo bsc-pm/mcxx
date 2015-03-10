@@ -550,10 +550,9 @@ namespace Analysis {
             //! Returns true when some usage information has been computed for the node
             bool usage_is_computed();
 
-            bool uses_var(const NBase& n);
-
+            // **** Upwards exposed *** //
             //! Returns the list of upward exposed variables of the node
-            NodeclSet get_ue_vars();
+            NodeclSet& get_ue_vars();
 
             //! Adds a new upward exposed variable to the node
             void add_ue_var(const NBase& new_ue_var);
@@ -568,7 +567,7 @@ namespace Analysis {
             void remove_ue_var(const NBase& old_ue_var);
 
             //! Returns the list of private upward exposed variables of the node
-            NodeclSet get_private_ue_vars();
+            NodeclSet& get_private_ue_vars();
 
             //! Adds a new set of private upward exposed variable to the node
             void add_private_ue_var(const NodeclSet& new_private_ue_vars);
@@ -576,8 +575,9 @@ namespace Analysis {
             //! Sets a new set of upwards exposed variables
             void set_private_ue_var(const NodeclSet& new_private_ue_vars);
 
+            // **** Killed *** //
             //! Returns the list of killed variables of the node
-            NodeclSet get_killed_vars();
+            NodeclSet& get_killed_vars();
 
             //! Adds a new killed variable to the node
             void add_killed_var(const NBase& new_killed_var);
@@ -592,7 +592,7 @@ namespace Analysis {
             void remove_killed_var(const NBase& old_killed_var);
 
             //! Returns the list of private killed variables of the node
-            NodeclSet get_private_killed_vars();
+            NodeclSet& get_private_killed_vars();
 
             //! Adds a new private killed variable to the node
             void add_private_killed_var(const NodeclSet& new_private_killed_vars);
@@ -600,8 +600,9 @@ namespace Analysis {
             //! Sets a new set of killed variables
             void set_private_killed_var(const NodeclSet& new_private_killed_vars);
 
+            // **** Undefined behavior *** //
             //! Returns the list of undefined behaviour variables of the node
-            NodeclSet get_undefined_behaviour_vars();
+            NodeclSet& get_undefined_behaviour_vars();
 
             //! Adds a new undefined behaviour variable to the node
             void add_undefined_behaviour_var(const NBase& new_undef_var);
@@ -618,7 +619,7 @@ namespace Analysis {
             void remove_undefined_behaviour_var(const NBase& old_undef_var);
 
             //! Returns the list of private undefined behaviour variables of the node
-            NodeclSet get_private_undefined_behaviour_vars();
+            NodeclSet& get_private_undefined_behaviour_vars();
 
             //! Adds a new private undefined behaviour variable to the node
             void add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars);
@@ -626,8 +627,9 @@ namespace Analysis {
             //! Sets a new set of killed variables
             void set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars);
 
+            // **** Used addresses *** //
             //! Returns the list of used addresses within the node
-            NodeclSet get_used_addresses();
+            NodeclSet& get_used_addresses();
 
             //! Adds a new address to the list of used addresses of the node
             void add_used_address(const NBase& es);
@@ -643,8 +645,9 @@ namespace Analysis {
             // ****************************************************************************** //
             // ****************** Getters and setters for liveness analysis ***************** //
 
+            // **** Live In *** //
             //! Returns the set of variables that are alive at the entry of the node.
-            NodeclSet get_live_in_vars();
+            NodeclSet& get_live_in_vars();
 
             //! Adds a new live in variable to the node.
             void set_live_in(const NBase& new_live_in_var);
@@ -655,8 +658,9 @@ namespace Analysis {
              */
             void set_live_in(const NodeclSet& new_live_in_set);
 
+            // **** Live out *** //
             //! Returns the set of variables that are alive at the exit of the node.
-            NodeclSet get_live_out_vars();
+            NodeclSet& get_live_out_vars();
 
             //! Adds a new live out variable to the node removing any other variable contained in the new one
             void add_live_out(const NodeclSet& new_live_out_set);
@@ -679,24 +683,27 @@ namespace Analysis {
             // ************ Getters and setters for reaching definitions analysis *********** //
 
             //! Return the map containing all statements containing a generated value
-            NodeclMap get_generated_stmts();
+            NodeclMap& get_generated_stmts();
 
             //! Include a new map of generated values
-            //! If a definition of the same variable already existed, the is substituted by the new value
-            NodeclMap set_generated_stmts(const NodeclMap& gen);
+            //! If a definition of the same variable already existed, it is replaced with the new value
+            void set_generated_stmts(const NodeclMap& gen);
 
             //! Return the map containing all symbols reached at the entry of the node and its reached expression
-            NodeclMap get_reaching_definitions_in();
+            NodeclMap& get_reaching_definitions_in();
 
             //! Return the map containing all symbols reached at the exit of the node and its reached expression
-            NodeclMap get_reaching_definitions_out();
+            NodeclMap& get_reaching_definitions_out();
 
             //! Set a new pair to the input reaching definitions of the node
             void set_reaching_definition_in(const NBase& var, const NBase& init, const NBase& stmt);
+
             //! Set a new list of input reaching definitions to the node deleting the previous list, if it existed
             void set_reaching_definitions_in(const NodeclMap& reach_defs_in);
+
             //! Set a new pair to the output reaching definitions of the node
             void set_reaching_definition_out(const NBase& var, const NBase& init, const NBase& stmt);
+
             //! Set a new list of output reaching definitions to the node deleting the previous list, if it existed
             void set_reaching_definitions_out(const NodeclMap& reach_defs_out);
 
@@ -709,7 +716,7 @@ namespace Analysis {
             // ******************* Getters and setters for loops analysis ******************* //
 
             //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
-            Utils::InductionVarList get_induction_variables();
+            Utils::InductionVarList& get_induction_variables();
 
             //! Set a new induction variable in a loop graph node
             void set_induction_variable(Utils::InductionVar* iv);
@@ -750,7 +757,7 @@ namespace Analysis {
             // ****************************************************************************** //
             // ******************* Getters and setters for OmpSs analysis ******************* //
 
-            NBase get_task_context();
+            const NBase& get_task_context();
 
             void set_task_context(NBase c);
 

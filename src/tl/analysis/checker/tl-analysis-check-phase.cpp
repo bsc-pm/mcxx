@@ -971,7 +971,6 @@ namespace {
         Node* graph_node = graph->get_graph( );
         check_task_synchronizations( graph_node );
         ExtensibleGraph::clear_visits( graph_node );
-
     }
 
     void AnalysisCheckPhase::check_analysis_assertions( ExtensibleGraph* graph )

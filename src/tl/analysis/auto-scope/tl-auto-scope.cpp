@@ -48,14 +48,14 @@ namespace {
                 }
                 else
                 {
-                    NodeclSet undef = current->get_undefined_behaviour_vars();
-                    if(Utils::nodecl_set_contains_nodecl(n, undef))
+                    const NodeclSet& undef = current->get_undefined_behaviour_vars();
+                    if (Utils::nodecl_set_contains_nodecl(n, undef))
                         result = Utils::UsageKind::UNDEFINED;
-                    NodeclSet ue = current->get_ue_vars();
-                    if(Utils::nodecl_set_contains_nodecl(n, ue))
+                    const NodeclSet& ue = current->get_ue_vars();
+                    if (Utils::nodecl_set_contains_nodecl(n, ue))
                         result = Utils::UsageKind::USED;
-                    NodeclSet killed = current->get_killed_vars();
-                    if(Utils::nodecl_set_contains_nodecl(n, killed))
+                    const NodeclSet& killed = current->get_killed_vars();
+                    if (Utils::nodecl_set_contains_nodecl(n, killed))
                         result = Utils::UsageKind::DEFINED;
                 }
                 
@@ -109,8 +109,8 @@ namespace {
                 }
                 else
                 {
-                    NodeclSet ue_vars = current->get_ue_vars();
-                    NodeclSet killed_vars = current->get_killed_vars();
+                    const NodeclSet& ue_vars = current->get_ue_vars();
+                    const NodeclSet& killed_vars = current->get_killed_vars();
                     if ((Utils::nodecl_set_contains_nodecl(n, ue_vars) || 
                         Utils::nodecl_set_contains_nodecl(n, killed_vars)) &&
                         !ExtensibleGraph::node_is_in_synchronous_construct(current))
@@ -222,8 +222,8 @@ namespace {
             {
                 Scope sc(task->get_graph_related_ast().retrieve_context());
 
-                const NodeclSet& ue = current->get_ue_vars();
-                for(NodeclSet::const_iterator it = ue.begin(); it != ue.end(); ++it)
+                NodeclSet& ue = current->get_ue_vars();
+                for(NodeclSet::iterator it = ue.begin(); it != ue.end(); ++it)
                 {
                     Symbol s(it->get_symbol());
                     if(s.is_valid() && !s.get_scope().scope_is_enclosed_by(sc))
