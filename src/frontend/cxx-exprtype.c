@@ -24831,6 +24831,254 @@ nodecl_t cxx_nodecl_make_function_call(
     }
 }
 
+char check_nodecl_template_argument_can_be_converted_to_parameter_type(
+        nodecl_t nodecl_argument,
+        type_t* parameter_type,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_out)
+{
+    const locus_t* locus = nodecl_get_locus(nodecl_argument);
+    type_t* argument_type = nodecl_get_type(nodecl_argument);
+    parameter_type = get_unqualified_type(parameter_type);
+
+    if (is_dependent_type(parameter_type)
+            || nodecl_expr_is_type_dependent(nodecl_argument)
+            || is_dependent_type(argument_type))
+    {
+        *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+        return 1;
+    }
+
+    standard_conversion_t scs;
+    if (is_integral_type(parameter_type)
+            || is_enum_type(parameter_type))
+    {
+        if (!standard_conversion_between_types(&scs, argument_type, parameter_type, locus))
+            return 0;
+
+        // for a non-type template-parameter of integral or enumeration type,
+        // integral promotions and integral conversions are applied
+        if ((scs.conv[0] == SCI_IDENTITY) 
+                || ((scs.conv[0] == SCI_NO_CONVERSION
+                        || scs.conv[0] == SCI_LVALUE_TO_RVALUE)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_INTEGRAL_PROMOTION
+                        || scs.conv[1] == SCI_INTEGRAL_CONVERSION
+                        || scs.conv[1] == SCI_BOOLEAN_CONVERSION)
+                    && (scs.conv[2] == SCI_NO_CONVERSION)))
+        {
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else if (is_pointer_type(parameter_type)
+            && !is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        if (!standard_conversion_between_types(&scs, argument_type, parameter_type, locus))
+            return 0;
+
+        // for a non-type template-parameter of type pointer to object, qualification conversions (4.4) and the
+        // array-to-pointer conversion (4.2) are applied; if the template-argument is of type std::nullptr_t, the
+        // null pointer conversion (4.10) is applied. [ Note: In particular, neither the null pointer conversion for
+        // a zero-valued integral constant expression (4.10) nor the derived-to-base conversion (4.10) are applied.
+        // Although 0 is a valid template-argument for a non-type template-parameter of integral type, it is not
+        // a valid template-argument for a non-type template-parameter of pointer type. However, both (int*)0
+        // and nullptr are valid template-arguments for a non-type template-parameter of type “pointer to int.”
+        // — end note ]
+        if ((scs.conv[0] == SCI_IDENTITY) 
+                || ((scs.conv[0] == SCI_NO_CONVERSION
+                        || scs.conv[0] == SCI_LVALUE_TO_RVALUE
+                        || scs.conv[0] == SCI_ARRAY_TO_POINTER)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)
+                    && (scs.conv[2] == SCI_NO_CONVERSION
+                        || scs.conv[2] == SCI_QUALIFICATION_CONVERSION)))
+        {
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else if (is_any_reference_type(parameter_type)
+            && !is_function_type(no_ref(parameter_type)))
+    {
+        // For a non-type template-parameter of type reference to object, no
+        // conversions apply. The type referred to by the reference may be more
+        // cv-qualified than the (otherwise identical) type of the template- argument.
+        // The template-parameter is bound directly to the template-argument, which
+        // shall be an lvalue.
+
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(parameter_type)),
+                    get_unqualified_type(no_ref(argument_type))))
+            return 0;
+
+        if (!is_more_or_equal_cv_qualified_type(no_ref(parameter_type),
+                    no_ref(argument_type)))
+            return 0;
+
+        if (!is_lvalue_reference_type(argument_type))
+            return 0;
+
+        *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+        return 1;
+    }
+    else if (is_pointer_type(parameter_type)
+            && is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        // For a non-type template-parameter of type pointer to function, the
+        // function-to-pointer conversion (4.3) is applied; if the template-argument is
+        // of type std::nullptr_t, the null pointer conversion (4.10) is applied. If
+        // the template-argument represents a set of overloaded functions (or a pointer
+        // to such), the matching function is selected from the set (13.4).
+
+        if (is_unresolved_overloaded_type(argument_type))
+        {
+            scope_entry_t* entry = address_of_overloaded_function(
+                    unresolved_overloaded_type_get_overload_set(argument_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(argument_type),
+                    parameter_type,
+                    decl_context,
+                    locus);
+
+            if (entry == NULL)
+                return 0;
+
+            *nodecl_out = nodecl_make_symbol(entry, locus);
+            nodecl_set_type(*nodecl_out,
+                    get_pointer_type(entry->type_information));
+            return 1;
+        }
+        else
+        {
+            if (!standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus))
+                return 0;
+
+            if ((scs.conv[0] == SCI_IDENTITY)
+                    || ((scs.conv[0] == SCI_NO_CONVERSION
+                        || scs.conv[0] == SCI_FUNCTION_TO_POINTER)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)))
+            {
+                *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+                return 1;
+            }
+        }
+    }
+    else if (is_any_reference_type(parameter_type)
+            && is_function_type(no_ref(parameter_type)))
+    {
+        // For a non-type template-parameter of type reference to function, no
+        // conversions apply. If the template- argument represents a set of
+        // overloaded functions, the matching function is selected from the set
+        // (13.4).
+        if (is_unresolved_overloaded_type(argument_type))
+        {
+            scope_entry_t* entry = address_of_overloaded_function(
+                    unresolved_overloaded_type_get_overload_set(argument_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(argument_type),
+                    parameter_type,
+                    decl_context,
+                    locus);
+
+            if (entry == NULL)
+                return 0;
+
+            *nodecl_out = nodecl_make_symbol(entry, locus);
+            nodecl_set_type(*nodecl_out,
+                    get_lvalue_reference_type(entry->type_information));
+            return 1;
+        }
+        else
+        {
+            if (!equivalent_types(parameter_type, argument_type))
+                return 0;
+
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else if (is_pointer_to_member_type(parameter_type)
+            && is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        // For a non-type template-parameter of type pointer to member function, if the template-argument is of
+        // type std::nullptr_t, the null member pointer conversion (4.11) is applied; otherwise, no conversions
+        // apply. If the template-argument represents a set of overloaded member functions, the matching member
+        // function is selected from the set (13.4).
+        if (is_unresolved_overloaded_type(argument_type))
+        {
+            scope_entry_t* entry = address_of_overloaded_function(
+                    unresolved_overloaded_type_get_overload_set(argument_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(argument_type),
+                    parameter_type,
+                    decl_context,
+                    locus);
+
+            if (entry == NULL)
+                return 0;
+
+            *nodecl_out = nodecl_make_symbol(entry, locus);
+            nodecl_set_type(*nodecl_out,
+                    get_pointer_to_member_type(entry->type_information,
+                        symbol_entity_specs_get_class_type(entry)));
+            return 1;
+        }
+        else
+        {
+            if (!standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus))
+                return 0;
+
+            if ((scs.conv[0] == SCI_IDENTITY)
+                    || ((scs.conv[0] == SCI_NO_CONVERSION)
+                        && (scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)
+                        && (scs.conv[2] == SCI_NO_CONVERSION)))
+            {
+                *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+                return 1;
+            }
+        }
+    }
+    else if (is_pointer_to_member_type(parameter_type)
+            && !is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        // For a non-type template-parameter of type pointer to data member, qualification conversions (4.4) are
+        // applied; if the template-argument is of type std::nullptr_t, the null member pointer conversion (4.11)
+        // is applied.
+        if (!standard_conversion_between_types(&scs,
+                    argument_type,
+                    parameter_type,
+                    locus))
+            return 0;
+
+        if (scs.conv[0] == SCI_IDENTITY)
+            return 1;
+
+        if ((scs.conv[0] == SCI_IDENTITY)
+                || ((scs.conv[0] == SCI_NO_CONVERSION)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)
+                    && (scs.conv[2] == SCI_NO_CONVERSION
+                        || scs.conv[2] == SCI_QUALIFICATION_CONVERSION)))
+        {
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable argument_type=%s parameter_type=%s",
+                print_declarator(argument_type),
+                print_declarator(parameter_type));
+    }
+
+    return 0;
+}
+
 char check_nontype_template_argument_type(type_t* t)
 {
     return is_integral_type(t)
@@ -24841,8 +25089,9 @@ char check_nontype_template_argument_type(type_t* t)
         || is_dependent_type(t);
 }
 
-char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
-        decl_context_t decl_context, 
+char check_nodecl_nontype_template_argument_expression(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     if (nodecl_expr_is_value_dependent(nodecl_expr)
@@ -24956,8 +25205,8 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
     return 1;
 }
 
-char check_nontype_template_argument_expression(AST expression, 
-        decl_context_t decl_context, 
+char check_nontype_template_argument_expression(AST expression,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
