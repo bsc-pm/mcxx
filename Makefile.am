@@ -2441,8 +2441,8 @@ src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
-                              -I src/tl/vectorization/vector-lowering/knc/legalization \
-                              -I src/tl/vectorization/vector-lowering/knc/backend \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/knc/legalization \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/knc/backend \
                               $(END)
 
 src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_LDFLAGS = $(tl_ldflags)
