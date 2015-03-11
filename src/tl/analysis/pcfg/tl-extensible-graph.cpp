@@ -38,7 +38,7 @@ namespace Analysis {
           _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
           _concurrent_tasks(), _last_sync_tasks(), _last_sync_sequential(), _next_sync_tasks(), _next_sync_sequential(),
-          _cluster_to_entry_map()
+          _cluster_to_entry_map(), _usage_computed(false)
     {
 
         _graph = create_graph_node(NULL, nodecl, __ExtensibleGraph);
@@ -1581,13 +1581,19 @@ namespace Analysis {
         return result;
     }
 
-    bool ExtensibleGraph::usage_is_computed()
+    // ******* Getters and setters for analyses built on top of the PCFG ******* //
+
+    bool ExtensibleGraph::usage_is_computed() const
     {
-        bool result = false;
-        if(_graph->usage_is_computed())
-            result = true;
-        return result;
+        return _usage_computed;
     }
+
+    void ExtensibleGraph::set_usage_computed()
+    {
+        _usage_computed = true;
+    }
+
+    // ***** END Getters and setters for analyses built on top of the PCFG ***** //
 
 }
 }

@@ -141,6 +141,7 @@ namespace Analysis {
         Node* graph = _graph->get_graph();
         compute_usage_rec(graph);
         ExtensibleGraph::clear_visits(graph);
+        _graph->set_usage_computed();
     }
 
     // Top bottom traversal

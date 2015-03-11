@@ -45,6 +45,11 @@ namespace Analysis {
     //! Necessary for IPA analysis
     void gather_graph_usage_rec(Node* n)
     {
+        if (n->is_visited())
+            return;
+
+        n->set_visited(true);
+
         // 1.- Gather info for the current node, if it is a graph node
         if (n->is_graph_node())
         {
@@ -69,6 +74,7 @@ namespace Analysis {
         Node* n = graph->get_graph();
         gather_graph_usage_rec(n);
         ExtensibleGraph::clear_visits(n);
+        graph->set_usage_computed();
     }
 
     // ******************************************************************************************** //

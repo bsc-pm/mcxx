@@ -1274,11 +1274,6 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for use-definition analysis ************** //
 
-    bool Node::usage_is_computed()
-    {
-        return (has_key(_UPPER_EXPOSED) || has_key(_KILLED) || has_key(_UNDEF));
-    }
-
     // **** Upwards exposed *** //
     NodeclSet& Node::get_ue_vars()
     {
@@ -1534,7 +1529,7 @@ namespace Analysis {
     Utils::InductionVarList& Node::get_induction_variables()
     {
         ERROR_CONDITION(!is_loop_node() && !is_omp_loop_node()
-                            && (!is_graph_node() || get_graph_related_ast().is<Nodecl::FunctionCode>()),
+                            && (!is_graph_node() || !get_graph_related_ast().is<Nodecl::FunctionCode>()),
                         "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
                         _id, get_type_as_string().c_str());
 
