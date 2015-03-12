@@ -147,7 +147,7 @@ namespace Analysis {
             std::set<Nodecl::NodeclBase> visited_nodes)
     {
         NodeclMap all_reach_defs;
-        NodeclSet killed_vars = stmt_node->get_killed_vars();
+        const NodeclSet& killed_vars = stmt_node->get_killed_vars();
 
         // If n is being defined (killed) in this stmt, we don't look into their RD in
         // We study their RD out (LHS) instead.

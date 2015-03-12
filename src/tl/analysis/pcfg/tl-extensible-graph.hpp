@@ -87,7 +87,6 @@ namespace Analysis {
 
 
         // *** Values used during the analysis *** //
-
         //! List of nodes containing task's code
         ObjectList<Node*> _task_nodes_l;
 
@@ -96,18 +95,24 @@ namespace Analysis {
 
         //! Map that relates each task in the graph with the tasks that are concurrent with it
         std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
+
         //! Map that relates each task with the previous points in the code 
         //! from where to look for sequential code concurrent with the task
         std::map<Node*, ObjectList<Node*> > _last_sync_tasks;
         std::map<Node*, ObjectList<Node*> > _last_sync_sequential;
+
         //! Map that relates each task with the posterior points in the code
         //! from where to look for sequential code concurrent with the task
         std::map<Node*, ObjectList<Node*> > _next_sync_tasks;
         std::map<Node*, ObjectList<Node*> > _next_sync_sequential;
-        
+
+
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
         std::map<int, int> _cluster_to_entry_map;
+
+        // *** Variables storing info about analyses built on top of the PCFG *** //
+        bool _usage_computed;
 
     private:
         //! We don't want to allow this kind of constructions
@@ -374,7 +379,7 @@ namespace Analysis {
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope() const;
 
-        NodeclSet get_global_variables() const;
+        const NodeclSet& get_global_variables() const;
         void set_global_vars(const NodeclSet& global_vars);
 
         //! Returns the symbol of the function contained in the graph
@@ -443,15 +448,14 @@ namespace Analysis {
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //
-        //!Returns true if a given nodecl is not modified in a given context
-        static bool is_constant_in_context(Node* context, NBase c);
-        
         static bool has_been_defined(Node* current, Node* scope, const NBase& n);
-        
+
         Node* find_nodecl(const NBase& n);           // structural search
         Node* find_nodecl_pointer(const NBase& n);   // pointer search
-        
-        bool usage_is_computed();
+
+        // *** Getters and setters for analyses built on top of the PCFG *** //
+        bool usage_is_computed() const;
+        void set_usage_computed();
 
     friend class PCFGVisitor;
     };

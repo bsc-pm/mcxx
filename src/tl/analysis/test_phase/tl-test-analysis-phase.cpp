@@ -119,7 +119,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "==============  Testing Use-Definition analysis  ==============" << std::endl;
-            analysis.use_def(ast);
+            analysis.use_def(ast, /*propagate_graph_nodes*/ false);
             if (VERBOSE)
                 std::cerr << "============  Testing Use-Definition analysis done  ===========" << std::endl;
         }
@@ -128,7 +128,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "=================  Testing Liveness analysis  ==================" << std::endl;
-            analysis.liveness(ast);
+            analysis.liveness(ast, /*propagate_graph_nodes*/ false);
             if (VERBOSE)
                 std::cerr << "===============  Testing Liveness analysis done  ===============" << std::endl;
         }
@@ -137,7 +137,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "===========  Testing Reaching Definitions analysis  ============" << std::endl;
-            analysis.reaching_definitions(ast);
+            analysis.reaching_definitions(ast, /*propagate_graph_nodes*/ false);
             if (VERBOSE)
                 std::cerr << "=========  Testing Reaching Definitions analysis done  =========" << std::endl;
         }
@@ -146,7 +146,7 @@ namespace Analysis {
         {
             if (VERBOSE)
                 std::cerr << "=============  Testing Induction Variables analysis  ==========" << std::endl;
-            analysis.induction_variables(ast);
+            analysis.induction_variables(ast, /*propagate_graph_nodes*/ false);
             if (VERBOSE)
                 std::cerr << "==========  Testing Induction Variables analysis done  ========" << std::endl;
         }

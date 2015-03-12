@@ -1285,7 +1285,7 @@ src_tl_analysis_reach_defs_libreaching_definitions_la_SOURCES = \
 lib_LTLIBRARIES += src/tl/analysis/loops/libloops_analysis.la
 
 src_tl_analysis_loops_libloops_analysis_la_CFLAGS = $(tl_cflags)
-src_tl_analysis_loops_libloops_analysis_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
+src_tl_analysis_loops_libloops_analysis_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS) -I$(srcdir)/src/tl/analysis/use_def
 src_tl_analysis_loops_libloops_analysis_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_loops_libloops_analysis_la_LIBADD = $(tl_libadd) \
 							src/tl/libtl.la \
@@ -2441,8 +2441,8 @@ src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
-                              -I src/tl/vectorization/vector-lowering/knc/legalization \
-                              -I src/tl/vectorization/vector-lowering/knc/backend \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/knc/legalization \
+                              -I$(top_srcdir)/src/tl/vectorization/vector-lowering/knc/backend \
                               $(END)
 
 src_tl_vectorization_vector_lowering_knl_libtlvector_lowering_knl_la_LDFLAGS = $(tl_ldflags)

@@ -1092,9 +1092,10 @@ namespace Analysis {
         }
 
         // 2.- Collect those objects which, although are not in the data-sharing or dependency, have dynamic storage duration
+        const NodeclSet& ue_vars = get_ue_vars();
         const NodeclSet& killed_vars = get_killed_vars();
         const NodeclSet& undef_vars = get_undefined_behaviour_vars();
-        NodeclSet inner_vars = get_ue_vars();
+        NodeclSet inner_vars(ue_vars.begin(), ue_vars.end());
         inner_vars.insert(killed_vars.begin(), killed_vars.end());
         inner_vars.insert(undef_vars.begin(), undef_vars.end());
         const Nodecl::NodeclBase& ast = get_graph_related_ast();
@@ -1198,19 +1199,19 @@ namespace Analysis {
     template <typename T>
     T Node::get_vars(PCFGAttribute attr)
     {
-        T c;
         if (has_key(attr))
-            c = get_data<T>(attr);
-        return c;
+            return get_data<T>(attr);
+
+        return T();
     }
 
     template <typename T>
     void Node::add_var_to_container(const NBase& var, PCFGAttribute attr)
     {
-        T c = get_data<T>(attr);
+        T& c = get_data<T>(attr);
         if (Utils::nodecl_set_contains_enclosing_nodecl(var, c).is_null())
         {
-            const Nodecl::List subparts = Utils::nodecl_set_contains_enclosed_nodecl(var, c);
+            const Nodecl::List& subparts = Utils::nodecl_set_contains_enclosed_nodecl(var, c);
             if (!subparts.is_null())
             {
                 for (Nodecl::List::const_iterator it = subparts.begin(); it != subparts.end(); ++it)
@@ -1218,7 +1219,6 @@ namespace Analysis {
             }
 
             c.insert(var);
-            set_data(attr, c);
         }
     }
 
@@ -1227,8 +1227,7 @@ namespace Analysis {
     {
         if (vars.empty())
         {   // ensure that, in case no attribute called #attr was attached to the node, now it will be attached
-            T c = get_data<T>(attr);
-            set_data(attr, c);
+            /*T& c = */get_data<T>(attr);
         }
         else
         {
@@ -1239,7 +1238,7 @@ namespace Analysis {
 
     void Node::add_var_to_list(const NBase& var, PCFGAttribute attr)
     {
-        Nodecl::List list = get_data<Nodecl::List>(attr);
+        Nodecl::List& list = get_data<Nodecl::List>(attr);
         for (Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
         {
             if (Nodecl::Utils::structurally_equal_nodecls(var, *it))
@@ -1247,15 +1246,13 @@ namespace Analysis {
         }
 
         list.append(var);
-        set_data(attr, list);
     }
 
     void Node::add_vars_to_list(const Nodecl::List& vars, PCFGAttribute attr)
     {
         if (vars.empty())
         {   // ensure that, in case no attribute called #attr was attached to the node, now it will be attached
-            Nodecl::List list = get_data<Nodecl::List>(attr);
-            set_data(attr, list);
+            /*Nodecl::List& list =*/ get_data<Nodecl::List>(attr);
         }
         else
         {
@@ -1266,9 +1263,7 @@ namespace Analysis {
 
     void Node::remove_var_from_set(const NBase& var, PCFGAttribute attr)
     {
-        NodeclSet set = get_data<NodeclSet>(attr);
-        set.erase(var);
-        set_data(attr, set);
+        get_data<NodeclSet>(attr);
     }
 
     // **************************** END private methods ***************************** //
@@ -1279,38 +1274,10 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for use-definition analysis ************** //
 
-    bool Node::usage_is_computed()
+    // **** Upwards exposed *** //
+    NodeclSet& Node::get_ue_vars()
     {
-        return (has_key(_UPPER_EXPOSED) || has_key(_KILLED) || has_key(_UNDEF));
-    }
-    
-    bool Node::uses_var(const NBase& n)
-    {
-        bool result = false;
-        if (has_key(_UPPER_EXPOSED)) 
-        {
-            NodeclSet ue_vars = get_data<NodeclSet>(_UPPER_EXPOSED);
-            if (ue_vars.find(n) != ue_vars.end())
-                result = true;
-        }
-        if (!result && has_key(_KILLED))
-        {
-            NodeclSet killed_vars = get_data<NodeclSet>(_KILLED);
-            if (killed_vars.find(n) != killed_vars.end())
-                result = true;
-        }
-        if (!result && has_key(_UNDEF))
-        {
-            NodeclSet undef_vars = get_data<NodeclSet>(_UNDEF);
-            if (undef_vars.find(n) != undef_vars.end())
-                result = true;
-        }
-        return result;
-    }
-    
-    NodeclSet Node::get_ue_vars()
-    {
-        return get_vars<NodeclSet>(_UPPER_EXPOSED);
+        return get_data<NodeclSet>(_UPPER_EXPOSED);
     }
 
     void Node::add_ue_var(const NBase& new_ue_var)
@@ -1333,9 +1300,9 @@ namespace Analysis {
         remove_var_from_set(old_ue_var, _UPPER_EXPOSED);
     }
 
-    NodeclSet Node::get_private_ue_vars()
+    NodeclSet& Node::get_private_ue_vars()
     {
-        return get_vars<NodeclSet>(_PRIVATE_UPPER_EXPOSED);
+        return get_data<NodeclSet>(_PRIVATE_UPPER_EXPOSED);
     }
 
     void Node::add_private_ue_var(const NodeclSet& new_private_ue_vars)
@@ -1348,9 +1315,10 @@ namespace Analysis {
         set_data(_PRIVATE_UPPER_EXPOSED, new_private_ue_vars);
     }
 
-    NodeclSet Node::get_killed_vars()
+    // **** Killed *** //
+    NodeclSet& Node::get_killed_vars()
     {
-        return get_vars<NodeclSet>(_KILLED);
+        return get_data<NodeclSet>(_KILLED);
     }
 
     void Node::add_killed_var(const NBase& new_killed_var)
@@ -1373,9 +1341,9 @@ namespace Analysis {
         remove_var_from_set(old_killed_var, _KILLED);
     }
 
-    NodeclSet Node::get_private_killed_vars()
+    NodeclSet& Node::get_private_killed_vars()
     {
-        return get_vars<NodeclSet>(_PRIVATE_KILLED);
+        return get_data<NodeclSet>(_PRIVATE_KILLED);
     }
     
     void Node::add_private_killed_var(const NodeclSet& new_private_killed_vars)
@@ -1388,9 +1356,10 @@ namespace Analysis {
         set_data(_PRIVATE_KILLED, new_private_killed_vars);
     }
 
-    NodeclSet Node::get_undefined_behaviour_vars()
+    // **** Undefined behavior *** //
+    NodeclSet& Node::get_undefined_behaviour_vars()
     {
-        return get_vars<NodeclSet>(_UNDEF);
+        return get_data<NodeclSet>(_UNDEF);
     }
 
     void Node::add_undefined_behaviour_var(const NBase& new_undef_var)
@@ -1415,44 +1384,43 @@ namespace Analysis {
     {
         set_data(_UNDEF, new_undef_vars);
     }
-        
+
     void Node::remove_undefined_behaviour_var(const NBase& old_undef_var)
     {
         remove_var_from_set(old_undef_var, _UNDEF);
     }
 
-    NodeclSet Node::get_private_undefined_behaviour_vars()
+    NodeclSet& Node::get_private_undefined_behaviour_vars()
     {
-        return get_vars<NodeclSet>(_PRIVATE_UNDEF);
+        return get_data<NodeclSet>(_PRIVATE_UNDEF);
     }
-    
+
     void Node::add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_undef_vars, _PRIVATE_UNDEF);
     }
-    
+
     void Node::set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
         set_data(_PRIVATE_UNDEF, new_private_undef_vars);
     }
-    
-    NodeclSet Node::get_used_addresses()
+
+    // *** Used addresses *** //
+    NodeclSet& Node::get_used_addresses()
     {
-        return get_vars<NodeclSet>(_USED_ADDRESSES);
+        return get_data<NodeclSet>(_USED_ADDRESSES);
     }
-    
+
     void Node::add_used_address(const NBase& es)
     {
-        NodeclSet used_addresses = get_used_addresses();
-        used_addresses.insert(es);
-        set_data(_USED_ADDRESSES, used_addresses);
+        get_data<NodeclSet>(_USED_ADDRESSES).insert(es);
     }
-    
+
     void Node::set_used_addresses(const NodeclSet& used_addresses)
     {
         set_data(_USED_ADDRESSES, used_addresses);
     }
-    
+
     // ************* END getters and setters for use-definition analysis ************ //
     // ****************************************************************************** //
 
@@ -1461,16 +1429,14 @@ namespace Analysis {
     // ****************************************************************************** //
     // ****************** Getters and setters for liveness analysis ***************** //
 
-    NodeclSet Node::get_live_in_vars()
+    NodeclSet& Node::get_live_in_vars()
     {
-        return get_vars<NodeclSet>(_LIVE_IN);
+        return get_data<NodeclSet>(_LIVE_IN);
     }
 
     void Node::set_live_in(const NBase& new_live_in_var)
     {
-        NodeclSet live_in_vars = get_live_in_vars();
-        live_in_vars.insert(new_live_in_var);
-        set_data(_LIVE_IN, live_in_vars);
+        get_data<NodeclSet>(_LIVE_IN).insert(new_live_in_var);
     }
 
     void Node::set_live_in(const NodeclSet& new_live_in_set)
@@ -1478,9 +1444,9 @@ namespace Analysis {
         set_data(_LIVE_IN, new_live_in_set);
     }
 
-    NodeclSet Node::get_live_out_vars()
+    NodeclSet& Node::get_live_out_vars()
     {
-        return get_vars<NodeclSet>(_LIVE_OUT);
+        return get_data<NodeclSet>(_LIVE_OUT);
     }
 
     void Node::add_live_out(const NodeclSet& new_live_out_set)
@@ -1490,9 +1456,7 @@ namespace Analysis {
     
     void Node::set_live_out(const NBase& new_live_out_var)
     {
-        NodeclSet live_out_vars = get_live_out_vars();
-        live_out_vars.insert(new_live_out_var);
-        set_data(_LIVE_OUT, live_out_vars);
+        get_data<NodeclSet>(_LIVE_OUT).insert(new_live_out_var);
     }
 
     void Node::set_live_out(const NodeclSet& new_live_out_set)
@@ -1508,43 +1472,35 @@ namespace Analysis {
     // ****************************************************************************** //
     // ************ Getters and setters for reaching definitions analysis *********** //
 
-    NodeclMap Node::get_generated_stmts()
+    NodeclMap& Node::get_generated_stmts()
     {
-        return get_vars<NodeclMap>(_GEN);
+        return get_data<NodeclMap>(_GEN);
     }
 
-    NodeclMap Node::set_generated_stmts(const NodeclMap& gen)
+    void Node::set_generated_stmts(const NodeclMap& gen)
     {
-        NodeclMap gen_stmts;
-        if (has_key(_GEN))
+        NodeclMap& gen_stmts = get_data<NodeclMap>(_GEN);
+        for (NodeclMap::const_iterator it = gen.begin(); it != gen.end(); ++it)
         {
-            gen_stmts = get_data<NodeclMap>(_GEN);
-            for (NodeclMap::const_iterator it = gen.begin(); it != gen.end(); ++it)
-            {
-                if (gen_stmts.find(it->first) != gen_stmts.end())
-                    gen_stmts.erase(it->first);
-            }
+            if (gen_stmts.find(it->first) != gen_stmts.end())
+                gen_stmts.erase(it->first);
         }
         gen_stmts.insert(gen.begin(), gen.end());
-        set_data(_GEN, gen_stmts);
-        return gen_stmts;
     }
 
-    NodeclMap Node::get_reaching_definitions_in()
+    NodeclMap& Node::get_reaching_definitions_in()
     {
-        return get_vars<NodeclMap>(_REACH_DEFS_IN);
+        return get_data<NodeclMap>(_REACH_DEFS_IN);
     }
 
-    NodeclMap Node::get_reaching_definitions_out()
+    NodeclMap& Node::get_reaching_definitions_out()
     {
-        return get_vars<NodeclMap>(_REACH_DEFS_OUT);
+        return get_data<NodeclMap>(_REACH_DEFS_OUT);
     }
 
     void Node::set_reaching_definition_in(const NBase& var, const NBase& init, const NBase& stmt)
     {
-        NodeclMap reaching_defs_in = get_reaching_definitions_in();
-        reaching_defs_in.insert(std::pair<NBase, NodeclPair>(var, NodeclPair(init, stmt)));
-        set_data(_REACH_DEFS_IN, reaching_defs_in);
+        get_data<NodeclMap>(_REACH_DEFS_IN).insert(std::pair<NBase, NodeclPair>(var, NodeclPair(init, stmt)));
     }
 
     void Node::set_reaching_definitions_in(const NodeclMap& reach_defs_in)
@@ -1554,9 +1510,7 @@ namespace Analysis {
 
     void Node::set_reaching_definition_out(const NBase& var, const NBase& init, const NBase& stmt)
     {
-        NodeclMap reaching_defs_out = get_reaching_definitions_out();
-        reaching_defs_out.insert(std::pair<NBase, NodeclPair>(var, NodeclPair(init, stmt)));
-        set_data(_REACH_DEFS_OUT, reaching_defs_out);
+        get_data<NodeclMap>(_REACH_DEFS_OUT).insert(std::pair<NBase, NodeclPair>(var, NodeclPair(init, stmt)));
     }
 
     void Node::set_reaching_definitions_out(const NodeclMap& reach_defs_out)
@@ -1572,47 +1526,32 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for loops analysis ******************* //
 
-    Utils::InductionVarList Node::get_induction_variables()
+    Utils::InductionVarList& Node::get_induction_variables()
     {
-        Utils::InductionVarList ivs;
-        if (is_loop_node() || is_omp_loop_node() ||
-           (is_graph_node() && get_graph_related_ast().is<Nodecl::FunctionCode>()))
-        {
-            ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
-        }
-        else
-        {
-            if (VERBOSE)
-            {
-                WARNING_MESSAGE("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
-                                _id, get_type_as_string().c_str());
-            }
-        }
-        return ivs;
+        ERROR_CONDITION(!is_loop_node() && !is_omp_loop_node()
+                            && (!is_graph_node() || !get_graph_related_ast().is<Nodecl::FunctionCode>()),
+                        "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
+                        _id, get_type_as_string().c_str());
+
+        return get_data<Utils::InductionVarList>(_INDUCTION_VARS);
     }
 
     void Node::set_induction_variable(Utils::InductionVar* iv)
     {
-        if (!is_loop_node() && !is_omp_loop_node())
-        {
-            internal_error("Unexpected node type '%s' while reporting an induction variable. LOOP expected.",
-                           get_type_as_string().c_str(), _id);
-        }
+        ERROR_CONDITION(!is_loop_node() && !is_omp_loop_node(),
+                        "Unexpected node type '%s' while adding induction variable to node '%d'. LOOP expected.",
+                        get_type_as_string().c_str(), _id);
 
-        Utils::InductionVarList ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
-        ivs.insert(iv);
-        set_data(_INDUCTION_VARS, ivs);
+        get_data<Utils::InductionVarList>(_INDUCTION_VARS).insert(iv);
     }
 
     bool Node::is_loop_induction_variable(const NBase& iv)
     {
-        if (!is_loop_node() && !is_omp_loop_node())
-        {
-            internal_error("Unexpected node type '%s' while reporting an induction variable. LOOP expected.",
-                           get_type_as_string().c_str(), _id);
-        }
+        ERROR_CONDITION(!is_loop_node() && !is_omp_loop_node(),
+                        "Unexpected node type '%s' while reporting an induction variable. LOOP expected.",
+                        get_type_as_string().c_str(), _id);
 
-        const Utils::InductionVarList& ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
+        const Utils::InductionVarList& ivs = get_induction_variables();
         for (Utils::InductionVarList::const_iterator it = ivs.begin(); it != ivs.end(); ++it)
             if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), iv, /*skip_conversions*/true))
                 return true;
@@ -1711,7 +1650,7 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for OmpSs analysis ******************* //
 
-    NBase Node::get_task_context()
+    const NBase& Node::get_task_context()
     {
         if (_type == __Graph)
         {

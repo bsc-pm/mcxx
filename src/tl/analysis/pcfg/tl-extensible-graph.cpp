@@ -38,7 +38,7 @@ namespace Analysis {
           _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
           _concurrent_tasks(), _last_sync_tasks(), _last_sync_sequential(), _next_sync_tasks(), _next_sync_sequential(),
-          _cluster_to_entry_map()
+          _cluster_to_entry_map(), _usage_computed(false)
     {
 
         _graph = create_graph_node(NULL, nodecl, __ExtensibleGraph);
@@ -518,47 +518,13 @@ namespace Analysis {
         }
     }
 
-    bool ExtensibleGraph::is_constant_in_context(Node* context, NBase c)
-    {
-        bool result = true;
-
-        Nodecl::List cs;
-        if(c.is<Nodecl::List>())
-        {
-            cs = c.as<Nodecl::List>();
-        }
-        else
-        {
-            cs.append(c.shallow_copy());
-        }
-
-        for(Nodecl::List::iterator it = cs.begin(); it != cs.end() && result; ++it)
-        {
-            if(!it->is_constant())
-            {
-                NodeclList memory_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
-                for(NodeclList::iterator itm = memory_accesses.begin();
-                     itm != memory_accesses.end() && result; ++itm)
-                {
-                    if(Utils::nodecl_set_contains_nodecl(*itm, context->get_killed_vars()) ||
-                        Utils::nodecl_set_contains_nodecl(*itm, context->get_undefined_behaviour_vars()))
-                    {
-                        result = false;
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
     bool ExtensibleGraph::has_been_defined(Node* current, Node* scope, const NBase& n)
     {
         if(!current->is_visited_extgraph())
         {
             current->set_visited_extgraph(true);
 
-            NodeclSet killed = current->get_killed_vars();
+            const NodeclSet& killed = current->get_killed_vars();
             if(Utils::nodecl_set_contains_nodecl(n, killed))
                 return true;
 
@@ -576,12 +542,12 @@ namespace Analysis {
                 }
 
             for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-                {
+            {
                 if(!ExtensibleGraph::is_backward_parent(current, *it) &&  has_been_defined(*it, scope, n))
                     return true;
                     ExtensibleGraph::clear_visits_extgraph_aux(current);
-                }
             }
+        }
 
         return false;
     }
@@ -852,7 +818,7 @@ namespace Analysis {
         return _sc;
     }
 
-    NodeclSet ExtensibleGraph::get_global_variables() const
+    const NodeclSet& ExtensibleGraph::get_global_variables() const
     {
         return _global_vars;
     }
@@ -1581,13 +1547,19 @@ namespace Analysis {
         return result;
     }
 
-    bool ExtensibleGraph::usage_is_computed()
+    // ******* Getters and setters for analyses built on top of the PCFG ******* //
+
+    bool ExtensibleGraph::usage_is_computed() const
     {
-        bool result = false;
-        if(_graph->usage_is_computed())
-            result = true;
-        return result;
+        return _usage_computed;
     }
+
+    void ExtensibleGraph::set_usage_computed()
+    {
+        _usage_computed = true;
+    }
+
+    // ***** END Getters and setters for analyses built on top of the PCFG ***** //
 
 }
 }
