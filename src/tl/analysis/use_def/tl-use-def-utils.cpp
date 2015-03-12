@@ -645,22 +645,22 @@ namespace Analysis {
      * - The second is the list of killed variables of the graph node
      * - The third is the list of undefined variables of the graph
      */
-    void get_use_def_over_nodes(Node* current, ObjectList<NodeclSet>& use_def)
+    void get_use_def_over_nodes(Node* n, ObjectList<NodeclSet>& use_def)
     {
         // 1.- Base case: the node has already been visited
-        if (current->is_visited())
+        if (n->is_visited_extgraph())
             return;
 
-        current->set_visited(true);
+        n->set_visited_extgraph(true);
 
         // 2.- Task nodes information has already been propagated to its corresponding task_creation node
-        if (current->is_omp_task_node())
+        if (n->is_omp_task_node())
             return;
 
         // 3.- Compute the information from the children
         // 3.1.- Concatenate info from children nodes
         ObjectList<NodeclSet> use_def_aux;
-        const ObjectList<Node*>& children = current->get_children();
+        const ObjectList<Node*>& children = n->get_children();
         NodeclSet ue_children, killed_children, undef_children, used_addresses_children;
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
         {
@@ -674,13 +674,13 @@ namespace Analysis {
             }
         }
         // 3.2.- Merge children (make the different sets to be consistent)
-        merge_children_usage(ue_children, killed_children, undef_children, current->get_id());
+        merge_children_usage(ue_children, killed_children, undef_children, n->get_id());
 
         // 4.- Gather the Use-Def info of the current node
-        const NodeclSet& ue_vars = current->get_ue_vars();
-        const NodeclSet& killed_vars = current->get_killed_vars();
-        const NodeclSet& undef_vars = current->get_undefined_behaviour_vars();
-        const NodeclSet& used_addresses = current->get_used_addresses();
+        const NodeclSet& ue_vars = n->get_ue_vars();
+        const NodeclSet& killed_vars = n->get_killed_vars();
+        const NodeclSet& undef_vars = n->get_undefined_behaviour_vars();
+        const NodeclSet& used_addresses = n->get_used_addresses();
 
         // 5.- Merge current node and its children usage information
         NodeclSet new_ue_vars(ue_vars.begin(), ue_vars.end());
@@ -688,7 +688,7 @@ namespace Analysis {
         NodeclSet new_undef_vars(undef_vars.begin(), undef_vars.end());
         NodeclSet new_used_addresses(used_addresses.begin(), used_addresses.end());
         propagate_usage_to_ancestor(
-                current,
+                n,
                 new_ue_vars, new_killed_vars, new_undef_vars, new_used_addresses,
                 ue_children, killed_children, undef_children, used_addresses_children);
 
@@ -739,10 +739,10 @@ namespace Analysis {
         // 1.- Base cases: the node is not a graph or the node has already been visited
         if (!n->is_graph_node())
             return;
-        if (n->is_visited())
+        if (n->is_visited_extgraph())
             return;
 
-        n->set_visited(true);
+        n->set_visited_extgraph(true);
 
         // 2.- Get the information from the inner nodes of the graph
         NodeclSet ue_vars, killed_vars, undef_vars, used_addresses;

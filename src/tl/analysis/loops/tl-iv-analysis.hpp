@@ -100,7 +100,7 @@ namespace Analysis {
         void compute_induction_variables();
 
         Nodecl::NodeclBase is_induction_variable(
-                Nodecl::NodeclBase st, Node* loop, Nodecl::NodeclBase& incr,
+                const Nodecl::NodeclBase& st, Node* loop, Nodecl::NodeclBase& incr,
                 ObjectList<Nodecl::NodeclBase>& incr_list);
 
         Utils::InductionVarsPerNode get_all_induction_vars() const;

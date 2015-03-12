@@ -58,9 +58,8 @@ namespace Analysis {
             gather_graph_usage_rec(entry);
 
             // 1.2.- Compute the usage of the current graph
-            n->set_visited(false);
-            ExtensibleGraph::clear_visits_in_level_no_nest(entry, n);
             set_graph_node_use_def(n);
+            ExtensibleGraph::clear_visits_extgraph(n);
         }
 
         // 2.- Keep iterating with the children

@@ -145,32 +145,32 @@ namespace Analysis {
     }
 
     // Top bottom traversal
-    void UseDef::compute_usage_rec(Node* current)
+    void UseDef::compute_usage_rec(Node* n)
     {
         // 1.- Base case 1: the node has already been visited
-        if (current->is_visited())
+        if (n->is_visited())
             return;
 
-        current->set_visited(true);
+        n->set_visited(true);
 
         // 2.- Base case 2_ the node is the exit of a graph node
         //    (we will keep iterating from the graph node)
-        if (current->is_exit_node())
+        if (n->is_exit_node())
             return;
 
         // 3.- Treat the current node
-        if (current->is_graph_node()
-                && !current->is_asm_def_node() && !current->is_asm_op_node())
+        if (n->is_graph_node()
+                && !n->is_asm_def_node() && !n->is_asm_op_node())
         {
             // 3.1.- Use-def info is computed from inner nodes to outer nodes
-            compute_usage_rec(current->get_graph_entry_node());
+            compute_usage_rec(n->get_graph_entry_node());
 
             // 3.2.- If the node contains tasks, analyze the tasks first
             // We need to do this here because in order to propagate the tasks usage
             // to the outer nodes where they are created,
             // all children of the task_creation node must have the use-def computed
             ObjectList<Node*> inner_tasks;
-            if (ExtensibleGraph::node_contains_tasks(current, current, inner_tasks))
+            if (ExtensibleGraph::node_contains_tasks(n, n, inner_tasks))
             {
                 // This set is traversed from end to start because the tasks are ordered from top to bottom and
                 // we need later tasks to be analyzed before its ancestor tasks are analyzed
@@ -181,16 +181,15 @@ namespace Analysis {
             // 3.3.- Propagate usage info from inner to outer nodes
             if (_propagate_graph_nodes)
             {
-                current->set_visited(false);
-                ExtensibleGraph::clear_visits_in_level_no_nest(current->get_graph_entry_node(), current);
-                set_graph_node_use_def(current);
+                set_graph_node_use_def(n);
+                ExtensibleGraph::clear_visits_extgraph(n);
             }
         }
         else
         {
             // Treat statements in the current node
-            const NodeclList& stmts = current->get_statements();
-            UsageVisitor uv(current, _propagate_graph_nodes, _graph, &_ipa_modif_vars, _c_lib_file, _c_lib_sc);
+            const NodeclList& stmts = n->get_statements();
+            UsageVisitor uv(n, _propagate_graph_nodes, _graph, &_ipa_modif_vars, _c_lib_file, _c_lib_sc);
             for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
                 uv.compute_statement_usage(*it);
@@ -198,7 +197,7 @@ namespace Analysis {
         }
 
         // 4.- Keep iterating from the children
-        const ObjectList<Node*>& children = current->get_children();
+        const ObjectList<Node*>& children = n->get_children();
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             compute_usage_rec(*it);
     }

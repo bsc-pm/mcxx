@@ -30,7 +30,7 @@
 #include "codegen-common.hpp"
 #include "tl-expression-reduction.hpp"
 #include "tl-iv-analysis.hpp"
-#include "tl-node.hpp"
+#include "tl-use-def.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -40,6 +40,46 @@ namespace Analysis {
 
 namespace {
     const_value_t* one = const_value_get_one(/* bytes */ 4, /* signed */ 1);
+
+    //!Returns true if a given nodecl is not modified in a given context
+    bool is_constant_in_context(Node* ctx, const NBase& c)
+    {
+        // 1.- Base case
+        if (c.is_constant())
+            return true;
+
+        // 2.- We sometimes call this function from an array subscript, which may be a Nodecl::List
+        // Thus, to unify all cases, we always consider the rest of this method as if we had a list
+        const Nodecl::List& cs = (c.is<Nodecl::List>() ? c.as<Nodecl::List>() : Nodecl::List::make(c.shallow_copy()));
+
+        // 3.- It may happen that the usage information has not been synthesized for a given node
+        // In that case, we have to do it here
+        if (!ctx->has_key(_UPPER_EXPOSED) && !ctx->has_key(_KILLED) && !ctx->has_key(_UNDEF))
+        {
+            set_graph_node_use_def(ctx);
+            ExtensibleGraph::clear_visits_extgraph(ctx);
+        }
+
+        // 4.- Finally check whether \param c is modified in the context or not
+        for (Nodecl::List::const_iterator it = cs.begin(); it != cs.end(); ++it)
+        {
+            if (!it->is_constant())
+            {
+                const NodeclList& memory_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
+                for (NodeclList::const_iterator itm = memory_accesses.begin();
+                     itm != memory_accesses.end(); ++itm)
+                {
+                    if (Utils::nodecl_set_contains_nodecl(*itm, ctx->get_killed_vars())
+                        || Utils::nodecl_set_contains_nodecl(*itm, ctx->get_undefined_behaviour_vars()))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
 
     // FIXME We have to add the family as a reference parameter for the derived induction variables
     bool is_accepted_induction_variable_syntax(Node* loop, NBase stmt, NBase& iv, NBase& incr)
@@ -60,31 +100,31 @@ namespace {
 
                 // The LHS is accepted to be an array subscript only if the subscripts are constant in the loop
                 if ((!lhs.is<Nodecl::ArraySubscript>()
-                        || ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts())))
+                        || is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts())))
                 {
                     if (Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_rhs, /*skip_conversions*/true)
-                            && ExtensibleGraph::is_constant_in_context(loop, rhs_lhs))
+                            && is_constant_in_context(loop, rhs_lhs))
                     {   // iv = c + iv
                         iv = lhs;
                         incr = rhs_lhs;
                         is_iv = true;
                     }
                     else if (Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_lhs, /*skip_conversions*/true)
-                            && ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))
+                            && is_constant_in_context(loop, rhs_rhs))
                     {   // iv = iv + c
                         iv = lhs;
                         incr = rhs_rhs;
                         is_iv = true;
                     }
                     else if (loop->is_loop_induction_variable(rhs_lhs)
-                            && ExtensibleGraph::is_constant_in_context(loop, rhs_rhs))
+                            && is_constant_in_context(loop, rhs_rhs))
                     {   // iv = iv_B + x
                         iv = lhs;
                         incr = rhs_rhs;
                         is_iv = true;
                     }
                     else if (loop->is_loop_induction_variable(rhs_rhs)
-                            && ExtensibleGraph::is_constant_in_context(loop, rhs_lhs))
+                            && is_constant_in_context(loop, rhs_lhs))
                     {   // iv = x + iv_B
                         iv = lhs;
                         incr = rhs_lhs;
@@ -98,10 +138,10 @@ namespace {
             Nodecl::AddAssignment st_ = stmt.as<Nodecl::AddAssignment>();
             const NBase& lhs = st_.get_lhs();
             const NBase& rhs = st_.get_rhs();
-            if (ExtensibleGraph::is_constant_in_context(loop, rhs)
+            if (is_constant_in_context(loop, rhs)
                     && (!lhs.is<Nodecl::ArraySubscript>()
                             || (lhs.is<Nodecl::ArraySubscript>()
-                                && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
+                                && is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
                 iv = st_.get_lhs();
                 incr = st_.get_rhs();
@@ -113,10 +153,10 @@ namespace {
             Nodecl::MinusAssignment st_ = stmt.as<Nodecl::MinusAssignment>();
             NBase lhs = st_.get_lhs();
             NBase rhs = st_.get_rhs();
-            if (ExtensibleGraph::is_constant_in_context(loop, rhs)
+            if (is_constant_in_context(loop, rhs)
                     && (!lhs.is<Nodecl::ArraySubscript>()
                             || (lhs.is<Nodecl::ArraySubscript>()
-                                && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
+                                && is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
                 NBase new_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type(), rhs.get_locus());
                 iv = st_.get_lhs();
@@ -171,6 +211,7 @@ namespace {
 
         return is_iv;
     }
+
 }
 
     // ***************************************** END Utils ***************************************** //
@@ -279,7 +320,7 @@ namespace {
     // FIXME This method does not cover all kind induction variable.
     // F.i., 'st': iv = 1 + iv + z, where 'z' is loop invariant, will return false
     NBase InductionVariableAnalysis::is_induction_variable(
-            NBase st, Node* loop, NBase& incr, ObjectList<NBase>& incr_list)
+            const NBase& st, Node* loop, NBase& incr, ObjectList<NBase>& incr_list)
     {
         NBase iv = NBase::null();
 
@@ -343,42 +384,42 @@ namespace {
         if (node->is_visited_aux())
             return false;
 
-        if (node->get_id() != loop->get_graph_exit_node()->get_id())
-        {
-            node->set_visited_aux(true);
+        if (node->get_id() == loop->get_graph_exit_node()->get_id())
+            return false;
 
-            if (node->is_graph_node())
+        node->set_visited_aux(true);
+
+        if (node->is_graph_node())
+        {
+            if (check_undesired_modifications(iv, incr, incr_list, stmt, node->get_graph_entry_node(), loop))
+                return true;
+        }
+        else if (!node->is_exit_node())
+        {
+            // Check the current node
+            const NodeclList& stmts = node->get_statements();
+            FalseInductionVariablesVisitor v(iv, &incr, &incr_list, loop);
+            for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
             {
-                if (check_undesired_modifications(iv, incr, incr_list, stmt, node->get_graph_entry_node(), loop))
-                    return true;
-            }
-            else if (!node->is_exit_node())
-            {
-                // Check the current node
-                const NodeclList& stmts = node->get_statements();
-                FalseInductionVariablesVisitor v(iv, &incr, &incr_list, loop);
-                for (NodeclList::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
+                // Check the statement only if it is not the statement where the potential IV was found
+                if (!Nodecl::Utils::structurally_equal_nodecls(stmt, *it, /*skip_conversions*/true))
                 {
-                    // Check the statement only if it is not the statement where the potential IV was found
-                    if (!Nodecl::Utils::structurally_equal_nodecls(stmt, *it, /*skip_conversions*/true))
+                    v.walk(*it);
+                    if (!v.get_is_induction_variable())
                     {
-                        v.walk(*it);
-                        if (!v.get_is_induction_variable())
-                        {
-                            return true;
-                        }
+                        return true;
                     }
                 }
             }
+        }
 
-            // If IV still looks like an IV, check for false positives in the children nodes
-            const ObjectList<Node*>& children = node->get_children();
-            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        // If IV still looks like an IV, check for false positives in the children nodes
+        const ObjectList<Node*>& children = node->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        {
+            if (check_undesired_modifications(iv, incr, incr_list, stmt, *it, loop))
             {
-                if (check_undesired_modifications(iv, incr, incr_list, stmt, *it, loop))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -395,7 +436,7 @@ namespace {
             const Nodecl::List& subscripts = iv_as.get_subscripts().as<Nodecl::List>();
             for (Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
             {
-                if (!ExtensibleGraph::is_constant_in_context(loop, *it))
+                if (!is_constant_in_context(loop, *it))
                     return false;
             }
         }

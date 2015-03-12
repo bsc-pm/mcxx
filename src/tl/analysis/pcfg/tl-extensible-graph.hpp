@@ -448,11 +448,8 @@ namespace Analysis {
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //
-        //!Returns true if a given nodecl is not modified in a given context
-        static bool is_constant_in_context(Node* context, NBase c);
-        
         static bool has_been_defined(Node* current, Node* scope, const NBase& n);
-        
+
         Node* find_nodecl(const NBase& n);           // structural search
         Node* find_nodecl_pointer(const NBase& n);   // pointer search
 

@@ -518,40 +518,6 @@ namespace Analysis {
         }
     }
 
-    bool ExtensibleGraph::is_constant_in_context(Node* context, NBase c)
-    {
-        bool result = true;
-
-        Nodecl::List cs;
-        if(c.is<Nodecl::List>())
-        {
-            cs = c.as<Nodecl::List>();
-        }
-        else
-        {
-            cs.append(c.shallow_copy());
-        }
-
-        for(Nodecl::List::iterator it = cs.begin(); it != cs.end() && result; ++it)
-        {
-            if(!it->is_constant())
-            {
-                NodeclList memory_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
-                for(NodeclList::iterator itm = memory_accesses.begin();
-                     itm != memory_accesses.end() && result; ++itm)
-                {
-                    if(Utils::nodecl_set_contains_nodecl(*itm, context->get_killed_vars()) ||
-                        Utils::nodecl_set_contains_nodecl(*itm, context->get_undefined_behaviour_vars()))
-                    {
-                        result = false;
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
     bool ExtensibleGraph::has_been_defined(Node* current, Node* scope, const NBase& n)
     {
         if(!current->is_visited_extgraph())
@@ -576,12 +542,12 @@ namespace Analysis {
                 }
 
             for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-                {
+            {
                 if(!ExtensibleGraph::is_backward_parent(current, *it) &&  has_been_defined(*it, scope, n))
                     return true;
                     ExtensibleGraph::clear_visits_extgraph_aux(current);
-                }
             }
+        }
 
         return false;
     }
