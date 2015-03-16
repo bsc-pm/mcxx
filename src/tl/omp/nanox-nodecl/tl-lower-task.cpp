@@ -597,7 +597,6 @@ void LoweringVisitor::emit_async_common(
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024))
     {
-
         if (IS_FORTRAN_LANGUAGE
                 && !final_condition.is_constant())
         {
@@ -618,6 +617,14 @@ void LoweringVisitor::emit_async_common(
                 << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
                 ;
         }
+    }
+
+    // Only tasks created in a parallel construct are marked as implicit
+    if (Nanos::Version::interface_is_at_least("master", 5029))
+    {
+        dynamic_wd_info
+            << "nanos_wd_dyn_props.flags.is_implicit = 0;"
+            ;
     }
 
     Source dynamic_size;
