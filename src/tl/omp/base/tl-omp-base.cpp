@@ -1528,7 +1528,6 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                // Not sure if we should choose a default instead
                 error_printf("%s: error: missing a 'grainsize' or a 'numtasks' clauses\n",
                         pragma_line.get_locus_str().c_str());
             }
@@ -1554,11 +1553,14 @@ namespace TL { namespace OpenMP {
                             pragma_line.get_locus_str().c_str());
                 }
             }
-            else
+            else // numtasks.is_defined()
             {
-                internal_error("numtasks clause not yet implemented", 0);
             }
         }
+
+        if (num_blocks.is_null()
+                || num_blocks.is<Nodecl::ErrExpr>())
+            return; // give up
 
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
