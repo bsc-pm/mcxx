@@ -168,8 +168,9 @@ namespace Analysis {
 //     }
 
     static void use_def_rec(
-            Symbol func_sym, 
-            std::set<Symbol>& visited_funcs, 
+            Symbol func_sym,
+            bool propagate_graph_nodes,
+            std::set<Symbol>& visited_funcs,
             ObjectList<ExtensibleGraph*>& pcfgs)
     {
         // Nothing to do if the we are analyzing something that:
@@ -189,19 +190,19 @@ namespace Analysis {
                     // Recursively analyze the functions called from the current graph
                     ObjectList<Symbol> called_funcs = (*it)->get_function_calls();
                     for (ObjectList<Symbol>::iterator itf = called_funcs.begin(); itf != called_funcs.end(); ++itf)
-                        use_def_rec(*itf, visited_funcs, pcfgs);
+                        use_def_rec(*itf, propagate_graph_nodes, visited_funcs, pcfgs);
 
                     // Analyze the current graph
                     if (VERBOSE)
                         std::cerr << "Use-Definition of PCFG '" << (*it)->get_name() << "'" << std::endl;
-                    UseDef ud(*it, pcfgs);
+                    UseDef ud(*it, propagate_graph_nodes, pcfgs);
                     ud.compute_usage();
                 }
             }
         }
     }
 
-    void AnalysisBase::use_def(const NBase& ast)
+    void AnalysisBase::use_def(const NBase& ast, bool propagate_graph_nodes)
     {
         if (!_use_def)
         {
@@ -222,7 +223,7 @@ namespace Analysis {
                 {
                     PointerSize ps(*it);
                     ps.compute_pointer_vars_size();
-                    use_def_rec((*it)->get_function_symbol(), visited_funcs, pcfgs);
+                    use_def_rec((*it)->get_function_symbol(), propagate_graph_nodes, visited_funcs, pcfgs);
                 }
             }
 
@@ -231,12 +232,13 @@ namespace Analysis {
         }
     }
 
-    void AnalysisBase::liveness(const NBase& ast)
+    void AnalysisBase::liveness(const NBase& ast, bool propagate_graph_nodes)
     {
         if (!_liveness)
         {
             // Required previous analysis
-            use_def(ast);
+            // FIXME Do we need to passa the \p propagate_graph_nodes parameter here too?
+            use_def(ast, propagate_graph_nodes);
 
             double init;
             if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -249,7 +251,7 @@ namespace Analysis {
             {
                 if (VERBOSE)
                     std::cerr << "Liveness of PCFG '" << (*it)->get_name() << "'" << std::endl;
-                Liveness l(*it);
+                Liveness l(*it, propagate_graph_nodes);
                 l.compute_liveness();
             }
 
@@ -258,12 +260,12 @@ namespace Analysis {
         }
     }
 
-    void AnalysisBase::reaching_definitions(const NBase& ast)
+    void AnalysisBase::reaching_definitions(const NBase& ast, bool propagate_graph_nodes)
     {
         if (!_reaching_definitions)
         {
             // Required previous analysis
-            liveness(ast);
+            liveness(ast, propagate_graph_nodes);
 
             double init;
             if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -285,12 +287,12 @@ namespace Analysis {
         }
     }
 
-    void AnalysisBase::induction_variables(const NBase& ast)
+    void AnalysisBase::induction_variables(const NBase& ast, bool propagate_graph_nodes)
     {
         if (!_induction_variables)
         {
             // Required previous analysis
-            reaching_definitions(ast);
+            reaching_definitions(ast, propagate_graph_nodes);
 
             double init;
             if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -327,7 +329,7 @@ namespace Analysis {
         if (!_tune_task_syncs)
         {
             // Required previous analysis
-            reaching_definitions(ast);
+            reaching_definitions(ast, /*propagate_graph_nodes*/ false);
 
             double init;
             if (ANALYSIS_PERFORMANCE_MEASURE)
@@ -444,7 +446,7 @@ namespace Analysis {
         if (!_tdg)
         {
             // Required previous analyses
-            induction_variables(ast);
+            induction_variables(ast, /*propagate_graph_nodes*/ false);
             range_analysis(ast);
             tune_task_synchronizations(ast);
 
@@ -476,10 +478,10 @@ namespace Analysis {
         return tdgs;
     }
 
-    void AnalysisBase::all_analyses(const NBase& ast)
+    void AnalysisBase::all_analyses(const NBase& ast, bool propagate_graph_nodes)
     {
         // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis
-        induction_variables(ast);
+        induction_variables(ast, propagate_graph_nodes);
         // This launches Auto-Scoping
         auto_scoping(ast);
     }

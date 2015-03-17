@@ -480,6 +480,17 @@ namespace Utils
         internal_error("Invalid Vector Memory Access\n", 0);
     }
 
+    TL::Symbol get_subscripted_symbol(const Nodecl::NodeclBase& subscripted)
+    {
+        if (subscripted.is<Nodecl::Symbol>())
+            return subscripted.no_conv().as<Nodecl::Symbol>().get_symbol();
+        else if (subscripted.is<Nodecl::Cast>())
+            return get_subscripted_symbol(subscripted.no_conv().as<Nodecl::Cast>().
+                    get_rhs().no_conv());
+                
+        internal_error("Invalid subscripted node\n", 0);
+    }
+
     Nodecl::NodeclBase get_vector_load_subscripted(
             const Nodecl::VectorLoad& vector_load)
     {
@@ -491,7 +502,10 @@ namespace Utils
             Nodecl::ArraySubscript array =
                 vl_rhs.as<Nodecl::ArraySubscript>();
 
-            return array.get_subscripted().no_conv();
+            Nodecl::NodeclBase subscripted = 
+                array.get_subscripted().no_conv();
+
+            return subscripted;
         }
 
         internal_error("Invalid Vector Load\n", 0);

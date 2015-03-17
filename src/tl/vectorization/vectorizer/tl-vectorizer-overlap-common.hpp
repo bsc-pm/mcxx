@@ -38,7 +38,7 @@ namespace TL
     {
         struct OverlapGroup
         {
-            TL::Symbol _subscripted;
+            Nodecl::NodeclBase _subscripted;
             objlist_tlsym_t _registers;
             objlist_nodecl_t _registers_indexes;
             objlist_nodecl_t _loads;
@@ -53,6 +53,7 @@ namespace TL
             int _num_registers;
             bool _aligned_strategy;
             bool _inter_it_overlap;
+            bool _is_set_in_place_update_pre;
 
             bool overlaps(const Nodecl::VectorLoad& vector_load,
                     const bool consider_aligned_adjacent_accesses);

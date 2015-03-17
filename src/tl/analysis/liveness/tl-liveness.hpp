@@ -49,6 +49,7 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _graph;
+        bool _propagate_graph_nodes;
 
         //! Computes the liveness information of each node regarding only its inner statements
         //! Live In (X) = Upper exposed (X)
@@ -70,7 +71,7 @@ namespace Analysis {
 
     public:
         //! Constructor
-        Liveness(ExtensibleGraph* graph);
+        Liveness(ExtensibleGraph* graph, bool propagate_graph_nodes);
 
         //! Method computing the Liveness information on the member #graph
         void compute_liveness();

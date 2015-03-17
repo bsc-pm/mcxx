@@ -971,6 +971,23 @@ namespace Nodecl
                 && n.get_parent().is<Nodecl::List>());
     }
 
+    Nodecl::NodeclBase Utils::get_previous_sibling(const Nodecl::NodeclBase& n)
+    {
+        if (n.is_null()) return n;
+        
+        const Nodecl::NodeclBase parent = n.get_parent();
+
+        if (parent.is_null()) return parent;
+        else if (parent.is<Nodecl::List>())
+        {
+            Nodecl::NodeclBase child0 = parent.children()[0];
+            if (child0.is<Nodecl::List>())
+                return child0.as<Nodecl::List>().children()[1];
+        }
+
+        return Nodecl::NodeclBase::null();
+    }
+
     void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
         if (!Utils::is_in_list(n))
@@ -1018,13 +1035,44 @@ namespace Nodecl
 
     //It does not work if 'n' is nested in the value of an ObjectInit!
     void Utils::prepend_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt)
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
     {
         Nodecl::NodeclBase target_stmt = n;
-        while (!is_nodecl_statement(target_stmt))
+        while (!target_stmt.is_null() && !is_nodecl_statement(target_stmt))
         {
             target_stmt = target_stmt.get_parent();
         }
+
+        // ObjectInit value?
+        if (target_stmt.is_null())
+        {
+            if (obj_init_context.is_null())
+                internal_error("Nodecl::Utils::prepend_statement: target_stmt is null and obj_init_context is null", 0);
+
+            TL::ObjectList<Nodecl::NodeclBase> obj_init_list =
+                nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
+
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = obj_init_list.begin();
+                    it != obj_init_list.end();
+                    it++)
+            {
+                TL::Symbol sym = it->get_symbol();
+                Nodecl::NodeclBase init = sym.get_value();
+
+                if(!init.is_null())
+                {
+                    if (nodecl_contains_nodecl_by_pointer(init, n))
+                    {
+                        target_stmt = *it;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (target_stmt.is_null())
+            internal_error("Nodecl::Utils::prepend_statement: target_stmt is null", 0);
 
         target_stmt.prepend_sibling(new_stmt);
     }

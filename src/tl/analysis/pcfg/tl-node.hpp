@@ -550,9 +550,6 @@ namespace Analysis {
             // ****************************************************************************** //
             // *************** Getters and setters for use-definition analysis ************** //
 
-            //! Returns true when some usage information has been computed for the node
-            bool usage_is_computed();
-
             // **** Upwards exposed *** //
             //! Returns the list of upward exposed variables of the node
             NodeclSet& get_ue_vars();

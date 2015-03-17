@@ -35,8 +35,8 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************* Class implementing liveness analysis ******************************* //
 
-    Liveness::Liveness(ExtensibleGraph* graph)
-            : _graph(graph)
+    Liveness::Liveness(ExtensibleGraph* graph, bool propagate_graph_nodes)
+        : _graph(graph), _propagate_graph_nodes(propagate_graph_nodes)
     {}
 
     void Liveness::compute_liveness()
@@ -90,7 +90,8 @@ namespace Analysis {
         if (n->is_graph_node())
         {
             initialize_live_sets(n->get_graph_exit_node());
-            set_graph_node_liveness(n);
+            if (_propagate_graph_nodes)
+                set_graph_node_liveness(n);
         }
         else if (!n->is_exit_node())
         {
@@ -114,11 +115,13 @@ namespace Analysis {
 
         if (n->is_graph_node())
         {
+            Node* exit = n->get_graph_exit_node();
             if (n->is_omp_task_node())
-                solve_task_live_equations_rec(n->get_graph_exit_node(), changed, n);
+                solve_task_live_equations_rec(exit, changed, n);
             else
-                solve_live_equations_rec(n->get_graph_exit_node(), changed);
-            set_graph_node_liveness(n);
+                solve_live_equations_rec(exit, changed);
+            if (_propagate_graph_nodes)
+                set_graph_node_liveness(n);
         }
         else if (!n->is_exit_node())
         {
@@ -128,14 +131,14 @@ namespace Analysis {
 
             // 2.- Compute new liveness sets
             // 2.1.- Compute Live Out: LO(x) = U LI(y), forall y ∈ Succ(x)
-            const NodeclSet& live_out = compute_successors_live_in(n);;
+            const NodeclSet& live_out = compute_successors_live_in(n);
             // 2.2.-Compute Live In: LI(x) = UE(x) U ( LO(x) - KILL(x) )
             const NodeclSet& live_in = Utils::nodecl_set_union(n->get_ue_vars(),
                     Utils::nodecl_set_difference(live_out, n->get_killed_vars()));
 
             // 3.- Compare the two sets to see whether something has changed and, if yes, set the new values
-            if (!Utils::nodecl_set_equivalence(old_live_in, live_in) ||
-                !Utils::nodecl_set_equivalence(old_live_out, live_out))
+            if (!Utils::nodecl_set_equivalence(old_live_in, live_in)
+                    || !Utils::nodecl_set_equivalence(old_live_out, live_out))
             {
                 n->set_live_in(live_in);
                 n->set_live_out(live_out);
@@ -150,7 +153,7 @@ namespace Analysis {
 
     void Liveness::solve_task_live_equations_rec(Node* n, bool& changed, Node* task)
     {
-        if(!n->is_exit_node())
+        if (!n->is_exit_node())
             return;
 
         n->set_visited(true);
@@ -174,7 +177,7 @@ namespace Analysis {
         const ObjectList<Node*>& tc_children = task_creation->get_children();
         for (ObjectList<Node*>::const_iterator it = tc_children.begin(); it != tc_children.end(); ++it)
         {
-            if(*it != task)
+            if (*it != task)
             {
                 const NodeclSet& li = (*it)->get_live_in_vars();
                 succ_live_in.insert(li.begin(), li.end());
@@ -192,8 +195,8 @@ namespace Analysis {
         const NodeclSet& old_live_in = exit_flush->get_live_in_vars();
 
         // 5.- Compare the two sets to see whether something has changed and, if yes, set the new values
-        if (!Utils::nodecl_set_equivalence(old_live_in, succ_live_in) ||
-            !Utils::nodecl_set_equivalence(old_live_out, succ_live_in))
+        if (!Utils::nodecl_set_equivalence(old_live_in, succ_live_in)
+                || !Utils::nodecl_set_equivalence(old_live_out, succ_live_in))
         {
             exit_flush->set_live_out(succ_live_in);
             exit_flush->set_live_in(succ_live_in);
@@ -212,11 +215,12 @@ namespace Analysis {
         const ObjectList<Node*>& children = n->get_children();
         for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
         {
-            bool child_is_exit = (*it)->is_exit_node();
+            Node* c = *it;
+            bool child_is_exit = c->is_exit_node();
             if (child_is_exit)
             {
                 // Iterate over outer children while we found an EXIT node
-                Node* exit_outer_node = (*it)->get_outer_node();
+                Node* exit_outer_node = c->get_outer_node();
                 ObjectList<Node*> outer_children;
                 while (child_is_exit)
                 {
@@ -233,7 +237,47 @@ namespace Analysis {
             }
             else
             {
-                succ_live_in = (*it)->get_live_in_vars();
+                if (!_propagate_graph_nodes && c->is_graph_node())
+                {   // Gather the LiveIn variables of the graph
+                    // 1.- Compute all LiveIn variables: LI(graph) = U LI(inner entries)
+                    NodeclSet all_live_in;
+                    const ObjectList<Node*>& grandchildren = c->get_graph_entry_node()->get_children();
+                    for (ObjectList<Node*>::const_iterator itt = grandchildren.begin();
+                         itt != grandchildren.end(); ++itt)
+                    {
+                        const NodeclSet& li = (*itt)->get_live_in_vars();
+                        all_live_in.insert(li.begin(), li.end());
+                    }
+                    // 2.- Delete those variables which are local to the graph
+                    if (c->is_context_node())
+                    {   // Variables declared within the current context
+                        Scope sc(c->get_graph_related_ast().retrieve_context());
+                        for (NodeclSet::iterator itt = all_live_in.begin(); itt != all_live_in.end(); ++itt)
+                        {
+                            const NBase& it_base = Utils::get_nodecl_base(*itt);
+                            if (!it_base.retrieve_context().scope_is_enclosed_by(sc))
+                                succ_live_in.insert(*itt);
+                        }
+                    }
+                    else if (c->is_omp_task_node())
+                    {   // Variables private to the task
+                        const NodeclSet& p_vars = c->get_private_vars();
+                        for (NodeclSet::iterator itt = all_live_in.begin(); itt != all_live_in.end(); ++itt)
+                        {
+                            if (p_vars.find(*itt) == p_vars.end())
+                                succ_live_in.insert(*itt);
+                        }
+                    }
+                    else
+                    {
+                        succ_live_in.insert(all_live_in.begin(), all_live_in.end());
+                    }
+                }
+                else
+                {
+                    const NodeclSet& li = c->get_live_in_vars();
+                    succ_live_in.insert(li.begin(), li.end());
+                }
             }
         }
         return succ_live_in;

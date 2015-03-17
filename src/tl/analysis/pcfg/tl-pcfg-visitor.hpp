@@ -381,6 +381,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Nontemporal& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
+        Ret visit( const Nodecl::OpenMP::Prefetch& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
         Ret visit( const Nodecl::OpenMP::Private& n );
         Ret visit( const Nodecl::OpenMP::Reduction& n );

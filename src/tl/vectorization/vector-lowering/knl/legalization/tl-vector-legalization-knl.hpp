@@ -24,37 +24,30 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZATION_COMMON_HPP
-#define TL_VECTORIZATION_COMMON_HPP
+#ifndef KNL_VECTOR_LEGALIZATION_HPP
+#define KNL_VECTOR_LEGALIZATION_HPP
 
-#include <list>
-#include <map>
+#include "tl-vector-legalization-knc.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 
-#include "tl-symbol.hpp"
-
-#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
+#define MASK_BIT_SIZE 16
+#define KNL_VECTOR_LENGTH 64
 
 namespace TL
 {
     namespace Vectorization
     {
-        typedef std::map<TL::Symbol, int> map_tlsym_int_t;
-        typedef std::map<Nodecl::NodeclBase, int> map_nodecl_int_t;
-        typedef std::pair<Nodecl::NodeclBase, int> pair_nodecl_int_t;
-        // To be replaced by std::tuple<int, int, int> in C++11
-        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > map_tlsym_objlist_t;
-        typedef std::map<TL::Symbol, TL::ObjectList<int> > map_tlsym_objlist_int_t;
-        typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
-        typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;
-        typedef TL::ObjectList<TL::Symbol> objlist_tlsym_t;
-        typedef TL::ObjectList<int> objlist_int_t;
+        class KNLVectorLegalization : public KNCVectorLegalization
+        {
+            public:
 
-        typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
-        typedef std::list<TL::Scope> stdlist_scope_t;
+                KNLVectorLegalization(bool prefer_gather_scatter,
+                        bool prefer_mask_gather_scatter);
 
-        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA, KNL_ISA};
+                virtual void visit(const Nodecl::VectorLoad& n);
+                virtual void visit(const Nodecl::VectorStore& n);
+        };
     }
 }
 
-#endif //TL_VECTORIZATION_COMMON_HPP
-
+#endif // KNL_VECTOR_LEGALIZATION_HPP

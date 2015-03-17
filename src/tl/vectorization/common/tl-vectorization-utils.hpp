@@ -155,7 +155,8 @@ namespace TL
                     RemovePrefetchIntrinsics(void) {};
                     void visit(const Nodecl::FunctionCall& node);
             };
-
+            
+            TL::Symbol get_subscripted_symbol(const Nodecl::NodeclBase& subscripted);
             Nodecl::NodeclBase get_scalar_memory_access(
                     const Nodecl::NodeclBase& n);
             Nodecl::NodeclBase get_vector_load_subscripted(

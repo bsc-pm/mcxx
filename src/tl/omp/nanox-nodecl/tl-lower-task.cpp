@@ -2192,7 +2192,7 @@ void LoweringVisitor::fill_copies_region(
         TL::Scope sc = ctr.retrieve_context();
         // Index for the dimension array
         std::stringstream ss;
-        ss << "dyn_copy_idx_" << (int)dep_dim_num;
+        ss << "nanos_dyn_copy_idx_" << (int)dep_dim_num;
         dep_dim_num++;
 
         TL::Symbol dyn_copy_idx = sc.new_symbol(ss.str());
@@ -2208,7 +2208,7 @@ void LoweringVisitor::fill_copies_region(
             ctr.prepend_sibling(def);
         }
 
-        ss.str(""); ss << "dyn_dim_idx_" << (int)dep_dim_num;
+        ss.str(""); ss << "nanos_dyn_copy_dim_idx_" << (int)dep_dim_num;
         dep_dim_num++;
 
         TL::Symbol dyn_dim_idx = sc.new_symbol(ss.str());
@@ -2255,7 +2255,7 @@ void LoweringVisitor::fill_copies_region(
                 ObjectList<DataReference::MultiRefIterator> m = copy_expr.multireferences();
 
                 Source dimension_array;
-                dimension_array << "dyn_dimensions_" << (int)dep_dim_num;
+                dimension_array << "nanos_dyn_copy_dims_" << (int)dep_dim_num;
                 dep_dim_num++;
 
                 Nodecl::Utils::SimpleSymbolMap symbol_map;
@@ -2265,7 +2265,7 @@ void LoweringVisitor::fill_copies_region(
                         current_multidep++)
                 {
                     // Create the current induction variable
-                    ss.str(""); ss << "dyn_copy_" << (int)dep_dim_num;
+                    ss.str(""); ss << "nanos_dyn_copy_" << (int)dep_dim_num;
                     TL::Symbol new_sym = sc.new_symbol(ss.str() + "_" + current_multidep->first.get_name());
                     new_sym.get_internal_symbol()->kind = SK_VARIABLE;
                     new_sym.get_internal_symbol()->type_information = get_signed_int_type();
@@ -3090,7 +3090,7 @@ void LoweringVisitor::fill_dependences_internal(
         TL::Symbol dyn_dep_idx;
 
         TL::Counter &dep_dim_num = TL::CounterManager::get_counter("nanos++-dynamic-deps");
-        std::stringstream ss; ss << "dyn_dep_idx_" << (int)dep_dim_num;
+        std::stringstream ss; ss << "nanos_dyn_dep_idx_" << (int)dep_dim_num;
         dep_dim_num++;
 
         // Create the global dynamic index
@@ -3139,7 +3139,7 @@ void LoweringVisitor::fill_dependences_internal(
                 Nodecl::NodeclBase total_base = count_multidependences_extent(m);
 
                 Source dimension_array;
-                dimension_array << "dyn_dimensions_" << (int)dep_dim_num;
+                dimension_array << "nanos_dyn_dims_" << (int)dep_dim_num;
                 dep_dim_num++;
 
                 Type dependency_type = dep_expr.get_data_type();
@@ -3151,7 +3151,7 @@ void LoweringVisitor::fill_dependences_internal(
                     ;
 
                 // Index for the dimension array
-                ss.str(""); ss << "dyn_dim_idx_" << (int)dep_dim_num;
+                ss.str(""); ss << "nanos_dyn_dim_idx_" << (int)dep_dim_num;
                 dep_dim_num++;
 
                 TL::Symbol dyn_dim_idx = sc.new_symbol(ss.str());
@@ -3178,7 +3178,7 @@ void LoweringVisitor::fill_dependences_internal(
                         current_multidep++)
                 {
                     // Create the current induction variable
-                    ss.str(""); ss << "dyn_dep_" << (int)dep_dim_num;
+                    ss.str(""); ss << "nanos_dyn_dep_" << (int)dep_dim_num;
                     TL::Symbol new_sym = sc.new_symbol(ss.str() + "_" + current_multidep->first.get_name());
                     new_sym.get_internal_symbol()->kind = SK_VARIABLE;
                     new_sym.get_internal_symbol()->type_information = get_signed_int_type();
