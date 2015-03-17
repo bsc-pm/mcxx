@@ -595,7 +595,9 @@ static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
             if (!array_type_is_unknown_size(t))
             {
-                return nodecl_shallow_copy(array_type_get_array_size_expr(t));
+                nodecl_t n = array_type_get_array_size_expr(t);
+                if (nodecl_is_constant(n))
+                    return nodecl_shallow_copy(n);
             }
         }
     }
