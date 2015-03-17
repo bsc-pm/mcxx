@@ -3617,6 +3617,12 @@ namespace TL { namespace OpenMP {
             common_dependency_handler(n);
         }
 
+        virtual void visit(const Nodecl::OpenMP::Reduction& n)
+        {
+            nodecl_t m = n.get_internal_nodecl();
+            ast_set_kind(nodecl_get_ast(m), NODECL_OPEN_M_P_TASK_REDUCTION);
+        }
+
         virtual void common_dependency_handler(Nodecl::NodeclBase n)
         {
             UpdateDependences update_dependences(
