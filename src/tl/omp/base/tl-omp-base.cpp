@@ -3376,6 +3376,15 @@ namespace TL { namespace OpenMP {
     {
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid node", 0);
 
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "TASKLOOP construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
         TL::ForStatement for_statement(
                 statement.as<Nodecl::Context>()
                 .get_in_context()
@@ -3631,6 +3640,7 @@ namespace TL { namespace OpenMP {
                     _block_extent_var);
             update_dependences.walk(n);
         }
+
 
         UpdateDependencesEnvironment(TL::Symbol orig_induction_var,
                 TL::Symbol new_induction_var,
