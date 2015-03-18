@@ -14210,6 +14210,23 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             }
             else
             {
+                // We may have to update the outermost array type
+                if (is_array_type(declarator_type)
+                        && is_array_type(entry->type_information)
+                        && !nodecl_is_null(array_type_get_array_size_expr(declarator_type))
+                        && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
+                {
+                    // template <typename T>
+                    // struct A
+                    // {
+                    //   static int c[];
+                    // };
+                    //
+                    // template <typename T>
+                    // int A::c[10];         <-- We are in this declaration
+                    entry->type_information = declarator_type;
+                }
+
                 entry->defined = 1;
             }
         }
