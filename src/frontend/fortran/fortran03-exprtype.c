@@ -1831,7 +1831,7 @@ static void check_component_ref_(AST expr,
         synthesized_type = rhs_type;
     }
 
-    if (is_lvalue_reference_type(class_type))
+    if (is_lvalue_reference_type(nodecl_get_type(nodecl_lhs)))
     {
         synthesized_type = get_lvalue_reference_type(synthesized_type);
     }
@@ -1879,7 +1879,7 @@ static void check_component_ref_(AST expr,
         *nodecl_output =
             nodecl_make_dereference(
                     *nodecl_output,
-                    lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
+                    lvalue_ref(pointer_type_get_pointee_type(component_type)),
                     ast_get_locus(expr));
     }
 
@@ -1904,7 +1904,7 @@ static void check_component_ref_(AST expr,
                     no_ref(nodecl_get_type(*nodecl_output)),
                     lhs_type);
 
-            if (is_lvalue_reference_type(class_type))
+            if (is_lvalue_reference_type(nodecl_get_type(nodecl_lhs)))
             {
                 synthesized_type = get_lvalue_reference_type(synthesized_type);
             }
