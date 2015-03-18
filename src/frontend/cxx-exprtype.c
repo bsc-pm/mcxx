@@ -15916,6 +15916,20 @@ static void check_nodecl_member_access(
                     }
                     else
                     {
+                        // Make sure the type of this static data member is complete
+                        if (is_class_type_or_array_thereof(type_of_class_member_access))
+                        {
+                            type_t* class_type_of_class_member_access = type_of_class_member_access;
+                            if (is_array_type(class_type_of_class_member_access))
+                                class_type_of_class_member_access =
+                                    array_type_get_element_type(class_type_of_class_member_access);
+
+                            scope_entry_t* class_symbol_of_class_member_access =
+                                named_type_get_symbol(class_type_of_class_member_access);
+                            class_type_complete_if_needed(class_symbol_of_class_member_access,
+                                    decl_context, locus);
+                        }
+
                         type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
                     }
                 }
