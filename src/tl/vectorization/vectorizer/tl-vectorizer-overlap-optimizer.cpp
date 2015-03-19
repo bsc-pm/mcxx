@@ -1001,11 +1001,14 @@ namespace Vectorization
             if (need_update_post(!is_simd_loop, _is_simd_epilog,
                         is_overlap_epilog))
             {
-                // Update Post
-                Nodecl::List post_stmts = 
-                    get_ogroup_iteration_update_post(ogroup);
-                Nodecl::Utils::append_items_in_nested_compound_statement(
-                        n.get_statement(), post_stmts);
+                // Place Update Post stmt at the end of the loop if no in place strategy
+                if (!_in_place)
+                {
+                    Nodecl::List post_stmts = 
+                        get_ogroup_iteration_update_post(ogroup);
+                    Nodecl::Utils::append_items_in_nested_compound_statement(
+                            n.get_statement(), post_stmts);
+                }
             }
 
             // Place Update Pre stmt at the beginning of the loop if no in place strategy
@@ -1027,9 +1030,8 @@ namespace Vectorization
                     n.get_statement(), init_stmts);
 
             // TODO
-            //if (!_in_place)
+            ERROR_CONDITION(_in_place, "intra-iteration in place not implemented\n", 0);
             //{
- 
             // When there is no overlap among iterations we don't need
             // to update the cache
         }
@@ -1039,14 +1041,11 @@ namespace Vectorization
             OverlapGroup& ogroup,
             const Nodecl::NodeclBase& nesting_node)
     {
-        for(objlist_nodecl_t::const_iterator load_it =
-                ogroup._loads.begin();
-                load_it != ogroup._loads.end();
-                load_it++)
+        for(const auto& load_it : ogroup._loads)
         {
             Nodecl::NodeclBase load_subscript =
                 Utils::get_vector_load_subscript(
-                        load_it->as<Nodecl::VectorLoad>());
+                        load_it.as<Nodecl::VectorLoad>());
 
             Nodecl::Minus shifted_elements = Nodecl::Minus::make(
                     load_subscript.shallow_copy(),
@@ -1073,7 +1072,7 @@ namespace Vectorization
 
                 if (const_value_is_zero(mod))
                 {
-                    load_it->replace(
+                    load_it.replace(
                             ogroup._registers[first_register].
                             make_nodecl(true));
 
@@ -1082,11 +1081,11 @@ namespace Vectorization
                 }
                 else
                 {
-                    load_it->replace(Nodecl::VectorAlignRight::make(
+                    load_it.replace(Nodecl::VectorAlignRight::make(
                                 ogroup._registers[first_register+1].make_nodecl(true),
                                 ogroup._registers[first_register].make_nodecl(true),
                                 const_value_to_nodecl(const_value_get_signed_int(final_offset)),
-                                load_it->as<Nodecl::VectorLoad>().
+                                load_it.as<Nodecl::VectorLoad>().
                                 get_mask().shallow_copy(),
                                 ogroup._registers[first_register].get_type()));
 
@@ -1094,13 +1093,11 @@ namespace Vectorization
                         uses_last_register = true;
                 }
 
-                std::cerr << "Overlap in place: " << _in_place << " " << uses_last_register << std::endl;
-
-                // In place strategy and overlap among iterations
+                // Update Pre: In place strategy and overlap among iterations
                 if (_in_place && uses_last_register && ogroup._inter_it_overlap && !ogroup._is_set_in_place_update_pre)
                 {
                     Nodecl::NodeclBase pre_stmt = get_ogroup_iteration_update_pre(ogroup);
-                    Nodecl::Utils::prepend_statement(*load_it, pre_stmt, nesting_node /*use to look for ObjectInit*/ );
+                    Nodecl::Utils::prepend_sibling_statement(load_it, pre_stmt, nesting_node /*use to look for ObjectInit*/ );
 
                     ogroup._is_set_in_place_update_pre = true;
                 }
@@ -1120,6 +1117,13 @@ namespace Vectorization
                 //    << shifted_elements.prettyprint()
                 //    << std::endl;
             }
+        }
+
+        // Update Post: In place strategy and overlap among iterations
+        if (_in_place && ogroup._inter_it_overlap)
+        {
+            Nodecl::NodeclBase post_stmt = get_ogroup_iteration_update_post(ogroup);
+            Nodecl::Utils::append_sibling_statement(ogroup._loads.back(), post_stmt, nesting_node /*use to look for ObjectInit*/ );
         }
     }
 }

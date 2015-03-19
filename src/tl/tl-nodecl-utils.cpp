@@ -1033,13 +1033,11 @@ namespace Nodecl
             n.is<Nodecl::ObjectInit>();
     }
 
-    //It does not work if 'n' is nested in the value of an ObjectInit!
-    void Utils::prepend_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt,
+    Nodecl::NodeclBase get_nesting_statement(const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& obj_init_context)
     {
         Nodecl::NodeclBase target_stmt = n;
-        while (!target_stmt.is_null() && !is_nodecl_statement(target_stmt))
+        while (!target_stmt.is_null() && !Utils::is_nodecl_statement(target_stmt))
         {
             target_stmt = target_stmt.get_parent();
         }
@@ -1048,10 +1046,10 @@ namespace Nodecl
         if (target_stmt.is_null())
         {
             if (obj_init_context.is_null())
-                internal_error("Nodecl::Utils::prepend_statement: target_stmt is null and obj_init_context is null", 0);
+                internal_error("Nodecl::Utils::get_nesting_statement: target_stmt is null and obj_init_context is null", 0);
 
             TL::ObjectList<Nodecl::NodeclBase> obj_init_list =
-                nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
+                Utils::nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
 
             for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = obj_init_list.begin();
                     it != obj_init_list.end();
@@ -1062,7 +1060,7 @@ namespace Nodecl
 
                 if(!init.is_null())
                 {
-                    if (nodecl_contains_nodecl_by_pointer(init, n))
+                    if (Utils::nodecl_contains_nodecl_by_pointer(init, n))
                     {
                         target_stmt = *it;
                         break;
@@ -1072,21 +1070,25 @@ namespace Nodecl
         }
         
         if (target_stmt.is_null())
-            internal_error("Nodecl::Utils::prepend_statement: target_stmt is null", 0);
+            internal_error("Nodecl::Utils::get_nesting_statement: target_stmt is null", 0);
 
+        return target_stmt;
+    }
+
+
+    void Utils::prepend_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
+    {
+        Nodecl::NodeclBase target_stmt = get_nesting_statement(n, obj_init_context);
         target_stmt.prepend_sibling(new_stmt);
     }
 
-    //It does not work if 'n' is nested in the value of an ObjectInit!
-    void Utils::append_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt)
+    void Utils::append_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
     {
-        Nodecl::NodeclBase target_stmt = n;
-        while (!is_nodecl_statement(target_stmt))
-        {
-            target_stmt = target_stmt.get_parent();
-        }
-
+        Nodecl::NodeclBase target_stmt = get_nesting_statement(n, obj_init_context);
         target_stmt.append_sibling(new_stmt);
     }
 
