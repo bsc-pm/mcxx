@@ -49,7 +49,7 @@ namespace TL { namespace Nanox {
     {
         TL::Type get_fake_explicit_shape_array(TL::Type t)
         {
-            if (t.is_array())
+            if (t.is_fortran_array())
             {
                 Nodecl::NodeclBase lower, upper;
 
