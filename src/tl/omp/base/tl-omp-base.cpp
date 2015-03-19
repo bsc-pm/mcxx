@@ -1574,6 +1574,43 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(
                 ds, pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
+
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+            if (label_clause.is_defined()
+                    && str_list.size() == 1)
+            {
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << OpenMP::Report::indent
+                        << "Label of this task is '" << str_list[0] << "'\n";
+                    ;
+                }
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_locus()));
+            }
+            else
+            {
+                if (label_clause.is_defined())
+                {
+                    warn_printf("%s: warning: ignoring invalid 'label' clause in 'task' construct\n",
+                            directive.get_locus_str().c_str());
+                }
+
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << OpenMP::Report::indent
+                        << "This task does not have any label\n";
+                    ;
+                }
+            }
+        }
+
         pragma_line.diagnostic_unused_clauses();
 
         taskloop_block_loop(directive, statement, execution_environment, num_blocks);
