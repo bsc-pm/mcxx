@@ -5505,7 +5505,10 @@ OPERATOR_TABLE
             return;
 
         // Do not bring variables in
-        if (entry.is_variable())
+        if (entry.is_variable()
+                // but if their type is a constant type
+                // it means they are a PARAMETER
+                && !entry.get_type().is_const())
             return;
 
         TL::Symbol module;
