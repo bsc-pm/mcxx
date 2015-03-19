@@ -1512,6 +1512,16 @@ namespace TL { namespace OpenMP {
         statement = statement.as<Nodecl::List>().front();
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
 
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "TASKLOOP construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
@@ -3375,15 +3385,6 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase num_blocks)
     {
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid node", 0);
-
-        if (emit_omp_report())
-        {
-            *_omp_report_file
-                << "\n"
-                << directive.get_locus_str() << ": " << "TASKLOOP construct\n"
-                << directive.get_locus_str() << ": " << "------------------\n"
-                ;
-        }
 
         TL::ForStatement for_statement(
                 statement.as<Nodecl::Context>()
