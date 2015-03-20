@@ -2353,7 +2353,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // In C, an entity may be redefined at file-scope
                         && !(IS_C_LANGUAGE
                             && (entry->decl_context.current_scope == entry->decl_context.global_scope)
-                            && nodecl_is_null(entry->value)))
+                            && (nodecl_is_null(entry->value)
+                                || initializer == NULL)))
                 {
                     error_printf("%s: error: redefined entity '%s', first declared in '%s'\n",
                             ast_location(declarator),
