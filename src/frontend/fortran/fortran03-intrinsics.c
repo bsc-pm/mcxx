@@ -1311,6 +1311,18 @@ static int pstrcasecmp(const char** a, const char** b)
     return strcasecmp(*a, *b);
 }
 
+static char intrinsic_has_been_disabled(const char* c)
+{
+    if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0) {
+        return (bsearch(&c,
+                    CURRENT_CONFIGURATION->disabled_intrinsics_list,
+                    CURRENT_CONFIGURATION->num_disabled_intrinsics,
+                    sizeof(const char*),
+                    (int (*)(const void*, const void*))pstrcasecmp) != NULL);
+    }
+    return 0;
+}
+
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
     fortran_create_scope_for_intrinsics(decl_context);
@@ -1339,13 +1351,8 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             module_sym = (scope_entry_t*)rb_node_get_info(query); \
             relevant_decl_context = module_sym->related_decl_context; \
         } \
-        else if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0) { \
-            const char* c = #name; \
-            disabled = (bsearch(&c,\
-                    CURRENT_CONFIGURATION->disabled_intrinsics_list, \
-                    CURRENT_CONFIGURATION->num_disabled_intrinsics, \
-                    sizeof(const char*), \
-                    (int (*)(const void*, const void*))pstrcasecmp) != NULL); \
+        else { \
+            disabled = intrinsic_has_been_disabled(#name); \
         } \
         if (!disabled) \
         { \
@@ -1442,6 +1449,10 @@ static scope_entry_t* register_specific_intrinsic_name(
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
+    if (intrinsic_has_been_disabled(generic_name)
+            || intrinsic_has_been_disabled(specific_name))
+        return NULL;
+
 #define MAX_SPECIFIC_PARAMETERS 7
     scope_entry_t* generic_entry = fortran_query_intrinsic_name_str(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
@@ -1557,6 +1568,9 @@ static scope_entry_t* register_custom_intrinsic(
         int num_types,
         type_t* t0, type_t* t1, type_t* t2)
 {
+    if (intrinsic_has_been_disabled(specific_name))
+        return NULL;
+
     type_t* types[3] = { t0, t1, t2 };
 
     scope_entry_t* entry = get_intrinsic_symbol_(NULL,
