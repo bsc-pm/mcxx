@@ -6674,5 +6674,9 @@ right_bracket_token : '>'
 
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-	fprintf(stderr, "%s:%d: error: %s\n", scanning_now.current_filename, scanning_now.line_number, c);
+	fprintf(stderr, "%s:%d:%d: error: %s\n",
+            mcxxlloc.first_filename,
+            mcxxlloc.first_line,
+            mcxxlloc.first_column,
+            c);
 }

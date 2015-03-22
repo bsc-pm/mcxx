@@ -2552,5 +2552,9 @@ identifier_token : IDENTIFIER
 
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-	fprintf(stderr, "%s:%d: error: %s\n", scanning_now.current_filename, scanning_now.line_number, c);
+	fprintf(stderr, "%s:%d:%d: error: %s\n",
+            mc99lloc.first_filename,
+            mc99lloc.first_line,
+            mc99lloc.first_column,
+            c);
 }
