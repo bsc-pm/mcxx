@@ -36,42 +36,27 @@
  */
 #define MAX_INCLUDE_DEPTH 99
 
-struct scan_file_descriptor 
+typedef
+struct token_location_tag
 {
-    // This is the (physical) filename being scanned
     const char* filename;
+    int line;
+    int column;
+} token_location_t;
 
-    // This is the logical filename that we are scanning.
-    // current_filename != filename only in Fortran fixed-form because we scan
-    // the output of prescanner
-    const char* current_filename;
+struct scan_file_descriptor
+{
+    const char *current_pos; // position in the buffer
 
-    union {
-        // file descriptor + flex buffer
-        struct {
-            FILE* file_descriptor;
-            struct yy_buffer_state* scanning_buffer;
-        };
+    const char *buffer; // scanned buffer
+    size_t buffer_size; // number of characters in buffer relevant for scanning
 
-        // memory buffer/mmap
-        struct {
-            const char *current_pos; // position in the buffer
+    // Physical filename scanned (may be different in fixed form)
+    const char* scanned_filename;
 
-            const char *buffer; // scanned buffer
-            size_t buffer_size; // number of characters in buffer relevant for scanning
+    int fd; // if fd >= 0 this is a mmap
 
-            int fd; // if fd >= 0 this is a mmap
-        };
-    };
-
-    // Line of current token
-    unsigned int line_number;
-    // Column where the current token starts
-    unsigned column_number;
-    // Fortran: After a joined line we have to move to this line if new_line > 0 
-    unsigned int new_line; 
-    // Fortran: Number of joined lines so far
-    unsigned int joined_lines;
+    token_location_t current_location;
 };
 
 enum lexer_textual_form
@@ -83,35 +68,20 @@ enum lexer_textual_form
     LX_FIXED_FORM = 2,
 };
 
-typedef
-struct token_location_tag
-{
-    const char* filename;
-    int line;
-    int column;
-} token_location_t;
-
-typedef
-struct include_info_tag
-{
-    struct scan_file_descriptor desc;
-    token_location_t current_location;
-} include_info_t;
-
 static
 struct new_lexer_state_t
 {
     enum lexer_textual_form form;
 
     int include_stack_size;
-    include_info_t include_stack[MAX_INCLUDE_DEPTH];
+    struct scan_file_descriptor include_stack[MAX_INCLUDE_DEPTH];
+    struct scan_file_descriptor *current_file;
 
     // beginning of line
     char bol:1;
     // last token was end of line (the parser does not like redundant EOS)
     char last_eos:1; 
 
-    token_location_t *current_location;
 
     // states that we are inside a string-literal (changes the way we handle
     // continuations)
@@ -120,10 +90,9 @@ struct new_lexer_state_t
 
 static token_location_t get_current_location(void)
 {
-    return *lexer_state.current_location;
+    return lexer_state.current_file->current_location;
 }
 
-static struct scan_file_descriptor* fortran_scanning_now;
 int mf03_flex_debug = 1;
 
 static inline void peek_init(void);
@@ -151,21 +120,18 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const c
     }
 
     lexer_state.include_stack_size = 0;
-    fortran_scanning_now = &lexer_state.include_stack[lexer_state.include_stack_size].desc;
-    lexer_state.current_location = &lexer_state.include_stack[lexer_state.include_stack_size].current_location;
+    lexer_state.current_file = &lexer_state.include_stack[lexer_state.include_stack_size];
 
-	memset(fortran_scanning_now, 0, sizeof(*fortran_scanning_now));
-	fortran_scanning_now->filename = uniquestr(scanned_filename);
+	lexer_state.current_file->scanned_filename = scanned_filename;
 
-	fortran_scanning_now->fd = fd;
-	fortran_scanning_now->buffer_size = s.st_size;
-    fortran_scanning_now->current_pos
-        = fortran_scanning_now->buffer = mmapped_addr;
-    fortran_scanning_now->current_filename = uniquestr(input_filename);
+	lexer_state.current_file->fd = fd;
+	lexer_state.current_file->buffer_size = s.st_size;
+    lexer_state.current_file->current_pos
+        = lexer_state.current_file->buffer = mmapped_addr;
 
-	lexer_state.current_location->filename = uniquestr(input_filename);
-	lexer_state.current_location->line = 1;
-	lexer_state.current_location->column = 0;
+	lexer_state.current_file->current_location.filename = input_filename;
+	lexer_state.current_file->current_location.line = 1;
+	lexer_state.current_file->current_location.column = 0;
 
     lexer_state.bol = 1;
     lexer_state.last_eos = 1;
@@ -397,32 +363,23 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
         fprintf(stderr, "%s\n", str);
         fprintf(stderr, "* End of parsed string\n");
     }
+
 	lexer_state.include_stack_size = 0;
-	fortran_scanning_now = &(lexer_state.include_stack[lexer_state.include_stack_size].desc);
-    lexer_state.current_location = &(lexer_state.include_stack[lexer_state.include_stack_size].current_location);
+    lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
   
-	fortran_scanning_now->line_number = 1;
-	fortran_scanning_now->column_number = 0;
-	fortran_scanning_now->new_line = 0;
-	fortran_scanning_now->joined_lines = 0;
-	
-	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
-	fortran_scanning_now->filename = xcalloc(strlen(TL_SOURCE_STRING) + strlen(current_filename) + 10, sizeof(char));
-    char filename[256];
-	snprintf(filename, 255, "%s-%s-%d", TL_SOURCE_STRING, current_filename, num_string);
-    filename[255] = '\0';
-    fortran_scanning_now->filename = uniquestr(filename);
-
-    fortran_scanning_now->fd = -1; // not an mmap
-    fortran_scanning_now->buffer_size = strlen(str);
-    fortran_scanning_now->current_pos
-        = fortran_scanning_now->buffer = str;
-
-    lexer_state.current_location->filename = fortran_scanning_now->filename;
-    lexer_state.current_location->line = 1;
-    lexer_state.current_location->column = 0;
-	
+    const char* filename = NULL;
+    uniquestr_sprintf(&filename, "%s-%s-%d", TL_SOURCE_STRING, CURRENT_COMPILED_FILE->input_filename, num_string);
 	num_string++;
+
+    lexer_state.current_file->fd = -1; // not an mmap
+    lexer_state.current_file->buffer_size = strlen(str);
+    lexer_state.current_file->current_pos
+        = lexer_state.current_file->buffer = str;
+
+    lexer_state.current_file->current_location.filename = filename;
+    lexer_state.current_file->current_location.line = 1;
+    lexer_state.current_file->current_location.column = 0;
+	
     lexer_state.last_eos = 1;
 
     peek_init();
@@ -440,25 +397,24 @@ static char process_end_of_file(void)
 	else
 	{
 		DEBUG_CODE() DEBUG_MESSAGE("End of included file %s switching back to %s", 
-				lexer_state.current_location->filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
+				lexer_state.current_file->current_location.filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
 
-        if (fortran_scanning_now->fd >= 0)
+        if (lexer_state.current_file->fd >= 0)
         {
-            int res = munmap((void*)fortran_scanning_now->buffer, fortran_scanning_now->buffer_size);
+            int res = munmap((void*)lexer_state.current_file->buffer, lexer_state.current_file->buffer_size);
             if (res < 0)
             {
-                running_error("error: unmaping of file '%s' failed (%s)\n", fortran_scanning_now->filename, strerror(errno));
+                running_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
             }
-            res = close(fortran_scanning_now->fd);
+            res = close(lexer_state.current_file->fd);
             if (res < 0)
             {
-                running_error("error: closing file '%s' failed (%s)\n", fortran_scanning_now->filename, strerror(errno));
+                running_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
             }
         }
 
 		lexer_state.include_stack_size--;
-		fortran_scanning_now = &(lexer_state.include_stack[lexer_state.include_stack_size].desc);
-		lexer_state.current_location = &(lexer_state.include_stack[lexer_state.include_stack_size].current_location);
+		lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
         lexer_state.last_eos = 1;
 
 		return 0;
@@ -479,7 +435,7 @@ static inline char is_newline(char c)
 
 static inline char past_eof(void)
 {
-    return (fortran_scanning_now->current_pos >= ((fortran_scanning_now->buffer + fortran_scanning_now->buffer_size)));
+    return (lexer_state.current_file->current_pos >= ((lexer_state.current_file->buffer + lexer_state.current_file->buffer_size)));
 }
 
 static inline char is_end_of_file(void)
@@ -492,21 +448,21 @@ static inline char free_form_get(void)
     if (past_eof())
         return EOF;
 
-    char result = fortran_scanning_now->current_pos[0];
+    char result = lexer_state.current_file->current_pos[0];
 
     while (result == '&')
     {
-        const char* keep = fortran_scanning_now->current_pos;
-        // int keep_line = lexer_state.current_location->line;
-        int keep_column = lexer_state.current_location->column;
+        const char* keep = lexer_state.current_file->current_pos;
+        // int keep_line = lexer_state.current_file->current_location->line;
+        int keep_column = lexer_state.current_file->current_location.column;
 
         // blanks
         while (!past_eof()
-                && is_blank(fortran_scanning_now->current_pos[0]))
+                && is_blank(lexer_state.current_file->current_pos[0]))
         {
-            lexer_state.current_location->column++;
+            lexer_state.current_file->current_location.column++;
 
-            fortran_scanning_now->current_pos++;
+            lexer_state.current_file->current_pos++;
         }
 
         if (past_eof())
@@ -515,52 +471,52 @@ static inline char free_form_get(void)
         if (!lexer_state.character_context)
         {
             // When we are not in character context we allow a comment here
-            if (fortran_scanning_now->current_pos[0] == '!')
+            if (lexer_state.current_file->current_pos[0] == '!')
             {
                 while (!past_eof()
-                        && !is_newline(fortran_scanning_now->current_pos[0]))
+                        && !is_newline(lexer_state.current_file->current_pos[0]))
                 {
-                    lexer_state.current_location->column++;
+                    lexer_state.current_file->current_location.column++;
 
-                    fortran_scanning_now->current_pos++;
+                    lexer_state.current_file->current_pos++;
                 }
                 if (past_eof())
                     return EOF;
             }
-            else if (is_newline(fortran_scanning_now->current_pos[0]))
+            else if (is_newline(lexer_state.current_file->current_pos[0]))
             {
                 // handled below
             }
             else
             {
                 // not a continuation
-                lexer_state.current_location->column = keep_column;
+                lexer_state.current_file->current_location.column = keep_column;
 
-                fortran_scanning_now->current_pos = keep;
+                lexer_state.current_file->current_pos = keep;
                 break;
             }
         }
 
-        if (fortran_scanning_now->current_pos[0] == '\n')
+        if (lexer_state.current_file->current_pos[0] == '\n')
         {
-            lexer_state.current_location->line++;
-            lexer_state.current_location->column = 0;
+            lexer_state.current_file->current_location.line++;
+            lexer_state.current_file->current_location.column = 0;
 
-            fortran_scanning_now->current_pos++;
+            lexer_state.current_file->current_pos++;
             if (past_eof())
                 return EOF;
         }
-        else if (fortran_scanning_now->current_pos[0] == '\r')
+        else if (lexer_state.current_file->current_pos[0] == '\r')
         {
-            lexer_state.current_location->line++;
-            lexer_state.current_location->column = 0;
+            lexer_state.current_file->current_location.line++;
+            lexer_state.current_file->current_location.column = 0;
 
-            fortran_scanning_now->current_pos++;
+            lexer_state.current_file->current_pos++;
             if (past_eof())
                 return EOF;
-            if (fortran_scanning_now->current_pos[0] == '\n')
+            if (lexer_state.current_file->current_pos[0] == '\n')
             {
-                fortran_scanning_now->current_pos++;
+                lexer_state.current_file->current_pos++;
                 if (past_eof())
                     return EOF;
             }
@@ -568,45 +524,45 @@ static inline char free_form_get(void)
         else
         {
             // not a continuation
-            lexer_state.current_location->column = keep_column;
+            lexer_state.current_file->current_location.column = keep_column;
 
-            fortran_scanning_now->current_pos = keep;
+            lexer_state.current_file->current_pos = keep;
             break;
         }
 
         // Now we need to peek if there is another &, so we have to do
         // token pasting, otherwise we will return a blank
         while (!past_eof()
-                && is_blank(fortran_scanning_now->current_pos[0]))
+                && is_blank(lexer_state.current_file->current_pos[0]))
         {
-            lexer_state.current_location->column++;
+            lexer_state.current_file->current_location.column++;
 
-            fortran_scanning_now->current_pos++;
+            lexer_state.current_file->current_pos++;
         }
         if (past_eof())
             return EOF;
 
-        if (fortran_scanning_now->current_pos[0] == '&')
+        if (lexer_state.current_file->current_pos[0] == '&')
         {
-            lexer_state.current_location->column++;
+            lexer_state.current_file->current_location.column++;
 
-            fortran_scanning_now->current_pos++;
+            lexer_state.current_file->current_pos++;
             if (past_eof())
                 return EOF;
-            result = fortran_scanning_now->current_pos[0];
+            result = lexer_state.current_file->current_pos[0];
         }
         else
         {
             if (lexer_state.character_context)
             {
                 // in character context the first nonblank is the next character
-                result = fortran_scanning_now->current_pos[0];
+                result = lexer_state.current_file->current_pos[0];
             }
             else
             {
                 result = ' ';
                 // Compensate this artificial character
-                lexer_state.current_location->column--;
+                lexer_state.current_file->current_location.column--;
             }
         }
     }
@@ -614,20 +570,21 @@ static inline char free_form_get(void)
     if (result != '\n' 
             && result != '\r')
     {
-        lexer_state.current_location->column++;
-        fortran_scanning_now->current_pos++;
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
     }
     else
     {
-        lexer_state.current_location->line++;
-        lexer_state.current_location->column = 0;
+        lexer_state.current_file->current_location.line++;
+        lexer_state.current_file->current_location.column = 0;
 
-        fortran_scanning_now->current_pos++;
-        // DOS: Try to eat the '\n'
-        if (!past_eof()
-                && fortran_scanning_now->current_pos[0] == '\n')
+        lexer_state.current_file->current_pos++;
+        if (result == '\r'
+                && !past_eof()
+                && lexer_state.current_file->current_pos[0] == '\n')
         {
-            fortran_scanning_now->current_pos++;
+            // DOS: \r\n will act like a single '\r'
+            lexer_state.current_file->current_pos++;
         }
     }
 
@@ -893,11 +850,6 @@ static int commit_text(int token_id, const char* str,
     mf03lloc.first_line = loc.line;
     mf03lloc.first_column = loc.column;
 
-    // The parser still uses this. We will eventually remove this info
-    fortran_scanning_now->current_filename = loc.filename;
-    fortran_scanning_now->line_number = loc.line;
-    fortran_scanning_now->column_number = loc.column;
-
     return token_id;
 }
 
@@ -1076,10 +1028,20 @@ extern int new_mf03lex (void)
             case '\n':
             case '\r':
                 {
-                    // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \n
+                    // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \r
                     if (!lexer_state.last_eos)
                     {
                         return commit_text(EOS, NULL, loc);
+                    }
+                    else
+                    {
+                        if (mf03_flex_debug)
+                        {
+                            fprintf(stderr, "SKIPPING NEWLINE %s:%d:%d\n",
+                                    loc.filename,
+                                    loc.line,
+                                    loc.column);
+                        }
                     }
                     continue;
                 }
