@@ -71,47 +71,7 @@ typedef struct parser_location_tag
 
 LIBMCXX_EXTERN void update_parser_location(const char* current_text, parser_location_t* loc);
 
-struct scan_file_descriptor 
-{
-    // This is the (physical) filename being scanned
-    const char* filename;
-
-    // This is the logical filename that we are scanning.
-    // current_filename != filename only in Fortran fixed-form because we scan
-    // the output of prescanner
-    const char* current_filename;
-
-    union {
-        // file descriptor + flex buffer
-        struct {
-            FILE* file_descriptor;
-            struct yy_buffer_state* scanning_buffer;
-        };
-
-        // memory buffer/mmap
-        struct {
-            const char *current_pos; // position in the buffer
-
-            const char *buffer; // scanned buffer
-            size_t buffer_size; // number of characters in buffer relevant for scanning
-
-            int fd; // if fd >= 0 this is a mmap
-        };
-    };
-
-    // Line of current token
-    unsigned int line_number;
-    // Column where the current token starts
-    unsigned column_number;
-    // Fortran: After a joined line we have to move to this line if new_line > 0 
-    unsigned int new_line; 
-    // Fortran: Number of joined lines so far
-    unsigned int joined_lines;
-};
-
 #define YYLTYPE parser_location_t
-
-LIBMCXX_EXTERN struct scan_file_descriptor scanning_now;
 
 LIBMCXX_EXTERN int mcxx_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
 LIBMCXX_EXTERN int mc99_open_file_for_scanning(const char* scanned_filename, const char* input_filename);

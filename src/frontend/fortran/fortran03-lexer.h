@@ -36,8 +36,6 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMF03_EXTERN struct scan_file_descriptor* fortran_scanning_now;
-
 LIBMF03_EXTERN int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
 LIBMF03_EXTERN int mf03_prepare_string_for_scanning(const char* str);
 

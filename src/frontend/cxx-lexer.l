@@ -171,7 +171,26 @@ static void parse_token_text(void);
 
 static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* keyword, char predicate);
 
-struct scan_file_descriptor scanning_now;
+struct scan_file_descriptor 
+{
+    // This is the (physical) filename being scanned
+    const char* filename;
+
+    // This is the logical filename that we are scanning.
+    // current_filename != filename only in Fortran fixed-form because we scan
+    // the output of prescanner
+    const char* current_filename;
+
+    FILE* file_descriptor;
+    struct yy_buffer_state* scanning_buffer;
+
+    // Line of current token
+    unsigned int line_number;
+    // Column where the current token starts
+    unsigned column_number;
+};
+
+static struct scan_file_descriptor scanning_now;
 
 static const char* main_input_filename = NULL;
 

@@ -65,8 +65,31 @@ static int include_stack_size = 0;
 static int pragma_custom_var_list_parentheses = 0;
 static const char *current_pragma_prefix = NULL;
 
+struct scan_file_descriptor 
+{
+    // This is the (physical) filename being scanned
+    const char* filename;
+
+    // This is the logical filename that we are scanning.
+    // current_filename != filename only in Fortran fixed-form because we scan
+    // the output of prescanner
+    const char* current_filename;
+
+    FILE* file_descriptor;
+    struct yy_buffer_state* scanning_buffer;
+
+    // Line of current token
+    unsigned int line_number;
+    // Column where the current token starts
+    unsigned column_number;
+    // Fortran: After a joined line we have to move to this line if new_line > 0 
+    unsigned int new_line; 
+    // Fortran: Number of joined lines so far
+    unsigned int joined_lines;
+};
+
 static struct scan_file_descriptor include_stack[MAX_INCLUDE_DEPTH];
-struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
+static struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
 
 #define MAX_PRAGMA_CONSTRUCT_STACK 64
 static const char* pragma_construct_stack[MAX_PRAGMA_CONSTRUCT_STACK] = { 0 };
