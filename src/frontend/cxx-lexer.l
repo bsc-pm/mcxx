@@ -1980,15 +1980,13 @@ static void parse_token_text(void)
 /*!if CPLUSPLUS*/
 #define OPEN_FILE_FOR_SCANNING mcxx_open_file_for_scanning
 #define PREPARE_STRING_FOR_SCANNING mcxx_prepare_string_for_scanning
-#define TL_SOURCE_STRING mcxx_tl_source_string
 /*!endif*/
 /*!if C99*/
 #define OPEN_FILE_FOR_SCANNING mc99_open_file_for_scanning
 #define PREPARE_STRING_FOR_SCANNING mc99_prepare_string_for_scanning
-#define TL_SOURCE_STRING mc99_tl_source_string
 /*!endif*/
 
-char* TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
+static const char* const TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {

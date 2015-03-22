@@ -67,9 +67,13 @@ extern "C"
 
     extern token_atrib_t mcxxlval;
 
+#ifdef FORTRAN_NEW_SCANNER
+    extern int mf03_prepare_string_for_scanning(const char* str);
+#else
     extern YY_BUFFER_STATE mf03_scan_string (const char *yy_str);
     extern void mf03_switch_to_buffer (YY_BUFFER_STATE new_buffer);
     extern void mf03_delete_buffer(YY_BUFFER_STATE b);
+#endif
     extern int mf03lex(void);
 
     extern token_atrib_t mf03lval;
@@ -154,8 +158,12 @@ namespace TL {
             ObjectList<Lexer::pair_token> result;
 
             char *line = ::xstrdup(str.c_str());
+#ifdef FORTRAN_NEW_SCANNER
+            mf03_prepare_string_for_scanning(line);
+#else
 			YY_BUFFER_STATE scan_line = mf03_scan_string(line);
 			mf03_switch_to_buffer(scan_line);
+#endif
 
 			int token = mf03lex();
 			while (token != 0)
@@ -168,7 +176,10 @@ namespace TL {
                 token = mf03lex();
             }
 
+#ifdef FORTRAN_NEW_SCANNER
+#else
 			mf03_delete_buffer(scan_line);
+#endif
 
             ::xfree(line);
 

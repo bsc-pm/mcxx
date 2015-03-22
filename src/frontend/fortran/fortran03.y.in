@@ -6316,5 +6316,9 @@ extern char* yytext;
 extern char* actual_line;
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-	fprintf(stderr, "%s:%d: error: %s\n", fortran_scanning_now->current_filename, fortran_scanning_now->line_number, c);
+	fprintf(stderr, "%s:%d:%d: error: %s\n",
+            fortran_scanning_now->current_filename,
+            fortran_scanning_now->line_number,
+            fortran_scanning_now->column_number,
+            c);
 }

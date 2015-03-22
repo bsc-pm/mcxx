@@ -236,6 +236,39 @@ FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
 AC_SUBST([FORTRAN_TESTS_ENABLED])
 dnl -- End Fortran tests ---
 
+dnl -- New Fortran scanner ---
+fortran_new_scanner="no"
+AC_MSG_CHECKING([if new Fortran scanner has been enabled])
+AC_ARG_ENABLE([new-fortran-scanner],
+    AS_HELP_STRING([--enable-new-fortran-scanner], [Enables new Fortran scanner (EXPERIMENTAL)]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         fortran_new_scanner="yes"
+         dnl no, they have not been disabled
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              fortran_new_scanner="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+FORTRAN_NEW_SCANNER=$fortran_new_scanner
+AC_SUBST([FORTRAN_NEW_SCANNER])
+AM_CONDITIONAL([FORTRAN_NEW_SCANNER], test x$fortran_new_scanner = xyes)
+if test x$fortran_new_scanner = xyes;
+then
+    AC_DEFINE([FORTRAN_NEW_SCANNER], 1, [Define to 1 if binaries are installed in pkglibdir])
+fi
+dnl -- End New Fortran scanner --
+
 dnl -- Extra compilers ---
 
 disable_xlc=no

@@ -2800,7 +2800,7 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 	return 0;
 }
 
-char* TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
+static const char* const TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 // maybe this is not the best place to change the configuration but it must work
 compilation_configuration_t* string_scanning_configuration = 0;
 

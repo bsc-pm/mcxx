@@ -75,15 +75,29 @@ struct scan_file_descriptor
 {
     // This is the (physical) filename being scanned
     const char* filename;
-    FILE* file_descriptor;
 
     // This is the logical filename that we are scanning.
     // current_filename != filename only in Fortran fixed-form because we scan
     // the output of prescanner
     const char* current_filename;
 
-    // flex buffer
-    struct yy_buffer_state* scanning_buffer;
+    union {
+        // file descriptor + flex buffer
+        struct {
+            FILE* file_descriptor;
+            struct yy_buffer_state* scanning_buffer;
+        };
+
+        // memory buffer/mmap
+        struct {
+            const char *current_pos; // position in the buffer
+
+            const char *buffer; // scanned buffer
+            size_t buffer_size; // number of characters in buffer relevant for scanning
+
+            int fd; // if fd >= 0 this is a mmap
+        };
+    };
 
     // Line of current token
     unsigned int line_number;
