@@ -334,6 +334,31 @@ char fortran_equivalent_tkr_types(type_t* t1, type_t* t2)
     return 1;
 }
 
+type_t* fortran_get_basic_type(type_t* type_info)
+{
+    // Many functions drop the reference type, so chek it the first
+    if (is_lvalue_reference_type(type_info))
+    {
+        return fortran_get_basic_type(no_ref(type_info));
+    }
+    else if (is_pointer_type(type_info))
+    {
+        return fortran_get_basic_type(pointer_type_get_pointee_type(type_info));
+    }
+    else if (fortran_is_array_type(type_info))
+    {
+        return fortran_get_basic_type(array_type_get_element_type(type_info));
+    }
+    else if (is_function_type(type_info))
+    {
+        return fortran_get_basic_type(function_type_get_return_type(type_info));
+    }
+    else
+    {
+        return type_info;
+    }
+}
+
 type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_type)
 {
     if (is_error_type(basic_type))
