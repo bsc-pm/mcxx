@@ -362,7 +362,6 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	}
 	else
 	{
-
         if (is_valid_pragma_custom_prefix(sentinel))
         {
             fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
@@ -449,21 +448,39 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	}
 */
 
-	if (is_format_statement(yytext))
-	{
-		BEGIN(SEEN_FORMAT);
-	}
-
-	// We will reject it always in a ugly way of doing preanalysis
-	// This reduces efficiency of this scanner though
-	REJECT;
+    if (is_format_statement(yytext))
+    {
+        BEGIN(SEEN_FORMAT);
+        yyless(0);
+    }
+    else
+    {
+        // We will reject it always in a ugly way of doing preanalysis
+        // This reduces efficiency of this scanner though
+        REJECT;
+    }
 }
 
-<SEEN_FORMAT>[(]([^'"\n\r;]|([']([^'\n\r]|(['][']))*['])|(["]([^"\n\r]|(["]["]))*["]))*[)][[:blank:]]*/([;]|{newline}) {
+<SEEN_FORMAT>{
 
-	BEGIN(0);
-	parse_token_text();
-	RETURN_TOKEN(FORMAT_SPEC);
+    [0-9]+ {
+        parse_token_text();
+        RETURN_TOKEN(DECIMAL_LITERAL);
+    }
+
+    [\t ] { }
+
+    format {
+        parse_token_text();
+        RETURN_TOKEN(TOKEN_FORMAT);
+    }
+
+    [(]([^'"\n\r;]|([']([^'\n\r]|(['][']))*['])|(["]([^"\n\r]|(["]["]))*["]))*[)][[:blank:]]*/([;]|{newline}) {
+
+        BEGIN(0);
+        parse_token_text();
+        RETURN_TOKEN(FORMAT_SPEC);
+    }
 }
 
 [!] {
@@ -509,7 +526,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
                 sentinel);
         // Ignore this sentinel
         BEGIN(unknown_pragma);
-        yymore();
+        yyless(0);
     }
 }
 
@@ -1171,7 +1188,7 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(DECIMAL_LITERAL);
 }
 
-<SEEN_FORMAT,INITIAL>format {
+format {
     parse_token_text();
     RETURN_TOKEN(TOKEN_FORMAT);
 }
@@ -2384,7 +2401,7 @@ goto {
 	// A blank should be uninteresting here
 }
 
-. {
+<*>. {
 	if (isprint(yytext[0]))
 	{
 		error_printf("%s:%d: error: unexpected character: `%c' (0x%X)\n", 
