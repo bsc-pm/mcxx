@@ -2328,6 +2328,17 @@ static char check_argument_association(
         return 1;
     }
 
+    if (is_function_type(formal_type)
+            && is_function_type(real_type))
+    {
+        scope_entry_t* entry = nodecl_get_symbol(real_argument);
+
+        if (entry != NULL
+                && symbol_entity_specs_get_is_implicit_basic_type(entry))
+            // We cannot reliably check this case
+            return 1;
+    }
+
     if (!fortran_equivalent_tk_types(formal_type, real_type))
     {
         if (diagnostic)
