@@ -761,14 +761,13 @@ static void build_scope_program_unit_internal(AST program_unit,
 // END FUNCTION FOO
 //
 // We have to wait until all the USE-statements have been processed
-// to fully parse delayed_function_type_spec
-static AST delayed_function_type_spec = NULL;
+// to fully parse postponed_function_type_spec
+static AST postponed_function_type_spec = NULL;
 //
-
 static void solve_delayed_function_type_spec(decl_context_t decl_context)
 {
-    type_t* function_type_spec = fortran_gather_type_from_declaration_type_spec(delayed_function_type_spec, decl_context);
-    delayed_function_type_spec = NULL;
+    type_t* function_type_spec = fortran_gather_type_from_declaration_type_spec(postponed_function_type_spec, decl_context);
+    postponed_function_type_spec = NULL;
 
     if (is_error_type(function_type_spec))
         return;
@@ -1559,7 +1558,7 @@ static scope_entry_t* new_procedure_symbol(
                 else
                 {
                     AST declaration_type_spec = ASTSon0(prefix_spec);
-                    delayed_function_type_spec = declaration_type_spec;
+                    postponed_function_type_spec = declaration_type_spec;
                 }
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
@@ -2063,7 +2062,7 @@ static void build_scope_program_unit_body_declarations(
             }
 
             // If the current statement is not a USE we have to solve
-            if (delayed_function_type_spec != NULL
+            if (postponed_function_type_spec != NULL
                     && ASTKind(stmt) != AST_USE_STATEMENT
                     && ASTKind(stmt) != AST_USE_ONLY_STATEMENT
                     && ASTKind(stmt) != AST_IMPORT_STATEMENT)
@@ -2092,7 +2091,7 @@ static void build_scope_program_unit_body_declarations(
     }
 
     // If we reach the end and the type is not yet defined, solve it now
-    if (delayed_function_type_spec != NULL)
+    if (postponed_function_type_spec != NULL)
     {
         solve_delayed_function_type_spec(decl_context);
     }
