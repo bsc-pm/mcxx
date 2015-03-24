@@ -4174,6 +4174,11 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
         return result;
 }
 
+type_t* array_type_rebase(type_t* array_type, type_t* new_element_type)
+{
+    return _clone_array_type(array_type, new_element_type);
+}
+
 extern inline type_t* get_unqualified_type(type_t* t)
 {
     t = advance_over_typedefs(t);

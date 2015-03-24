@@ -4992,6 +4992,23 @@ static void cast_initialization(
     }
 }
 
+void fortran_cast_initialization(
+        scope_entry_t* entry,
+        nodecl_t *nodecl_init)
+{
+    ERROR_CONDITION(nodecl_init == NULL, "Cannot be NULL here", 0);
+
+    if (nodecl_is_null(*nodecl_init)
+            || !nodecl_is_constant(*nodecl_init))
+        return;
+
+    const_value_t* casted_const = NULL;
+    cast_initialization(no_ref(entry->type_information),
+            nodecl_get_constant(*nodecl_init),
+            &casted_const,
+            nodecl_init);
+}
+
 void fortran_check_initialization(
         scope_entry_t* entry,
         AST expr, 
