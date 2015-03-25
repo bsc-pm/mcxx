@@ -2308,7 +2308,7 @@ static char is_assumed_shape_or_pointer_array(scope_entry_t* entry)
 }
 
 static char check_argument_association(
-        scope_entry_t* function UNUSED_PARAMETER,
+        scope_entry_t* function,
         type_t* formal_type,
         type_t* real_type,
         nodecl_t real_argument,
@@ -2336,6 +2336,14 @@ static char check_argument_association(
 
         if (entry != NULL
                 && symbol_entity_specs_get_is_implicit_basic_type(entry))
+            // We cannot reliably check this case
+            return 1;
+
+        scope_entry_t* dummy_argument =
+            symbol_entity_specs_get_related_symbols_num(function, argument_num);
+
+        if (dummy_argument != NULL
+                && symbol_entity_specs_get_is_implicit_basic_type(dummy_argument))
             // We cannot reliably check this case
             return 1;
     }
