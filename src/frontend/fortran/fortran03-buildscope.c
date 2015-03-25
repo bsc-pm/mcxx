@@ -754,6 +754,221 @@ static void build_scope_program_unit_internal(AST program_unit,
     }
 }
 
+typedef void build_scope_delay_fun_t(void*, nodecl_t*);
+
+typedef
+struct build_scope_delay_info_tag
+{
+    build_scope_delay_fun_t* fun;
+    void *data;
+} build_scope_delay_info_t;
+
+typedef
+struct build_scope_delay_tag
+{
+    int num_delayed;
+    build_scope_delay_info_t* list;
+} build_scope_delay_list_t;
+
+
+enum { BUILD_SCOPE_DELAY_STACK_MAX = 16 };
+
+int _current_delay_stack_idx = 0;
+static build_scope_delay_list_t* _current_delay_stack[BUILD_SCOPE_DELAY_STACK_MAX];
+
+static void build_scope_delay_list_push(build_scope_delay_list_t* delay_list)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == BUILD_SCOPE_DELAY_STACK_MAX, "Too many delayed scopes", 0);
+    _current_delay_stack[_current_delay_stack_idx] = delay_list;
+    _current_delay_stack_idx++;
+}
+
+static void build_scope_delay_list_pop(void)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == 0, "Empty stack", 0);
+    _current_delay_stack_idx--;
+}
+
+static void build_scope_delay_list_run(build_scope_delay_list_t* delay_list,
+        nodecl_t *nodecl_output)
+{
+    int i;
+    for (i = 0; i < delay_list->num_delayed; i++)
+    {
+        nodecl_t nodecl_current = nodecl_null();
+        (delay_list->list[i].fun)(delay_list->list[i].data, &nodecl_current);
+
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_current);
+    }
+
+    delay_list->num_delayed = 0;
+    xfree(delay_list->list);
+}
+
+static void build_scope_delay_list_add(build_scope_delay_fun_t* fun, void *data)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == 0, "No active delay list", 0);
+
+    build_scope_delay_info_t new_delayed = { fun, data };
+
+    build_scope_delay_list_t *current_delay_list = _current_delay_stack[_current_delay_stack_idx - 1];
+
+    P_LIST_ADD(
+            current_delay_list->list,
+            current_delay_list->num_delayed,
+            new_delayed);
+}
+
+typedef char build_scope_delay_list_cmp_fun_t(void *key, void *data);
+
+static void build_scope_delay_list_advance(void *key,
+        build_scope_delay_list_cmp_fun_t *cmp_fun,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == 0, "No active delay list", 0);
+    build_scope_delay_list_t *current_delay_list = _current_delay_stack[_current_delay_stack_idx - 1];
+
+    char found = 0;
+    int i;
+    for (i = 0; i < current_delay_list->num_delayed && !found; i++)
+    {
+        if (cmp_fun(current_delay_list->list[i].data, key))
+        {
+            (current_delay_list->list[i].fun)(current_delay_list->list[i].data, nodecl_output);
+
+            current_delay_list->num_delayed--;
+            for (; i < current_delay_list->num_delayed; i++)
+            {
+                current_delay_list->list[i] = current_delay_list->list[i + 1];
+            }
+            found = 1;
+        }
+    }
+
+    ERROR_CONDITION(!found, "Delayed element not found", 0);
+}
+
+
+struct delayed_character_length_t
+{
+    type_t* character_type;
+    AST length;
+    decl_context_t decl_context;
+    int num_symbols;
+    scope_entry_t** symbols;
+};
+
+static type_t* delayed_character_length_update_type(type_t* original_type, type_t* new_type)
+{
+    if (is_lvalue_reference_type(original_type))
+    {
+        return get_lvalue_reference_type(
+                delayed_character_length_update_type(
+                    reference_type_get_referenced_type(original_type),
+                    new_type));
+    }
+    else if (fortran_is_character_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        return get_cv_qualified_type(new_type, cv_qualif);
+    }
+    else if (is_pointer_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        return get_cv_qualified_type(
+                get_pointer_type(
+                    delayed_character_length_update_type(
+                        pointer_type_get_pointee_type(original_type),
+                        new_type)),
+                cv_qualif);
+    }
+    else if (fortran_is_array_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        return get_cv_qualified_type(
+                array_type_rebase(
+                    original_type,
+                    delayed_character_length_update_type(
+                        array_type_get_element_type(original_type),
+                        new_type)),
+                cv_qualif);
+    }
+    else if (is_function_type(original_type))
+    {
+        return function_type_replace_return_type(original_type,
+                delayed_character_length_update_type(
+                    function_type_get_return_type(original_type),
+                    new_type));
+    }
+    else
+    {
+        internal_error("Unexpected type '%s'\n", print_declarator(original_type));
+    }
+}
+
+
+static struct delayed_character_length_t* delayed_character_length_new(
+        type_t* character_type,
+        AST character_length,
+        decl_context_t decl_context,
+        int num_symbols,
+        scope_entry_t* symbols[])
+{
+    struct delayed_character_length_t* result = xcalloc(1, sizeof(*result));
+
+    ERROR_CONDITION(!fortran_is_character_type(character_type), "Invalid type", 0);
+    result->character_type = character_type;
+    result->length = character_length;
+    result->decl_context = decl_context;
+    result->num_symbols = num_symbols;
+    result->symbols = xcalloc(num_symbols, sizeof(*result->symbols));
+    memcpy(result->symbols, symbols, sizeof(*result->symbols)*num_symbols);
+
+    return result;
+}
+
+static void delayed_compute_character_length(void *info, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    struct delayed_character_length_t* data = (struct delayed_character_length_t*)info;
+
+    nodecl_t nodecl_len = nodecl_null();
+    fortran_check_expression(data->length, data->decl_context, &nodecl_len);
+
+    if (nodecl_is_err_expr(nodecl_len))
+    {
+        int i;
+        for (i = 0; i < data->num_symbols; i++)
+        {
+            data->symbols[i]->type_information = get_error_type();
+        }
+    }
+    else
+    {
+        nodecl_t lower_bound = nodecl_make_integer_literal(
+                get_signed_int_type(),
+                const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                nodecl_get_locus(nodecl_len));
+        type_t* updated_char_type = get_array_type_bounds(
+                array_type_get_element_type(data->character_type),
+                lower_bound, nodecl_len, data->decl_context);
+
+        int i;
+        for (i = 0; i < data->num_symbols; i++)
+        {
+            data->symbols[i]->type_information = delayed_character_length_update_type(
+                    data->symbols[i]->type_information,
+                    updated_char_type);
+        }
+    }
+
+    xfree(data->symbols);
+    xfree(data);
+}
+
+
 // We use this for the following case
 //
 // TYPE(X) FUNCTION FOO()
@@ -764,9 +979,11 @@ static void build_scope_program_unit_internal(AST program_unit,
 // to fully parse postponed_function_type_spec
 static AST postponed_function_type_spec = NULL;
 //
-static void solve_delayed_function_type_spec(decl_context_t decl_context)
+static void solve_postponed_function_type_spec(decl_context_t decl_context)
 {
-    type_t* function_type_spec = fortran_gather_type_from_declaration_type_spec(postponed_function_type_spec, decl_context);
+    AST length = NULL;
+    type_t* function_type_spec =
+        fortran_gather_type_from_declaration_type_spec(postponed_function_type_spec, decl_context, &length);
     postponed_function_type_spec = NULL;
 
     if (is_error_type(function_type_spec))
@@ -788,6 +1005,20 @@ static void solve_delayed_function_type_spec(decl_context_t decl_context)
                 function_type_spec);
         symbol_entity_specs_set_is_implicit_basic_type(result_name, 0);
         remove_untyped_symbol(decl_context, result_name);
+    }
+
+    if (fortran_is_character_type(function_type_spec)
+            && length != NULL)
+    {
+        struct delayed_character_length_t *data = 
+            delayed_character_length_new(
+                    /* character_type */ function_type_spec,
+                    /* character_length */ length,
+                    decl_context,
+                    /* number_of_symbols */ 2,
+                    (scope_entry_t*[2]){current_function, result_name});
+
+        build_scope_delay_list_add(delayed_compute_character_length, data);
     }
 }
 
@@ -1313,12 +1544,14 @@ static void build_global_program_unit(AST program_unit)
             &nodecl_internal_subprograms);
 }
 
-static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
-        decl_context_t decl_context);
 
-type_t* fortran_gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context)
+
+static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
+        decl_context_t decl_context, AST *character_length_out);
+
+type_t* fortran_gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context, AST *character_length_out)
 {
-    return fortran_gather_type_from_declaration_type_spec_(a, decl_context);
+    return fortran_gather_type_from_declaration_type_spec_(a, decl_context, character_length_out);
 }
 
 static type_t* get_derived_type_name(AST a, decl_context_t decl_context);
@@ -1352,7 +1585,8 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
     }
     else
     {
-        result = fortran_gather_type_from_declaration_type_spec_(a, decl_context);
+        result = fortran_gather_type_from_declaration_type_spec_(a, decl_context,
+                /* character_length_out */ NULL);
     }
 
     return result;
@@ -2037,100 +2271,6 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     return entry;
 }
 
-typedef void build_scope_delay_fun_t(void*, nodecl_t*);
-
-typedef
-struct build_scope_delay_info_tag
-{
-    build_scope_delay_fun_t* fun;
-    void *data;
-} build_scope_delay_info_t;
-
-typedef
-struct build_scope_delay_tag
-{
-    int num_delayed;
-    build_scope_delay_info_t* list;
-} build_scope_delay_list_t;
-
-
-enum { BUILD_SCOPE_DELAY_STACK_MAX = 16 };
-
-int _current_delay_stack_idx = 0;
-static build_scope_delay_list_t* _current_delay_stack[BUILD_SCOPE_DELAY_STACK_MAX];
-
-static void build_scope_delay_list_push(build_scope_delay_list_t* delay_list)
-{
-    ERROR_CONDITION(_current_delay_stack_idx == BUILD_SCOPE_DELAY_STACK_MAX, "Too many delayed scopes", 0);
-    _current_delay_stack[_current_delay_stack_idx] = delay_list;
-    _current_delay_stack_idx++;
-}
-
-static void build_scope_delay_list_pop(void)
-{
-    ERROR_CONDITION(_current_delay_stack_idx == 0, "Empty stack", 0);
-    _current_delay_stack_idx--;
-}
-
-static void build_scope_delay_list_run(build_scope_delay_list_t* delay_list,
-        nodecl_t *nodecl_output)
-{
-    int i;
-    for (i = 0; i < delay_list->num_delayed; i++)
-    {
-        nodecl_t nodecl_current = nodecl_null();
-        (delay_list->list[i].fun)(delay_list->list[i].data, &nodecl_current);
-
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_current);
-    }
-
-    delay_list->num_delayed = 0;
-    xfree(delay_list->list);
-}
-
-static void build_scope_delay_list_add(build_scope_delay_fun_t* fun, void *data)
-{
-    ERROR_CONDITION(_current_delay_stack_idx == 0, "No active delay list", 0);
-
-    build_scope_delay_info_t new_delayed = { fun, data };
-
-    build_scope_delay_list_t *current_delay_list = _current_delay_stack[_current_delay_stack_idx - 1];
-
-    P_LIST_ADD(
-            current_delay_list->list,
-            current_delay_list->num_delayed,
-            new_delayed);
-}
-
-typedef char build_scope_delay_list_cmp_fun_t(void *key, void *data);
-
-static void build_scope_delay_list_advance(void *key,
-        build_scope_delay_list_cmp_fun_t *cmp_fun,
-        nodecl_t* nodecl_output)
-{
-    ERROR_CONDITION(_current_delay_stack_idx == 0, "No active delay list", 0);
-    build_scope_delay_list_t *current_delay_list = _current_delay_stack[_current_delay_stack_idx - 1];
-
-    char found = 0;
-    int i;
-    for (i = 0; i < current_delay_list->num_delayed && !found; i++)
-    {
-        if (cmp_fun(current_delay_list->list[i].data, key))
-        {
-            (current_delay_list->list[i].fun)(current_delay_list->list[i].data, nodecl_output);
-
-            current_delay_list->num_delayed--;
-            for (; i < current_delay_list->num_delayed; i++)
-            {
-                current_delay_list->list[i] = current_delay_list->list[i + 1];
-            }
-            found = 1;
-        }
-    }
-
-    ERROR_CONDITION(!found, "Delayed element not found", 0);
-}
-
 static char statement_is_executable(AST statement);
 static char statement_is_nonexecutable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context, char is_declaration);
@@ -2161,7 +2301,7 @@ static void build_scope_program_unit_body_declarations(
                     && ASTKind(stmt) != AST_USE_ONLY_STATEMENT
                     && ASTKind(stmt) != AST_IMPORT_STATEMENT)
             {
-                solve_delayed_function_type_spec(decl_context);
+                solve_postponed_function_type_spec(decl_context);
             }
 
             if (!allowed_statement(stmt, decl_context))
@@ -2187,7 +2327,7 @@ static void build_scope_program_unit_body_declarations(
     // If we reach the end and the type is not yet defined, solve it now
     if (postponed_function_type_spec != NULL)
     {
-        solve_delayed_function_type_spec(decl_context);
+        solve_postponed_function_type_spec(decl_context);
     }
 }
 
@@ -3016,8 +3156,12 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 }
 
 static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        AST *character_length_out)
 {
+    if (character_length_out != NULL)
+        *character_length_out = NULL;
+
     type_t* result = NULL;
     switch (ASTKind(a))
     {
@@ -3056,7 +3200,8 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 }
                 else
                 {
-                    element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                    element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context,
+                            /* char_length */ NULL);
                 }
 
                 result = get_complex_type(element_type);
@@ -3074,7 +3219,6 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                     kind = ASTSon1(char_selector);
                 }
 
-                char is_undefined = 0;
                 if (kind != NULL)
                 {
                     result = choose_type_from_kind(kind, decl_context, 
@@ -3082,15 +3226,10 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                             fortran_get_default_character_type_kind);
                 }
 
-                nodecl_t nodecl_len = nodecl_null();
-                if (len != NULL
-                        && ASTKind(len) == AST_SYMBOL
-                        && strcmp(ASTText(len), "*") == 0)
+                if (len == NULL
+                        || character_length_out == NULL)
                 {
-                    is_undefined = 1;
-                }
-                else 
-                {
+                    nodecl_t nodecl_len = nodecl_null();
                     if (len == NULL)
                     {
                         nodecl_len = const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), 1));
@@ -3098,21 +3237,31 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                     else
                     {
                         fortran_check_expression(len, decl_context, &nodecl_len);
+                        if (nodecl_is_err_expr(nodecl_len))
+                        {
+                            return get_error_type();
+                        }
                     }
-                }
 
-                if (!is_undefined)
-                {
                     nodecl_t lower_bound = nodecl_make_integer_literal(
                             get_signed_int_type(),
                             const_value_get_one(type_get_size(get_signed_int_type()), 1),
                             nodecl_get_locus(nodecl_len));
                     result = get_array_type_bounds(result, lower_bound, nodecl_len, decl_context);
                 }
-                else
+                else if (ASTKind(len) == AST_SYMBOL
+                        && strcmp(ASTText(len), "*") == 0)
                 {
+                    // undefined length
                     result = get_array_type(result, nodecl_null(), decl_context);
                 }
+                else
+                {
+                    // We delay the evaluation of this expression and return a CHARACTER(LEN=*)
+                    *character_length_out = len;
+                    result = get_array_type(result, nodecl_null(), decl_context);
+                }
+
                 break;
             }
         case AST_BOOL_TYPE:
@@ -3139,7 +3288,8 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_VECTOR_TYPE:
             {
-                type_t* element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                type_t* element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context,
+                        /* character_length_out */ NULL);
                 // Generic vector
                 result = get_vector_type(element_type, 0);
                 break;
@@ -6379,7 +6529,11 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
             AST declaration_type_spec = ASTSon0(implicit_spec);
             AST letter_spec_list = ASTSon1(implicit_spec);
 
-            type_t* basic_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+            type_t* basic_type = fortran_gather_type_from_declaration_type_spec(
+                    declaration_type_spec,
+                    decl_context,
+                    // FIXME - we should allow nonconstant CHARACTERs here
+                    /* character_length_out */ NULL);
 
             if (basic_type == NULL)
             {
@@ -7590,7 +7744,10 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
         }
         else
         {
-            return_type = fortran_gather_type_from_declaration_type_spec(proc_interface, decl_context);
+            return_type = fortran_gather_type_from_declaration_type_spec(proc_interface,
+                    decl_context,
+                    // FIXME - support nonconstant character lengths here
+                    /* character_length_out */ NULL);
         }
     }
 
@@ -8052,7 +8209,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
     AST attr_spec_list = ASTSon1(a);
     AST entity_decl_list = ASTSon2(a);
 
-    type_t* basic_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+    AST character_length_out = NULL;
+    type_t* basic_type =
+        fortran_gather_type_from_declaration_type_spec(declaration_type_spec,
+                decl_context,
+                &character_length_out);
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
@@ -8061,6 +8222,9 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
     {
         gather_attr_spec_list(attr_spec_list, decl_context, &attr_spec);
     }
+
+    scope_entry_t** delayed_character_symbols = NULL;
+    int num_delayed_character_symbols = 0;
 
     AST it;
     for_each_element(entity_decl_list, it)
@@ -8122,6 +8286,14 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         entry->type_information = fortran_update_basic_type_with_type(entry->type_information, basic_type);
         symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+
+        if (fortran_is_character_type(basic_type)
+                && character_length_out != NULL)
+        {
+            P_LIST_ADD(delayed_character_symbols,
+                    num_delayed_character_symbols,
+                    entry);
+        }
 
         entry->locus = ast_get_locus(declaration);
 
@@ -8551,6 +8723,23 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                          entry->symbol_name);
             }
         }
+    }
+
+    if (num_delayed_character_symbols > 0)
+    {
+
+        struct delayed_character_length_t *data = 
+            delayed_character_length_new(
+                    basic_type,
+                    character_length_out,
+                    decl_context,
+                    num_delayed_character_symbols,
+                    delayed_character_symbols);
+        build_scope_delay_list_add(delayed_compute_character_length, data);
+
+        xfree(delayed_character_symbols);
+        num_delayed_character_symbols = 0;
+        delayed_character_symbols = NULL;
     }
 }
 

@@ -635,7 +635,8 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     type_t* ac_value_type = NULL;
     if (type_spec != NULL)
     {
-        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context);
+        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context,
+                /* character_length_out */ NULL);
 
         if (is_error_type(ac_value_type))
         {
