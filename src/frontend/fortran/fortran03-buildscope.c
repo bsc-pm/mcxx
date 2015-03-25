@@ -7464,7 +7464,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context,
                     /* allow_nonconstant */ 1);
 
             pointee_entry->kind = SK_VARIABLE;
-            remove_unknown_kind_symbol(decl_context, pointer_entry);
+            remove_unknown_kind_symbol(decl_context, pointee_entry);
         }
 
         // We would change it into a SK_VARIABLE but it could be a function, so leave it undefined
