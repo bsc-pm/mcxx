@@ -2973,6 +2973,19 @@ static void fortran_build_scope_statement_inside_block_context(
 {
     decl_context_t new_context = fortran_new_block_context(decl_context);
     fortran_build_scope_statement(statement, new_context, nodecl_output);
+
+    if (nodecl_is_null(*nodecl_output))
+    {
+        // Sometimes nonempty blocks do not generate executable code
+        //    DO I = 1, 100
+        //      100 FORMAT(I6)
+        //    END DO
+        // (a similar code was found in a real application)
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_empty_statement(ast_get_locus(statement))
+                );
+    }
+
     *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
