@@ -1428,6 +1428,12 @@ namespace Optimizations {
         Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
         Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
 
+        if (Nodecl::Utils::structurally_equal_nodecls(lhs, rhs, true /*skip conversions*/))
+        {
+            n.replace(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)));
+            return;
+        }
+
         MinusRemover minus_remover;
         minus_remover.walk(lhs);
         minus_remover.walk(rhs);

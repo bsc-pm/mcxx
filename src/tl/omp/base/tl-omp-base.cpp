@@ -2161,6 +2161,59 @@ namespace TL { namespace OpenMP {
                             pragma_line.get_locus()));
             }
         }
+
+        // Prefetch
+        PragmaCustomClause prefetch_clause = pragma_line.get_clause("prefetch");
+
+        if (prefetch_clause.is_defined())
+        {
+            TL::ObjectList<std::string> arg_clauses_list = prefetch_clause.get_raw_arguments();
+
+            TL::ExpressionTokenizerTrim colon_tokenizer(':');
+            TL::ExpressionTokenizerTrim comma_tokenizer(',');
+
+            for(TL::ObjectList<std::string>::iterator it = arg_clauses_list.begin();
+                    it != arg_clauses_list.end();
+                    it++)
+            {
+                TL::ObjectList<std::string> colon_splited_list = colon_tokenizer.tokenize(*it);
+
+                int colon_splited_list_size = colon_splited_list.size();
+
+                ERROR_CONDITION(colon_splited_list_size <= 0 || colon_splited_list_size > 2,
+                        "'prefetch' clause has a wrong format", 0);
+
+                // On top prefetch strategy by default
+                Nodecl::NodeclBase prefetch_strategy_node = Nodecl::OnTopFlag::make();
+
+                if (colon_splited_list_size == 2)
+                {
+                    std::string prefetch_strategy_str = colon_splited_list.back();
+
+                    if (prefetch_strategy_str == "in_place")
+                        prefetch_strategy_node = Nodecl::InPlaceFlag::make();
+                    else
+                    {
+                        ERROR_CONDITION(prefetch_strategy_str != "on_top",
+                                "wrong prefetch strategy '%s'", prefetch_strategy_str.c_str());
+                    }
+                }
+
+                TL::ObjectList<std::string> comma_splited_list = comma_tokenizer.tokenize(
+                        colon_splited_list.front());
+
+                ERROR_CONDITION(comma_splited_list.size() != 2,
+                        "Expected (l2_distance,l1_distance) paramenters in prefetch clause", 0);
+                
+                TL::ObjectList<Nodecl::NodeclBase> expr_list =
+                    Nodecl::Utils::get_strings_as_expressions(comma_splited_list, pragma_line);
+
+                environment.append(Nodecl::OpenMP::Prefetch::make(
+                            Nodecl::List::make(expr_list),
+                            prefetch_strategy_node,
+                            pragma_line.get_locus()));
+            }
+        }
     }
 
     // SIMD Statement

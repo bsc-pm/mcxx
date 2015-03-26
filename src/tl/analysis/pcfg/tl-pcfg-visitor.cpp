@@ -2428,6 +2428,12 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Prefetch& n )
+    {
+        _utils->_pragma_nodes.top( )._clauses.append(n);
+        return ObjectList<Node*>( );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
