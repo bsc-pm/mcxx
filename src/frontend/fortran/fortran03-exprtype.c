@@ -6207,23 +6207,109 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
     }
 }
 
+static const_value_t* const_bin_val_(const_value_t* cval_lhs, const_value_t* cval_rhs,
+        const_value_t* (*compute)(const_value_t*, const_value_t*))
+{
+    if (!const_value_is_array(cval_lhs)
+            && !const_value_is_array(cval_rhs))
+    {
+        return compute(cval_lhs, cval_rhs);
+    }
+    else
+    {
+        int num_elements;
+        if (const_value_is_array(cval_lhs))
+        {
+            num_elements = const_value_get_num_elements(cval_lhs);
+            if (const_value_is_array(cval_rhs))
+            {
+                // Should not happen, though
+                if (const_value_get_num_elements(cval_rhs) != num_elements)
+                    return NULL;
+            }
+        }
+        else
+        {
+            num_elements = const_value_get_num_elements(cval_rhs);
+        }
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* cvals[num_elements];
+
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            const_value_t* current_lhs = cval_lhs;
+            if (const_value_is_array(current_lhs))
+                current_lhs = const_value_get_element_num(current_lhs, k);
+
+            const_value_t* current_rhs = cval_rhs;
+            if (const_value_is_array(current_rhs))
+                current_rhs = const_value_get_element_num(current_rhs, k);
+
+            cvals[k] = const_bin_val_(current_lhs, current_rhs, compute);
+
+            if (cvals[k] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(num_elements, cvals);
+    }
+}
+
 static const_value_t* const_bin_(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs,
         const_value_t* (*compute)(const_value_t*, const_value_t*))
 {
     if (nodecl_is_constant(nodecl_lhs)
             && nodecl_is_constant(nodecl_rhs))
     {
-        return compute(nodecl_get_constant(nodecl_lhs),
-                nodecl_get_constant(nodecl_rhs));
+        const_value_t* cval_lhs = nodecl_get_constant(nodecl_lhs);
+        const_value_t* cval_rhs = nodecl_get_constant(nodecl_rhs);
+
+        if (cval_lhs != NULL
+                && cval_rhs != NULL)
+        {
+            return const_bin_val_(cval_lhs, cval_rhs, compute);
+        }
     }
     return NULL;
+}
+
+static const_value_t* const_unary_val_(const_value_t* cval_lhs, const_value_t* (*compute)(const_value_t*))
+{
+    if (!const_value_is_array(cval_lhs))
+    {
+        return compute(cval_lhs);
+    }
+    else
+    {
+        int num_elements = const_value_get_num_elements(cval_lhs);
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* cvals[num_elements];
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            cvals[k] = const_unary_val_(const_value_get_element_num(cval_lhs, k), compute);
+            if (cvals[k] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(num_elements, cvals);
+    }
 }
 
 static const_value_t* const_unary_(nodecl_t nodecl_lhs, const_value_t* (*compute)(const_value_t*))
 {
     if (nodecl_is_constant(nodecl_lhs))
     {
-        return compute(nodecl_get_constant(nodecl_lhs));
+        const_value_t* cval_lhs = nodecl_get_constant(nodecl_lhs);
+        if (cval_lhs != NULL)
+            return const_unary_val_(cval_lhs, compute);
     }
     return NULL;
 }
