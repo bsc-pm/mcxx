@@ -722,12 +722,16 @@ namespace TL
                 SymbolsOfScope _symbols_of_scope_visitor;
 
                 std::set<TL::Symbol> _visited_function;
+                SavedExpressions &_saved_expressions;
             public:
                 ObjectList<TL::Symbol> symbols;
 
-                SymbolsUsedInNestedFunctions(Symbol current_function)
+                SymbolsUsedInNestedFunctions(Symbol current_function,
+                        SavedExpressions& saved_expressions)
                     : _scope(current_function.get_related_scope().get_decl_context().current_scope),
-                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(), symbols()
+                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(),
+                      _saved_expressions(saved_expressions),
+                      symbols()
                 {
                 }
 
@@ -742,6 +746,7 @@ namespace TL
 
                         if (_visited_function.find(sym) == _visited_function.end())
                         {
+                            _saved_expressions.walk(body);
                             _symbols_of_scope_visitor.walk(body);
 
                             _visited_function.insert(sym);
@@ -1480,13 +1485,19 @@ namespace TL
                 ObjectList<TL::Symbol>& nonlocal_symbols)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
+            // Saved expressions from VLAs
+            SavedExpressions saved_expressions(statement.retrieve_context());
+            saved_expressions.walk(statement);
+
             FORTRAN_LANGUAGE()
             {
                 // Other symbols that may be used indirectly are made shared
                 TL::ObjectList<TL::Symbol> other_symbols;
 
                 // Nested function symbols
-                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
+                SymbolsUsedInNestedFunctions symbols_from_nested_calls(
+                        construct.retrieve_context().get_related_symbol(),
+                        saved_expressions);
                 symbols_from_nested_calls.walk(statement);
 
                 other_symbols.insert(symbols_from_nested_calls.symbols);
@@ -1517,6 +1528,10 @@ namespace TL
                 {
                     TL::Symbol sym(*it);
 
+                    // Skip saved expressions found referenced in the nested function
+                    if (saved_expressions.symbols.contains(sym))
+                        continue;
+
                     DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                     // Do nothing with threadprivates
@@ -1533,10 +1548,6 @@ namespace TL
                     }
                 }
             }
-
-            // Saved expressions from VLAs
-            SavedExpressions saved_expressions(statement.retrieve_context());
-            saved_expressions.walk(statement);
 
             // Make them firstprivate if not already set
             for (ObjectList<TL::Symbol>::iterator it = saved_expressions.symbols.begin();
