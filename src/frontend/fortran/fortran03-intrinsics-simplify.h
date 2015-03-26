@@ -35,6 +35,71 @@
 #include "fortran03-cexpr.h"
 #include "cxx-typeutils.h"
 
+static const_value_t* compute_binary_elemental(
+        const_value_t* cval_a,
+        const_value_t* cval_b,
+        const_value_t* (*compute)(const_value_t*, const_value_t*))
+{
+    if (const_value_is_array(cval_a)
+            || const_value_is_array(cval_b))
+    {
+        if (const_value_is_array(cval_a)
+                && const_value_is_array(cval_b)
+                && const_value_get_num_elements(cval_a) != const_value_get_num_elements(cval_b))
+            return NULL;
+
+        int num_elements;
+        if (const_value_is_array(cval_a))
+            num_elements = const_value_get_num_elements(cval_a);
+        else
+            num_elements = const_value_get_num_elements(cval_b);
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* const_vals[num_elements];
+
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            const_value_t* current_val = NULL;
+            if (const_value_is_array(cval_a)
+                    && const_value_is_array(cval_b))
+            {
+                current_val = compute_binary_elemental(
+                        const_value_get_element_num(cval_a, k),
+                        const_value_get_element_num(cval_b, k),
+                        compute);
+            }
+            else if (const_value_is_array(cval_a))
+            {
+                current_val = compute_binary_elemental(
+                        const_value_get_element_num(cval_a, k),
+                        cval_b,
+                        compute);
+            }
+            else
+            {
+                current_val = compute_binary_elemental(
+                        cval_a,
+                        const_value_get_element_num(cval_b, k),
+                        compute);
+            }
+
+            if (current_val == NULL)
+                return NULL;
+
+            const_vals[k] = current_val;
+        }
+
+        return const_value_make_array(num_elements, const_vals);
+    }
+    else
+    {
+        return compute(cval_a, cval_b);
+    }
+}
+
 static nodecl_t nodecl_make_int_literal(int n)
 {
     return nodecl_make_integer_literal(fortran_get_default_integer_type(), 
@@ -2542,6 +2607,142 @@ static nodecl_t simplify_ichar(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 {
     // Mercurium only supports ASCII thus ichar is the same as iachar
     return simplify_iachar(entry, num_arguments, arguments);
+}
+
+static const_value_t* compute_ibclr(const_value_t* cval_i, const_value_t* cval_pos)
+{
+    if (!const_value_is_integer(cval_i)
+            || !const_value_is_integer(cval_pos))
+        return NULL;
+
+    cvalue_int_t i = const_value_cast_to_cvalue_int(cval_i);
+    cvalue_int_t pos = const_value_cast_to_cvalue_int(cval_pos);
+
+    int bytes = const_value_get_bytes(cval_i);
+    int bits = bytes * 8;
+
+    if (pos < 0
+            || pos >= bits)
+        return NULL;
+
+    cvalue_uint_t new_i = i & ~(1 << pos);
+    return const_value_get_integer(new_i, bytes, /* signed */ 1);
+}
+
+static nodecl_t simplify_ibclr(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_pos = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_pos == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_pos,
+            compute_ibclr);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_ibset(const_value_t* cval_i, const_value_t* cval_pos)
+{
+    if (!const_value_is_integer(cval_i)
+            || !const_value_is_integer(cval_pos))
+        return NULL;
+
+    cvalue_int_t i = const_value_cast_to_cvalue_int(cval_i);
+    cvalue_int_t pos = const_value_cast_to_cvalue_int(cval_pos);
+
+    int bytes = const_value_get_bytes(cval_i);
+    int bits = bytes * 8;
+
+    if (pos < 0
+            || pos >= bits)
+        return NULL;
+
+    cvalue_uint_t new_i = i | (1 << pos);
+    return const_value_get_integer(new_i, bytes, /* signed */ 1);
+}
+
+
+static nodecl_t simplify_ibset(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_pos = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_pos == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_pos,
+            compute_ibset);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_btest(const_value_t* cval_i, const_value_t* cval_pos)
+{
+    if (!const_value_is_integer(cval_i)
+            || !const_value_is_integer(cval_pos))
+        return NULL;
+
+    cvalue_int_t i = const_value_cast_to_cvalue_int(cval_i);
+    cvalue_int_t pos = const_value_cast_to_cvalue_int(cval_pos);
+
+    int bytes = const_value_get_bytes(cval_i);
+    int bits = bytes * 8;
+
+    if (pos < 0
+            || pos >= bits)
+        return NULL;
+
+    cvalue_uint_t test_bit = (i & (1 << pos));
+
+    if (test_bit)
+    {
+        return const_value_get_one(fortran_get_default_logical_type_kind(), 1);
+    }
+    else
+    {
+        return const_value_get_zero(fortran_get_default_logical_type_kind(), 1);
+    }
+}
+
+static nodecl_t simplify_btest(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_pos = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_pos == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_pos,
+            compute_btest);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl_with_basic_type(cval,
+            fortran_get_default_logical_type());
 }
 
 static const_value_t* compute_nint(const_value_t* cval)
