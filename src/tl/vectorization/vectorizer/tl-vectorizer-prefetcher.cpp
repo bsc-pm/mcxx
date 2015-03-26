@@ -74,6 +74,14 @@ namespace Vectorization
             Nodecl::NodeclBase store_scalar_access = 
                 Vectorization::Utils::get_scalar_memory_access(vstore);
 
+            // Do not emit prefetching instructions for nontemporal stores
+            if (_environment._nontemporal_exprs_map.find(
+                        Utils::get_subscripted_symbol(store_scalar_access.as<Nodecl::ArraySubscript>().
+                            get_subscripted())) != _environment._nontemporal_exprs_map.end())
+            {
+                continue;
+            }
+
             for (auto& vaccess : not_nested_vaccesses)
             {
                 Nodecl::NodeclBase memory_scalar_access = 
