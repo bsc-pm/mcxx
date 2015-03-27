@@ -2860,3 +2860,105 @@ static nodecl_t simplify_mcc_null(scope_entry_t* entry UNUSED_PARAMETER,
     nodecl_set_type(zero_pointer, get_variant_type_zero(fortran_get_default_integer_type()));
     return zero_pointer;
 }
+
+static const_value_t* compute_ieor(const_value_t* val_i, const_value_t* val_j)
+{
+    if (!const_value_is_integer(val_i)
+            || !const_value_is_integer(val_j))
+        return NULL;
+
+    return const_value_get_integer(
+            const_value_cast_to_cvalue_uint(val_i) ^ const_value_cast_to_cvalue_uint(val_j),
+            const_value_get_bytes(val_i),
+            /* signed */ 1);
+}
+
+static nodecl_t simplify_ieor(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_j = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_j == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_j,
+            compute_ieor);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_ior(const_value_t* val_i, const_value_t* val_j)
+{
+    if (!const_value_is_integer(val_i)
+            || !const_value_is_integer(val_j))
+        return NULL;
+
+    return const_value_get_integer(
+            const_value_cast_to_cvalue_uint(val_i) | const_value_cast_to_cvalue_uint(val_j),
+            const_value_get_bytes(val_i),
+            /* signed */ 1);
+}
+
+static nodecl_t simplify_ior(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_j = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_j == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_j,
+            compute_ior);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_iand(const_value_t* val_i, const_value_t* val_j)
+{
+    if (!const_value_is_integer(val_i)
+            || !const_value_is_integer(val_j))
+        return NULL;
+
+    return const_value_get_integer(
+            const_value_cast_to_cvalue_uint(val_i) & const_value_cast_to_cvalue_uint(val_j),
+            const_value_get_bytes(val_i),
+            /* signed */ 1);
+}
+
+static nodecl_t simplify_iand(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_j = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_j == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_j,
+            compute_iand);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
