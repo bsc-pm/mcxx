@@ -686,6 +686,39 @@ namespace TL
                     {
                     }
 
+                    void walk_type(TL::Type t)
+                    {
+                        if (!t.is_valid())
+                            return;
+
+                        if (t.is_any_reference())
+                            walk_type(t.references_to());
+                        else if (t.is_pointer())
+                            walk_type(t.points_to());
+                        else if (t.is_array())
+                        {
+                            walk_type(t.array_element());
+
+                            if (IS_FORTRAN_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase lower, upper;
+                                t.array_get_bounds(lower, upper);
+
+                                walk(lower);
+                                walk(upper);
+                            }
+                            else if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase size = t.array_get_size();
+                                walk(size);
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
+                    }
+
                     bool filter_symbol(TL::Symbol sym)
                     {
                         return (sym.is_variable()
@@ -697,6 +730,7 @@ namespace TL
                     virtual void visit(const Nodecl::Symbol& node)
                     {
                         TL::Symbol sym = node.get_symbol();
+                        walk_type(sym.get_type());
 
                         if (filter_symbol(sym))
                         {
@@ -717,11 +751,25 @@ namespace TL
                         }
                         else if (sym.is_saved_expression())
                         {
-                            // Sometimes a saved expression may refer to
-                            // variables of the enclosign function
+                            // A saved expression may refer to
+                            // variables of the enclosing function
                             walk(sym.get_value());
                         }
                     }
+
+                    virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
+                    {
+                        walk_type(n.get_type());
+
+                        Nodecl::NodeclBase::Children children = n.children();
+                        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
+                                it != children.end();
+                                it++)
+                        {
+                            walk(*it);
+                        }
+                    }
+
                 };
 
                 scope_t* _scope;
