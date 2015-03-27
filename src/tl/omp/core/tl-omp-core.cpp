@@ -715,6 +715,12 @@ namespace TL
                                 }
                             }
                         }
+                        else if (sym.is_saved_expression())
+                        {
+                            // Sometimes a saved expression may refer to
+                            // variables of the enclosign function
+                            walk(sym.get_value());
+                        }
                     }
                 };
 
