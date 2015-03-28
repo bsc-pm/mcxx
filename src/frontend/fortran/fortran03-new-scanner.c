@@ -7,6 +7,7 @@
 #include "cxx-utils.h"
 #include "cxx-diagnostic.h"
 #include "fortran03-lexer.h"
+#include "fortran03-utils.h"
 #include "fortran03-parser-internal.h"
 
 #include <stdlib.h>
@@ -82,10 +83,12 @@ struct new_lexer_state_t
     // last token was end of line (the parser does not like redundant EOS)
     char last_eos:1; 
 
-
     // states that we are inside a string-literal (changes the way we handle
     // continuations)
     char character_context:1;
+
+    // we are scanning a format statement
+    char in_format_statement:2;
 } lexer_state;
 
 static token_location_t get_current_location(void)
@@ -102,12 +105,12 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const c
     int fd = open(scanned_filename, O_RDONLY);
     if (fd < 0)
     {
-		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+        running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
     }
 
     // Get size of file because we need it for the mmap
     struct stat s;
-    int status = fstat (fd, & s);
+    int status = fstat (fd, &s);
     if (status < 0)
     {
         running_error("error: cannot get status of file '%s' (%s)", scanned_filename, strerror(errno));
@@ -122,16 +125,16 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const c
     lexer_state.include_stack_size = 0;
     lexer_state.current_file = &lexer_state.include_stack[lexer_state.include_stack_size];
 
-	lexer_state.current_file->scanned_filename = scanned_filename;
+    lexer_state.current_file->scanned_filename = scanned_filename;
 
-	lexer_state.current_file->fd = fd;
-	lexer_state.current_file->buffer_size = s.st_size;
+    lexer_state.current_file->fd = fd;
+    lexer_state.current_file->buffer_size = s.st_size;
     lexer_state.current_file->current_pos
         = lexer_state.current_file->buffer = mmapped_addr;
 
-	lexer_state.current_file->current_location.filename = input_filename;
-	lexer_state.current_file->current_location.line = 1;
-	lexer_state.current_file->current_location.column = 0;
+    lexer_state.current_file->current_location.filename = input_filename;
+    lexer_state.current_file->current_location.line = 1;
+    lexer_state.current_file->current_location.column = 0;
 
     lexer_state.bol = 1;
     lexer_state.last_eos = 1;
@@ -355,21 +358,21 @@ static const char * const TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 
 extern int new_mf03_prepare_string_for_scanning(const char* str)
 {
-	static int num_string = 0;
+    static int num_string = 0;
 
-	DEBUG_CODE()
+    DEBUG_CODE()
     {
         fprintf(stderr, "* Going to parse string in Fortran\n");
         fprintf(stderr, "%s\n", str);
         fprintf(stderr, "* End of parsed string\n");
     }
 
-	lexer_state.include_stack_size = 0;
+    lexer_state.include_stack_size = 0;
     lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
   
     const char* filename = NULL;
     uniquestr_sprintf(&filename, "%s-%s-%d", TL_SOURCE_STRING, CURRENT_COMPILED_FILE->input_filename, num_string);
-	num_string++;
+    num_string++;
 
     lexer_state.current_file->fd = -1; // not an mmap
     lexer_state.current_file->buffer_size = strlen(str);
@@ -379,25 +382,26 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
     lexer_state.current_file->current_location.filename = filename;
     lexer_state.current_file->current_location.line = 1;
     lexer_state.current_file->current_location.column = 0;
-	
+    
+    lexer_state.bol = 1;
     lexer_state.last_eos = 1;
 
     peek_init();
 
-	return 0;
+    return 0;
 }
 
 static char process_end_of_file(void)
 {
-	// Are we in the last file?
-	if (lexer_state.include_stack_size == 0)
-	{
-		return 1;
-	}
-	else
-	{
-		DEBUG_CODE() DEBUG_MESSAGE("End of included file %s switching back to %s", 
-				lexer_state.current_file->current_location.filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
+    // Are we in the last file?
+    if (lexer_state.include_stack_size == 0)
+    {
+        return 1;
+    }
+    else
+    {
+        DEBUG_CODE() DEBUG_MESSAGE("End of included file %s switching back to %s", 
+                lexer_state.current_file->current_location.filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
 
         if (lexer_state.current_file->fd >= 0)
         {
@@ -413,12 +417,13 @@ static char process_end_of_file(void)
             }
         }
 
-		lexer_state.include_stack_size--;
-		lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
+        lexer_state.include_stack_size--;
+        lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
         lexer_state.last_eos = 1;
+        lexer_state.bol = 1;
 
-		return 0;
-	}
+        return 0;
+    }
 }
 
 
@@ -438,23 +443,23 @@ static inline char past_eof(void)
     return (lexer_state.current_file->current_pos >= ((lexer_state.current_file->buffer + lexer_state.current_file->buffer_size)));
 }
 
-static inline char is_end_of_file(void)
-{
-    return past_eof();
-}
-
-static inline char free_form_get(void)
+static inline int free_form_get(void)
 {
     if (past_eof())
         return EOF;
 
-    char result = lexer_state.current_file->current_pos[0];
+    int result = lexer_state.current_file->current_pos[0];
 
     while (result == '&')
     {
-        const char* keep = lexer_state.current_file->current_pos;
+        const char* const keep = lexer_state.current_file->current_pos;
+        const char keep_bol = lexer_state.bol;
         // int keep_line = lexer_state.current_file->current_location->line;
-        int keep_column = lexer_state.current_file->current_location.column;
+        const int keep_column = lexer_state.current_file->current_location.column;
+
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+        lexer_state.bol = 0;
 
         // blanks
         while (!past_eof()
@@ -465,8 +470,16 @@ static inline char free_form_get(void)
             lexer_state.current_file->current_pos++;
         }
 
+#define ROLLBACK \
+        { \
+                lexer_state.current_file->current_location.column = keep_column; \
+                lexer_state.bol = keep_bol; \
+                lexer_state.current_file->current_pos = keep; \
+                break; \
+        }
+
         if (past_eof())
-            return EOF;
+            ROLLBACK;
 
         if (!lexer_state.character_context)
         {
@@ -481,20 +494,14 @@ static inline char free_form_get(void)
                     lexer_state.current_file->current_pos++;
                 }
                 if (past_eof())
-                    return EOF;
+                    ROLLBACK;
             }
             else if (is_newline(lexer_state.current_file->current_pos[0]))
             {
                 // handled below
             }
             else
-            {
-                // not a continuation
-                lexer_state.current_file->current_location.column = keep_column;
-
-                lexer_state.current_file->current_pos = keep;
-                break;
-            }
+                ROLLBACK;
         }
 
         if (lexer_state.current_file->current_pos[0] == '\n')
@@ -504,7 +511,7 @@ static inline char free_form_get(void)
 
             lexer_state.current_file->current_pos++;
             if (past_eof())
-                return EOF;
+                ROLLBACK;
         }
         else if (lexer_state.current_file->current_pos[0] == '\r')
         {
@@ -512,23 +519,16 @@ static inline char free_form_get(void)
             lexer_state.current_file->current_location.column = 0;
 
             lexer_state.current_file->current_pos++;
-            if (past_eof())
-                return EOF;
-            if (lexer_state.current_file->current_pos[0] == '\n')
+            if (!past_eof()
+                    && lexer_state.current_file->current_pos[0] == '\n')
             {
                 lexer_state.current_file->current_pos++;
                 if (past_eof())
-                    return EOF;
+                    ROLLBACK;
             }
         }
         else
-        {
-            // not a continuation
-            lexer_state.current_file->current_location.column = keep_column;
-
-            lexer_state.current_file->current_pos = keep;
-            break;
-        }
+            ROLLBACK
 
         // Now we need to peek if there is another &, so we have to do
         // token pasting, otherwise we will return a blank
@@ -540,7 +540,7 @@ static inline char free_form_get(void)
             lexer_state.current_file->current_pos++;
         }
         if (past_eof())
-            return EOF;
+            ROLLBACK;
 
         if (lexer_state.current_file->current_pos[0] == '&')
         {
@@ -548,7 +548,7 @@ static inline char free_form_get(void)
 
             lexer_state.current_file->current_pos++;
             if (past_eof())
-                return EOF;
+                ROLLBACK;
             result = lexer_state.current_file->current_pos[0];
         }
         else
@@ -562,13 +562,14 @@ static inline char free_form_get(void)
             {
                 result = ' ';
                 // Compensate this artificial character
+                lexer_state.current_file->current_pos--;
                 lexer_state.current_file->current_location.column--;
             }
         }
+#undef ROLLBACK
     }
 
-    if (result != '\n' 
-            && result != '\r')
+    if (!is_newline(result))
     {
         lexer_state.current_file->current_location.column++;
         lexer_state.current_file->current_pos++;
@@ -594,7 +595,7 @@ static inline char free_form_get(void)
 typedef
 struct peek_token_info_tag
 {
-    char letter;
+    int letter;
     token_location_t loc;
 } peek_token_info_t;
 
@@ -630,16 +631,32 @@ static inline int peek_size(void)
     return (_peek_queue.front - _peek_queue.back);
 }
 
-static inline void peek_add(char c, token_location_t loc)
+#if 0
+static void peek_print(void)
+{
+    fprintf(stderr, "-- PEEK SIZE %d\n", peek_size());
+    int i;
+    for (i = _peek_queue.front; i > _peek_queue.back; i--)
+    {
+        fprintf(stderr, "PEEK AT [%d] : [%d] => |%c|\n",
+                i,
+                (_peek_queue.size - 1) + i,
+                _peek_queue.buffer[(_peek_queue.size - 1) + i].letter);
+    }
+    fprintf(stderr, "--\n");
+}
+#endif
+
+static inline void peek_add(int c, token_location_t loc)
 {
     if ((_peek_queue.size - 1) + _peek_queue.back < 0)
     {
         int new_size = _peek_queue.size * 2;
         peek_token_info_t *new_buffer = xmalloc(new_size * sizeof(*new_buffer));
 
-        memcpy(&new_buffer[(new_size - 1) + _peek_queue.back],
+        memcpy(&new_buffer[(new_size - 1) + _peek_queue.back + 1],
                 _peek_queue.buffer,
-                _peek_queue.size);
+                _peek_queue.size * sizeof(*new_buffer));
 
         xfree(_peek_queue.buffer);
         _peek_queue.buffer = new_buffer;
@@ -670,11 +687,11 @@ static inline peek_token_info_t peek_get(int n)
     return _peek_queue.buffer[((_peek_queue.size - 1) + _peek_queue.front) - n];
 }
 
-static inline char get_loc(token_location_t *loc)
+static inline int get_loc(token_location_t *loc)
 {
     token_location_t tmp_loc;
 
-    char c;
+    int c;
     if (!peek_empty())
     {
         peek_token_info_t p = peek_get(0);
@@ -723,12 +740,12 @@ static inline char get_loc(token_location_t *loc)
     return c;
 }
 
-static inline char get(void)
+static inline int get(void)
 {
     return get_loc(NULL);
 }
 
-static inline char peek_loc(int n, token_location_t *loc)
+static inline int peek_loc(int n, token_location_t *loc)
 {
     int s = peek_size();
     if (n >= s)
@@ -738,7 +755,7 @@ static inline char peek_loc(int n, token_location_t *loc)
         int i;
         for (i = 0; i < d; i++)
         {
-            char c = free_form_get();
+            int c = free_form_get();
             token_location_t loc2 = get_current_location();
             peek_add(c, loc2);
 
@@ -774,7 +791,7 @@ static inline char peek_loc(int n, token_location_t *loc)
     return p.letter;
 }
 
-static inline char peek(int n)
+static inline int peek(int n)
 {
     return peek_loc(n, NULL);
 }
@@ -801,7 +818,7 @@ enum {
 
 static void scan_kind(char* out_str)
 {
-    char c = get();
+    int c = get();
     ERROR_CONDITION(c != '_', "input stream is incorrectly located (c=%c)", c);
 
     int i = 0;
@@ -844,6 +861,7 @@ static int commit_text(int token_id, const char* str,
                 loc.column);
     }
     lexer_state.last_eos = (token_id == EOS);
+    lexer_state.bol = 0;
 
     mf03lval.token_atrib.token_text = uniquestr(str);
     mf03lloc.first_filename = loc.filename;
@@ -893,14 +911,13 @@ static inline int scan_character_literal(
     lexer_state.character_context = 1;
 
     char unended_literal = 0;
-    char c = peek(0);
-    token_location_t loc2;
+    int c = peek(0);
+    token_location_t loc2 = loc;
 
     for (;;)
     {
         if (c != delim
-                && c != '\n'
-                && c != '\r')
+                && !is_newline(c))
         {
             get_loc(&loc2);
             ADD_CHAR(c);
@@ -991,6 +1008,581 @@ static inline int scan_character_literal(
 #undef ADD_CHAR
 }
 
+static char is_include_line(void)
+{
+    const char* keep = lexer_state.current_file->current_pos;
+    int keep_column = lexer_state.current_file->current_location.column;
+
+#define ROLLBACK \
+    { \
+        lexer_state.current_file->current_pos = keep; \
+        lexer_state.current_file->current_location.column = keep_column; \
+        return 0; \
+    }
+
+    const char c[] = "include";
+
+    int i = 1; // letter 'i' has already been matched
+    while (!past_eof()
+            && c[i] != '\0'
+            && c[i] == tolower(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
+
+        i++;
+    }
+
+    if (past_eof() ||
+            c[i] != '\0')
+        ROLLBACK;
+
+    while (!past_eof()
+            && is_blank(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
+    }
+
+    if (past_eof())
+        ROLLBACK;
+
+    char delim = lexer_state.current_file->current_pos[0];
+    if (delim != '\''
+            && delim != '\"')
+        ROLLBACK;
+
+    lexer_state.current_file->current_location.column++;
+    lexer_state.current_file->current_pos++;
+
+    token_location_t loc = lexer_state.current_file->current_location;
+
+    const char* start = lexer_state.current_file->current_pos;
+
+    while (!past_eof()
+            && !is_newline(lexer_state.current_file->current_pos[0])
+            && lexer_state.current_file->current_pos[0] != delim)
+    {
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
+    }
+
+    if (past_eof()
+            || is_newline(lexer_state.current_file->current_pos[0]))
+        ROLLBACK;
+
+    const char* final = lexer_state.current_file->current_pos - 1;
+
+    if (final - start == 0)
+        ROLLBACK;
+
+    // Jump delim
+    lexer_state.current_file->current_location.column++;
+    lexer_state.current_file->current_pos++;
+
+    // Blanks until the end of the line
+    while (!past_eof()
+            && is_blank(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
+    }
+
+    if (past_eof())
+        ROLLBACK;
+
+    if (!is_newline(lexer_state.current_file->current_pos[0]))
+        ROLLBACK;
+
+#undef ROLLBACK
+
+    if (lexer_state.current_file->current_pos[0] == '\n')
+    {
+        lexer_state.current_file->current_pos++;
+    }
+    else if (lexer_state.current_file->current_pos[0] == '\r')
+    {
+        lexer_state.current_file->current_pos++;
+        if (!past_eof())
+        {
+            if (lexer_state.current_file->current_pos[0] == '\n')
+                lexer_state.current_file->current_pos++;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    lexer_state.current_file->current_location.column = 0;
+    lexer_state.current_file->current_location.line++;
+
+    // Now get the filename
+    int num_chars = final - start + 1;
+    int num_bytes_buffer = num_chars + 1; // account final NULL
+    char include_name[num_bytes_buffer];
+
+    memcpy(include_name, start, num_chars);
+    include_name[num_bytes_buffer - 1] = '\0';
+
+    const char* include_filename = find_file_in_directories(
+            CURRENT_CONFIGURATION->num_include_dirs,
+            CURRENT_CONFIGURATION->include_dirs, 
+            include_name,
+            /* origin */ loc.filename);
+    
+
+    int fd = open(include_filename, O_RDONLY);
+    if (fd < 0)
+    {
+        running_error("%s:%d:%d: error: cannot open included file '%s' (%s)\n",
+                loc.filename,
+                loc.line,
+                loc.column,
+                include_filename,
+                strerror(errno));
+    }
+
+    // Get size of file because we need it for the mmap
+    struct stat s;
+    int status = fstat (fd, &s);
+    if (status < 0)
+    {
+        running_error("%s:%d:%d: error: cannot get status of included file '%s' (%s)\n",
+                loc.filename,
+                loc.line,
+                loc.column,
+                include_filename, strerror(errno));
+    }
+
+    const char *mmapped_addr = mmap(0, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (mmapped_addr == MAP_FAILED)
+    {
+        running_error("%s:%d:%d: error: cannot map included file '%s' in memory (%s)",
+                loc.filename,
+                loc.line,
+                loc.column,
+                include_filename,
+                strerror(errno));
+    }
+
+    lexer_state.include_stack_size++;
+    if (lexer_state.include_stack_size == MAX_INCLUDE_DEPTH)
+    {
+        running_error("%s:%d:%d: error: too many nested included files",
+                loc.filename,
+                loc.line,
+                loc.column);
+    }
+
+    lexer_state.current_file = &lexer_state.include_stack[lexer_state.include_stack_size];
+
+    lexer_state.current_file->scanned_filename = include_filename;
+
+    lexer_state.current_file->fd = fd;
+    lexer_state.current_file->buffer_size = s.st_size;
+    lexer_state.current_file->current_pos
+        = lexer_state.current_file->buffer = mmapped_addr;
+
+    lexer_state.current_file->current_location.filename = include_filename;
+    lexer_state.current_file->current_location.line = 1;
+    lexer_state.current_file->current_location.column = 0;
+
+    lexer_state.bol = 1;
+    lexer_state.last_eos = 1;
+
+    return 1;
+}
+
+static char handle_preprocessor_line(void)
+{
+    const char* keep = lexer_state.current_file->current_pos;
+    int keep_column = lexer_state.current_file->current_location.column;
+
+#define ROLLBACK \
+    { \
+        lexer_state.current_file->current_pos = keep; \
+        lexer_state.current_file->current_location.column = keep_column; \
+        return 0; \
+    }
+
+    // We allow the following syntax
+    // ^([ ]*line)?[ ]+[0-9]+[ ]*("[^"]*"[ ]+([1234][ ]+)*$
+    while (!past_eof()
+            && is_blank(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+    }
+
+    if (past_eof())
+        ROLLBACK;
+
+    if (lexer_state.current_file->current_pos[0] == 'l')
+    {
+        // Attempt to match 'line'
+        const char c[] = "line";
+        int i = 1; // we already know it starts by 'l'
+        while (c[i] != '\0'
+                && !past_eof()
+                && c[i] == lexer_state.current_file->current_pos[0])
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+
+            i++;
+        }
+
+        if (past_eof()
+                || c[i] != '\0')
+            ROLLBACK;
+
+        if (!is_blank(lexer_state.current_file->current_pos[0]))
+            ROLLBACK;
+
+        while (!past_eof()
+                && is_blank(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+    }
+
+    // linenum
+    if (!is_decimal_digit(lexer_state.current_file->current_pos[0]))
+        ROLLBACK;
+
+    int linenum = 0;
+
+    token_location_t line_loc = lexer_state.current_file->current_location;
+
+    while (!past_eof()
+            && is_decimal_digit(lexer_state.current_file->current_pos[0]))
+    {
+        linenum = 10*linenum + (lexer_state.current_file->current_pos[0] - '0');
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+    }
+
+    // This is not possible, fix it to 1
+    if (linenum == 0)
+    {
+        warn_printf("%s:%d:%d: warning: invalid line number 0 in line-marker\n",
+                line_loc.filename,
+                line_loc.line,
+                line_loc.column);
+        linenum = 1;
+    }
+
+    token_location_t filename_loc = lexer_state.current_file->current_location;
+
+    while (!past_eof()
+            && is_blank(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+    }
+
+    if (past_eof())
+    {
+        lexer_state.current_file->current_location.line = linenum;
+        lexer_state.current_file->current_location.column = 0;
+
+        return 1;
+    }
+    else if (is_newline(lexer_state.current_file->current_pos[0]))
+    {
+        if (lexer_state.current_file->current_pos[0] == '\r')
+        {
+            lexer_state.current_file->current_pos++;
+            if (!past_eof()
+                    && lexer_state.current_file->current_pos[0] == '\n')
+                lexer_state.current_file->current_pos++;
+        }
+        else // '\n'
+        {
+            lexer_state.current_file->current_pos++;
+        }
+
+        lexer_state.current_file->current_location.line = linenum;
+        lexer_state.current_file->current_location.column = 0;
+
+        return 1;
+    }
+    else if (lexer_state.current_file->current_pos[0] == '"')
+    {
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+
+        const char *start = lexer_state.current_file->current_pos;
+
+        // FIXME - escaped characters
+        while (!past_eof()
+                && lexer_state.current_file->current_pos[0] != '"'
+                && !is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+
+        if (lexer_state.current_file->current_pos[0] != '"')
+            ROLLBACK;
+
+        const char* final = lexer_state.current_file->current_pos - 1;
+
+        if (final - start == 0)
+            ROLLBACK;
+
+        int num_chars = final - start + 1;
+        int num_bytes_buffer = num_chars + 1;
+        char filename[num_bytes_buffer];
+        memcpy(filename, start, num_chars);
+        filename[num_bytes_buffer - 1] = '\0';
+
+        // advance delim
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+
+        for (;;)
+        {
+            while (!past_eof()
+                    && is_blank(lexer_state.current_file->current_pos[0]))
+            {
+                lexer_state.current_file->current_pos++;
+                lexer_state.current_file->current_location.column++;
+            }
+
+            if (past_eof())
+                break;
+
+            if (is_newline(lexer_state.current_file->current_pos[0]))
+                break;
+
+            token_location_t flag_loc = lexer_state.current_file->current_location;
+
+            int flag = 0;
+            if (is_decimal_digit(lexer_state.current_file->current_pos[0]))
+            {
+                while (!past_eof()
+                        && is_decimal_digit(lexer_state.current_file->current_pos[0]))
+                {
+                    flag = 10*flag + (lexer_state.current_file->current_pos[0] - '0');
+
+                    lexer_state.current_file->current_pos++;
+                    lexer_state.current_file->current_location.column++;
+                }
+
+                if (1 <= flag
+                        && flag <= 4)
+                {
+                    // We could do something with these
+                }
+                else
+                {
+                    warn_printf("%s:%d:%d: invalid flag %d\n",
+                            flag_loc.filename,
+                            flag_loc.line,
+                            flag_loc.column,
+                            flag);
+                }
+            }
+            else
+            {
+                warn_printf("%s:%d:%d: unexpected tokens at end of line-marker\n",
+                        lexer_state.current_file->current_location.filename,
+                        lexer_state.current_file->current_location.line,
+                        lexer_state.current_file->current_location.column);
+                break;
+            }
+        }
+
+        // Go to end of the line
+        while (!past_eof()
+                && is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+
+        if (past_eof())
+        {
+        }
+        else if (is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_location.line++;
+            lexer_state.current_file->current_location.column = 0;
+            if (lexer_state.current_file->current_pos[0] == '\n')
+            {
+                lexer_state.current_file->current_pos++;
+            }
+            else // if (lexer_state.current_file->current_pos[0] == '\r')
+            {
+                lexer_state.current_file->current_pos++;
+                if (!past_eof()
+                        && lexer_state.current_file->current_pos[0] == '\n')
+                {
+                    lexer_state.current_file->current_pos++;
+                }
+            }
+        }
+
+        lexer_state.current_file->current_location.filename = uniquestr(filename);
+        lexer_state.current_file->current_location.line = linenum;
+        lexer_state.current_file->current_location.column = 0;
+
+        return 1;
+    }
+    else
+    {
+        warn_printf("%s:%d:%d: invalid filename, ignoring line-marker\n",
+                filename_loc.filename,
+                filename_loc.line,
+                filename_loc.column);
+
+        // Go to end of the line
+        while (!past_eof()
+                && !is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+
+        if (!past_eof())
+        {
+            lexer_state.current_file->current_location.line++;
+            lexer_state.current_file->current_location.column = 0;
+            if (lexer_state.current_file->current_pos[0] != '\n')
+            {
+                lexer_state.current_file->current_pos++;
+            }
+            else // if (lexer_state.current_file->current_pos[0] != '\r')
+            {
+                lexer_state.current_file->current_pos++;
+                if (!past_eof()
+                        && lexer_state.current_file->current_pos[0] != '\n')
+                {
+                    lexer_state.current_file->current_pos++;
+                }
+            }
+        }
+
+        return 1;
+    }
+#undef ROLLBACK
+}
+
+static inline char is_format_statement(void)
+{
+    int peek_idx = 0;
+    int p = peek(peek_idx);
+
+    // Skip blanks after label
+    while (is_blank(p))
+    {
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+
+    int i = 0;
+    const char c[] = "format";
+    while (c[i] != '\0'
+            && tolower(p) == c[i])
+    {
+        peek_idx++;
+        p = peek(peek_idx);
+
+        i++;
+    }
+
+    if (c[i] != '\0')
+        return 0;
+
+    // Skip blanks after FORMAT keyword
+    while (is_blank(p))
+    {
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+
+    if (p != '(')
+        return 0;
+
+    // Skip opening parenthesis
+    peek_idx++;
+    p = peek(peek_idx);
+
+    char delim;
+    int level = 1;
+    char in_string = 0;
+
+    // Now find the matching closing parenthesis
+    while (p != EOF
+            && !is_newline(p)
+            && (level > 0))
+    {
+        if (!in_string)
+        {
+            if (p == '(')
+            {
+                level++;
+            }
+            else if (p == ')')
+            {
+                level--;
+            }
+            else if (p == '\'' || p == '"')
+            {
+                delim = p;
+                in_string = 1;
+            }
+        }
+        else
+        {
+            if (p == delim)
+            {
+                int p1 = peek(peek_idx + 1);
+                if (p1 != delim)
+                {
+                    in_string = 0;
+                }
+                else // p1 == delim
+                {
+                    // Skip the delimiter as we do not want
+                    // to see again
+                    peek_idx++;
+                }
+            }
+        }
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+
+    // Unbalanced parentheses or opened string
+    if ((level > 0) || (in_string == 1)) 
+        return 0;
+
+    // Skip blanks after closing parenthesis
+    while (is_blank(p))
+    {
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+
+    // Expect a newline here
+    if (!is_newline(p))
+        return 0;
+
+    // This FORMAT seems fine
+    return 1;
+}
+
+// means: no more letters available for this file
+static inline char is_end_of_file(void)
+{
+    return peek_empty()
+        && past_eof();
+}
+
 // This is the lexer <-> parser interface from yacc/bison
 // this function just returns the next token from the current
 // input stream
@@ -998,27 +1590,39 @@ extern int new_mf03lex (void)
 {
     for (;;)
     {
-        // Did we reach the end of the file?
-        if (is_end_of_file())
-        {
-            char end_of_scan = process_end_of_file();
-            if (end_of_scan)
-            {
-                if (!lexer_state.last_eos)
-                {
-                    // Make sure we force a final EOS
-                    return commit_text(EOS, NULL, get_current_location());
-                }
-                return 0;
-            }
-            else
-                continue;
-        }
-
         token_location_t loc;
-        char c0 = get_loc(&loc);
+        int c0 = get_loc(&loc);
+
         switch (c0)
         {
+            case EOF:
+                {
+                    char end_of_scan = process_end_of_file();
+                    if (end_of_scan)
+                    {
+                        if (!lexer_state.last_eos)
+                        {
+                            // Make sure we force a final EOS
+                            return commit_text(EOS, NULL, get_current_location());
+                        }
+                        return 0;
+                    }
+                    else
+                        continue;
+                }
+            case '#':
+                {
+                    if (!lexer_state.bol)
+                        break;
+
+                    if (handle_preprocessor_line())
+                    {
+                        lexer_state.bol = 1;
+                        continue;
+                    }
+
+                    break;
+                }
             case ' ':
             case '\t':
                 {
@@ -1031,7 +1635,9 @@ extern int new_mf03lex (void)
                     // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \r
                     if (!lexer_state.last_eos)
                     {
-                        return commit_text(EOS, NULL, loc);
+                        int n = commit_text(EOS, NULL, loc);
+                        lexer_state.bol = 1;
+                        return n;
                     }
                     else
                     {
@@ -1048,20 +1654,20 @@ extern int new_mf03lex (void)
             case '!':
                 {
                     // comment
-                    c0 = get();
+                    c0 = peek(0);
                     while (!is_newline(c0))
                     {
-                        c0 = get();
+                        get();
+                        c0 = peek(0);
                     }
 
                     if (c0 == '\r')
                     {
-                        if (peek(0) == '\n')
-                        {
+                        if (peek(1) == '\n')
                             get();
-                        }
                     }
 
+                    // we are now right before \n (or \r)
                     continue;
                 }
             case ';':
@@ -1074,8 +1680,38 @@ extern int new_mf03lex (void)
                 }
             case '(' :
                 {
-                    char c1 = peek(0);
-                    if (c1 != '/')
+                    if (lexer_state.in_format_statement)
+                    {
+                        int i = 0;
+                        int size = 32;
+                        char * str = xmalloc(size * sizeof(*str));
+#define ADD_CHAR(x) \
+    { \
+        if (i >= size) \
+        { \
+            size *= 2; \
+            str = xrealloc(str, sizeof(*str) * (size + 1)); \
+        } \
+        str[i] = (x); \
+        i++; \
+    }
+                        ADD_CHAR(c0);
+                        // Everything will be scanned as a single token
+                        int c1 = peek(0);
+                        while (!is_newline(c1))
+                        {
+                            ADD_CHAR(c1);
+                            get();
+                            c1 = peek(0);
+                        }
+                        ADD_CHAR('\0');
+#undef ADD_CHAR
+                        lexer_state.in_format_statement = 0;
+                        return commit_text_and_free(FORMAT_SPEC, str, loc);
+                    }
+
+                    int c1 = peek(0);
+                    if (c1 == '/')
                     {
                         get();
                         return commit_text(TOKEN_LPARENT_SLASH, "(/", loc);
@@ -1087,7 +1723,7 @@ extern int new_mf03lex (void)
                 }
             case '/' :
                 {
-                    char c1 = peek(0);
+                    int c1 = peek(0);
                     if (c1 == '/')
                     {
                         get();
@@ -1120,7 +1756,7 @@ extern int new_mf03lex (void)
                 }
             case '*' :
                 {
-                    char c1 = peek(0);
+                    int c1 = peek(0);
                     if (c1 == '*')
                     {
                         get();
@@ -1133,7 +1769,7 @@ extern int new_mf03lex (void)
                 }
             case '<' :
                 {
-                    char c1 = peek(0);
+                    int c1 = peek(0);
                     if (c1 == '=')
                     {
                         get();
@@ -1146,7 +1782,7 @@ extern int new_mf03lex (void)
                 }
             case '>' :
                 {
-                    char c1 = peek(0);
+                    int c1 = peek(0);
                     if (c1 == '=')
                     {
                         get();
@@ -1159,7 +1795,7 @@ extern int new_mf03lex (void)
                 }
             case '=':
                 {
-                    char c1 = peek(0);
+                    int c1 = peek(0);
                     if (c1 == '=')
                     {
                         get();
@@ -1177,13 +1813,13 @@ extern int new_mf03lex (void)
                 }
             case '.':
                 {
-                    char c1 = peek(0);
-                    char c2 = peek(1);
+                    int c1 = peek(0);
+                    int c2 = peek(1);
                     if (c1 == 'e'
                             && c2 == 'q')
                     {
-                        char c3 = peek(2);
-                        char c4 = peek(3);
+                        int c3 = peek(2);
+                        int c4 = peek(3);
                         if (c3 == '.')
                         {
                             get(); // e
@@ -1205,9 +1841,9 @@ extern int new_mf03lex (void)
                     {
                         if (c2 == 'e')
                         {
-                            char c3 = peek(2);
-                            char c4 = peek(3);
-                            char c5 = peek(4);
+                            int c3 = peek(2);
+                            int c4 = peek(3);
+                            int c5 = peek(4);
                             if (c3 == '.')
                             {
                                 get(); // n
@@ -1229,8 +1865,8 @@ extern int new_mf03lex (void)
                         }
                         else if (c2 == 'o')
                         {
-                            char c3 = peek(2);
-                            char c4 = peek(3);
+                            int c3 = peek(2);
+                            int c4 = peek(3);
                             if (c3 == 't'
                                     && c4 == '.')
                             {
@@ -1244,7 +1880,7 @@ extern int new_mf03lex (void)
                     }
                     else if (c1 == 'l')
                     {
-                        char c3 = peek(2);
+                        int c3 = peek(2);
                         if (c2 == 'e'
                                 && c3 == '.')
                         {
@@ -1264,7 +1900,7 @@ extern int new_mf03lex (void)
                     }
                     else if (c1 == 'g')
                     {
-                        char c3 = peek(2);
+                        int c3 = peek(2);
                         if (c2 == 'e'
                                 && c3 == '.')
                         {
@@ -1285,7 +1921,7 @@ extern int new_mf03lex (void)
                     else if (c1 == 'o'
                             && c2 == 'r')
                     {
-                        char c3 = peek(2);
+                        int c3 = peek(2);
                         if (c3 == '.')
                         {
                             get(); // o
@@ -1297,8 +1933,8 @@ extern int new_mf03lex (void)
                     else if (c1 == 'a'
                             && c2 == 'n')
                     {
-                        char c3 = peek(2);
-                        char c4 = peek(3);
+                        int c3 = peek(2);
+                        int c4 = peek(3);
                         if (c3 == 'n'
                                 && c4 == '.')
                         {
@@ -1322,7 +1958,7 @@ extern int new_mf03lex (void)
                         str[3] = get(); // u
                         str[4] = get(); // e
                         str[5] = get(); // .
-                        char c = peek(0);
+                        int c = peek(0);
                         if (c == '_')
                         {
                             scan_kind(&str[6]);
@@ -1348,7 +1984,7 @@ extern int new_mf03lex (void)
                         str[4] = get(); // s
                         str[5] = get(); // e
                         str[6] = get(); // .
-                        char c = peek(0);
+                        int c = peek(0);
                         if (c == '_')
                         {
                             scan_kind(&str[7]);
@@ -1367,7 +2003,7 @@ extern int new_mf03lex (void)
                         str[1] = c1; get();
                         int i = 2;
 
-                        char c = c2;
+                        int c = c2;
                         while (is_decimal_digit(c))
                         {
                             get();
@@ -1430,7 +2066,7 @@ extern int new_mf03lex (void)
                         user_def_op[1] = c1; get();
                         int i = 2;
 
-                        char c = c2;
+                        int c = c2;
                         while (is_letter(c))
                         {
                             get();
@@ -1477,12 +2113,21 @@ extern int new_mf03lex (void)
             case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
             case 'y': case 'z':
                 {
+                    if (lexer_state.bol
+                            && (c0 == 'i'
+                                || c0 == 'I'))
+                    {
+                        // Maybe this is an include line
+                        if (is_include_line())
+                            continue;
+                    }
+
                     if (c0 == 'b' || c0 == 'B'
                             || c0 == 'o' || c0 == 'O'
                             || c0 == 'z' || c0 == 'Z'
                             || c0 == 'x' || c0 == 'X')
                     {
-                        char c1 = peek(0);
+                        int c1 = peek(0);
 
                         if (c1 == '\'' || c1 == '"')
                         {
@@ -1493,8 +2138,8 @@ extern int new_mf03lex (void)
 
                             char invalid_digit = 0;
                             int token_id = 0;
-                            token_location_t loc2;
-                            char c;
+                            token_location_t loc2 = loc;
+                            int c;
                             switch (c0)
                             {
                                 case 'b': case 'B':
@@ -1502,8 +2147,7 @@ extern int new_mf03lex (void)
                                         token_id = BINARY_LITERAL;
                                         c = peek_loc(0, &loc2);
                                         while (c != c1
-                                                && c != '\n'
-                                                && c != '\r')
+                                                && !is_newline(c))
                                         {
                                             if (c == '0'
                                                     || c == '1')
@@ -1532,8 +2176,7 @@ extern int new_mf03lex (void)
                                         token_id = OCTAL_LITERAL;
                                         c = peek_loc(0, &loc2);
                                         while (c != c1
-                                                && c != '\n'
-                                                && c != '\r')
+                                                && !is_newline(c))
                                         {
                                             if ('0' <= c
                                                     && c == '7')
@@ -1563,8 +2206,7 @@ extern int new_mf03lex (void)
                                         token_id = HEX_LITERAL;
                                         c = peek_loc(0, &loc2);
                                         while (c != c1
-                                                && c != '\n'
-                                                && c != '\r')
+                                                && !is_newline(c))
                                         {
                                             get();
                                             if ((c <= '0'
@@ -1642,8 +2284,9 @@ extern int new_mf03lex (void)
 
                     int i = 1;
 
-                    char c = peek(0);
+                    int c = peek(0);
                     while (is_letter(c)
+                            || is_decimal_digit(c)
                             || c == '_')
                     {
                         get();
@@ -1656,7 +2299,7 @@ extern int new_mf03lex (void)
                     }
                     identifier[i] = '\0';
 
-                    char c2 = peek(1);
+                    int c2 = peek(1);
                     if (i <= 33 // A named kind cannot be longer than 32 letters
                             && c == '_'
                             && (c2 == '\''
@@ -1685,6 +2328,11 @@ extern int new_mf03lex (void)
                                 sizeof(keyword_table[0]),
                                 keyword_table_comp);
 
+                    ERROR_CONDITION(lexer_state.in_format_statement
+                            && (result == NULL
+                                || result->token_id != TOKEN_FORMAT),
+                            "Invalid token for format statement", 0);
+
                     if (result == NULL)
                     {
                         return commit_text(IDENTIFIER, identifier, loc);
@@ -1703,7 +2351,7 @@ extern int new_mf03lex (void)
                     digits[0] = c0;
 
                     int i = 1;
-                    char c = peek(0);
+                    int c = peek(0);
                     while (is_decimal_digit(c))
                     {
                         get();
@@ -1727,7 +2375,7 @@ extern int new_mf03lex (void)
                     else if (c == '_')
                     {
                         // 1_"HELLO"
-                        char c2 = peek(1);
+                        int c2 = peek(1);
                         if (c2 == '\''
                                 || c2 == '"')
                         {
@@ -1759,6 +2407,13 @@ extern int new_mf03lex (void)
                     }
                     else
                     {
+                        if (lexer_state.bol
+                                && i <= 6 /* maximum length of a label */
+                                && is_format_statement())
+                        {
+                            lexer_state.in_format_statement = 1;
+                        }
+
                         return commit_text(DECIMAL_LITERAL, digits, loc);
                     }
                 }
