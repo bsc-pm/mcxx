@@ -391,11 +391,29 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
     return 0;
 }
 
-static char process_end_of_file(void)
+static inline void close_current_file(void)
+{
+    if (lexer_state.current_file->fd >= 0)
+    {
+        int res = munmap((void*)lexer_state.current_file->buffer, lexer_state.current_file->buffer_size);
+        if (res < 0)
+        {
+            running_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
+        }
+        res = close(lexer_state.current_file->fd);
+        if (res < 0)
+        {
+            running_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
+        }
+    }
+}
+
+static inline char process_end_of_file(void)
 {
     // Are we in the last file?
     if (lexer_state.include_stack_size == 0)
     {
+        close_current_file();
         return 1;
     }
     else
@@ -403,19 +421,7 @@ static char process_end_of_file(void)
         DEBUG_CODE() DEBUG_MESSAGE("End of included file %s switching back to %s", 
                 lexer_state.current_file->current_location.filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
 
-        if (lexer_state.current_file->fd >= 0)
-        {
-            int res = munmap((void*)lexer_state.current_file->buffer, lexer_state.current_file->buffer_size);
-            if (res < 0)
-            {
-                running_error("error: unmaping of file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
-            }
-            res = close(lexer_state.current_file->fd);
-            if (res < 0)
-            {
-                running_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
-            }
-        }
+        close_current_file();
 
         lexer_state.include_stack_size--;
         lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);

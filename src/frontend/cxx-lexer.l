@@ -1940,8 +1940,11 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
 
 %%
 
+static void close_scanned_file(void);
+
 static int yywrap(void)
 {
+    close_scanned_file();
     return 1;
 }
 
@@ -2068,8 +2071,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 }
 
 
-/*!if C99*/
-void close_scanned_file(void)
+static void close_scanned_file(void)
 {
     if (scanning_now.file_descriptor != NULL)
     {
@@ -2078,6 +2080,7 @@ void close_scanned_file(void)
     }
 }
 
+/*!if C99*/
 static pragma_directive_kind_t lookup_pragma_directive_inner(pragma_directive_set_t* pragma_directive_set, 
         const char *directive)
 {

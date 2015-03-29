@@ -3056,8 +3056,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 // * Parse file
                 parse_translation_unit(translation_unit, parsed_filename);
-                // Close file parsed
-                close_scanned_file();
+                // The scanner automatically closes the file
 
                 if (CURRENT_CONFIGURATION->debug_options.print_parse_tree)
                 {
