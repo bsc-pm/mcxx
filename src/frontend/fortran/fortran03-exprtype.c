@@ -3706,7 +3706,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     while (*literal != delim
                 || *(literal+1) == delim)
     {
-        ERROR_CONDITION(real_length >= (length+1), "Wrong construction of real string", 0);
+        ERROR_CONDITION(real_length >= (length+1), "Wrong construction of string literal '%s'", whole_literal);
 
         if (*literal !=  delim)
         {

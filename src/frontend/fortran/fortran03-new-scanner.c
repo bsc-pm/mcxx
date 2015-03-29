@@ -35,7 +35,11 @@
    The maxim level of nesting is not defined in Fortran 95 standard.
    We have set it to 99.
  */
-#define MAX_INCLUDE_DEPTH 99
+
+enum {
+    MAX_INCLUDE_DEPTH = 99,
+};
+
 
 typedef
 struct token_location_tag
@@ -69,26 +73,49 @@ enum lexer_textual_form
     LX_FIXED_FORM = 2,
 };
 
+enum lexing_substate
+{
+    LEXER_SUBSTATE_NORMAL = 0,
+
+    // !$OMP ...
+    LEXER_SUBSTATE_PRAGMA_DIRECTIVE,
+    LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE,
+    LEXER_SUBSTATE_PRAGMA_CLAUSE,
+    LEXER_SUBSTATE_PRAGMA_VAR_LIST,
+};
+
 static
 struct new_lexer_state_t
 {
     enum lexer_textual_form form;
+    enum lexing_substate substate;
 
     int include_stack_size;
     struct scan_file_descriptor include_stack[MAX_INCLUDE_DEPTH];
     struct scan_file_descriptor *current_file;
 
+    // If not null, we are scanning through a sentinel (i.e. "omp")
+    char *sentinel;
+
     // beginning of line
     char bol:1;
     // last token was end of line (the parser does not like redundant EOS)
     char last_eos:1; 
-
     // states that we are inside a string-literal (changes the way we handle
     // continuations)
     char character_context:1;
-
     // we are scanning a format statement
-    char in_format_statement:2;
+    char in_format_statement:1;
+    // we have seen a nonblock do construct
+    char in_nonblock_do_construct:1;
+
+    int num_nonblock_labels;
+    int size_nonblock_labels_stack;
+    int *nonblock_labels_stack;
+
+    int num_pragma_constructs;
+    int size_pragma_constructs_stack;
+    char** pragma_constructs_stack;
 } lexer_state;
 
 static token_location_t get_current_location(void)
@@ -98,7 +125,7 @@ static token_location_t get_current_location(void)
 
 int mf03_flex_debug = 1;
 
-static inline void peek_init(void);
+static void init_lexer_state(void);
 
 extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename)
 {
@@ -136,15 +163,12 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const c
     lexer_state.current_file->current_location.line = 1;
     lexer_state.current_file->current_location.column = 0;
 
-    lexer_state.bol = 1;
-    lexer_state.last_eos = 1;
-
-    peek_init();
+    init_lexer_state();
 
     return 0;
 }
 
-// KEEP THIS TABLE SORTED
+// KEEP THESE TABLES SORTED
 static
 struct keyword_table_tag
 {
@@ -344,6 +368,31 @@ struct keyword_table_tag
     {"write", TOKEN_WRITE}
 };
 
+static
+struct special_token_table_tag
+{
+    const char* keyword;
+    int token_id;
+    char preserve_eos;
+} special_tokens[] =
+{
+    {"@END GLOBAL@", END_GLOBAL, 0 },
+    {"@EXPRESSION@", SUBPARSE_EXPRESSION, 0 },
+    {"@GLOBAL@", GLOBAL, 0 },
+    {"@IS_VARIABLE@", TOKEN_IS_VARIABLE, 0 },
+    {"@NODECL-LITERAL-EXPR@",  NODECL_LITERAL_EXPR, 0 },
+    {"@NODECL-LITERAL-STMT@", NODECL_LITERAL_STMT, 0 },
+    {"@OMP-DECLARE-REDUCTION@", SUBPARSE_OPENMP_DECLARE_REDUCTION, 1 },
+    {"@OMP-DEPEND-ITEM@", SUBPARSE_OPENMP_DEPEND_ITEM, 1 },
+    {"@OMPSS-DEPENDENCY-EXPR@", SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION, 1 },
+    {"@PROGRAM-UNIT@", SUBPARSE_PROGRAM_UNIT, 0 },
+    {"@STATEMENT@", SUBPARSE_STATEMENT, 0 },
+    {"@SYMBOL-LITERAL-REF@", SYMBOL_LITERAL_REF, 0 },
+    {"@TYPEDEF@", TYPEDEF, 0 },
+    {"@TYPE-LITERAL-REF@", TYPE_LITERAL_REF, 0 },
+};
+
+
 static int keyword_table_comp(
         const void* p1,
         const void* p2)
@@ -352,6 +401,29 @@ static int keyword_table_comp(
     const struct keyword_table_tag* v2 = (const struct keyword_table_tag*)p2;
 
     return strcasecmp(v1->keyword, v2->keyword);
+}
+
+static int special_token_table_comp(
+        const void* p1,
+        const void* p2)
+{
+    const struct special_token_table_tag* v1 = (const struct special_token_table_tag*)p1;
+    const struct special_token_table_tag* v2 = (const struct special_token_table_tag*)p2;
+
+    return strcasecmp(v1->keyword, v2->keyword);
+}
+
+static void peek_init(void);
+static void init_lexer_state(void)
+{
+    lexer_state.substate = LEXER_SUBSTATE_NORMAL;
+    lexer_state.bol = 1;
+    lexer_state.last_eos = 1;
+    lexer_state.in_nonblock_do_construct = 0;
+    lexer_state.num_nonblock_labels = 0;
+    lexer_state.num_pragma_constructs = 0;
+
+    peek_init();
 }
 
 static const char * const TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
@@ -383,10 +455,7 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
     lexer_state.current_file->current_location.line = 1;
     lexer_state.current_file->current_location.column = 0;
     
-    lexer_state.bol = 1;
-    lexer_state.last_eos = 1;
-
-    peek_init();
+    init_lexer_state();
 
     return 0;
 }
@@ -405,6 +474,7 @@ static inline void close_current_file(void)
         {
             running_error("error: closing file '%s' failed (%s)\n", lexer_state.current_file->current_location.filename, strerror(errno));
         }
+        lexer_state.current_file->fd = -1;
     }
 }
 
@@ -427,21 +497,50 @@ static inline char process_end_of_file(void)
         lexer_state.current_file = &(lexer_state.include_stack[lexer_state.include_stack_size]);
         lexer_state.last_eos = 1;
         lexer_state.bol = 1;
+        lexer_state.in_nonblock_do_construct = 0;
 
         return 0;
     }
 }
 
 
-static inline char is_blank(char c)
+static inline char is_blank(int c)
 {
     return (c == ' ' || c == '\t');
 }
 
-static inline char is_newline(char c)
+static inline char is_newline(int c)
 {
     return c == '\n'
         || c == '\r';
+}
+
+static inline char is_letter(int c)
+{
+    return ('a' <= c && c <= 'z')
+        || ('A' <= c && c <= 'Z');
+}
+
+static inline char is_decimal_digit(int c)
+{
+    return ('0' <= c && c <= '9');
+}
+
+static inline char is_binary_digit(int c)
+{
+    return c == '0' || c == '1';
+}
+
+static inline char is_octal_digit(int c)
+{
+    return '0' <= c && c <= '7';
+}
+
+static inline char is_hex_digit(int c)
+{
+    return ('0' <= c && c <= '9')
+        || ('a' <= c && c <= 'f')
+        || ('A' <= c && c <= 'F');
 }
 
 static inline char past_eof(void)
@@ -534,7 +633,53 @@ static inline int free_form_get(void)
             }
         }
         else
-            ROLLBACK
+            ROLLBACK;
+
+        if (lexer_state.sentinel != NULL)
+        {
+            // Skip the current sentinel
+            while (!past_eof()
+                    && is_blank(lexer_state.current_file->current_pos[0]))
+            {
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+            }
+            if (past_eof())
+                ROLLBACK;
+
+            if (lexer_state.current_file->current_pos[0] != '!')
+                ROLLBACK;
+
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+            if (past_eof())
+                ROLLBACK;
+
+            if (lexer_state.current_file->current_pos[0] != '$')
+                ROLLBACK;
+
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+            if (past_eof())
+                ROLLBACK;
+
+            int i = 0;
+            while (!past_eof()
+                    && lexer_state.sentinel[i] != '\0'
+                    && (tolower(lexer_state.current_file->current_pos[0])
+                        == tolower(lexer_state.sentinel[i])))
+            {
+                lexer_state.current_file->current_pos++;
+                lexer_state.current_file->current_location.column++;
+                i++;
+            }
+
+            if (past_eof())
+                ROLLBACK;
+
+            if (lexer_state.sentinel[i] != '\0')
+                ROLLBACK;
+        }
 
         // Now we need to peek if there is another &, so we have to do
         // token pasting, otherwise we will return a blank
@@ -622,9 +767,9 @@ static inline void peek_init(void)
     {
         _peek_queue.buffer = xmalloc(PEEK_INITIAL_SIZE * sizeof(*_peek_queue.buffer));
         _peek_queue.size = PEEK_INITIAL_SIZE;
-        _peek_queue.back = 0;
-        _peek_queue.front = 0;
     }
+    _peek_queue.back = 0;
+    _peek_queue.front = 0;
 }
 
 static inline char peek_empty(void)
@@ -802,57 +947,76 @@ static inline int peek(int n)
     return peek_loc(n, NULL);
 }
 
-
-static inline char is_letter(char c)
+typedef
+struct tiny_dyncharbuf_tag
 {
-    return ('a' <= c && c <= 'z')
-        || ('A' <= c && c <= 'Z');
+    int size;
+    int next;
+    char *buf;
+} tiny_dyncharbuf_t;
+
+static inline void tiny_dyncharbuf_new(tiny_dyncharbuf_t* t, int initial_size)
+{
+    t->size = initial_size;
+    t->buf = xmalloc(sizeof(*t->buf) * t->size);
+    t->next = 0;
 }
 
-static inline char is_decimal_digit(char c)
+static inline void tiny_dyncharbuf_add(tiny_dyncharbuf_t* t, char c)
 {
-    return ('0' <= c && c <= '9');
+    if (t->next >= t->size)
+    {
+        t->size *= 2;
+        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->size + 1));
+    }
+    t->buf[t->next] = c;
+    t->next++;
 }
 
-enum {
-    MAX_IDENTIFIER_LENGTH = 128,
-    MAX_NUMERIC_LITERAL = 128,
-    MAX_KEYWORD_LENGTH = 32,
-    MAX_USER_DEFINED_OPERATOR = 32,
-    MAX_KIND_LENGTH = 32,
-};
-
-static void scan_kind(char* out_str)
+static inline void tiny_dyncharbuf_add_str(tiny_dyncharbuf_t* t, const char* str)
 {
+    if (str == NULL)
+        return;
+
+    unsigned int i;
+    for (i = 0; i < strlen(str); i++)
+    {
+        tiny_dyncharbuf_add(t, str[i]);
+    }
+}
+
+static char* scan_kind(void)
+{
+    tiny_dyncharbuf_t str;
+    tiny_dyncharbuf_new(&str, 32);
+
     int c = get();
     ERROR_CONDITION(c != '_', "input stream is incorrectly located (c=%c)", c);
+    tiny_dyncharbuf_add(&str, '_');
 
-    int i = 0;
     c = peek(0);
     if (is_decimal_digit(c))
     {
-        while (i < MAX_KIND_LENGTH
-                && is_decimal_digit(c))
+        while (is_decimal_digit(c))
         {
+            tiny_dyncharbuf_add(&str, c);
             get();
-            out_str[i] = c;
             c = peek(0);
-            i++;
         }
     }
     else if (is_letter(c))
     {
-        while (i < MAX_KIND_LENGTH
-                && is_letter(c))
+        while (is_letter(c))
         {
+            tiny_dyncharbuf_add(&str, c);
             get();
-            out_str[i] = c;
             c = peek(0);
-            i++;
         }
     }
 
-    out_str[i] = '\0';
+    tiny_dyncharbuf_add(&str, '\0');
+
+    return str.buf;
 }
 
 static int commit_text(int token_id, const char* str,
@@ -885,30 +1049,23 @@ static int commit_text_and_free(int token_id, char* str,
     return token_id;
 }
 
-static inline int scan_character_literal(
+static inline void scan_character_literal(
         const char* prefix,
         char delim,
         char allow_suffix_boz,
-        token_location_t loc)
+        token_location_t loc,
+        // out
+        int* token_id,
+        char** text)
 {
     ERROR_CONDITION(prefix == NULL, "Invalid prefix", 0);
-#define ADD_CHAR(x) \
-    { \
-        if (i >= size) \
-        { \
-            size *= 2; \
-            str = xrealloc(str, sizeof(*str) * (size + 1)); \
-        } \
-        str[i] = (x); \
-        i++; \
-    }
-    int token_id = 0;
 
-    int size = 32;
-    int prefix_length = strlen(prefix);
-    int i = prefix_length;
-    char *str = xmalloc(sizeof(*str) * (prefix_length + size + 1));
-    strncpy(str, prefix, prefix_length);
+    tiny_dyncharbuf_t str;
+    tiny_dyncharbuf_new(&str, strlen(prefix) + 32);
+
+    tiny_dyncharbuf_add_str(&str, prefix);
+
+    *token_id = CHAR_LITERAL;
 
     char can_be_binary = allow_suffix_boz;
     char can_be_octal = allow_suffix_boz;
@@ -926,28 +1083,26 @@ static inline int scan_character_literal(
                 && !is_newline(c))
         {
             get_loc(&loc2);
-            ADD_CHAR(c);
+            tiny_dyncharbuf_add(&str, c);
 
             can_be_binary = 
                 can_be_binary &&
-                (c == '0' || c == '1');
+                is_binary_digit(c);
 
             can_be_octal = 
                 can_be_octal &&
-                ('0' <= c && c <= '7');
+                is_octal_digit(c);
 
             can_be_hexa = 
                 can_be_hexa &&
-                (('0' <= c && c <= '9')
-                 || ('a' <= c && c <= 'f')
-                 || ('A' <= c && c <= 'F'));
+                is_hex_digit(c);
 
             c = peek_loc(0, &loc2);
         }
         else if (c == delim)
         {
             get_loc(&loc2);
-            ADD_CHAR(c);
+            tiny_dyncharbuf_add(&str, c);
             c = peek_loc(0, &loc2);
 
             if (c != delim)
@@ -959,7 +1114,8 @@ static inline int scan_character_literal(
                 = 0;
 
             get_loc(&loc2);
-            ADD_CHAR(c);
+            tiny_dyncharbuf_add(&str, c);
+            c = peek_loc(0, &loc2);
         }
         else // c == '\n' || c == '\r'
         {
@@ -968,7 +1124,6 @@ static inline int scan_character_literal(
                     loc2.line,
                     loc2.column);
             unended_literal = 1;
-            get_loc(&loc2);
             break;
         }
     }
@@ -976,42 +1131,128 @@ static inline int scan_character_literal(
     lexer_state.character_context = 0;
 
     if (unended_literal)
-        return 0;
+    {
+        tiny_dyncharbuf_add(&str, delim);
+        can_be_binary =
+            can_be_octal =
+            can_be_hexa = 0;
+    }
 
-    token_id = CHAR_LITERAL;
     if (can_be_binary
             || can_be_octal
             || can_be_hexa)
     {
         c = peek(0);
         if (can_be_binary
-                && (c == 'b' || c == 'B'))
+                && (tolower(c) == 'b'))
         {
             get();
-            ADD_CHAR(c);
-            token_id = BINARY_LITERAL;
+            tiny_dyncharbuf_add(&str, c);
+            *token_id = BINARY_LITERAL;
         }
         else if (can_be_octal
-                && (c == 'o' || c == 'O'))
+                && (tolower(c) == 'o'))
         {
             get();
-            ADD_CHAR(c);
-            token_id = OCTAL_LITERAL;
+            tiny_dyncharbuf_add(&str, c);
+            *token_id = OCTAL_LITERAL;
         }
         else if (can_be_hexa
-                && (c == 'x' || c == 'X'
-                    || c == 'z' || c == 'Z'))
+                && (tolower(c) == 'x'
+                    || tolower(c) == 'z'))
         {
             get();
-            ADD_CHAR(c);
-            token_id = HEX_LITERAL;
+            tiny_dyncharbuf_add(&str, c);
+            *token_id = HEX_LITERAL;
         }
     }
 
-    ADD_CHAR('\0');
+    tiny_dyncharbuf_add(&str, '\0');
 
-    return commit_text_and_free(token_id, str, loc);
-#undef ADD_CHAR
+    *text = str.buf;
+}
+
+static char* scan_fractional_part_of_real_literal(void)
+{
+    // We assume that we are right after the '.'
+
+    // a valid real literal at this point must be [.][0-9]*([edq][+-]?[0-9]+)_kind
+
+    tiny_dyncharbuf_t str;
+    tiny_dyncharbuf_new(&str, 32);
+
+    tiny_dyncharbuf_add(&str, '.');
+
+    int c = peek(0);
+
+    while (is_decimal_digit(c))
+    {
+        get();
+        tiny_dyncharbuf_add(&str, c);
+        c = peek(0);
+    }
+
+    if (tolower(c) == 'e'
+            || tolower(c) == 'd'
+            || tolower(c) == 'q')
+    {
+        char e = c;
+        token_location_t exp_loc;
+        c = peek_loc(1, &exp_loc);
+
+        if (is_decimal_digit(c))
+        {
+            tiny_dyncharbuf_add(&str, e);
+            get();
+        }
+        else if (c == '+' || c == '-')
+        {
+            char s = c;
+            c = peek_loc(2, &exp_loc);
+            if (!is_decimal_digit(c))
+            {
+                error_printf("%s:%d:%d: error: missing exponent in real literal\n",
+                        exp_loc.filename,
+                        exp_loc.line,
+                        exp_loc.column);
+                // 1.23e+a
+                // 1.23e-a
+                tiny_dyncharbuf_add(&str, '\0');
+                return str.buf;
+            }
+
+            tiny_dyncharbuf_add(&str, e);
+            get();
+            tiny_dyncharbuf_add(&str, s);
+            get();
+        }
+        else
+        {
+            // 1.23ea
+            error_printf("%s:%d:%d: error: missing exponent in real literal\n",
+                    exp_loc.filename,
+                    exp_loc.line,
+                    exp_loc.column);
+            tiny_dyncharbuf_add(&str, '\0');
+            return str.buf;
+        }
+
+        while (is_decimal_digit(c))
+        {
+            get();
+            tiny_dyncharbuf_add(&str, c);
+            c = peek(0);
+        }
+    }
+    if (c == '_')
+    {
+        char *kind_str = scan_kind();
+        tiny_dyncharbuf_add_str(&str, kind_str);
+        xfree(kind_str);
+    }
+
+    tiny_dyncharbuf_add(&str, '\0');
+    return str.buf;
 }
 
 static char is_include_line(void)
@@ -1196,6 +1437,9 @@ static char is_include_line(void)
 
     lexer_state.bol = 1;
     lexer_state.last_eos = 1;
+    lexer_state.in_nonblock_do_construct = 0;
+    lexer_state.num_nonblock_labels = 0;
+    lexer_state.num_pragma_constructs = 0;
 
     return 1;
 }
@@ -1229,6 +1473,7 @@ static char handle_preprocessor_line(void)
         // Attempt to match 'line'
         const char c[] = "line";
         int i = 1; // we already know it starts by 'l'
+        lexer_state.current_file->current_pos++;
         while (c[i] != '\0'
                 && !past_eof()
                 && c[i] == lexer_state.current_file->current_pos[0])
@@ -1260,8 +1505,6 @@ static char handle_preprocessor_line(void)
 
     int linenum = 0;
 
-    token_location_t line_loc = lexer_state.current_file->current_location;
-
     while (!past_eof()
             && is_decimal_digit(lexer_state.current_file->current_pos[0]))
     {
@@ -1272,13 +1515,7 @@ static char handle_preprocessor_line(void)
 
     // This is not possible, fix it to 1
     if (linenum == 0)
-    {
-        warn_printf("%s:%d:%d: warning: invalid line number 0 in line-marker\n",
-                line_loc.filename,
-                line_loc.line,
-                line_loc.column);
         linenum = 1;
-    }
 
     token_location_t filename_loc = lexer_state.current_file->current_location;
 
@@ -1582,6 +1819,177 @@ static inline char is_format_statement(void)
     return 1;
 }
 
+static inline char is_known_sentinel(char** sentinel)
+{
+    int c;
+    // c = peek(0); // $
+    get();
+
+    tiny_dyncharbuf_t tmp_sentinel;
+    tiny_dyncharbuf_new(&tmp_sentinel, 4);
+
+    c = peek(0);
+    while ((is_letter(c)
+                || is_decimal_digit(c)
+                || c == '_'))
+    {
+        tiny_dyncharbuf_add(&tmp_sentinel, c);
+        get();
+        c = peek(0);
+    }
+    tiny_dyncharbuf_add(&tmp_sentinel, '\0');
+
+    int i;
+    char found = 0;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcasecmp(tmp_sentinel.buf, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        {
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        *sentinel = tmp_sentinel.buf;
+        return 0;
+    }
+    else
+    {
+        xfree(tmp_sentinel.buf);
+        *sentinel = xstrdup(CURRENT_CONFIGURATION->pragma_custom_prefix[i]);
+        return 1;
+    }
+}
+
+static const char* format_pragma_string(const char* c)
+{
+    char *tmp = xstrdup(c);
+
+    char* p = tmp;
+
+    while (*p != '\0')
+    {
+        if (*p == '|')
+            *p = ' ';
+        p++;
+    }
+
+    return tmp;
+}
+
+static int compute_length_match(const char* lexed_directive,
+        const char* available_directive,
+        const char **discard_source)
+{
+    *discard_source = NULL;
+    const char *p = lexed_directive;
+    const char *q = available_directive;
+
+    while (*p != '\0'
+            && *q != '\0')
+    {
+        if (*q == '|')
+        {
+            // A '|' should match like [[:blank:]]* 
+            while (*p == ' ' || *p == '\t')
+                p++;
+            // We advanced too much
+            p--;
+        }
+        else if (*q != tolower(*p))
+        {
+            return 0;
+        }
+        q++;
+        p++;
+    }
+
+    *discard_source = p;
+    return (q - available_directive);
+}
+
+static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set_t* pragma_directive_set,
+        const char* lexed_directive,
+        const char **discard_source,
+        pragma_directive_kind_t* directive_kind)
+{
+    const char* longest_match_so_far = NULL;
+    int length_match = 0;
+
+    int j;
+    char exact_match = 0;
+    int size_lexed_directive = strlen(lexed_directive);
+    for (j = 0; j < pragma_directive_set->num_directives && !exact_match; j++)
+    {
+        const char * current_discard_source = NULL;
+
+        int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
+                &current_discard_source);
+        
+        if (current_match >= length_match && current_match != 0)
+        {
+            int size_directive = strlen(pragma_directive_set->directive_names[j]);
+            if (current_match == size_lexed_directive && size_lexed_directive == size_directive)
+            {
+               exact_match = 1;    
+            }
+            length_match = current_match;
+            longest_match_so_far = pragma_directive_set->directive_names[j];
+            *discard_source = current_discard_source;
+            *directive_kind = pragma_directive_set->directive_kinds[j];
+        }
+    }
+
+    return longest_match_so_far;
+}
+
+static const char* return_pragma_prefix_longest_match(
+        const char* prefix, 
+        char is_end_directive,
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind)
+{
+    const char* longest_match = NULL;
+    const char* discard_source = NULL;
+
+    const char* looked_up_directive = lexed_directive;
+    if (is_end_directive)
+    {
+        // skip 'end'
+        looked_up_directive += 3;
+        while (is_blank(*looked_up_directive))
+            looked_up_directive++;
+    }
+
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
+        {
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
+            longest_match = return_pragma_prefix_longest_match_inner(pragma_directive_set, 
+                    looked_up_directive, &discard_source, kind);
+        }
+    }
+
+    // Now advance the token stream
+    const char *start = lexed_directive;
+    const char *end = discard_source;
+
+    // The first letter is always already consumed
+    start++;
+
+    while (start != end)
+    {
+        start++;
+        get();
+    }
+
+    return longest_match;
+}
+
 // means: no more letters available for this file
 static inline char is_end_of_file(void)
 {
@@ -1592,838 +2000,1486 @@ static inline char is_end_of_file(void)
 // This is the lexer <-> parser interface from yacc/bison
 // this function just returns the next token from the current
 // input stream
-extern int new_mf03lex (void)
+extern int new_mf03lex(void)
 {
     for (;;)
     {
+        int c0;
         token_location_t loc;
-        int c0 = get_loc(&loc);
 
-        switch (c0)
+        // We are forced to peek because we have to return
+        // an artificial token for nonblock labels
+        if (lexer_state.substate == LEXER_SUBSTATE_NORMAL
+                && lexer_state.last_eos
+                && lexer_state.num_nonblock_labels > 0
+                // peek here
+                && is_decimal_digit(c0 = peek_loc(0, &loc)))
         {
-            case EOF:
+            char label_str[6];
+            label_str[0] = c0;
+
+            int i = 1;
+            int peek_idx = 1;
+            int c = peek(peek_idx);
+            while (i < 5
+                    && is_decimal_digit(c))
+            {
+                label_str[i] = c;
+                i++;
+                peek_idx++;
+                c = peek(peek_idx);
+            }
+
+            label_str[i] = '\0';
+
+            if (!is_decimal_digit(c))
+            {
+                int label = atoi(label_str);
+                if (lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels - 1] == label)
                 {
-                    char end_of_scan = process_end_of_file();
-                    if (end_of_scan)
+                    lexer_state.num_nonblock_labels--;
+                    return commit_text(TOKEN_END_NONBLOCK_DO, label_str, loc);
+                }
+            }
+        }
+
+        c0 = get_loc(&loc);
+        if (lexer_state.substate == LEXER_SUBSTATE_NORMAL)
+        {
+            switch (c0)
+            {
+                case EOF:
+                    {
+                        char end_of_scan = process_end_of_file();
+                        if (end_of_scan)
+                        {
+                            if (!lexer_state.last_eos)
+                            {
+                                // Make sure we force a final EOS
+                                return commit_text(EOS, NULL, get_current_location());
+                            }
+                            return 0;
+                        }
+                        else
+                            continue;
+                    }
+                case '#':
+                    {
+                        if (!lexer_state.bol)
+                            break;
+
+                        if (handle_preprocessor_line())
+                        {
+                            lexer_state.bol = 1;
+                            continue;
+                        }
+
+                        break;
+                    }
+                case ' ':
+                case '\t':
+                    {
+                        // Whitespace ignored
+                        continue;
+                    }
+                case '\n':
+                case '\r':
+                    {
+                        // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \r
+                        if (!lexer_state.last_eos)
+                        {
+                            int n = commit_text(EOS, NULL, loc);
+                            lexer_state.sentinel = NULL;
+                            lexer_state.bol = 1;
+                            return n;
+                        }
+                        else
+                        {
+                            if (mf03_flex_debug)
+                            {
+                                fprintf(stderr, "SKIPPING NEWLINE %s:%d:%d\n",
+                                        loc.filename,
+                                        loc.line,
+                                        loc.column);
+                            }
+                            lexer_state.sentinel = NULL;
+                            lexer_state.bol = 1;
+                        }
+                        continue;
+                    }
+                case '!':
+                    {
+                        // comment
+                        c0 = peek(0);
+                        if (c0 == '$')
+                        {
+                            int c1 = peek(1);
+                            if (is_blank(c1))
+                            {
+                                // Conditional compilation
+                                if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
+                                {
+                                    get(); // $
+                                    get(); // <<blank>>
+                                    lexer_state.sentinel = "";
+                                    continue;
+                                }
+                                // otherwise handle it as if it were a comment
+                            }
+                            else if (is_letter(c1)
+                                    || is_decimal_digit(c1)
+                                    || c1 == '_')
+                            {
+                                char* sentinel = NULL;
+                                if (is_known_sentinel(&sentinel))
+                                {
+                                    lexer_state.substate = LEXER_SUBSTATE_PRAGMA_DIRECTIVE;
+                                    lexer_state.sentinel = xstrdup(sentinel);
+                                    return commit_text_and_free(PRAGMA_CUSTOM, sentinel, loc);
+                                }
+                                else
+                                {
+                                    warn_printf("%s:%d:%d: warning: ignoring unknown '!$%s' directive\n",
+                                            loc.filename,
+                                            loc.line,
+                                            loc.column,
+                                            sentinel);
+
+                                    // Return an UNKNOWN_PRAGMA
+                                    int sentinel_length = strlen(sentinel);
+                                    int prefix_length = /* !$ */ 2 + sentinel_length;
+
+                                    tiny_dyncharbuf_t str;
+                                    tiny_dyncharbuf_new(&str, prefix_length + 32);
+
+                                    tiny_dyncharbuf_add_str(&str, "!$");
+                                    tiny_dyncharbuf_add_str(&str, sentinel);
+
+                                    xfree(sentinel);
+
+                                    // Everything will be scanned as a single token
+                                    int c = peek(0);
+                                    while (!is_newline(c))
+                                    {
+                                        tiny_dyncharbuf_add(&str, c);
+                                        get();
+                                        c = peek(0);
+                                    }
+                                    tiny_dyncharbuf_add(&str, '\0');
+                                    return commit_text_and_free(UNKNOWN_PRAGMA, str.buf, loc);
+                                }
+                            }
+                        }
+
+                        while (!is_newline(c0))
+                        {
+                            get();
+                            c0 = peek(0);
+                        }
+
+                        if (c0 == '\r')
+                        {
+                            if (peek(1) == '\n')
+                                get();
+                        }
+
+                        // we are now right before \n (or \r)
+                        continue;
+                    }
+                case ';':
                     {
                         if (!lexer_state.last_eos)
                         {
-                            // Make sure we force a final EOS
-                            return commit_text(EOS, NULL, get_current_location());
+                            return commit_text(EOS, NULL, loc);
                         }
-                        return 0;
-                    }
-                    else
-                        continue;
-                }
-            case '#':
-                {
-                    if (!lexer_state.bol)
                         break;
-
-                    if (handle_preprocessor_line())
-                    {
-                        lexer_state.bol = 1;
-                        continue;
                     }
-
-                    break;
-                }
-            case ' ':
-            case '\t':
-                {
-                    // Whitespace ignored
-                    continue;
-                }
-            case '\n':
-            case '\r':
-                {
-                    // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \r
-                    if (!lexer_state.last_eos)
+                case '(' :
                     {
-                        int n = commit_text(EOS, NULL, loc);
-                        lexer_state.bol = 1;
-                        return n;
-                    }
-                    else
-                    {
-                        if (mf03_flex_debug)
+                        if (lexer_state.in_format_statement)
                         {
-                            fprintf(stderr, "SKIPPING NEWLINE %s:%d:%d\n",
-                                    loc.filename,
-                                    loc.line,
-                                    loc.column);
+                            tiny_dyncharbuf_t str;
+                            tiny_dyncharbuf_new(&str, 32);
+
+                            tiny_dyncharbuf_add(&str, c0);
+                            // Everything will be scanned as a single token
+                            int c = peek(0);
+                            while (!is_newline(c))
+                            {
+                                tiny_dyncharbuf_add(&str, c);
+                                get();
+                                c = peek(0);
+                            }
+                            tiny_dyncharbuf_add(&str, '\0');
+
+                            lexer_state.in_format_statement = 0;
+                            return commit_text_and_free(FORMAT_SPEC, str.buf, loc);
                         }
-                    }
-                    continue;
-                }
-            case '!':
-                {
-                    // comment
-                    c0 = peek(0);
-                    while (!is_newline(c0))
-                    {
-                        get();
-                        c0 = peek(0);
-                    }
 
-                    if (c0 == '\r')
-                    {
-                        if (peek(1) == '\n')
-                            get();
-                    }
-
-                    // we are now right before \n (or \r)
-                    continue;
-                }
-            case ';':
-                {
-                    if (!lexer_state.last_eos)
-                    {
-                        return commit_text(EOS, NULL, loc);
-                    }
-                    break;
-                }
-            case '(' :
-                {
-                    if (lexer_state.in_format_statement)
-                    {
-                        int i = 0;
-                        int size = 32;
-                        char * str = xmalloc(size * sizeof(*str));
-#define ADD_CHAR(x) \
-    { \
-        if (i >= size) \
-        { \
-            size *= 2; \
-            str = xrealloc(str, sizeof(*str) * (size + 1)); \
-        } \
-        str[i] = (x); \
-        i++; \
-    }
-                        ADD_CHAR(c0);
-                        // Everything will be scanned as a single token
                         int c1 = peek(0);
-                        while (!is_newline(c1))
+                        if (c1 == '/')
                         {
-                            ADD_CHAR(c1);
                             get();
-                            c1 = peek(0);
+                            return commit_text(TOKEN_LPARENT_SLASH, "(/", loc);
                         }
-                        ADD_CHAR('\0');
-#undef ADD_CHAR
-                        lexer_state.in_format_statement = 0;
-                        return commit_text_and_free(FORMAT_SPEC, str, loc);
-                    }
-
-                    int c1 = peek(0);
-                    if (c1 == '/')
-                    {
-                        get();
-                        return commit_text(TOKEN_LPARENT_SLASH, "(/", loc);
-                    }
-                    else
-                    {
-                        return commit_text('(', "(", loc);
-                    }
-                }
-            case '/' :
-                {
-                    int c1 = peek(0);
-                    if (c1 == '/')
-                    {
-                        get();
-                        return commit_text(TOKEN_DOUBLE_SLASH, "//", loc);
-                    }
-                    else if (c1 == '=')
-                    {
-                        get();
-                        return commit_text(TOKEN_NOT_EQUAL, "/=", loc);
-                    }
-                    else if (c1 == ')')
-                    {
-                        get();
-                        return commit_text(TOKEN_SLASH_RPARENT, "/)", loc);
-                    }
-                    else
-                        return commit_text('/', "/", loc);
-                }
-            case ')' :
-            case '[' :
-            case ']' :
-            case ',' :
-            case '%' :
-            case '+' :
-            case '-' :
-            case ':' :
-                {
-                    const char s[] = {c0, '\0'};
-                    return commit_text(c0, s, loc);
-                }
-            case '*' :
-                {
-                    int c1 = peek(0);
-                    if (c1 == '*')
-                    {
-                        get();
-                        return commit_text(TOKEN_RAISE, "**", loc);
-                    }
-                    else
-                    {
-                        return commit_text('*', "*", loc);
-                    }
-                }
-            case '<' :
-                {
-                    int c1 = peek(0);
-                    if (c1 == '=')
-                    {
-                        get();
-                        return commit_text(TOKEN_LOWER_OR_EQUAL_THAN, "<=", loc);
-                    }
-                    else
-                    {
-                        return commit_text(TOKEN_LOWER_THAN, "<", loc);
-                    }
-                }
-            case '>' :
-                {
-                    int c1 = peek(0);
-                    if (c1 == '=')
-                    {
-                        get();
-                        return commit_text(TOKEN_GREATER_OR_EQUAL_THAN, ">=", loc);
-                    }
-                    else
-                    {
-                        return commit_text(TOKEN_GREATER_THAN, ">", loc);
-                    }
-                }
-            case '=':
-                {
-                    int c1 = peek(0);
-                    if (c1 == '=')
-                    {
-                        get();
-                        return commit_text(TOKEN_EQUAL, "==", loc);
-                    }
-                    else if (c1 == '>')
-                    {
-                        get();
-                        return commit_text(TOKEN_POINTER_ACCESS, "=>", loc);
-                    }
-                    else
-                    {
-                        return commit_text('=', "=", loc);
-                    }
-                }
-            case '.':
-                {
-                    int c1 = peek(0);
-                    int c2 = peek(1);
-                    if (c1 == 'e'
-                            && c2 == 'q')
-                    {
-                        int c3 = peek(2);
-                        int c4 = peek(3);
-                        if (c3 == '.')
+                        else
                         {
-                            get(); // e
-                            get(); // q
-                            get(); // .
-                            return commit_text(TOKEN_EQUAL, ".eq.", loc);
-                        }
-                        else if (c3 == 'v'
-                                && c4 == '.')
-                        {
-                            get(); // e
-                            get(); // q
-                            get(); // v
-                            get(); // .
-                            return commit_text(TOKEN_LOGICAL_EQUIVALENT, ".eqv.", loc);
+                            return commit_text('(', "(", loc);
                         }
                     }
-                    else if (c1 == 'n')
+                case '/' :
                     {
-                        if (c2 == 'e')
+                        int c1 = peek(0);
+                        if (c1 == '/')
+                        {
+                            get();
+                            return commit_text(TOKEN_DOUBLE_SLASH, "//", loc);
+                        }
+                        else if (c1 == '=')
+                        {
+                            get();
+                            return commit_text(TOKEN_NOT_EQUAL, "/=", loc);
+                        }
+                        else if (c1 == ')')
+                        {
+                            get();
+                            return commit_text(TOKEN_SLASH_RPARENT, "/)", loc);
+                        }
+                        else
+                            return commit_text('/', "/", loc);
+                    }
+                case ')' :
+                case '[' :
+                case ']' :
+                case ',' :
+                case '%' :
+                case '+' :
+                case '-' :
+                case ':' :
+                    {
+                        const char s[] = {c0, '\0'};
+                        return commit_text(c0, s, loc);
+                    }
+                case '*' :
+                    {
+                        int c1 = peek(0);
+                        if (c1 == '*')
+                        {
+                            get();
+                            return commit_text(TOKEN_RAISE, "**", loc);
+                        }
+                        else
+                        {
+                            return commit_text('*', "*", loc);
+                        }
+                    }
+                case '<' :
+                    {
+                        int c1 = peek(0);
+                        if (c1 == '=')
+                        {
+                            get();
+                            return commit_text(TOKEN_LOWER_OR_EQUAL_THAN, "<=", loc);
+                        }
+                        else
+                        {
+                            return commit_text(TOKEN_LOWER_THAN, "<", loc);
+                        }
+                    }
+                case '>' :
+                    {
+                        int c1 = peek(0);
+                        if (c1 == '=')
+                        {
+                            get();
+                            return commit_text(TOKEN_GREATER_OR_EQUAL_THAN, ">=", loc);
+                        }
+                        else
+                        {
+                            return commit_text(TOKEN_GREATER_THAN, ">", loc);
+                        }
+                    }
+                case '=':
+                    {
+                        int c1 = peek(0);
+                        if (c1 == '=')
+                        {
+                            get();
+                            return commit_text(TOKEN_EQUAL, "==", loc);
+                        }
+                        else if (c1 == '>')
+                        {
+                            get();
+                            return commit_text(TOKEN_POINTER_ACCESS, "=>", loc);
+                        }
+                        else
+                        {
+                            return commit_text('=', "=", loc);
+                        }
+                    }
+                case '.':
+                    {
+                        int c1 = peek(0);
+                        int c2 = peek(1);
+                        if (tolower(c1) == 'e'
+                                && tolower(c2) == 'q')
                         {
                             int c3 = peek(2);
                             int c4 = peek(3);
-                            int c5 = peek(4);
                             if (c3 == '.')
                             {
-                                get(); // n
                                 get(); // e
+                                get(); // q
                                 get(); // .
-                                return commit_text(TOKEN_NOT_EQUAL, ".ne.", loc);
+                                return commit_text(TOKEN_EQUAL, ".eq.", loc);
                             }
-                            else if (c3 == 'q'
-                                    && c4 == 'v'
-                                    && c5 == '.')
+                            else if (tolower(c3) == 'v'
+                                    && c4 == '.')
                             {
-                                get(); // n
                                 get(); // e
                                 get(); // q
                                 get(); // v
                                 get(); // .
-                                return commit_text(TOKEN_LOGICAL_NOT_EQUIVALENT, ".neqv.", loc);
+                                return commit_text(TOKEN_LOGICAL_EQUIVALENT, ".eqv.", loc);
                             }
                         }
-                        else if (c2 == 'o')
+                        else if (tolower(c1) == 'n')
+                        {
+                            if (tolower(c2) == 'e')
+                            {
+                                int c3 = peek(2);
+                                int c4 = peek(3);
+                                int c5 = peek(4);
+                                if (c3 == '.')
+                                {
+                                    get(); // n
+                                    get(); // e
+                                    get(); // .
+                                    return commit_text(TOKEN_NOT_EQUAL, ".ne.", loc);
+                                }
+                                else if (tolower(c3) == 'q'
+                                        && tolower(c4) == 'v'
+                                        && c5 == '.')
+                                {
+                                    get(); // n
+                                    get(); // e
+                                    get(); // q
+                                    get(); // v
+                                    get(); // .
+                                    return commit_text(TOKEN_LOGICAL_NOT_EQUIVALENT, ".neqv.", loc);
+                                }
+                            }
+                            else if (tolower(c2) == 'o')
+                            {
+                                int c3 = peek(2);
+                                int c4 = peek(3);
+                                if (tolower(c3) == 't'
+                                        && c4 == '.')
+                                {
+                                    get(); // n
+                                    get(); // o
+                                    get(); // t
+                                    get(); // .
+                                    return commit_text(TOKEN_LOGICAL_NOT, ".not.", loc);
+                                }
+                            }
+                        }
+                        else if (tolower(c1) == 'l')
+                        {
+                            int c3 = peek(2);
+                            if (tolower(c2) == 'e'
+                                    && c3 == '.')
+                            {
+                                get(); // l
+                                get(); // e
+                                get(); // .
+                                return commit_text(TOKEN_LOWER_OR_EQUAL_THAN, ".le.", loc);
+                            }
+                            else if (tolower(c2) == 't'
+                                    && c3 == '.')
+                            {
+                                get(); // l
+                                get(); // t
+                                get(); // .
+                                return commit_text(TOKEN_LOWER_THAN, ".lt.", loc);
+                            }
+                        }
+                        else if (tolower(c1) == 'g')
+                        {
+                            int c3 = peek(2);
+                            if (tolower(c2) == 'e'
+                                    && c3 == '.')
+                            {
+                                get(); // g
+                                get(); // e
+                                get(); // .
+                                return commit_text(TOKEN_GREATER_OR_EQUAL_THAN, ".ge.", loc);
+                            }
+                            else if (tolower(c2) == 't'
+                                    && c3 == '.')
+                            {
+                                get(); // g
+                                get(); // t
+                                get(); // .
+                                return commit_text(TOKEN_GREATER_THAN, ".gt.", loc);
+                            }
+                        }
+                        else if (tolower(c1) == 'o'
+                                && tolower(c2) == 'r')
+                        {
+                            int c3 = peek(2);
+                            if (c3 == '.')
+                            {
+                                get(); // o
+                                get(); // r
+                                get(); // .
+                                return commit_text(TOKEN_LOGICAL_OR, ".or.", loc);
+                            }
+                        }
+                        else if (tolower(c1) == 'a'
+                                && tolower(c2) == 'n')
                         {
                             int c3 = peek(2);
                             int c4 = peek(3);
-                            if (c3 == 't'
+                            if (tolower(c3) == 'd'
                                     && c4 == '.')
                             {
+                                get(); // a
                                 get(); // n
-                                get(); // o
-                                get(); // t
+                                get(); // d
                                 get(); // .
-                                return commit_text(TOKEN_LOGICAL_NOT, ".not.", loc);
+                                return commit_text(TOKEN_LOGICAL_AND, ".and.", loc);
                             }
                         }
-                    }
-                    else if (c1 == 'l')
-                    {
-                        int c3 = peek(2);
-                        if (c2 == 'e'
-                                && c3 == '.')
+                        else if (tolower(c1) == 't'
+                                && tolower(c2) == 'r'
+                                && tolower(peek(2)) == 'u'
+                                && tolower(peek(3)) == 'e'
+                                && tolower(peek(4)) == '.')
                         {
-                            get(); // l
-                            get(); // e
-                            get(); // .
-                            return commit_text(TOKEN_LOWER_OR_EQUAL_THAN, ".le.", loc);
-                        }
-                        else if (c2 == 't'
-                                && c3 == '.')
-                        {
-                            get(); // l
-                            get(); // t
-                            get(); // .
-                            return commit_text(TOKEN_LOWER_THAN, ".lt.", loc);
-                        }
-                    }
-                    else if (c1 == 'g')
-                    {
-                        int c3 = peek(2);
-                        if (c2 == 'e'
-                                && c3 == '.')
-                        {
-                            get(); // g
-                            get(); // e
-                            get(); // .
-                            return commit_text(TOKEN_GREATER_OR_EQUAL_THAN, ".ge.", loc);
-                        }
-                        else if (c2 == 't'
-                                && c3 == '.')
-                        {
-                            get(); // g
-                            get(); // t
-                            get(); // .
-                            return commit_text(TOKEN_GREATER_THAN, ".gt.", loc);
-                        }
-                    }
-                    else if (c1 == 'o'
-                            && c2 == 'r')
-                    {
-                        int c3 = peek(2);
-                        if (c3 == '.')
-                        {
-                            get(); // o
-                            get(); // r
-                            get(); // .
-                            return commit_text(TOKEN_LOGICAL_OR, ".or.", loc);
-                        }
-                    }
-                    else if (c1 == 'a'
-                            && c2 == 'n')
-                    {
-                        int c3 = peek(2);
-                        int c4 = peek(3);
-                        if (c3 == 'n'
-                                && c4 == '.')
-                        {
-                            get(); // a
-                            get(); // n
-                            get(); // d
-                            get(); // .
-                            return commit_text(TOKEN_LOGICAL_AND, ".and.", loc);
-                        }
-                    }
-                    else if (c1 == 't'
-                            && c2 == 'r'
-                            && peek(2) == 'u'
-                            && peek(3) == 'e'
-                            && peek(4) == '.')
-                    {
-                        char str[6 + MAX_KIND_LENGTH + 1];
-                        str[0] = '.';
-                        str[1] = get(); // t
-                        str[2] = get(); // r
-                        str[3] = get(); // u
-                        str[4] = get(); // e
-                        str[5] = get(); // .
-                        int c = peek(0);
-                        if (c == '_')
-                        {
-                            scan_kind(&str[6]);
-                        }
-                        else
-                        {
+                            char str[6 + 1];
+                            str[0] = '.';
+                            str[1] = get(); // t
+                            str[2] = get(); // r
+                            str[3] = get(); // u
+                            str[4] = get(); // e
+                            str[5] = get(); // .
                             str[6] = '\0';
+
+                            int c = peek(0);
+                            if (c == '_')
+                            {
+                                char* kind_str = scan_kind();
+
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, 32);
+
+                                tiny_dyncharbuf_add_str(&t_str, str);
+                                tiny_dyncharbuf_add_str(&t_str, kind_str);
+                                xfree(kind_str);
+                                tiny_dyncharbuf_add_str(&t_str, '\0');
+
+                                return commit_text_and_free(TOKEN_TRUE, t_str.buf, loc);
+                            }
+                            else
+                            {
+                                return commit_text(TOKEN_TRUE, str, loc);
+                            }
                         }
-                        return commit_text(TOKEN_TRUE, str, loc);
-                    }
-                    else if (c1 == 'f'
-                            && c2 == 'a'
-                            && peek(2) == 'l'
-                            && peek(3) == 's'
-                            && peek(4) == 'e'
-                            && peek(5) == '.')
-                    {
-                        char str[7 + MAX_KIND_LENGTH + 1];
-                        str[0] = '.';
-                        str[1] = get(); // f
-                        str[2] = get(); // a
-                        str[3] = get(); // l
-                        str[4] = get(); // s
-                        str[5] = get(); // e
-                        str[6] = get(); // .
-                        int c = peek(0);
-                        if (c == '_')
+                        else if (tolower(c1) == 'f'
+                                && tolower(c2) == 'a'
+                                && tolower(peek(2)) == 'l'
+                                && tolower(peek(3)) == 's'
+                                && tolower(peek(4)) == 'e'
+                                && tolower(peek(5)) == '.')
                         {
-                            scan_kind(&str[7]);
-                        }
-                        else
-                        {
+                            char str[7 + 1];
+                            str[0] = '.';
+                            str[1] = get(); // f
+                            str[2] = get(); // a
+                            str[3] = get(); // l
+                            str[4] = get(); // s
+                            str[5] = get(); // e
+                            str[6] = get(); // .
                             str[7] = '\0';
-                        }
-                        return commit_text(TOKEN_FALSE, str, loc);
-                    }
-                    else if (is_decimal_digit(c1))
-                    {
-                        char str[MAX_NUMERIC_LITERAL + MAX_KIND_LENGTH + 1];
-                        // a valid real literal at this point must be [.][0-9]+([edq][+-]?[0-9]+)_kind
-                        str[0] = c0;
-                        str[1] = c1; get();
-                        int i = 2;
 
-                        int c = c2;
-                        while (is_decimal_digit(c))
-                        {
-                            get();
-                            if (i >= MAX_NUMERIC_LITERAL)
-                                break;
-                            str[i] = c;
-                            i++;
-
-                            c = peek(0);
-                        }
-
-                        if (c == 'e' || c == 'E'
-                                || c == 'd' || c == 'D'
-                                || c == 'q' || c == 'Q')
-                        {
-                            get();
-                            if (i >= MAX_NUMERIC_LITERAL)
+                            int c = peek(0);
+                            if (c == '_')
                             {
-                                c0 = c;
-                                break;
+                                char* kind_str = scan_kind();
+
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, 32);
+
+                                tiny_dyncharbuf_add_str(&t_str, str);
+                                tiny_dyncharbuf_add_str(&t_str, kind_str);
+                                xfree(kind_str);
+                                tiny_dyncharbuf_add_str(&t_str, '\0');
+
+                                return commit_text_and_free(TOKEN_FALSE, t_str.buf, loc);
                             }
-                            str[i] = c;
-                            i++;
-
-                            c = peek(0);
-                            if (c == '+' || c == '-')
+                            else
                             {
-                                get();
-                                if (i >= MAX_NUMERIC_LITERAL)
-                                {
-                                    c0 = c;
-                                    break;
-                                }
-                                str[i] = c;
-                                i++;
+                                return commit_text(TOKEN_FALSE, str, loc);
                             }
+                        }
+                        else if (is_decimal_digit(c1))
+                        {
+                            char* fractional_part = scan_fractional_part_of_real_literal();
+                            return commit_text_and_free(REAL_LITERAL, fractional_part, loc);
+                        }
+                        else if (is_letter(c1))
+                        {
+                            tiny_dyncharbuf_t user_def_op;
+                            tiny_dyncharbuf_new(&user_def_op, 32);
 
-                            c = peek(0);
-                            while (is_decimal_digit(c))
+                            tiny_dyncharbuf_add(&user_def_op, c0);
+                            tiny_dyncharbuf_add(&user_def_op, c1);
+                            get();
+
+                            int c = c2;
+                            while (c != '.'
+                                    && is_letter(c))
                             {
+                                tiny_dyncharbuf_add(&user_def_op, c);
                                 get();
-                                if (i >= MAX_NUMERIC_LITERAL)
-                                    break;
-                                str[i] = c;
-                                i++;
-
                                 c = peek(0);
                             }
-                        }
-                        if (c == '_')
-                        {
-                            scan_kind(&str[i]);
-                        }
-                        return commit_text(REAL_LITERAL, str, loc);
-                    }
-                    else if (is_letter(c1))
-                    {
-                        char user_def_op[MAX_USER_DEFINED_OPERATOR + 1];
-                        user_def_op[0] = c0;
-                        user_def_op[1] = c1; get();
-                        int i = 2;
 
-                        int c = c2;
-                        while (is_letter(c))
-                        {
-                            get();
-                            ERROR_CONDITION(i >= MAX_USER_DEFINED_OPERATOR, "User defined operator too long", 0);
-                            user_def_op[i] = c;
-                            i++;
-
-                            c = peek(0);
-                        }
-
-                        if (c == '.')
-                        {
-                            user_def_op[i] = '.';
-                            i++;
-                            user_def_op[i] = '\0';
-                            return commit_text(USER_DEFINED_OPERATOR, user_def_op, loc); // '.[a-z].'
-                        }
-                        else
-                        {
-                            // Unexpected character at this point
-                            c0 = c;
-                        }
-                    }
-                }
-                // string literals
-            case '"':
-            case '\'':
-                {
-                    char prefix[2] = {c0, '\0'};
-                    int t = scan_character_literal(prefix, /* delim */ c0, /* allow_suffix_boz */ 1, loc);
-                    if (t != 0)
-                        return t;
-                    else
-                        continue;
-                    break;
-                }
-                // letters
-            case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
-            case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
-            case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
-            case 'Y': case 'Z':
-            case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
-            case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
-            case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
-            case 'y': case 'z':
-                {
-                    if (lexer_state.bol
-                            && (c0 == 'i'
-                                || c0 == 'I'))
-                    {
-                        // Maybe this is an include line
-                        if (is_include_line())
-                            continue;
-                    }
-
-                    if (c0 == 'b' || c0 == 'B'
-                            || c0 == 'o' || c0 == 'O'
-                            || c0 == 'z' || c0 == 'Z'
-                            || c0 == 'x' || c0 == 'X')
-                    {
-                        int c1 = peek(0);
-
-                        if (c1 == '\'' || c1 == '"')
-                        {
-                            char str[MAX_NUMERIC_LITERAL + MAX_KIND_LENGTH + 1];
-                            str[0] = c0;
-                            str[1] = c1; get();
-                            int i = 2;
-
-                            char invalid_digit = 0;
-                            int token_id = 0;
-                            token_location_t loc2 = loc;
-                            int c;
-                            switch (c0)
+                            if (c != '.')
                             {
-                                case 'b': case 'B':
-                                    {
-                                        token_id = BINARY_LITERAL;
-                                        c = peek_loc(0, &loc2);
-                                        while (c != c1
-                                                && !is_newline(c))
+                                error_printf("%s:%d:%d: error: unended user-defined operator name\n",
+                                        loc.filename,
+                                        loc.line,
+                                        loc.column);
+                            }
+
+                            tiny_dyncharbuf_add(&user_def_op, '.');
+                            tiny_dyncharbuf_add(&user_def_op, '\0');
+                            return commit_text_and_free(USER_DEFINED_OPERATOR, user_def_op.buf, loc); // '.[a-z].'
+                        }
+                    }
+                    // string literals
+                case '"':
+                case '\'':
+                    {
+                        char prefix[2] = {c0, '\0'};
+
+                        int token_id = 0;
+                        char *text = NULL;
+
+                        scan_character_literal(prefix, /* delim */ c0, /* allow_suffix_boz */ 1, loc, &token_id, &text);
+
+                        return commit_text_and_free(token_id, text, loc);
+                        break;
+                    }
+                    // letters
+                case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
+                case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+                case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+                case 'Y': case 'Z':
+                case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
+                case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
+                case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+                case 'y': case 'z':
+                    {
+                        if (lexer_state.bol
+                                && (tolower(c0) == 'i'))
+                        {
+                            // Maybe this is an include line
+                            if (is_include_line())
+                                continue;
+                        }
+
+                        if (tolower(c0) == 'b'
+                                || tolower(c0) == 'o'
+                                || tolower(c0) == 'z'
+                                || tolower(c0) == 'x')
+                        {
+                            int c1 = peek(0);
+
+                            if (c1 == '\'' || c1 == '"')
+                            {
+                                tiny_dyncharbuf_t str;
+                                tiny_dyncharbuf_new(&str, 32);
+
+                                tiny_dyncharbuf_add(&str, c0);
+                                tiny_dyncharbuf_add(&str, c1);
+                                get();
+
+                                int token_id = 0;
+                                token_location_t loc2 = loc;
+                                int c;
+                                int length = 0;
+                                switch (c0)
+                                {
+                                    case 'b': case 'B':
                                         {
-                                            if (c == '0'
-                                                    || c == '1')
+                                            token_id = BINARY_LITERAL;
+                                            c = peek_loc(0, &loc2);
+                                            while (c != c1
+                                                    && is_binary_digit(c))
                                             {
-                                                if (i >= MAX_NUMERIC_LITERAL)
-                                                    break;
-                                                str[i] = c;
-                                                i++;
+                                                tiny_dyncharbuf_add(&str, c);
+                                                get();
+                                                c = peek_loc(0, &loc2);
+                                                length++;
                                             }
-                                            else
+
+                                            if (c != c1
+                                                    && !is_newline(c))
                                             {
                                                 error_printf("%s:%d:%d: error: invalid binary digit\n",
                                                         loc2.filename,
                                                         loc2.line,
                                                         loc2.column);
-                                                invalid_digit = 1;
                                             }
-                                            get();
-
-                                            c = peek_loc(0, &loc2);
+                                            break;
                                         }
-                                        break;
-                                    }
-                                case 'o' : case 'O':
-                                    {
-                                        token_id = OCTAL_LITERAL;
-                                        c = peek_loc(0, &loc2);
-                                        while (c != c1
-                                                && !is_newline(c))
+                                    case 'o' : case 'O':
                                         {
-                                            if ('0' <= c
-                                                    && c == '7')
+                                            token_id = OCTAL_LITERAL;
+                                            c = peek_loc(0, &loc2);
+                                            while (c != c1
+                                                    && is_octal_digit(c))
                                             {
-                                                if (i >= MAX_NUMERIC_LITERAL)
-                                                    break;
-                                                str[i] = c;
-                                                i++;
+                                                tiny_dyncharbuf_add(&str, c);
+                                                get();
+                                                c = peek_loc(0, &loc2);
+                                                length++;
                                             }
-                                            else
+
+                                            if (c != c1
+                                                    && !is_newline(c))
                                             {
                                                 error_printf("%s:%d:%d: error: invalid octal digit\n",
                                                         loc2.filename,
                                                         loc2.line,
                                                         loc2.column);
-                                                invalid_digit = 1;
                                             }
-                                            get();
-
-                                            c = peek_loc(0, &loc2);
+                                            break;
                                         }
-                                        break;
-                                    }
-                                case 'x': case 'X':
-                                case 'z': case 'Z':
-                                    {
-                                        token_id = HEX_LITERAL;
-                                        c = peek_loc(0, &loc2);
-                                        while (c != c1
-                                                && !is_newline(c))
+                                    case 'x': case 'X':
+                                    case 'z': case 'Z':
                                         {
-                                            get();
-                                            if ((c <= '0'
-                                                        && c <= '9')
-                                                    || (c <= 'a'
-                                                        && c <= 'f')
-                                                    || (c <= 'A'
-                                                        && c <= 'F'))
+                                            token_id = HEX_LITERAL;
+                                            c = peek_loc(0, &loc2);
+                                            while (c != c1
+                                                    && is_hex_digit(c))
                                             {
-                                                if (i >= MAX_NUMERIC_LITERAL)
-                                                    break;
-                                                str[i] = c;
-                                                i++;
+                                                tiny_dyncharbuf_add(&str, c);
+                                                get();
+                                                c = peek_loc(0, &loc2);
+                                                length++;
                                             }
-                                            else
+
+
+                                            if (c != c1
+                                                    && !is_newline(c))
                                             {
                                                 error_printf("%s:%d:%d: error: invalid hexadecimal digit\n",
                                                         loc2.filename,
                                                         loc2.line,
                                                         loc2.column);
-                                                invalid_digit = 1;
                                             }
+                                            break;
+                                        }
+                                    default:
+                                        internal_error("Code unreachable", 0);
+                                }
 
-                                            c = peek_loc(0, &loc2);
+                                if (c == c1)
+                                {
+                                    tiny_dyncharbuf_add(&str, c1);
+                                    get();
+
+                                    if (length == 0)
+                                    {
+                                        error_printf("%s:%d:%d: error: empty integer literal\n",
+                                                loc2.filename,
+                                                loc2.line,
+                                                loc2.column);
+
+                                        tiny_dyncharbuf_add(&str, 0);
+                                        tiny_dyncharbuf_add(&str, c1);
+                                    }
+
+                                    c = peek(0);
+                                    if (c == '_')
+                                    {
+                                        char *kind_str = scan_kind();
+                                        tiny_dyncharbuf_add_str(&str, kind_str);
+                                    }
+                                }
+                                else
+                                {
+                                    error_printf("%s:%d:%d: error: unended integer literal\n",
+                                            loc2.filename,
+                                            loc2.line,
+                                            loc2.column);
+                                    tiny_dyncharbuf_add(&str, c1);
+                                }
+
+                                tiny_dyncharbuf_add(&str, '\0');
+                                return commit_text(token_id, str.buf, loc);
+                            }
+                        }
+
+                        // peek as many letters as possible
+                        tiny_dyncharbuf_t identifier;
+                        tiny_dyncharbuf_new(&identifier, 32);
+
+                        tiny_dyncharbuf_add(&identifier, c0);
+
+                        int c = peek(0);
+                        while (is_letter(c)
+                                || is_decimal_digit(c)
+                                || (c == '_'
+                                    && peek(1) != '\''
+                                    && peek(1) != '"'))
+                        {
+                            tiny_dyncharbuf_add(&identifier, c);
+                            get();
+                            c = peek(0);
+                        }
+                        tiny_dyncharbuf_add(&identifier, '\0');
+
+                        int c2 = peek(1);
+                        if (c == '_'
+                                && (c2 == '\''
+                                    || c2 == '"'))
+                        {
+                            int c1 = c;
+                            get();
+                            get();
+
+                            tiny_dyncharbuf_t t_str;
+                            tiny_dyncharbuf_new(&t_str, strlen(identifier.buf) + 32 + 1);
+
+                            tiny_dyncharbuf_add_str(&t_str, identifier.buf);
+                            xfree(identifier.buf);
+
+                            tiny_dyncharbuf_add(&t_str, c1); // _
+                            tiny_dyncharbuf_add(&t_str, c2); // " or '
+                            tiny_dyncharbuf_add(&t_str, '\0');
+
+                            int token_id;
+                            char *text = NULL;
+                            scan_character_literal(t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
+                                    &token_id, &text);
+                            xfree(t_str.buf);
+
+                            return commit_text_and_free(token_id, text, loc);
+                        }
+
+                        struct keyword_table_tag k;
+                        k.keyword = identifier.buf;
+
+                        struct keyword_table_tag *result =
+                            (struct keyword_table_tag*)
+                            bsearch(&k, keyword_table,
+                                    sizeof(keyword_table) / sizeof(keyword_table[0]),
+                                    sizeof(keyword_table[0]),
+                                    keyword_table_comp);
+
+                        ERROR_CONDITION(lexer_state.in_format_statement
+                                && (result == NULL
+                                    || result->token_id != TOKEN_FORMAT),
+                                "Invalid token for format statement", 0);
+
+                        int token_id = IDENTIFIER;
+                        if (result != NULL)
+                        {
+                            token_id = result->token_id;
+                        }
+
+                        if (token_id == TOKEN_DO)
+                        {
+                            // Special treatment required for nonblock DO constructs
+                            // so the label is properly matched
+                            int peek_idx = 0;
+
+                            c = peek(peek_idx);
+                            while (is_blank(c))
+                            {
+                                peek_idx++;
+                                c = peek(peek_idx);
+                            }
+
+                            if (is_decimal_digit(c))
+                            {
+                                lexer_state.in_nonblock_do_construct = 1;
+                            }
+                        }
+
+                        return commit_text_and_free(token_id, identifier.buf, loc);
+                    }
+                    // Numbers
+                case '0': case '1': case '2': case '3': case '4':
+                case '5': case '6': case '7': case '8': case '9':
+                    {
+                        tiny_dyncharbuf_t digits;
+                        tiny_dyncharbuf_new(&digits, 32);
+
+                        tiny_dyncharbuf_add(&digits, c0);
+
+                        int c = peek(0);
+                        while (is_decimal_digit(c))
+                        {
+                            tiny_dyncharbuf_add(&digits, c);
+                            get();
+                            c = peek(0);
+                        }
+                        tiny_dyncharbuf_add(&digits, '\0');
+
+                        if (c == '.')
+                        {
+                            // There are two cases here
+                            //   1.op. must be tokenized as DECIMAL_LITERAL USER_DEFINED_OPERATOR
+                            //   1.2   must be tokenized as REAL_LITERAL
+                            // note that
+                            //     1.e.2 is the first case
+                            //     1.e+2 is the second case
+
+                            // Check for 1.op.
+                            int peek_idx = 1;
+                            char d = peek(peek_idx);
+                            while (is_letter(d)
+                                    && peek_idx <= 32) // operator-names are limited to 32
+                            {
+                                peek_idx++;
+                                d = peek(peek_idx);
+                            }
+
+                            if (d == '.'
+                                    && peek_idx > 1)
+                            {
+                                // This is case 1.op.
+                                return commit_text_and_free(DECIMAL_LITERAL, digits.buf, loc);
+                            }
+                            else
+                            {
+                                // scan the fractional part of a real
+                                get(); // we must be past the '.' for scan_fractional_part_of_real_literal
+                                char* fractional_part = scan_fractional_part_of_real_literal();
+
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(fractional_part) + 1);
+                                tiny_dyncharbuf_add_str(&t_str, digits.buf);
+                                xfree(digits.buf);
+                                tiny_dyncharbuf_add_str(&t_str, fractional_part);
+                                xfree(fractional_part);
+
+                                tiny_dyncharbuf_add(&t_str, '\0');
+
+                                return commit_text_and_free(REAL_LITERAL, t_str.buf, loc);
+                            }
+                        }
+                        else if (c == '_')
+                        {
+                            // 1_"HELLO"
+                            int c2 = peek(1);
+                            if (c2 == '\''
+                                    || c2 == '"')
+                            {
+                                int c1 = peek(0);
+                                get();
+                                c2 = peek(0);
+                                get();
+
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + 32 + 1);
+
+                                tiny_dyncharbuf_add_str(&t_str, digits.buf);
+                                xfree(digits.buf);
+
+                                tiny_dyncharbuf_add(&t_str, c1); // _
+                                tiny_dyncharbuf_add(&t_str, c2); // " or '
+                                tiny_dyncharbuf_add(&t_str, '\0');
+
+                                int token_id;
+                                char* text;
+                                scan_character_literal(/*prefix */ t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
+                                        &token_id, &text);
+                                xfree(t_str.buf);
+
+                                return commit_text_and_free(token_id, text, loc);
+                            }
+                            else
+                            {
+                                char *kind_str = scan_kind();
+
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(kind_str) + 1);
+
+                                tiny_dyncharbuf_add_str(&t_str, digits.buf);
+                                xfree(digits.buf);
+                                
+                                tiny_dyncharbuf_add_str(&t_str, kind_str);
+                                xfree(kind_str);
+                                tiny_dyncharbuf_add(&t_str, '\0');
+
+                                return commit_text_and_free(DECIMAL_LITERAL, t_str.buf, loc);
+                            }
+                        }
+                        else if (tolower(c) == 'h')
+                        {
+                            get();
+                            // This is a Holleritz constant
+                            int length = atoi(digits.buf);
+                            xfree(digits.buf);
+
+                            if (length == 0)
+                            {
+                                error_printf("%s:%d:%d: error: ignoring invalid Hollerith constant of length 0\n",
+                                        loc.filename,
+                                        loc.line,
+                                        loc.column);
+                                continue;
+                            }
+                            else
+                            {
+                                tiny_dyncharbuf_t holl;
+                                tiny_dyncharbuf_new(&holl, length + 1);
+                                int ok = 1;
+                                for (int i = 0; i < length; i++)
+                                {
+                                    c = peek(0);
+                                    if (is_newline(c) 
+                                            || c == EOF)
+                                    {
+                                        error_printf("%s:%d:%d: error: unended Hollerith constant\n",
+                                                loc.filename,
+                                                loc.line,
+                                                loc.column);
+                                        ok = 0;
+                                        break;
+                                    }
+                                    tiny_dyncharbuf_add(&holl, c);
+                                    get();
+                                }
+                                tiny_dyncharbuf_add(&holl, '\0');
+
+                                if (!ok)
+                                    continue;
+
+                                return commit_text_and_free(TOKEN_HOLLERITH_CONSTANT, holl.buf, loc);
+                            }
+                        }
+                        else
+                        {
+                            if (lexer_state.last_eos
+                                    && strlen(digits.buf) <= 6 /* maximum length of a label */
+                                    && is_format_statement())
+                            {
+                                lexer_state.in_format_statement = 1;
+                            }
+                            else if (lexer_state.in_nonblock_do_construct)
+                            {
+                                lexer_state.in_nonblock_do_construct = 0;
+
+                                int label = atoi(digits.buf);
+                                if (lexer_state.num_nonblock_labels > 0
+                                        && lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels - 1] == label)
+                                {
+                                    // DO 50 I = 1, 10
+                                    //   DO 50 J = 1, 20  ! This second 50 is a TOKEN_SHARED_LABEL
+                                    return commit_text_and_free(TOKEN_SHARED_LABEL, digits.buf, loc);
+                                }
+                                else
+                                {
+                                    if (lexer_state.num_nonblock_labels == lexer_state.size_nonblock_labels_stack)
+                                    {
+                                        lexer_state.size_nonblock_labels_stack = 2*lexer_state.size_nonblock_labels_stack + 1;
+                                        lexer_state.nonblock_labels_stack = xrealloc(
+                                                lexer_state.nonblock_labels_stack,
+                                                lexer_state.size_nonblock_labels_stack
+                                                * sizeof(*lexer_state.nonblock_labels_stack));
+                                    }
+                                    lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels] = label;
+                                    lexer_state.num_nonblock_labels++;
+                                }
+                            }
+
+                            return commit_text_and_free(DECIMAL_LITERAL, digits.buf, loc);
+                        }
+                    }
+                case '@':
+                    {
+                        tiny_dyncharbuf_t str;
+                        tiny_dyncharbuf_new(&str, 32);
+
+                        tiny_dyncharbuf_add(&str, c0);
+                        char c = peek(0);
+                        while (c != '@'
+                                && !is_newline(c)
+                                && c != EOF)
+                        {
+                            tiny_dyncharbuf_add(&str, c);
+                            get();
+                            c = peek(0);
+                        }
+                        if (c == '@')
+                        {
+                            tiny_dyncharbuf_add(&str, c);
+                            get();
+                        }
+                        tiny_dyncharbuf_add(&str, '\0');
+
+                        int token_id = 0;
+                        char preserve_eos = 0;
+                        if (strncmp(str.buf, "@STATEMENT-PH", strlen("@STATEMENT-PH")) == 0)
+                        {
+                            // FIXME - make the check above a bit more robust
+                            token_id = STATEMENT_PLACEHOLDER;
+                        }
+                        else
+                        {
+                            struct special_token_table_tag k;
+                            k.keyword = str.buf;
+
+                            struct special_token_table_tag *result =
+                                (struct special_token_table_tag*)
+                                bsearch(&k, special_tokens,
+                                        sizeof(special_tokens) / sizeof(special_tokens[0]),
+                                        sizeof(special_tokens[0]),
+                                        special_token_table_comp);
+
+                            if (result == NULL)
+                            {
+                                error_printf("%s:%d:%d: invalid special token '%s', ignoring\n",
+                                        loc.filename,
+                                        loc.line,
+                                        loc.column,
+                                        str.buf);
+                                continue;
+                            }
+                            else
+                            {
+                                token_id = result->token_id;
+                                preserve_eos = result->preserve_eos;
+                            }
+                        }
+
+                        char last_eos = lexer_state.last_eos;
+                        int n = commit_text_and_free(token_id, str.buf, loc);
+                        if (preserve_eos)
+                            lexer_state.last_eos = last_eos;
+                        return n;
+                    }
+                default: { /* do nothing */ }
+            }
+        } // LEXER_SUBSTATE_NORMAL
+        else if (lexer_state.substate == LEXER_SUBSTATE_PRAGMA_DIRECTIVE
+                || lexer_state.substate == LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE
+                || lexer_state.substate == LEXER_SUBSTATE_PRAGMA_CLAUSE
+                || lexer_state.substate == LEXER_SUBSTATE_PRAGMA_VAR_LIST)
+
+        {
+            switch (c0)
+            {
+                case EOF:
+                    {
+                        lexer_state.substate = LEXER_SUBSTATE_NORMAL;
+                        lexer_state.sentinel = NULL;
+                        error_printf("%s:%d:%d: error: unexpected end-of-file in directive\n",
+                                loc.filename,
+                                loc.line,
+                                loc.column);
+                        continue;
+                    }
+                case '\n':
+                case '\r':
+                    {
+                        lexer_state.substate = LEXER_SUBSTATE_NORMAL;
+                        lexer_state.sentinel = NULL;
+                        if (!lexer_state.last_eos)
+                        {
+                            int n = commit_text(PRAGMA_CUSTOM_NEWLINE, NULL, loc);
+                            lexer_state.bol = 1;
+                            lexer_state.last_eos = 1;
+                            return n;
+                        }
+                        lexer_state.bol = 1;
+                        continue;
+                    }
+                case '!':
+                    {
+                        // A comment, skip until the end
+                        while (!is_newline(c0))
+                        {
+                            get();
+                            c0 = peek(0);
+                        }
+
+                        if (c0 == '\r')
+                        {
+                            if (peek(1) == '\n')
+                                get();
+                        }
+
+                        continue;
+                    }
+                case ' ':
+                case '\t':
+                    {
+                        // skip blanks
+                        continue;
+                    }
+                default : { /* do nothing */ }
+            }
+
+            if (lexer_state.substate == LEXER_SUBSTATE_PRAGMA_DIRECTIVE)
+            {
+                // !$OMP xxx
+                //       ^
+                switch (c0)
+                {
+                    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
+                    case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+                    case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+                    case 'Y': case 'Z':
+                    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
+                    case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
+                    case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+                    case 'y': case 'z':
+                        {
+                            // !$OMP xxx yyy zzz
+                            //       ^
+                            // identifier(\s\+{identifier})*
+                            // and then we are told how much we have to back up
+                            tiny_dyncharbuf_t str;
+                            tiny_dyncharbuf_new(&str, 32);
+
+                            tiny_dyncharbuf_add(&str, c0);
+                            int peek_idx = 0;
+
+                            char c = peek(peek_idx);
+                            while (is_letter(c)
+                                    || is_decimal_digit(c)
+                                    || c == '_')
+                            {
+                                tiny_dyncharbuf_add(&str, c);
+                                peek_idx++;
+                                c = peek(peek_idx);
+                            }
+
+                            while (is_blank(c))
+                            {
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, 32);
+
+                                while (is_blank(c))
+                                {
+                                    tiny_dyncharbuf_add(&t_str, c);
+                                    peek_idx++;
+                                    c = peek(peek_idx);
+                                }
+
+                                if (is_letter(c))
+                                {
+                                    while (is_letter(c)
+                                            || is_decimal_digit(c)
+                                            || c == '_')
+                                    {
+                                        tiny_dyncharbuf_add(&t_str, c);
+                                        peek_idx++;
+                                        c = peek(peek_idx);
+                                    }
+                                    tiny_dyncharbuf_add(&t_str, '\0');
+
+                                    tiny_dyncharbuf_add_str(&str, t_str.buf);
+                                    xfree(t_str.buf);
+                                }
+                                else
+                                {
+                                    xfree(t_str.buf);
+                                    break;
+                                }
+                            }
+                            tiny_dyncharbuf_add(&str, '\0');
+
+                            char is_end_directive = (strlen(str.buf) > 3
+                                    && strncasecmp(str.buf, "end", 3) == 0);
+
+                            pragma_directive_kind_t directive_kind = PDK_NONE; 
+                            const char* longest_match = return_pragma_prefix_longest_match(
+                                    lexer_state.sentinel, is_end_directive, str.buf, &directive_kind);
+
+                            int token_id = 0;
+                            switch (directive_kind)
+                            {
+                                case PDK_DIRECTIVE:
+                                    {
+                                        if (!is_end_directive)
+                                        {
+                                            token_id = PRAGMA_CUSTOM_DIRECTIVE;
+                                        }
+                                        else
+                                        {
+                                            running_error("%s:%d:%d: error: invalid directive '!$%s END %s'\n", 
+                                                    loc.filename,
+                                                    loc.line,
+                                                    loc.column,
+                                                    strtoupper(lexer_state.sentinel),
+                                                    strtoupper(longest_match));
                                         }
                                         break;
                                     }
-                                default:
-                                    internal_error("Code unreachable", 0);
+                                case PDK_CONSTRUCT_NOEND :
+                                    {
+                                        if (!is_end_directive)
+                                        {
+                                            token_id = PRAGMA_CUSTOM_CONSTRUCT_NOEND;
+                                        }
+                                        else
+                                        {
+                                            token_id = PRAGMA_CUSTOM_END_CONSTRUCT_NOEND;
+                                        }
+                                        break;
+                                    }
+                                case PDK_CONSTRUCT :
+                                    {
+                                        if (!is_end_directive)
+                                        {
+                                            if (lexer_state.num_pragma_constructs == lexer_state.size_pragma_constructs_stack)
+                                            {
+                                                lexer_state.size_pragma_constructs_stack = 2*lexer_state.size_pragma_constructs_stack + 1;
+                                                lexer_state.pragma_constructs_stack = xrealloc(
+                                                        lexer_state.pragma_constructs_stack,
+                                                        lexer_state.size_pragma_constructs_stack
+                                                        *sizeof(*lexer_state.pragma_constructs_stack));
+                                            }
+                                            lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs] = xstrdup(longest_match);
+                                            lexer_state.num_pragma_constructs++;
+                                            token_id = PRAGMA_CUSTOM_CONSTRUCT;
+                                        }
+                                        else
+                                        {
+                                            if (lexer_state.num_pragma_constructs > 0)
+                                            {
+                                                char* top = lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs-1];
+                                                if (strcmp(top, longest_match) != 0)
+                                                {
+                                                    running_error("%s:%d:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
+                                                            loc.filename,
+                                                            loc.line,
+                                                            loc.column,
+                                                            strtoupper(lexer_state.sentinel), 
+                                                            strtoupper(longest_match),
+                                                            strtoupper(lexer_state.sentinel), 
+                                                            strtoupper(format_pragma_string(top)));
+                                                }
+                                                else
+                                                {
+                                                    xfree(top);
+                                                    lexer_state.num_pragma_constructs--;
+                                                    token_id = PRAGMA_CUSTOM_END_CONSTRUCT;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                running_error("%s:%d:%d: error: bad nesting for '!$%s %s'\n",
+                                                        loc.filename,
+                                                        loc.line,
+                                                        loc.column,
+                                                        strtoupper(lexer_state.sentinel), 
+                                                        strtoupper(longest_match));
+                                            }
+                                        }
+                                        break;
+                                    }
+                                case PDK_NONE :
+                                    {
+                                        running_error("%s:%d:%d: error: unknown directive '!$%s %s'",
+                                                loc.filename,
+                                                loc.line,
+                                                loc.column,
+                                                lexer_state.sentinel,
+                                                str.buf);
+                                        break;
+                                    }
+                                default: internal_error("Invalid pragma directive kind kind=%d", directive_kind);
                             }
 
-                            if (c == c1)
-                            {
-                                str[i] = c1;
-                                i++;
-                                get();
+                            lexer_state.substate = LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE;
+                            int n = commit_text(token_id, longest_match, loc);
+                            xfree(str.buf);
+                            return n;
+                            break;
+                        }
+                    default : { /* do nothing */ }
+                }
+            }
+            else if (lexer_state.substate == LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE)
+            {
+                // !$OMP PARALLEL xxx
+                //                ^
+                switch (c0)
+                {
+                    case '(':
+                        {
+                            lexer_state.substate = LEXER_SUBSTATE_PRAGMA_VAR_LIST;
+                            return commit_text('(', "(", loc);
+                            break;
+                        }
+                    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
+                    case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+                    case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+                    case 'Y': case 'Z':
+                    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
+                    case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
+                    case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+                    case 'y': case 'z':
+                        {
+                            tiny_dyncharbuf_t str;
+                            tiny_dyncharbuf_new(&str, 32);
 
+                            tiny_dyncharbuf_add(&str, c0);
+
+                            char c = peek(0);
+                            while (is_letter(c)
+                                    || c == '_'
+                                    || is_decimal_digit(c))
+                            {
+                                tiny_dyncharbuf_add(&str, c);
+                                get();
                                 c = peek(0);
                             }
-                            else
+                            tiny_dyncharbuf_add(&str, '\0');
+
+                            // advance blanks now because we want to move onto
+                            // the next '(' if any
+                            while (is_blank(c))
                             {
-                                error_printf("%s:%d:%d: error: unended integer literal\n",
-                                        loc2.filename,
-                                        loc2.line,
-                                        loc2.column);
                                 get();
-                                continue;
+                                c = peek(0);
                             }
 
-                            if (invalid_digit)
-                                continue;
-
-                            if (i == 3)
+                            if (c == '(')
                             {
-                                error_printf("%s:%d:%d: error: empty integer literal\n",
-                                        loc2.filename,
-                                        loc2.line,
-                                        loc2.column);
-                                continue;
+                                lexer_state.substate = LEXER_SUBSTATE_PRAGMA_VAR_LIST;
                             }
-
-                            str[i] = '\0';
-                            if (c == '_')
-                            {
-                                scan_kind(&str[i]);
-                            }
-
-                            return commit_text(token_id, str, loc);
-                        }
-                    }
-
-                    // peek as many letters as possible
-                    char identifier[MAX_IDENTIFIER_LENGTH];
-                    identifier[0] = c0;
-
-                    int i = 1;
-
-                    int c = peek(0);
-                    while (is_letter(c)
-                            || is_decimal_digit(c)
-                            || c == '_')
-                    {
-                        get();
-                        if (i >= MAX_IDENTIFIER_LENGTH)
-                            break;
-                        identifier[i] = c;
-                        i++;
-
-                        c = peek(0);
-                    }
-                    identifier[i] = '\0';
-
-                    int c2 = peek(1);
-                    if (i <= 33 // A named kind cannot be longer than 32 letters
-                            && c == '_'
-                            && (c2 == '\''
-                                || c2 == '"'))
-                    {
-                        identifier[i] = c; get(); // overwrites '\0' above
-                        i++;
-                        identifier[i] = c2; get();
-                        i++;
-                        identifier[i] = '\0';
-
-                        int t = scan_character_literal(identifier, /* delim */ c2, /* allow_suffix_boz */ 0, loc);
-                        if (t != 0)
-                            return t;
-                        else
-                            continue;
-                    }
-
-                    struct keyword_table_tag k;
-                    k.keyword = identifier;
-
-                    struct keyword_table_tag *result =
-                        (struct keyword_table_tag*)
-                        bsearch(&k, keyword_table,
-                                sizeof(keyword_table) / sizeof(keyword_table[0]),
-                                sizeof(keyword_table[0]),
-                                keyword_table_comp);
-
-                    ERROR_CONDITION(lexer_state.in_format_statement
-                            && (result == NULL
-                                || result->token_id != TOKEN_FORMAT),
-                            "Invalid token for format statement", 0);
-
-                    if (result == NULL)
-                    {
-                        return commit_text(IDENTIFIER, identifier, loc);
-                    }
-                    else
-                    {
-                        return commit_text(result->token_id, identifier, loc);
-                    }
-                }
-                // Numbers
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-                {
-                    char digits[MAX_NUMERIC_LITERAL + MAX_KIND_LENGTH + 1];
-
-                    digits[0] = c0;
-
-                    int i = 1;
-                    int c = peek(0);
-                    while (is_decimal_digit(c))
-                    {
-                        get();
-                        ERROR_CONDITION(i >= MAX_NUMERIC_LITERAL, "Too many digits (max=%d)", MAX_NUMERIC_LITERAL);
-                        digits[i] = c;
-                        i++;
-
-                        c = peek(0);
-                    }
-                    digits[i] = '\0';
-
-                    if (c == '.')
-                    {
-                        // There are two cases here
-                        //   1.op. must be tokenized as DECIMAL_LITERAL USER_DEFINED_OPERATOR
-                        //   1.2   must be tokenized as REAL_LITERAL
-                        // note that
-                        //     1.e.2 is the first case
-                        //     1.e+2 is the second case
-                    }
-                    else if (c == '_')
-                    {
-                        // 1_"HELLO"
-                        int c2 = peek(1);
-                        if (c2 == '\''
-                                || c2 == '"')
-                        {
-                            // note that since we limit the digit to MAX_NUMERIC_LITERAL there will still be room
-                            // for the _ and " (or ')
-                            digits[i] = c; get(); // overwrite '\0' above
-                            i++;
-                            digits[i] = c2; get();
-                            i++;
-                            digits[i] = '\0';
-
-                            int t = scan_character_literal(/*prefix */ digits, /* delim */ c2, /* allow_suffix_boz */ 0, loc);
-                            if (t != 0)
-                                return t;
                             else
-                                continue;
-                        }
-                        else
-                        {
-                            scan_kind(&digits[i]);
-                            return commit_text(DECIMAL_LITERAL, digits, loc);
-                        }
-                    }
-                    else if (c == 'h'
-                            || c == 'H')
-                    {
-                        // This is a Holleritz constant
-                        internal_error("Holleritz constant not yet implemented", 0);
-                    }
-                    else
-                    {
-                        if (lexer_state.bol
-                                && i <= 6 /* maximum length of a label */
-                                && is_format_statement())
-                        {
-                            lexer_state.in_format_statement = 1;
-                        }
+                            {
+                                lexer_state.substate = LEXER_SUBSTATE_PRAGMA_CLAUSE;
+                            }
 
-                        return commit_text(DECIMAL_LITERAL, digits, loc);
-                    }
+                            return commit_text_and_free(PRAGMA_CUSTOM_CLAUSE, str.buf, loc);
+                            break;
+                        }
+                    default: { /* do nothing */ }
                 }
-            default: { /* do nothing */ }
+            }
+            else if (lexer_state.substate == LEXER_SUBSTATE_PRAGMA_CLAUSE)
+            {
+                // !$OMP PARALLEL FOO(X) xxx ...
+                //                       ^
+                switch (c0)
+                {
+                    case ',':
+                        {
+                            return commit_text(',', ",", loc);
+                            continue;
+                        }
+                    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
+                    case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+                    case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+                    case 'Y': case 'Z':
+                    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
+                    case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
+                    case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+                    case 'y': case 'z':
+                        {
+                            tiny_dyncharbuf_t str;
+                            tiny_dyncharbuf_new(&str, 32);
+
+                            tiny_dyncharbuf_add(&str, c0);
+
+                            char c = peek(0);
+                            while (is_letter(c)
+                                    || c == '_'
+                                    || is_decimal_digit(c))
+                            {
+                                tiny_dyncharbuf_add(&str, c);
+                                get();
+                                c = peek(0);
+                            }
+                            tiny_dyncharbuf_add(&str, '\0');
+
+                            // advance blanks now because we want to move onto
+                            // the next '(' if any
+                            while (is_blank(c))
+                            {
+                                get();
+                                c = peek(0);
+                            }
+
+                            if (c == '(')
+                            {
+                                lexer_state.substate = LEXER_SUBSTATE_PRAGMA_VAR_LIST;
+                            }
+
+                            return commit_text_and_free(PRAGMA_CUSTOM_CLAUSE, str.buf, loc);
+                            break;
+                        }
+                    default: { /* do nothing */ }
+                }
+            }
+            else if (lexer_state.substate == LEXER_SUBSTATE_PRAGMA_VAR_LIST)
+            {
+                // !$OMP PARALLEL FOO(xxx)
+                //                    ^
+                if (c0 == '(')
+                {
+                    return commit_text('(', "(", loc);
+                }
+                else if (c0 == ')')
+                {
+                    lexer_state.substate = LEXER_SUBSTATE_PRAGMA_CLAUSE;
+                    return commit_text(')', ")", loc);
+                }
+                else
+                {
+                    tiny_dyncharbuf_t str;
+                    tiny_dyncharbuf_new(&str, 32);
+
+                    tiny_dyncharbuf_add(&str, c0);
+
+                    int parentheses = 0;
+                    char c = peek(0);
+                    while ((c != ')'
+                                || parentheses > 0)
+                            && !is_newline(c)
+                            && c != EOF)
+                    {
+                        tiny_dyncharbuf_add(&str, c);
+
+                        if (c == '(')
+                            parentheses++;
+                        else if (c == ')')
+                            parentheses--;
+
+                        get();
+                        c = peek(0);
+                    }
+                    tiny_dyncharbuf_add(&str, '\0');
+
+                    if (c != ')')
+                    {
+                        error_printf("%s:%d:%d: error: unended clause\n",
+                                loc.filename,
+                                loc.line,
+                                loc.column);
+                    }
+
+                    return commit_text_and_free(PRAGMA_CLAUSE_ARG_TEXT, str.buf, loc);
+                }
+            }
+        }
+        else
+        {
+            internal_error("invalid lexer substate", 0);
         }
 
         // Default case, unclassifiable token
@@ -2444,5 +3500,5 @@ extern int new_mf03lex (void)
                     c0);
         }
     }
-    internal_error("Code unreachable peek=%c", peek(0));
+    internal_error("Code unreachable", 0);
 }
