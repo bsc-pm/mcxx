@@ -877,6 +877,14 @@ namespace TL
                     continue;
                 }
 
+                if (IS_FORTRAN_LANGUAGE
+                        && sym.get_type().no_ref().is_function())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "dummy procedures are firstprivate");
+                    continue;
+                }
+
                 // Saved expressions must be, as their name says, saved
                 if (sym.is_saved_expression())
                 {
@@ -1393,6 +1401,14 @@ namespace TL
                     // 'this' is special
                     data_sharing.set_data_sharing(sym, DS_SHARED,
                             "'this' pseudo-variable is always shared");
+                    continue;
+                }
+
+                if (IS_FORTRAN_LANGUAGE
+                        && sym.get_type().no_ref().is_function())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "dummy procedures are firstprivate");
                     continue;
                 }
 
