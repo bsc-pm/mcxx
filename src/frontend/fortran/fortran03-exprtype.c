@@ -3156,24 +3156,43 @@ static void check_called_symbol_list(
                 ast_get_locus(procedure_designator));
     }
 
-    if (is_void_type(return_type))
+    if (symbol_entity_specs_get_is_implicit_basic_type(symbol))
     {
         if (!is_call_stmt)
         {
-            error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
-                    ast_location(location));
-            *result_type = get_error_type();
-            return;
+            // From now it is a FUNCTION
+            symbol_entity_specs_set_is_implicit_basic_type(symbol, 0);
         }
+        else
+        {
+            // From now it is a SUBROUTINE
+            symbol->type_information = fortran_update_basic_type_with_type(
+                    symbol->type_information,
+                    get_void_type());
+        }
+        symbol_entity_specs_set_is_implicit_basic_type(symbol, 0);
     }
     else
     {
-        if (is_call_stmt)
+        if (is_void_type(return_type))
         {
-            error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
-                    ast_location(location));
-            *result_type = get_error_type();
-            return;
+            if (!is_call_stmt)
+            {
+                error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
+                        ast_location(location));
+                *result_type = get_error_type();
+                return;
+            }
+        }
+        else
+        {
+            if (is_call_stmt)
+            {
+                error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
+                        ast_location(location));
+                *result_type = get_error_type();
+                return;
+            }
         }
     }
 

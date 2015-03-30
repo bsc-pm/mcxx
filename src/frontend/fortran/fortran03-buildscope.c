@@ -1990,6 +1990,10 @@ static scope_entry_t* new_procedure_symbol(
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
             REF_QUALIFIER_NONE);
     entry->type_information = function_type;
+    if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+    {
+        entry->type_information = get_lvalue_reference_type(entry->type_information);
+    }
 
     symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     entry->related_decl_context = program_unit_context;
