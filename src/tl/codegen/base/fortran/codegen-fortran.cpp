@@ -538,7 +538,9 @@ namespace Codegen
             dec_indent();
             *(file) << "END PROGRAM " << program_name << "\n\n";
         }
-        else if (entry.is_function())
+        else if (entry.is_function()
+                || (entry.is_variable()
+                    && entry.get_type().no_ref().is_function()))
         {
             bool lacks_result = false;
             codegen_procedure_declaration_header(entry, lacks_result);
@@ -3733,18 +3735,9 @@ OPERATOR_TABLE
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
-        if (entry.is_variable())
+        if (entry.is_variable()
+                && !entry.get_type().no_ref().is_function())
         {
-#if 0
-            bool is_function_pointer = 
-                (entry.get_type().is_pointer()
-                 && entry.get_type().points_to().is_function())
-                || (entry.get_type().is_any_reference()
-                        && entry.get_type().references_to().is_pointer()
-                        && entry.get_type().references_to().points_to().is_function());
-#endif
-            bool is_function_pointer = false;
-
             std::string type_spec;
             std::string array_specifier;
             std::string initializer;
@@ -3906,47 +3899,14 @@ OPERATOR_TABLE
                 }
             }
 
-            if (!is_function_pointer)
-            {
-                bool keep_emit_interop = state.emit_interoperable_types;
-                state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
+            bool keep_emit_interop = state.emit_interoperable_types;
+            state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
-                codegen_type_extended(declared_type, type_spec, array_specifier,
-                        /* force_deferred_shape */ entry.is_allocatable(),
-                        /* without_type_qualifier */ false);
+            codegen_type_extended(declared_type, type_spec, array_specifier,
+                    /* force_deferred_shape */ entry.is_allocatable(),
+                    /* without_type_qualifier */ false);
 
-                state.emit_interoperable_types = keep_emit_interop;
-            }
-            else
-            {
-                TL::Type function_type = entry.get_type();
-                if (function_type.is_any_reference())
-                    function_type = function_type.references_to();
-                function_type = function_type.points_to();
-                ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
-
-                TL::Type return_type = function_type.returns();
-
-                if (function_type.lacks_prototype())
-                {
-                    attribute_list += ", EXTERNAL";
-
-                    if (return_type.is_void())
-                    {
-                        type_spec = "POINTER";
-                    }
-                    else
-                    {
-                        attribute_list += ", POINTER";
-                        codegen_type(return_type, type_spec, array_specifier);
-                    }
-                }
-                else
-                {
-                    emit_interface_for_symbol(entry);
-                    type_spec = "POINTER";
-                }
-            }
+            state.emit_interoperable_types = keep_emit_interop;
 
             indent();
 
@@ -4042,7 +4002,8 @@ OPERATOR_TABLE
             }
         }
         else if (entry.is_function()
-                || entry.is_generic_specifier())
+                || entry.is_generic_specifier()
+                || (entry.is_variable() && entry.get_type().no_ref().is_function()))
         {
             TL::Type function_type = entry.get_type();
 

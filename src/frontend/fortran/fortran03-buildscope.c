@@ -1740,6 +1740,12 @@ static scope_entry_t* new_procedure_symbol(
                         ASTText(name));
                 return NULL;
             }
+
+            if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            {
+                entry->kind = SK_VARIABLE;
+            }
+
             remove_unknown_kind_symbol(entry->decl_context, entry);
         }
     }
@@ -1751,7 +1757,9 @@ static scope_entry_t* new_procedure_symbol(
 
     program_unit_context.current_scope->related_entry = entry;
 
-    entry->kind = SK_FUNCTION;
+    if (entry->kind == SK_UNDEFINED)
+        entry->kind = SK_FUNCTION;
+
     entry->locus = ast_get_locus(name);
     symbol_entity_specs_set_is_implicit_basic_type(entry, 1);
     entry->defined = 1;
@@ -3684,9 +3692,15 @@ static type_t* eval_array_spec(type_t* basic_type,
 {
     char was_ref = is_lvalue_reference_type(basic_type);
 
-    // We do not save dimensions in non function scopes
-    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION)
+    // We do not save dimensions in non function or dummy procedure scopes
+    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION
+            && !(decl_context.current_scope->related_entry->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(
+                    decl_context.current_scope->related_entry,
+                    decl_context.current_scope->related_entry->decl_context.current_scope->related_entry)))
+    {
         nodecl_output = NULL;
+    }
 
     // explicit-shape-spec   is   [lower:]upper
     // assumed-shape-spec    is   [lower]:
@@ -6235,9 +6249,9 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         //If entry already has kind SK_FUNCTION then we must show an error
-        if (entry->kind == SK_FUNCTION) 
+        if (entry->kind == SK_FUNCTION)
         {
-            // We have seen an INTRINSIC statement before for the same symbol 
+            // We have seen an INTRINSIC statement before for the same symbol
             if (symbol_entity_specs_get_is_builtin(entry))
             {
                 error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
@@ -6246,9 +6260,29 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
                 continue;
             }
             // We have seen an EXTERNAL statement before for the same symbol
-            else 
+            else if (symbol_entity_specs_get_is_extern(entry))
             {
                 error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+                continue;
+            }
+        }
+        else if (entry->kind == SK_VARIABLE)
+        {
+            if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            {
+                if (is_function_type(no_ref(entry->type_information)))
+                {
+                    error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                            ast_location(name),
+                            entry->symbol_name);
+                    continue;
+                }
+            }
+            else
+            {
+                error_printf("%s: error: entity '%s' cannot have EXTERNAL attribute\n",
                         ast_location(name),
                         entry->symbol_name);
                 continue;
@@ -6257,9 +6291,17 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (entry->kind == SK_UNDEFINED)
         {
-            // We mark the symbol as a external function
-            entry->kind = SK_FUNCTION;
-            symbol_entity_specs_set_is_extern(entry, 1);
+            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            {
+                // We mark the symbol as a external function
+                entry->kind = SK_FUNCTION;
+                symbol_entity_specs_set_is_extern(entry, 1);
+            }
+            else
+            {
+                // This is a dummy procedure
+                entry->kind = SK_VARIABLE;
+            }
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
@@ -7123,7 +7165,7 @@ static void build_scope_intrinsic_stmt(AST a,
                     continue;
                 }
 
-                entry->kind = SK_FUNCTION;  
+                entry->kind = SK_FUNCTION;
             }
         }
         // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
@@ -7822,7 +7864,14 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
         {
             if (entry->kind == SK_UNDEFINED)
             {
-                entry->kind = SK_FUNCTION;
+                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                {
+                    entry->kind = SK_FUNCTION;
+                }
+                else
+                {
+                    entry->kind = SK_VARIABLE;
+                }
                 remove_unknown_kind_symbol(decl_context, entry);
 
                 synthesize_procedure_type(entry, interface, return_type, decl_context,
@@ -7830,7 +7879,15 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
             }
             else if (entry->kind == SK_FUNCTION)
             {
-                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n", 
+                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+            else if (entry->kind == SK_VARIABLE
+                    && symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
+                    && is_function_type(no_ref(entry->type_information)))
+            {
+                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
                         ast_location(name),
                         entry->symbol_name);
             }
@@ -8548,8 +8605,15 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             if (!current_attr_spec.is_pointer
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
-                entry->kind = SK_FUNCTION;
-                symbol_entity_specs_set_is_extern(entry, 1);
+                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                {
+                    entry->kind = SK_FUNCTION;
+                    symbol_entity_specs_set_is_extern(entry, 1);
+                }
+                else
+                {
+                    entry->kind = SK_VARIABLE;
+                }
                 remove_unknown_kind_symbol(decl_context, entry);
             }
         }

@@ -3404,13 +3404,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 nodecl_make_symbol(called_symbol, ast_get_locus(procedure_designator));
         if (called_symbol->kind == SK_VARIABLE)
         {
-            // This must be a pointer to function
-            ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
-
-            nodecl_called = nodecl_make_dereference(
-                    nodecl_called,
-                    lvalue_ref(called_symbol->type_information),
-                    ast_get_locus(procedure_designator));
+            if (is_pointer_to_function_type(no_ref(called_symbol->type_information)))
+            {
+                nodecl_called = nodecl_make_dereference(
+                        nodecl_called,
+                        lvalue_ref(called_symbol->type_information),
+                        ast_get_locus(procedure_designator));
+            }
         }
 
         *nodecl_output = nodecl_make_function_call(
@@ -4237,7 +4237,8 @@ static void check_symbol_of_called_name(AST sym,
                 }
             }
             else if (entry->kind == SK_VARIABLE
-                    && is_pointer_to_function_type(no_ref(entry->type_information)))
+                    && (is_pointer_to_function_type(no_ref(entry->type_information))
+                        || /* dummy procedures */ is_function_type(no_ref(entry->type_information))))
             {
                 // OK
             }
