@@ -863,11 +863,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
         // Well, we found the newline but parentheses were not 
         // properly nested
         fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
-                scanning_now.current_filename,
-                scanning_now.line_number);
+                fortran_scanning_now->current_filename,
+                fortran_scanning_now->line_number);
     }
     // Head back to initial state and finish this pragma
-    scanning_now.line_number++;
+    fortran_scanning_now->line_number++;
     BEGIN(INITIAL);
     RETURN_PRAGMA_EOS;
 }
