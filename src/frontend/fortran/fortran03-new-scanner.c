@@ -549,6 +549,276 @@ static inline char past_eof(void)
     return (lexer_state.current_file->current_pos >= ((lexer_state.current_file->buffer + lexer_state.current_file->buffer_size)));
 }
 
+static char handle_preprocessor_line(void)
+{
+    const char* keep = lexer_state.current_file->current_pos;
+    int keep_column = lexer_state.current_file->current_location.column;
+
+#define ROLLBACK \
+    { \
+        lexer_state.current_file->current_pos = keep; \
+        lexer_state.current_file->current_location.column = keep_column; \
+        return 0; \
+    }
+
+    // We allow the following syntax
+    // ^([ ]*line)?[ ]+[0-9]+[ ]*("[^"]*"[ ]+([1234][ ]+)*$
+    while (!past_eof()
+            && is_blank(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+    }
+
+    if (past_eof())
+        ROLLBACK;
+
+    if (lexer_state.current_file->current_pos[0] == 'l')
+    {
+        // Attempt to match 'line'
+        const char c[] = "line";
+        int i = 1; // we already know it starts by 'l'
+        lexer_state.current_file->current_pos++;
+        while (c[i] != '\0'
+                && !past_eof()
+                && c[i] == lexer_state.current_file->current_pos[0])
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+
+            i++;
+        }
+
+        if (past_eof()
+                || c[i] != '\0')
+            ROLLBACK;
+
+        if (!is_blank(lexer_state.current_file->current_pos[0]))
+            ROLLBACK;
+
+        while (!past_eof()
+                && is_blank(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+    }
+
+    // linenum
+    if (!is_decimal_digit(lexer_state.current_file->current_pos[0]))
+        ROLLBACK;
+
+    int linenum = 0;
+
+    while (!past_eof()
+            && is_decimal_digit(lexer_state.current_file->current_pos[0]))
+    {
+        linenum = 10*linenum + (lexer_state.current_file->current_pos[0] - '0');
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+    }
+
+    // This is not possible, fix it to 1
+    if (linenum == 0)
+        linenum = 1;
+
+    token_location_t filename_loc = lexer_state.current_file->current_location;
+
+    while (!past_eof()
+            && is_blank(lexer_state.current_file->current_pos[0]))
+    {
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+    }
+
+    if (past_eof())
+    {
+        lexer_state.current_file->current_location.line = linenum;
+        lexer_state.current_file->current_location.column = 0;
+
+        return 1;
+    }
+    else if (is_newline(lexer_state.current_file->current_pos[0]))
+    {
+        if (lexer_state.current_file->current_pos[0] == '\r')
+        {
+            lexer_state.current_file->current_pos++;
+            if (!past_eof()
+                    && lexer_state.current_file->current_pos[0] == '\n')
+                lexer_state.current_file->current_pos++;
+        }
+        else // '\n'
+        {
+            lexer_state.current_file->current_pos++;
+        }
+
+        lexer_state.current_file->current_location.line = linenum;
+        lexer_state.current_file->current_location.column = 0;
+
+        return 1;
+    }
+    else if (lexer_state.current_file->current_pos[0] == '"')
+    {
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+
+        const char *start = lexer_state.current_file->current_pos;
+
+        // FIXME - escaped characters
+        while (!past_eof()
+                && lexer_state.current_file->current_pos[0] != '"'
+                && !is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+
+        if (lexer_state.current_file->current_pos[0] != '"')
+            ROLLBACK;
+
+        const char* final = lexer_state.current_file->current_pos - 1;
+
+        if (final - start == 0)
+            ROLLBACK;
+
+        int num_chars = final - start + 1;
+        int num_bytes_buffer = num_chars + 1;
+        char filename[num_bytes_buffer];
+        memcpy(filename, start, num_chars);
+        filename[num_bytes_buffer - 1] = '\0';
+
+        // advance delim
+        lexer_state.current_file->current_pos++;
+        lexer_state.current_file->current_location.column++;
+
+        for (;;)
+        {
+            while (!past_eof()
+                    && is_blank(lexer_state.current_file->current_pos[0]))
+            {
+                lexer_state.current_file->current_pos++;
+                lexer_state.current_file->current_location.column++;
+            }
+
+            if (past_eof())
+                break;
+
+            if (is_newline(lexer_state.current_file->current_pos[0]))
+                break;
+
+            token_location_t flag_loc = lexer_state.current_file->current_location;
+
+            int flag = 0;
+            if (is_decimal_digit(lexer_state.current_file->current_pos[0]))
+            {
+                while (!past_eof()
+                        && is_decimal_digit(lexer_state.current_file->current_pos[0]))
+                {
+                    flag = 10*flag + (lexer_state.current_file->current_pos[0] - '0');
+
+                    lexer_state.current_file->current_pos++;
+                    lexer_state.current_file->current_location.column++;
+                }
+
+                if (1 <= flag
+                        && flag <= 4)
+                {
+                    // We could do something with these
+                }
+                else
+                {
+                    warn_printf("%s:%d:%d: invalid flag %d\n",
+                            flag_loc.filename,
+                            flag_loc.line,
+                            flag_loc.column,
+                            flag);
+                }
+            }
+            else
+            {
+                warn_printf("%s:%d:%d: unexpected tokens at end of line-marker\n",
+                        lexer_state.current_file->current_location.filename,
+                        lexer_state.current_file->current_location.line,
+                        lexer_state.current_file->current_location.column);
+                break;
+            }
+        }
+
+        // Go to end of the line
+        while (!past_eof()
+                && is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+
+        if (past_eof())
+        {
+        }
+        else if (is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_location.line++;
+            lexer_state.current_file->current_location.column = 0;
+            if (lexer_state.current_file->current_pos[0] == '\n')
+            {
+                lexer_state.current_file->current_pos++;
+            }
+            else // if (lexer_state.current_file->current_pos[0] == '\r')
+            {
+                lexer_state.current_file->current_pos++;
+                if (!past_eof()
+                        && lexer_state.current_file->current_pos[0] == '\n')
+                {
+                    lexer_state.current_file->current_pos++;
+                }
+            }
+        }
+
+        lexer_state.current_file->current_location.filename = uniquestr(filename);
+        lexer_state.current_file->current_location.line = linenum;
+        lexer_state.current_file->current_location.column = 0;
+
+        return 1;
+    }
+    else
+    {
+        warn_printf("%s:%d:%d: invalid filename, ignoring line-marker\n",
+                filename_loc.filename,
+                filename_loc.line,
+                filename_loc.column);
+
+        // Go to end of the line
+        while (!past_eof()
+                && !is_newline(lexer_state.current_file->current_pos[0]))
+        {
+            lexer_state.current_file->current_pos++;
+            lexer_state.current_file->current_location.column++;
+        }
+
+        if (!past_eof())
+        {
+            lexer_state.current_file->current_location.line++;
+            lexer_state.current_file->current_location.column = 0;
+            if (lexer_state.current_file->current_pos[0] != '\n')
+            {
+                lexer_state.current_file->current_pos++;
+            }
+            else // if (lexer_state.current_file->current_pos[0] != '\r')
+            {
+                lexer_state.current_file->current_pos++;
+                if (!past_eof()
+                        && lexer_state.current_file->current_pos[0] != '\n')
+                {
+                    lexer_state.current_file->current_pos++;
+                }
+            }
+        }
+
+        return 1;
+    }
+#undef ROLLBACK
+}
+
 static inline int free_form_get(void)
 {
     if (past_eof())
@@ -685,79 +955,97 @@ static inline int free_form_get(void)
                 // This line was empty, continue to the next
                 continue;
             }
-            else if (lexer_state.sentinel != NULL)
-            {
-                // Skip the current sentinel
-                if (lexer_state.current_file->current_pos[0] != '!')
-                {
-                    do_rollback = 1;
-                    break;
-                }
-
-                lexer_state.current_file->current_pos++;
-                lexer_state.current_file->current_location.column++;
-                if (past_eof())
-                    break;
-
-                if (lexer_state.current_file->current_pos[0] != '$')
-                {
-                    do_rollback = 1;
-                    break;
-                }
-
-                lexer_state.current_file->current_pos++;
-                lexer_state.current_file->current_location.column++;
-                if (past_eof())
-                    break;
-
-                int i = 0;
-                while (!past_eof()
-                        && lexer_state.sentinel[i] != '\0'
-                        && (tolower(lexer_state.current_file->current_pos[0])
-                            == tolower(lexer_state.sentinel[i])))
-                {
-                    lexer_state.current_file->current_pos++;
-                    lexer_state.current_file->current_location.column++;
-                    i++;
-                }
-
-                if (past_eof())
-                    ROLLBACK;
-
-                if (lexer_state.sentinel[i] != '\0')
-                {
-                    do_rollback = 1;
-                    break;
-                }
-
-                // Sentinel done, skip blanks
-                while (!past_eof()
-                        && is_blank(lexer_state.current_file->current_pos[0]))
-                {
-                    lexer_state.current_file->current_location.column++;
-
-                    lexer_state.current_file->current_pos++;
-                }
-                if (past_eof())
-                    break;
-            }
             else if (lexer_state.current_file->current_pos[0] == '!')
             {
-                // This line is just a comment (note that there is no active
-                // sentinel)
-                while (!past_eof()
-                        && !is_newline(lexer_state.current_file->current_pos[0]))
+                if (lexer_state.sentinel != NULL)
                 {
-                    lexer_state.current_file->current_location.column++;
+                    // This line is just a comment
                     lexer_state.current_file->current_pos++;
-                }
+                    lexer_state.current_file->current_location.column++;
+                    if (past_eof())
+                        break;
 
+                    if (lexer_state.current_file->current_pos[0] != '$')
+                    {
+                        do_rollback = 1;
+                        break;
+                    }
+
+                    lexer_state.current_file->current_pos++;
+                    lexer_state.current_file->current_location.column++;
+                    if (past_eof())
+                        break;
+
+                    int i = 0;
+                    while (!past_eof()
+                            && lexer_state.sentinel[i] != '\0'
+                            && (tolower(lexer_state.current_file->current_pos[0])
+                                == tolower(lexer_state.sentinel[i])))
+                    {
+                        lexer_state.current_file->current_pos++;
+                        lexer_state.current_file->current_location.column++;
+                        i++;
+                    }
+
+                    if (past_eof())
+                        ROLLBACK;
+
+                    if (lexer_state.sentinel[i] != '\0')
+                    {
+                        do_rollback = 1;
+                        break;
+                    }
+
+                    // Sentinel done, skip blanks
+                    while (!past_eof()
+                            && is_blank(lexer_state.current_file->current_pos[0]))
+                    {
+                        lexer_state.current_file->current_location.column++;
+
+                        lexer_state.current_file->current_pos++;
+                    }
+                    if (past_eof())
+                        break;
+
+                    // We are done
+                    break;
+                }
+                else
+                {
+                    // This line is just a comment
+                    while (!past_eof()
+                            && !is_newline(lexer_state.current_file->current_pos[0]))
+                    {
+                        lexer_state.current_file->current_location.column++;
+                        lexer_state.current_file->current_pos++;
+                    }
+
+                    if (past_eof())
+                        break;
+
+                    // Comment done (we have not yet handled the newline, it will
+                    // be handled in the next iteration)
+                    continue;
+                }
+            }
+            else if (lexer_state.current_file->current_pos[0] == '#')
+            {
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
                 if (past_eof())
                     break;
 
-                // Comment done (we have not yet handled the newline, it will
-                // be handled in the next iteration)
-                continue;
+                if (handle_preprocessor_line())
+                    continue;
+
+                // We are done
+                break;
+            }
+            else if (lexer_state.sentinel != NULL)
+            {
+                // We expected a sentinel
+                do_rollback = 1;
+                break;
             }
             else
             {
@@ -1538,276 +1826,6 @@ static char is_include_line(void)
     lexer_state.num_pragma_constructs = 0;
 
     return 1;
-}
-
-static char handle_preprocessor_line(void)
-{
-    const char* keep = lexer_state.current_file->current_pos;
-    int keep_column = lexer_state.current_file->current_location.column;
-
-#define ROLLBACK \
-    { \
-        lexer_state.current_file->current_pos = keep; \
-        lexer_state.current_file->current_location.column = keep_column; \
-        return 0; \
-    }
-
-    // We allow the following syntax
-    // ^([ ]*line)?[ ]+[0-9]+[ ]*("[^"]*"[ ]+([1234][ ]+)*$
-    while (!past_eof()
-            && is_blank(lexer_state.current_file->current_pos[0]))
-    {
-        lexer_state.current_file->current_pos++;
-        lexer_state.current_file->current_location.column++;
-    }
-
-    if (past_eof())
-        ROLLBACK;
-
-    if (lexer_state.current_file->current_pos[0] == 'l')
-    {
-        // Attempt to match 'line'
-        const char c[] = "line";
-        int i = 1; // we already know it starts by 'l'
-        lexer_state.current_file->current_pos++;
-        while (c[i] != '\0'
-                && !past_eof()
-                && c[i] == lexer_state.current_file->current_pos[0])
-        {
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-
-            i++;
-        }
-
-        if (past_eof()
-                || c[i] != '\0')
-            ROLLBACK;
-
-        if (!is_blank(lexer_state.current_file->current_pos[0]))
-            ROLLBACK;
-
-        while (!past_eof()
-                && is_blank(lexer_state.current_file->current_pos[0]))
-        {
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-        }
-    }
-
-    // linenum
-    if (!is_decimal_digit(lexer_state.current_file->current_pos[0]))
-        ROLLBACK;
-
-    int linenum = 0;
-
-    while (!past_eof()
-            && is_decimal_digit(lexer_state.current_file->current_pos[0]))
-    {
-        linenum = 10*linenum + (lexer_state.current_file->current_pos[0] - '0');
-        lexer_state.current_file->current_pos++;
-        lexer_state.current_file->current_location.column++;
-    }
-
-    // This is not possible, fix it to 1
-    if (linenum == 0)
-        linenum = 1;
-
-    token_location_t filename_loc = lexer_state.current_file->current_location;
-
-    while (!past_eof()
-            && is_blank(lexer_state.current_file->current_pos[0]))
-    {
-        lexer_state.current_file->current_pos++;
-        lexer_state.current_file->current_location.column++;
-    }
-
-    if (past_eof())
-    {
-        lexer_state.current_file->current_location.line = linenum;
-        lexer_state.current_file->current_location.column = 0;
-
-        return 1;
-    }
-    else if (is_newline(lexer_state.current_file->current_pos[0]))
-    {
-        if (lexer_state.current_file->current_pos[0] == '\r')
-        {
-            lexer_state.current_file->current_pos++;
-            if (!past_eof()
-                    && lexer_state.current_file->current_pos[0] == '\n')
-                lexer_state.current_file->current_pos++;
-        }
-        else // '\n'
-        {
-            lexer_state.current_file->current_pos++;
-        }
-
-        lexer_state.current_file->current_location.line = linenum;
-        lexer_state.current_file->current_location.column = 0;
-
-        return 1;
-    }
-    else if (lexer_state.current_file->current_pos[0] == '"')
-    {
-        lexer_state.current_file->current_pos++;
-        lexer_state.current_file->current_location.column++;
-
-        const char *start = lexer_state.current_file->current_pos;
-
-        // FIXME - escaped characters
-        while (!past_eof()
-                && lexer_state.current_file->current_pos[0] != '"'
-                && !is_newline(lexer_state.current_file->current_pos[0]))
-        {
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-        }
-
-        if (lexer_state.current_file->current_pos[0] != '"')
-            ROLLBACK;
-
-        const char* final = lexer_state.current_file->current_pos - 1;
-
-        if (final - start == 0)
-            ROLLBACK;
-
-        int num_chars = final - start + 1;
-        int num_bytes_buffer = num_chars + 1;
-        char filename[num_bytes_buffer];
-        memcpy(filename, start, num_chars);
-        filename[num_bytes_buffer - 1] = '\0';
-
-        // advance delim
-        lexer_state.current_file->current_pos++;
-        lexer_state.current_file->current_location.column++;
-
-        for (;;)
-        {
-            while (!past_eof()
-                    && is_blank(lexer_state.current_file->current_pos[0]))
-            {
-                lexer_state.current_file->current_pos++;
-                lexer_state.current_file->current_location.column++;
-            }
-
-            if (past_eof())
-                break;
-
-            if (is_newline(lexer_state.current_file->current_pos[0]))
-                break;
-
-            token_location_t flag_loc = lexer_state.current_file->current_location;
-
-            int flag = 0;
-            if (is_decimal_digit(lexer_state.current_file->current_pos[0]))
-            {
-                while (!past_eof()
-                        && is_decimal_digit(lexer_state.current_file->current_pos[0]))
-                {
-                    flag = 10*flag + (lexer_state.current_file->current_pos[0] - '0');
-
-                    lexer_state.current_file->current_pos++;
-                    lexer_state.current_file->current_location.column++;
-                }
-
-                if (1 <= flag
-                        && flag <= 4)
-                {
-                    // We could do something with these
-                }
-                else
-                {
-                    warn_printf("%s:%d:%d: invalid flag %d\n",
-                            flag_loc.filename,
-                            flag_loc.line,
-                            flag_loc.column,
-                            flag);
-                }
-            }
-            else
-            {
-                warn_printf("%s:%d:%d: unexpected tokens at end of line-marker\n",
-                        lexer_state.current_file->current_location.filename,
-                        lexer_state.current_file->current_location.line,
-                        lexer_state.current_file->current_location.column);
-                break;
-            }
-        }
-
-        // Go to end of the line
-        while (!past_eof()
-                && is_newline(lexer_state.current_file->current_pos[0]))
-        {
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-        }
-
-        if (past_eof())
-        {
-        }
-        else if (is_newline(lexer_state.current_file->current_pos[0]))
-        {
-            lexer_state.current_file->current_location.line++;
-            lexer_state.current_file->current_location.column = 0;
-            if (lexer_state.current_file->current_pos[0] == '\n')
-            {
-                lexer_state.current_file->current_pos++;
-            }
-            else // if (lexer_state.current_file->current_pos[0] == '\r')
-            {
-                lexer_state.current_file->current_pos++;
-                if (!past_eof()
-                        && lexer_state.current_file->current_pos[0] == '\n')
-                {
-                    lexer_state.current_file->current_pos++;
-                }
-            }
-        }
-
-        lexer_state.current_file->current_location.filename = uniquestr(filename);
-        lexer_state.current_file->current_location.line = linenum;
-        lexer_state.current_file->current_location.column = 0;
-
-        return 1;
-    }
-    else
-    {
-        warn_printf("%s:%d:%d: invalid filename, ignoring line-marker\n",
-                filename_loc.filename,
-                filename_loc.line,
-                filename_loc.column);
-
-        // Go to end of the line
-        while (!past_eof()
-                && !is_newline(lexer_state.current_file->current_pos[0]))
-        {
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-        }
-
-        if (!past_eof())
-        {
-            lexer_state.current_file->current_location.line++;
-            lexer_state.current_file->current_location.column = 0;
-            if (lexer_state.current_file->current_pos[0] != '\n')
-            {
-                lexer_state.current_file->current_pos++;
-            }
-            else // if (lexer_state.current_file->current_pos[0] != '\r')
-            {
-                lexer_state.current_file->current_pos++;
-                if (!past_eof()
-                        && lexer_state.current_file->current_pos[0] != '\n')
-                {
-                    lexer_state.current_file->current_pos++;
-                }
-            }
-        }
-
-        return 1;
-    }
-#undef ROLLBACK
 }
 
 static inline char is_format_statement(void)
