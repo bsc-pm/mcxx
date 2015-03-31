@@ -123,7 +123,9 @@ static token_location_t get_current_location(void)
     return lexer_state.current_file->current_location;
 }
 
+#ifdef NEW_FORTRAN_SCANNER
 int mf03_flex_debug = 1;
+#endif
 
 static void init_lexer_state(void);
 
@@ -2039,15 +2041,15 @@ static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set
     {
         const char * current_discard_source = NULL;
 
-        int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
+        int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j],
                 &current_discard_source);
-        
+
         if (current_match >= length_match && current_match != 0)
         {
             int size_directive = strlen(pragma_directive_set->directive_names[j]);
             if (current_match == size_lexed_directive && size_lexed_directive == size_directive)
             {
-               exact_match = 1;    
+               exact_match = 1;
             }
             length_match = current_match;
             longest_match_so_far = pragma_directive_set->directive_names[j];
@@ -3233,6 +3235,7 @@ extern int new_mf03lex(void)
                 case EOF:
                     {
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
+                        xfree(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
                         error_printf("%s:%d:%d: error: unexpected end-of-file in directive\n",
                                 loc.filename,
@@ -3244,6 +3247,7 @@ extern int new_mf03lex(void)
                 case '\r':
                     {
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
+                        xfree(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
                         if (!lexer_state.last_eos)
                         {
