@@ -2432,11 +2432,14 @@ extern int new_mf03lex(void)
                             else if (tolower(c3) == 'v'
                                     && c4 == '.')
                             {
-                                get(); // e
-                                get(); // q
-                                get(); // v
-                                get(); // .
-                                return commit_text(TOKEN_LOGICAL_EQUIVALENT, ".eqv.", loc);
+                                char str[sizeof(".eqv.")];
+                                str[0] = c0;    // .
+                                str[1] = get(); // e
+                                str[2] = get(); // q
+                                str[3] = get(); // v
+                                str[4] = get(); // .
+                                str[5] = '\0';
+                                return commit_text(TOKEN_LOGICAL_EQUIVALENT, str, loc);
                             }
                         }
                         else if (tolower(c1) == 'n')
@@ -2457,12 +2460,15 @@ extern int new_mf03lex(void)
                                         && tolower(c4) == 'v'
                                         && c5 == '.')
                                 {
-                                    get(); // n
-                                    get(); // e
-                                    get(); // q
-                                    get(); // v
-                                    get(); // .
-                                    return commit_text(TOKEN_LOGICAL_NOT_EQUIVALENT, ".neqv.", loc);
+                                    char str[sizeof(".neqv.")];
+                                    str[0] = c0;    // .
+                                    str[1] = get(); // n
+                                    str[2] = get(); // e
+                                    str[3] = get(); // q
+                                    str[4] = get(); // v
+                                    str[5] = get(); // .
+                                    str[6] = '\0';
+                                    return commit_text(TOKEN_LOGICAL_NOT_EQUIVALENT, str, loc);
                                 }
                             }
                             else if (tolower(c2) == 'o')
@@ -2472,11 +2478,14 @@ extern int new_mf03lex(void)
                                 if (tolower(c3) == 't'
                                         && c4 == '.')
                                 {
-                                    get(); // n
-                                    get(); // o
-                                    get(); // t
-                                    get(); // .
-                                    return commit_text(TOKEN_LOGICAL_NOT, ".not.", loc);
+                                    char str[sizeof(".not.")];
+                                    str[0] = c0;    // .
+                                    str[1] = get(); // n
+                                    str[2] = get(); // o
+                                    str[3] = get(); // t
+                                    str[4] = get(); // .
+                                    str[5] = '\0';
+                                    return commit_text(TOKEN_LOGICAL_NOT, str, loc);
                                 }
                             }
                         }
@@ -2526,10 +2535,13 @@ extern int new_mf03lex(void)
                             int c3 = peek(2);
                             if (c3 == '.')
                             {
-                                get(); // o
-                                get(); // r
-                                get(); // .
-                                return commit_text(TOKEN_LOGICAL_OR, ".or.", loc);
+                                char str[sizeof(".or.")];
+                                str[0] = c0;    // .
+                                str[1] = get(); // o
+                                str[2] = get(); // r
+                                str[3] = get(); // .
+                                str[4] = '\0';
+                                return commit_text(TOKEN_LOGICAL_OR, str, loc);
                             }
                         }
                         else if (tolower(c1) == 'a'
@@ -2540,11 +2552,14 @@ extern int new_mf03lex(void)
                             if (tolower(c3) == 'd'
                                     && c4 == '.')
                             {
-                                get(); // a
-                                get(); // n
-                                get(); // d
-                                get(); // .
-                                return commit_text(TOKEN_LOGICAL_AND, ".and.", loc);
+                                char str[sizeof(".and.")];
+                                str[0] = c0;    // .
+                                str[1] = get(); // a
+                                str[2] = get(); // n
+                                str[3] = get(); // d
+                                str[4] = get(); // .
+                                str[5] = '\0';
+                                return commit_text(TOKEN_LOGICAL_AND, str, loc);
                             }
                         }
                         else if (tolower(c1) == 't'
