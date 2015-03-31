@@ -131,7 +131,7 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 
 				if (next_position == NULL)
 				{
-					running_error("Serious problem when splitting line. '%s' not found:\n\n %s", mf03lval.token_atrib.token_text, line);
+					running_error("Serious problem when splitting line. '%s' not found:\n\n %s", mf03lval.token_atrib.token_text, position);
 				}
 
 				// Next column has the column where the token will start
