@@ -2649,6 +2649,10 @@ extern int new_mf03lex(void)
                                         loc.line,
                                         loc.column);
                             }
+                            else
+                            {
+                                get(); // .
+                            }
 
                             tiny_dyncharbuf_add(&user_def_op, '.');
                             tiny_dyncharbuf_add(&user_def_op, '\0');
