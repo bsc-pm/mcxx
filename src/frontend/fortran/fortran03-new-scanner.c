@@ -2065,6 +2065,9 @@ static const char* return_pragma_prefix_longest_match(
         const char* prefix, 
         char is_end_directive,
         const char* lexed_directive,
+
+        // out
+        char** relevant_directive,
         pragma_directive_kind_t* kind)
 {
     const char* longest_match = NULL;
@@ -2090,10 +2093,15 @@ static const char* return_pragma_prefix_longest_match(
         }
     }
 
-    // Now advance the token stream
     const char *start = lexed_directive;
     const char *end = discard_source;
 
+    // Keep the relevant directive of the lexed input
+    *relevant_directive = xmalloc((end - start + 1) * sizeof(char));
+    strncpy(*relevant_directive, start, end - start);
+    (*relevant_directive)[end - start] = '\0';
+
+    // Now advance the token stream
     // The first letter is always already consumed
     start++;
 
@@ -2102,6 +2110,7 @@ static const char* return_pragma_prefix_longest_match(
         start++;
         get();
     }
+
 
     return longest_match;
 }
@@ -3358,9 +3367,13 @@ extern int new_mf03lex(void)
                             char is_end_directive = (strlen(str.buf) > 3
                                     && strncasecmp(str.buf, "end", 3) == 0);
 
+                            char* relevant_directive = NULL;
                             pragma_directive_kind_t directive_kind = PDK_NONE; 
                             const char* longest_match = return_pragma_prefix_longest_match(
-                                    lexer_state.sentinel, is_end_directive, str.buf, &directive_kind);
+                                    lexer_state.sentinel, is_end_directive, str.buf,
+                                    // out
+                                    &relevant_directive,
+                                    &directive_kind);
 
                             int token_id = 0;
                             switch (directive_kind)
@@ -3378,7 +3391,7 @@ extern int new_mf03lex(void)
                                                     loc.line,
                                                     loc.column,
                                                     strtoupper(lexer_state.sentinel),
-                                                    strtoupper(longest_match));
+                                                    strtoupper(relevant_directive));
                                         }
                                         break;
                                     }
@@ -3422,7 +3435,7 @@ extern int new_mf03lex(void)
                                                             loc.line,
                                                             loc.column,
                                                             strtoupper(lexer_state.sentinel), 
-                                                            strtoupper(longest_match),
+                                                            strtoupper(relevant_directive),
                                                             strtoupper(lexer_state.sentinel), 
                                                             strtoupper(format_pragma_string(top)));
                                                 }
@@ -3440,7 +3453,7 @@ extern int new_mf03lex(void)
                                                         loc.line,
                                                         loc.column,
                                                         strtoupper(lexer_state.sentinel), 
-                                                        strtoupper(longest_match));
+                                                        strtoupper(relevant_directive));
                                             }
                                         }
                                         break;
@@ -3459,7 +3472,7 @@ extern int new_mf03lex(void)
                             }
 
                             lexer_state.substate = LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE;
-                            int n = commit_text(token_id, longest_match, loc);
+                            int n = commit_text_and_free(token_id, relevant_directive, loc);
                             xfree(str.buf);
                             return n;
                             break;
