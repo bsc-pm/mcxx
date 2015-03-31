@@ -27,7 +27,7 @@
 #define new_mf03lex mf03lex
 #define new_mf03_open_file_for_scanning mf03_open_file_for_scanning
 #define new_mf03_prepare_string_for_scanning mf03_prepare_string_for_scanning
-#endif // NEW_FORTRAN_SCANNER
+#endif // FORTRAN_NEW_SCANNER
 
 /*
    Include stack.
@@ -123,7 +123,7 @@ static token_location_t get_current_location(void)
     return lexer_state.current_file->current_location;
 }
 
-#ifdef NEW_FORTRAN_SCANNER
+#ifdef FORTRAN_NEW_SCANNER
 int mf03_flex_debug = 1;
 #endif
 
