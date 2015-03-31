@@ -244,6 +244,7 @@ struct keyword_table_tag
     {"endsubmodule", TOKEN_ENDSUBMODULE},
     {"endsubroutine", TOKEN_ENDSUBROUTINE},
     {"endtype", TOKEN_ENDTYPE},
+    {"endwhere", TOKEN_ENDWHERE},
     {"entry", TOKEN_ENTRY},
     {"enum", TOKEN_ENUM},
     {"enumerator", TOKEN_ENUMERATOR},
