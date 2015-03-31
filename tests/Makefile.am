@@ -58,6 +58,7 @@ prepare-check: ./config/bets wipe-modules
 
 wipe-modules:
 	rm -f *.mod
+	rm -f *.mf03
 
 BETS_DIRS=$(srcdir)
 
@@ -166,4 +167,5 @@ clean-local:
 	rm -f mfc_*.f90 mfc_*.f90.c mfc_*.f90.o
 	rm -f aux_*.f90.c aux_*.f90.o
 	rm -f *.mod
+	rm -f *.mf03
 
