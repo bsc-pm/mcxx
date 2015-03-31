@@ -635,62 +635,138 @@ static inline int free_form_get(void)
         else
             ROLLBACK;
 
-        if (lexer_state.sentinel != NULL)
+        // Now we need to peek if there is another &, so we have to do
+        // token pasting, otherwise we will return a blank
+        //
+        // Note that the following part is complicated because we
+        // need to skip lines with only blanks or only a comment
+        char do_rollback = 0;
+        for (;;)
         {
-            // Skip the current sentinel
+            // Skip blanks
             while (!past_eof()
                     && is_blank(lexer_state.current_file->current_pos[0]))
             {
                 lexer_state.current_file->current_location.column++;
+
                 lexer_state.current_file->current_pos++;
             }
             if (past_eof())
-                ROLLBACK;
+                break;
 
-            if (lexer_state.current_file->current_pos[0] != '!')
-                ROLLBACK;
-
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-            if (past_eof())
-                ROLLBACK;
-
-            if (lexer_state.current_file->current_pos[0] != '$')
-                ROLLBACK;
-
-            lexer_state.current_file->current_pos++;
-            lexer_state.current_file->current_location.column++;
-            if (past_eof())
-                ROLLBACK;
-
-            int i = 0;
-            while (!past_eof()
-                    && lexer_state.sentinel[i] != '\0'
-                    && (tolower(lexer_state.current_file->current_pos[0])
-                        == tolower(lexer_state.sentinel[i])))
+            if (is_newline(lexer_state.current_file->current_pos[0]))
             {
+                // This is a line of only blanks (i.e. an empty line)
+                if (lexer_state.current_file->current_pos[0] == '\n')
+                {
+                    lexer_state.current_file->current_location.line++;
+                    lexer_state.current_file->current_location.column = 0;
+
+                    lexer_state.current_file->current_pos++;
+                    if (past_eof())
+                        break;
+                }
+                else // '\r'
+                {
+                    lexer_state.current_file->current_location.line++;
+                    lexer_state.current_file->current_location.column = 0;
+
+                    lexer_state.current_file->current_pos++;
+                    if (!past_eof()
+                            && lexer_state.current_file->current_pos[0] == '\n')
+                    {
+                        lexer_state.current_file->current_pos++;
+                        if (past_eof())
+                            break;
+                    }
+                }
+
+                // This line was empty, continue to the next
+                continue;
+            }
+            else if (lexer_state.sentinel != NULL)
+            {
+                // Skip the current sentinel
+                if (lexer_state.current_file->current_pos[0] != '!')
+                {
+                    do_rollback = 1;
+                    break;
+                }
+
                 lexer_state.current_file->current_pos++;
                 lexer_state.current_file->current_location.column++;
-                i++;
+                if (past_eof())
+                    break;
+
+                if (lexer_state.current_file->current_pos[0] != '$')
+                {
+                    do_rollback = 1;
+                    break;
+                }
+
+                lexer_state.current_file->current_pos++;
+                lexer_state.current_file->current_location.column++;
+                if (past_eof())
+                    break;
+
+                int i = 0;
+                while (!past_eof()
+                        && lexer_state.sentinel[i] != '\0'
+                        && (tolower(lexer_state.current_file->current_pos[0])
+                            == tolower(lexer_state.sentinel[i])))
+                {
+                    lexer_state.current_file->current_pos++;
+                    lexer_state.current_file->current_location.column++;
+                    i++;
+                }
+
+                if (past_eof())
+                    ROLLBACK;
+
+                if (lexer_state.sentinel[i] != '\0')
+                {
+                    do_rollback = 1;
+                    break;
+                }
+
+                // Sentinel done, skip blanks
+                while (!past_eof()
+                        && is_blank(lexer_state.current_file->current_pos[0]))
+                {
+                    lexer_state.current_file->current_location.column++;
+
+                    lexer_state.current_file->current_pos++;
+                }
+                if (past_eof())
+                    break;
             }
+            else if (lexer_state.current_file->current_pos[0] == '!')
+            {
+                // This line is just a comment (note that there is no active
+                // sentinel)
+                while (!past_eof()
+                        && !is_newline(lexer_state.current_file->current_pos[0]))
+                {
+                    lexer_state.current_file->current_location.column++;
+                    lexer_state.current_file->current_pos++;
+                }
 
-            if (past_eof())
-                ROLLBACK;
+                if (past_eof())
+                    break;
 
-            if (lexer_state.sentinel[i] != '\0')
-                ROLLBACK;
-        }
-
-        // Now we need to peek if there is another &, so we have to do
-        // token pasting, otherwise we will return a blank
-        while (!past_eof()
-                && is_blank(lexer_state.current_file->current_pos[0]))
-        {
-            lexer_state.current_file->current_location.column++;
-
-            lexer_state.current_file->current_pos++;
+                // Comment done (we have not yet handled the newline, it will
+                // be handled in the next iteration)
+                continue;
+            }
+            else
+            {
+                // We are done
+                break;
+            }
         }
         if (past_eof())
+            ROLLBACK;
+        if (do_rollback)
             ROLLBACK;
 
         if (lexer_state.current_file->current_pos[0] == '&')
@@ -2914,7 +2990,7 @@ extern int new_mf03lex(void)
 
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
                                 xfree(digits.buf);
-                                
+
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
                                 xfree(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
@@ -2939,13 +3015,14 @@ extern int new_mf03lex(void)
                             }
                             else
                             {
+                                lexer_state.character_context = 1;
                                 tiny_dyncharbuf_t holl;
                                 tiny_dyncharbuf_new(&holl, length + 1);
                                 int ok = 1;
                                 for (int i = 0; i < length; i++)
                                 {
                                     c = peek(0);
-                                    if (is_newline(c) 
+                                    if (is_newline(c)
                                             || c == EOF)
                                     {
                                         error_printf("%s:%d:%d: error: unended Hollerith constant\n",
@@ -2959,6 +3036,7 @@ extern int new_mf03lex(void)
                                     get();
                                 }
                                 tiny_dyncharbuf_add(&holl, '\0');
+                                lexer_state.character_context = 0;
 
                                 if (!ok)
                                     continue;
