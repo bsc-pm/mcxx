@@ -2427,7 +2427,7 @@ extern int new_mf03lex(void)
                                 get(); // e
                                 get(); // q
                                 get(); // .
-                                return commit_text(TOKEN_EQUAL, ".eq.", loc);
+                                return commit_text(TOKEN_EQUAL, "==", loc);
                             }
                             else if (tolower(c3) == 'v'
                                     && c4 == '.')
@@ -2451,7 +2451,7 @@ extern int new_mf03lex(void)
                                     get(); // n
                                     get(); // e
                                     get(); // .
-                                    return commit_text(TOKEN_NOT_EQUAL, ".ne.", loc);
+                                    return commit_text(TOKEN_NOT_EQUAL, "/=", loc);
                                 }
                                 else if (tolower(c3) == 'q'
                                         && tolower(c4) == 'v'
@@ -2489,7 +2489,7 @@ extern int new_mf03lex(void)
                                 get(); // l
                                 get(); // e
                                 get(); // .
-                                return commit_text(TOKEN_LOWER_OR_EQUAL_THAN, ".le.", loc);
+                                return commit_text(TOKEN_LOWER_OR_EQUAL_THAN, "<=", loc);
                             }
                             else if (tolower(c2) == 't'
                                     && c3 == '.')
@@ -2497,7 +2497,7 @@ extern int new_mf03lex(void)
                                 get(); // l
                                 get(); // t
                                 get(); // .
-                                return commit_text(TOKEN_LOWER_THAN, ".lt.", loc);
+                                return commit_text(TOKEN_LOWER_THAN, "<", loc);
                             }
                         }
                         else if (tolower(c1) == 'g')
@@ -2509,7 +2509,7 @@ extern int new_mf03lex(void)
                                 get(); // g
                                 get(); // e
                                 get(); // .
-                                return commit_text(TOKEN_GREATER_OR_EQUAL_THAN, ".ge.", loc);
+                                return commit_text(TOKEN_GREATER_OR_EQUAL_THAN, ">=", loc);
                             }
                             else if (tolower(c2) == 't'
                                     && c3 == '.')
@@ -2517,7 +2517,7 @@ extern int new_mf03lex(void)
                                 get(); // g
                                 get(); // t
                                 get(); // .
-                                return commit_text(TOKEN_GREATER_THAN, ".gt.", loc);
+                                return commit_text(TOKEN_GREATER_THAN, ">", loc);
                             }
                         }
                         else if (tolower(c1) == 'o'
