@@ -1068,26 +1068,45 @@ static char* scan_kind(void)
 
     int c = get();
     ERROR_CONDITION(c != '_', "input stream is incorrectly located (c=%c)", c);
-    tiny_dyncharbuf_add(&str, '_');
 
-    c = peek(0);
-    if (is_decimal_digit(c))
+    token_location_t loc;
+    c = peek_loc(0, &loc);
+    if (is_decimal_digit(c)
+            || is_letter(c))
     {
-        while (is_decimal_digit(c))
+        tiny_dyncharbuf_add(&str, '_');
+
+        if (is_decimal_digit(c))
         {
-            tiny_dyncharbuf_add(&str, c);
-            get();
-            c = peek(0);
+            while (is_decimal_digit(c))
+            {
+                tiny_dyncharbuf_add(&str, c);
+                get();
+                c = peek(0);
+            }
+        }
+        else if (is_letter(c))
+        {
+            while (is_letter(c)
+                    || is_decimal_digit(c)
+                    || c == '_')
+            {
+                tiny_dyncharbuf_add(&str, c);
+                get();
+                c = peek(0);
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
     }
-    else if (is_letter(c))
+    else
     {
-        while (is_letter(c))
-        {
-            tiny_dyncharbuf_add(&str, c);
-            get();
-            c = peek(0);
-        }
+        error_printf("%s:%d:%d: invalid kind-specifier\n",
+                loc.filename,
+                loc.line,
+                loc.column);
     }
 
     tiny_dyncharbuf_add(&str, '\0');
