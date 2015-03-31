@@ -2908,7 +2908,24 @@ extern int new_mf03lex(void)
                         }
                         tiny_dyncharbuf_add(&digits, '\0');
 
-                        if (c == '.')
+                        if (tolower(c) == 'e'
+                                || tolower(c) == 'd'
+                                || tolower(c) == 'q')
+                        {
+                            char* fractional_part = scan_fractional_part_of_real_literal();
+
+                            tiny_dyncharbuf_t t_str;
+                            tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(fractional_part) + 1);
+                            tiny_dyncharbuf_add_str(&t_str, digits.buf);
+                            xfree(digits.buf);
+                            tiny_dyncharbuf_add_str(&t_str, fractional_part);
+                            xfree(fractional_part);
+
+                            tiny_dyncharbuf_add(&t_str, '\0');
+
+                            return commit_text_and_free(REAL_LITERAL, t_str.buf, loc);
+                        }
+                        else if (c == '.')
                         {
                             // There are two cases here
                             //   1.op. must be tokenized as DECIMAL_LITERAL USER_DEFINED_OPERATOR
