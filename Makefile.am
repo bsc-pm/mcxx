@@ -837,6 +837,7 @@ src/frontend/fortran/fortran03-keywords.c : $(srcdir)/src/frontend/fortran/fortr
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fortran_keywords_hash --struct-type \
       --initializer-suffix=,0 --lookup-function-name=fortran_keywords_lookup --output=src/frontend/fortran/fortran03-keywords.c \
+	  --ignore-case \
       $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf
 else
 	@echo "*** ERROR: file fortran03-keywords.gperf was modified but no suitable gperf was found during configure ***"
