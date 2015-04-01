@@ -1,0 +1,229 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
+%{
+#include <string.h>
+#include "fortran03-new-scanner.h"
+#include "fortran03-lexer.h"
+#include "fortran03-utils.h"
+#include "fortran03-parser-internal.h"
+%}
+
+struct fortran_keyword_tag;
+%%
+abstract, TOKEN_ABSTRACT
+access, TOKEN_ACCESS
+acquired, TOKEN_ACQUIRED
+action, TOKEN_ACTION
+advance, TOKEN_ADVANCE
+all, TOKEN_ALL
+allocatable, TOKEN_ALLOCATABLE
+allocate, TOKEN_ALLOCATE
+allstop, TOKEN_ALLSTOP
+assign, TOKEN_ASSIGN
+assignment, TOKEN_ASSIGNMENT
+associate, TOKEN_ASSOCIATE
+asynchronous, TOKEN_ASYNCHRONOUS
+backspace, TOKEN_BACKSPACE
+bind, TOKEN_BIND
+blank, TOKEN_BLANK
+block, TOKEN_BLOCK
+blockdata, TOKEN_BLOCKDATA
+c, TOKEN_C
+call, TOKEN_CALL
+case, TOKEN_CASE
+character, TOKEN_CHARACTER
+class, TOKEN_CLASS
+close, TOKEN_CLOSE
+codimension, TOKEN_CODIMENSION
+common, TOKEN_COMMON
+complex, TOKEN_COMPLEX
+concurrent, TOKEN_CONCURRENT
+contains, TOKEN_CONTAINS
+contiguous, TOKEN_CONTIGUOUS
+continue, TOKEN_CONTINUE
+convert, TOKEN_CONVERT
+critical, TOKEN_CRITICAL
+cycle, TOKEN_CYCLE
+data, TOKEN_DATA
+deallocate, TOKEN_DEALLOCATE
+decimal, TOKEN_DECIMAL
+default, TOKEN_DEFAULT
+deferred, TOKEN_DEFERRED
+delim, TOKEN_DELIM
+dimension, TOKEN_DIMENSION
+direct, TOKEN_DIRECT
+do, TOKEN_DO
+double, TOKEN_DOUBLE
+doublecomplex, TOKEN_DOUBLECOMPLEX
+doubleprecision, TOKEN_DOUBLEPRECISION
+elemental, TOKEN_ELEMENTAL
+else, TOKEN_ELSE
+elseif, TOKEN_ELSEIF
+elsewhere, TOKEN_ELSEWHERE
+encoding, TOKEN_ENCODING
+end, TOKEN_END
+endassociate, TOKEN_ENDASSOCIATE
+endblock, TOKEN_ENDBLOCK
+endblockdata, TOKEN_ENDBLOCKDATA
+endcritical, TOKEN_ENDCRITICAL
+enddo, TOKEN_ENDDO
+endfile, TOKEN_ENDFILE
+endfunction, TOKEN_ENDFUNCTION
+endif, TOKEN_ENDIF
+endinterface, TOKEN_ENDINTERFACE
+endmodule, TOKEN_ENDMODULE
+endprocedure, TOKEN_ENDPROCEDURE
+endprogram, TOKEN_ENDPROGRAM
+endselect, TOKEN_ENDSELECT
+endsubmodule, TOKEN_ENDSUBMODULE
+endsubroutine, TOKEN_ENDSUBROUTINE
+endtype, TOKEN_ENDTYPE
+endwhere, TOKEN_ENDWHERE
+entry, TOKEN_ENTRY
+enum, TOKEN_ENUM
+enumerator, TOKEN_ENUMERATOR
+eor, TOKEN_EOR
+equivalence, TOKEN_EQUIVALENCE
+err, TOKEN_ERR
+errmsg, TOKEN_ERRMSG
+exist, TOKEN_EXIST
+exit, TOKEN_EXIT
+extends, TOKEN_EXTENDS
+external, TOKEN_EXTERNAL
+file, TOKEN_FILE
+final, TOKEN_FINAL
+flush, TOKEN_FLUSH
+fmt, TOKEN_FMT
+forall, TOKEN_FORALL
+form, TOKEN_FORM
+format, TOKEN_FORMAT
+formatted, TOKEN_FORMATTED
+function, TOKEN_FUNCTION
+generic, TOKEN_GENERIC
+go, TOKEN_GO
+goto, TOKEN_GOTO
+id, TOKEN_ID
+if, TOKEN_IF
+images, TOKEN_IMAGES
+implicit, TOKEN_IMPLICIT
+import, TOKEN_IMPORT
+impure, TOKEN_IMPURE
+in, TOKEN_IN
+inout, TOKEN_INOUT
+inquire, TOKEN_INQUIRE
+integer, TOKEN_INTEGER
+intent, TOKEN_INTENT
+interface, TOKEN_INTERFACE
+intrinsic, TOKEN_INTRINSIC
+iolength, TOKEN_IOLENGTH
+iomsg, TOKEN_IOMSG
+iostat, TOKEN_IOSTAT
+is, TOKEN_IS
+kind, TOKEN_KIND
+len, TOKEN_LEN
+lock, TOKEN_LOCK
+logical, TOKEN_LOGICAL
+memory, TOKEN_MEMORY
+module, TOKEN_MODULE
+mold, TOKEN_MOLD
+name, TOKEN_NAME
+named, TOKEN_NAMED
+namelist, TOKEN_NAMELIST
+newunit, TOKEN_NEWUNIT
+nextrec, TOKEN_NEXTREC
+nml, TOKEN_NML
+none, TOKEN_NONE
+nopass, TOKEN_NOPASS
+nullify, TOKEN_NULLIFY
+number, TOKEN_NUMBER
+only, TOKEN_ONLY
+open, TOKEN_OPEN
+opencl, TOKEN_OPENCL
+opened, TOKEN_OPENED
+operator, TOKEN_OPERATOR
+optional, TOKEN_OPTIONAL
+out, TOKEN_OUT
+overridable, TOKEN_OVERRIDABLE
+pad, TOKEN_PAD
+parameter, TOKEN_PARAMETER
+pass, TOKEN_PASS
+pause, TOKEN_PAUSE
+pending, TOKEN_PENDING
+pixel, TOKEN_PIXEL
+pointer, TOKEN_POINTER
+pos, TOKEN_POS
+position, TOKEN_POSITION
+precision, TOKEN_PRECISION
+print, TOKEN_PRINT
+private, TOKEN_PRIVATE
+procedure, TOKEN_PROCEDURE
+program, TOKEN_PROGRAM
+protected, TOKEN_PROTECTED
+public, TOKEN_PUBLIC
+pure, TOKEN_PURE
+read, TOKEN_READ
+readwrite, TOKEN_READWRITE
+real, TOKEN_REAL
+rec, TOKEN_REC
+recl, TOKEN_RECL
+recursive, TOKEN_RECURSIVE
+result, TOKEN_RESULT
+return, TOKEN_RETURN
+rewind, TOKEN_REWIND
+round, TOKEN_ROUND
+save, TOKEN_SAVE
+select, TOKEN_SELECT
+selectcase, TOKEN_SELECTCASE
+sequence, TOKEN_SEQUENCE
+sequential, TOKEN_SEQUENTIAL
+sign, TOKEN_SIGN
+size, TOKEN_SIZE
+source, TOKEN_SOURCE
+stat, TOKEN_STAT
+status, TOKEN_STATUS
+stop, TOKEN_STOP
+stream, TOKEN_STREAM
+submodule, TOKEN_SUBMODULE
+subroutine, TOKEN_SUBROUTINE
+sync, TOKEN_SYNC
+target, TOKEN_TARGET
+then, TOKEN_THEN
+to, TOKEN_TO
+type, TOKEN_TYPE
+unformatted, TOKEN_UNFORMATTED
+unit, TOKEN_UNIT
+unlock, TOKEN_UNLOCK
+use, TOKEN_USE
+value, TOKEN_VALUE
+vector, TOKEN_VECTOR
+volatile, TOKEN_VOLATILE
+wait, TOKEN_WAIT
+where, TOKEN_WHERE
+while, TOKEN_WHILE
+write, TOKEN_WRITE
+%%

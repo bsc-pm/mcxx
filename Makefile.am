@@ -698,12 +698,15 @@ BUILT_SOURCES += src/frontend/fortran/fortran03-parser-internal.h
 BUILT_SOURCES += src/frontend/fortran/fortran03.y
 BUILT_SOURCES += src/frontend/fortran/prescanner-scanner.h
 BUILT_SOURCES += src/frontend/fortran/fortran03-modules-bits.h
+BUILT_SOURCES += src/frontend/fortran/fortran03-keywords.c
 
 # Mercurium C/C++ compiler runtime library
 src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-parser.c \
                      src/frontend/fortran/fortran03-parser.h \
                      src/frontend/fortran/fortran03-lexer.h \
+                     src/frontend/fortran/fortran03-keywords.c \
+                     src/frontend/fortran/fortran03-new-scanner.h \
                      src/frontend/fortran/fortran03-new-scanner.c \
                      src/frontend/fortran/fortran03-parser-internal.h \
                      src/frontend/fortran/fortran03-cexpr.h \
@@ -826,6 +829,21 @@ EXTRA_DIST += src/frontend/fortran/fortran03.y.in
 
 EXTRA_DIST += src/frontend/fortran/prescanner.l
 EXTRA_DIST += src/frontend/fortran/prescanner-scanner.h
+
+if GPERF_BUILDING
+CLEANFILES += src/frontend/fortran/fortran03-keywords.c
+endif
+src/frontend/fortran/fortran03-keywords.c : $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf
+if GPERF_BUILDING
+	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fortran_keywords_hash --struct-type \
+      --initializer-suffix=,0 --lookup-function-name=fortran_keywords_lookup --output=src/frontend/fortran/fortran03-keywords.c \
+      $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf
+else
+	@echo "*** ERROR: file fortran03-keywords.gperf was modified but no suitable gperf was found during configure ***"
+	@exit 1
+endif
+
+EXTRA_DIST += src/frontend/fortran/fortran03-keywords.gperf
 
 src/frontend/fortran/fortran03.y : $(TPP) $(top_srcdir)/src/frontend/fortran/fortran03.y.in $(addprefix $(top_srcdir)/, $(ADDITIONAL_GRAMMARS_FORTRAN))
 	$(TPP_verbose)(rm -f src/frontend/fortran/fortran03.y && $(TPP) -I$(top_srcdir)/src/frontend -I$(top_srcdir)/src/frontend/fortran -o src/frontend/fortran/fortran03.y -D FORTRAN2003 $(top_srcdir)/src/frontend/fortran/fortran03.y.in && chmod -w src/frontend/fortran/fortran03.y)
