@@ -533,7 +533,9 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
 
+#ifndef FORTRAN_NEW_SCANNER
 static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename, char preprocessed);
+#endif
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig);
@@ -2936,14 +2938,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
+#ifndef FORTRAN_NEW_SCANNER
         char preprocessed = 0;
+#endif
         // If the file is not preprocessed or we've ben told to preprocess it
         if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
                     && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
+#ifndef FORTRAN_NEW_SCANNER
             preprocessed = 1;
+#endif
             timing_t timing_preprocessing;
 
             const char* old_preprocessor_name = CURRENT_CONFIGURATION->preprocessor_name;
@@ -2979,14 +2985,17 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             }
         }
 
-        if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+        char is_fixed_form  = (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
                 // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
                 //  - AND we were NOT told to be xfree form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
-                && !CURRENT_CONFIGURATION->pass_through)
+                && !CURRENT_CONFIGURATION->pass_through);
+
+#ifndef FORTRAN_NEW_SCANNER
+        if (is_fixed_form)
         {
             timing_t timing_prescanning;
 
@@ -3008,6 +3017,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                         translation_unit->input_filename);
             }
         }
+#endif
 
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
@@ -3048,7 +3058,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 FORTRAN_LANGUAGE()
                 {
-                    if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                    if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename, is_fixed_form) != 0)
                     {
                         running_error("Could not open file '%s'", parsed_filename);
                     }
@@ -3900,6 +3910,7 @@ const char* preprocess_file(const char* input_filename)
     return preprocess_single_file(input_filename, NULL);
 }
 
+#ifndef FORTRAN_NEW_SCANNER
 static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename, char preprocessed)
 {
     temporal_file_t prescanned_file = new_temporal_file();
@@ -3995,6 +4006,7 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         return NULL;
     }
 }
+#endif
 
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, 

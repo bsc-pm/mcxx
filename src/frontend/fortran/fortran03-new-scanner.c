@@ -94,11 +94,9 @@ struct scan_file_descriptor
 
 enum lexer_textual_form
 {
-    LX_INVALID_FORM = 0,
-    LX_FREE_FORM = 1,
-
-    // Not yet implemented
-    LX_FIXED_FORM = 2,
+    LEXER_TEXTUAL_INVALID_FORM = 0,
+    LEXER_TEXTUAL_FREE_FORM,
+    LEXER_TEXTUAL_FIXED_FORM,
 };
 
 enum lexing_substate
@@ -137,13 +135,18 @@ struct new_lexer_state_t
     // we have seen a nonblock do construct
     char in_nonblock_do_construct:1;
 
+    // Stack of nonblock DO labels we need this to properly nest them
     int num_nonblock_labels;
     int size_nonblock_labels_stack;
     int *nonblock_labels_stack;
 
+    // Stack of pragma constructs we need this to properly nest them when the
+    // END pragma is optional
     int num_pragma_constructs;
     int size_pragma_constructs_stack;
     char** pragma_constructs_stack;
+
+    // Extra state required by fixed form
 } lexer_state;
 
 static token_location_t get_current_location(void)
@@ -157,7 +160,9 @@ int mf03_flex_debug = 1;
 
 static void init_lexer_state(void);
 
-extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename)
+extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
+        const char* input_filename,
+        char is_fixed_form)
 {
     int fd = open(scanned_filename, O_RDONLY);
     if (fd < 0)
@@ -179,6 +184,7 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename, const c
         running_error("error: cannot map file '%s' in memory (%s)", scanned_filename, strerror(errno));
     }
 
+    lexer_state.form = !is_fixed_form ? LEXER_TEXTUAL_FREE_FORM : LEXER_TEXTUAL_FIXED_FORM;
     lexer_state.include_stack_size = 0;
     lexer_state.current_file = &lexer_state.include_stack[lexer_state.include_stack_size];
 
@@ -266,6 +272,7 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
     uniquestr_sprintf(&filename, "%s-%s-%d", TL_SOURCE_STRING, CURRENT_COMPILED_FILE->input_filename, num_string);
     num_string++;
 
+    lexer_state.form = LEXER_TEXTUAL_FREE_FORM;
     lexer_state.current_file->fd = -1; // not an mmap
     lexer_state.current_file->buffer_size = strlen(str);
     lexer_state.current_file->current_pos
@@ -638,6 +645,172 @@ static char handle_preprocessor_line(void)
 #undef ROLLBACK
 }
 
+static inline int fixed_form_get(void)
+{
+    int result;
+    while (!past_eof())
+    {
+        result = lexer_state.current_file->current_pos[0];
+        if (result == ' ')
+        {
+            if (lexer_state.character_context)
+                break;
+
+            lexer_state.current_file->current_location.column++;
+            lexer_state.current_file->current_pos++;
+        }
+        else if (result == '\t')
+        {
+            if (lexer_state.character_context)
+                break;
+
+            if (lexer_state.current_file->current_location.column < 5)
+            {
+                // In the labeld field we account tabs like 1 blank
+                lexer_state.current_file->current_location.column++;
+            }
+            else
+            {
+                // FIXME - make this configurable
+                lexer_state.current_file->current_location.column += 8;
+            }
+            lexer_state.current_file->current_pos++;
+        }
+        else if (lexer_state.current_file->current_location.column == 0
+                && (tolower(result) == 'c'
+                    || tolower(result) == 'd'
+                    || result == '*'))
+        {
+            // Comment
+            result = '!';
+            break;
+        }
+        else if (is_newline(result))
+        {
+            // Now we have to check if the next line continues this one
+            const char* const keep = lexer_state.current_file->current_pos;
+            const token_location_t keep_location = lexer_state.current_file->current_location;
+
+#define ROLLBACK \
+            { \
+                lexer_state.current_file->current_pos = keep; \
+                lexer_state.current_file->current_location = keep_location; \
+                break; \
+            }
+
+            if (result == '\n')
+            {
+                lexer_state.current_file->current_location.column = 0;
+                lexer_state.current_file->current_location.line++;
+
+                lexer_state.current_file->current_pos++;
+                if (past_eof())
+                    ROLLBACK;
+            }
+            else if (result == '\r')
+            {
+                lexer_state.current_file->current_location.column = 0;
+                lexer_state.current_file->current_location.line++;
+
+                lexer_state.current_file->current_pos++;
+                if (past_eof())
+                    ROLLBACK;
+
+                if (lexer_state.current_file->current_pos[0] == '\n')
+                {
+                    lexer_state.current_file->current_pos++;
+                    if (past_eof())
+                        ROLLBACK;
+                }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            // There should be 5 blanks and a nonblank character
+            // FIXME - sentinels!
+            // This is the regular expression for a continuation line (([ ]{5}))[^0[:blank:]]
+            char ok = 1;
+            char is_tab_form = 1;
+            int i;
+            for (i = 0; i < 5; i++)
+            {
+                if (past_eof()
+                        || (lexer_state.current_file->current_pos[0] != ' ')
+                        || (lexer_state.current_file->current_pos[0] != '\t'))
+                {
+                    ok = 0;
+                    break;
+                }
+
+                if (i == 0
+                        && (lexer_state.current_file->current_pos[0] != '\t'))
+                {
+                    is_tab_form = 1;
+                    lexer_state.current_file->current_location.column = 6;
+                    lexer_state.current_file->current_pos++;
+                    break;
+                }
+
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+            }
+            if (!ok)
+                ROLLBACK;
+
+            if (past_eof())
+                ROLLBACK;
+
+            if (!is_tab_form)
+            {
+                if (lexer_state.current_file->current_pos[0] == '0'
+                        || lexer_state.current_file->current_pos[0] == ' ')
+                    ROLLBACK;
+            }
+            else
+            {
+                // A continuation only if the tab is followed by a nonzero digit
+                if (!is_decimal_digit(lexer_state.current_file->current_pos[0])
+                        || lexer_state.current_file->current_pos[0] == '0')
+                    ROLLBACK;
+            }
+
+            lexer_state.current_file->current_location.column++;
+            lexer_state.current_file->current_pos++;
+
+            // this is a valid continuation line
+            continue; /* redundant, here just for clarity */
+#undef ROLLBACK
+        }
+    }
+
+    if (past_eof())
+        return EOF;
+
+    if (!is_newline(result))
+    {
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
+    }
+    else
+    {
+        lexer_state.current_file->current_location.line++;
+        lexer_state.current_file->current_location.column = 0;
+
+        lexer_state.current_file->current_pos++;
+        if (result == '\r'
+                && !past_eof()
+                && lexer_state.current_file->current_pos[0] == '\n')
+        {
+            // DOS: \r\n will act like a single '\r'
+            lexer_state.current_file->current_pos++;
+        }
+    }
+
+    return result;
+}
+
 static inline int free_form_get(void)
 {
     if (past_eof())
@@ -649,8 +822,7 @@ static inline int free_form_get(void)
     {
         const char* const keep = lexer_state.current_file->current_pos;
         const char keep_bol = lexer_state.bol;
-        // int keep_line = lexer_state.current_file->current_location->line;
-        const int keep_column = lexer_state.current_file->current_location.column;
+        const token_location_t keep_location = lexer_state.current_file->current_location;
 
         lexer_state.current_file->current_pos++;
         lexer_state.current_file->current_location.column++;
@@ -667,7 +839,7 @@ static inline int free_form_get(void)
 
 #define ROLLBACK \
         { \
-                lexer_state.current_file->current_location.column = keep_column; \
+                lexer_state.current_file->current_location = keep_location; \
                 lexer_state.bol = keep_bol; \
                 lexer_state.current_file->current_pos = keep; \
                 break; \
@@ -927,6 +1099,18 @@ static inline int free_form_get(void)
     return result;
 }
 
+static inline int input_get(void)
+{
+    switch (lexer_state.form)
+    {
+        case LEXER_TEXTUAL_FREE_FORM:
+            return free_form_get();
+        case LEXER_TEXTUAL_FIXED_FORM:
+            return fixed_form_get();
+        default: { internal_error("Code unreachable", 0); }
+    }
+}
+
 typedef
 struct peek_token_info_tag
 {
@@ -1046,7 +1230,7 @@ static inline int get_loc(token_location_t *loc)
         {
             fprintf(stderr, "[FILE] ");
         }
-        c = free_form_get();
+        c = input_get();
         tmp_loc = get_current_location();
     }
 
@@ -1090,7 +1274,7 @@ static inline int peek_loc(int n, token_location_t *loc)
         int i;
         for (i = 0; i < d; i++)
         {
-            int c = free_form_get();
+            int c = input_get();
             token_location_t loc2 = get_current_location();
             peek_add(c, loc2);
 

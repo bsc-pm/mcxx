@@ -2793,8 +2793,11 @@ int yywrap()
 	return end_of_file();
 }
 
-int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename)
+int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename,
+        char is_fixed_form)
 {
+    ERROR_CONDITION(is_fixed_form, "This scanner does not support fixed form", 0);
+
 	FILE* file;
 
 	file = fopen(scanned_filename, "r");
