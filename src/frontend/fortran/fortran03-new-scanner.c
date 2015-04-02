@@ -197,7 +197,7 @@ extern int new_mf03_open_file_for_scanning(const char* scanned_filename,
 
     lexer_state.current_file->current_location.filename = input_filename;
     lexer_state.current_file->current_location.line = 1;
-    lexer_state.current_file->current_location.column = 0;
+    lexer_state.current_file->current_location.column = 1;
 
     init_lexer_state();
 
@@ -280,7 +280,7 @@ extern int new_mf03_prepare_string_for_scanning(const char* str)
 
     lexer_state.current_file->current_location.filename = filename;
     lexer_state.current_file->current_location.line = 1;
-    lexer_state.current_file->current_location.column = 0;
+    lexer_state.current_file->current_location.column = 1;
     
     init_lexer_state();
 
@@ -460,7 +460,7 @@ static char handle_preprocessor_line(void)
     if (past_eof())
     {
         lexer_state.current_file->current_location.line = linenum;
-        lexer_state.current_file->current_location.column = 0;
+        lexer_state.current_file->current_location.column = 1;
 
         return 1;
     }
@@ -479,7 +479,7 @@ static char handle_preprocessor_line(void)
         }
 
         lexer_state.current_file->current_location.line = linenum;
-        lexer_state.current_file->current_location.column = 0;
+        lexer_state.current_file->current_location.column = 1;
 
         return 1;
     }
@@ -584,7 +584,7 @@ static char handle_preprocessor_line(void)
         else if (is_newline(lexer_state.current_file->current_pos[0]))
         {
             lexer_state.current_file->current_location.line++;
-            lexer_state.current_file->current_location.column = 0;
+            lexer_state.current_file->current_location.column = 1;
             if (lexer_state.current_file->current_pos[0] == '\n')
             {
                 lexer_state.current_file->current_pos++;
@@ -602,7 +602,7 @@ static char handle_preprocessor_line(void)
 
         lexer_state.current_file->current_location.filename = uniquestr(filename);
         lexer_state.current_file->current_location.line = linenum;
-        lexer_state.current_file->current_location.column = 0;
+        lexer_state.current_file->current_location.column = 1;
 
         return 1;
     }
@@ -624,7 +624,7 @@ static char handle_preprocessor_line(void)
         if (!past_eof())
         {
             lexer_state.current_file->current_location.line++;
-            lexer_state.current_file->current_location.column = 0;
+            lexer_state.current_file->current_location.column = 1;
             if (lexer_state.current_file->current_pos[0] != '\n')
             {
                 lexer_state.current_file->current_pos++;
@@ -645,7 +645,7 @@ static char handle_preprocessor_line(void)
 #undef ROLLBACK
 }
 
-static inline int fixed_form_get(void)
+static inline int fixed_form_get(token_location_t* loc)
 {
     int result;
     while (!past_eof())
@@ -676,7 +676,7 @@ static inline int fixed_form_get(void)
             }
             lexer_state.current_file->current_pos++;
         }
-        else if (lexer_state.current_file->current_location.column == 0
+        else if (lexer_state.current_file->current_location.column == 1
                 && (tolower(result) == 'c'
                     || tolower(result) == 'd'
                     || result == '*'))
@@ -700,7 +700,7 @@ static inline int fixed_form_get(void)
 
             if (result == '\n')
             {
-                lexer_state.current_file->current_location.column = 0;
+                lexer_state.current_file->current_location.column = 1;
                 lexer_state.current_file->current_location.line++;
 
                 lexer_state.current_file->current_pos++;
@@ -709,7 +709,7 @@ static inline int fixed_form_get(void)
             }
             else if (result == '\r')
             {
-                lexer_state.current_file->current_location.column = 0;
+                lexer_state.current_file->current_location.column = 1;
                 lexer_state.current_file->current_location.line++;
 
                 lexer_state.current_file->current_pos++;
@@ -783,8 +783,19 @@ static inline int fixed_form_get(void)
             continue; /* redundant, here just for clarity */
 #undef ROLLBACK
         }
+        else if (lexer_state.current_file->current_location.column > CURRENT_CONFIGURATION->input_column_width)
+        {
+            lexer_state.current_file->current_location.column++;
+            lexer_state.current_file->current_pos++;
+        }
+        else
+        {
+            // done
+            break;
+        }
     }
 
+    *loc = lexer_state.current_file->current_location;
     if (past_eof())
         return EOF;
 
@@ -796,7 +807,7 @@ static inline int fixed_form_get(void)
     else
     {
         lexer_state.current_file->current_location.line++;
-        lexer_state.current_file->current_location.column = 0;
+        lexer_state.current_file->current_location.column = 1;
 
         lexer_state.current_file->current_pos++;
         if (result == '\r'
@@ -811,10 +822,13 @@ static inline int fixed_form_get(void)
     return result;
 }
 
-static inline int free_form_get(void)
+static inline int free_form_get(token_location_t* loc)
 {
     if (past_eof())
+    {
+        *loc = lexer_state.current_file->current_location;
         return EOF;
+    }
 
     int result = lexer_state.current_file->current_pos[0];
 
@@ -874,7 +888,7 @@ static inline int free_form_get(void)
         if (lexer_state.current_file->current_pos[0] == '\n')
         {
             lexer_state.current_file->current_location.line++;
-            lexer_state.current_file->current_location.column = 0;
+            lexer_state.current_file->current_location.column = 1;
 
             lexer_state.current_file->current_pos++;
             if (past_eof())
@@ -883,7 +897,7 @@ static inline int free_form_get(void)
         else if (lexer_state.current_file->current_pos[0] == '\r')
         {
             lexer_state.current_file->current_location.line++;
-            lexer_state.current_file->current_location.column = 0;
+            lexer_state.current_file->current_location.column = 1;
 
             lexer_state.current_file->current_pos++;
             if (!past_eof()
@@ -922,7 +936,7 @@ static inline int free_form_get(void)
                 if (lexer_state.current_file->current_pos[0] == '\n')
                 {
                     lexer_state.current_file->current_location.line++;
-                    lexer_state.current_file->current_location.column = 0;
+                    lexer_state.current_file->current_location.column = 1;
 
                     lexer_state.current_file->current_pos++;
                     if (past_eof())
@@ -931,7 +945,7 @@ static inline int free_form_get(void)
                 else // '\r'
                 {
                     lexer_state.current_file->current_location.line++;
-                    lexer_state.current_file->current_location.column = 0;
+                    lexer_state.current_file->current_location.column = 1;
 
                     lexer_state.current_file->current_pos++;
                     if (!past_eof()
@@ -1076,6 +1090,8 @@ static inline int free_form_get(void)
 #undef ROLLBACK
     }
 
+    *loc = lexer_state.current_file->current_location;
+
     if (!is_newline(result))
     {
         lexer_state.current_file->current_location.column++;
@@ -1084,7 +1100,7 @@ static inline int free_form_get(void)
     else
     {
         lexer_state.current_file->current_location.line++;
-        lexer_state.current_file->current_location.column = 0;
+        lexer_state.current_file->current_location.column = 1;
 
         lexer_state.current_file->current_pos++;
         if (result == '\r'
@@ -1099,14 +1115,14 @@ static inline int free_form_get(void)
     return result;
 }
 
-static inline int input_get(void)
+static inline int input_get(token_location_t* loc)
 {
     switch (lexer_state.form)
     {
         case LEXER_TEXTUAL_FREE_FORM:
-            return free_form_get();
+            return free_form_get(loc);
         case LEXER_TEXTUAL_FIXED_FORM:
-            return fixed_form_get();
+            return fixed_form_get(loc);
         default: { internal_error("Code unreachable", 0); }
     }
 }
@@ -1230,8 +1246,7 @@ static inline int get_loc(token_location_t *loc)
         {
             fprintf(stderr, "[FILE] ");
         }
-        c = input_get();
-        tmp_loc = get_current_location();
+        c = input_get(&tmp_loc);
     }
 
     if (mf03_flex_debug)
@@ -1274,8 +1289,8 @@ static inline int peek_loc(int n, token_location_t *loc)
         int i;
         for (i = 0; i < d; i++)
         {
-            int c = input_get();
-            token_location_t loc2 = get_current_location();
+            token_location_t loc2;
+            int c = input_get(&loc2);
             peek_add(c, loc2);
 
             if (mf03_flex_debug)
@@ -1748,7 +1763,7 @@ static char is_include_line(void)
         internal_error("Code unreachable", 0);
     }
 
-    lexer_state.current_file->current_location.column = 0;
+    lexer_state.current_file->current_location.column = 1;
     lexer_state.current_file->current_location.line++;
 
     // Now get the filename
@@ -1820,7 +1835,7 @@ static char is_include_line(void)
 
     lexer_state.current_file->current_location.filename = include_filename;
     lexer_state.current_file->current_location.line = 1;
-    lexer_state.current_file->current_location.column = 0;
+    lexer_state.current_file->current_location.column = 1;
 
     lexer_state.bol = 1;
     lexer_state.last_eos = 1;
