@@ -732,20 +732,20 @@ static inline int fixed_form_get(token_location_t* loc)
             // FIXME - sentinels!
             // This is the regular expression for a continuation line (([ ]{5}))[^0[:blank:]]
             char ok = 1;
-            char is_tab_form = 1;
+            char is_tab_form = 0;
             int i;
             for (i = 0; i < 5; i++)
             {
                 if (past_eof()
-                        || (lexer_state.current_file->current_pos[0] != ' ')
-                        || (lexer_state.current_file->current_pos[0] != '\t'))
+                        || (lexer_state.current_file->current_pos[0] != ' '
+                            && lexer_state.current_file->current_pos[0] != '\t'))
                 {
                     ok = 0;
                     break;
                 }
 
                 if (i == 0
-                        && (lexer_state.current_file->current_pos[0] != '\t'))
+                        && (lexer_state.current_file->current_pos[0] == '\t'))
                 {
                     is_tab_form = 1;
                     lexer_state.current_file->current_location.column = 6;
