@@ -1886,7 +1886,7 @@ static inline char is_format_statement(void)
     peek_idx++;
     p = peek(peek_idx);
 
-    char delim;
+    char delim = 0;
     int level = 1;
     char in_string = 0;
 
@@ -1943,8 +1943,9 @@ static inline char is_format_statement(void)
         p = peek(peek_idx);
     }
 
-    // Expect a newline here
-    if (!is_newline(p))
+    // Expect an end-of-statement here
+    if (!is_newline(p)
+            && p != ';')
         return 0;
 
     // This FORMAT seems fine
@@ -2343,10 +2344,40 @@ extern int new_mf03lex(void)
                             tiny_dyncharbuf_new(&str, 32);
 
                             tiny_dyncharbuf_add(&str, c0);
+
+                            char delim = 0;
+                            int level = 1;
+                            char in_string = 0;
+
                             // Everything will be scanned as a single token
                             int c = peek(0);
-                            while (!is_newline(c))
+                            while (!is_newline(c)
+                                    && (level > 0))
                             {
+                                if (!in_string)
+                                {
+                                    if (c == '(')
+                                    {
+                                        level++;
+                                    }
+                                    else if (c == ')')
+                                    {
+                                        level--;
+                                    }
+                                    else if (c == '\'' || c == '"')
+                                    {
+                                        delim = c;
+                                        in_string = 1;
+                                    }
+                                }
+                                else if (c == delim)
+                                {
+                                    int c1 = peek(1);
+                                    if (c1 != delim)
+                                    {
+                                        in_string = 0;
+                                    }
+                                }
                                 tiny_dyncharbuf_add(&str, c);
                                 get();
                                 c = peek(0);
