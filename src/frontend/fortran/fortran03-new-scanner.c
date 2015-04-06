@@ -147,6 +147,7 @@ struct new_lexer_state_t
     char** pragma_constructs_stack;
 
     // Extra state required by fixed form
+    int initial_keyword;
 } lexer_state;
 
 static token_location_t get_current_location(void)
@@ -653,7 +654,8 @@ static inline int fixed_form_get(token_location_t* loc)
         result = lexer_state.current_file->current_pos[0];
         if (result == ' ')
         {
-            if (lexer_state.character_context)
+            if (lexer_state.character_context
+                    || lexer_state.current_file->current_location.column == 6)
                 break;
 
             lexer_state.current_file->current_location.column++;
@@ -1333,27 +1335,27 @@ static inline int peek(int n)
 typedef
 struct tiny_dyncharbuf_tag
 {
-    int size;
-    int next;
+    int capacity;
+    int num;
     char *buf;
 } tiny_dyncharbuf_t;
 
 static inline void tiny_dyncharbuf_new(tiny_dyncharbuf_t* t, int initial_size)
 {
-    t->size = initial_size;
-    t->buf = xmalloc(sizeof(*t->buf) * t->size);
-    t->next = 0;
+    t->capacity = initial_size;
+    t->buf = xmalloc(sizeof(*t->buf) * t->capacity);
+    t->num = 0;
 }
 
 static inline void tiny_dyncharbuf_add(tiny_dyncharbuf_t* t, char c)
 {
-    if (t->next >= t->size)
+    if (t->num >= t->capacity)
     {
-        t->size *= 2;
-        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->size + 1));
+        t->capacity *= 2;
+        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->capacity + 1));
     }
-    t->buf[t->next] = c;
-    t->next++;
+    t->buf[t->num] = c;
+    t->num++;
 }
 
 static inline void tiny_dyncharbuf_add_str(tiny_dyncharbuf_t* t, const char* str)
@@ -1952,6 +1954,134 @@ static inline char is_format_statement(void)
     return 1;
 }
 
+static inline int classify_statement(void)
+{
+    int peek_idx = 0;
+    int p = peek(peek_idx);
+
+    // Read the whole statement until a newline
+    // or ; (out of character-context)
+
+    // Skip label (if any)
+    while (is_decimal_digit(p))
+    {
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+
+    // continuation column, there should be a blank here
+    ERROR_CONDITION(p != ' ', "Expecting a blank here, got '%c'", p);
+    peek_idx++;
+    p = peek(peek_idx);
+
+    char delim = 0;
+    char in_string = 0;
+
+    char free_comma = 0;
+    char free_equal = 0;
+    char free_colon = 0;
+    int parenthesis_level = 0;
+
+    char still_keyword = 1;
+    tiny_dyncharbuf_t keyword;
+    tiny_dyncharbuf_new(&keyword, 32);
+
+    while (!is_newline(p)
+            && ((p != ';' 
+                    && p != '!') || in_string))
+    {
+        if (!is_letter(p))
+        {
+            still_keyword = 0;
+        }
+        else if (still_keyword)
+        {
+            tiny_dyncharbuf_add(&keyword, p);
+        }
+
+        if (p == '\'' || p == '"')
+        {
+            if (!in_string)
+            {
+                in_string = 1;
+                delim = p;
+            }
+            else if (p == delim)
+            {
+                int p1 = peek(peek_idx + 1);
+                if (p1 == p)
+                {
+                    // skip this extra delimiter
+                    peek_idx++;
+                }
+                else
+                {
+                    in_string = 0;
+                }
+            }
+        }
+        else if (!in_string)
+        {
+            if (p == '(')
+            {
+                parenthesis_level++;
+            }
+            else if (p == ')')
+            {
+                // At this point the statement can be wrong so protect
+                // parenthesis_level from becoming negative
+                if (parenthesis_level > 0)
+                    parenthesis_level--;
+            }
+            else if (parenthesis_level == 0)
+            {
+                if (p == ',')
+                {
+                    free_comma = 1;
+                }
+                else if (p == '=')
+                {
+                    free_equal = 1;
+                }
+                else if (p == ':')
+                {
+                    free_colon = 1;
+                }
+            }
+        }
+
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+    tiny_dyncharbuf_add(&keyword, '\0');
+
+    int result = 0;
+
+    if (!free_equal            // A=3, DO=1,10, INTEGER::A=3
+            || free_comma      // filter DO=1,10
+            || free_colon)     // filter INTEGER::A=3
+    {
+        // Now try to determine the keyword
+        // we prioritize the longer
+        int length = strlen(keyword.buf);
+
+        struct fortran_keyword_tag *kw = fortran_keywords_lookup(keyword.buf, length);
+        while (kw == NULL
+                && length > 0)
+        {
+            length--;
+            kw = fortran_keywords_lookup(keyword.buf, length);
+        }
+
+        if (kw != NULL)
+            result = kw->token_id;
+    }
+
+    xfree(keyword.buf);
+
+    return result;
+}
+
 static inline char is_known_sentinel(char** sentinel)
 {
     int c;
@@ -2152,35 +2282,48 @@ extern int new_mf03lex(void)
         // We are forced to peek because we have to return
         // an artificial token for nonblock labels
         if (lexer_state.substate == LEXER_SUBSTATE_NORMAL
-                && lexer_state.last_eos
-                && lexer_state.num_nonblock_labels > 0
-                // peek here
-                && is_decimal_digit(c0 = peek_loc(0, &loc)))
+                && lexer_state.last_eos)
         {
-            char label_str[6];
-            label_str[0] = c0;
-
-            int i = 1;
-            int peek_idx = 1;
-            int c = peek(peek_idx);
-            while (i < 5
-                    && is_decimal_digit(c))
+            if (lexer_state.form == LEXER_TEXTUAL_FIXED_FORM)
             {
-                label_str[i] = c;
-                i++;
-                peek_idx++;
-                c = peek(peek_idx);
+                int c = peek(0);
+                if (c == ' ' /* no label */
+                        || is_decimal_digit(c) /* label */)
+                {
+                    lexer_state.initial_keyword = classify_statement();
+                }
             }
 
-            label_str[i] = '\0';
-
-            if (!is_decimal_digit(c))
+            if (lexer_state.num_nonblock_labels > 0
+                    // peek here
+                    && is_decimal_digit(c0 = peek_loc(0, &loc)))
             {
-                int label = atoi(label_str);
-                if (lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels - 1] == label)
+
+                char label_str[6];
+                label_str[0] = c0;
+
+                int i = 1;
+                int peek_idx = 1;
+                int c = peek(peek_idx);
+                while (i < 5
+                        && is_decimal_digit(c))
                 {
-                    lexer_state.num_nonblock_labels--;
-                    return commit_text(TOKEN_END_NONBLOCK_DO, label_str, loc);
+                    label_str[i] = c;
+                    i++;
+                    peek_idx++;
+                    c = peek(peek_idx);
+                }
+
+                label_str[i] = '\0';
+
+                if (!is_decimal_digit(c))
+                {
+                    int label = atoi(label_str);
+                    if (lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels - 1] == label)
+                    {
+                        lexer_state.num_nonblock_labels--;
+                        return commit_text(TOKEN_END_NONBLOCK_DO, label_str, loc);
+                    }
                 }
             }
         }
@@ -2916,65 +3059,101 @@ extern int new_mf03lex(void)
                             }
                         }
 
-                        // peek as many letters as possible
+                        int token_id = IDENTIFIER;
                         tiny_dyncharbuf_t identifier;
                         tiny_dyncharbuf_new(&identifier, 32);
-
                         tiny_dyncharbuf_add(&identifier, c0);
 
-                        int c = peek(0);
-                        while (is_letter(c)
-                                || is_decimal_digit(c)
-                                || (c == '_'
-                                    && peek(1) != '\''
-                                    && peek(1) != '"'))
+                        if (lexer_state.form != LEXER_TEXTUAL_FIXED_FORM
+                                || lexer_state.initial_keyword == 0)
                         {
-                            tiny_dyncharbuf_add(&identifier, c);
-                            get();
-                            c = peek(0);
+                            // peek as many letters as possible
+                            int c = peek(0);
+                            while (is_letter(c)
+                                    || is_decimal_digit(c)
+                                    || (c == '_'
+                                        && peek(1) != '\''
+                                        && peek(1) != '"'))
+                            {
+                                tiny_dyncharbuf_add(&identifier, c);
+                                get();
+                                c = peek(0);
+                            }
+                            tiny_dyncharbuf_add(&identifier, '\0');
+
+                            int c2 = peek(1);
+                            if (c == '_'
+                                    && (c2 == '\''
+                                        || c2 == '"'))
+                            {
+                                int c1 = c;
+                                get();
+                                get();
+
+                                tiny_dyncharbuf_t t_str;
+                                tiny_dyncharbuf_new(&t_str, strlen(identifier.buf) + 32 + 1);
+
+                                tiny_dyncharbuf_add_str(&t_str, identifier.buf);
+                                xfree(identifier.buf);
+
+                                tiny_dyncharbuf_add(&t_str, c1); // _
+                                tiny_dyncharbuf_add(&t_str, c2); // " or '
+                                tiny_dyncharbuf_add(&t_str, '\0');
+
+                                char *text = NULL;
+                                scan_character_literal(t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
+                                        &token_id, &text);
+                                xfree(t_str.buf);
+
+                                return commit_text_and_free(token_id, text, loc);
+                            }
+
+                            struct fortran_keyword_tag *result =
+                                fortran_keywords_lookup(identifier.buf, strlen(identifier.buf));
+
+                            ERROR_CONDITION(lexer_state.in_format_statement
+                                    && (result == NULL
+                                        || result->token_id != TOKEN_FORMAT),
+                                    "Invalid token for format statement", 0);
+
+                            if (result != NULL)
+                            {
+                                token_id = result->token_id;
+                            }
                         }
-                        tiny_dyncharbuf_add(&identifier, '\0');
-
-                        int c2 = peek(1);
-                        if (c == '_'
-                                && (c2 == '\''
-                                    || c2 == '"'))
+                        else
                         {
-                            int c1 = c;
-                            get();
-                            get();
+                            // Here we verify every keyword until it matches
+                            // the one we expect
+                            //
+                            // FIXME - Can this be implemented more efficiently?
 
-                            tiny_dyncharbuf_t t_str;
-                            tiny_dyncharbuf_new(&t_str, strlen(identifier.buf) + 32 + 1);
+                            // Note: we do not check a single letter keyword
+                            // because there is none that starts a statement
+                            int c = peek(0);
+                            while (is_letter(c))
+                            {
+                                tiny_dyncharbuf_add(&identifier, c);
+                                get();
 
-                            tiny_dyncharbuf_add_str(&t_str, identifier.buf);
-                            xfree(identifier.buf);
+                                struct fortran_keyword_tag *result =
+                                    fortran_keywords_lookup(identifier.buf, identifier.num);
 
-                            tiny_dyncharbuf_add(&t_str, c1); // _
-                            tiny_dyncharbuf_add(&t_str, c2); // " or '
-                            tiny_dyncharbuf_add(&t_str, '\0');
+                                if (result != NULL
+                                        && result->token_id == lexer_state.initial_keyword)
+                                {
+                                    token_id = lexer_state.initial_keyword;
+                                    break;
+                                }
 
-                            int token_id;
-                            char *text = NULL;
-                            scan_character_literal(t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
-                                    &token_id, &text);
-                            xfree(t_str.buf);
+                                c = peek(0);
+                            }
 
-                            return commit_text_and_free(token_id, text, loc);
-                        }
+                            ERROR_CONDITION(token_id != lexer_state.initial_keyword,
+                                    "Expected initial keyword not matched", 0);
 
-                        struct fortran_keyword_tag *result =
-                            fortran_keywords_lookup(identifier.buf, strlen(identifier.buf));
-
-                        ERROR_CONDITION(lexer_state.in_format_statement
-                                && (result == NULL
-                                    || result->token_id != TOKEN_FORMAT),
-                                "Invalid token for format statement", 0);
-
-                        int token_id = IDENTIFIER;
-                        if (result != NULL)
-                        {
-                            token_id = result->token_id;
+                            tiny_dyncharbuf_add(&identifier, '\0');
+                            lexer_state.initial_keyword = 0;
                         }
 
                         if (token_id == TOKEN_DO)
@@ -2983,7 +3162,7 @@ extern int new_mf03lex(void)
                             // so the label is properly matched
                             int peek_idx = 0;
 
-                            c = peek(peek_idx);
+                            int c = peek(peek_idx);
                             while (is_blank(c))
                             {
                                 peek_idx++;
@@ -3172,10 +3351,12 @@ extern int new_mf03lex(void)
                         else
                         {
                             if (lexer_state.last_eos
-                                    && strlen(digits.buf) <= 6 /* maximum length of a label */
-                                    && is_format_statement())
+                                    && strlen(digits.buf) < 6 /* maximum length of a label */)
                             {
-                                lexer_state.in_format_statement = 1;
+                                if (is_format_statement())
+                                {
+                                    lexer_state.in_format_statement = 1;
+                                }
                             }
                             else if (lexer_state.in_nonblock_do_construct)
                             {
