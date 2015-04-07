@@ -3874,10 +3874,19 @@ static type_t* eval_array_spec(type_t* basic_type,
 
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
+                if (!equivalent_types(
+                            get_unqualified_type(no_ref(nodecl_get_type(lower_bound))),
+                            get_ptrdiff_t_type()))
+                {
+                    lower_bound = nodecl_make_conversion(lower_bound,
+                            get_ptrdiff_t_type(),
+                            nodecl_get_locus(lower_bound));
+                }
+
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = nodecl_get_locus(lower_bound);
                 new_vla_dim->value = lower_bound;
-                new_vla_dim->type_information = no_ref(nodecl_get_type(lower_bound));
+                new_vla_dim->type_information = get_ptrdiff_t_type();
                 symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
                 lower_bound = nodecl_make_symbol(new_vla_dim,
@@ -3907,10 +3916,19 @@ static type_t* eval_array_spec(type_t* basic_type,
 
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
+                if (!equivalent_types(
+                            get_unqualified_type(no_ref(nodecl_get_type(upper_bound))),
+                            get_ptrdiff_t_type()))
+                {
+                    upper_bound = nodecl_make_conversion(upper_bound,
+                            get_ptrdiff_t_type(),
+                            nodecl_get_locus(upper_bound));
+                }
+
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = nodecl_get_locus(upper_bound);
                 new_vla_dim->value = upper_bound;
-                new_vla_dim->type_information = no_ref(nodecl_get_type(upper_bound));
+                new_vla_dim->type_information = get_ptrdiff_t_type();
                 symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
                 upper_bound = nodecl_make_symbol(new_vla_dim,

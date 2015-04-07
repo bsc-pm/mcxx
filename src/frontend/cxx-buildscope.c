@@ -10483,8 +10483,18 @@ static void set_array_type(type_t** declarator_type,
 
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = ast_get_locus(constant_expr);
+
+                if (!equivalent_types(
+                            get_unqualified_type(no_ref(nodecl_get_type(nodecl_expr))),
+                            get_ptrdiff_t_type()))
+                {
+                    nodecl_expr = nodecl_make_conversion(nodecl_expr,
+                            get_ptrdiff_t_type(),
+                            nodecl_get_locus(nodecl_expr));
+                }
+
                 new_vla_dim->value = nodecl_expr;
-                new_vla_dim->type_information = get_const_qualified_type(no_ref(nodecl_get_type(nodecl_expr)));
+                new_vla_dim->type_information = get_const_qualified_type(get_ptrdiff_t_type());
 
                 // It's not user declared code, but we must generate it.
                 // For this reason, we do this trick
