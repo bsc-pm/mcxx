@@ -586,12 +586,15 @@ namespace TL { namespace Nanox {
                         if (sym.is_valid())
                         {
                             symbol_entity_specs_set_is_optional(private_sym, sym.is_optional());
+                            symbol_entity_specs_set_is_target(private_sym, sym.is_target());
                             symbol_entity_specs_set_is_allocatable(private_sym,
                                 (!sym.is_member() && sym.is_allocatable())
                                 || (*it)->is_copy_of_array_descriptor_allocatable());
 
                             symbol_map->add_map(sym, private_sym);
                         }
+
+
 
                         symbol_entity_specs_set_is_allocatable(private_sym,
                                 symbol_entity_specs_get_is_allocatable(private_sym) ||
