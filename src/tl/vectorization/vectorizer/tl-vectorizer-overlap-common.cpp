@@ -41,6 +41,7 @@ namespace Vectorization
 
         _vector_type = front_load.get_type().no_ref().get_unqualified_type();
         _basic_type = front_load.get_type().no_ref().basic_type();
+        _is_set_in_place_update_pre = false;
 
         compute_inter_iteration_overlap();
     }
@@ -544,8 +545,9 @@ namespace Vectorization
 
         for (auto& target_load : unique_vector_loads)
         {
-            TL::Symbol target_symbol = Utils::get_vector_load_subscripted(
-                   target_load.as<Nodecl::VectorLoad>()).as<Nodecl::Symbol>().get_symbol(); 
+            Nodecl::NodeclBase target_subscripted = Utils::get_vector_load_subscripted(
+                   target_load.as<Nodecl::VectorLoad>()); 
+            TL::Symbol target_symbol = Utils::get_subscripted_symbol(target_subscripted);
 
             Nodecl::VectorLoad target_load_copy =
                 target_load.shallow_copy().as<Nodecl::VectorLoad>();
@@ -553,7 +555,7 @@ namespace Vectorization
             bool og_found = false;
             for(auto& it_ogroup : ogroups)
             {
-                if (it_ogroup._subscripted != target_symbol)
+                if (Utils::get_subscripted_symbol(it_ogroup._subscripted) != target_symbol)
                     continue;
                 
                 if(it_ogroup.overlaps(target_load_copy,
@@ -584,7 +586,7 @@ namespace Vectorization
                 ogroup._loads.append(target_load);
                 ogroup._loop_ind_var = loop_ind_var;
                 ogroup._loop_ind_var_step = loop_ind_var_step;
-                ogroup._subscripted = target_symbol;
+                ogroup._subscripted = target_subscripted;
 
                 ogroups.append(ogroup);
             }
@@ -597,7 +599,7 @@ namespace Vectorization
         {
             for(const auto& ogroup : ogroups)
             {
-                std::cerr << ogroup._subscripted.get_name() <<
+                std::cerr << Utils::get_subscripted_symbol(ogroup._subscripted).get_name() <<
                     "(" << ogroup._loads.size() << ") ";
             }
         }
@@ -642,7 +644,7 @@ namespace Vectorization
         {
             for(const auto& ogroup : ogroups)
             {
-                std::cerr << ogroup._subscripted.get_name() <<
+                std::cerr << Utils::get_subscripted_symbol(ogroup._subscripted).get_name() <<
                     "(" << ogroup._loads.size() << ") ";
             }
             std::cerr << std::endl;

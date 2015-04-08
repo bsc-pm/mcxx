@@ -99,10 +99,15 @@ namespace Analysis {
     
     void Edge::add_label(const NBase& label)
     {
-        NBase new_label = label.shallow_copy();
-        if(!_label.is_null())
-            new_label = Nodecl::BitwiseAnd::make(_label, new_label, _label.get_type());
-        _label.replace(new_label);
+        if (!_label.is_null())
+        {
+            const NBase& new_label = Nodecl::BitwiseAnd::make(_label.shallow_copy(), label, _label.get_type());
+            _label.replace(new_label);
+        }
+        else
+        {
+            _label = label;
+        }
     }
     
     void Edge::set_label(const NBase& label)

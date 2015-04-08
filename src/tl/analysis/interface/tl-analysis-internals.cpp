@@ -282,17 +282,26 @@ namespace Analysis {
             Node* new_scope = scope_node;
             if(scope_node->is_loop_node())
             {
-                new_scope = scope_node->get_outer_node();
-                if(!new_scope->is_omp_simd_node())
-                    goto iv_as_linear;
+                Node* outer_scope = scope_node->get_outer_node();
+                if (outer_scope != NULL)
+                {
+                    new_scope = scope_node->get_outer_node();
+
+                    if(!new_scope->is_omp_simd_node())
+                        goto iv_as_linear;
+                }
             }
             else if(scope_node->is_function_code_node())
             {
-                new_scope = scope_node->get_outer_node();
-                // If the scope is a function and it is not enclosed in a simd pragma
-                // then no IVs will be attached to this node
-                if(!new_scope->is_omp_simd_function_node())
-                    goto final_linear;
+                Node* outer_scope = scope_node->get_outer_node();
+                if (outer_scope != NULL)
+                {
+                    new_scope = scope_node->get_outer_node();
+                    // If the scope is a function and it is not enclosed in a simd pragma
+                    // then no IVs will be attached to this node
+                    if(!new_scope->is_omp_simd_function_node())
+                        goto final_linear;
+                }
             }
             // If, after checking the possibility of being enclosed within a simd node
             // then, only induction variables calculated during analysis may be reported
@@ -482,7 +491,7 @@ final_linear:
             new_scope = scope_node->get_outer_node();
             // If the scope is a function and it is not enclosed in a simd pragma
             // then no linear variables can be related to this node
-            if(!new_scope->is_omp_simd_function_node())
+            if(new_scope != NULL && !new_scope->is_omp_simd_function_node())
                 goto final_get_linear;
         }
         // If, after checking the possibility of being enclosed within a simd node

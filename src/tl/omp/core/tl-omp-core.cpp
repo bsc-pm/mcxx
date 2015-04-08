@@ -686,6 +686,39 @@ namespace TL
                     {
                     }
 
+                    void walk_type(TL::Type t)
+                    {
+                        if (!t.is_valid())
+                            return;
+
+                        if (t.is_any_reference())
+                            walk_type(t.references_to());
+                        else if (t.is_pointer())
+                            walk_type(t.points_to());
+                        else if (t.is_array())
+                        {
+                            walk_type(t.array_element());
+
+                            if (IS_FORTRAN_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase lower, upper;
+                                t.array_get_bounds(lower, upper);
+
+                                walk(lower);
+                                walk(upper);
+                            }
+                            else if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase size = t.array_get_size();
+                                walk(size);
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
+                    }
+
                     bool filter_symbol(TL::Symbol sym)
                     {
                         return (sym.is_variable()
@@ -697,6 +730,7 @@ namespace TL
                     virtual void visit(const Nodecl::Symbol& node)
                     {
                         TL::Symbol sym = node.get_symbol();
+                        walk_type(sym.get_type());
 
                         if (filter_symbol(sym))
                         {
@@ -715,19 +749,43 @@ namespace TL
                                 }
                             }
                         }
+                        else if (sym.is_saved_expression())
+                        {
+                            // A saved expression may refer to
+                            // variables of the enclosing function
+                            walk(sym.get_value());
+                        }
                     }
+
+                    virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
+                    {
+                        walk_type(n.get_type());
+
+                        Nodecl::NodeclBase::Children children = n.children();
+                        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
+                                it != children.end();
+                                it++)
+                        {
+                            walk(*it);
+                        }
+                    }
+
                 };
 
                 scope_t* _scope;
                 SymbolsOfScope _symbols_of_scope_visitor;
 
                 std::set<TL::Symbol> _visited_function;
+                SavedExpressions &_saved_expressions;
             public:
                 ObjectList<TL::Symbol> symbols;
 
-                SymbolsUsedInNestedFunctions(Symbol current_function)
+                SymbolsUsedInNestedFunctions(Symbol current_function,
+                        SavedExpressions& saved_expressions)
                     : _scope(current_function.get_related_scope().get_decl_context().current_scope),
-                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(), symbols()
+                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(),
+                      _saved_expressions(saved_expressions),
+                      symbols()
                 {
                 }
 
@@ -742,6 +800,7 @@ namespace TL
 
                         if (_visited_function.find(sym) == _visited_function.end())
                         {
+                            _saved_expressions.walk(body);
                             _symbols_of_scope_visitor.walk(body);
 
                             _visited_function.insert(sym);
@@ -815,6 +874,14 @@ namespace TL
                     // 'this' is special
                     data_sharing.set_data_sharing(sym, DS_SHARED,
                             "'this' pseudo-variable is always shared");
+                    continue;
+                }
+
+                if (IS_FORTRAN_LANGUAGE
+                        && sym.get_type().no_ref().is_function())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "dummy procedures are firstprivate");
                     continue;
                 }
 
@@ -1337,6 +1404,14 @@ namespace TL
                     continue;
                 }
 
+                if (IS_FORTRAN_LANGUAGE
+                        && sym.get_type().no_ref().is_function())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "dummy procedures are firstprivate");
+                    continue;
+                }
+
                 if (sym.is_cray_pointee())
                 {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
@@ -1480,13 +1555,19 @@ namespace TL
                 ObjectList<TL::Symbol>& nonlocal_symbols)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
+            // Saved expressions from VLAs
+            SavedExpressions saved_expressions(statement.retrieve_context());
+            saved_expressions.walk(statement);
+
             FORTRAN_LANGUAGE()
             {
                 // Other symbols that may be used indirectly are made shared
                 TL::ObjectList<TL::Symbol> other_symbols;
 
                 // Nested function symbols
-                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
+                SymbolsUsedInNestedFunctions symbols_from_nested_calls(
+                        construct.retrieve_context().get_related_symbol(),
+                        saved_expressions);
                 symbols_from_nested_calls.walk(statement);
 
                 other_symbols.insert(symbols_from_nested_calls.symbols);
@@ -1517,6 +1598,10 @@ namespace TL
                 {
                     TL::Symbol sym(*it);
 
+                    // Skip saved expressions found referenced in the nested function
+                    if (saved_expressions.symbols.contains(sym))
+                        continue;
+
                     DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                     // Do nothing with threadprivates
@@ -1533,10 +1618,6 @@ namespace TL
                     }
                 }
             }
-
-            // Saved expressions from VLAs
-            SavedExpressions saved_expressions(statement.retrieve_context());
-            saved_expressions.walk(statement);
 
             // Make them firstprivate if not already set
             for (ObjectList<TL::Symbol>::iterator it = saved_expressions.symbols.begin();

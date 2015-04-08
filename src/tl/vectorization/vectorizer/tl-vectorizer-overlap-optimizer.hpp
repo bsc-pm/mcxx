@@ -46,8 +46,10 @@ namespace TL
         {
             private:
                 const VectorizerEnvironment& _environment;
-                bool _is_omp_simd_for;
-                bool _is_simd_epilog;
+                const bool _is_omp_simd_for;
+                const bool _is_simd_epilog;
+                const bool _in_place;
+
                 Nodecl::List& _prependix_stmts;
                 
                 VectorizationAnalysisInterface* _first_analysis;
@@ -81,7 +83,7 @@ namespace TL
                         const Nodecl::ForStatement& for_stmt,
                         const bool is_simd_loop,
                         const bool is_omp_simd_for) const;
-                Nodecl::List get_ogroup_iteration_update_pre(
+                Nodecl::NodeclBase get_ogroup_iteration_update_pre(
                         const OverlapGroup& ogroup) const;
                 Nodecl::List get_ogroup_iteration_update_post(
                         const OverlapGroup& ogroup) const;
@@ -90,8 +92,8 @@ namespace TL
                         OverlapGroup& ogroup,
                         const Nodecl::ForStatement& n,
                         const bool is_overlap_epilog);
-                void replace_overlapped_loads(
-                        const OverlapGroup& ogroup);
+                void replace_overlapped_loads(OverlapGroup& ogroup,
+                        const Nodecl::NodeclBase& nesting_node);
 
                 unsigned int get_loop_min_unroll_factor(
                         Nodecl::ForStatement n);
@@ -104,6 +106,7 @@ namespace TL
                         VectorizationAnalysisInterface* analysis,
                         const bool is_omp_simd_for,
                         const bool is_epilog,
+                        const bool overlap_in_place,
                         Nodecl::List& prependix_stmts);
                 
                 void visit(const Nodecl::ForStatement&);

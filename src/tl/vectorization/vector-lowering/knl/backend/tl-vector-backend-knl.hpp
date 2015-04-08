@@ -1,0 +1,54 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+
+  This file is part of Mercurium C/C++ source-to-source compiler.
+
+  See AUTHORS file in the top level directory for information
+  regarding developers and contributors.
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+#ifndef KNL_VECTOR_BACKEND_HPP
+#define KNL_VECTOR_BACKEND_HPP
+
+#include "tl-vector-backend-knc.hpp"
+
+namespace TL
+{
+namespace Vectorization
+{
+    class KNLVectorBackend : public KNCVectorBackend
+    {
+        private:
+            void visit_common_vector_store(
+                    const Nodecl::VectorStore& node,
+                    const bool aligned);
+            void visit_aligned_vector_stream_store(
+                    const Nodecl::VectorStore& node);
+
+        public:
+            KNLVectorBackend();
+
+            virtual void visit(const Nodecl::VectorLoad& n);
+            virtual void visit(const Nodecl::VectorStore& n);
+    };
+}
+}
+
+#endif // KNL_VECTOR_BACKEND_HPP

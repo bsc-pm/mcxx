@@ -41,11 +41,11 @@ namespace TL
     {
         typedef struct prefetch_info
         {
-            int L1_distance;
-            int L2_distance;
+            int distances[2];
             bool enabled;
+            bool in_place;
 
-            prefetch_info() : L1_distance(0), L2_distance(0), enabled(false) {}
+            prefetch_info() : enabled(false), in_place(false) {}
         } prefetch_info_t;        
 
 
@@ -57,7 +57,6 @@ namespace TL
             private:
                 const prefetch_info_t& _pref_info;
                 const VectorizerEnvironment& _environment;
-                //Nodecl::NodeclBase _object_init;
 
             public:
                 Prefetcher(const prefetch_info_t& pref_info,
@@ -75,7 +74,9 @@ namespace TL
                 const prefetch_info_t& _pref_info;
                 const objlist_nodecl_t _linear_vars;
                 objlist_nodecl_t _pref_instr;
- 
+                Nodecl::NodeclBase _object_init;
+
+
                 Nodecl::NodeclBase get_prefetch_node(
                         const Nodecl::NodeclBase& address,
                         const PrefetchKind kind,

@@ -181,9 +181,12 @@ namespace Vectorization
         walk(mask);
         walk(flags);
 
+        bool explicitly_aligned = !flags.find_first<Nodecl::AlignedFlag>().is_null();
+
         // Turn unaligned load into gather
-        if (_prefer_gather_scatter ||
-                (_prefer_mask_gather_scatter && !mask.is_null()))
+        if (!explicitly_aligned
+                && (_prefer_gather_scatter ||
+                    (_prefer_mask_gather_scatter && !mask.is_null())))
         {
             VECTORIZATION_DEBUG()
             {
@@ -220,51 +223,45 @@ namespace Vectorization
         const Nodecl::NodeclBase mask = n.get_mask();
         const Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
-        TL::ObjectList<Nodecl::NodeclBase> flags_obj_list = 
-            flags.to_object_list();
-
-        bool aligned = Nodecl::Utils::list_contains_nodecl_by_structure(
-                flags_obj_list, Nodecl::AlignedFlag());
+        bool explicitly_aligned = !flags.find_first<Nodecl::AlignedFlag>().is_null();
 
         walk(lhs);
         walk(rhs);
         walk(mask);
         walk(flags);
 
-        if (!aligned)
+        if (!explicitly_aligned
+                && (_prefer_gather_scatter ||
+                    (_prefer_mask_gather_scatter
+                     && !mask.is_null())))
         {
-            // Turn unaligned store into scatter
-            if (_prefer_gather_scatter ||
-                    (_prefer_mask_gather_scatter && !mask.is_null()))
+            VECTORIZATION_DEBUG()
             {
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
-                            "into adjacent scatter\n",
-                            lhs.prettyprint().c_str());
-                }
-
-                Nodecl::VectorScatter vector_scatter = flags.
-                    find_first<Nodecl::VectorScatter>();
-
-                ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
-                        "legalization of unaligned load with mask", 0);
-
-                // Visit Scatter
-                walk(vector_scatter);
-
-                VECTORIZATION_DEBUG()
-                {
-                    /*                fprintf(stderr, "    Scatter '%s' "\
-                                      "(base: %s strides: %s\n",
-                                      lhs.prettyprint().c_str(),
-                                      vector_scatter.get_base().prettyprint().c_str(),
-                                      vector_scatter.get_strides().prettyprint().c_str());
-                     */     
-                }
-
-                n.replace(vector_scatter);
+                fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
+                        "into adjacent scatter\n",
+                        lhs.prettyprint().c_str());
             }
+
+            Nodecl::VectorScatter vector_scatter = flags.
+                find_first<Nodecl::VectorScatter>();
+
+            ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
+                    "legalization of unaligned load with mask", 0);
+
+            // Visit Scatter
+            walk(vector_scatter);
+
+            VECTORIZATION_DEBUG()
+            {
+                /*                fprintf(stderr, "    Scatter '%s' "\
+                                  "(base: %s strides: %s\n",
+                                  lhs.prettyprint().c_str(),
+                                  vector_scatter.get_base().prettyprint().c_str(),
+                                  vector_scatter.get_strides().prettyprint().c_str());
+                 */     
+            }
+
+            n.replace(vector_scatter);
         }
     }
 

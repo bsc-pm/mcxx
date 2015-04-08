@@ -1442,7 +1442,7 @@ void LoweringVisitor::fill_arguments(
 
                         if ((*it)->get_captured_value().is_null())
                         {
-                            if (t.is_pointer())
+                            if (t.is_pointer() || t.is_function())
                             {
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
@@ -1470,7 +1470,7 @@ void LoweringVisitor::fill_arguments(
                                 fill_outline_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
                                 fill_immediate_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
                             }
-                            if (t.is_pointer())
+                            if (t.is_pointer() || t.is_function())
                             {
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " => " << as_expression(captured.shallow_copy()) << "\n"

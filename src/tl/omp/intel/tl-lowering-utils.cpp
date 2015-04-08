@@ -95,7 +95,7 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
                     const_value_get_zero(/* bytes */ 4, /* sign */1)),
                 /* flags */ Nodecl::IntegerLiteral::make(
                     kmp_int32_type,
-                    const_value_get_zero(/* bytes */ 4, /* sign */1)),
+                    const_value_get_signed_int(2)), /* 0x02: c-style interface */
                 /* reserved_2 */ Nodecl::IntegerLiteral::make(
                     kmp_int32_type,
                     const_value_get_zero(/* bytes */ 4, /* sign */1)),

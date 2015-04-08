@@ -927,14 +927,42 @@ namespace TL { namespace Nanox {
             outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
         Type t = sym.get_type();
+
         if (t.is_any_reference())
         {
             t = t.references_to();
         }
         outline_info.set_field_type(t);
 
-        TL::Type in_outline_type;
+        if (t.is_function())
+        {
+            // The symbol was a reference to a function, we cannot capture
+            // a function value inside a structure, capture the pointer instead
+            TL::Type pointer_type;
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                pointer_type = TL::Type::get_void_type().get_pointer_to();
 
+                if (value.is_null())
+                {
+                    // Capture the address of the function
+                    // NOTE: we are mimicking what MERCURIUM_LOC does
+                    value = Nodecl::Dereference::make(
+                            Nodecl::Reference::make(
+                                sym.make_nodecl(/* set_ref_type */ true),
+                                pointer_type),
+                            pointer_type.get_lvalue_reference_to());
+                }
+            }
+            else
+            {
+                pointer_type = t.get_pointer_to();
+            }
+            outline_info.set_field_type(pointer_type);
+
+        }
+
+        TL::Type in_outline_type;
         if (IS_FORTRAN_LANGUAGE
                 || _outline_info.firstprivates_always_by_reference())
         {
@@ -989,8 +1017,7 @@ namespace TL { namespace Nanox {
             outline_info.set_captured_value(value);
 
         ERROR_CONDITION(!outline_info.get_conditional_capture_value().is_null()
-                && !condition.is_null(), "Overwriting captured value", 0);
-
+                && !condition.is_null(), "Overwriting conditional captured value", 0);
         if (!condition.is_null())
             outline_info.set_conditional_capture_value(condition);
     }

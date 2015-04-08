@@ -108,11 +108,14 @@ namespace Utils {
     bool is_in_list(Nodecl::NodeclBase n);
     void remove_from_enclosing_list(Nodecl::NodeclBase n);
 
+    Nodecl::NodeclBase get_previous_sibling(const Nodecl::NodeclBase& n);
     bool is_nodecl_statement(const Nodecl::NodeclBase& n);
-    void prepend_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt);
-    void append_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt);
+    void prepend_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context = Nodecl::NodeclBase::null());
+    void append_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context = Nodecl::NodeclBase::null());
  
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
@@ -369,21 +372,37 @@ namespace Utils {
             }
     };
 
-    template <typename Kind>
-    struct CollectKindFinderVisitor : ExhaustiveVisitor<void>
+    struct CollectKindFinderBaseVisitor : ExhaustiveVisitor<void>
     {
-            TL::ObjectList<Nodecl::NodeclBase> found_nodes;
-            CollectKindFinderVisitor() {}
+        TL::ObjectList<Nodecl::NodeclBase> found_nodes;
+        CollectKindFinderBaseVisitor() { }
+    };
 
-            virtual void visit_pre(const Nodecl::ObjectInit& n)
-            {
-                walk(n.get_symbol().get_value());
-            }
+    template <typename Kind>
+    struct CollectKindFinderVisitor : CollectKindFinderBaseVisitor
+    {
+        CollectKindFinderVisitor() {}
 
-            virtual void visit_pre(const Kind& k)
-            {
-                found_nodes.append(k);
-            }
+        virtual void visit_pre(const Nodecl::ObjectInit& n)
+        {
+            walk(n.get_symbol().get_value());
+        }
+
+        virtual void visit_pre(const Kind& k)
+        {
+            found_nodes.append(k);
+        }
+    };
+
+    template <>
+    struct CollectKindFinderVisitor<Nodecl::ObjectInit> : CollectKindFinderBaseVisitor
+    {
+        CollectKindFinderVisitor() {}
+
+        virtual void visit_pre(const Nodecl::ObjectInit& k)
+        {
+            found_nodes.append(k);
+        }
     };
 
     bool nodecl_contains_nodecl_by_structure(
