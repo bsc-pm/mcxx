@@ -2,7 +2,7 @@
 ! test_generator=config/mercurium-ompss
 ! </testinfo>
 
-PROGRAM P
+PROGRAM MAIN
     IMPLICIT NONE
     INTEGER, TARGET :: T
     INTEGER, POINTER :: P
@@ -11,4 +11,4 @@ PROGRAM P
     !$OMP END TASK
 
     !$OMP TASKWAIT
-END PROGRAM P
+END PROGRAM MAIN
