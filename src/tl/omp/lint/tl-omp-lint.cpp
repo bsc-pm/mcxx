@@ -353,84 +353,7 @@ namespace {
             local_syms.append( nodecl_sym );
         return result;
     }
-        
-#if 0
-    // If this function returns false it may mean both unknown/no
-    tribool data_ref_is_local_rec(TL::DataReference data_ref, Nodecl::List& local_data_refs )
-    {
-        TL::Symbol base_sym = data_ref.get_base_symbol();
-        if (!base_sym.is_valid())
-            return false;
-        
-        tribool result = false;
-        if (data_ref.is<Nodecl::Symbol>())
-        {
-            result = !base_sym.get_type().is_any_reference() &&
-                        base_sym.get_scope().is_block_scope();
-        }
-        else if (data_ref.is<Nodecl::Dereference>())
-        {
-            // *&a -> a
-            if (data_ref.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Reference>())
-            {
-                result = data_ref_is_local_rec(
-                            data_ref.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Reference>().get_rhs(), 
-                            local_data_refs);
-            }
-            else
-            {
-                result = data_ref_is_local_rec(data_ref.as<Nodecl::Dereference>().get_rhs(), 
-                                                local_data_refs) &&
-                            base_sym.get_type().is_array();
-            }
-        }
-        else if (data_ref.is<Nodecl::Reference>())
-        {
-            // &*a -> a
-            if (data_ref.as<Nodecl::Reference>().get_rhs().is<Nodecl::Dereference>())
-            {
-                result = data_ref_is_local_rec(
-                            data_ref.as<Nodecl::Reference>().get_rhs().as<Nodecl::Dereference>().get_rhs(), 
-                            local_data_refs);
-            }
-            else
-            {
-                result = data_ref_is_local_rec(data_ref.as<Nodecl::Reference>().get_rhs(), local_data_refs);
-            }
-        }
-        else if (data_ref.is<Nodecl::ArraySubscript>())
-        {
-            result = data_ref_is_local_rec(data_ref.as<Nodecl::ArraySubscript>().get_subscripted(), 
-                                            local_data_refs) &&
-                        base_sym.get_type().is_array();
-        }
-        else if (data_ref.is<Nodecl::ClassMemberAccess>())
-        {
-            result = data_ref_is_local_rec(data_ref.as<Nodecl::ClassMemberAccess>().get_lhs(), local_data_refs);
-        }
-        
-        if( result.is_true( ) )
-            local_data_refs.append( data_ref );
-            
-        return result;
-    }
-#endif
-    
-#if 0
-    // If this function returns false it may mean both unknown/no
-    tribool data_ref_is_local(TL::DataReference data_ref, Nodecl::List& local_data_refs)
-    {
-        if (!data_ref.is_valid())
-        {
-            // Somehow the data reference cannot be analyzed as valid
-            // so act conservatively and return unknown
-            return tribool();
-        }
-        
-        return data_ref_is_local_rec(data_ref, local_data_refs);
-    }
-#endif
-    
+
     tribool any_symbol_is_local(const TL::Analysis::NodeclSet& item_list, Nodecl::List& local_syms)
     {
         tribool result( false );
@@ -438,17 +361,7 @@ namespace {
             result = result || symbol_is_local(*it, local_syms);
         return result;
     }
-    
-#if 0
-    tribool any_data_ref_is_local(Nodecl::List item_list, Nodecl::List& local_data_refs)
-    {
-        tribool result( false );
-        for( Nodecl::List::iterator it = item_list.begin(); it != item_list.end(); it++ )
-            result = result || data_ref_is_local( *it, local_data_refs );
-        return result;
-    }
-#endif
-    
+
     tribool task_is_locally_bound( TL::Analysis::Node *n, Nodecl::List& local_vars )
     {
         ERROR_CONDITION( !n->is_omp_task_node( ), "Expecting a Task node, but found a '%s' node.", 
@@ -460,20 +373,7 @@ namespace {
         const TL::Analysis::NodeclSet& shared_vars = n->get_all_shared_accesses();
         return any_symbol_is_local(shared_vars, local_vars);
     }
-    
-#if 0
-    bool enclosing_context_contains_node(TL::Analysis::Node* ctx, TL::Analysis::Node* node)
-    {
-        bool found = false;
-        while(!found && (ctx != NULL))
-        {
-            found = (ctx == node) || TL::Analysis::ExtensibleGraph::node_contains_node(ctx, node);
-            ctx = TL::Analysis::ExtensibleGraph::get_enclosing_context(ctx);
-        }
-        return found;
-    }
-#endif
-    
+
     // Returns false when task may synchronize at some point 
     // which is not enclosed in the scope where the task is created
     tribool task_only_synchronizes_in_enclosing_scopes(

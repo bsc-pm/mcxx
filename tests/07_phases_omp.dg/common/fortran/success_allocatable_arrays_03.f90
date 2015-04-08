@@ -1,0 +1,25 @@
+! <testinfo>
+! test_generator=config/mercurium-omp
+! </testinfo>
+PROGRAM MAIN
+    IMPLICIT NONE
+    INTEGER, PARAMETER :: ARRAY_LENGTH = 500
+    INTEGER, PARAMETER :: CHARACTER_LENGTH = 10
+    CHARACTER(LEN=CHARACTER_LENGTH), ALLOCATABLE :: X(:)
+    INTEGER :: I
+
+    ALLOCATE(X(ARRAY_LENGTH))
+
+    !$OMP PARALLEL DO DEFAULT(SHARED)
+    DO I = 1, ARRAY_LENGTH
+        X(I) = REPEAT(ACHAR(MOD(I-1, 26) + 65), CHARACTER_LENGTH)
+    END DO
+
+    DO I = 1, ARRAY_LENGTH
+        ! PRINT *, X(I)
+        IF (X(I)(1:1) /= ACHAR(MOD(I-1, 26) + 65)) THEN
+            STOP 1
+        END IF
+    END DO
+
+END PROGRAM MAIN

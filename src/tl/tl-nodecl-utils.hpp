@@ -110,11 +110,12 @@ namespace Utils {
 
     Nodecl::NodeclBase get_previous_sibling(const Nodecl::NodeclBase& n);
     bool is_nodecl_statement(const Nodecl::NodeclBase& n);
-    void prepend_statement(const Nodecl::NodeclBase& n,
+    void prepend_sibling_statement(const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& new_stmt,
             const Nodecl::NodeclBase& obj_init_context = Nodecl::NodeclBase::null());
-    void append_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt);
+    void append_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context = Nodecl::NodeclBase::null());
  
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);

@@ -927,14 +927,42 @@ namespace TL { namespace Nanox {
             outline_info.set_sharing(OutlineDataItem::SHARING_CAPTURE);
 
         Type t = sym.get_type();
+
         if (t.is_any_reference())
         {
             t = t.references_to();
         }
         outline_info.set_field_type(t);
 
-        TL::Type in_outline_type;
+        if (t.is_function())
+        {
+            // The symbol was a reference to a function, we cannot capture
+            // a function value inside a structure, capture the pointer instead
+            TL::Type pointer_type;
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                pointer_type = TL::Type::get_void_type().get_pointer_to();
 
+                if (value.is_null())
+                {
+                    // Capture the address of the function
+                    // NOTE: we are mimicking what MERCURIUM_LOC does
+                    value = Nodecl::Dereference::make(
+                            Nodecl::Reference::make(
+                                sym.make_nodecl(/* set_ref_type */ true),
+                                pointer_type),
+                            pointer_type.get_lvalue_reference_to());
+                }
+            }
+            else
+            {
+                pointer_type = t.get_pointer_to();
+            }
+            outline_info.set_field_type(pointer_type);
+
+        }
+
+        TL::Type in_outline_type;
         if (IS_FORTRAN_LANGUAGE
                 || _outline_info.firstprivates_always_by_reference())
         {
@@ -989,8 +1017,7 @@ namespace TL { namespace Nanox {
             outline_info.set_captured_value(value);
 
         ERROR_CONDITION(!outline_info.get_conditional_capture_value().is_null()
-                && !condition.is_null(), "Overwriting captured value", 0);
-
+                && !condition.is_null(), "Overwriting conditional captured value", 0);
         if (!condition.is_null())
             outline_info.set_conditional_capture_value(condition);
     }
@@ -1303,25 +1330,17 @@ namespace TL { namespace Nanox {
 
                     OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
                     ERROR_CONDITION(red == NULL, "Invalid value for red_item", 0);
-                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_CONCURRENT_REDUCTION);
+                    add_reduction(symbol, reduction_type, red, OutlineDataItem::SHARING_TASK_REDUCTION);
 
+
+                    // Now, we have to define a concurrent dependence over the reduction symbol
                     OutlineDataItem &outline_data_item = _outline_info.get_entity_for_symbol(symbol);
 
                     TL::DataReference data_ref(red_item.get_reduced_symbol());
-                    outline_data_item.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_CONCURRENT));
+                    outline_data_item.get_dependences().append(
+                            OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_CONCURRENT));
                 }
             }
-
-            // void visit(const Nodecl::OpenMP::ReductionItem& reduction)
-            // {
-            //     TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
-            //     TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
-            //     TL::Type reduction_type = reduction.get_reduction_type().get_type();
-
-            //     OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
-            //     ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
-            //     add_reduction(symbol, reduction_type, red);
-            // }
 
             void visit(const Nodecl::OpenMP::Target& target)
             {
@@ -1401,7 +1420,7 @@ namespace TL { namespace Nanox {
             if (data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
             {
                 TL::Symbol sym = data_item.get_symbol();
-                ERROR_CONDITION(!sym.is_saved_expression(), "Symbol %s is missing a data sharing", sym.get_name().c_str());
+                ERROR_CONDITION(!sym.is_saved_expression(), "Symbol '%s' is missing a data sharing", sym.get_name().c_str());
 
                 _outline_info.remove_entity(data_item);
             }

@@ -29,7 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
-test_nolink=yes
 </testinfo>
 */
 

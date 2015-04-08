@@ -297,7 +297,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 case OutlineDataItem::SHARING_REDUCTION:
-                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 uniquestr(name.c_str()));
@@ -573,7 +573,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_SHARED_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 uniquestr(name.c_str()));
@@ -586,12 +586,15 @@ namespace TL { namespace Nanox {
                         if (sym.is_valid())
                         {
                             symbol_entity_specs_set_is_optional(private_sym, sym.is_optional());
+                            symbol_entity_specs_set_is_target(private_sym, sym.is_target());
                             symbol_entity_specs_set_is_allocatable(private_sym,
                                 (!sym.is_member() && sym.is_allocatable())
                                 || (*it)->is_copy_of_array_descriptor_allocatable());
 
                             symbol_map->add_map(sym, private_sym);
                         }
+
+
 
                         symbol_entity_specs_set_is_allocatable(private_sym,
                                 symbol_entity_specs_get_is_allocatable(private_sym) ||

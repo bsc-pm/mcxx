@@ -152,6 +152,12 @@ LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
 LIBMCXX_EXTERN char check_nontype_template_argument_type(type_t* t);
 LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context, nodecl_t*);
 LIBMCXX_EXTERN char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl, decl_context_t decl_context, nodecl_t*);
+LIBMCXX_EXTERN char check_nodecl_template_argument_can_be_converted_to_parameter_type(
+        nodecl_t nodecl_argument,
+        type_t* parameter_type,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_out);
+
 LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr, 
         decl_context_t decl_context, 
         type_t* declared_type, 

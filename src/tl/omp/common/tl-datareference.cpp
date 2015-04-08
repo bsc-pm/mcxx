@@ -249,22 +249,7 @@ namespace TL
 
                 _data_ref._data_type = t;
 
-                if (member.get_member().get_kind() == NODECL_CLASS_MEMBER_ACCESS)
-                {
-                    _data_ref._base_address =
-                        Nodecl::Reference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                    member.get_member().shallow_copy(),
-                                    /* member-form */ Nodecl::NodeclBase::null(),
-                                    t,
-                                    member.get_locus()
-                                    ),
-                                t.get_pointer_to(),
-                                member.get_locus());
-                }
-                else if (IS_CXX_LANGUAGE
-                        && member.get_member().get_kind() == NODECL_SYMBOL
+                if (IS_CXX_LANGUAGE
                         && _data_ref._base_address.get_kind() == NODECL_SYMBOL
                         && _data_ref._base_address.get_symbol().get_name() == "this")
                 {
@@ -283,20 +268,9 @@ namespace TL
                 else
                 {
                     // a.x
-                    // If the base address of the 'a' expression contains a Nodecl::Reference, remove it
-                    Nodecl::NodeclBase base_address = _data_ref._base_address;
-                    if (base_address.is<Nodecl::Reference>())
-                        base_address = base_address.as<Nodecl::Reference>().get_rhs();
-
                     _data_ref._base_address =
                         Nodecl::Reference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    base_address,
-                                    member.get_member().shallow_copy(),
-                                    member.get_member_literal().shallow_copy(),
-                                    t,
-                                    member.get_locus()
-                                    ),
+                                member.shallow_copy(),
                                 t.get_pointer_to(),
                                 member.get_locus());
                 }

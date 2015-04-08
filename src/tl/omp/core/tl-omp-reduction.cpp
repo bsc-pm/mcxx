@@ -427,7 +427,9 @@ namespace TL { namespace OpenMP {
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
-                reduction_type = fortran_gather_type_from_declaration_type_spec(current_type, decl_context);
+                reduction_type = fortran_gather_type_from_declaration_type_spec(current_type,
+                        decl_context,
+                        /* character_length_out */ NULL);
             }
             else
             {

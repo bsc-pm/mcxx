@@ -31,6 +31,7 @@
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
 #include "cxx-graphviz.h"
+#include "cxx-entrylist.h"
 #include <algorithm>
 
 namespace Nodecl
@@ -1033,13 +1034,11 @@ namespace Nodecl
             n.is<Nodecl::ObjectInit>();
     }
 
-    //It does not work if 'n' is nested in the value of an ObjectInit!
-    void Utils::prepend_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt,
+    Nodecl::NodeclBase get_nesting_statement(const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& obj_init_context)
     {
         Nodecl::NodeclBase target_stmt = n;
-        while (!target_stmt.is_null() && !is_nodecl_statement(target_stmt))
+        while (!target_stmt.is_null() && !Utils::is_nodecl_statement(target_stmt))
         {
             target_stmt = target_stmt.get_parent();
         }
@@ -1048,10 +1047,10 @@ namespace Nodecl
         if (target_stmt.is_null())
         {
             if (obj_init_context.is_null())
-                internal_error("Nodecl::Utils::prepend_statement: target_stmt is null and obj_init_context is null", 0);
+                internal_error("Nodecl::Utils::get_nesting_statement: target_stmt is null and obj_init_context is null", 0);
 
             TL::ObjectList<Nodecl::NodeclBase> obj_init_list =
-                nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
+                Utils::nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
 
             for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = obj_init_list.begin();
                     it != obj_init_list.end();
@@ -1062,7 +1061,7 @@ namespace Nodecl
 
                 if(!init.is_null())
                 {
-                    if (nodecl_contains_nodecl_by_pointer(init, n))
+                    if (Utils::nodecl_contains_nodecl_by_pointer(init, n))
                     {
                         target_stmt = *it;
                         break;
@@ -1072,21 +1071,25 @@ namespace Nodecl
         }
         
         if (target_stmt.is_null())
-            internal_error("Nodecl::Utils::prepend_statement: target_stmt is null", 0);
+            internal_error("Nodecl::Utils::get_nesting_statement: target_stmt is null", 0);
 
+        return target_stmt;
+    }
+
+
+    void Utils::prepend_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
+    {
+        Nodecl::NodeclBase target_stmt = get_nesting_statement(n, obj_init_context);
         target_stmt.prepend_sibling(new_stmt);
     }
 
-    //It does not work if 'n' is nested in the value of an ObjectInit!
-    void Utils::append_statement(const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& new_stmt)
+    void Utils::append_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
     {
-        Nodecl::NodeclBase target_stmt = n;
-        while (!is_nodecl_statement(target_stmt))
-        {
-            target_stmt = target_stmt.get_parent();
-        }
-
+        Nodecl::NodeclBase target_stmt = get_nesting_statement(n, obj_init_context);
         target_stmt.append_sibling(new_stmt);
     }
 
@@ -1419,6 +1422,10 @@ namespace Nodecl
             TL::Counter &counter = TL::CounterManager::get_counter("label_visitor");
 
             std::string register_name, symbol_name;
+
+            decl_context_t decl_context = _sc.get_decl_context();
+            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
             if (IS_FORTRAN_LANGUAGE
                     && is_numeric_label)
             {
@@ -1441,32 +1448,53 @@ namespace Nodecl
                     ss >> x;
                 }
 
-                // FIXME - Make this more robust!
-                // Add 10000 to this label
-                x += 10000 + (int)counter;
+                bool repeated = true;
 
-                std::stringstream ss;
-                ss << x;
+                while (repeated)
+                {
+                    // Add 10000 to this label
+                    // and check if the name has already been used
+                    int new_x = x + 10000 + (int)counter;
+                    counter++;
 
-                symbol_name = ss.str();
-                register_name = ".label_" + symbol_name;
+                    ERROR_CONDITION(new_x > 99999, "Cannot generate a new temporary label", 0);
+
+                    std::stringstream ss;
+                    ss << new_x;
+
+                    symbol_name = ss.str();
+                    register_name = ".label_" + symbol_name;
+
+                    scope_entry_list_t* entry_list = ::query_name_str_flags(
+                            program_unit_context,
+                            uniquestr(register_name.c_str()),
+                            NULL,
+                            DF_ONLY_CURRENT_SCOPE);
+
+                    if (entry_list == NULL)
+                    {
+                        repeated = false;
+                    }
+                    else
+                    {
+                        ::entry_list_free(entry_list);
+                    }
+                }
             }
             else
             {
                 std::stringstream ss;
                 ss << sym.get_name() << "_" << (int)counter;
+                counter++;
 
                 symbol_name = ss.str();
                 register_name = symbol_name;
             }
-            counter++;
 
-            decl_context_t decl_context = _sc.get_decl_context();
             scope_entry_t* new_label = NULL;
-            if (IS_FORTRAN_LANGUAGE && !is_numeric_label)
+            if (IS_FORTRAN_LANGUAGE)
             {
-                // Nonnumeric labels in Fortran live in the program unit context
-                decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+                // Labels in Fortran live in the program unit context
                 new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope,
                         uniquestr(register_name.c_str()));
             }

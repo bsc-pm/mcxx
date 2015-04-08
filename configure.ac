@@ -345,7 +345,7 @@ MIC_TESTING_DEVICE=$mic_testing_device
 if test x$disable_icc = xno;
 then
    dnl Check Intel Compiler C
-   AC_PATH_PROG([ICC], [icc], [$ICC])
+   AC_CHECK_PROG([ICC], [icc], [icc])
    if test x$ICC != x;
    then
       AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
@@ -391,7 +391,7 @@ then
       dnl end
    fi
    dnl Check Intel Compiler C++
-   AC_PATH_PROG([ICPC], [icpc], [$ICPC])
+   AC_CHECK_PROG([ICPC], [icpc], [icpc])
 else
     ICC=
     ICPC=
@@ -411,7 +411,7 @@ fi
 dnl Check Intel Fortran
 if test x$disable_ifort = xno;
 then
-   AC_PATH_PROG([IFORT], [ifort], [$IFORT])
+   AC_CHECK_PROG([IFORT], [ifort], [ifort])
 else
     IFORT=
 fi
@@ -916,7 +916,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 if test x$cuda_enabled = xyes ; then
     if test -d "$CUDADIR" ;
     then
-        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
+        AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
         if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling CUDA support])
             cuda_valid=no
@@ -1117,10 +1117,10 @@ then
          mpi_forced=yes
    	],
    	[   		
-        AC_PATH_PROG([MPIICC], [mpiicc], [$MPIICC])
+        AC_CHECK_PROG([MPIICC], [mpiicc], [mpiicc])
         MPIPATH=${MPIICC%mpiicc}
         if test x$MPIPATH = x; then		
-            AC_PATH_PROG([MPICC], [mpicc], [$MPICC])
+            AC_CHECK_PROG([MPICC], [mpicc], [mpicc])
             MPIPATH=${MPICC%mpicc}
         fi
    	]
@@ -2065,7 +2065,7 @@ dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
-   AC_PATH_PROG([GIT], [git], [$GIT])
+   AC_CHECK_PROG([GIT], [git], [git])
    AC_MSG_CHECKING([revision of git repository])
    run_git=""
    if test x"$GIT" != x;

@@ -635,7 +635,8 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     type_t* ac_value_type = NULL;
     if (type_spec != NULL)
     {
-        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context);
+        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context,
+                /* character_length_out */ NULL);
 
         if (is_error_type(ac_value_type))
         {
@@ -1831,7 +1832,7 @@ static void check_component_ref_(AST expr,
         synthesized_type = rhs_type;
     }
 
-    if (is_lvalue_reference_type(class_type))
+    if (is_lvalue_reference_type(nodecl_get_type(nodecl_lhs)))
     {
         synthesized_type = get_lvalue_reference_type(synthesized_type);
     }
@@ -1879,7 +1880,7 @@ static void check_component_ref_(AST expr,
         *nodecl_output =
             nodecl_make_dereference(
                     *nodecl_output,
-                    lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
+                    lvalue_ref(pointer_type_get_pointee_type(component_type)),
                     ast_get_locus(expr));
     }
 
@@ -1904,7 +1905,7 @@ static void check_component_ref_(AST expr,
                     no_ref(nodecl_get_type(*nodecl_output)),
                     lhs_type);
 
-            if (is_lvalue_reference_type(class_type))
+            if (is_lvalue_reference_type(nodecl_get_type(nodecl_lhs)))
             {
                 synthesized_type = get_lvalue_reference_type(synthesized_type);
             }
@@ -2307,7 +2308,7 @@ static char is_assumed_shape_or_pointer_array(scope_entry_t* entry)
 }
 
 static char check_argument_association(
-        scope_entry_t* function UNUSED_PARAMETER,
+        scope_entry_t* function,
         type_t* formal_type,
         type_t* real_type,
         nodecl_t real_argument,
@@ -2326,6 +2327,25 @@ static char check_argument_association(
     {
         // NULL() is OK with any pointer
         return 1;
+    }
+
+    if (is_function_type(formal_type)
+            && is_function_type(real_type))
+    {
+        scope_entry_t* entry = nodecl_get_symbol(real_argument);
+
+        if (entry != NULL
+                && symbol_entity_specs_get_is_implicit_basic_type(entry))
+            // We cannot reliably check this case
+            return 1;
+
+        scope_entry_t* dummy_argument =
+            symbol_entity_specs_get_related_symbols_num(function, argument_num);
+
+        if (dummy_argument != NULL
+                && symbol_entity_specs_get_is_implicit_basic_type(dummy_argument))
+            // We cannot reliably check this case
+            return 1;
     }
 
     if (!fortran_equivalent_tk_types(formal_type, real_type))
@@ -3136,24 +3156,43 @@ static void check_called_symbol_list(
                 ast_get_locus(procedure_designator));
     }
 
-    if (is_void_type(return_type))
+    if (symbol_entity_specs_get_is_implicit_basic_type(symbol))
     {
         if (!is_call_stmt)
         {
-            error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
-                    ast_location(location));
-            *result_type = get_error_type();
-            return;
+            // From now it is a FUNCTION
+            symbol_entity_specs_set_is_implicit_basic_type(symbol, 0);
         }
+        else
+        {
+            // From now it is a SUBROUTINE
+            symbol->type_information = fortran_update_basic_type_with_type(
+                    symbol->type_information,
+                    get_void_type());
+        }
+        symbol_entity_specs_set_is_implicit_basic_type(symbol, 0);
     }
     else
     {
-        if (is_call_stmt)
+        if (is_void_type(return_type))
         {
-            error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
-                    ast_location(location));
-            *result_type = get_error_type();
-            return;
+            if (!is_call_stmt)
+            {
+                error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
+                        ast_location(location));
+                *result_type = get_error_type();
+                return;
+            }
+        }
+        else
+        {
+            if (is_call_stmt)
+            {
+                error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
+                        ast_location(location));
+                *result_type = get_error_type();
+                return;
+            }
         }
     }
 
@@ -3384,13 +3423,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 nodecl_make_symbol(called_symbol, ast_get_locus(procedure_designator));
         if (called_symbol->kind == SK_VARIABLE)
         {
-            // This must be a pointer to function
-            ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
-
-            nodecl_called = nodecl_make_dereference(
-                    nodecl_called,
-                    lvalue_ref(called_symbol->type_information),
-                    ast_get_locus(procedure_designator));
+            if (is_pointer_to_function_type(no_ref(called_symbol->type_information)))
+            {
+                nodecl_called = nodecl_make_dereference(
+                        nodecl_called,
+                        lvalue_ref(called_symbol->type_information),
+                        ast_get_locus(procedure_designator));
+            }
         }
 
         *nodecl_output = nodecl_make_function_call(
@@ -4217,7 +4256,8 @@ static void check_symbol_of_called_name(AST sym,
                 }
             }
             else if (entry->kind == SK_VARIABLE
-                    && is_pointer_to_function_type(no_ref(entry->type_information)))
+                    && (is_pointer_to_function_type(no_ref(entry->type_information))
+                        || /* dummy procedures */ is_function_type(no_ref(entry->type_information))))
             {
                 // OK
             }
@@ -4979,6 +5019,23 @@ static void cast_initialization(
             *casted_const = val;
         }
     }
+}
+
+void fortran_cast_initialization(
+        scope_entry_t* entry,
+        nodecl_t *nodecl_init)
+{
+    ERROR_CONDITION(nodecl_init == NULL, "Cannot be NULL here", 0);
+
+    if (nodecl_is_null(*nodecl_init)
+            || !nodecl_is_constant(*nodecl_init))
+        return;
+
+    const_value_t* casted_const = NULL;
+    cast_initialization(no_ref(entry->type_information),
+            nodecl_get_constant(*nodecl_init),
+            &casted_const,
+            nodecl_init);
 }
 
 void fortran_check_initialization(
@@ -6170,23 +6227,109 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
     }
 }
 
+static const_value_t* const_bin_val_(const_value_t* cval_lhs, const_value_t* cval_rhs,
+        const_value_t* (*compute)(const_value_t*, const_value_t*))
+{
+    if (!const_value_is_array(cval_lhs)
+            && !const_value_is_array(cval_rhs))
+    {
+        return compute(cval_lhs, cval_rhs);
+    }
+    else
+    {
+        int num_elements;
+        if (const_value_is_array(cval_lhs))
+        {
+            num_elements = const_value_get_num_elements(cval_lhs);
+            if (const_value_is_array(cval_rhs))
+            {
+                // Should not happen, though
+                if (const_value_get_num_elements(cval_rhs) != num_elements)
+                    return NULL;
+            }
+        }
+        else
+        {
+            num_elements = const_value_get_num_elements(cval_rhs);
+        }
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* cvals[num_elements];
+
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            const_value_t* current_lhs = cval_lhs;
+            if (const_value_is_array(current_lhs))
+                current_lhs = const_value_get_element_num(current_lhs, k);
+
+            const_value_t* current_rhs = cval_rhs;
+            if (const_value_is_array(current_rhs))
+                current_rhs = const_value_get_element_num(current_rhs, k);
+
+            cvals[k] = const_bin_val_(current_lhs, current_rhs, compute);
+
+            if (cvals[k] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(num_elements, cvals);
+    }
+}
+
 static const_value_t* const_bin_(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs,
         const_value_t* (*compute)(const_value_t*, const_value_t*))
 {
     if (nodecl_is_constant(nodecl_lhs)
             && nodecl_is_constant(nodecl_rhs))
     {
-        return compute(nodecl_get_constant(nodecl_lhs),
-                nodecl_get_constant(nodecl_rhs));
+        const_value_t* cval_lhs = nodecl_get_constant(nodecl_lhs);
+        const_value_t* cval_rhs = nodecl_get_constant(nodecl_rhs);
+
+        if (cval_lhs != NULL
+                && cval_rhs != NULL)
+        {
+            return const_bin_val_(cval_lhs, cval_rhs, compute);
+        }
     }
     return NULL;
+}
+
+static const_value_t* const_unary_val_(const_value_t* cval_lhs, const_value_t* (*compute)(const_value_t*))
+{
+    if (!const_value_is_array(cval_lhs))
+    {
+        return compute(cval_lhs);
+    }
+    else
+    {
+        int num_elements = const_value_get_num_elements(cval_lhs);
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* cvals[num_elements];
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            cvals[k] = const_unary_val_(const_value_get_element_num(cval_lhs, k), compute);
+            if (cvals[k] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(num_elements, cvals);
+    }
 }
 
 static const_value_t* const_unary_(nodecl_t nodecl_lhs, const_value_t* (*compute)(const_value_t*))
 {
     if (nodecl_is_constant(nodecl_lhs))
     {
-        return compute(nodecl_get_constant(nodecl_lhs));
+        const_value_t* cval_lhs = nodecl_get_constant(nodecl_lhs);
+        if (cval_lhs != NULL)
+            return const_unary_val_(cval_lhs, compute);
     }
     return NULL;
 }

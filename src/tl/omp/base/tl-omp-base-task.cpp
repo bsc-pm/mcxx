@@ -52,7 +52,8 @@ namespace TL { namespace OpenMP {
             void visit(const Nodecl::Symbol& n)
             {
                 sym_to_argument_expr_t::iterator it = _sym_to_arg.find(n.get_symbol());
-                if (it == _sym_to_arg.end())
+                if (it == _sym_to_arg.end()
+                        || it->second.is<Nodecl::FortranNotPresent>())
                     return;
 
                 n.replace(it->second.shallow_copy());
@@ -470,8 +471,16 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
+        // Variables that have to be closed as shared
+        TL::ObjectList<TL::Symbol> shared_closure = function_task_info.get_shared_closure();
+        for (TL::ObjectList<TL::Symbol>::iterator it = shared_closure.begin();
+                it != shared_closure.end();
+                it++)
+        {
+            assumed_shareds.append(it->make_nodecl(it->get_locus()));
+        }
 
+        TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
 
         Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
         int i = 0;
@@ -498,6 +507,10 @@ namespace TL { namespace OpenMP {
                         Nodecl::NodeclBase arg;
                         if ((unsigned int)i < arguments.size())
                             arg = arguments[i];
+
+                        // Skip missing arguments
+                        if (arg.is<Nodecl::FortranNotPresent>())
+                            continue;
 
                         ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
 

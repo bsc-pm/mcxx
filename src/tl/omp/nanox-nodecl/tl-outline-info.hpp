@@ -61,10 +61,10 @@ namespace TL
 
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
-
+                    // Only used in worksharing & parallel reductions
                     SHARING_REDUCTION,
-                    // Reductions on tasks
-                    SHARING_CONCURRENT_REDUCTION,
+                    // Only used in task reductions
+                    SHARING_TASK_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _base_address_expression
                     // This is used for dependences in function tasks

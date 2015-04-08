@@ -597,7 +597,6 @@ void LoweringVisitor::emit_async_common(
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024))
     {
-
         if (IS_FORTRAN_LANGUAGE
                 && !final_condition.is_constant())
         {
@@ -618,6 +617,14 @@ void LoweringVisitor::emit_async_common(
                 << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
                 ;
         }
+    }
+
+    // Only tasks created in a parallel construct are marked as implicit
+    if (Nanos::Version::interface_is_at_least("master", 5029))
+    {
+        dynamic_wd_info
+            << "nanos_wd_dyn_props.flags.is_implicit = 0;"
+            ;
     }
 
     Source dynamic_size;
@@ -924,18 +931,6 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
-    // We cannot use the final stmts generated in the FinalStmtsGenerator
-    // because we need to introduce some extra function calls
-    bool has_task_reduction = false;
-    Nodecl::NodeclBase final_statements;
-    if(!environment.as<Nodecl::List>().find_first<Nodecl::OpenMP::TaskReduction>().is_null())
-    {
-
-        // This final_statements will be used when we are generating the code for the 'final' clause
-        has_task_reduction = true;
-        final_statements = Nodecl::Utils::deep_copy(statements, construct);
-    }
-
     walk(statements);
 
     TaskEnvironmentVisitor task_environment;
@@ -946,8 +941,18 @@ void LoweringVisitor::visit_task(
 
     OutlineInfo outline_info(*_lowering, environment, function_symbol);
 
-    // If the current task contains a reduction clause, the final statements will be modified
-    handle_reductions_on_task(construct, outline_info, statements, final_statements);
+    // In the case of task reductions, we cannot use the final stmts generated
+    // by the FinalStmtsGenerator because we need to introduce some extra function
+    // calls to obtain the thread private storage
+    //
+    // The task_reduction_final_statements will be filled if the current task has
+    // a reduction clause
+    Nodecl::NodeclBase task_reduction_final_statements;
+    handle_reductions_on_task(
+            construct,
+            outline_info,
+            statements,
+            task_reduction_final_statements);
 
     // Handle the special object 'this'
     if (IS_CXX_LANGUAGE
@@ -1022,8 +1027,8 @@ void LoweringVisitor::visit_task(
         ERROR_CONDITION(it == _final_stmts_map.end(), "Unreachable code", 0);
 
         // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
-        if (has_task_reduction)
-            copied_statements_placeholder.replace(final_statements);
+        if (!task_reduction_final_statements.is_null())
+            copied_statements_placeholder.replace(task_reduction_final_statements);
         else
             copied_statements_placeholder.replace(it->second);
 
@@ -1038,7 +1043,7 @@ void LoweringVisitor::visit_task(
     }
 
     // Our implementation of reduction tasks forces them to be tied
-    bool is_untied = task_environment.is_untied && !has_task_reduction;
+    bool is_untied = task_environment.is_untied && !task_reduction_final_statements.is_null();
 
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
@@ -1331,7 +1336,7 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_SHARED:
                 // Reductions are passed as if they were shared
                 case OutlineDataItem::SHARING_REDUCTION:
-                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         // 'this' is special in C++
                         if (IS_CXX_LANGUAGE
@@ -1437,7 +1442,7 @@ void LoweringVisitor::fill_arguments(
 
                         if ((*it)->get_captured_value().is_null())
                         {
-                            if (t.is_pointer())
+                            if (t.is_pointer() || t.is_function())
                             {
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
@@ -1465,7 +1470,7 @@ void LoweringVisitor::fill_arguments(
                                 fill_outline_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
                                 fill_immediate_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
                             }
-                            if (t.is_pointer())
+                            if (t.is_pointer() || t.is_function())
                             {
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " => " << as_expression(captured.shallow_copy()) << "\n"
@@ -1494,7 +1499,7 @@ void LoweringVisitor::fill_arguments(
                 case OutlineDataItem::SHARING_SHARED:
                 // Reductions are passed as if they were shared variables
                 case OutlineDataItem::SHARING_REDUCTION:
-                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         TL::Type t = sym.get_type();
                         if (t.is_any_reference())

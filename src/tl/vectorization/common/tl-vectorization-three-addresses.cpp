@@ -126,9 +126,9 @@ namespace Vectorization
                     tmp_sym.get_type()));
 
         if (!_object_init.is_null())
-            Nodecl::Utils::prepend_statement(_object_init, new_stmt);
+            Nodecl::Utils::prepend_sibling_statement(_object_init, new_stmt);
         else
-            Nodecl::Utils::prepend_statement(n, new_stmt);
+            Nodecl::Utils::prepend_sibling_statement(n, new_stmt);
     }
  
     void VectorizationThreeAddresses::visit_vector_unary(

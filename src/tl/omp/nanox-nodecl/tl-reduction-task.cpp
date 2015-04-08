@@ -450,11 +450,12 @@ namespace TL { namespace Nanox {
     };
 
     void LoweringVisitor::handle_reductions_on_task(
-            Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements,
+            Nodecl::NodeclBase construct,
+            OutlineInfo& outline_info,
+            Nodecl::NodeclBase statements,
             Nodecl::NodeclBase& final_statements)
     {
-        if (Nanos::Version::interface_is_at_least("task_reduction", 1000)
-                || (Nanos::Version::interface_is_at_least("reduction_on_task", 1000)))
+        if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
         {
             bool there_are_reductions_on_task = false;
             TL::Source reductions_stuff, reductions_stuff_final;
@@ -465,7 +466,7 @@ namespace TL { namespace Nanox {
                     it != data_items.end();
                     it++)
             {
-                if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+                if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
                     continue;
 
                 TL::Symbol reduction_item = (*it)->get_symbol();
@@ -494,156 +495,70 @@ namespace TL { namespace Nanox {
                         initializer_function,
                         _reduction_on_tasks_ini_map);
 
-                if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
+                // Mandatory TL::Sources to be filled by any reduction
+                TL::Source
+                    orig_address, // address of the original reduction variable
+                    storage_var, // variable which holds the address of the storage
+                    final_stmts; // This source contains the stmts for the final clause support
+
+                // Specific TL::Sources to be filled only by Fortran array reduction
+                TL::Source extra_array_red_decl, extra_array_red_memcpy;
+
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    // Mandatory TL::Sources to be filled by any reduction
-                    TL::Source
-                        orig_address, // address of the original reduction variable
-                        storage_var, // variable which holds the address of the storage
-                        final_stmts; // This source contains the stmts for the final clause support
-
-                    // Specific TL::Sources to be filled only by Fortran array reduction
-                    TL::Source extra_array_red_decl, extra_array_red_memcpy;
-
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    storage_var << storage_name;
+                    orig_address  <<  "(void *) &" << (*it)->get_field_name();
+                    final_stmts
+                        << "if (" << storage_var << " == 0)"
+                        << "{"
+                        <<     storage_name  << " = &" << (*it)->get_field_name() << ";"
+                        << "}"
+                        ;
+                }
+                else
+                {
+                    if (reduction_type.is_array())
                     {
-                        storage_var << storage_name;
-                        orig_address  <<  "(void *) &" << (*it)->get_field_name();
+                        size_t size_of_array_descriptor =
+                            fortran_size_of_array_descriptor(
+                                    fortran_get_rank0_type(reduction_type.get_internal_type()),
+                                    fortran_get_rank_of_type(reduction_type.get_internal_type()));
+
+                        TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
+                        if (reduction_item.is_allocatable())
+                        {
+                            orig_address << ptr_of_sym.get_name() << "(" << (*it)->get_field_name() << ")";
+                        }
+                        else
+                        {
+                            orig_address <<  "(void *) &" << (*it)->get_field_name();
+                        }
+
+                        extra_array_red_decl << "void* indirect;";
+                        storage_var << "indirect";
+
+                        extra_array_red_memcpy
+                            << "nanos_err = nanos_memcpy("
+                            <<      "(void **) &" << storage_name << ","
+                            <<      "indirect,"
+                            <<      size_of_array_descriptor << ");"
+                            ;
+
                         final_stmts
                             << "if (" << storage_var << " == 0)"
                             << "{"
-                            <<     storage_name  << " = &" << (*it)->get_field_name() << ";"
+                            <<     "nanos_err = nanos_memcpy("
+                            <<         "(void **) &" << storage_name << ","
+                            <<         orig_address << ","
+                            <<         size_of_array_descriptor << ");"
+                            << "}"
+                            << "else"
+                            << "{"
+                            <<     extra_array_red_memcpy
                             << "}"
                             ;
                     }
                     else
-                    {
-                        if (reduction_type.is_array())
-                        {
-                            size_t size_of_array_descriptor =
-                                fortran_size_of_array_descriptor(
-                                        fortran_get_rank0_type(reduction_type.get_internal_type()),
-                                        fortran_get_rank_of_type(reduction_type.get_internal_type()));
-
-                            TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
-                            if (reduction_item.is_allocatable())
-                            {
-                                orig_address << ptr_of_sym.get_name() << "(" << (*it)->get_field_name() << ")";
-                            }
-                            else
-                            {
-                                orig_address <<  "(void *) &" << (*it)->get_field_name();
-                            }
-
-                            extra_array_red_decl << "void* indirect;";
-                            storage_var << "indirect";
-
-                            extra_array_red_memcpy
-                                << "nanos_err = nanos_memcpy("
-                                <<      "(void **) &" << storage_name << ","
-                                <<      "indirect,"
-                                <<      size_of_array_descriptor << ");"
-                                ;
-
-                            final_stmts
-                                << "if (" << storage_var << " == 0)"
-                                << "{"
-                                <<     "nanos_err = nanos_memcpy("
-                                <<         "(void **) &" << storage_name << ","
-                                <<         orig_address << ","
-                                <<         size_of_array_descriptor << ");"
-                                << "}"
-                                << "else"
-                                << "{"
-                                <<     extra_array_red_memcpy
-                                << "}"
-                                ;
-                        }
-                        else
-                        {
-                            // We need to convert a void* type into a pointer to the reduction type.
-                            // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
-                            // conversion directly in the FORTRAN source. For this reason we introduce
-                            // a new function that will be defined in a C file.
-                            TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
-                                    // Destination
-                                    reduction_type.get_pointer_to(),
-                                    // Origin
-                                    TL::Type::get_void_type().get_pointer_to(),
-                                    construct.retrieve_context());
-
-                            orig_address <<  "(void *) &"<< (*it)->get_field_name();
-                            storage_var << storage_name;
-
-
-                            final_stmts
-                                << "if (" << storage_var << " == 0)"
-                                << "{"
-                                <<     storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
-                                << "}"
-                                ;
-                        }
-
-                    }
-
-                    reductions_stuff
-                        << extra_array_red_decl
-                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "nanos_err = nanos_task_reduction_get_thread_storage("
-                        <<         orig_address  << ","
-                        <<         "(void **) &" << storage_var << ");"
-                        << extra_array_red_memcpy
-                        ;
-
-                    reductions_stuff_final
-                        << extra_array_red_decl
-                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "nanos_err = nanos_task_reduction_get_thread_storage("
-                        <<         orig_address  << ","
-                        <<         "(void **) &" << storage_var << ");"
-                        << final_stmts
-                        ;
-                }
-                else /* JAN's Version */
-                {
-                    std::string cache_storage = (*it)->get_field_name() + "_cache_storage";
-                    reductions_stuff
-                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "nanos_red_t* " << cache_storage << ";"
-                        << "nanos_err = nanos_reduction_request("
-                        <<      "(void *) &" << (*it)->get_field_name() << "," // target
-                        <<      "sizeof(" << as_type(reduction_type) << "),"  // size
-                        <<      "sizeof(" << as_type(reduction_type) << "),"  // size
-                        <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
-                        <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
-                        <<      "(void (*)(void *)) &NANOS_REDUCTION_FLUSH,"
-                        <<      "&" << cache_storage << ");"  // storage
-                        ;
-
-                    TL::Source auxiliar_final, auxiliar_final2;
-                    reductions_stuff_final
-                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "nanos_err = nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
-                        << "if (is_registered)"
-                        << "{"
-                        <<      "nanos_red_t* " << cache_storage << ";"
-                        <<      "nanos_err = nanos_reduction_request("
-                        <<           "(void *) &" << (*it)->get_field_name() << "," // target
-                        <<           "sizeof(" << as_type(reduction_type) << "),"  // size
-                        <<           "sizeof(" << as_type(reduction_type) << "),"  // size
-                        <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
-                        <<           "(void (*)(void *, void *)) & " << initializer_function.get_name() << "," // initializer
-                        <<           "(void (*)(void *)) &NANOS_REDUCTION_FLUSH,"
-                        <<           "&" << cache_storage << ");"  // storage
-                        <<      auxiliar_final
-                        << "}"
-                        << "else"
-                        << "{"
-                        <<     auxiliar_final2
-                        << "}"
-                        ;
-
-                    if (IS_FORTRAN_LANGUAGE)
                     {
                         // We need to convert a void* type into a pointer to the reduction type.
                         // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
@@ -656,36 +571,36 @@ namespace TL { namespace Nanox {
                                 TL::Type::get_void_type().get_pointer_to(),
                                 construct.retrieve_context());
 
+                        orig_address <<  "(void *) &"<< (*it)->get_field_name();
+                        storage_var << storage_name;
 
-                        auxiliar_final2
-                            << storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
-                            ;
 
-                        reductions_stuff
-                            << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
-                            ;
-
-                        auxiliar_final
-                            << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
-                            ;
-                    }
-                    else
-                    {
-                        auxiliar_final2
-                            << storage_name << " = &" << (*it)->get_field_name() << ";"
-                            ;
-
-                        auxiliar_final
-                            << storage_name << " = "
-                            <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
-                            ;
-
-                        reductions_stuff
-                            << storage_name << " = "
-                            <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
+                        final_stmts
+                            << "if (" << storage_var << " == 0)"
+                            << "{"
+                            <<     storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
+                            << "}"
                             ;
                     }
                 }
+
+                reductions_stuff
+                    << extra_array_red_decl
+                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                    << "nanos_err = nanos_task_reduction_get_thread_storage("
+                    <<         orig_address  << ","
+                    <<         "(void **) &" << storage_var << ");"
+                    << extra_array_red_memcpy
+                    ;
+
+                reductions_stuff_final
+                    << extra_array_red_decl
+                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                    << "nanos_err = nanos_task_reduction_get_thread_storage("
+                    <<         orig_address  << ","
+                    <<         "(void **) &" << storage_var << ");"
+                    << final_stmts
+                    ;
 
                 reduction_symbols_map[reduction_item] = storage_name;
             }
@@ -696,9 +611,6 @@ namespace TL { namespace Nanox {
                 {
                     TL::Source extra_declarations;
                     extra_declarations << "nanos_err_t nanos_err;";
-
-                    if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
-                        extra_declarations << as_type(TL::Type::get_bool_type()) << "is_registered;";
 
                     Nodecl::NodeclBase placeholder;
                     TL::Source new_statements_src;
@@ -805,7 +717,7 @@ namespace TL { namespace Nanox {
                 it != data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+            if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
                 continue;
 
             std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();

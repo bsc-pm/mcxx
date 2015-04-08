@@ -94,7 +94,18 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
         << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
         << "}";
 
+    FORTRAN_LANGUAGE()
+    {
+        // Parse in C
+        Source::source_language = SourceLanguage::C;
+    }
+
     Nodecl::NodeclBase new_stmt = src.parse_statement(construct);
+
+    FORTRAN_LANGUAGE()
+    {
+        Source::source_language = SourceLanguage::Current;
+    }
 
     construct.replace(new_stmt);
 }

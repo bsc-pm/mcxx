@@ -507,6 +507,7 @@ parallel-execution : task-construct
                    | critical-construct
                    | parallel-construct
                    | omp-for-construct
+                   | taskloop-construct
                    | atomic-construct
                    | sections-construct
                    | master-construct
@@ -587,6 +588,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*MASK()
                  | NODECL_OPEN_M_P*NO_MASK()
                  | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]reduction-item-seq)
+                 | NODECL_OPEN_M_P*NUM_TASKS([num_tasks]expression)
+                 | NODECL_OPEN_M_P*GRAIN_SIZE([grain_size]expression)
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
@@ -606,6 +609,8 @@ parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-
 # for
 omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
               | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
+
+taskloop-construct : NODECL_OPEN_M_P*TASK_LOOP([environment]exec-environment-seq-opt, [loop]statement)
 
 # workshare (Fortran only)
 workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)

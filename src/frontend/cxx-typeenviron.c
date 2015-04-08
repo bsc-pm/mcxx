@@ -138,6 +138,7 @@ static void system_v_field_layout(scope_entry_t* field,
         if (array_type_with_descriptor(field_type))
         {
             size_of_fortran_array_with_descriptor(field_type);
+            field_size = type_get_size(field_type);
         }
         // gcc flexible arrays support
         else if (is_last_field)
@@ -145,6 +146,7 @@ static void system_v_field_layout(scope_entry_t* field,
             // Perform a special computation for this array
             _size_t element_align = type_get_alignment(element_type);
 
+            // field_size = 0;
             type_set_size(field_type, 0);
             type_set_alignment(field_type, element_align);
             type_set_valid_size(field_type, 1);
