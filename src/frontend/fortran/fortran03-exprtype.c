@@ -721,8 +721,17 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
         }
     }
 
+    nodecl_t nodecl_array_constructor_form = nodecl_null();
+
+    if (type_spec != NULL)
+    {
+        nodecl_array_constructor_form =
+            nodecl_make_structured_value_fortran_typespec_array_constructor(
+                ast_get_locus(type_spec));
+    }
+
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
-            nodecl_null(),
+            nodecl_array_constructor_form,
             ac_value_type,
             ast_get_locus(expr));
 

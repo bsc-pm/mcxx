@@ -972,6 +972,7 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::StructuredValue& node)
     {
+        Nodecl::NodeclBase form = node.get_form();
         TL::Type type = node.get_type();
         if (type.is_array())
         {
@@ -981,22 +982,21 @@ OPERATOR_TABLE
                     || state.flatten_array_construct)
             {
                 *(file) << "(/ ";
-                if (node.get_items().is_null())
+                if (node.get_items().is_null()
+                        || (!form.is_null()
+                            && form.is<Nodecl::StructuredValueFortranTypespecArrayConstructor>()))
                 {
                     std::string type_specifier, array_specifier;
                     codegen_type_extended(
                             fortran_get_rank0_type(type.get_internal_type()),
                             type_specifier,
-                            array_specifier, 
+                            array_specifier,
                             /* force_deferred_shape */ false,
                             /* without_type_qualifier */ true);
                     // Only in this case we emit the type-specifier
-                    *(file) << type_specifier << ":: ";
+                    *(file) << type_specifier << " :: ";
                 }
-                else
-                {
-                    codegen_comma_separated_list(node.get_items());
-                }
+                codegen_comma_separated_list(node.get_items());
                 *(file) << " /)";
             }
             else
