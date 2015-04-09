@@ -1051,8 +1051,27 @@ namespace TL { namespace Nanox {
 
         outline_info.set_in_outline_type(in_outline_type);
 
-
-        outline_info.set_private_type(reduction_type);
+        TL::Type private_type;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            if (symbol.is_allocatable())
+            {
+                // ALLOCATABLEs are slightly special
+                private_type = reduction_type;
+            }
+            else
+            {
+                private_type = in_outline_type.no_ref();
+            }
+        }
+        else
+        {
+            // For C/C++ if the reduction involves an array, the outline
+            // passed type will be a pointer
+            // FIXME - What if reduction_type is a VLA?
+            private_type = reduction_type;
+        }
+        outline_info.set_private_type(private_type);
     }
 
     void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
