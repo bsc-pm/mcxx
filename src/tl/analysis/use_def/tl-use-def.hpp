@@ -262,6 +262,7 @@ namespace Analysis {
         Ret visit(const Nodecl::Range& n);
         Ret visit(const Nodecl::Reference& n);
         Ret visit(const Nodecl::Symbol& n);
+        Ret visit(const Nodecl::ValueInitialization& n);
         Ret visit(const Nodecl::VectorAssignment& n);
         Ret visit(const Nodecl::VectorGather& n);
         Ret visit(const Nodecl::VectorLoad& n);
