@@ -730,6 +730,30 @@ static inline int fixed_form_get(token_location_t* loc)
                 internal_error("Code unreachable", 0);
             }
 
+            if (past_eof())
+                ROLLBACK;
+
+            if (lexer_state.current_file->current_pos[0] == '!'
+                    || lexer_state.current_file->current_pos[0] == '*'
+                    || tolower(lexer_state.current_file->current_pos[0]) == 'c'
+                    || tolower(lexer_state.current_file->current_pos[0]) == 'd')
+            {
+                // This is a comment line, skip
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+                while (!past_eof()
+                        && !is_newline(lexer_state.current_file->current_pos[0]))
+                {
+                    lexer_state.current_file->current_location.column++;
+                    lexer_state.current_file->current_pos++;
+                }
+                if (past_eof())
+                    ROLLBACK;
+
+                // continue to the next line
+                continue;
+            }
+
             // There should be 5 blanks and a nonblank character
             // FIXME - sentinels!
             // This is the regular expression for a continuation line (([ ]{5}))[^0[:blank:]]
@@ -787,7 +811,10 @@ static inline int fixed_form_get(token_location_t* loc)
                     }
                     else if (lexer_state.current_file->current_pos[0] == '!')
                     {
+                        // This is a comment line, skip
+                        lexer_state.current_file->current_location.column++;
                         lexer_state.current_file->current_pos++;
+
                         while (!past_eof()
                                 && !is_newline(lexer_state.current_file->current_pos[0]))
                         {
