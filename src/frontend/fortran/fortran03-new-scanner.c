@@ -66,6 +66,7 @@
 
 enum {
     MAX_INCLUDE_DEPTH = 99,
+    MAX_KEYWORDS_PER_STMT = 16,
 };
 
 
@@ -99,6 +100,14 @@ enum lexer_textual_form
     LEXER_TEXTUAL_FIXED_FORM,
 };
 
+typedef
+enum language_part_tag
+{
+    LANG_TOP_LEVEL = 0,
+    LANG_NONEXECUTABLE_PART,
+    LANG_EXECUTABLE_PART,
+} language_part_t;
+
 enum lexing_substate
 {
     LEXER_SUBSTATE_NORMAL = 0,
@@ -109,6 +118,23 @@ enum lexing_substate
     LEXER_SUBSTATE_PRAGMA_CLAUSE,
     LEXER_SUBSTATE_PRAGMA_VAR_LIST,
 };
+
+typedef
+struct fixed_form_state_tag
+{
+    // Sequence of keywords we expect. It is zero if no specific initial keyword is
+    // expected (i.e. assignment statements)
+    int num_keywords;
+    int keywords[MAX_KEYWORDS_PER_STMT];
+
+    // Inside IF or ELSEIF
+    char in_if_statement:1;
+    // Parentheses level used to track in_if_statement
+    int if_statement_paren_level;
+
+    // Language part: non-executable vs executable
+    language_part_t language_part;
+} fixed_form_state_t;
 
 static
 struct new_lexer_state_t
@@ -147,8 +173,21 @@ struct new_lexer_state_t
     char** pragma_constructs_stack;
 
     // Extra state required by fixed form
-    int initial_keyword;
+    fixed_form_state_t fixed_form;
 } lexer_state;
+
+static void reset_fixed_form(void)
+{
+    lexer_state.fixed_form.num_keywords = 0;
+    lexer_state.fixed_form.in_if_statement = 0;
+    lexer_state.fixed_form.if_statement_paren_level = 0;
+}
+
+static void init_fixed_form(void)
+{
+    reset_fixed_form();
+    lexer_state.fixed_form.language_part = LANG_TOP_LEVEL;
+}
 
 static token_location_t get_current_location(void)
 {
@@ -249,6 +288,8 @@ static void init_lexer_state(void)
     lexer_state.in_nonblock_do_construct = 0;
     lexer_state.num_nonblock_labels = 0;
     lexer_state.num_pragma_constructs = 0;
+
+    init_fixed_form();
 
     peek_init();
 }
@@ -2017,7 +2058,48 @@ static inline char is_format_statement(void)
     return 1;
 }
 
-static inline int classify_statement(void)
+static char is_nonexecutable_statement(int k)
+{
+    switch (k)
+    {
+        case TOKEN_TYPE:
+        case TOKEN_PRIVATE:
+        case TOKEN_PUBLIC:
+        case TOKEN_PROGRAM:
+        case TOKEN_SUBROUTINE:
+        case TOKEN_FUNCTION:
+        case TOKEN_MODULE:
+        // case TOKEN_MODULE_PROCEDURE:
+        case TOKEN_BLOCKDATA:
+        case TOKEN_USE:
+        case TOKEN_IMPLICIT:
+        case TOKEN_PARAMETER:
+        case TOKEN_FORMAT:
+        case TOKEN_ENTRY:
+        case TOKEN_ACCESS:
+        case TOKEN_ALLOCATABLE:
+        case TOKEN_COMMON:
+        case TOKEN_DATA:
+        case TOKEN_DIMENSION:
+        case TOKEN_EQUIVALENCE:
+        case TOKEN_EXTERNAL:
+        case TOKEN_INTENT:
+        case TOKEN_INTRINSIC:
+        case TOKEN_NAMELIST:
+        case TOKEN_OPTIONAL:
+        case TOKEN_POINTER:
+        case TOKEN_SAVE:
+        case TOKEN_VALUE:
+        case TOKEN_VOLATILE:
+        case TOKEN_TARGET:
+        case TOKEN_BIND:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static inline void peek_keywords_of_statement(char expect_label)
 {
     int peek_idx = 0;
     int p = peek(peek_idx);
@@ -2025,17 +2107,20 @@ static inline int classify_statement(void)
     // Read the whole statement until a newline
     // or ; (out of character-context)
 
-    // Skip label (if any)
-    while (is_decimal_digit(p))
+    if (expect_label)
     {
+        // Skip label (if any)
+        while (is_decimal_digit(p))
+        {
+            peek_idx++;
+            p = peek(peek_idx);
+        }
+
+        // continuation column, there should be a blank here
+        ERROR_CONDITION(p != ' ', "Expecting a blank here, got '%c'", p);
         peek_idx++;
         p = peek(peek_idx);
     }
-
-    // continuation column, there should be a blank here
-    ERROR_CONDITION(p != ' ', "Expecting a blank here, got '%c'", p);
-    peek_idx++;
-    p = peek(peek_idx);
 
     char delim = 0;
     char in_string = 0;
@@ -2050,7 +2135,7 @@ static inline int classify_statement(void)
     tiny_dyncharbuf_new(&keyword, 32);
 
     while (!is_newline(p)
-            && ((p != ';' 
+            && ((p != ';'
                     && p != '!') || in_string))
     {
         if (!is_letter(p))
@@ -2118,7 +2203,7 @@ static inline int classify_statement(void)
     }
     tiny_dyncharbuf_add(&keyword, '\0');
 
-    int result = 0;
+    lexer_state.fixed_form.num_keywords = 0;
 
     if (!free_equal            // A=3, DO=1,10, INTEGER::A=3
             || free_comma      // filter DO=1,10
@@ -2137,12 +2222,108 @@ static inline int classify_statement(void)
         }
 
         if (kw != NULL)
-            result = kw->token_id;
+        {
+            // The keyword is known
+            lexer_state.fixed_form.keywords[0] = kw->token_id;
+            lexer_state.fixed_form.num_keywords++;
+
+            // We may have to do extra work if we find that this token is followed by others
+            char *current_keyword = keyword.buf + length;
+            char done = 0;
+            char is_function_or_subroutine = 0;
+            if (lexer_state.fixed_form.language_part == LANG_TOP_LEVEL
+                    || lexer_state.fixed_form.language_part == LANG_EXECUTABLE_PART)
+            {
+                // FIXME:
+                //        TYPE(A) FUNCTION B(C)
+
+                while (*current_keyword != '\0'
+                        && !done)
+                {
+                    // Special cases
+                    switch (kw->token_id)
+                    {
+                        case TOKEN_PURE:
+                        case TOKEN_IMPURE:
+                        case TOKEN_ELEMENTAL:
+                        case TOKEN_REAL:
+                        case TOKEN_INTEGER:
+                        case TOKEN_LOGICAL:
+                        case TOKEN_COMPLEX:
+                        case TOKEN_DOUBLEPRECISION:
+                        case TOKEN_DOUBLECOMPLEX:
+                            {
+                                // REAL FUNCTION A(B)
+                                // vs
+                                // REAL FUNCTIONA(B)
+                                //
+                                // Note that REALFUNCTIONA(B) = 3 does not reach this
+                                // code because there is a free equal
+
+                                length = strlen(current_keyword);
+
+                                kw = fortran_keywords_lookup(current_keyword, length);
+                                while (kw == NULL
+                                        && length > 0)
+                                {
+                                    length--;
+                                    kw = fortran_keywords_lookup(current_keyword, length);
+                                }
+
+                                if (kw == NULL)
+                                {
+                                    done = 1;
+                                    break;
+                                }
+
+                                ERROR_CONDITION(lexer_state.fixed_form.num_keywords >= MAX_KEYWORDS_PER_STMT,
+                                        "Too many keywords", 0);
+                                lexer_state.fixed_form.keywords[lexer_state.fixed_form.num_keywords] = kw->token_id;
+                                lexer_state.fixed_form.num_keywords++;
+
+                                current_keyword += length;
+
+                                if (kw->token_id == TOKEN_FUNCTION
+                                        || kw->token_id == TOKEN_SUBROUTINE)
+                                {
+                                    is_function_or_subroutine = 1;
+                                    done = 1;
+                                    lexer_state.fixed_form.language_part = LANG_NONEXECUTABLE_PART;
+                                    break;
+                                }
+                                break;
+                            }
+                        default:
+                            {
+                                if (is_nonexecutable_statement(kw->token_id))
+                                {
+                                    lexer_state.fixed_form.language_part = LANG_NONEXECUTABLE_PART;
+                                }
+                                else
+                                {
+                                    lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
+                                }
+                                done = 1;
+                                break;
+                            }
+                    }
+                }
+
+                if (!is_function_or_subroutine)
+                {
+                    // Discard extra keywords we may have encountered
+                    lexer_state.fixed_form.num_keywords = 1;
+                }
+            }
+        }
+    }
+    else
+    {
+        // Not a keyword, likely an assignment statement (or an error)
+        lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
     }
 
     xfree(keyword.buf);
-
-    return result;
 }
 
 static inline char is_known_sentinel(char** sentinel)
@@ -2353,7 +2534,14 @@ extern int new_mf03lex(void)
                 if (c == ' ' /* no label */
                         || is_decimal_digit(c) /* label */)
                 {
-                    lexer_state.initial_keyword = classify_statement();
+                    peek_keywords_of_statement(/* expect_label */ 1);
+                    if (lexer_state.fixed_form.num_keywords > 0
+                            && (lexer_state.fixed_form.keywords[0] == TOKEN_IF
+                                || lexer_state.fixed_form.keywords[0] == TOKEN_ELSEIF))
+                    {
+                        lexer_state.fixed_form.in_if_statement = 1;
+                        lexer_state.fixed_form.if_statement_paren_level = 0;
+                    }
                 }
             }
 
@@ -2398,6 +2586,7 @@ extern int new_mf03lex(void)
             {
                 case EOF:
                     {
+                        reset_fixed_form();
                         char end_of_scan = process_end_of_file();
                         if (end_of_scan)
                         {
@@ -2433,6 +2622,7 @@ extern int new_mf03lex(void)
                 case '\n':
                 case '\r':
                     {
+                        reset_fixed_form();
                         // Regarding \r\n in DOS, the get function will always skip \n if it finds it right after \r
                         if (!lexer_state.last_eos)
                         {
@@ -2608,6 +2798,11 @@ extern int new_mf03lex(void)
                         }
                         else
                         {
+                            if (lexer_state.form == LEXER_TEXTUAL_FIXED_FORM
+                                    && lexer_state.fixed_form.in_if_statement)
+                            {
+                                lexer_state.fixed_form.if_statement_paren_level++;
+                            }
                             return commit_text('(', "(", loc);
                         }
                     }
@@ -2633,6 +2828,25 @@ extern int new_mf03lex(void)
                             return commit_text('/', "/", loc);
                     }
                 case ')' :
+                    {
+                        if (lexer_state.form == LEXER_TEXTUAL_FIXED_FORM
+                                && lexer_state.fixed_form.in_if_statement)
+                        {
+                            if (lexer_state.fixed_form.if_statement_paren_level > 0)
+                            {
+                                lexer_state.fixed_form.if_statement_paren_level--;
+
+                                if (lexer_state.fixed_form.if_statement_paren_level == 0)
+                                {
+                                    reset_fixed_form();
+                                    peek_keywords_of_statement(/* expect_label */ 0);
+                                }
+                            }
+                        }
+
+                        const char s[] = {c0, '\0'};
+                        return commit_text(c0, s, loc);
+                    }
                 case '[' :
                 case ']' :
                 case ',' :
@@ -3134,7 +3348,7 @@ extern int new_mf03lex(void)
                         tiny_dyncharbuf_add(&identifier, c0);
 
                         if (lexer_state.form != LEXER_TEXTUAL_FIXED_FORM
-                                || lexer_state.initial_keyword == 0)
+                                || lexer_state.fixed_form.num_keywords == 0)
                         {
                             // peek as many letters as possible
                             int c = peek(0);
@@ -3209,20 +3423,28 @@ extern int new_mf03lex(void)
                                     fortran_keywords_lookup(identifier.buf, identifier.num);
 
                                 if (result != NULL
-                                        && result->token_id == lexer_state.initial_keyword)
+                                        && result->token_id == lexer_state.fixed_form.keywords[0])
                                 {
-                                    token_id = lexer_state.initial_keyword;
+                                    token_id = lexer_state.fixed_form.keywords[0];
                                     break;
                                 }
 
                                 c = peek(0);
                             }
 
-                            ERROR_CONDITION(token_id != lexer_state.initial_keyword,
+                            ERROR_CONDITION(token_id != lexer_state.fixed_form.keywords[0],
                                     "Expected initial keyword not matched", 0);
 
                             tiny_dyncharbuf_add(&identifier, '\0');
-                            lexer_state.initial_keyword = 0;
+
+                            // Now shift left all keywords
+                            int i;
+                            for (i = 1; i < lexer_state.fixed_form.num_keywords; i++)
+                            {
+                                lexer_state.fixed_form.keywords[i - 1] =
+                                    lexer_state.fixed_form.keywords[i];
+                            }
+                            lexer_state.fixed_form.num_keywords--;
                         }
 
                         if (token_id == TOKEN_DO)
