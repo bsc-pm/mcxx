@@ -478,10 +478,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
-
-
-        void generate_final_stmts(Nodecl::NodeclBase stmts);
-
 };
 
 } }
