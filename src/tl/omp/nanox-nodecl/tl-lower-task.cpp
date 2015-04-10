@@ -941,17 +941,24 @@ void LoweringVisitor::visit_task(
 
     OutlineInfo outline_info(*_lowering, environment, function_symbol);
 
+    bool generate_final_stmts = Nanos::Version::interface_is_at_least("master", 5024)
+            && !_lowering->final_clause_transformation_disabled()
+            && outline_info.only_has_smp_or_mpi_implementations()
+            && !inside_task_expression;
+
     // In the case of task reductions, we cannot use the final stmts generated
     // by the FinalStmtsGenerator because we need to introduce some extra function
     // calls to obtain the thread private storage
     //
     // The task_reduction_final_statements will be filled if the current task has
     // a reduction clause
+    bool has_task_reduction = false;
     Nodecl::NodeclBase task_reduction_final_statements;
-    handle_reductions_on_task(
+    has_task_reduction = handle_reductions_on_task(
             construct,
             outline_info,
             statements,
+            generate_final_stmts,
             task_reduction_final_statements);
 
     // Handle the special object 'this'
@@ -978,10 +985,7 @@ void LoweringVisitor::visit_task(
     }
 
     Nodecl::NodeclBase new_construct;
-    if (!_lowering->final_clause_transformation_disabled()
-            && Nanos::Version::interface_is_at_least("master", 5024)
-            && outline_info.only_has_smp_or_mpi_implementations()
-            && !inside_task_expression)
+    if (generate_final_stmts)
     {
         // We create a new Node OpenMP::Task with the same childs as the
         // original construct. Another solution is shallow copy all the
@@ -1043,7 +1047,7 @@ void LoweringVisitor::visit_task(
     }
 
     // Our implementation of reduction tasks forces them to be tied
-    bool is_untied = task_environment.is_untied && !task_reduction_final_statements.is_null();
+    bool is_untied = task_environment.is_untied && !has_task_reduction;
 
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(

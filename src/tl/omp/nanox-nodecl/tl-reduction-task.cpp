@@ -449,15 +449,16 @@ namespace TL { namespace Nanox {
 
     };
 
-    void LoweringVisitor::handle_reductions_on_task(
+    bool LoweringVisitor::handle_reductions_on_task(
             Nodecl::NodeclBase construct,
             OutlineInfo& outline_info,
             Nodecl::NodeclBase statements,
+            bool generate_final_stmts,
             Nodecl::NodeclBase& final_statements)
     {
+        bool has_task_reductions = false;
         if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
         {
-            bool there_are_reductions_on_task = false;
             TL::Source reductions_stuff, reductions_stuff_final;
             std::map<TL::Symbol, std::string> reduction_symbols_map;
 
@@ -471,7 +472,7 @@ namespace TL { namespace Nanox {
 
                 TL::Symbol reduction_item = (*it)->get_symbol();
 
-                there_are_reductions_on_task = true;
+                has_task_reductions = true;
 
                 std::string storage_name = (*it)->get_field_name() + "_storage";
 
@@ -605,9 +606,10 @@ namespace TL { namespace Nanox {
                 reduction_symbols_map[reduction_item] = storage_name;
             }
 
-            if (there_are_reductions_on_task)
+            if (has_task_reductions)
             {
-                // Generating the final code
+                // Generating the final code if needed
+                if (generate_final_stmts)
                 {
                     TL::Source extra_declarations;
                     extra_declarations << "nanos_err_t nanos_err;";
@@ -705,6 +707,7 @@ namespace TL { namespace Nanox {
                 }
             }
         }
+        return has_task_reductions;
     }
 
     void LoweringVisitor::register_reductions(Nodecl::NodeclBase construct, OutlineInfo& outline_info, TL::Source& src)
