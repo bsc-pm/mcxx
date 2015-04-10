@@ -2520,6 +2520,12 @@ extern int new_mf03lex(void)
                                     {
                                         in_string = 0;
                                     }
+                                    else
+                                    {
+                                        tiny_dyncharbuf_add(&str, c);
+                                        // skip delimiter
+                                        get();
+                                    }
                                 }
                                 tiny_dyncharbuf_add(&str, c);
                                 get();
