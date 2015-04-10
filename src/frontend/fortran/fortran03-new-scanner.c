@@ -768,7 +768,43 @@ static inline int fixed_form_get(token_location_t* loc)
             {
                 if (lexer_state.current_file->current_pos[0] == '0'
                         || lexer_state.current_file->current_pos[0] == ' ')
-                    ROLLBACK;
+                {
+                    // Maybe this is an empty line or a line with just a comment
+                    while (!past_eof()
+                            && is_blank(lexer_state.current_file->current_pos[0]))
+                    {
+                        lexer_state.current_file->current_location.column++;
+                        lexer_state.current_file->current_pos++;
+                    }
+
+                    if (past_eof())
+                        ROLLBACK;
+
+                    if (is_newline(lexer_state.current_file->current_pos[0]))
+                    {
+                        // continue to the next line
+                        continue;
+                    }
+                    else if (lexer_state.current_file->current_pos[0] == '!')
+                    {
+                        lexer_state.current_file->current_pos++;
+                        while (!past_eof()
+                                && !is_newline(lexer_state.current_file->current_pos[0]))
+                        {
+                            lexer_state.current_file->current_location.column++;
+                            lexer_state.current_file->current_pos++;
+                        }
+                        if (past_eof())
+                            ROLLBACK;
+
+                        // continue to the next line
+                        continue;
+                    }
+                    else
+                    {
+                        ROLLBACK;
+                    }
+                }
             }
             else
             {
