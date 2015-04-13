@@ -783,8 +783,7 @@ static inline int fixed_form_get(token_location_t* loc)
 
         if (result == ' ')
         {
-            if (lexer_state.character_context
-                    || lexer_state.current_file->current_location.column == 6)
+            if (lexer_state.character_context)
                 break;
 
             lexer_state.current_file->current_location.column++;
@@ -795,15 +794,10 @@ static inline int fixed_form_get(token_location_t* loc)
             if (lexer_state.character_context)
                 break;
 
-            if (lexer_state.current_file->current_location.column < 5)
-            {
-                // In the labeld field we account tabs like 1 blank
-                lexer_state.current_file->current_location.column++;
-            }
-            else
-            {
+            if (lexer_state.current_file->current_location.column < 6)
                 lexer_state.current_file->current_location.column += 6;
-            }
+            else
+                lexer_state.current_file->current_location.column++;
             lexer_state.current_file->current_pos++;
         }
         else if (lexer_state.current_file->current_location.column == 1
@@ -919,7 +913,8 @@ static inline int fixed_form_get(token_location_t* loc)
             if (!is_tab_form)
             {
                 if (lexer_state.current_file->current_pos[0] == '0'
-                        || lexer_state.current_file->current_pos[0] == ' ')
+                        || lexer_state.current_file->current_pos[0] == ' '
+                        || lexer_state.current_file->current_pos[0] == '\t')
                 {
                     // Maybe this is an empty line or a line with just a comment
                     while (!past_eof()
@@ -1319,6 +1314,7 @@ static inline int peek_size(void)
     return (_peek_queue.front - _peek_queue.back);
 }
 
+#if 0
 static void peek_print(void)
 {
     fprintf(stderr, "-- PEEK SIZE %d\n", peek_size());
@@ -1332,6 +1328,7 @@ static void peek_print(void)
     }
     fprintf(stderr, "--\n");
 }
+#endif
 
 static inline void peek_grow(void)
 {
@@ -1386,7 +1383,7 @@ static inline void peek_insert(int n, int c, token_location_t loc)
         peek_grow();
     }
 
-    peek_print();
+    // peek_print();
 
     // Now shift left all the items
     int i = _peek_queue.back;
@@ -1401,7 +1398,7 @@ static inline void peek_insert(int n, int c, token_location_t loc)
     _peek_queue.buffer[((_peek_queue.size - 1) + _peek_queue.front) - n].letter = c;
     _peek_queue.buffer[((_peek_queue.size - 1) + _peek_queue.front) - n].loc = loc;
 
-    peek_print();
+    // peek_print();
     // internal_error("TEST", 0);
 }
 
@@ -2511,22 +2508,40 @@ static inline void preanalyze_statement(char expect_label)
     int peek_idx = 0;
     int p = peek(peek_idx);
 
+    // Early return, we do not have to preanalyze anything here
+    if (p == '#'
+            || p == '!'
+            || p == EOF
+            || is_newline(p))
+        return;
+
     // Read the whole statement until a newline
     // or ; (out of character-context)
 
     if (expect_label)
     {
         // Skip label (if any)
-        while (is_decimal_digit(p))
+        token_location_t loc;
+        p = peek_loc(peek_idx, &loc);
+        while (loc.column < 6)
         {
+            if (!is_decimal_digit(p))
+            {
+                error_printf("%s:%d:%d: invalid character in label field\n",
+                        loc.filename,
+                        loc.line,
+                        loc.column);
+                break;
+            }
+            peek_idx++;
+            p = peek_loc(peek_idx, &loc);
+        }
+        if (peek_idx > 0)
+        {
+            peek_insert(peek_idx, ' ', loc);
             peek_idx++;
             p = peek(peek_idx);
         }
-
-        // continuation column, there should be a blank here
-        ERROR_CONDITION(p != ' ', "Expecting a blank here, got '%c'", p);
-        peek_idx++;
-        p = peek(peek_idx);
     }
 
     // Keep this for later
@@ -2541,6 +2556,7 @@ static inline void preanalyze_statement(char expect_label)
     int parenthesis_level = 0;
 
     while (!is_newline(p)
+            && p != EOF
             && ((p != ';'
                     && p != '!') || in_string))
     {
@@ -2688,6 +2704,30 @@ static inline void preanalyze_statement(char expect_label)
                         lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
                     }
                     // This keyword identifies this statement
+                    done_with_keywords = 1;
+                    break;
+                }
+            case TOKEN_DO:
+                {
+                    // DO10E=1,100 must become DO 10 E=1,100
+                    token_location_t loc;
+                    peek_loc(peek_idx_end_of_keyword + 1, &loc);
+                    peek_insert(peek_idx_end_of_keyword + 1, ' ', loc); 
+                    peek_idx = peek_idx_end_of_keyword + 2;
+
+                    p = peek(peek_idx);
+                    if (is_decimal_digit(p))
+                    {
+                        while (is_decimal_digit(p))
+                        {
+                            peek_idx++;
+                            p = peek(peek_idx);
+                        }
+                        peek_insert(peek_idx, ' ', loc); 
+                        peek_idx++;
+                    }
+
+                    lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
                     done_with_keywords = 1;
                     break;
                 }
@@ -3057,12 +3097,7 @@ extern int new_mf03lex(void)
         {
             if (lexer_state.form == LEXER_TEXTUAL_FIXED_FORM)
             {
-                int c = peek(0);
-                if (c == ' ' /* no label */
-                        || is_decimal_digit(c) /* label */)
-                {
-                    preanalyze_statement(/* expect_label */ 1);
-                }
+                preanalyze_statement(/* expect_label */ 1);
             }
 
             if (lexer_state.num_nonblock_labels > 0
