@@ -2009,7 +2009,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     {
         error_printf("%s: error: '%s' is not a derived-type-name\n",
                 ast_location(expr),
-                ASTText(derived_name));
+                strtolower(ASTText(derived_name)));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
