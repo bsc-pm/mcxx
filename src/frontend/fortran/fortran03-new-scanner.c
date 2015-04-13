@@ -160,6 +160,13 @@ struct new_lexer_state_t
     char in_format_statement:1;
     // we have seen a nonblock do construct
     char in_nonblock_do_construct:1;
+    // previous character was a letter
+    char previous_was_letter:1;
+
+    // Delimiter for 'a' "b" character constant
+    char character_context_delim;
+    // Length of Holleritz character constant
+    char character_context_hollerith_length;
 
     // Stack of nonblock DO labels we need this to properly nest them
     int num_nonblock_labels;
@@ -687,12 +694,93 @@ static char handle_preprocessor_line(void)
 #undef ROLLBACK
 }
 
+static char finish_character(char result)
+{
+    if (!is_newline(result))
+    {
+        if (lexer_state.character_context)
+        {
+            if (lexer_state.character_context_hollerith_length > 0)
+            {
+                // Hollerith
+                lexer_state.character_context_hollerith_length--;
+                if (lexer_state.character_context_hollerith_length == 0)
+                    lexer_state.character_context = 0;
+            }
+            else if (result == lexer_state.character_context_delim)
+            {
+                // This is not exact but is in general quite effective
+                lexer_state.character_context = 0;
+                lexer_state.character_context_delim = 0;
+            }
+
+            lexer_state.previous_was_letter = 0;
+        }
+        else
+        {
+            if (is_decimal_digit(result))
+            {
+                if (lexer_state.character_context_hollerith_length == 0)
+                {
+                    if (!lexer_state.previous_was_letter)
+                        lexer_state.character_context_hollerith_length = result - '0';
+                }
+                else
+                {
+                    lexer_state.character_context_hollerith_length =
+                        lexer_state.character_context_hollerith_length * 10
+                        + result - '0';
+                }
+            }
+            else if ((result == '\''
+                        || result == '"'))
+            {
+                lexer_state.character_context = 1;
+                lexer_state.character_context_delim = result;
+            }
+            else if (tolower(result) == 'h'
+                    && lexer_state.character_context_hollerith_length > 0)
+            {
+                lexer_state.character_context = 1;
+            }
+            else
+            {
+                lexer_state.character_context_hollerith_length = 0;
+            }
+
+            lexer_state.previous_was_letter = is_letter(result);
+        }
+
+        lexer_state.current_file->current_location.column++;
+        lexer_state.current_file->current_pos++;
+    }
+    else
+    {
+        lexer_state.character_context_hollerith_length = 0;
+
+        lexer_state.current_file->current_location.line++;
+        lexer_state.current_file->current_location.column = 1;
+
+        lexer_state.current_file->current_pos++;
+        if (result == '\r'
+                && !past_eof()
+                && lexer_state.current_file->current_pos[0] == '\n')
+        {
+            // DOS: \r\n will act like a single '\r'
+            lexer_state.current_file->current_pos++;
+        }
+    }
+
+    return result;
+}
+
 static inline int fixed_form_get(token_location_t* loc)
 {
     int result;
     while (!past_eof())
     {
         result = lexer_state.current_file->current_pos[0];
+
         if (result == ' ')
         {
             if (lexer_state.character_context
@@ -714,8 +802,7 @@ static inline int fixed_form_get(token_location_t* loc)
             }
             else
             {
-                // FIXME - make this configurable
-                lexer_state.current_file->current_location.column += 8;
+                lexer_state.current_file->current_location.column += 6;
             }
             lexer_state.current_file->current_pos++;
         }
@@ -905,27 +992,7 @@ static inline int fixed_form_get(token_location_t* loc)
     if (past_eof())
         return EOF;
 
-    if (!is_newline(result))
-    {
-        lexer_state.current_file->current_location.column++;
-        lexer_state.current_file->current_pos++;
-    }
-    else
-    {
-        lexer_state.current_file->current_location.line++;
-        lexer_state.current_file->current_location.column = 1;
-
-        lexer_state.current_file->current_pos++;
-        if (result == '\r'
-                && !past_eof()
-                && lexer_state.current_file->current_pos[0] == '\n')
-        {
-            // DOS: \r\n will act like a single '\r'
-            lexer_state.current_file->current_pos++;
-        }
-    }
-
-    return result;
+    return finish_character(result);
 }
 
 static inline int free_form_get(token_location_t* loc)
@@ -1198,27 +1265,7 @@ static inline int free_form_get(token_location_t* loc)
 
     *loc = lexer_state.current_file->current_location;
 
-    if (!is_newline(result))
-    {
-        lexer_state.current_file->current_location.column++;
-        lexer_state.current_file->current_pos++;
-    }
-    else
-    {
-        lexer_state.current_file->current_location.line++;
-        lexer_state.current_file->current_location.column = 1;
-
-        lexer_state.current_file->current_pos++;
-        if (result == '\r'
-                && !past_eof()
-                && lexer_state.current_file->current_pos[0] == '\n')
-        {
-            // DOS: \r\n will act like a single '\r'
-            lexer_state.current_file->current_pos++;
-        }
-    }
-
-    return result;
+    return finish_character(result);
 }
 
 static inline int input_get(token_location_t* loc)
@@ -1609,8 +1656,6 @@ static inline void scan_character_literal(
     char can_be_octal = allow_suffix_boz;
     char can_be_hexa = allow_suffix_boz;
 
-    lexer_state.character_context = 1;
-
     char unended_literal = 0;
     int c = peek(0);
     token_location_t loc2 = loc;
@@ -1665,8 +1710,6 @@ static inline void scan_character_literal(
             break;
         }
     }
-
-    lexer_state.character_context = 0;
 
     if (unended_literal)
     {
@@ -4021,7 +4064,6 @@ extern int new_mf03lex(void)
                             }
                             else
                             {
-                                lexer_state.character_context = 1;
                                 tiny_dyncharbuf_t holl;
                                 tiny_dyncharbuf_new(&holl, length + 1);
                                 int ok = 1;
@@ -4042,7 +4084,6 @@ extern int new_mf03lex(void)
                                     get();
                                 }
                                 tiny_dyncharbuf_add(&holl, '\0');
-                                lexer_state.character_context = 0;
 
                                 if (!ok)
                                     continue;
