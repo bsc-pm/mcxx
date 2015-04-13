@@ -1901,6 +1901,9 @@ static void check_component_ref_(AST expr,
             check_array_ref_(rhs, decl_context, *nodecl_output, *nodecl_output, nodecl_output,
                     do_complete_array_ranks, require_lower_bound);
 
+            if (nodecl_is_err_expr(*nodecl_output))
+                return;
+
             if (fortran_is_array_type(lhs_type)
                     && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output))))
             {
