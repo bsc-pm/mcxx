@@ -2358,6 +2358,111 @@ static inline void peek_keywords_of_statement(char expect_label)
 }
 #endif
 
+static inline int preanalyze_advance_parenthesis(int peek_idx)
+{
+    int p = peek(peek_idx);
+    if (p != '(')
+        return peek_idx;
+
+    int parenthesis_level = 0;
+    char in_string = 0;
+
+    char delim = 0;
+
+    tiny_dyncharbuf_t int_str;
+    tiny_dyncharbuf_new(&int_str, 5);
+
+    char prev_was_letter = 0;
+    for (;;)
+    {
+        if (p == EOF
+                || is_newline(p))
+            break;
+
+        if (!in_string)
+        {
+            if (p == '!'
+                    || p == ';')
+                break;
+
+            if (p == '(')
+            {
+                parenthesis_level++;
+            }
+            else if (p == ')')
+            {
+                if (parenthesis_level > 0)
+                {
+                    parenthesis_level--;
+                    if (parenthesis_level == 0)
+                        break;
+                }
+            }
+            else if (p == '\''
+                    || p == '"')
+            {
+                delim = p;
+                in_string = 1;
+            }
+            // Holleritz
+            else if (tolower(p) == 'h'
+                    && int_str.num > 0)
+            {
+                tiny_dyncharbuf_add(&int_str, '\0');
+                int skip = atoi(int_str.buf);
+                if (skip > 0)
+                {
+                    peek_idx++;
+                    p = peek(peek_idx);
+
+                    while (skip > 0
+                            && !is_newline(p))
+                    {
+                        skip--;
+
+                        peek_idx++;
+                        p = peek(peek_idx);
+                    }
+                }
+                int_str.num = 0;
+            }
+
+            if (is_decimal_digit(p)
+                    && !prev_was_letter)
+            {
+                tiny_dyncharbuf_add(&int_str, p);
+            }
+            else
+            {
+                int_str.num = 0;
+            }
+
+            prev_was_letter = is_letter(p);
+        }
+        else if (in_string)
+        {
+            if (p == delim)
+            {
+                if (peek(peek_idx + 1) != delim)
+                {
+                    in_string = 0;
+                }
+                else
+                {
+                    // skip this delimiter
+                    peek_idx++;
+                }
+            }
+        }
+
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+
+    xfree(int_str.buf);
+    return peek_idx;
+}
+
 static inline void preanalyze_statement(char expect_label)
 {
     int peek_idx = 0;
@@ -2468,6 +2573,7 @@ static inline void preanalyze_statement(char expect_label)
     peek_idx = peek_idx_start_of_stmt;
 
     char done_with_keywords = 0;
+    char allow_named_label = 1;
     while (!done_with_keywords)
     {
         p = peek(peek_idx);
@@ -2493,11 +2599,23 @@ static inline void preanalyze_statement(char expect_label)
 
         if (kw == NULL)
         {
-            // FIXME - if p == ':' we need to repeat the keyword check (but only once!)
+            if (p == ':'
+                    && allow_named_label)
+            {
+                // FOO:IF(A>1)STOP1
+                //    ^
+                peek_idx++;
+                allow_named_label = 0;
+                // try again
+                continue;
+            }
 
             // Well, we could not classify this statement with any known
             // keyword, maybe there are no more keywords or it is an error
+            done_with_keywords = 1;
+            break;
         }
+        allow_named_label = 0;
 
         // Special keywords that deserve special treatment
         switch (kw->token_id)
@@ -2509,6 +2627,7 @@ static inline void preanalyze_statement(char expect_label)
                     if (is_letter(p) || is_decimal_digit(p))
                     {
                         token_location_t loc;
+                        peek_loc(peek_idx_end_of_keyword + 1, &loc);
                         peek_insert(peek_idx_end_of_keyword + 1, ' ', loc); 
                         peek_idx = peek_idx_end_of_keyword + 2;
                     }
@@ -2562,14 +2681,43 @@ static inline void preanalyze_statement(char expect_label)
                                 peek_insert(peek_idx2, ' ', loc);
                                 peek_idx = peek_idx2 + 2;
                             }
-                            else
+                            else if (kw->token_id == TOKEN_CHARACTER
+                                    && p == ',')
                             {
+                                // CHARACTER*10,
+                                //             ^
+                                // skip comma
                                 peek_idx = peek_idx2 + 1;
                             }
+                            else
+                            {
+                                // regular case
+                                peek_idx = peek_idx2;
+                            }
+                        }
+                        else if (kw->token_id == TOKEN_CHARACTER
+                                && p == '(')
+                        {
+                            // CHARACTER*(10)
+                            //           ^
+                            peek_idx2 = preanalyze_advance_parenthesis(peek_idx2);
+                            peek_idx2++;
+
+                            p = peek(peek_idx2);
+                            if (p == ',')
+                            {
+                                // CHARACTER*(10),
+                                //               ^
+                                // skip comma
+                                peek_idx2++;
+                            }
+
+                            peek_idx = peek_idx2;
                         }
                         else
                         {
-                            peek_idx = peek_idx2 + 1;
+                            // Unexpected case
+                            peek_idx = peek_idx2;
                         }
                     }
                     else if (is_letter(p))
@@ -2581,34 +2729,17 @@ static inline void preanalyze_statement(char expect_label)
                     }
                     else if (p == '(')
                     {
+                        int peek_idx2 = peek_idx_end_of_keyword + 1;
+                        //INTEGER(8)A
+                        //       ^
                         // Advance parentheses of the kind
-                        // FIXME - string literals!
-                        int peek_idx2 = peek_idx_end_of_keyword + 2;
-
-                        parenthesis_level = 1;
-                        p = peek(peek_idx2);
-                        while (p != EOF
-                                && !is_newline(p)
-                                && p != ';')
-                        {
-                            if (p == '(')
-                            {
-                                parenthesis_level++;
-                            }
-                            else if (p == ')')
-                            {
-                                parenthesis_level--;
-                                if (parenthesis_level == 0)
-                                    break;
-                            }
-                            peek_idx2++;
-                            p = peek(peek_idx2);
-                        }
+                        peek_idx2 = preanalyze_advance_parenthesis(peek_idx2);
 
                         peek_idx = peek_idx2 + 1;
                     }
                     else
                     {
+                        // Unexpected case
                         peek_idx = peek_idx_end_of_keyword + 1;
                     }
 
@@ -2650,7 +2781,6 @@ static inline void preanalyze_statement(char expect_label)
                 {
                     // These need an extra blank after the keyword that follows
                     // the closing parenthesis
-
                     // Note that IF/ELSEIF keyword identify their statements,
                     // but unfortunately they may be composed of another statement/label so
                     // we need to identify both, to do this we just advance the peek index
@@ -2658,29 +2788,15 @@ static inline void preanalyze_statement(char expect_label)
                     p = peek(peek_idx_end_of_keyword + 1);
                     if (p == '(')
                     {
-                        // Advance parentheses
-                        // FIXME - string literals!
-                        int peek_idx2 = peek_idx_end_of_keyword + 2;
+                        // IF(A)STOP1
+                        //   ^
+                        // IF(A)THENLABEL
+                        //   ^
+                        // ELSEIF(B)THENLABEL
+                        //       ^
 
-                        parenthesis_level = 1;
-                        p = peek(peek_idx2);
-                        while (p != EOF
-                                && !is_newline(p)
-                                && p != ';')
-                        {
-                            if (p == '(')
-                            {
-                                parenthesis_level++;
-                            }
-                            else if (p == ')')
-                            {
-                                parenthesis_level--;
-                                if (parenthesis_level == 0)
-                                    break;
-                            }
-                            peek_idx2++;
-                            p = peek(peek_idx2);
-                        }
+                        int peek_idx2 = peek_idx_end_of_keyword + 1;
+                        peek_idx2 = preanalyze_advance_parenthesis(peek_idx2);
 
                         peek_idx = peek_idx2 + 1;
                     }
