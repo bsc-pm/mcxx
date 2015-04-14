@@ -694,6 +694,25 @@ static char handle_preprocessor_line(void)
 #undef ROLLBACK
 }
 
+static inline char is_known_sentinel_str(char *sentinel, const char **out_sentinel)
+{
+    int i;
+    char found = 0;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        {
+            found = 1;
+            if (out_sentinel != NULL)
+            {
+                *out_sentinel = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
+            }
+            break;
+        }
+    }
+    return found;
+}
+
 static char finish_character(char result)
 {
     if (!is_newline(result))
@@ -867,14 +886,61 @@ static inline int fixed_form_get(token_location_t* loc)
             if (past_eof())
                 ROLLBACK;
 
-            if (lexer_state.current_file->current_pos[0] == '!'
-                    || lexer_state.current_file->current_pos[0] == '*'
-                    || tolower(lexer_state.current_file->current_pos[0]) == 'c'
+            if ((lexer_state.sentinel == NULL
+                        && (lexer_state.current_file->current_pos[0] == '!'
+                            || lexer_state.current_file->current_pos[0] == '*'
+                            || tolower(lexer_state.current_file->current_pos[0]) == 'c'))
                     || tolower(lexer_state.current_file->current_pos[0]) == 'd')
             {
-                // This is a comment line, skip
+                // This might be a comment line
                 lexer_state.current_file->current_location.column++;
                 lexer_state.current_file->current_pos++;
+                if (!past_eof())
+                {
+                    if (lexer_state.current_file->current_pos[0] == '$')
+                    {
+                        char sentinel[4] = { '\0', '\0', '\0', '\0' };
+                        // Cowardly refusing to continue through a comment line
+                        // if it has the form !$<known-sentinel> or !$ and we
+                        // did not disable empty sentinels
+                        char ok = 1;
+                        int i;
+                        lexer_state.current_file->current_pos++;
+                        lexer_state.current_file->current_location.column++;
+                        for (i = 0; i < 3; i++)
+                        {
+                            if (past_eof())
+                            {
+                                ok = 0;
+                                break;
+                            }
+                            // Note that this is OK, it will make for a shorter sentinel
+                            if (!is_letter(lexer_state.current_file->current_pos[0]))
+                                break;
+
+                            sentinel[i] = lexer_state.current_file->current_pos[0];
+                            lexer_state.current_file->current_pos++;
+                            lexer_state.current_file->current_location.column++;
+                        }
+
+                        if (!ok)
+                            ROLLBACK;
+
+                        // If this is a known sentinel, do not traverse it
+                        // Note: sentinels in fixed form _must_ be 3 letters long
+                        if (strlen(sentinel) == 3
+                                && is_known_sentinel_str(sentinel, NULL))
+                            ROLLBACK;
+
+                        // Maybe it is an empty sentinel
+                        if (sentinel[0] == ' '
+                                && sentinel[1] == ' '
+                                && sentinel[2] == ' '
+                                && !CURRENT_CONFIGURATION->disable_empty_sentinels)
+                            ROLLBACK;
+                    }
+                }
+
                 while (!past_eof()
                         && !is_newline(lexer_state.current_file->current_pos[0]))
                 {
@@ -888,96 +954,182 @@ static inline int fixed_form_get(token_location_t* loc)
                 continue;
             }
 
-            // There should be 5 blanks and a nonblank character
-            // FIXME - sentinels!
-            // This is the regular expression for a continuation line (([ ]{5}))[^0[:blank:]]
-            char ok = 1;
-            char is_tab_form = 0;
-            int i;
-            for (i = 0; i < 5; i++)
-            {
-                if (past_eof()
-                        || (lexer_state.current_file->current_pos[0] != ' '
-                            && lexer_state.current_file->current_pos[0] != '\t'))
-                {
-                    ok = 0;
-                    break;
-                }
 
-                if (i == 0
-                        && (lexer_state.current_file->current_pos[0] == '\t'))
+            if (lexer_state.sentinel == NULL)
+            {
+                // There should be 5 blanks and then a nonblank character other
+                // than zero If there is a tab at the beginning of the line we
+                // handle it special (see is_tab_form)
+                char ok = 1;
+                char is_tab_form = 0;
+                int i;
+                for (i = 0; i < 5; i++)
                 {
-                    is_tab_form = 1;
-                    lexer_state.current_file->current_location.column = 6;
+                    if (past_eof()
+                            || (lexer_state.current_file->current_pos[0] != ' '
+                                && lexer_state.current_file->current_pos[0] != '\t'))
+                    {
+                        ok = 0;
+                        break;
+                    }
+
+                    if (i == 0
+                            && (lexer_state.current_file->current_pos[0] == '\t'))
+                    {
+                        is_tab_form = 1;
+                        lexer_state.current_file->current_location.column = 6;
+                        lexer_state.current_file->current_pos++;
+                        break;
+                    }
+
+                    lexer_state.current_file->current_location.column++;
                     lexer_state.current_file->current_pos++;
-                    break;
                 }
+                if (!ok)
+                    ROLLBACK;
 
-                lexer_state.current_file->current_location.column++;
-                lexer_state.current_file->current_pos++;
-            }
-            if (!ok)
-                ROLLBACK;
+                if (past_eof())
+                    ROLLBACK;
 
-            if (past_eof())
-                ROLLBACK;
-
-            if (!is_tab_form)
-            {
-                if (lexer_state.current_file->current_pos[0] == '0'
-                        || lexer_state.current_file->current_pos[0] == ' '
-                        || lexer_state.current_file->current_pos[0] == '\t')
+                if (!is_tab_form)
                 {
-                    // Maybe this is an empty line or a line with just a comment
-                    while (!past_eof()
-                            && is_blank(lexer_state.current_file->current_pos[0]))
+                    if (lexer_state.current_file->current_pos[0] == '0'
+                            || lexer_state.current_file->current_pos[0] == ' '
+                            || lexer_state.current_file->current_pos[0] == '\t')
                     {
-                        lexer_state.current_file->current_location.column++;
-                        lexer_state.current_file->current_pos++;
-                    }
-
-                    if (past_eof())
-                        ROLLBACK;
-
-                    if (is_newline(lexer_state.current_file->current_pos[0]))
-                    {
-                        // continue to the next line
-                        continue;
-                    }
-                    else if (lexer_state.current_file->current_pos[0] == '!')
-                    {
-                        // This is a comment line, skip
-                        lexer_state.current_file->current_location.column++;
-                        lexer_state.current_file->current_pos++;
-
+                        // Maybe this is an empty line or a line with just a comment
                         while (!past_eof()
-                                && !is_newline(lexer_state.current_file->current_pos[0]))
+                                && is_blank(lexer_state.current_file->current_pos[0]))
                         {
                             lexer_state.current_file->current_location.column++;
                             lexer_state.current_file->current_pos++;
                         }
+
                         if (past_eof())
                             ROLLBACK;
 
-                        // continue to the next line
-                        continue;
-                    }
-                    else
-                    {
-                        ROLLBACK;
+                        if (is_newline(lexer_state.current_file->current_pos[0]))
+                        {
+                            // continue to the next line
+                            continue;
+                        }
+                        else if (lexer_state.current_file->current_pos[0] == '!')
+                        {
+                            // This is a comment line, skip
+                            lexer_state.current_file->current_location.column++;
+                            lexer_state.current_file->current_pos++;
+
+                            while (!past_eof()
+                                    && !is_newline(lexer_state.current_file->current_pos[0]))
+                            {
+                                lexer_state.current_file->current_location.column++;
+                                lexer_state.current_file->current_pos++;
+                            }
+                            if (past_eof())
+                                ROLLBACK;
+
+                            // continue to the next line
+                            continue;
+                        }
+                        else
+                        {
+                            ROLLBACK;
+                        }
                     }
                 }
+                else
+                {
+                    // A continuation only if the tab is followed by a nonzero digit
+                    if (!is_decimal_digit(lexer_state.current_file->current_pos[0])
+                            || lexer_state.current_file->current_pos[0] == '0')
+                        ROLLBACK;
+                }
+
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+
             }
             else
             {
-                // A continuation only if the tab is followed by a nonzero digit
-                if (!is_decimal_digit(lexer_state.current_file->current_pos[0])
-                        || lexer_state.current_file->current_pos[0] == '0')
-                    ROLLBACK;
-            }
+                int length = strlen(lexer_state.sentinel);
+                ERROR_CONDITION(
+                        length != 0
+                        && length != 3,
+                        "In fixed form sentinels can only be 0 or 3 letters long", 0);
 
-            lexer_state.current_file->current_location.column++;
-            lexer_state.current_file->current_pos++;
+                if (lexer_state.current_file->current_pos[0] != '!'
+                        && lexer_state.current_file->current_pos[0] != '*'
+                        && tolower(lexer_state.current_file->current_pos[0]) != 'c')
+                    ROLLBACK;
+
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+
+                if (past_eof())
+                    ROLLBACK;
+
+                if (lexer_state.current_file->current_pos[0] != '$')
+                    ROLLBACK;
+
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+
+                char ok = 1;
+                int i;
+                for (i = 0; i < length; i++)
+                {
+                    if (past_eof())
+                    {
+                        ok = 0;
+                        break;
+                    }
+                    if (tolower(lexer_state.current_file->current_pos[0]) !=
+                            tolower(lexer_state.sentinel[i]))
+                    {
+                        ok = 0;
+                        break;
+                    }
+
+                    lexer_state.current_file->current_location.column++;
+                    lexer_state.current_file->current_pos++;
+                }
+                if (!ok)
+                    ROLLBACK;
+                // Complete the label field
+                // (this loop is empty if length == 3)
+                for (i = 2 + length; i < 5; i++)
+                {
+                    if (past_eof())
+                    {
+                        ok = 0;
+                        break;
+                    }
+
+                    if (lexer_state.current_file->current_pos[0] != ' ')
+                    {
+                        ok = 0;
+                        break;
+                    }
+
+                    lexer_state.current_file->current_location.column++;
+                    lexer_state.current_file->current_pos++;
+                }
+                if (!ok)
+                    ROLLBACK;
+
+                if (past_eof())
+                    ROLLBACK;
+
+                // A continuation only if the sentinel is followed by a
+                // character other than zero or space
+                if (lexer_state.current_file->current_pos[0] == '0'
+                        || lexer_state.current_file->current_pos[0] == ' '
+                        /* || lexer_state.current_file->current_pos[0] == '\t' */)
+                    ROLLBACK;
+
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+            }
 
             // this is a valid continuation line
             continue; /* redundant, here just for clarity */
@@ -2522,10 +2674,65 @@ static inline void preanalyze_statement(char expect_label)
 
     // Early return, we do not have to preanalyze anything here
     if (p == '#'
-            || p == '!'
             || p == EOF
             || is_newline(p))
         return;
+
+    if (p == '!')
+    {
+        token_location_t loc;
+        peek_loc(peek_idx, &loc);
+        if (loc.column == 1)
+        {
+            int line = loc.line;
+            p = peek_loc(peek_idx + 1, &loc);
+            if (loc.column == 2
+                    && loc.line == line
+                    && p == '$')
+            {
+                // Looks like a directive,
+                // check the sentinel
+
+                // Maybe this is a known sentinel, check 0 or 3 letters
+                char sentinel[4] = { '\0', '\0', '\0', '\0' };
+                int i;
+                for (i = 0; i < 3; i++)
+                {
+                    p = peek_loc(peek_idx + 2 + i, &loc);
+                    if (loc.column == (3 + i)
+                            && loc.line == line)
+                    {
+                        sentinel[i] = p;
+                    }
+                }
+
+                if (is_letter(sentinel[0])
+                        && is_letter(sentinel[1])
+                        && is_letter(sentinel[2]))
+                {
+                    if (is_known_sentinel_str(sentinel, /* out_sentinel */ NULL))
+                    {
+                        peek_loc(peek_idx + 5, &loc);
+                        peek_insert(peek_idx + 5, ' ', loc);
+                    }
+                }
+                else
+                {
+                    peek_loc(peek_idx + 2, &loc);
+                    if (loc.column > 6
+                            && loc.line == line
+                            && !CURRENT_CONFIGURATION->disable_empty_sentinels)
+                    {
+                        peek_loc(peek_idx + 3, &loc);
+                        peek_insert(peek_idx + 3, ' ', loc);
+                    }
+                }
+            }
+        }
+
+        // Do not do anything else
+        return;
+    }
 
     // Read the whole statement until a newline
     // or ; (out of character-context)
@@ -2925,16 +3132,8 @@ static inline char is_known_sentinel(char** sentinel)
     }
     tiny_dyncharbuf_add(&tmp_sentinel, '\0');
 
-    int i;
-    char found = 0;
-    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
-    {
-        if (strcasecmp(tmp_sentinel.buf, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
-        {
-            found = 1;
-            break;
-        }
-    }
+    const char *out_sentinel = NULL;
+    char found = is_known_sentinel_str(tmp_sentinel.buf, &out_sentinel);
 
     if (!found)
     {
@@ -2944,7 +3143,7 @@ static inline char is_known_sentinel(char** sentinel)
     else
     {
         xfree(tmp_sentinel.buf);
-        *sentinel = xstrdup(CURRENT_CONFIGURATION->pragma_custom_prefix[i]);
+        *sentinel = xstrdup(out_sentinel);
         return 1;
     }
 }
