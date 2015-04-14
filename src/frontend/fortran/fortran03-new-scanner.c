@@ -811,6 +811,18 @@ static inline int fixed_form_get(token_location_t* loc)
         }
         else if (is_newline(result))
         {
+            if (lexer_state.character_context
+                    && (lexer_state.current_file->current_location.column
+                        <= CURRENT_CONFIGURATION->input_column_width))
+            {
+                // We pad with blanks till the width of the statement field
+                result = ' ';
+                // Note: finish_character will always advance
+                // current_file->current_pos so decrease it here
+                lexer_state.current_file->current_pos--;
+                break;
+            }
+
             // Now we have to check if the next line continues this one
             const char* const keep = lexer_state.current_file->current_pos;
             const token_location_t keep_location = lexer_state.current_file->current_location;
