@@ -173,7 +173,7 @@ namespace {
         Nodecl::List::iterator itn = n_subs.begin();
         Nodecl::List::iterator itm = m_subs.begin();
         bool cannot_match = false;
-        for(; (itn != n_subs.end()) && !(modification_type & Remove); ++itn, ++itm)
+        for(; (itn != n_subs.end() && itm != m_subs.end()) && !(modification_type & Remove); ++itn, ++itm)
         {
             const Nodecl::NodeclBase& n = *itn;
             const Nodecl::NodeclBase& m = *itm;
