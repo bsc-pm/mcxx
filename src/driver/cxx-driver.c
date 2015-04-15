@@ -3016,6 +3016,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
                         translation_unit->input_filename);
             }
+
+            is_fixed_form = 0;
         }
 #endif
 

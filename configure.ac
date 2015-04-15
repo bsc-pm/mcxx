@@ -2182,6 +2182,13 @@ echo "==============================="
 echo ""
 echo " * C++ dialect used to build Mercurium : $cxxdialect"
 echo ""
+if test x$fortran_new_scanner = xyes;
+then
+    echo " * Fortran scanner: new, more precise, handmade scanner"
+else
+    echo " * Fortran scanner: traditional, less precise, flex-based scanner"
+fi
+echo ""
 echo " * Tools configured:"
 echo ""
 
