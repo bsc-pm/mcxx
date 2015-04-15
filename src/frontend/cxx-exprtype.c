@@ -21784,8 +21784,8 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         //
         // if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
         // {
-        //     error_printf("%s:%d: error: last statement must be an expression statement\n",
-        //                 locus);
+        //     error_printf("%s: error: last statement must be an expression statement\n",
+        //                 locus_to_str(locus));
         //     *nodecl_output = nodecl_make_err_expr(locus);
         //     return;
         // }

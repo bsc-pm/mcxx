@@ -210,11 +210,7 @@ static inline unsigned int nodecl_get_line(nodecl_t t)
 
 static inline const char* nodecl_locus_to_str(nodecl_t t)
 {
-    const char* result;
-
-    uniquestr_sprintf(&result, "%s:%d", nodecl_get_filename(t), nodecl_get_line(t));
-
-    return result;
+    return locus_to_str(ast_get_locus(t.tree));
 }
 
 static inline template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n)

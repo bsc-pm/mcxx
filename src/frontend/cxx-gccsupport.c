@@ -1342,7 +1342,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
 
     if (!found)
     {
-        internal_error("Unknown trait '%s' at '%s:%d'\n", trait_name, locus);
+        internal_error("Unknown trait '%s' at '%s'\n", trait_name, locus_to_str(locus));
     }
 
     // We are one ahead
@@ -1350,7 +1350,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
 
     if (type_traits_fun_list[i].trait_calculus == NULL)
     {
-        internal_error("Unimplemented trait '%s' at '%s:%d'\n", trait_name, locus);
+        internal_error("Unimplemented trait '%s' at '%s'\n", trait_name, locus_to_str(locus));
     }
     else
     {

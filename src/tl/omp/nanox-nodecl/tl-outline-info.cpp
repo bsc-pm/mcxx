@@ -782,9 +782,8 @@ namespace TL { namespace Nanox {
                         // FIXME - We should check this earlier. In OpenMP::Core
                         if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                         {
-                            error_printf("%s:%d: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
-                                    sym.get_filename().c_str(),
-                                    sym.get_line(),
+                            error_printf("%s: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
+                                    sym.get_locus_str().c_str(),
                                     sym.get_name().c_str());
                         }
                     }
