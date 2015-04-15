@@ -134,7 +134,9 @@ void DeviceMPI::generate_additional_mpi_code(
                 typelist_src.append_with_separator(ompss_mpi_type, ",");
 
                 if (parameters_called[i].get_type().array_has_size()) {
-                    blocklen_src.append_with_separator(parameters_called[i].get_type().array_get_size().prettyprint(), ",");
+                    blocklen_src.append_with_separator(
+                            as_expression(parameters_called[i].get_type().array_get_size().shallow_copy())
+                            , ",");
                 } else {
                     blocklen_src.append_with_separator("1", ",");
                 }
