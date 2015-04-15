@@ -892,52 +892,54 @@ static inline int fixed_form_get(token_location_t* loc)
                             || tolower(lexer_state.current_file->current_pos[0]) == 'c'))
                     || tolower(lexer_state.current_file->current_pos[0]) == 'd')
             {
-                // This might be a comment line
-                lexer_state.current_file->current_location.column++;
-                lexer_state.current_file->current_pos++;
-                if (!past_eof())
+                if (tolower(lexer_state.current_file->current_pos[0]) != 'd')
                 {
-                    if (lexer_state.current_file->current_pos[0] == '$')
+                    lexer_state.current_file->current_location.column++;
+                    lexer_state.current_file->current_pos++;
+                    if (!past_eof())
                     {
-                        char sentinel[4] = { '\0', '\0', '\0', '\0' };
-                        // Cowardly refusing to continue through a comment line
-                        // if it has the form !$<known-sentinel> or !$ and we
-                        // did not disable empty sentinels
-                        char ok = 1;
-                        int i;
-                        lexer_state.current_file->current_pos++;
-                        lexer_state.current_file->current_location.column++;
-                        for (i = 0; i < 3; i++)
+                        if (lexer_state.current_file->current_pos[0] == '$')
                         {
-                            if (past_eof())
-                            {
-                                ok = 0;
-                                break;
-                            }
-                            // Note that this is OK, it will make for a shorter sentinel
-                            if (!is_letter(lexer_state.current_file->current_pos[0]))
-                                break;
-
-                            sentinel[i] = lexer_state.current_file->current_pos[0];
+                            char sentinel[4] = { '\0', '\0', '\0', '\0' };
+                            // Cowardly refusing to continue through a comment line
+                            // if it has the form !$<known-sentinel> or !$ and we
+                            // did not disable empty sentinels
+                            char ok = 1;
+                            int i;
                             lexer_state.current_file->current_pos++;
                             lexer_state.current_file->current_location.column++;
+                            for (i = 0; i < 3; i++)
+                            {
+                                if (past_eof())
+                                {
+                                    ok = 0;
+                                    break;
+                                }
+                                // Note that this is OK, it will make for a shorter sentinel
+                                if (!is_letter(lexer_state.current_file->current_pos[0]))
+                                    break;
+
+                                sentinel[i] = lexer_state.current_file->current_pos[0];
+                                lexer_state.current_file->current_pos++;
+                                lexer_state.current_file->current_location.column++;
+                            }
+
+                            if (!ok)
+                                ROLLBACK;
+
+                            // If this is a known sentinel, do not traverse it
+                            // Note: sentinels in fixed form _must_ be 3 letters long
+                            if (strlen(sentinel) == 3
+                                    && is_known_sentinel_str(sentinel, NULL))
+                                ROLLBACK;
+
+                            // Maybe it is an empty sentinel
+                            if (sentinel[0] == ' '
+                                    && sentinel[1] == ' '
+                                    && sentinel[2] == ' '
+                                    && !CURRENT_CONFIGURATION->disable_empty_sentinels)
+                                ROLLBACK;
                         }
-
-                        if (!ok)
-                            ROLLBACK;
-
-                        // If this is a known sentinel, do not traverse it
-                        // Note: sentinels in fixed form _must_ be 3 letters long
-                        if (strlen(sentinel) == 3
-                                && is_known_sentinel_str(sentinel, NULL))
-                            ROLLBACK;
-
-                        // Maybe it is an empty sentinel
-                        if (sentinel[0] == ' '
-                                && sentinel[1] == ' '
-                                && sentinel[2] == ' '
-                                && !CURRENT_CONFIGURATION->disable_empty_sentinels)
-                            ROLLBACK;
                     }
                 }
 
@@ -953,7 +955,6 @@ static inline int fixed_form_get(token_location_t* loc)
                 // continue to the next line
                 continue;
             }
-
 
             if (lexer_state.sentinel == NULL)
             {
