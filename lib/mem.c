@@ -118,3 +118,10 @@ char *xstrdup(const char *s)
     return result;
 }
 
+// This one is guaranteed to call free
+// DO NOT CHANGE IT
+void c_free(void *ptr)
+{
+    free(ptr);
+}
+
