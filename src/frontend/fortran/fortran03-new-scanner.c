@@ -85,7 +85,6 @@ struct scan_file_descriptor
     const char *buffer; // scanned buffer
     size_t buffer_size; // number of characters in buffer relevant for scanning
 
-    // Physical filename scanned (may be different in fixed form)
     const char* scanned_filename;
 
     int fd; // if fd >= 0 this is a mmap
@@ -2000,127 +1999,112 @@ static char* scan_fractional_part_of_real_literal(void)
 
 static char is_include_line(void)
 {
-    const char* keep = lexer_state.current_file->current_pos;
-    int keep_column = lexer_state.current_file->current_location.column;
-
-#define ROLLBACK \
-    { \
-        lexer_state.current_file->current_pos = keep; \
-        lexer_state.current_file->current_location.column = keep_column; \
-        return 0; \
-    }
+    int peek_idx = 0;
+    int p = peek(peek_idx);
 
     const char c[] = "include";
 
     int i = 1; // letter 'i' has already been matched
-    while (!past_eof()
-            && c[i] != '\0'
-            && c[i] == tolower(lexer_state.current_file->current_pos[0]))
-    {
-        lexer_state.current_file->current_location.column++;
-        lexer_state.current_file->current_pos++;
 
+    while (c[i] != '\0'
+            && c[i] == tolower(p))
+    {
         i++;
+
+        peek_idx++;
+        p = peek(peek_idx);
     }
 
-    if (past_eof() ||
-            c[i] != '\0')
-        ROLLBACK;
+    if (c[i] != '\0')
+        return 0;
 
-    while (!past_eof()
-            && is_blank(lexer_state.current_file->current_pos[0]))
+    // Skip blanks after INCLUDE
+    while (is_blank(p))
     {
-        lexer_state.current_file->current_location.column++;
-        lexer_state.current_file->current_pos++;
+        peek_idx++;
+        p = peek(peek_idx);
     }
 
-    if (past_eof())
-        ROLLBACK;
-
-    char delim = lexer_state.current_file->current_pos[0];
+    // Expect here a ' or "
+    int delim = p;
     if (delim != '\''
             && delim != '\"')
-        ROLLBACK;
+        return 0;
+    // Skip delimiter
+    peek_idx++;
+    p = peek(peek_idx);
 
-    lexer_state.current_file->current_location.column++;
-    lexer_state.current_file->current_pos++;
+    tiny_dyncharbuf_t include_filename_buf;
+    tiny_dyncharbuf_new(&include_filename_buf, 32);
 
-    token_location_t loc = lexer_state.current_file->current_location;
-
-    const char* start = lexer_state.current_file->current_pos;
-
-    while (!past_eof()
-            && !is_newline(lexer_state.current_file->current_pos[0])
-            && lexer_state.current_file->current_pos[0] != delim)
+    // Get the name of the included file
+    while (p != EOF
+            && !is_newline(p)
+            && p != delim)
     {
-        lexer_state.current_file->current_location.column++;
-        lexer_state.current_file->current_pos++;
+        tiny_dyncharbuf_add(&include_filename_buf, p);
+
+        peek_idx++;
+        p = peek(peek_idx);
+    }
+    tiny_dyncharbuf_add(&include_filename_buf, '\0');
+
+    if (p != delim
+            || include_filename_buf.num == 1)
+    {
+        xfree(include_filename_buf.buf);
+        return 0;
     }
 
-    if (past_eof()
-            || is_newline(lexer_state.current_file->current_pos[0]))
-        ROLLBACK;
-
-    const char* final = lexer_state.current_file->current_pos - 1;
-
-    if (final - start == 0)
-        ROLLBACK;
-
-    // Jump delim
-    lexer_state.current_file->current_location.column++;
-    lexer_state.current_file->current_pos++;
+    // Skip delimiter
+    peek_idx++;
+    p = peek(peek_idx);
 
     // Blanks until the end of the line
-    while (!past_eof()
-            && is_blank(lexer_state.current_file->current_pos[0]))
+    while (p != EOF
+            && is_blank(p))
     {
-        lexer_state.current_file->current_location.column++;
-        lexer_state.current_file->current_pos++;
+        peek_idx++;
+        p = peek(peek_idx);
     }
 
-    if (past_eof())
-        ROLLBACK;
-
-    if (!is_newline(lexer_state.current_file->current_pos[0]))
-        ROLLBACK;
-
-#undef ROLLBACK
-
-    if (lexer_state.current_file->current_pos[0] == '\n')
+    if (!is_newline(p))
     {
-        lexer_state.current_file->current_pos++;
-    }
-    else if (lexer_state.current_file->current_pos[0] == '\r')
-    {
-        lexer_state.current_file->current_pos++;
-        if (!past_eof())
-        {
-            if (lexer_state.current_file->current_pos[0] == '\n')
-                lexer_state.current_file->current_pos++;
-        }
-    }
-    else
-    {
-        internal_error("Code unreachable", 0);
+        // There is junk
+        xfree(include_filename_buf.buf);
+        return 0;
     }
 
+    token_location_t loc;
+    peek_loc(peek_idx, &loc);
+
+    // Now consume all the characters since this looks like a legitimate
+    // include line (note that we need also to get character at peek(0))
+    while (peek_idx >= 0)
+    {
+        get();
+        peek_idx--;
+    }
+
+    lexer_state.current_file->current_location.line = loc.line + 1;
     lexer_state.current_file->current_location.column = 1;
-    lexer_state.current_file->current_location.line++;
 
     // Now get the filename
-    int num_chars = final - start + 1;
-    int num_bytes_buffer = num_chars + 1; // account final NULL
-    char include_name[num_bytes_buffer];
-
-    memcpy(include_name, start, num_chars);
-    include_name[num_bytes_buffer - 1] = '\0';
-
     const char* include_filename = find_file_in_directories(
             CURRENT_CONFIGURATION->num_include_dirs,
-            CURRENT_CONFIGURATION->include_dirs, 
-            include_name,
+            CURRENT_CONFIGURATION->include_dirs,
+            include_filename_buf.buf,
             /* origin */ loc.filename);
-    
+    xfree(include_filename_buf.buf);
+
+    if (include_filename == NULL)
+    {
+        running_error("%s:%d:%d: error: included file '%s' not found\n",
+                loc.filename,
+                loc.line,
+                loc.column,
+                include_filename);
+    }
 
     int fd = open(include_filename, O_RDONLY);
     if (fd < 0)
@@ -2738,6 +2722,7 @@ static inline void preanalyze_statement(char expect_label)
     // Read the whole statement until a newline
     // or ; (out of character-context)
 
+    char got_label = 0;
     if (expect_label)
     {
         // Skip label (if any)
@@ -2758,6 +2743,7 @@ static inline void preanalyze_statement(char expect_label)
         }
         if (peek_idx > 0)
         {
+            got_label = 1;
             peek_insert(peek_idx, ' ', loc);
             peek_idx++;
             p = peek(peek_idx);
@@ -2875,6 +2861,13 @@ static inline void preanalyze_statement(char expect_label)
             p = peek(peek_idx);
         }
 
+        if (!got_label
+                && strncasecmp("include", keyword.buf, keyword.num) == 0)
+        {
+            // Note that INCLUDE is not a keyword
+            // This is likely an include line, skip
+            return;
+        }
 
         if (kw == NULL)
         {
