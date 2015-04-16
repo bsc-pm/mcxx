@@ -799,35 +799,7 @@ static inline int fixed_form_get(token_location_t* loc)
     {
         result = lexer_state.current_file->current_pos[0];
 
-        if (result == ' ')
-        {
-            if (lexer_state.character_context)
-                break;
-
-            lexer_state.current_file->current_location.column++;
-            lexer_state.current_file->current_pos++;
-        }
-        else if (result == '\t')
-        {
-            if (lexer_state.character_context)
-                break;
-
-            if (lexer_state.current_file->current_location.column < 6)
-                lexer_state.current_file->current_location.column += 6;
-            else
-                lexer_state.current_file->current_location.column++;
-            lexer_state.current_file->current_pos++;
-        }
-        else if (lexer_state.current_file->current_location.column == 1
-                && (tolower(result) == 'c'
-                    || tolower(result) == 'd'
-                    || result == '*'))
-        {
-            // Comment
-            result = '!';
-            break;
-        }
-        else if (is_newline(result))
+        if (is_newline(result))
         {
             if (lexer_state.character_context
                     && (lexer_state.current_file->current_location.column
@@ -1139,6 +1111,34 @@ static inline int fixed_form_get(token_location_t* loc)
         {
             lexer_state.current_file->current_location.column++;
             lexer_state.current_file->current_pos++;
+        }
+        else if (result == ' ')
+        {
+            if (lexer_state.character_context)
+                break;
+
+            lexer_state.current_file->current_location.column++;
+            lexer_state.current_file->current_pos++;
+        }
+        else if (result == '\t')
+        {
+            if (lexer_state.character_context)
+                break;
+
+            if (lexer_state.current_file->current_location.column < 6)
+                lexer_state.current_file->current_location.column += 6;
+            else
+                lexer_state.current_file->current_location.column++;
+            lexer_state.current_file->current_pos++;
+        }
+        else if (lexer_state.current_file->current_location.column == 1
+                && (tolower(result) == 'c'
+                    || tolower(result) == 'd'
+                    || result == '*'))
+        {
+            // Comment
+            result = '!';
+            break;
         }
         else
         {
