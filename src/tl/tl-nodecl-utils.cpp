@@ -1736,11 +1736,11 @@ namespace Nodecl
             TL::Source src;
             src
                 << "#line " << ref_scope.get_line() << " \"" << ref_scope.get_filename() << "\"\n"
+                << TL::pad_to_column(ref_scope.get_column())
                 << variable
                 ;
 
             Nodecl::NodeclBase var_tree = src.parse_expression(ref_scope.retrieve_context());
-
             nodecl_list.append(var_tree);
         }
 

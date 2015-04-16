@@ -419,7 +419,7 @@ namespace TL { namespace OpenMP {
 
             Source src;
             src << "#line " << clause.get_pragma_line().get_line() << " \"" << clause.get_pragma_line().get_filename() << "\"\n";
-            src << current_dep_expr;
+            src << pad_to_column(clause.get_pragma_line().get_column()) << current_dep_expr;
 
             // Now, parse a single OpenMP list item and hand it to the usual dependency routines
             Nodecl::NodeclBase expr;
@@ -763,7 +763,7 @@ namespace TL { namespace OpenMP {
         {
             Source src;
             src << "#line " << clause.get_pragma_line().get_line() << " \"" << clause.get_pragma_line().get_filename() << "\"\n";
-            src << *it;
+            src << pad_to_column(clause.get_pragma_line().get_column()) << *it;
 
             Nodecl::NodeclBase expr;
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)

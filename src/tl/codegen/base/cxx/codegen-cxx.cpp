@@ -272,6 +272,7 @@ void CxxBase::emit_line_marker(const locus_t* locus)
     }
 
     *file << "# " << line << " \"" << filename << "\"\n";
+    *file << TL::pad_to_column(locus_get_column(locus));
 }
 
 void CxxBase::emit_line_marker(Nodecl::NodeclBase n)

@@ -422,7 +422,11 @@ namespace TL
      * have better context
      * \a filename Can be an empty string
      * \a line Line
+     * \a column Column
      */
+    LIBTL_EXTERN std::string line_marker(const std::string& filename,
+            unsigned int line,
+            unsigned int column);
     LIBTL_EXTERN std::string line_marker(const std::string& filename, unsigned int line);
 
     //! Convenience function to convert a list into a string
@@ -465,6 +469,8 @@ namespace TL
 
     // Use these to embed TL::Symbol in Source where an id-expression would be valid
     LIBTL_EXTERN std::string as_symbol(TL::Symbol s);
+
+    LIBTL_EXTERN std::string pad_to_column(unsigned int n);
 }
 
 #endif // TL_SOURCE_T_HPP

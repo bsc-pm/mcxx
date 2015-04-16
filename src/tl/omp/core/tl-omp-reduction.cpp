@@ -133,7 +133,7 @@ namespace TL { namespace OpenMP {
                 Source src;
                 src
                     << "#line " << construct.get_line() << " \"" << construct.get_filename() << "\"\n"
-                    << variable
+                    << pad_to_column(construct.get_column()) << variable
                     ;
 
                 Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
@@ -644,7 +644,7 @@ namespace TL { namespace OpenMP {
 
         Source declare_reduction_src;
         declare_reduction_src << "# " << directive.get_line() << " \"" << directive.get_filename() << "\"\n";
-        declare_reduction_src << declare_reduction_arg;
+        declare_reduction_src << pad_to_column(directive.get_column()) << declare_reduction_arg;
 
         PragmaCustomClause initializer = pragma_line.get_clause("initializer");
         if (initializer.is_defined())

@@ -200,12 +200,17 @@ static inline const locus_t* nodecl_get_locus(nodecl_t t)
 
 static inline const char* nodecl_get_filename(nodecl_t t)
 {
-    return ASTFileName(t.tree);
+    return ast_get_filename(t.tree);
 }
 
 static inline unsigned int nodecl_get_line(nodecl_t t)
 {
-    return ASTLine(t.tree);
+    return ast_get_line(t.tree);
+}
+
+static inline unsigned int nodecl_get_column(nodecl_t t)
+{
+    return ast_get_column(t.tree);
 }
 
 static inline const char* nodecl_locus_to_str(nodecl_t t)

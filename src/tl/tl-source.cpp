@@ -338,7 +338,7 @@ namespace TL
         return result;
     }
 
-    std::string line_marker(const std::string& filename, unsigned int line)
+    std::string line_marker(const std::string& filename, unsigned int line, unsigned int column)
     {
         std::stringstream ss;
 
@@ -352,10 +352,17 @@ namespace TL
        {
            ss << "\"" << filename << "\"\n";
        }
-       
+
+       ss << pad_to_column(column);
+
        return ss.str();
     }
-    
+
+    std::string line_marker(const std::string& filename, unsigned int line)
+    {
+        return line_marker(filename, line, 0);
+    }
+
     // This is quite inefficient but will do
     std::string Source::format_source(const std::string& src)
     {
@@ -864,5 +871,14 @@ namespace TL
             ss << "\n";
 
         return ss.str();
+    }
+
+    std::string pad_to_column(unsigned int n)
+    {
+        if (n == 0
+                || n == 1)
+            return "";
+
+        return std::string(n - 1, ' ');
     }
 }
