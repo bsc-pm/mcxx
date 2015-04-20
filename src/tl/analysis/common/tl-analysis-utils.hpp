@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- (C) Copyright 2006-2012 Barcelona Supercomputing Center             **
+ (C) Copyright 2006-2014 Barcelona Supercomputing Center             **
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -38,10 +38,10 @@
 #define VERBOSE (CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
                  CURRENT_CONFIGURATION->debug_options.enable_debug_code)
 
+#define ANALYSIS_PERFORMANCE_MEASURE CURRENT_CONFIGURATION->debug_options.analysis_perf
+
 namespace TL {
 namespace Analysis {
-    
-    // #define ANALYSIS_PERFORMANCE_MEASURE
 
     static inline double time_nsec()
     {

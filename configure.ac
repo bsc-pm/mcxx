@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.6],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.7],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -37,7 +37,6 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
-dnl Check cc
 AC_PROG_CC
 AM_PROG_CC_C_O
 
@@ -111,9 +110,8 @@ AC_COMPILE_IFELSE(
      #endif
    ]])],
    [AC_MSG_RESULT([ok])],
-   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
+   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is requested])]
 )
-
 
 dnl --------------------- end check of old gcc ---
 
@@ -347,7 +345,7 @@ MIC_TESTING_DEVICE=$mic_testing_device
 if test x$disable_icc = xno;
 then
    dnl Check Intel Compiler C
-   AC_PATH_PROG([ICC], [icc], [$ICC])
+   AC_CHECK_PROG([ICC], [icc], [icc])
    if test x$ICC != x;
    then
       AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
@@ -393,7 +391,7 @@ then
       dnl end
    fi
    dnl Check Intel Compiler C++
-   AC_PATH_PROG([ICPC], [icpc], [$ICPC])
+   AC_CHECK_PROG([ICPC], [icpc], [icpc])
 else
     ICC=
     ICPC=
@@ -413,7 +411,7 @@ fi
 dnl Check Intel Fortran
 if test x$disable_ifort = xno;
 then
-   AC_PATH_PROG([IFORT], [ifort], [$IFORT])
+   AC_CHECK_PROG([IFORT], [ifort], [ifort])
 else
     IFORT=
 fi
@@ -425,6 +423,29 @@ then
 else
     XLF=
 fi
+
+dnl --------------------- Support for plain profiles for Intel Compilers -------------
+if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 01.config.intel-plain"
+
+    # Intel C/C++/Fortran
+    if test x$ICC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicc"
+    fi
+
+    if test x$ICPC != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainicpc"
+    fi
+
+    if test -x$IFORT != x;
+    then
+        COMPILER_NAMES="${COMPILER_NAMES} plainifort plainimfc ifort-plainfc"
+    fi
+fi
+dnl --------------------- End support for plain profiles for Intel Compilers ---------
 
 dnl -- End of extra compiler checks ---
 
@@ -543,30 +564,50 @@ then
    )
 
    AC_MSG_CHECKING([linking mechanism of Nanos++])
-   for nanox_version in performance debug instrumentation instrumentation-debug;
-   do
-       if test -d $nanox_lib/$nanox_version;
-       then
+
+    AC_ARG_ENABLE([nanos-new-link-mechanism],
+      AS_HELP_STRING([--enable-nanos-new-link-mechanism], [Override nanos++ linking mechanism autodetection]),
+      [
+        if test x$enableval = xyes -o x$enableval = x;
+        then
+            nanox_pm_selection="new"
+        else if test x$enableval = xno;
+             then
+                nanox_pm_selection="old"
+             else
+                AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+             fi
+        fi
+      ])
+
+   if test "$nanox_pm_selection" = "none"; then
+       for nanox_version in performance debug instrumentation instrumentation-debug;
+       do
            if test -f $nanox_lib/$nanox_version/libnanox-ompss.so;
            then
                if test "$nanox_pm_selection" = "none";
                then
                    nanox_pm_selection="new"
-               elif test "$nanox_pm_selection" != "new";
+               elif test "$nanox_pm_selection" != "new"
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken])
+                   AC_MSG_ERROR([Nanos++ installation is broken, new library found but old library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
-           else
+               if test -f $nanox_lib/$nanox_version/libnanox-ss.so;
+               then
+                   AC_MSG_ERROR([Nanos++ installation is broken, new and old libraries found. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
+               fi
+           elif test -f $nanox_lib/$nanox_version/libnanox-ss.so;
+           then
                if test "$nanox_pm_selection" = "none";
                then
                    nanox_pm_selection="old"
                elif test "$nanox_pm_selection" != "old";
                then
-                   AC_MSG_ERROR([Nanos++ installation is broken])
+                   AC_MSG_ERROR([Nanos++ installation is broken, old library found but new library also found first. You may have to reinstall Nanos++ in a clean directory to get rid of the old libraries])
                fi
            fi
-       fi
-   done
+       done
+   fi
 
    if test "$nanox_pm_selection" = "none";
    then
@@ -875,7 +916,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 if test x$cuda_enabled = xyes ; then
     if test -d "$CUDADIR" ;
     then
-        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
+        AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
         if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling CUDA support])
             cuda_valid=no
@@ -1076,10 +1117,10 @@ then
          mpi_forced=yes
    	],
    	[   		
-        AC_PATH_PROG([MPIICC], [mpiicc], [$MPIICC])
+        AC_CHECK_PROG([MPIICC], [mpiicc], [mpiicc])
         MPIPATH=${MPIICC%mpiicc}
         if test x$MPIPATH = x; then		
-            AC_PATH_PROG([MPICC], [mpicc], [$MPICC])
+            AC_CHECK_PROG([MPICC], [mpicc], [mpicc])
             MPIPATH=${MPICC%mpicc}
         fi
    	]
@@ -1255,7 +1296,7 @@ then
 
       if test -x$IFORT != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc ismpfc"
+          COMPILER_NAMES="${COMPILER_NAMES} imfc imf95 ifort-mfc ismpfc"
       fi
    fi
 
@@ -1375,27 +1416,34 @@ dnl ------------------------------------
 dnl ---------------------- TL Vectorization ----------------------------
 
 is_enabled_vectorization="yes"
-AC_MSG_CHECKING([if disabled Vectorization build and install])
-AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-      is_enabled_vectorization="yes"
-      AC_MSG_RESULT([no])
-    else if test x$enableval = xno;
-      then
-        is_enabled_vectorization="no"
-        AC_MSG_RESULT([yes])
-      else
-        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-      fi
-    fi
-  ],
-  [
-    is_enabled_vectorization="yes"
-    AC_MSG_RESULT([no])
-  ])
+AC_MSG_CHECKING([if enabling Vectorization build and install])
+if test x$HAVE_CXX11 = x1;
+then
+    AC_ARG_ENABLE([vectorization],
+        AS_HELP_STRING([--disable-vectorization], [Disables vectorization support in the compiler]),
+        [
+            if test x$enableval = xyes -o x$enableval = x;
+            then
+                is_enabled_vectorization="yes"
+                AC_MSG_RESULT([no])
+            else if test x$enableval = xno;
+                then
+                    is_enabled_vectorization="no"
+                    AC_MSG_RESULT([yes])
+                else
+                    AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                fi
+            fi
+        ],
+        [
+            is_enabled_vectorization="yes"
+            AC_MSG_RESULT([no2])
+        ])
+else
+    is_enabled_vectorization="no"
+    AC_MSG_RESULT([no (gcc 4.7 or higher is requested)])
+fi
+
 
 if test x$is_enabled_vectorization = xno;
 then
@@ -1409,7 +1457,7 @@ dnl ------------------------------------
 dnl ---------------------- TL Analysis ----------------------------
 
 is_enabled_analysis="yes"
-AC_MSG_CHECKING([if disabled Analysis build and install])
+AC_MSG_CHECKING([if enabling Analysis build and install])
 AC_ARG_ENABLE([analysis],
   AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
   [
@@ -1932,6 +1980,11 @@ AC_SUBST([quadmath_LIBS])
 dnl Check for compliant const
 AC_C_CONST
 
+dnl Not all gccs support this
+NO_VAR_TRACKING_ASSIGNMENTS=""
+AX_CHECK_COMPILE_FLAG([-fno-var-tracking-assignments], [NO_VAR_TRACKING_ASSIGNMENTS="-fno-var-tracking-assignments"])
+AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
+
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
@@ -2012,7 +2065,7 @@ dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
-   AC_PATH_PROG([GIT], [git], [$GIT])
+   AC_CHECK_PROG([GIT], [git], [git])
    AC_MSG_CHECKING([revision of git repository])
    run_git=""
    if test x"$GIT" != x;

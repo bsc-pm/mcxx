@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -170,13 +170,8 @@ namespace TL
     std::string PragmaCustomCompilerPhase::remove_separators_of_directive(const std::string& str)
     {
         std::string result(str);
-
-        for (std::string::iterator it = result.begin();
-                it != result.end();
-                it++)
-        {
-            if (*it == '|') *it = ' ';
-        }
+        // Remove '|'
+        result.erase(std::remove(result.begin(), result.end(), '|'), result.end());
 
         return result;
     }

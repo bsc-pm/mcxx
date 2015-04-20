@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #constants
-readonly bets_version=0.9.3
+readonly bets_version=0.9.5
 
 #color constants
 
@@ -432,7 +432,7 @@ merge_exec_vars ()
 {
    eval test_noexec_$1=\"\${test_noexec_$2} \${test_noexec_$3}\"
    eval test_ENV_$1=\"\${test_ENV_$2} \${test_ENV_$3}\"
-   eval test_ARGS_$1=\"\${test_ENV_$2} \${test_ENV_$3}\"
+   eval test_ARGS_$1=\"\${test_ARGS_$2} \${test_ARGS_$3}\"
 }
 
 clean_c_compile_vars ()
@@ -950,4 +950,12 @@ esac
 done
 
 define_colors
+
+START_TIME=$SECONDS
+
 do_$mode $*
+
+END_TIME=$SECONDS
+ELAPSED_TIME=$(($END_TIME - $START_TIME))
+
+echo Duration: $(($ELAPSED_TIME / 60))min $(($ELAPSED_TIME % 60))sec

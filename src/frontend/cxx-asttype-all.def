@@ -13,4 +13,5 @@
 /*!include cxx-asttype-opencl.def*/
 /*!include cxx-asttype-xl.def*/
 /*!include cxx-asttype-ms.def*/
+/*!include cxx-asttype-intel.def*/
 /*!include cxx-asttype-fortran.def*/

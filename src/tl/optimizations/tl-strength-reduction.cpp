@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -288,10 +288,13 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
                 int ctz = __builtin_ctz(integer_value);
 
                 // lhs << (cv>>ctz)
-                Nodecl::VectorBitwiseShlI shl =
-                    Nodecl::VectorBitwiseShlI::make(
+                Nodecl::VectorBitwiseShl shl =
+                    Nodecl::VectorBitwiseShl::make(
                             rhs.shallow_copy(),
-                            const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                            Nodecl::VectorPromotion::make(
+                                const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                                node.get_mask().shallow_copy(),
+                                node.get_type()),
                             node.get_mask().shallow_copy(),
                             node.get_type(),
                             node.get_locus());
@@ -390,10 +393,13 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
                 int ctz = __builtin_ctz(integer_value);
 
                 // lhs >> (cv>>ctz)
-                Nodecl::VectorArithmeticShrI shl =
-                    Nodecl::VectorArithmeticShrI::make(
+                Nodecl::VectorArithmeticShr shl =
+                    Nodecl::VectorArithmeticShr::make(
                             lhs.shallow_copy(),
-                            const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                            Nodecl::VectorPromotion::make(
+                                const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                                node.get_mask().shallow_copy(),
+                                node.get_type()),
                             node.get_mask().shallow_copy(),
                             node.get_type(),
                             node.get_locus());

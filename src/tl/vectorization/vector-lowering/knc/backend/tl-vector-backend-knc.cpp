@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,7 +26,7 @@
 
 #include "tl-vector-backend-knc.hpp"
 
-#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorization-prefetcher-common.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-optimizations.hpp"
@@ -217,6 +217,9 @@ namespace Vectorization
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCode>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMaskAssignment>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLoad>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorStore>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorReductionAdd>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
 
         if (contains_vector_nodes)
@@ -225,12 +228,7 @@ namespace Vectorization
             TL::Optimizations::canonicalize_and_fold(
                     n, /*_fast_math_enabled*/ false);
 
-            _analysis = new VectorizationAnalysisInterface(
-                    n, Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
-
             walk(n.get_statements());
-
-            delete (_analysis);
         }
     }
 
@@ -1040,6 +1038,12 @@ namespace Vectorization
         const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
         const int src_type_size = src_type.get_size();
         const int dst_type_size = dst_type.get_size();
+
+        ERROR_CONDITION(src_vector_type.is_same_type(dst_vector_type),
+                "VectorConversion between same vector types: %s", 
+                print_type_str(dst_vector_type.get_internal_type(),
+                    n.retrieve_context().get_decl_context()));
+
         /*
            printf("Conversion from %s(%s) to %s(%s)\n",
            src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
@@ -1069,12 +1073,7 @@ namespace Vectorization
 
         walk(nest);
 
-        if (src_type.is_same_type(dst_type))
-        {
-            n.replace(nest);
-            return;
-        }
-        else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
+        if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
                 (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
                 (src_type.is_signed_int() && dst_type.is_signed_long_int()) ||
                 (src_type.is_signed_int() && dst_type.is_unsigned_long_int()) ||
@@ -1375,6 +1374,7 @@ namespace Vectorization
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
+        bool lhs_has_been_defined = !n.get_has_been_defined().is_null();
 
         TL::Type type = n.get_type().basic_type();
 
@@ -1388,9 +1388,6 @@ namespace Vectorization
             << args
             << ")"
             ;
-
-        bool lhs_has_been_defined = 
-            _analysis->has_been_defined(lhs);
 
         walk(lhs);
 
@@ -1477,6 +1474,68 @@ namespace Vectorization
         n.replace(function_call);
     }
 
+    void KNCVectorBackend::visit(const Nodecl::VectorPrefetch& n)
+    {
+        Nodecl::NodeclBase address = n.get_address();
+        PrefetchKind kind = (PrefetchKind) const_value_cast_to_signed_int(
+                n.get_prefetch_kind().as<Nodecl::IntegerLiteral>().get_constant());
+
+        TL::Type type = n.get_type().basic_type();
+
+        TL::Source intrin_src, intrin_name, intrin_type_suffix, args;
+        int prefetch_hint;
+
+        intrin_src << intrin_name
+            << "("
+            << args
+            << ")"
+            ;
+
+        intrin_name << "_mm_prefetch";
+
+    /* constants for use with _mm_prefetch
+#define _MM_HINT_T0 1
+#define _MM_HINT_T1 2
+#define _MM_HINT_T2 3
+#define _MM_HINT_NTA    0
+#define _MM_HINT_ENTA   4
+#define _MM_HINT_ET0    5
+#define _MM_HINT_ET1    6
+#define _MM_HINT_ET2    7
+     */
+
+        switch(kind)
+        {
+            case PrefetchKind::L1_READ :
+                prefetch_hint = 1;
+                break;
+            case PrefetchKind::L2_READ :
+                prefetch_hint = 2;
+                break;
+            case PrefetchKind::L1_WRITE:
+                prefetch_hint = 5;
+                break;
+            case PrefetchKind::L2_WRITE:
+                prefetch_hint = 6;
+                break;
+            default:
+                internal_error("KNC Backend: Node %s at %s has a wrong prefetch kind.",
+                        ast_print_node_type(n.get_kind()),
+                        locus_to_str(n.get_locus()));
+        }
+
+        walk(address);
+
+        args << "(void *)"
+            << as_expression(address)
+            << ", "
+            << prefetch_hint;
+
+        Nodecl::NodeclBase function_call =
+            intrin_src.parse_expression(n.retrieve_context());
+
+        n.replace(function_call);
+    }
 
     void KNCVectorBackend::visit(const Nodecl::VectorLoad& n)
     {
@@ -1852,12 +1911,10 @@ namespace Vectorization
         TL::Type type = n.get_lhs().get_type().basic_type();
 
         TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
-            mask_prefix, mask_args, args_lo, args_hi, extra_args, tmp_var,
-            tmp_var_type, tmp_var_name, tmp_var_init;
+            mask_prefix, mask_args, args_lo, args_hi, extra_args;
 
         intrin_src
             << "({"
-            << tmp_var << ";"
             << intrin_name_lo << "(" << args_lo << ");"
             << intrin_name_hi << "(" << args_hi << ");"
             << "})"
@@ -1879,32 +1936,23 @@ namespace Vectorization
             << intrin_type_suffix
             ;
 
-        tmp_var << tmp_var_type
-            << " "
-            << tmp_var_name
-            << tmp_var_init;
-
         process_mask_component(mask, mask_prefix, mask_args, type,
                 KNCConfigMaskProcessing::ONLY_MASK);
-
 
         if (type.is_float())
         {
             intrin_type_suffix << "ps";
             extra_args << "_MM_DOWNCONV_PS_NONE";
-            tmp_var_type << "__m512";
         }
         else if (type.is_double())
         {
             intrin_type_suffix << "pd";
             extra_args << "_MM_DOWNCONV_PD_NONE";
-            tmp_var_type << "__m512d";
         }
         else if (type.is_integral_type())
         {
             intrin_type_suffix << "epi32";
             extra_args << "_MM_DOWNCONV_EPI32_NONE";
-            tmp_var_type << "__m512i";
         }
         else
         {
@@ -1916,15 +1964,14 @@ namespace Vectorization
         walk(lhs);
         walk(rhs);
 
-        tmp_var_name << "__vtmp";
-
-        tmp_var_init << " = "
-            << as_expression(rhs);
+        ERROR_CONDITION(!rhs.no_conv().is<Nodecl::Symbol>(),
+                "KNC Backed: Nodecl::Symbol expected in unaligned vector store: %s",
+                rhs.prettyprint().c_str());
 
         args_lo << as_expression(lhs)
             << ", "
             << mask_args
-            << tmp_var_name
+            << as_expression(rhs)
             << ", "
             << extra_args
             << ", "
@@ -1937,7 +1984,7 @@ namespace Vectorization
             << _vector_length
             << ", "
             << mask_args
-            << tmp_var_name
+            << as_expression(rhs)
             << ", "
             << extra_args
             << ", "

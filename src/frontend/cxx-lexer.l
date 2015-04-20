@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -149,6 +149,14 @@ static lexer_keyword_t ms_builtin_types[] =
     {"__int16" , MS_INT16},
     {"__int32" , MS_INT32},
     {"__int64" , MS_INT64},
+    // Sentinel
+    { NULL, 0 }
+};
+
+static lexer_keyword_t intel_builtins[] =
+{
+    {"__assume", INTEL_ASSUME},
+    {"__assume_aligned", INTEL_ASSUME_ALIGNED},
     // Sentinel
     { NULL, 0 }
 };
@@ -1354,6 +1362,11 @@ type {
 "__int32" |
 "__int64" {
     return lookup_keyword_in_table(ms_builtin_types, yytext, CURRENT_CONFIGURATION->enable_ms_builtin_types);
+}
+
+"__assume" |
+"__assume_aligned" {
+    return lookup_keyword_in_table(intel_builtins, yytext, CURRENT_CONFIGURATION->enable_intel_builtins);
 }
 
 "__int128" {

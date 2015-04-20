@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -538,7 +538,9 @@ namespace Codegen
             dec_indent();
             *(file) << "END PROGRAM " << program_name << "\n\n";
         }
-        else if (entry.is_function())
+        else if (entry.is_function()
+                || (entry.is_variable()
+                    && entry.get_type().no_ref().is_function()))
         {
             bool lacks_result = false;
             codegen_procedure_declaration_header(entry, lacks_result);
@@ -763,7 +765,7 @@ OPERATOR_TABLE
         }
     }
 
-    // In a pure fortran example, this node never appear in the tree.
+    // In a pure fortran code, this node never appears in the tree.
     void FortranBase::visit(const Nodecl::Mod &node)
     {
         // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
@@ -772,6 +774,49 @@ OPERATOR_TABLE
         *(file) << ", ";
         walk(node.get_rhs());
         *(file) << ")";
+    }
+
+    void FortranBase::common_increment(const Nodecl::NodeclBase& item)
+    {
+        // Emit an assignment expression
+        walk(item);
+        *file << " = ";
+        walk(item);
+        *file << " + 1";
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Postincrement &node)
+    {
+        common_increment(node.get_rhs());
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Preincrement &node)
+    {
+        common_increment(node.get_rhs());
+    }
+
+    void FortranBase::common_decrement(const Nodecl::NodeclBase& item)
+    {
+        // Emit an assignment expression
+        walk(item);
+        *file << " = ";
+        walk(item);
+        *file << " - 1";
+    }
+
+    //
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Postdecrement &node)
+    {
+        common_decrement(node.get_rhs());
+    }
+
+    // In a pure Fortran code, this node never appears in the tree.
+    void FortranBase::visit(const Nodecl::Predecrement &node)
+    {
+        common_decrement(node.get_rhs());
     }
 
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
@@ -927,6 +972,7 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::StructuredValue& node)
     {
+        Nodecl::NodeclBase form = node.get_form();
         TL::Type type = node.get_type();
         if (type.is_array())
         {
@@ -936,22 +982,21 @@ OPERATOR_TABLE
                     || state.flatten_array_construct)
             {
                 *(file) << "(/ ";
-                if (node.get_items().is_null())
+                if (node.get_items().is_null()
+                        || (!form.is_null()
+                            && form.is<Nodecl::StructuredValueFortranTypespecArrayConstructor>()))
                 {
                     std::string type_specifier, array_specifier;
                     codegen_type_extended(
                             fortran_get_rank0_type(type.get_internal_type()),
                             type_specifier,
-                            array_specifier, 
+                            array_specifier,
                             /* force_deferred_shape */ false,
                             /* without_type_qualifier */ true);
                     // Only in this case we emit the type-specifier
-                    *(file) << type_specifier << ":: ";
+                    *(file) << type_specifier << " :: ";
                 }
-                else
-                {
-                    codegen_comma_separated_list(node.get_items());
-                }
+                codegen_comma_separated_list(node.get_items());
                 *(file) << " /)";
             }
             else
@@ -1315,7 +1360,9 @@ OPERATOR_TABLE
                 *(file) << "(";
 
             long long tiniest_of_its_type = (~0LL);
-            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
+            // This number is actually -1 so it cannot be shifted left
+            (reinterpret_cast<unsigned long long &>(tiniest_of_its_type))
+                <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
 
             std::string suffix;
             if (num_bytes != fortran_get_default_integer_type_kind())
@@ -3688,18 +3735,9 @@ OPERATOR_TABLE
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
-        if (entry.is_variable())
+        if (entry.is_variable()
+                && !entry.get_type().no_ref().is_function())
         {
-#if 0
-            bool is_function_pointer = 
-                (entry.get_type().is_pointer()
-                 && entry.get_type().points_to().is_function())
-                || (entry.get_type().is_any_reference()
-                        && entry.get_type().references_to().is_pointer()
-                        && entry.get_type().references_to().points_to().is_function());
-#endif
-            bool is_function_pointer = false;
-
             std::string type_spec;
             std::string array_specifier;
             std::string initializer;
@@ -3861,47 +3899,14 @@ OPERATOR_TABLE
                 }
             }
 
-            if (!is_function_pointer)
-            {
-                bool keep_emit_interop = state.emit_interoperable_types;
-                state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
+            bool keep_emit_interop = state.emit_interoperable_types;
+            state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
-                codegen_type_extended(declared_type, type_spec, array_specifier,
-                        /* force_deferred_shape */ entry.is_allocatable(),
-                        /* without_type_qualifier */ false);
+            codegen_type_extended(declared_type, type_spec, array_specifier,
+                    /* force_deferred_shape */ entry.is_allocatable(),
+                    /* without_type_qualifier */ false);
 
-                state.emit_interoperable_types = keep_emit_interop;
-            }
-            else
-            {
-                TL::Type function_type = entry.get_type();
-                if (function_type.is_any_reference())
-                    function_type = function_type.references_to();
-                function_type = function_type.points_to();
-                ERROR_CONDITION(!function_type.is_function(), "Function type is not", 0);
-
-                TL::Type return_type = function_type.returns();
-
-                if (function_type.lacks_prototype())
-                {
-                    attribute_list += ", EXTERNAL";
-
-                    if (return_type.is_void())
-                    {
-                        type_spec = "POINTER";
-                    }
-                    else
-                    {
-                        attribute_list += ", POINTER";
-                        codegen_type(return_type, type_spec, array_specifier);
-                    }
-                }
-                else
-                {
-                    emit_interface_for_symbol(entry);
-                    type_spec = "POINTER";
-                }
-            }
+            state.emit_interoperable_types = keep_emit_interop;
 
             indent();
 
@@ -3997,7 +4002,8 @@ OPERATOR_TABLE
             }
         }
         else if (entry.is_function()
-                || entry.is_generic_specifier())
+                || entry.is_generic_specifier()
+                || (entry.is_variable() && entry.get_type().no_ref().is_function()))
         {
             TL::Type function_type = entry.get_type();
 
@@ -5460,7 +5466,10 @@ OPERATOR_TABLE
             return;
 
         // Do not bring variables in
-        if (entry.is_variable())
+        if (entry.is_variable()
+                // but if their type is a constant type
+                // it means they are a PARAMETER
+                && !entry.get_type().is_const())
             return;
 
         TL::Symbol module;
@@ -6057,27 +6066,39 @@ OPERATOR_TABLE
 
     void FortranBase::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        indent();
-        *(file) << "! >>> " << ast_print_node_type(n.get_kind()) << " >>>\n";
-
-        inc_indent();
-
+        *file << ast_print_node_type(n.get_kind()) << "(";
         Nodecl::NodeclBase::Children children = n.children();
         int i = 0;
         for (Nodecl::NodeclBase::Children::iterator it = children.begin();
                 it != children.end();
-                it++, i++)
+                it++)
         {
-            indent();
-            *(file) << "! Children " << i << "\n";
-
-            walk(*it);
+            if (!it->is_null())
+            {
+                if (i > 0)
+                    *file << ", ";
+                if (it->is<Nodecl::List>())
+                {
+                    Nodecl::List l = it->as<Nodecl::List>();
+                    *file << "[";
+                    for (Nodecl::List::iterator it_list = l.begin(); it_list != l.end(); it_list++)
+                    {
+                        walk(*it_list);
+                        if (it_list + 1 != l.end())
+                        {
+                            *file << ", ";
+                        }
+                    }
+                    *file << "]";
+                }
+                else
+                {
+                    walk(*it);
+                }
+                i++;
+            }
         }
-
-        dec_indent();
-
-        indent();
-        *(file) << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
+        *file << ")";
     }
 
     void FortranBase::clear_codegen_status()
@@ -6434,6 +6455,33 @@ OPERATOR_TABLE
                 _emit_full_array_subscripts,
                 "Assuming false.");
     }
+
+    FortranBase::Ret FortranBase::visit(const Nodecl::ErrExpr& node)
+    {
+        if (!this->is_file_output())
+        {
+            *(file) << "<<error expression>>";
+        }
+        else
+        {
+            internal_error("%s: error: <<error expression>> found when the output is a file",
+                    node.get_locus_str().c_str());
+        }
+    }
+
+    FortranBase::Ret FortranBase::visit(const Nodecl::ErrStatement& node)
+    {
+        if (!this->is_file_output())
+        {
+            *(file) << "<<error statement>>";
+        }
+        else
+        {
+            internal_error("%s: error: <<error statement>> found when the output is a file",
+                    node.get_locus_str().c_str());
+        }
+    }
 }
+
 
 EXPORT_PHASE(Codegen::FortranBase)

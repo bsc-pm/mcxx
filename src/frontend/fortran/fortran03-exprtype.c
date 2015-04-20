@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -635,7 +635,8 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     type_t* ac_value_type = NULL;
     if (type_spec != NULL)
     {
-        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context);
+        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context,
+                /* character_length_out */ NULL);
 
         if (is_error_type(ac_value_type))
         {
@@ -720,8 +721,17 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
         }
     }
 
+    nodecl_t nodecl_array_constructor_form = nodecl_null();
+
+    if (type_spec != NULL)
+    {
+        nodecl_array_constructor_form =
+            nodecl_make_structured_value_fortran_typespec_array_constructor(
+                ast_get_locus(type_spec));
+    }
+
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
-            nodecl_null(),
+            nodecl_array_constructor_form,
             ac_value_type,
             ast_get_locus(expr));
 
@@ -1831,7 +1841,7 @@ static void check_component_ref_(AST expr,
         synthesized_type = rhs_type;
     }
 
-    if (is_lvalue_reference_type(class_type))
+    if (is_lvalue_reference_type(nodecl_get_type(nodecl_lhs)))
     {
         synthesized_type = get_lvalue_reference_type(synthesized_type);
     }
@@ -1879,7 +1889,7 @@ static void check_component_ref_(AST expr,
         *nodecl_output =
             nodecl_make_dereference(
                     *nodecl_output,
-                    lvalue_ref(pointer_type_get_pointee_type(synthesized_type)),
+                    lvalue_ref(pointer_type_get_pointee_type(component_type)),
                     ast_get_locus(expr));
     }
 
@@ -1890,6 +1900,9 @@ static void check_component_ref_(AST expr,
         {
             check_array_ref_(rhs, decl_context, *nodecl_output, *nodecl_output, nodecl_output,
                     do_complete_array_ranks, require_lower_bound);
+
+            if (nodecl_is_err_expr(*nodecl_output))
+                return;
 
             if (fortran_is_array_type(lhs_type)
                     && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output))))
@@ -1904,7 +1917,7 @@ static void check_component_ref_(AST expr,
                     no_ref(nodecl_get_type(*nodecl_output)),
                     lhs_type);
 
-            if (is_lvalue_reference_type(class_type))
+            if (is_lvalue_reference_type(nodecl_get_type(nodecl_lhs)))
             {
                 synthesized_type = get_lvalue_reference_type(synthesized_type);
             }
@@ -1996,7 +2009,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     {
         error_printf("%s: error: '%s' is not a derived-type-name\n",
                 ast_location(expr),
-                ASTText(derived_name));
+                strtolower(ASTText(derived_name)));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
@@ -2307,7 +2320,7 @@ static char is_assumed_shape_or_pointer_array(scope_entry_t* entry)
 }
 
 static char check_argument_association(
-        scope_entry_t* function UNUSED_PARAMETER,
+        scope_entry_t* function,
         type_t* formal_type,
         type_t* real_type,
         nodecl_t real_argument,
@@ -2326,6 +2339,25 @@ static char check_argument_association(
     {
         // NULL() is OK with any pointer
         return 1;
+    }
+
+    if (is_function_type(formal_type)
+            && is_function_type(real_type))
+    {
+        scope_entry_t* entry = nodecl_get_symbol(real_argument);
+
+        if (entry != NULL
+                && symbol_entity_specs_get_is_implicit_basic_type(entry))
+            // We cannot reliably check this case
+            return 1;
+
+        scope_entry_t* dummy_argument =
+            symbol_entity_specs_get_related_symbols_num(function, argument_num);
+
+        if (dummy_argument != NULL
+                && symbol_entity_specs_get_is_implicit_basic_type(dummy_argument))
+            // We cannot reliably check this case
+            return 1;
     }
 
     if (!fortran_equivalent_tk_types(formal_type, real_type))
@@ -2826,15 +2858,6 @@ static void check_called_symbol_list(
     if (symbol_entity_specs_get_is_builtin(symbol)
             && is_computed_function_type(symbol->type_information))
     {
-        if (CURRENT_CONFIGURATION->disable_intrinsics)
-        {
-            error_printf("%s: error: call to intrinsic '%s' not implemented\n",
-                    ast_location(location),
-                    strtoupper(symbol->symbol_name));
-            *result_type = get_error_type();
-            return;
-        }
-
         scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol,
                 nodecl_actual_arguments,
                 explicit_num_actual_arguments,
@@ -3145,24 +3168,43 @@ static void check_called_symbol_list(
                 ast_get_locus(procedure_designator));
     }
 
-    if (is_void_type(return_type))
+    if (symbol_entity_specs_get_is_implicit_basic_type(symbol))
     {
         if (!is_call_stmt)
         {
-            error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
-                    ast_location(location));
-            *result_type = get_error_type();
-            return;
+            // From now it is a FUNCTION
+            symbol_entity_specs_set_is_implicit_basic_type(symbol, 0);
         }
+        else
+        {
+            // From now it is a SUBROUTINE
+            symbol->type_information = fortran_update_basic_type_with_type(
+                    symbol->type_information,
+                    get_void_type());
+        }
+        symbol_entity_specs_set_is_implicit_basic_type(symbol, 0);
     }
     else
     {
-        if (is_call_stmt)
+        if (is_void_type(return_type))
         {
-            error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
-                    ast_location(location));
-            *result_type = get_error_type();
-            return;
+            if (!is_call_stmt)
+            {
+                error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
+                        ast_location(location));
+                *result_type = get_error_type();
+                return;
+            }
+        }
+        else
+        {
+            if (is_call_stmt)
+            {
+                error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
+                        ast_location(location));
+                *result_type = get_error_type();
+                return;
+            }
         }
     }
 
@@ -3215,6 +3257,11 @@ static void check_called_symbol_list(
 
         nodecl_actual_positional_arguments[position] = nodecl_argument;
         last_argument = last_argument < position ? position : last_argument;
+    }
+
+    if (!function_type_get_lacking_prototype(no_ref(symbol->type_information)))
+    {
+        last_argument = function_type_get_num_parameters(no_ref(symbol->type_information)) - 1;
     }
 
     // Copy back to nodecl_actual_arguments
@@ -3388,13 +3435,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 nodecl_make_symbol(called_symbol, ast_get_locus(procedure_designator));
         if (called_symbol->kind == SK_VARIABLE)
         {
-            // This must be a pointer to function
-            ERROR_CONDITION(!is_pointer_to_function_type(no_ref(called_symbol->type_information)), "Invalid symbol", 0);
-
-            nodecl_called = nodecl_make_dereference(
-                    nodecl_called,
-                    lvalue_ref(called_symbol->type_information),
-                    ast_get_locus(procedure_designator));
+            if (is_pointer_to_function_type(no_ref(called_symbol->type_information)))
+            {
+                nodecl_called = nodecl_make_dereference(
+                        nodecl_called,
+                        lvalue_ref(called_symbol->type_information),
+                        ast_get_locus(procedure_designator));
+            }
         }
 
         *nodecl_output = nodecl_make_function_call(
@@ -4221,7 +4268,8 @@ static void check_symbol_of_called_name(AST sym,
                 }
             }
             else if (entry->kind == SK_VARIABLE
-                    && is_pointer_to_function_type(no_ref(entry->type_information)))
+                    && (is_pointer_to_function_type(no_ref(entry->type_information))
+                        || /* dummy procedures */ is_function_type(no_ref(entry->type_information))))
             {
                 // OK
             }
@@ -4985,6 +5033,23 @@ static void cast_initialization(
     }
 }
 
+void fortran_cast_initialization(
+        scope_entry_t* entry,
+        nodecl_t *nodecl_init)
+{
+    ERROR_CONDITION(nodecl_init == NULL, "Cannot be NULL here", 0);
+
+    if (nodecl_is_null(*nodecl_init)
+            || !nodecl_is_constant(*nodecl_init))
+        return;
+
+    const_value_t* casted_const = NULL;
+    cast_initialization(no_ref(entry->type_information),
+            nodecl_get_constant(*nodecl_init),
+            &casted_const,
+            nodecl_init);
+}
+
 void fortran_check_initialization(
         scope_entry_t* entry,
         AST expr, 
@@ -5394,18 +5459,6 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
         }
     }
 
-    if (correct_option < 0)
-    {
-        ERROR_CONDITION(prioritize[0].t == NULL && prioritize[3].t == NULL, 
-                "Invalid ambiguity", 0);
-
-        // Use function call if no class member access ambiguity has arisen
-        if (prioritize[3].t == NULL)
-            correct_option = prioritize[0].idx;
-        else
-            correct_option = prioritize[3].idx;
-    }
-
     for (i = 0; i < num_ambig; i++)
     {
         if (i == correct_option)
@@ -5416,12 +5469,36 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
         {
             nodecl_free(nodecl_check_expr[i]);
             if (ambig_diag[i] != NULL)
-                diagnostic_context_discard(ambig_diag[i]);
+            {
+                if (correct_option < 0)
+                {
+                    diagnostic_context_commit(ambig_diag[i]);
+                }
+                else
+                {
+                    diagnostic_context_discard(ambig_diag[i]);
+                }
+            }
         }
     }
 
-    ast_replace_with_ambiguity(expr, correct_option);
-    *nodecl_output = nodecl_check_expr[correct_option];
+    if (correct_option < 0)
+    {
+        ERROR_CONDITION(prioritize[0].t == NULL && prioritize[3].t == NULL, 
+                "Invalid ambiguity", 0);
+        if (prioritize[3].t == NULL)
+            correct_option = prioritize[0].idx;
+        else
+            correct_option = prioritize[3].idx;
+        ast_replace_with_ambiguity(expr, correct_option);
+
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+    }
+    else
+    {
+        ast_replace_with_ambiguity(expr, correct_option);
+        *nodecl_output = nodecl_check_expr[correct_option];
+    }
 }
 
 static type_t* common_kind(type_t* t1, type_t* t2)
@@ -6174,23 +6251,109 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
     }
 }
 
+static const_value_t* const_bin_val_(const_value_t* cval_lhs, const_value_t* cval_rhs,
+        const_value_t* (*compute)(const_value_t*, const_value_t*))
+{
+    if (!const_value_is_array(cval_lhs)
+            && !const_value_is_array(cval_rhs))
+    {
+        return compute(cval_lhs, cval_rhs);
+    }
+    else
+    {
+        int num_elements;
+        if (const_value_is_array(cval_lhs))
+        {
+            num_elements = const_value_get_num_elements(cval_lhs);
+            if (const_value_is_array(cval_rhs))
+            {
+                // Should not happen, though
+                if (const_value_get_num_elements(cval_rhs) != num_elements)
+                    return NULL;
+            }
+        }
+        else
+        {
+            num_elements = const_value_get_num_elements(cval_rhs);
+        }
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* cvals[num_elements];
+
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            const_value_t* current_lhs = cval_lhs;
+            if (const_value_is_array(current_lhs))
+                current_lhs = const_value_get_element_num(current_lhs, k);
+
+            const_value_t* current_rhs = cval_rhs;
+            if (const_value_is_array(current_rhs))
+                current_rhs = const_value_get_element_num(current_rhs, k);
+
+            cvals[k] = const_bin_val_(current_lhs, current_rhs, compute);
+
+            if (cvals[k] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(num_elements, cvals);
+    }
+}
+
 static const_value_t* const_bin_(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs,
         const_value_t* (*compute)(const_value_t*, const_value_t*))
 {
     if (nodecl_is_constant(nodecl_lhs)
             && nodecl_is_constant(nodecl_rhs))
     {
-        return compute(nodecl_get_constant(nodecl_lhs),
-                nodecl_get_constant(nodecl_rhs));
+        const_value_t* cval_lhs = nodecl_get_constant(nodecl_lhs);
+        const_value_t* cval_rhs = nodecl_get_constant(nodecl_rhs);
+
+        if (cval_lhs != NULL
+                && cval_rhs != NULL)
+        {
+            return const_bin_val_(cval_lhs, cval_rhs, compute);
+        }
     }
     return NULL;
+}
+
+static const_value_t* const_unary_val_(const_value_t* cval_lhs, const_value_t* (*compute)(const_value_t*))
+{
+    if (!const_value_is_array(cval_lhs))
+    {
+        return compute(cval_lhs);
+    }
+    else
+    {
+        int num_elements = const_value_get_num_elements(cval_lhs);
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* cvals[num_elements];
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            cvals[k] = const_unary_val_(const_value_get_element_num(cval_lhs, k), compute);
+            if (cvals[k] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(num_elements, cvals);
+    }
 }
 
 static const_value_t* const_unary_(nodecl_t nodecl_lhs, const_value_t* (*compute)(const_value_t*))
 {
     if (nodecl_is_constant(nodecl_lhs))
     {
-        return compute(nodecl_get_constant(nodecl_lhs));
+        const_value_t* cval_lhs = nodecl_get_constant(nodecl_lhs);
+        if (cval_lhs != NULL)
+            return const_unary_val_(cval_lhs, compute);
     }
     return NULL;
 }

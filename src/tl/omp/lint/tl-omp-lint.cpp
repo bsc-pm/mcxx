@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -353,84 +353,7 @@ namespace {
             local_syms.append( nodecl_sym );
         return result;
     }
-        
-#if 0
-    // If this function returns false it may mean both unknown/no
-    tribool data_ref_is_local_rec(TL::DataReference data_ref, Nodecl::List& local_data_refs )
-    {
-        TL::Symbol base_sym = data_ref.get_base_symbol();
-        if (!base_sym.is_valid())
-            return false;
-        
-        tribool result = false;
-        if (data_ref.is<Nodecl::Symbol>())
-        {
-            result = !base_sym.get_type().is_any_reference() &&
-                        base_sym.get_scope().is_block_scope();
-        }
-        else if (data_ref.is<Nodecl::Dereference>())
-        {
-            // *&a -> a
-            if (data_ref.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Reference>())
-            {
-                result = data_ref_is_local_rec(
-                            data_ref.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Reference>().get_rhs(), 
-                            local_data_refs);
-            }
-            else
-            {
-                result = data_ref_is_local_rec(data_ref.as<Nodecl::Dereference>().get_rhs(), 
-                                                local_data_refs) &&
-                            base_sym.get_type().is_array();
-            }
-        }
-        else if (data_ref.is<Nodecl::Reference>())
-        {
-            // &*a -> a
-            if (data_ref.as<Nodecl::Reference>().get_rhs().is<Nodecl::Dereference>())
-            {
-                result = data_ref_is_local_rec(
-                            data_ref.as<Nodecl::Reference>().get_rhs().as<Nodecl::Dereference>().get_rhs(), 
-                            local_data_refs);
-            }
-            else
-            {
-                result = data_ref_is_local_rec(data_ref.as<Nodecl::Reference>().get_rhs(), local_data_refs);
-            }
-        }
-        else if (data_ref.is<Nodecl::ArraySubscript>())
-        {
-            result = data_ref_is_local_rec(data_ref.as<Nodecl::ArraySubscript>().get_subscripted(), 
-                                            local_data_refs) &&
-                        base_sym.get_type().is_array();
-        }
-        else if (data_ref.is<Nodecl::ClassMemberAccess>())
-        {
-            result = data_ref_is_local_rec(data_ref.as<Nodecl::ClassMemberAccess>().get_lhs(), local_data_refs);
-        }
-        
-        if( result.is_true( ) )
-            local_data_refs.append( data_ref );
-            
-        return result;
-    }
-#endif
-    
-#if 0
-    // If this function returns false it may mean both unknown/no
-    tribool data_ref_is_local(TL::DataReference data_ref, Nodecl::List& local_data_refs)
-    {
-        if (!data_ref.is_valid())
-        {
-            // Somehow the data reference cannot be analyzed as valid
-            // so act conservatively and return unknown
-            return tribool();
-        }
-        
-        return data_ref_is_local_rec(data_ref, local_data_refs);
-    }
-#endif
-    
+
     tribool any_symbol_is_local(const TL::Analysis::NodeclSet& item_list, Nodecl::List& local_syms)
     {
         tribool result( false );
@@ -438,17 +361,7 @@ namespace {
             result = result || symbol_is_local(*it, local_syms);
         return result;
     }
-    
-#if 0
-    tribool any_data_ref_is_local(Nodecl::List item_list, Nodecl::List& local_data_refs)
-    {
-        tribool result( false );
-        for( Nodecl::List::iterator it = item_list.begin(); it != item_list.end(); it++ )
-            result = result || data_ref_is_local( *it, local_data_refs );
-        return result;
-    }
-#endif
-    
+
     tribool task_is_locally_bound( TL::Analysis::Node *n, Nodecl::List& local_vars )
     {
         ERROR_CONDITION( !n->is_omp_task_node( ), "Expecting a Task node, but found a '%s' node.", 
@@ -460,20 +373,7 @@ namespace {
         const TL::Analysis::NodeclSet& shared_vars = n->get_all_shared_accesses();
         return any_symbol_is_local(shared_vars, local_vars);
     }
-    
-#if 0
-    bool enclosing_context_contains_node(TL::Analysis::Node* ctx, TL::Analysis::Node* node)
-    {
-        bool found = false;
-        while(!found && (ctx != NULL))
-        {
-            found = (ctx == node) || TL::Analysis::ExtensibleGraph::node_contains_node(ctx, node);
-            ctx = TL::Analysis::ExtensibleGraph::get_enclosing_context(ctx);
-        }
-        return found;
-    }
-#endif
-    
+
     // Returns false when task may synchronize at some point 
     // which is not enclosed in the scope where the task is created
     tribool task_only_synchronizes_in_enclosing_scopes(
@@ -679,7 +579,7 @@ check_sync:
             const Nodecl::NodeclBase& v,
             TL::Analysis::ExtensibleGraph* pcfg)
     {
-        TL::Analysis::NodeclSet global_vars = pcfg->get_global_variables();
+        const TL::Analysis::NodeclSet& global_vars = pcfg->get_global_variables();
         Nodecl::NodeclBase v_base = TL::Analysis::Utils::get_nodecl_base(v);
         return (global_vars.find(v) != global_vars.end()
                     || (!v_base.is_null()
@@ -691,7 +591,7 @@ check_sync:
             TL::Analysis::ExtensibleGraph* pcfg,
             TL::Analysis::Node* task)
     {
-        const TL::ObjectList<TL::Analysis::Node*>& next_sync = pcfg->get_task_next_synchronization(task);
+        const TL::ObjectList<TL::Analysis::Node*>& next_sync = pcfg->get_task_next_sync_for_sequential_code(task);
         for (TL::ObjectList<TL::Analysis::Node*>::const_iterator itn = next_sync.begin();
              itn != next_sync.end(); ++itn)
         {
@@ -946,7 +846,7 @@ check_sync:
 
         // 1.4.- Get the set of variables defined within the task
         //     To be conservative, the undefined behavior variables count as definitions
-        TL::Analysis::NodeclSet task_defs = task->get_killed_vars();
+        TL::Analysis::NodeclSet& task_defs = task->get_killed_vars();
 //         const TL::Analysis::NodeclSet& task_undef = task->get_undefined_behaviour_vars();
 //         task_defs.insert(task_undef.begin(), task_undef.end());
 
@@ -1333,7 +1233,6 @@ skip_current_var: ;
         TL::Analysis::Node* task_entry = task->get_graph_entry_node();
         TL::Analysis::Node* task_exit = task->get_graph_exit_node();
         TL::ObjectList<TL::Analysis::Edge*> entries = task_exit->get_entry_edges();
-        TL::Analysis::NodeclSet killed_vars;
         std::set<TL::Analysis::Node*> visited_nodes;
         while (!entries.empty())
         {
@@ -1352,9 +1251,8 @@ skip_current_var: ;
 
                 // When a variable has pointer or array type, only the variable itself is included in the data-sharing attributes list
                 // Nonetheless, we also need to check the usage of the pointed values
-                killed_vars = src->get_killed_vars();
                 const Nodecl::List& killed_subparts =
-                        TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(n, killed_vars);
+                        TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(n, src->get_killed_vars());
                 if (!killed_subparts.is_null())
                 {
                     for (Nodecl::List::iterator itk = killed_subparts.begin(); itk != killed_subparts.end(); ++itk)
@@ -1553,17 +1451,20 @@ skip_current_var: ;
         }
         
         // 2.- Collect usage of variables inside the task
-        TL::Analysis::NodeclSet all_ue_vars = task->get_ue_vars();
-        const TL::Analysis::NodeclSet& private_ue_vars = task->get_private_ue_vars( );
+        const TL::Analysis::NodeclSet& ue_vars = task->get_ue_vars();
+        const TL::Analysis::NodeclSet& private_ue_vars = task->get_private_ue_vars();
+        TL::Analysis::NodeclSet all_ue_vars(ue_vars.begin(), ue_vars.end());
         all_ue_vars.insert(private_ue_vars.begin(), private_ue_vars.end());
-        
-        TL::Analysis::NodeclSet all_killed_vars = task->get_killed_vars();
-        const TL::Analysis::NodeclSet& private_killed_vars = task->get_private_killed_vars( );
+
+        const TL::Analysis::NodeclSet& killed_vars = task->get_killed_vars();
+        const TL::Analysis::NodeclSet& private_killed_vars = task->get_private_killed_vars();
+        TL::Analysis::NodeclSet all_killed_vars(killed_vars.begin(), killed_vars.end());
         all_killed_vars.insert(private_killed_vars.begin(), private_killed_vars.end());
 
         // FIXME We must distinguish here certain incoherencies from uncertain ones
-//         TL::Analysis::NodeclSet all_undef_vars = task->get_undefined_behaviour_vars( );
-//         const TL::Analysis::NodeclSet& private_undef_vars = task->get_private_undefined_behaviour_vars( );
+//         const TL::Analysis::NodeclSet& undef_vars = task->get_undefined_behaviour_vars();
+//         const TL::Analysis::NodeclSet& private_undef_vars = task->get_private_undefined_behaviour_vars();
+//         TL::Analysis::NodeclSet all_undef_vars(undef_vars.begin);
 //         all_undef_vars.insert(private_undef_vars.begin(), private_undef_vars.end());
         
         TL::Analysis::NodeclSet all_vars = all_ue_vars;
@@ -1680,8 +1581,8 @@ skip_current_var: ;
         }
         
         // 2.- Collect the use-definition information of the task
-        TL::Analysis::NodeclSet ue_vars = task->get_ue_vars();
-        TL::Analysis::NodeclSet killed_vars = task->get_killed_vars();
+        const TL::Analysis::NodeclSet& ue_vars = task->get_ue_vars();
+        const TL::Analysis::NodeclSet& killed_vars = task->get_killed_vars();
         
         // 3.1.- Check whether all input dependencies are read within the task
         std::string incoherent_depin_vars;

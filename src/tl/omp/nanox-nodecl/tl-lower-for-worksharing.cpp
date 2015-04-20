@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -109,7 +109,7 @@ namespace TL { namespace Nanox {
 
             for_code
                 << statement_placeholder(lastprivate1)
-                << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
+                << "nanos_err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 << "}"
                 ;
         }
@@ -129,7 +129,7 @@ namespace TL { namespace Nanox {
                 <<       statement_placeholder(placeholder1)
                 <<       "}"
                 <<       statement_placeholder(lastprivate1)
-                <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
+                <<       "nanos_err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 <<   "}"
                 << "}"
                 << "else"
@@ -144,7 +144,7 @@ namespace TL { namespace Nanox {
                 <<          statement_placeholder(placeholder2)
                 <<       "}"
                 <<       statement_placeholder(lastprivate2)
-                <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
+                <<       "nanos_err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 <<   "}"
                 << "}"
                 ;
@@ -161,14 +161,14 @@ namespace TL { namespace Nanox {
 
                 << "if (nanos_loop_init == 0)"
                 << "{"
-                <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<     "nanos_err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
+                <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
-                <<     "err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<     "nanos_err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
+                <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
-                <<     "err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<     "nanos_err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
+                <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
                 <<     "nanos_loop_init = 1;"
                 << "}"
@@ -203,16 +203,16 @@ namespace TL { namespace Nanox {
                     ;
             }
             instrument_loop_opt
-                << "err = nanos_instrument_events(3, loop_events);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_err = nanos_instrument_events(3, loop_events);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 ;
 
             instrument_after_opt
                 << "loop_events[0].value = 0;"
                 << "loop_events[1].value = 0;"
                 << "loop_events[2].value = 1;"
-                << "err = nanos_instrument_events(3, loop_events);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_err = nanos_instrument_events(3, loop_events);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 ;
         }
 
@@ -221,10 +221,10 @@ namespace TL { namespace Nanox {
             << "{"
             << reduction_initialization_src
             << "nanos_ws_item_loop_t nanos_item_loop;"
-            << "nanos_err_t err;"
-            << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
-            << "if (err != NANOS_OK)"
-            <<     "nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
+            << "if (nanos_err != NANOS_OK)"
+            <<     "nanos_handle_error(nanos_err);"
             << instrument_before_opt
             << for_code
             << instrument_after_opt
@@ -292,7 +292,11 @@ namespace TL { namespace Nanox {
 
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info,
+        CreateOutlineInfo info(
+                _lowering,
+                outline_name,
+                outline_info.get_data_items(),
+                target_info,
                 /* original task statements */ statements,
                 /* current task statements */ statements,
                 task_label,
@@ -318,9 +322,9 @@ namespace TL { namespace Nanox {
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
                 << "{"
-                << "nanos_err_t err;"
-                << "err = nanos_omp_set_implicit(nanos_current_wd());"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_err_t nanos_err;"
+                << "nanos_err = nanos_omp_set_implicit(nanos_current_wd());"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 << "}"
                 << outline_distribute_loop_source
                 ;

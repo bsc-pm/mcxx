@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -49,6 +49,9 @@ LIBMF03_EXTERN void fortran_check_initialization(
         decl_context_t decl_context, 
         char is_pointer_initialization,
         nodecl_t* nodecl_output);
+
+LIBMF03_EXTERN void fortran_cast_initialization(scope_entry_t* entry,
+        nodecl_t *nodecl_init);
 
 LIBMF03_EXTERN type_t* common_type_of_binary_operation(type_t* t1, type_t* t2);
 LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2);

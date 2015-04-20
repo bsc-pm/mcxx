@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,6 +31,7 @@
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
 #include "cxx-graphviz.h"
+#include "cxx-entrylist.h"
 #include <algorithm>
 
 namespace Nodecl
@@ -563,6 +564,39 @@ namespace Nodecl
         return !finder._found_node.is_null();
     }
 
+    void nodecl_replace_nodecl_common(
+            TL::ObjectList<Nodecl::NodeclBase>& target_nodes,
+            const Nodecl::NodeclBase& replacement)
+    {
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                target_nodes.begin();
+                it != target_nodes.end();
+                it++)
+        {
+            Nodecl::NodeclBase target_node = *it;
+            Nodecl::NodeclBase target_node_parent = target_node.get_parent();
+
+            //Conversions!
+            if (target_node_parent != Nodecl::NodeclBase::null() &&
+                    !replacement.is<Nodecl::Symbol>() && // TODO:
+                    target_node_parent.is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion parent_conv =
+                    target_node_parent.as<Nodecl::Conversion>();
+                
+                TL::Type dst_type = parent_conv.get_type().no_ref();
+                TL::Type src_type = replacement.get_type().no_ref();
+
+                if (dst_type.is_same_type(src_type))
+                {
+                    target_node = target_node_parent;
+                }
+            }
+
+            target_node.replace(replacement.shallow_copy());
+        }
+    }
+
     void Utils::nodecl_replace_nodecl_by_structure(
             const Nodecl::NodeclBase& haystack,
             const Nodecl::NodeclBase& needle,
@@ -571,29 +605,7 @@ namespace Nodecl
         CollectStructuralNodeFinderVisitor finder(needle);
         finder.walk(haystack);
 
-        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
-                finder._found_nodes.begin();
-                it != finder._found_nodes.end();
-                it++)
-        {
-            Nodecl::NodeclBase target_node = *it;
-
-            // Conversions!
-            if (target_node.get_parent() != Nodecl::NodeclBase::null() &&
-                    !replacement.is<Nodecl::Symbol>() &&
-                    target_node.get_parent().is<Nodecl::Conversion>())
-            {
-                Nodecl::Conversion parent_conv =
-                    target_node.as<Nodecl::Conversion>();
-
-                if (parent_conv.get_type().no_ref().is_same_type(replacement.get_type()))
-                {
-                    target_node = target_node.get_parent();
-                }
-            }
-
-            target_node.replace(replacement.shallow_copy());
-        }
+        nodecl_replace_nodecl_common(finder._found_nodes, replacement);
     }
 
     void Utils::nodecl_replace_nodecl_by_pointer(
@@ -601,16 +613,12 @@ namespace Nodecl
             const Nodecl::NodeclBase& needle,
             const Nodecl::NodeclBase& replacement)
     {
+        // Is it necessary to use CollectPointerNodeFinderVisitor?
+        // It will return only one node
         CollectPointerNodeFinderVisitor finder(needle);
         finder.walk(haystack);
 
-        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
-                finder._found_nodes.begin();
-                it != finder._found_nodes.end();
-                it++)
-        {
-            it->replace(replacement.shallow_copy());
-        }
+        nodecl_replace_nodecl_common(finder._found_nodes, replacement);
     }
 
     bool Utils::dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
@@ -669,8 +677,16 @@ namespace Nodecl
         }
         else if( container.is<Nodecl::ClassMemberAccess>( ) )
         {
-            Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
-            result = dataref_contains_dataref( container, lhs );
+            if (contained.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
+                result = dataref_contains_dataref(container, lhs);
+            }
+            else if (contained.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::NodeclBase subscripted = contained.as<Nodecl::ArraySubscript>().get_subscripted();
+                result = dataref_contains_dataref(container, subscripted);
+            }
         }
         else if( container.is<Nodecl::Symbol>( ) )
         {
@@ -956,6 +972,23 @@ namespace Nodecl
                 && n.get_parent().is<Nodecl::List>());
     }
 
+    Nodecl::NodeclBase Utils::get_previous_sibling(const Nodecl::NodeclBase& n)
+    {
+        if (n.is_null()) return n;
+        
+        const Nodecl::NodeclBase parent = n.get_parent();
+
+        if (parent.is_null()) return parent;
+        else if (parent.is<Nodecl::List>())
+        {
+            Nodecl::NodeclBase child0 = parent.children()[0];
+            if (child0.is<Nodecl::List>())
+                return child0.as<Nodecl::List>().children()[1];
+        }
+
+        return Nodecl::NodeclBase::null();
+    }
+
     void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
         if (!Utils::is_in_list(n))
@@ -981,6 +1014,83 @@ namespace Nodecl
             // We may have a new last node now
             last_it = it->get_parent().as<Nodecl::List>().last();
         }
+    }
+
+    bool Utils::is_nodecl_statement(const Nodecl::NodeclBase& n)
+    {
+        //TODO
+        // ObjectInit is considered a special kind of Statement
+        return n.is<Nodecl::ExpressionStatement>() ||
+            n.is<Nodecl::IfElseStatement>() ||
+            n.is<Nodecl::ForStatement>() ||
+            n.is<Nodecl::WhileStatement>() ||
+            n.is<Nodecl::CompoundStatement>() ||
+            n.is<Nodecl::CaseStatement>() ||
+            n.is<Nodecl::SwitchStatement>() ||
+            n.is<Nodecl::DefaultStatement>() ||
+            n.is<Nodecl::CaseStatement>() ||
+            n.is<Nodecl::GotoStatement>() ||
+            n.is<Nodecl::ReturnStatement>() ||
+            n.is<Nodecl::ObjectInit>();
+    }
+
+    Nodecl::NodeclBase get_nesting_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& obj_init_context)
+    {
+        Nodecl::NodeclBase target_stmt = n;
+        while (!target_stmt.is_null() && !Utils::is_nodecl_statement(target_stmt))
+        {
+            target_stmt = target_stmt.get_parent();
+        }
+
+        // ObjectInit value?
+        if (target_stmt.is_null())
+        {
+            if (obj_init_context.is_null())
+                internal_error("Nodecl::Utils::get_nesting_statement: target_stmt is null and obj_init_context is null", 0);
+
+            TL::ObjectList<Nodecl::NodeclBase> obj_init_list =
+                Utils::nodecl_get_all_nodecls_of_kind<Nodecl::ObjectInit>(obj_init_context);
+
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = obj_init_list.begin();
+                    it != obj_init_list.end();
+                    it++)
+            {
+                TL::Symbol sym = it->get_symbol();
+                Nodecl::NodeclBase init = sym.get_value();
+
+                if(!init.is_null())
+                {
+                    if (Utils::nodecl_contains_nodecl_by_pointer(init, n))
+                    {
+                        target_stmt = *it;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (target_stmt.is_null())
+            internal_error("Nodecl::Utils::get_nesting_statement: target_stmt is null", 0);
+
+        return target_stmt;
+    }
+
+
+    void Utils::prepend_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
+    {
+        Nodecl::NodeclBase target_stmt = get_nesting_statement(n, obj_init_context);
+        target_stmt.prepend_sibling(new_stmt);
+    }
+
+    void Utils::append_sibling_statement(const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& new_stmt,
+            const Nodecl::NodeclBase& obj_init_context)
+    {
+        Nodecl::NodeclBase target_stmt = get_nesting_statement(n, obj_init_context);
+        target_stmt.append_sibling(new_stmt);
     }
 
     void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
@@ -1010,7 +1120,7 @@ namespace Nodecl
         }
     }
 
-    void Nodecl::Utils::prepend_items_in_nesting_compound_statement(
+    void Nodecl::Utils::prepend_items_in_nested_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -1026,7 +1136,7 @@ namespace Nodecl
         stmts_list.prepend(items);
     }
 
-    void Nodecl::Utils::append_items_in_nesting_compound_statement(
+    void Nodecl::Utils::append_items_in_nested_compound_statement(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& items)
     {
@@ -1312,6 +1422,10 @@ namespace Nodecl
             TL::Counter &counter = TL::CounterManager::get_counter("label_visitor");
 
             std::string register_name, symbol_name;
+
+            decl_context_t decl_context = _sc.get_decl_context();
+            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
             if (IS_FORTRAN_LANGUAGE
                     && is_numeric_label)
             {
@@ -1334,32 +1448,53 @@ namespace Nodecl
                     ss >> x;
                 }
 
-                // FIXME - Make this more robust!
-                // Add 10000 to this label
-                x += 10000 + (int)counter;
+                bool repeated = true;
 
-                std::stringstream ss;
-                ss << x;
+                while (repeated)
+                {
+                    // Add 10000 to this label
+                    // and check if the name has already been used
+                    int new_x = x + 10000 + (int)counter;
+                    counter++;
 
-                symbol_name = ss.str();
-                register_name = ".label_" + symbol_name;
+                    ERROR_CONDITION(new_x > 99999, "Cannot generate a new temporary label", 0);
+
+                    std::stringstream ss;
+                    ss << new_x;
+
+                    symbol_name = ss.str();
+                    register_name = ".label_" + symbol_name;
+
+                    scope_entry_list_t* entry_list = ::query_name_str_flags(
+                            program_unit_context,
+                            uniquestr(register_name.c_str()),
+                            NULL,
+                            DF_ONLY_CURRENT_SCOPE);
+
+                    if (entry_list == NULL)
+                    {
+                        repeated = false;
+                    }
+                    else
+                    {
+                        ::entry_list_free(entry_list);
+                    }
+                }
             }
             else
             {
                 std::stringstream ss;
                 ss << sym.get_name() << "_" << (int)counter;
+                counter++;
 
                 symbol_name = ss.str();
                 register_name = symbol_name;
             }
-            counter++;
 
-            decl_context_t decl_context = _sc.get_decl_context();
             scope_entry_t* new_label = NULL;
-            if (IS_FORTRAN_LANGUAGE && !is_numeric_label)
+            if (IS_FORTRAN_LANGUAGE)
             {
-                // Nonnumeric labels in Fortran live in the program unit context
-                decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+                // Labels in Fortran live in the program unit context
                 new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope,
                         uniquestr(register_name.c_str()));
             }
@@ -1711,16 +1846,10 @@ namespace Nodecl
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
 
-// #################
-//  DEBUG FUNCTIONS
-// #################
-
-    void Utils::print_ast(Nodecl::NodeclBase n)
-    {
-        ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
-    }
-
 }
+
+
+
 
 namespace TL
 {
@@ -1855,6 +1984,8 @@ namespace TL
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                     else
@@ -1875,13 +2006,15 @@ namespace TL
                         }
                         else
                         {
-                            _upper_bound = 
+                            _upper_bound =
                                 CopyPolicy::new_node(
                                         Nodecl::Add::make(
                                             CopyPolicy::shallow_copy(lhs),
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                 }
@@ -1925,6 +2058,8 @@ namespace TL
                                         CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                         t,
                                         rhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                     else
@@ -1952,6 +2087,8 @@ namespace TL
                                             CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
                                             t,
                                             lhs.get_locus()));
+
+                            _upper_bound.set_is_type_dependent(t.is_dependent());
                         }
                     }
                 }
@@ -2039,6 +2176,8 @@ namespace TL
                                 rhs,
                                 t,
                                 rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
                 }
             }
             // _induction_var = _induction_var + incr
@@ -2089,6 +2228,8 @@ namespace TL
                                 CopyPolicy::shallow_copy(rhs),
                                 t,
                                 rhs.get_locus()));
+
+                    _step.set_is_type_dependent(t.is_dependent());
                 }
             }
             else
@@ -2167,7 +2308,6 @@ namespace TL
                         .make_nodecl(/* lvalue_ref */ true),
                         rlc.get_upper().shallow_copy(),
                         TL::Type::get_bool_type());
-
             }
             else if (const_value_is_negative(rlc.get_step().get_constant()))
             {
@@ -2216,3 +2356,25 @@ namespace TL
         }
     }
 }
+
+// #################
+//  DEBUG FUNCTIONS
+// #################
+
+void deb_print_ast(Nodecl::NodeclBase n)
+{
+    ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
+}
+
+std::string deb_print_type(TL::Type type)
+{
+    return type.get_simple_declaration(CURRENT_COMPILED_FILE->global_decl_context, "");
+}
+
+std::string deb_print_type(const Nodecl::NodeclBase& n)
+{
+    return deb_print_type(n.get_type());
+}
+
+
+

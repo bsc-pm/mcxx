@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -27,6 +27,8 @@
 #ifndef KNC_VECTOR_LEGALIZATION_HPP
 #define KNC_VECTOR_LEGALIZATION_HPP
 
+#include "tl-vectorization-analysis-interface.hpp"
+
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include <list>
@@ -43,6 +45,7 @@ namespace TL
             private:
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
+                VectorizationAnalysisInterface* _analysis;
 
                 std::list<Nodecl::NodeclBase> _old_m512;
 
@@ -51,10 +54,13 @@ namespace TL
                 KNCVectorLegalization(bool prefer_gather_scatter,
                         bool prefer_mask_gather_scatter);
 
+                virtual void visit(const Nodecl::FunctionCode& n);
+
                 virtual void visit(const Nodecl::ObjectInit& n);
 
                 virtual void visit(const Nodecl::VectorConversion& n);
 
+                virtual void visit(const Nodecl::VectorAssignment& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
                 virtual void visit(const Nodecl::VectorStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);
@@ -70,8 +76,6 @@ namespace TL
 
             public:
                 KNCStrideVisitorConv(unsigned int vector_num_elements);
-        //        virtual void visit(const Nodecl::VectorConversion& n);
-
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
 
         };

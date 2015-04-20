@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -786,8 +786,27 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         __uint128_t_type->locus = make_locus("(global scope)", 0, 0);
     }
 #endif
-    // Mercurium limit constants
+    // Mercurium basic types
+    struct {
+        const char* type_name;
+        type_t* related_type;
+    } mercurium_basic_types[] = {
+        { "mercurium_size_t", get_size_t_type() },
+        { "mercurium_ptrdiff_t", get_ptrdiff_t_type() },
+        { NULL, NULL }
+    };
+    int i;
+    for (i = 0; mercurium_basic_types[i].type_name != NULL; i++)
+    {
+        scope_entry_t* typedef_sym = new_symbol(decl_context, decl_context.global_scope,
+                mercurium_basic_types[i].type_name);
+        typedef_sym->kind = SK_TYPEDEF;
+        typedef_sym->type_information = mercurium_basic_types[i].related_type;
+        typedef_sym->locus = make_locus("(global scope)", 0, 0);
+        symbol_entity_specs_set_is_user_declared(typedef_sym, 1);
+    }
 
+    // Mercurium limit constants
     struct {
         const char* base_name;
         type_t* related_type;
@@ -813,7 +832,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         { NULL, NULL }
     };
 
-    int i;
     for (i = 0; mercurium_constant_limits[i].base_name != NULL; i++)
     {
         const char* base_name = mercurium_constant_limits[i].base_name;
@@ -2133,7 +2151,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, gather_info);
     }
 
-
     // There are declarators ahead
     if (declarator_list != NULL)
     {
@@ -2336,7 +2353,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // In C, an entity may be redefined at file-scope
                         && !(IS_C_LANGUAGE
                             && (entry->decl_context.current_scope == entry->decl_context.global_scope)
-                            && nodecl_is_null(entry->value)))
+                            && (nodecl_is_null(entry->value)
+                                || initializer == NULL)))
                 {
                     error_printf("%s: error: redefined entity '%s', first declared in '%s'\n",
                             ast_location(declarator),
@@ -2607,6 +2625,19 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         {
             scope_entry_t* named_type = named_type_get_symbol(simple_type_info);
             finish_anonymous_class(named_type, decl_context);
+        }
+        else if (decl_specifier_seq != NULL)
+        {
+            AST type_spec = ASTSon1(decl_specifier_seq);
+            if (type_spec != NULL
+                    && ASTKind(type_spec) != AST_CLASS_SPECIFIER
+                    && ASTKind(type_spec) != AST_ELABORATED_TYPE_CLASS_SPEC
+                    && ASTKind(type_spec) != AST_ENUM_SPECIFIER
+                    && ASTKind(type_spec) != AST_ELABORATED_TYPE_ENUM_SPEC)
+            {
+                warn_printf("%s: warning: declaration does not declare anything\n",
+                        ast_location(a));
+            }
         }
     }
     else
@@ -10452,8 +10483,18 @@ static void set_array_type(type_t** declarator_type,
 
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = ast_get_locus(constant_expr);
+
+                if (!equivalent_types(
+                            get_unqualified_type(no_ref(nodecl_get_type(nodecl_expr))),
+                            get_ptrdiff_t_type()))
+                {
+                    nodecl_expr = nodecl_make_conversion(nodecl_expr,
+                            get_ptrdiff_t_type(),
+                            nodecl_get_locus(nodecl_expr));
+                }
+
                 new_vla_dim->value = nodecl_expr;
-                new_vla_dim->type_information = get_const_qualified_type(no_ref(nodecl_get_type(nodecl_expr)));
+                new_vla_dim->type_information = get_const_qualified_type(get_ptrdiff_t_type());
 
                 // It's not user declared code, but we must generate it.
                 // For this reason, we do this trick
@@ -11483,6 +11524,55 @@ static void update_function_specifiers(scope_entry_t* entry,
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     symbol_entity_specs_set_is_user_declared(entry, 1);
 
+    C_LANGUAGE()
+    {
+        if (entry->decl_context.current_scope
+                == entry->decl_context.global_scope)
+        {
+            // If this function is global, and previously declared not static,
+            // extern or inline and now is going to be inline, make it extern
+            // otherwise the function will not be emitted in C99
+            //
+            // So, the input source (case A)
+            //
+            //   void f();
+            //   inline void f() { }
+            //
+            // must be emitted as
+            //
+            //   extern inline void f() { }
+            //
+            // Note that, the input source
+            //
+            //   inline void f();
+            //   inline void f() { }
+            //
+            // must NOT add extern: a definition of 'f' does not have to be emitted
+            // in this case (the use may provide it elsewhere by using extern, or
+            // not using inline)
+            //
+            // The dual case (case B)
+            //
+            //   inline void f();
+            //   void f() { }
+            //
+            // must be emitted also as
+            //
+            //   extern inline void f()
+            //
+            // Note that in general we do not force extern to functions, this is a
+            // special case required by the subtle C99 semantics regarding inline
+            if (!symbol_entity_specs_get_is_extern(entry)
+                    && !symbol_entity_specs_get_is_static(entry)
+                    // This covers cases A and B shown above
+                    && (symbol_entity_specs_get_is_inline(entry)
+                        != gather_info->is_inline))
+            {
+                symbol_entity_specs_set_is_extern(entry, 1);
+            }
+        }
+    }
+
     symbol_entity_specs_set_is_constexpr(entry,
             symbol_entity_specs_get_is_constexpr(entry)
             || gather_info->is_constexpr);
@@ -11492,6 +11582,11 @@ static void update_function_specifiers(scope_entry_t* entry,
             symbol_entity_specs_get_is_inline(entry)
             || gather_info->is_inline
             || gather_info->is_constexpr);
+
+    // Merge extern attribute
+    symbol_entity_specs_set_is_extern(entry,
+            symbol_entity_specs_get_is_extern(entry)
+            || gather_info->is_extern);
 
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
@@ -14126,6 +14221,23 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             }
             else
             {
+                // We may have to update the outermost array type
+                if (is_array_type(declarator_type)
+                        && is_array_type(entry->type_information)
+                        && !nodecl_is_null(array_type_get_array_size_expr(declarator_type))
+                        && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
+                {
+                    // template <typename T>
+                    // struct A
+                    // {
+                    //   static int c[];
+                    // };
+                    //
+                    // template <typename T>
+                    // int A::c[10];         <-- We are in this declaration
+                    entry->type_information = declarator_type;
+                }
+
                 entry->defined = 1;
             }
         }
@@ -16502,7 +16614,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declaration(a, inner_decl_context);
+                solve_ambiguous_member_declaration(a, inner_decl_context);
                 // Restart
                 build_scope_member_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, 
                         declared_symbols, gather_decl_spec_list);
@@ -18509,6 +18621,9 @@ static void build_scope_ambiguity_handler(AST a,
         nodecl_t* nodecl_output)
 {
     solve_ambiguous_statement(a, decl_context);
+    nodecl_t n = flush_extra_declared_symbols(ast_get_locus(a));
+    nodecl_free(n);
+
     // Restart
     build_scope_statement(a, decl_context, nodecl_output);
 }
@@ -20321,11 +20436,18 @@ static void build_scope_pragma_custom_construct_statement(AST a,
     info.declaration_pragma.declared_symbols = &declared_symbols;
     info.declaration_pragma.gather_decl_spec_list = &gather_decl_spec_list;
 
-    build_scope_pragma_custom_construct_statement_or_decl_rec(a, decl_context, decl_context, nodecl_output, &info);
+    nodecl_t nodecl_pragma_body = nodecl_null();
+    build_scope_pragma_custom_construct_statement_or_decl_rec(a, decl_context, decl_context, &nodecl_pragma_body, &info);
 
     if (info.is_declaration)
     {
-        finish_pragma_declaration(decl_context, nodecl_output, &info.declaration_pragma);
+        nodecl_t nodecl_pragma_finish = nodecl_null();
+        finish_pragma_declaration(decl_context, &nodecl_pragma_finish, &info.declaration_pragma);
+        *nodecl_output = nodecl_concat_lists(nodecl_pragma_finish, nodecl_pragma_body);
+    }
+    else
+    {
+        *nodecl_output = nodecl_pragma_body;
     }
 }
 
@@ -20400,9 +20522,15 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    build_scope_pragma_custom_construct_declaration_rec(a, decl_context, nodecl_output, &info);
+    nodecl_t nodecl_pragma_body = nodecl_null();
+    build_scope_pragma_custom_construct_declaration_rec(a, decl_context, &nodecl_pragma_body, &info);
 
-    finish_pragma_declaration(decl_context, nodecl_output, &info);
+    nodecl_t nodecl_pragma_finish = nodecl_null();
+    finish_pragma_declaration(decl_context, &nodecl_pragma_finish, &info);
+
+    *nodecl_output = nodecl_concat_lists(
+        nodecl_pragma_finish,
+        nodecl_pragma_body);
 }
 
 typedef
@@ -21774,7 +21902,8 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
         nodecl_t nodecl_loop_iter = nodecl_get_child(nodecl_loop_control, 2);
 
         nodecl_loop_init = instantiate_loop_init(v, nodecl_loop_init);
-        nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
+        if (!nodecl_is_null(nodecl_loop_condition))
+            nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
         nodecl_loop_iter = instantiate_expression(nodecl_loop_iter,
                 v->new_decl_context,
                 v->instantiation_symbol_map,

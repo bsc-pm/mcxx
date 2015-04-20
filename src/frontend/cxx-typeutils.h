@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -123,7 +123,8 @@ LIBMCXX_EXTERN type_t* get_gxx_underlying_type(type_t* t);
 LIBMCXX_EXTERN type_t* gxx_underlying_type_get_underlying_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_user_defined_type(scope_entry_t* entry);
-LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
+LIBMCXX_EXTERN type_t* get_immutable_indirect_type(scope_entry_t* entry);
+LIBMCXX_EXTERN type_t* get_mutable_indirect_type(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
@@ -265,6 +266,9 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
 
 LIBMCXX_EXTERN type_t* get_array_type_unknown_size_dependent(
         type_t* element_type);
+
+LIBMCXX_EXTERN type_t* array_type_rebase(type_t* array_type,
+        type_t* new_element_type);
 
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
         parameter_info_t* parameter_info, int num_parameters,
@@ -437,6 +441,9 @@ LIBMCXX_EXTERN char is_named_type(type_t* t);
 
 // All indirect types are named types (the converse is not always true)
 LIBMCXX_EXTERN char is_indirect_type(type_t* t);
+
+// Some indirect types are marked as mutable to avoid caching issues
+LIBMCXX_EXTERN char is_mutable_indirect_type(type_t* t);
 
 LIBMCXX_EXTERN char is_void_type(type_t* t);
 LIBMCXX_EXTERN char is_void_pointer_type(type_t* t1);

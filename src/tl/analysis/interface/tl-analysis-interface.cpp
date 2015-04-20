@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   This file is part of Mercurium C/C++ source-to-source compiler.
   See AUTHORS file in the top level directory for information
@@ -76,20 +76,20 @@ namespace Analysis {
         }
         if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
-            analysis.reaching_definitions(n);
+            analysis.reaching_definitions(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            analysis.induction_variables(n);
+            analysis.induction_variables(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {
-            analysis.liveness(n);
+            analysis.liveness(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS |
                                               WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
-            analysis.use_def(n);
+            analysis.use_def(n, /*propagate_graph_nodes*/ false);
         }
         if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
         {
@@ -409,243 +409,5 @@ namespace Analysis {
 
         return has_been_defined_internal(n_node, n, pcfg->get_global_variables());
     }
-
-/*
-    DEPRECATED static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
-    {
-        if(n.is_null() || n.is<Nodecl::Unknown>())
-            return false;
-            
-        // Get reaching definitions for 'n' in its corresponding node
-        Node* n_node = pcfg->find_nodecl_pointer(n);
-        Utils::ext_sym_map reach_defs = n_node->get_reaching_definitions_in();
-        
-        // Get the PCFG nodes where the reaching definitions where produced
-        ObjectList<Node*> reach_defs_nodes;
-        for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
-            if(!it->second.first.is_null() &&
-                    !it->second.first.is<Nodecl::Unknown>())
-            {
-                Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
-                reach_defs_nodes.append(pcfg->find_nodecl_pointer(stmt_reach_def));
-            }
-        
-        // For each reaching definition node:
-        // 1.- check whether any of its outer nodes depend on an induction variable
-        bool depends_on_iv = false;
-        for(ObjectList<Node*>::iterator it = reach_defs_nodes.begin(); it != reach_defs_nodes.end(); ++it)
-        {
-            Node* outer_node = (*it)->get_outer_node();
-            while(outer_node!=NULL)
-            {
-                if(outer_node->is_ifelse_statement() || outer_node->is_loop_node())
-                {
-                    Node* cond = outer_node->get_condition_node();
-                    ObjectList<Nodecl::NodeclBase> stmts = cond->get_statements();
-                    for(ObjectList<Nodecl::NodeclBase>::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
-                    {
-                        for(ObjectList<Nodecl::NodeclBase>::const_iterator ittt = ivs.begin(); ittt != ivs.end(); ++ittt)
-                        {
-                            if(Nodecl::Utils::stmtexpr_contains_nodecl_structurally(*itt, *ittt))
-                            {
-                                depends_on_iv = true;
-                                goto end_depends;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // 2.- otherwise, recursively check the variables in the RHS of the reaching definition
-        for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
-        {
-            Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
-            ObjectList<Nodecl::NodeclBase> vars = Nodecl::Utils::get_all_memory_accesses(stmt_reach_def);
-            for(ObjectList<Nodecl::NodeclBase>::iterator itt = vars.begin(); itt != vars.end(); ++itt)
-            {
-                if(reach_defs_depend_on_iv_rec(*itt, ivs, pcfg))
-                {
-                    depends_on_iv = true;
-                    goto end_depends;
-                }
-            }
-        }
-        
-end_depends:
-        return depends_on_iv;
-    }
- 
-    DEPRECATED bool AnalysisInterface::reach_defs_depend_on_iv(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
-    {
-        if(Nodecl::Utils::nodecl_is_literal(n))
-            return true;
-        
-        bool result = false;
- 
-        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
-        
-        // Get the induction variables involved in the scope
-        Node* scope_node = pcfg->find_nodecl_pointer(scope);
-        if(!scope_node->is_loop_node())
-            return result;
-        ObjectList<Utils::InductionVariableData*> ivs = scope_node->get_induction_variables();
-        if(ivs.empty())
-            return result;
-        ObjectList<Nodecl::NodeclBase> nodecl_ivs;
-        for(ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin(); it != ivs.end(); ++it)
-            nodecl_ivs.append((*it)->get_variable().get_nodecl());
-        
-        result = reach_defs_depend_on_iv_rec(n, nodecl_ivs, pcfg);
-        
-        return result;
-    }
-    */
-
-    /*
-    bool AnalysisInterface::nodecl_is_constant_at_statement(
-            const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
-    {
-        if(Nodecl::Utils::nodecl_is_literal(n))
-            return true;
-        
-        // Retrieve pcfg
-        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
-        // Retrieve scope
-        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
-
-        // Retrieve node
-        Node* stmt_node = pcfg->find_nodecl_pointer(n);
-        ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
-                n.get_locus_str().c_str(), n.prettyprint().c_str());
-
-        return nodecl_is_constant_at_statement(scope_node, stmt_node, n, pcfg);
-    }
-    */
-
-    /*
-    bool AnalysisInterface::nodecl_is_constant_at_statement(
-            Node* const scope_node,
-            Node* const stmt_node,
-            const Nodecl::NodeclBase& n,
-            ExtensibleGraph* const pcfg)
-    {
-        if(Nodecl::Utils::nodecl_is_literal(n))
-            return true;
-        
-        Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
-
-        // Get all memory accesses and study their RDs 
-        // Note that we want all memory access, not only the symbols.
-        // Example: a[i]
-        // retrieving all symbols will return: a, i
-        // retrieving all memory accesses will return: a, i, a[i]
-        const ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
- 
-        for(ObjectList<Nodecl::NodeclBase>::const_iterator n_ma_it =
-                n_mem_accesses.begin(); 
-                n_ma_it != n_mem_accesses.end();
-                n_ma_it++)
-        {
-            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
-
-            if(reach_defs_in.find(n_ma_es)==reach_defs_in.end())
-            {
-                if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
-                {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
-                    continue;
-                }
-                else
-                {
-                    WARNING_MESSAGE("No reaching definition arrives for nodecl %s.\n", 
-                                    n_ma_it->prettyprint().c_str());
-                }
-            }
-
-            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
-                reach_defs_in.equal_range(*n_ma_it);
-
-            for(Utils::ext_sym_map::iterator rd_it = bounds.first;
-                rd_it != bounds.second;
-                rd_it++)
-            {
-                if(rd_it->second.first.is<Nodecl::Unknown>())
-                    continue;
-
-                // Get the PCFG nodes where the reaching definitions where produced
-                Nodecl::NodeclBase stmt_reach_def = 
-                        rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
-                Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
-                if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
-                {
-                    Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
-                    if((control_structure != NULL) && 
-                            (ExtensibleGraph::node_contains_node(scope_node, control_structure) ||
-                             (scope_node==control_structure)))
-                    {
-                        Node* cond_node = control_structure->get_condition_node();
-                        ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
-                        for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
-                                it != cond_node_stmts.end(); 
-                                ++it)
-                        {
-                            const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
-                                Nodecl::Utils::get_all_memory_accesses(*it);
-                            for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
-                                    itt != stms_mem_accesses.end();
-                                    ++itt)
-                            {
-                                if(!is_constant(scope_node->get_graph_related_ast(), *itt) || 
-                                        !nodecl_is_constant_at_statement(scope_node, cond_node, *itt, pcfg))
-                                    return false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        return true;
-    }*/
-
-#if 0
-    bool AnalysisInterface::nodecl_value_is_uniform_in_scope(
-            Node* const scope_node,
-            Node* const stmt_node,
-            const Nodecl::NodeclBase& n,
-            ExtensibleGraph* const pcfg)
-    {
-        TL::tribool result = nodecl_has_property_in_scope(scope_node,
-                stmt_node, n, pcfg, 
-                false /*control structures*/,
-                uniform_property);
-
-        ERROR_CONDITION(result.is_unknown(),
-                "nodecl_value_is_uniform_in_scope returns unknown!", 0);
-
-        return result.is_true();
-    }
-#endif
-    // nodecl_value means that control structures are not taking into account.
-    // Only the value (definition) of the nodecl
-#if 0    
-    bool AnalysisInterface::nodecl_value_is_uniform_in_scope(
-            const Nodecl::NodeclBase& scope,
-            const Nodecl::NodeclBase& stmt,
-            const Nodecl::NodeclBase& n)
-    {
-        // Retrieve pcfg
-        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
-        // Retrieve scope
-        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
-
-        // Retrieve node
-        Node* stmt_node = pcfg->find_nodecl_pointer(stmt);
-        ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for statement '%s:%s'. \n",
-                stmt.get_locus_str().c_str(), stmt.prettyprint().c_str());
-
-        //has_property implements is_uniform so far
-        return nodecl_value_is_uniform_in_scope(scope_node, stmt_node, n, pcfg);
-    }
-#endif
 }
 }

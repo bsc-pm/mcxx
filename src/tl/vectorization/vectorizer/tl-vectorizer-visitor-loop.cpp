@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -184,8 +184,8 @@ namespace Vectorization
             const Nodecl::NodeclBase& node)
     {
         Nodecl::Equal condition = node.as<Nodecl::Equal>();
-        Nodecl::NodeclBase lhs = condition.get_lhs();
-        Nodecl::NodeclBase rhs = condition.get_rhs();
+        Nodecl::NodeclBase lhs = condition.get_lhs().no_conv();
+        Nodecl::NodeclBase rhs = condition.get_rhs().no_conv();
 
         bool lhs_const_flag = Vectorizer::
             _vectorizer_analysis->is_uniform(

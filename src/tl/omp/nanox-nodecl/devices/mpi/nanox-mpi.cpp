@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -49,6 +49,15 @@ using namespace TL::Nanox;
 
 static std::string get_outline_name(const std::string & name) {
     return "mpi_" + name;
+}
+
+
+//This function tries to return if we are using icc/gcc, looks for a "g" in the preprocessor (which should mean gnu...)
+static bool compilingWithIcc()
+{
+    //FIXME: no existing reliable/clear way to detect if we are using icc or gcc
+    std::string preprocessorName(CURRENT_CONFIGURATION->preprocessor_name);
+    return preprocessorName.find("g")==std::string::npos;
 }
 
 
@@ -125,7 +134,9 @@ void DeviceMPI::generate_additional_mpi_code(
                 typelist_src.append_with_separator(ompss_mpi_type, ",");
 
                 if (parameters_called[i].get_type().array_has_size()) {
-                    blocklen_src.append_with_separator(parameters_called[i].get_type().array_get_size().prettyprint(), ",");
+                    blocklen_src.append_with_separator(
+                            as_expression(parameters_called[i].get_type().array_get_size().shallow_copy())
+                            , ",");
                 } else {
                     blocklen_src.append_with_separator("1", ",");
                 }
@@ -378,10 +389,12 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                     if (!(*it)->get_symbol().get_type().is_const() && !(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
                             ( (*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope() )){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
-                        data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
 
                         if (!(*it)->get_copies().empty())
-                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+                        {
+                            data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
+                            data_input_global << "offload_err = nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));";
+                        }
 
                         data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
 
@@ -690,8 +703,11 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             unpacked_function_call << "args.this_->";
         }
 
-        unpacked_function_call
-           << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
+       unpacked_function_call << unpacked_function.get_qualified_name_for_expression(
+               /* in_dependent_context */
+               (current_function.get_type().is_template_specialized_type()
+                && current_function.get_type().is_dependent())
+               ) << "(" << unpacked_arguments << ");";
 
         //TODO: Test this and check what it does (fsainz)
         if (IS_CXX_LANGUAGE)
@@ -832,14 +848,26 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     std::string append;
     if (IS_FORTRAN_LANGUAGE){
         append="_";
+        
+        std::string prepend_module="";
 
+        bool isIcc=compilingWithIcc();
+        //If we are not gcc
+        if ( isIcc )
+        {
+            if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
+                prepend_module=host_function.in_module().get_name()+"_mp_";
+        } else {
+            if ( host_function.in_module()!=NULL && host_function.in_module().is_valid() )
+                prepend_module="__" + host_function.in_module().get_name()+"_MOD_";            
+        }
 
         _extraFortranDecls <<
-               "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
-               "extern void " << device_outline_name << "_device"  << append << "(void);";
+               "extern void " << prepend_module << device_outline_name << "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
+               "extern void " << prepend_module << device_outline_name << "_device"  << append << "(void);";
         
-       _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
-       _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+       _sectionCodeHost.append_with_separator("(void*)" + prepend_module + host_function.get_qualified_name() + append,",");
+       _sectionCodeDevice.append_with_separator("(void(*)())" + prepend_module + device_function.get_qualified_name() + append,",");
        _currTaskId++; 
     } else {
         if( current_function.get_type().is_template_specialized_type()
@@ -936,7 +964,9 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
             std::string qualified_name = current_function.get_qualified_name(function_scope,without_template_args);            
             // Restore the original name of the current function
             current_function.set_name(original_name);
-            
+
+
+            //WARNING: maybe this nanos_mpi_args_t variable should not be static (non thread-safe)
             //Initialize static with 0's and then change its value each time we spawn a task
             //This struct will be copied by nanox at task creation time, so values will be correct in the runtime
             ancillary_device_description
@@ -1116,23 +1146,23 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                     strerror(errno));
         }
 
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+        compilation_configuration_t* prev_config = CURRENT_CONFIGURATION;
 
-        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
-        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+        compilation_configuration_t* auxcc_configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (auxcc_configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+        SET_CURRENT_CONFIGURATION(auxcc_configuration);
 
         // Make sure phases are loaded (this is needed for codegen)
-        load_compiler_phases(configuration);
+        load_compiler_phases(auxcc_configuration);
 
         TL::CompilationProcess::add_file(new_filename, "auxcc");
 
         ::mark_file_for_cleanup(new_filename.c_str());
 
-        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(auxcc_configuration->codegen_phase);
         phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
-
+        SET_CURRENT_CONFIGURATION(prev_config);
 
         fclose(ancillary_file);
         // Do not forget the clear the code for next files

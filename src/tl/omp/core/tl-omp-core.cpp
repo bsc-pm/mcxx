@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -250,6 +250,15 @@ namespace TL
                             continue;
                         }
 
+                        if (base_sym.is_thread()
+                                || base_sym.is_thread_local())
+                        {
+                            std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
+                                << "' since " << (base_sym.is_thread() ? "__thread" : "thread_local")
+                                <<  " variables cannot appear in data-sharing clauses" << std::endl;
+                            continue;
+                        }
+
                         data_ref_list.append(data_ref);
                         add_extra_symbols(data_ref, data_sharing, extra_symbols);
                     }
@@ -300,10 +309,7 @@ namespace TL
 
                     if (IS_FORTRAN_LANGUAGE
                             && (_data_attrib & DS_PRIVATE)
-                            && sym.is_parameter()
-                            && sym.get_type().no_ref().is_array()
-                            && !sym.get_type().no_ref().array_requires_descriptor()
-                            && sym.get_type().no_ref().array_get_size().is_null())
+                            && data_ref.is_assumed_size_array())
                     {
                         std::cerr << _ref_tree.get_locus_str()
                             << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;
@@ -632,6 +638,21 @@ namespace TL
                     }
                 }
 
+                virtual Ret visit(const Nodecl::ObjectInit &n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
+
+                    if (sym.is_saved_expression()
+                            && is_local_to_current_function(sym))
+                    {
+                        symbols.insert(sym);
+                    }
+                }
+
                 virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
                 {
                     TL::Type t = n.get_type();
@@ -665,6 +686,39 @@ namespace TL
                     {
                     }
 
+                    void walk_type(TL::Type t)
+                    {
+                        if (!t.is_valid())
+                            return;
+
+                        if (t.is_any_reference())
+                            walk_type(t.references_to());
+                        else if (t.is_pointer())
+                            walk_type(t.points_to());
+                        else if (t.is_array())
+                        {
+                            walk_type(t.array_element());
+
+                            if (IS_FORTRAN_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase lower, upper;
+                                t.array_get_bounds(lower, upper);
+
+                                walk(lower);
+                                walk(upper);
+                            }
+                            else if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                            {
+                                Nodecl::NodeclBase size = t.array_get_size();
+                                walk(size);
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
+                    }
+
                     bool filter_symbol(TL::Symbol sym)
                     {
                         return (sym.is_variable()
@@ -676,6 +730,7 @@ namespace TL
                     virtual void visit(const Nodecl::Symbol& node)
                     {
                         TL::Symbol sym = node.get_symbol();
+                        walk_type(sym.get_type());
 
                         if (filter_symbol(sym))
                         {
@@ -694,19 +749,43 @@ namespace TL
                                 }
                             }
                         }
+                        else if (sym.is_saved_expression())
+                        {
+                            // A saved expression may refer to
+                            // variables of the enclosing function
+                            walk(sym.get_value());
+                        }
                     }
+
+                    virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
+                    {
+                        walk_type(n.get_type());
+
+                        Nodecl::NodeclBase::Children children = n.children();
+                        for (Nodecl::NodeclBase::Children::iterator it = children.begin();
+                                it != children.end();
+                                it++)
+                        {
+                            walk(*it);
+                        }
+                    }
+
                 };
 
                 scope_t* _scope;
                 SymbolsOfScope _symbols_of_scope_visitor;
 
                 std::set<TL::Symbol> _visited_function;
+                SavedExpressions &_saved_expressions;
             public:
                 ObjectList<TL::Symbol> symbols;
 
-                SymbolsUsedInNestedFunctions(Symbol current_function)
+                SymbolsUsedInNestedFunctions(Symbol current_function,
+                        SavedExpressions& saved_expressions)
                     : _scope(current_function.get_related_scope().get_decl_context().current_scope),
-                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(), symbols()
+                      _symbols_of_scope_visitor(_scope, symbols), _visited_function(),
+                      _saved_expressions(saved_expressions),
+                      symbols()
                 {
                 }
 
@@ -721,6 +800,7 @@ namespace TL
 
                         if (_visited_function.find(sym) == _visited_function.end())
                         {
+                            _saved_expressions.walk(body);
                             _symbols_of_scope_visitor.walk(body);
 
                             _visited_function.insert(sym);
@@ -797,12 +877,30 @@ namespace TL
                     continue;
                 }
 
+                if (IS_FORTRAN_LANGUAGE
+                        && sym.get_type().no_ref().is_function())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "dummy procedures are firstprivate");
+                    continue;
+                }
+
                 // Saved expressions must be, as their name says, saved
                 if (sym.is_saved_expression())
                 {
                     data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE,
                             "internal saved-expression must have their value captured");
                     continue;
+                }
+
+                if (sym.is_thread()
+                        || sym.is_thread_local())
+                {
+                    std::stringstream reason;
+                    reason << (sym.is_thread() ? "__thread" : "thread_local")
+                           << " variables are threadprivate";
+
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
                 }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
@@ -1306,11 +1404,29 @@ namespace TL
                     continue;
                 }
 
+                if (IS_FORTRAN_LANGUAGE
+                        && sym.get_type().no_ref().is_function())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "dummy procedures are firstprivate");
+                    continue;
+                }
+
                 if (sym.is_cray_pointee())
                 {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
                             "Cray pointee is private");
                     sym  = sym.get_cray_pointer();
+                }
+
+                if (sym.is_thread()
+                        || sym.is_thread_local())
+                {
+                    std::stringstream reason;
+                    reason << (sym.is_thread() ? "__thread" : "thread_local")
+                           << " variables are threadprivate";
+
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
                 }
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
@@ -1439,13 +1555,19 @@ namespace TL
                 ObjectList<TL::Symbol>& nonlocal_symbols)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
+            // Saved expressions from VLAs
+            SavedExpressions saved_expressions(statement.retrieve_context());
+            saved_expressions.walk(statement);
+
             FORTRAN_LANGUAGE()
             {
                 // Other symbols that may be used indirectly are made shared
                 TL::ObjectList<TL::Symbol> other_symbols;
 
                 // Nested function symbols
-                SymbolsUsedInNestedFunctions symbols_from_nested_calls(construct.retrieve_context().get_related_symbol());
+                SymbolsUsedInNestedFunctions symbols_from_nested_calls(
+                        construct.retrieve_context().get_related_symbol(),
+                        saved_expressions);
                 symbols_from_nested_calls.walk(statement);
 
                 other_symbols.insert(symbols_from_nested_calls.symbols);
@@ -1476,6 +1598,10 @@ namespace TL
                 {
                     TL::Symbol sym(*it);
 
+                    // Skip saved expressions found referenced in the nested function
+                    if (saved_expressions.symbols.contains(sym))
+                        continue;
+
                     DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                     // Do nothing with threadprivates
@@ -1492,10 +1618,6 @@ namespace TL
                     }
                 }
             }
-
-            // Saved expressions from VLAs
-            SavedExpressions saved_expressions(statement.retrieve_context());
-            saved_expressions.walk(statement);
 
             // Make them firstprivate if not already set
             for (ObjectList<TL::Symbol>::iterator it = saved_expressions.symbols.begin();
@@ -1675,6 +1797,17 @@ namespace TL
         }
 
         void Core::parallel_do_handler_post(TL::PragmaCustomStatement construct)
+        {
+            _openmp_info->pop_current_data_sharing();
+        }
+
+        void Core::taskloop_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
+            loop_handler_pre(construct, loop, &Core::common_for_handler);
+        }
+
+        void Core::taskloop_handler_post(TL::PragmaCustomStatement construct)
         {
             _openmp_info->pop_current_data_sharing();
         }
@@ -1896,8 +2029,6 @@ namespace TL
                 internal_error("Code unreachable", 0);
             }
         }
-        void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
-        void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 
         void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct)
         {
@@ -2207,6 +2338,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(single)
         INVALID_DECLARATION_HANDLER(workshare)
+        INVALID_DECLARATION_HANDLER(taskloop)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
@@ -2214,18 +2346,26 @@ namespace TL
         void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
 
+#define EMPTY_HANDLERS_DECLARATION(_name) \
+        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
+        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { }
+
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        EMPTY_HANDLERS_DIRECTIVE(barrier)
         EMPTY_HANDLERS_CONSTRUCT(atomic)
-        EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(critical)
-        EMPTY_HANDLERS_DIRECTIVE(flush)
+        EMPTY_HANDLERS_CONSTRUCT(master)
         EMPTY_HANDLERS_CONSTRUCT(ordered)
-        EMPTY_HANDLERS_DIRECTIVE(taskyield)
+        EMPTY_HANDLERS_CONSTRUCT(simd_fortran)
+
+        EMPTY_HANDLERS_DECLARATION(simd)
+
+        EMPTY_HANDLERS_DIRECTIVE(barrier)
+        EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_DIRECTIVE(register)
+        EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

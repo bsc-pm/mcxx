@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -144,17 +144,17 @@ namespace TL { namespace Nanox {
                 << "static nanos_event_key_t nanos_instr_loop_step_key = 0;"
                 << "static nanos_event_key_t nanos_instr_chunk_size_key = 0;"
 
-                << "nanos_err_t err;"
+                << "nanos_err_t nanos_err;"
                 << "if (nanos_loop_init == 0)"
                 << "{"
-                <<     "err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<     "nanos_err = nanos_instrument_get_key(\"loop-lower\", &nanos_instr_loop_lower_key);"
+                <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
-                <<     "err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<     "nanos_err = nanos_instrument_get_key(\"loop-upper\", &nanos_instr_loop_upper_key);"
+                <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
-                <<     "err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<     "nanos_err = nanos_instrument_get_key(\"loop-step\", &nanos_instr_loop_step_key);"
+                <<     "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
 
                 <<     "nanos_loop_init = 1;"
                 << "}"
@@ -189,16 +189,16 @@ namespace TL { namespace Nanox {
                     ;
             }
             instrument_loop_opt
-                << "err = nanos_instrument_events(3, loop_events);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_err = nanos_instrument_events(3, loop_events);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 ;
 
             instrument_after_opt
                 << "loop_events[0].value = 0;"
                 << "loop_events[1].value = 0;"
                 << "loop_events[2].value = 1;"
-                << "err = nanos_instrument_events(3, loop_events);"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "nanos_err = nanos_instrument_events(3, loop_events);"
+                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 ;
         }
 
@@ -269,7 +269,9 @@ namespace TL { namespace Nanox {
 
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name,
+        CreateOutlineInfo info(
+                _lowering,
+                outline_name,
                 outline_info.get_data_items(),
                 target_info,
                 /* original task statements */ statements,

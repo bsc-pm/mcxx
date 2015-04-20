@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -61,7 +61,7 @@ namespace Analysis {
          * (We don't refer a node of BASIC_ENTRY_NODE type, but the first node in the sub-graph)
          * \param actual_node Node we are computing in this moment
          * \return The entry node of a sub-graph
-         */
+            */
         ObjectList<Node*> get_first_nodes( Node* actual_node );
 
         //! This method merges a list of nodes containing an Expression into one
@@ -321,6 +321,8 @@ namespace Analysis {
         Ret visit( const Nodecl::IfElseStatement& n );
         Ret visit( const Nodecl::IndexDesignator& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::IntelAssume& n );
+        Ret visit( const Nodecl::IntelAssumeAligned& n );
         Ret visit( const Nodecl::LabeledStatement& n );
         Ret visit( const Nodecl::LogicalAnd& n );
         Ret visit( const Nodecl::LogicalNot& n );
@@ -379,6 +381,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Nontemporal& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
+        Ret visit( const Nodecl::OpenMP::Prefetch& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
         Ret visit( const Nodecl::OpenMP::Private& n );
         Ret visit( const Nodecl::OpenMP::Reduction& n );
@@ -439,14 +442,13 @@ namespace Analysis {
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
+        Ret visit( const Nodecl::VectorArithmeticShr& n );
         Ret visit( const Nodecl::VectorAssignment& n );
         Ret visit( const Nodecl::VectorBitwiseAnd& n );
         Ret visit( const Nodecl::VectorBitwiseNot& n );
         Ret visit( const Nodecl::VectorBitwiseOr& n );
         Ret visit( const Nodecl::VectorBitwiseShl& n );
-        Ret visit( const Nodecl::VectorBitwiseShlI& n );
         Ret visit( const Nodecl::VectorBitwiseShr& n );
-        Ret visit( const Nodecl::VectorBitwiseShrI& n );
         Ret visit( const Nodecl::VectorBitwiseXor& n );
         Ret visit( const Nodecl::VectorConditionalExpression& n );
         Ret visit( const Nodecl::VectorConversion& n );
@@ -479,6 +481,7 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorMod& n );
         Ret visit( const Nodecl::VectorMul& n );
         Ret visit( const Nodecl::VectorNeg& n );
+        Ret visit( const Nodecl::VectorPrefetch& n );
         Ret visit( const Nodecl::VectorPromotion& n );
         Ret visit( const Nodecl::VectorReductionAdd& n );
         Ret visit( const Nodecl::VectorReductionMinus& n );

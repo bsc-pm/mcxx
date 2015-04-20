@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,63 +31,4 @@
 
 namespace TL
 {
-    LinkData::LinkData()
-    {
-        _data_list = new std::map<std::string, data_info>;
-        _num_copies = new int(1);
-    }
-
-    LinkData::LinkData(const LinkData& l)
-    {
-        _data_list = l._data_list;
-        _num_copies = l._num_copies;
-
-        (*_num_copies)++;
-    }
-
-    void LinkData::release_code()
-    {
-        (*_num_copies)--;
-        if (*_num_copies == 0)
-        {
-            for (std::map<std::string, data_info>::iterator it = _data_list->begin();
-                    it != _data_list->end();
-                    it ++)
-            {
-                data_info d = it->second;
-                d.destructor(d.data);
-            }
-
-            delete _num_copies;
-            delete _data_list;
-        }
-    }
-
-    LinkData::~LinkData()
-    {
-        release_code();
-    }
-
-    LinkData& LinkData::operator=(const LinkData& l)
-    {
-        if (&l != this)
-        {
-            release_code();
-
-            _num_copies = l._num_copies;
-            _data_list = l._data_list;
-
-            (*_num_copies)++;
-        }
-
-        return *this;
-    }
-    
-    bool LinkData::has_key(std::string str) const
-    {
-        if (_data_list->find(str) == _data_list->end())
-            return false;
-        else
-            return true;
-    }
 }

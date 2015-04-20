@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -52,7 +52,8 @@ namespace TL { namespace OpenMP {
             void visit(const Nodecl::Symbol& n)
             {
                 sym_to_argument_expr_t::iterator it = _sym_to_arg.find(n.get_symbol());
-                if (it == _sym_to_arg.end())
+                if (it == _sym_to_arg.end()
+                        || it->second.is<Nodecl::FortranNotPresent>())
                     return;
 
                 n.replace(it->second.shallow_copy());
@@ -470,8 +471,16 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
+        // Variables that have to be closed as shared
+        TL::ObjectList<TL::Symbol> shared_closure = function_task_info.get_shared_closure();
+        for (TL::ObjectList<TL::Symbol>::iterator it = shared_closure.begin();
+                it != shared_closure.end();
+                it++)
+        {
+            assumed_shareds.append(it->make_nodecl(it->get_locus()));
+        }
 
+        TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
 
         Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
         int i = 0;
@@ -499,17 +508,26 @@ namespace TL { namespace OpenMP {
                         if ((unsigned int)i < arguments.size())
                             arg = arguments[i];
 
+                        // Skip missing arguments
+                        if (arg.is<Nodecl::FortranNotPresent>())
+                            continue;
+
+                        ERROR_CONDITION(arg.is_null(), "Invalid node", 0);
+
                         warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
                                 "is SHARED because it does not have VALUE attribute\n",
                                 function_sym.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 function_sym.get_name().c_str());
-                        info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
-                                "the value that the actual argument '%s' had at task creation\n",
-                                function_sym.get_locus_str().c_str(),
-                                function_sym.get_name().c_str(),
-                                it->get_name().c_str(),
-                                arg.prettyprint().c_str());
+                        if (!arg.is_constant())
+                        {
+                            info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
+                                    "the value that the actual argument '%s' had at task creation\n",
+                                    function_sym.get_locus_str().c_str(),
+                                    function_sym.get_name().c_str(),
+                                    it->get_name().c_str(),
+                                    arg.prettyprint().c_str());
+                        }
                     }
 
                     assumed_shareds.append(symbol_ref);

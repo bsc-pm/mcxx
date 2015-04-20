@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -76,6 +76,12 @@ namespace TL
               */
             bool is_valid() const;
 
+            //! States whether this expression refers to an assumed size
+            /*!
+             This is only relevant for Fortran
+             */
+            bool is_assumed_size_array() const;
+
             //! Returns the warning log
             /*!
               This is the same message as is_valid(std::string&) stores in its first parameter
@@ -130,10 +136,10 @@ namespace TL
              */
             Nodecl::NodeclBase get_offsetof_copy(Nodecl::NodeclBase reference, TL::Scope sc) const;
 
-            //! States if this is a multidependence data-reference
-            bool is_multidependence() const;
-            typedef std::pair<TL::Symbol, Nodecl::NodeclBase> MultiDepIterator;
-            TL::ObjectList<MultiDepIterator> multidependences() const;
+            //! States if this is a multireference data-reference
+            bool is_multireference() const;
+            typedef std::pair<TL::Symbol, Nodecl::NodeclBase> MultiRefIterator;
+            TL::ObjectList<MultiRefIterator> multireferences() const;
 
             friend struct DataReferenceVisitor;
 
@@ -143,11 +149,12 @@ namespace TL
             void module_read(ModuleReader& mw);
         private:
             bool _is_valid;
+            bool _is_assumed_size;
 
             TL::Symbol _base_symbol;
             TL::Type _data_type;
 
-            TL::ObjectList<MultiDepIterator> _iterators;
+            TL::ObjectList<MultiRefIterator> _iterators;
 
             // Error log
             std::string _error_log;

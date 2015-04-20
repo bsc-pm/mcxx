@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -37,8 +37,8 @@ namespace Analysis {
           _nodecl(nodecl), _sc(nodecl.retrieve_context()),
           _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
-          _concurrent_tasks(), _last_sync(), _next_sync(),
-          _cluster_to_entry_map()
+          _concurrent_tasks(), _last_sync_tasks(), _last_sync_sequential(), _next_sync_tasks(), _next_sync_sequential(),
+          _cluster_to_entry_map(), _usage_computed(false)
     {
 
         _graph = create_graph_node(NULL, nodecl, __ExtensibleGraph);
@@ -46,7 +46,7 @@ namespace Analysis {
     }
 
     Node* ExtensibleGraph::append_new_child_to_parent(ObjectList<Node*> parents, NodeclList stmts,
-                                                      Node_type ntype, Edge_type etype)
+                                                      NodeType ntype, EdgeType etype)
     {
         if(ntype == __Graph)
             internal_error("A Graph node must be created with the function 'create_graph_node' "
@@ -56,7 +56,7 @@ namespace Analysis {
         {
             Node* new_node = new Node(_utils->_nid, ntype, _utils->_outer_nodes.top());
             new_node->set_statements(stmts);
-            connect_nodes(parents, new_node, ObjectList<Edge_type>(parents.size(), etype));
+            connect_nodes(parents, new_node, ObjectList<EdgeType>(parents.size(), etype));
 
             return new_node;
         }
@@ -67,19 +67,19 @@ namespace Analysis {
     }
 
     Node* ExtensibleGraph::append_new_child_to_parent(Node* parent, NBase stmt,
-                                                      Node_type ntype, Edge_type etype)
+                                                      NodeType ntype, EdgeType etype)
     {
         return append_new_child_to_parent(ObjectList<Node*>(1, parent), NodeclList(1, stmt), ntype, etype);
     }
 
     Node* ExtensibleGraph::append_new_child_to_parent(ObjectList<Node*> parents, NBase stmt,
-                                                      Node_type ntype, Edge_type etype)
+                                                      NodeType ntype, EdgeType etype)
     {
         return append_new_child_to_parent(parents, NodeclList(1, stmt), ntype, etype);
     }
 
     Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, 
-                                         Edge_type etype, const NBase& label,
+                                         EdgeType etype, const NBase& label,
                                          bool is_task_edge, bool is_back_edge)
     {
         Edge* edge = NULL;
@@ -117,10 +117,10 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_nodes(
             const ObjectList<Node*>& parents, const ObjectList<Node*>& children,
-            const ObjectList<Edge_type>& etypes, const NodeclList& elabels)
+            const ObjectList<EdgeType>& etypes, const NodeclList& elabels)
     {
         unsigned int n_conn = parents.size() * children.size();
-        ObjectList<Edge_type> actual_etypes = (etypes.empty() ? ObjectList<Edge_type>(n_conn, __Always) : etypes);
+        ObjectList<EdgeType> actual_etypes = (etypes.empty() ? ObjectList<EdgeType>(n_conn, __Always) : etypes);
         NodeclList actual_elabels = 
                 (elabels.empty() ? NodeclList(n_conn, NBase::null()) : elabels);
         
@@ -132,12 +132,12 @@ namespace Analysis {
         }
 
         int children_size = children.size();
-        ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
+        ObjectList<EdgeType>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end();
              ++it, itt+=children_size, itl+=children_size)
         {
-            ObjectList<Edge_type> current_etypes(itt, itt + children_size);
+            ObjectList<EdgeType> current_etypes(itt, itt + children_size);
             NodeclList current_elabels(itl, itl + children_size);
             connect_nodes(*it, children, current_etypes, current_elabels);
         }
@@ -145,10 +145,10 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_nodes(
             Node* parent, const ObjectList<Node*>& children,
-            const ObjectList<Edge_type>& etypes, const NodeclList& elabels)
+            const ObjectList<EdgeType>& etypes, const NodeclList& elabels)
     {
         unsigned int n_conn = children.size();
-        ObjectList<Edge_type> actual_etypes = (etypes.empty() ? ObjectList<Edge_type>(n_conn, __Always) : etypes);
+        ObjectList<EdgeType> actual_etypes = (etypes.empty() ? ObjectList<EdgeType>(n_conn, __Always) : etypes);
         NodeclList actual_elabels = 
                 (elabels.empty() ? NodeclList(n_conn, NBase::null()) : elabels);
 
@@ -160,7 +160,7 @@ namespace Analysis {
                            children.size(), actual_etypes.size(), actual_elabels.size());
         }
 
-        ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
+        ObjectList<EdgeType>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         ObjectList<Node*>::const_iterator it = children.begin();
         for(; it != children.end()
@@ -174,13 +174,13 @@ namespace Analysis {
 
     void ExtensibleGraph::connect_nodes(
             const ObjectList<Node*>& parents, Node* child,
-            const ObjectList<Edge_type>& etypes, const NodeclList& elabels,
+            const ObjectList<EdgeType>& etypes, const NodeclList& elabels,
             bool is_task_edge, bool is_back_edge)
     {
         // When etypes|labels are empty, the default parameter is a set of 
         // __Always|NBase::null() connections
         unsigned int n_conn = parents.size();
-        ObjectList<Edge_type> actual_etypes = (etypes.empty() ? ObjectList<Edge_type>(n_conn, __Always) : etypes);
+        ObjectList<EdgeType> actual_etypes = (etypes.empty() ? ObjectList<EdgeType>(n_conn, __Always) : etypes);
         NodeclList actual_elabels = 
                 (elabels.empty() ? NodeclList(n_conn, NBase::null()) : elabels);
 
@@ -192,8 +192,8 @@ namespace Analysis {
                            parents.size(), actual_etypes.size(), actual_elabels.size());
         }
 
-        ObjectList<Node*>::const_iterator it = parents.begin();
-        ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
+            ObjectList<Node*>::const_iterator it = parents.begin();
+        ObjectList<EdgeType>::const_iterator itt = actual_etypes.begin();
         NodeclList::const_iterator itl = actual_elabels.begin();
         for(; it != parents.end()
                 && itt != actual_etypes.end()
@@ -223,7 +223,7 @@ namespace Analysis {
     }
 
     Node* ExtensibleGraph::create_graph_node(Node* outer_node, NBase label,
-                                              Graph_type graph_type, NBase context)
+                                              GraphType graph_type, NBase context)
     {
         Node* result = new Node(_utils->_nid, __Graph, outer_node);
 
@@ -256,7 +256,7 @@ namespace Analysis {
         return flush_node;
     }
 
-    Node* ExtensibleGraph::create_unconnected_node(Node_type type, NBase nodecl)
+    Node* ExtensibleGraph::create_unconnected_node(NodeType type, NBase nodecl)
     {
         Node* result = new Node(_utils->_nid, type, _utils->_outer_nodes.top());
         if(!nodecl.is_null())
@@ -353,10 +353,10 @@ namespace Analysis {
             Node* front = node_l.front();
             Node* back = node_l.back();
             ObjectList<Node*> front_parents = front->get_parents();
-            ObjectList<Edge_type> front_entry_edge_types = front->get_entry_edge_types();
+            ObjectList<EdgeType> front_entry_edge_types = front->get_entry_edge_types();
             NodeclList front_entry_edge_labels = front->get_entry_edge_labels();
             ObjectList<Node*> back_children = back->get_children();
-            ObjectList<Edge_type> back_exit_edge_types = back->get_exit_edge_types();
+            ObjectList<EdgeType> back_exit_edge_types = back->get_exit_edge_types();
             NodeclList back_exit_edge_labels = back->get_exit_edge_labels();
 
             // Destroy the nodes which has been concatenated
@@ -426,12 +426,12 @@ namespace Analysis {
                     // Find out connection types for the new connections
                     ObjectList<Node*> parents = current->get_parents();
                     int n_connects = parents.size() * children.size();
-                    ObjectList<Edge_type> etypes;
+                    ObjectList<EdgeType> etypes;
                     NodeclList elabels;
                     if(non_always_entries)
                     {
                         int n_children = children.size();
-                        ObjectList<Edge_type> entry_types = current->get_entry_edge_types();
+                        ObjectList<EdgeType> entry_types = current->get_entry_edge_types();
                         NodeclList entry_labels = current->get_entry_edge_labels();
                         while (n_children > 0)
                         {
@@ -443,7 +443,7 @@ namespace Analysis {
                     else if(non_always_exits)
                     {
                         int n_children = children.size();
-                        ObjectList<Edge_type> exit_types = current->get_exit_edge_types();
+                        ObjectList<EdgeType> exit_types = current->get_exit_edge_types();
                         NodeclList exit_labels = current->get_exit_edge_labels();
                         while (n_children > 0)
                         {
@@ -454,7 +454,7 @@ namespace Analysis {
                     }
                     else
                     {
-                        etypes = ObjectList<Edge_type>(n_connects, __Always);
+                        etypes = ObjectList<EdgeType>(n_connects, __Always);
                         elabels = NodeclList(n_connects, NBase::null());
                     }
 
@@ -495,7 +495,7 @@ namespace Analysis {
 
                 // Get current current connecting information
                 ObjectList<Node*> parents = current->get_parents();
-                ObjectList<Edge_type> etypes = current->get_entry_edge_types();
+                ObjectList<EdgeType> etypes = current->get_entry_edge_types();
                 NodeclList elabels = current->get_entry_edge_labels();
 
                 // Disconnect currents
@@ -518,47 +518,13 @@ namespace Analysis {
         }
     }
 
-    bool ExtensibleGraph::is_constant_in_context(Node* context, NBase c)
-    {
-        bool result = true;
-
-        Nodecl::List cs;
-        if(c.is<Nodecl::List>())
-        {
-            cs = c.as<Nodecl::List>();
-        }
-        else
-        {
-            cs.append(c.shallow_copy());
-        }
-
-        for(Nodecl::List::iterator it = cs.begin(); it != cs.end() && result; ++it)
-        {
-            if(!it->is_constant())
-            {
-                NodeclList memory_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
-                for(NodeclList::iterator itm = memory_accesses.begin();
-                     itm != memory_accesses.end() && result; ++itm)
-                {
-                    if(Utils::nodecl_set_contains_nodecl(*itm, context->get_killed_vars()) ||
-                        Utils::nodecl_set_contains_nodecl(*itm, context->get_undefined_behaviour_vars()))
-                    {
-                        result = false;
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
     bool ExtensibleGraph::has_been_defined(Node* current, Node* scope, const NBase& n)
     {
         if(!current->is_visited_extgraph())
         {
             current->set_visited_extgraph(true);
 
-            NodeclSet killed = current->get_killed_vars();
+            const NodeclSet& killed = current->get_killed_vars();
             if(Utils::nodecl_set_contains_nodecl(n, killed))
                 return true;
 
@@ -576,12 +542,12 @@ namespace Analysis {
                 }
 
             for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-                {
+            {
                 if(!ExtensibleGraph::is_backward_parent(current, *it) &&  has_been_defined(*it, scope, n))
                     return true;
                     ExtensibleGraph::clear_visits_extgraph_aux(current);
-                }
             }
+        }
 
         return false;
     }
@@ -753,40 +719,42 @@ namespace Analysis {
         }
     }
 
+    // This method only keeps cleaning up backwards when
+    // all children of an outer node are already cleaned up
     static void clear_visits_backwards_in_level_rec(Node* n, Node* sc)
     {
-        if (n->is_visited())
-        {
-            n->set_visited(false);
-            if (n->is_graph_node())
-                clear_visits_backwards_in_level_rec(n->get_graph_exit_node(), sc);
+        if (!n->is_visited())
+            return;
 
-            if (n->is_entry_node())
+        n->set_visited(false);
+        if (n->is_graph_node())
+            clear_visits_backwards_in_level_rec(n->get_graph_exit_node(), sc);
+
+        if (n->is_entry_node())
+        {
+            // If the parents of the outer node have still one child that must be clean up
+            // within the scope of the cleaning, then do not keep cleaning this path
+            // because we will still visit the outer from that child
+            bool all_cleaned = true;
+            const ObjectList<Node*>& children = n->get_outer_node()->get_children();
+            for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             {
-                // If the parents of the outer node have still one child that must be clean up
-                // within the scope of the cleaning, then do not keep cleaning this path
-                // because we will still visit the outer from that child
-                bool all_cleaned = true;
-                const ObjectList<Node*>& children = n->get_outer_node()->get_children();
-                for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-                {
-                    if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
-                        all_cleaned = false;
-                }
-                if (all_cleaned)
-                    n = n->get_outer_node();
-                n->set_visited(false);  // Be sure we do not miss any node
-                                        // in case we clean up from the middle of the graph
+                if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
+                    all_cleaned = false;
             }
-            const ObjectList<Node*>& parents = n->get_parents();
-            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_in_level_rec(*it, sc);
+            if (all_cleaned)
+                n = n->get_outer_node();
+            n->set_visited(false);  // Be sure we do not miss any node
+                                    // in case we clean up from the middle of the graph
         }
+        const ObjectList<Node*>& parents = n->get_parents();
+        for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+            clear_visits_backwards_in_level_rec(*it, sc);
     }
 
     void ExtensibleGraph::clear_visits_backwards_in_level(Node* n, Node* sc)
     {
-        if(n->is_graph_node())
+        if (n->is_graph_node())
         {
             n->set_visited(false);
             const ObjectList<Node*>& parents = n->get_parents();
@@ -799,20 +767,40 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::clear_visits_backwards(Node* n)
+    static void clear_visits_backwards_rec(Node* n)
     {
         if (n->is_visited())
         {
             n->set_visited(false);
-            
             if (n->is_graph_node())
-                clear_visits_backwards(n->get_graph_exit_node());
+                clear_visits_backwards_rec(n->get_graph_exit_node());
 
+            if (n->is_entry_node())
+            {
+                n = n->get_outer_node();
+                n->set_visited(false);  // Be sure we do not miss any node
+                                        // in case we clean up from the middle of the graph
+            }
             const ObjectList<Node*>& parents = n->get_parents();
-            for (ObjectList<Node*>::const_iterator it = parents.begin();
-                    it != parents.end(); ++it)
-                clear_visits_backwards(*it);
-        }       
+            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it);
+        }
+    }
+
+    // This methods cleans backwards regardless any visit from outer nodes children
+    void ExtensibleGraph::clear_visits_backwards(Node* n)
+    {
+        if(n->is_graph_node())
+        {
+            n->set_visited(false);
+            const ObjectList<Node*>& parents = n->get_parents();
+            for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it);
+        }
+        else
+        {
+            clear_visits_backwards_rec(n);
+        }
     }
 
     std::string ExtensibleGraph::get_name() const
@@ -830,7 +818,7 @@ namespace Analysis {
         return _sc;
     }
 
-    NodeclSet ExtensibleGraph::get_global_variables() const
+    const NodeclSet& ExtensibleGraph::get_global_variables() const
     {
         return _global_vars;
     }
@@ -955,102 +943,120 @@ namespace Analysis {
     {
         if(_concurrent_tasks.find(task) != _concurrent_tasks.end())
         {
-            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "\
-                             " synchronous tasks of a PCFG. This should never happen so we skip it", 0);
+            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "
+                            "synchronous tasks of a PCFG. This should never happen so we skip it", 0);
             return;
         }
 
         _concurrent_tasks[task] = concurrent_tasks;
     }
     
-    ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization(Node* task) const
+    ObjectList<Node*> ExtensibleGraph::get_task_last_sync_for_tasks(Node* task) const
     {
-        ObjectList<Node*> result;
-        if(!task->is_omp_task_node())
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync_tasks.find(task);
+        if (it != _last_sync_tasks.end())
         {
-            WARNING_MESSAGE("Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0);
+            return it->second;
         }
-        else
-        {
-            std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync.find(task);
-            if(it == _last_sync.end())
-            {
-                WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
-            }
-            else
-            {
-                result = it->second;
-            }
-        }
-        return result;
+
+        WARNING_MESSAGE("Last synchronization points for tasks of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
     }
 
-    void ExtensibleGraph::add_last_synchronization(Node* task, ObjectList<Node*> last_sync)
+    ObjectList<Node*> ExtensibleGraph::get_task_last_sync_for_sequential_code(Node* task) const
     {
-        if(_last_sync.find(task) != _last_sync.end())
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync_sequential.find(task);
+        if (it != _last_sync_sequential.end())
         {
-            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "\
-                             "last synchronization points of a task. This should never happen so we skip it", 0);
-            return;
+            return it->second;
         }
 
-        _last_sync[task] = last_sync;
+        WARNING_MESSAGE("Last synchronization points for sequential code of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
     }
 
-    ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization(Node* task) const
+    void ExtensibleGraph::add_last_sync_for_tasks(Node* task, Node* last_sync)
     {
-        ObjectList<Node*> result;
-        if(!task->is_omp_task_node())
-        {
-            WARNING_MESSAGE("Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0);
-        }
-        else
-        {
-            std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync.find(task);
-            if(it == _next_sync.end())
-            {
-                WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
-            }
-            else
-            {
-                result = it->second;
-            }
-        }
-        return result;
+        _last_sync_tasks[task].append(last_sync);
     }
 
-    void ExtensibleGraph::add_next_synchronization(Node* task, ObjectList<Node*> next_sync)
+    void ExtensibleGraph::set_last_sync_for_tasks(Node* task, Node* last_sync)
     {
-        if(_next_sync.find(task) != _next_sync.end())
-        {
-            WARNING_MESSAGE ("You are trying to insert a task that already exists in the map of "\
-                             "next synchronization points of a task. This should never happen so we skip it", 0);
-            return;
-        }
-        _next_sync[task] = next_sync;
+        _last_sync_tasks[task] = ObjectList<Node*>(1, last_sync);
     }
 
-    void ExtensibleGraph::remove_next_synchronization(Node* task, Node* next_sync)
+    void ExtensibleGraph::add_last_sync_for_sequential_code(Node* task, Node* last_sync)
     {
-        if(_next_sync.find(task) == _next_sync.end())
+        _last_sync_sequential[task].append(last_sync);
+    }
+
+    ObjectList<Node*> ExtensibleGraph::get_task_next_sync_for_tasks(Node* task) const
+    {
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync_tasks.find(task);
+        if (it != _next_sync_tasks.end())
         {
-            WARNING_MESSAGE ("Task %d is not in the map of next synchronizations. "
-                             "We are unable to remove %d from its list of next synchronization points.\n", 
-                             task->get_id(), next_sync->get_id());
+            return it->second;
+        }
+
+        WARNING_MESSAGE("Next synchronization points for tasks of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> ExtensibleGraph::get_task_next_sync_for_sequential_code(Node* task) const
+    {
+        if (!task->is_omp_task_node())
+            return ObjectList<Node*>();
+
+        std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync_sequential.find(task);
+        if (it != _next_sync_sequential.end())
+        {
+            return it->second;
+        }
+
+        WARNING_MESSAGE("Next synchronization points for tasks of task '%d' have not been computed", task->get_id());
+        return ObjectList<Node*>();
+    }
+
+    void ExtensibleGraph::add_next_sync_for_tasks(Node* task, Node* last_sync)
+    {
+        _next_sync_tasks[task].append(last_sync);
+    }
+
+    void ExtensibleGraph::add_next_sync_for_sequential_code(Node* task, Node* last_sync)
+    {
+        _next_sync_sequential[task].append(last_sync);
+    }
+
+    void ExtensibleGraph::remove_next_sync_for_tasks(Node* task, Node* next_sync)
+    {
+        if (_next_sync_tasks.find(task) == _next_sync_tasks.end())
+        {
+            WARNING_MESSAGE("Task %d is not in the map of next synchronizations. "
+                            "We are unable to remove %d from its list of next synchronization points.\n",
+                            task->get_id(), next_sync->get_id());
             return;
         }
         
-        ObjectList<Node*>& next_syncs = _next_sync[task];
+        ObjectList<Node*>& next_syncs = _next_sync_tasks[task];
         next_syncs = next_syncs.not_find(next_sync);
     }
     
     void ExtensibleGraph::remove_concurrent_task(Node* task, Node* old_concurrent_task)
     {
-        if(_concurrent_tasks.find(task) == _concurrent_tasks.end())
+        if (_concurrent_tasks.find(task) == _concurrent_tasks.end())
         {
-            WARNING_MESSAGE ("Task %d is not in the map of tasks concurrency. "
-                             "We are unable to remove %d from its list of concurrent tasks.\n", 
-                             task->get_id(), old_concurrent_task->get_id());
+            WARNING_MESSAGE("Task %d is not in the map of tasks concurrency. "
+                            "We are unable to remove %d from its list of concurrent tasks.\n",
+                            task->get_id(), old_concurrent_task->get_id());
             return;
         }
 
@@ -1062,7 +1068,7 @@ namespace Analysis {
     static Node* advance_over_outer_nodes_until_loop(Node* node)
     {
         Node* outer = node->get_outer_node();
-        Graph_type outer_type = outer->get_graph_type();
+        GraphType outer_type = outer->get_graph_type();
         if((outer_type == __LoopDoWhile) || (outer_type == __LoopFor) || (outer_type == __LoopWhile))
             return node;
         else if(outer != NULL)
@@ -1333,25 +1339,24 @@ namespace Analysis {
         ExtensibleGraph::clear_visits_extgraph(current);
         return res;
     }
-    
-    Node* get_enclosing_control_structure_rec(Node* outer_node)
-    {
-        Node* result = NULL;
-        while(outer_node != NULL && result == NULL)
-        {
-            if(outer_node->is_loop_node() || outer_node->is_ifelse_statement() ||
-                outer_node->is_switch_case_node())
-                result = outer_node;
-            outer_node = outer_node->get_outer_node();
-        }
-        return result;
-    }
 
     Node* ExtensibleGraph::get_enclosing_control_structure(Node* node)
     {
-        if(node->is_omp_task_node())
+        if (node->is_omp_task_node())
             node = node->get_parents()[0];
-        return get_enclosing_control_structure_rec(node->get_outer_node());
+
+        Node* outer_node = node->get_outer_node();
+        while (outer_node != NULL)
+        {
+            if (outer_node->is_loop_node()
+                    || outer_node->is_ifelse_statement()
+                    || outer_node->is_switch_case_node())
+            {
+                return outer_node;
+            }
+            outer_node = outer_node->get_outer_node();
+        }
+        return NULL;
     }
     
     Node* ExtensibleGraph::get_task_creation_from_task(Node* task)
@@ -1527,9 +1532,9 @@ namespace Analysis {
                 ObjectList<Node*> children = current->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin();
                     it != children.end() && (result == NULL); ++it)
-                    {
-                        result = find_nodecl_pointer_rec(*it, n);
-                    }
+                {
+                    result = find_nodecl_pointer_rec(*it, n);
+                }
             }
         }
         return result;
@@ -1542,13 +1547,19 @@ namespace Analysis {
         return result;
     }
 
-    bool ExtensibleGraph::usage_is_computed()
+    // ******* Getters and setters for analyses built on top of the PCFG ******* //
+
+    bool ExtensibleGraph::usage_is_computed() const
     {
-        bool result = false;
-        if(_graph->usage_is_computed())
-            result = true;
-        return result;
+        return _usage_computed;
     }
+
+    void ExtensibleGraph::set_usage_computed()
+    {
+        _usage_computed = true;
+    }
+
+    // ***** END Getters and setters for analyses built on top of the PCFG ***** //
 
 }
 }

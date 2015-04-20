@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -77,14 +77,16 @@ struct member_declaration_info_tag
 
 #define SCI_LIST \
     SCI_CONVERSION_ID(SCI_INVALID) \
+    /* Means that conv[x] does not apply any conversion */ \
     SCI_CONVERSION_ID(SCI_NO_CONVERSION) \
+    /* Special tag in conv[0]. conv[1] and conv[2] are unused */ \
     SCI_CONVERSION_ID(SCI_IDENTITY) /* Special value for identities */ \
     SCI_CONVERSION_ID(SCI_DERIVED_TO_BASE) /* Not a real conversion, used only in overloads */ \
-    /* One or more of these */ \
+    /* One or more of these. Found in conv[0] */ \
     SCI_CONVERSION_ID(SCI_LVALUE_TO_RVALUE) \
     SCI_CONVERSION_ID(SCI_ARRAY_TO_POINTER)  \
     SCI_CONVERSION_ID(SCI_FUNCTION_TO_POINTER) \
-    /* Zero or one of these */ \
+    /* Zero or one of these. Found in conv[1] */ \
     SCI_CONVERSION_ID(SCI_INTEGRAL_PROMOTION) \
     SCI_CONVERSION_ID(SCI_VECTOR_INTEGRAL_PROMOTION) \
     SCI_CONVERSION_ID(SCI_FLOATING_PROMOTION) \
@@ -92,7 +94,7 @@ struct member_declaration_info_tag
     SCI_CONVERSION_ID(SCI_FLOATING_CONVERSION) \
     SCI_CONVERSION_ID(SCI_FLOATING_INTEGRAL_CONVERSION) \
     SCI_CONVERSION_ID(SCI_INTEGRAL_FLOATING_CONVERSION) \
-    /*   (pointer conversions) */ \
+    /*     (pointer conversions) */ \
     SCI_CONVERSION_ID(SCI_ZERO_TO_POINTER_CONVERSION) \
     SCI_CONVERSION_ID(SCI_ZERO_TO_NULLPTR) \
     SCI_CONVERSION_ID(SCI_NULLPTR_TO_POINTER_CONVERSION) \
@@ -102,7 +104,7 @@ struct member_declaration_info_tag
     SCI_CONVERSION_ID(SCI_VOID_TO_POINTER_CONVERSION) \
     SCI_CONVERSION_ID(SCI_INTEGRAL_TO_POINTER_CONVERSION) \
     SCI_CONVERSION_ID(SCI_POINTER_TO_INTEGRAL_CONVERSION) \
-    /*   (end of pointer conversions) */ \
+    /*     (end of pointer conversions) */ \
     SCI_CONVERSION_ID(SCI_BOOLEAN_CONVERSION) \
     SCI_CONVERSION_ID(SCI_INTEGRAL_TO_COMPLEX_CONVERSION) \
     SCI_CONVERSION_ID(SCI_FLOAT_TO_COMPLEX_PROMOTION) \
@@ -113,7 +115,7 @@ struct member_declaration_info_tag
     SCI_CONVERSION_ID(SCI_COMPLEX_TO_INTEGRAL_CONVERSION) \
     SCI_CONVERSION_ID(SCI_COMPLEX_TO_FLOAT_CONVERSION) \
     SCI_CONVERSION_ID(SCI_SCALAR_TO_VECTOR_CONVERSION) \
-    /* Zero or one of this */ \
+    /* Zero or one of this. Found in conv[2] */ \
     SCI_CONVERSION_ID(SCI_QUALIFICATION_CONVERSION)
 
 // Standard conversions info

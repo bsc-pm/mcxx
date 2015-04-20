@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   This file is part of Mercurium C/C++ source-to-source compiler.
   See AUTHORS file in the top level directory for information
@@ -141,13 +141,16 @@ namespace Analysis {
             const Nodecl::Symbol& n)
     {
         if (current->is_visited())
-            return -1;
+        {
+            return 0;
+        }
 
         current->set_visited(true);
+
         // Treat current node
         if (current->is_graph_node())
         {
-            get_assume_aligned_rec(current->get_graph_exit_node(), n);
+            return get_assume_aligned_rec(current->get_graph_exit_node(), n);
         }
         else
         {
@@ -158,24 +161,19 @@ namespace Analysis {
             }
             else
             {
-                if (current->is_function_call_node())
+                if (current->is_builtin_node())
                 {
                     const ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
-                    ERROR_CONDITION(stmts.size() != 1, "Unexpected number of statements in a FunctionCall node\n", 0);
+                    ERROR_CONDITION(stmts.size() != 1, "Unexpected number of statements in a Builtin node\n", 0);
 
-                    const Nodecl::FunctionCall& func_nodecl = stmts.front().as<Nodecl::FunctionCall>();
+                    const Nodecl::NodeclBase& builtin = stmts.front();
 
-                    TL::Symbol func_sym = func_nodecl.get_called().get_symbol();
-                    if (func_sym.get_name() == "__assume_aligned")
+                    if (builtin.is<Nodecl::IntelAssumeAligned>())
                     {
-                        const ObjectList<Nodecl::NodeclBase> args_list = 
-                            func_nodecl.get_arguments().as<Nodecl::List>().to_object_list();
+                        const Nodecl::IntelAssumeAligned& assume_aligned = builtin.as<Nodecl::IntelAssumeAligned>();
 
-                        ERROR_CONDITION(args_list.size() != 2,
-                                "Two arguments expected for '__assume_aligned'", 0);
-
-                        Nodecl::NodeclBase aligned_expr = args_list.begin()->no_conv();
-                        Nodecl::NodeclBase alignment_node = (++args_list.begin())->no_conv();
+                        Nodecl::NodeclBase aligned_expr = assume_aligned.get_pointer().no_conv();
+                        Nodecl::NodeclBase alignment_node = assume_aligned.get_alignment().no_conv();
 
                         ERROR_CONDITION(!aligned_expr.is<Nodecl::Symbol>(),
                                 "Only Symbols are currently supported in '__assume_aligned'", 0);
@@ -187,7 +185,8 @@ namespace Analysis {
                        
                         if (n.get_symbol() == aligned_sym)
                         {
-                            return const_value_cast_to_4(alignment_node.get_constant());
+                            int value = const_value_cast_to_4(alignment_node.get_constant());
+                            return value;
                         }
                     }
                 }
@@ -195,31 +194,45 @@ namespace Analysis {
         }
 
         // Recursively call with parents
-        const ObjectList<Node*>& parents = current->is_entry_node() ? 
-                current->get_outer_node()->get_parents()
-                : current->get_parents();
+        ObjectList<Node*> parents;
+        if (current->is_entry_node())
+        {
+            Node* outer = current->get_outer_node();
+            outer->set_visited(true);
+            parents = outer->get_parents();
+        }
+        else
+        {
+            parents = current->get_parents();
+        }
 
         int num_attributes = 0;
-        int value = -1;
-        for (ObjectList<Node*>::const_iterator it = parents.begin();
+        int value = 0;
+        for (ObjectList<Node*>::iterator it = parents.begin();
                 it != parents.end(); ++it)
         {
-            int parent_result = get_assume_aligned_rec(*it, n);
-            if (parent_result != -1)
+            int parent_value = get_assume_aligned_rec(*it, n);
+            if (parent_value > 0)
             {
-                if (!(num_attributes != 0 && 
-                        value == parent_result))
+                // First __assume_aligned or different one 
+                // with same alignment info
+                if (num_attributes == 0 ||
+                        value == parent_value)
                 { 
                     num_attributes++;
-                    value = parent_result;
+                    value = parent_value;
+                }
+                else
+                {
+                    return -1;
                 }
             }
         }
 
-        if (num_attributes == 1)
+        if (num_attributes > 0)
             return value;
 
-        return -1;
+        return 0;
     }
 
     int get_assume_aligned_attribute_internal(
@@ -228,7 +241,11 @@ namespace Analysis {
     {
         int result = get_assume_aligned_rec(stmt_node, n);
         ExtensibleGraph::clear_visits_backwards(stmt_node);
-        return result;
+        
+        if (result > 0)
+            return result;
+        else
+            return -1;
     }
 
     bool is_uniform_internal(
@@ -265,17 +282,26 @@ namespace Analysis {
             Node* new_scope = scope_node;
             if(scope_node->is_loop_node())
             {
-                new_scope = scope_node->get_outer_node();
-                if(!new_scope->is_omp_simd_node())
-                    goto iv_as_linear;
+                Node* outer_scope = scope_node->get_outer_node();
+                if (outer_scope != NULL)
+                {
+                    new_scope = scope_node->get_outer_node();
+
+                    if(!new_scope->is_omp_simd_node())
+                        goto iv_as_linear;
+                }
             }
             else if(scope_node->is_function_code_node())
             {
-                new_scope = scope_node->get_outer_node();
-                // If the scope is a function and it is not enclosed in a simd pragma
-                // then no IVs will be attached to this node
-                if(!new_scope->is_omp_simd_function_node())
-                    goto final_linear;
+                Node* outer_scope = scope_node->get_outer_node();
+                if (outer_scope != NULL)
+                {
+                    new_scope = scope_node->get_outer_node();
+                    // If the scope is a function and it is not enclosed in a simd pragma
+                    // then no IVs will be attached to this node
+                    if(!new_scope->is_omp_simd_function_node())
+                        goto final_linear;
+                }
             }
             // If, after checking the possibility of being enclosed within a simd node
             // then, only induction variables calculated during analysis may be reported
@@ -465,7 +491,7 @@ final_linear:
             new_scope = scope_node->get_outer_node();
             // If the scope is a function and it is not enclosed in a simd pragma
             // then no linear variables can be related to this node
-            if(!new_scope->is_omp_simd_function_node())
+            if(new_scope != NULL && !new_scope->is_omp_simd_function_node())
                 goto final_get_linear;
         }
         // If, after checking the possibility of being enclosed within a simd node

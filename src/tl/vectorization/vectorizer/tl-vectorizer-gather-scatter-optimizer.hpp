@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -76,9 +76,7 @@ namespace Vectorization
             stride_splitter_ret_t visit(const Nodecl::VectorMinus& n);
             stride_splitter_ret_t visit(const Nodecl::Neg& n);
             stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShl& n);
-            stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShlI& n);
             stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShr& n);
-            stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShrI& n);
             stride_splitter_ret_t visit(const Nodecl::VectorGather& n);
             stride_splitter_ret_t visit(const Nodecl::VectorMul& n);
             stride_splitter_ret_t visit(const Nodecl::VectorConversion& n);

@@ -1,0 +1,6 @@
+{
+    nanos_need_priorities_;
+    ompss_uses_opencl;
+    ompss_uses_cuda;
+    gpu_cublas_init;
+};

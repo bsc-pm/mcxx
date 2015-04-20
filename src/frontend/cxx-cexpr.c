@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -153,7 +153,6 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     {
         // Make sure higher bits are set to zero if this value is unsigned
         cvalue_uint_t mask = ~(cvalue_uint_t)0;
-        mask >>= (8 * num_bytes);
         mask <<= (8 * num_bytes);
         value &= ~mask;
     }

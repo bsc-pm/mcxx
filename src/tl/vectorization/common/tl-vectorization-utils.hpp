@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -27,8 +27,9 @@
 #ifndef TL_VECTORIZATION_UTILS_HPP
 #define TL_VECTORIZATION_UTILS_HPP
 
-#include <map>
+#include "tl-vectorization-common.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include <map>
 
 
 namespace TL
@@ -154,14 +155,18 @@ namespace TL
                     RemovePrefetchIntrinsics(void) {};
                     void visit(const Nodecl::FunctionCall& node);
             };
-
             
-            Nodecl::NodeclBase get_vector_load_scalar_access(
-                    const Nodecl::VectorLoad& vector_load);
+            TL::Symbol get_subscripted_symbol(const Nodecl::NodeclBase& subscripted);
+            Nodecl::NodeclBase get_scalar_memory_access(
+                    const Nodecl::NodeclBase& n);
             Nodecl::NodeclBase get_vector_load_subscripted(
                     const Nodecl::VectorLoad& vectori_load);
             Nodecl::NodeclBase get_vector_load_subscript(
                     const Nodecl::VectorLoad& vector_load);
+
+            objlist_nodecl_t get_nodecls_not_contained_in(
+                    const objlist_nodecl_t& contained_list,
+                    const objlist_nodecl_t& container_list);
         }
     }
 }

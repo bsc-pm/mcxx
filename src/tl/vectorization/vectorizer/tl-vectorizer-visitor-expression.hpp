@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -44,7 +44,8 @@ namespace TL
 
                 template <typename ScalarNode,
                          typename VectorNode>
-                    void visit_binary_op(const ScalarNode& n);
+                    void visit_binary_op(const ScalarNode& n,
+                            const bool returns_mask_type);
 
             public:
                 VectorizerVisitorExpression(

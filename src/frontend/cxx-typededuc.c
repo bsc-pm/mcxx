@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -1240,17 +1240,23 @@ static deduction_result_t deduce_template_arguments_from_a_value(
                 && is_pack_type(parameter_type))
             parameter_type = pack_type_get_packed_type(parameter_type);
 
+        argument = nodecl_shallow_copy(argument);
+
+        nodecl_t nodecl_dummy = nodecl_null();
         if (is_template_argument_list
                 && !is_dependent_type(parameter_type)
                 && !is_dependent_type(nodecl_get_type(argument))
-                && !equivalent_types(
-                    get_unqualified_type(parameter_type),
-                    get_unqualified_type(no_ref(nodecl_get_type(argument)))))
+                && !check_nodecl_template_argument_can_be_converted_to_parameter_type(
+                    argument,
+                    parameter_type,
+                    decl_context,
+                    &nodecl_dummy))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEDEDUC: But the expression appears in a template-argument list "
-                        "and its type '%s' does not match that of the parameter '%s'\n",
+                        "and its type '%s' cannot be converted to the corresponding nontype "
+                        "template-parameter'%s'\n",
                         print_declarator(nodecl_get_type(argument)),
                         print_declarator(parameter_type));
                 fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
@@ -1259,6 +1265,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
             // differs from the type of i, deduction fails
             return DEDUCTION_FAILURE;
         }
+        nodecl_free(nodecl_dummy);
 
         if (is_array_size
                 && !is_dependent_type(nodecl_get_type(argument))
@@ -1301,7 +1308,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
             ERROR_CONDITION(pack_index >= pack_length, "Invalid pack index", 0);
 
             deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
-            new_deduced_argument->value = nodecl_shallow_copy(argument);
+            new_deduced_argument->value = argument;
             new_deduced_argument->type = parameter_type;
             new_deduction->deduced_parameters[pack_index] = new_deduced_argument;
 
@@ -1318,7 +1325,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
         {
             deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
             new_deduced_argument->type = parameter_type;
-            new_deduced_argument->value = nodecl_shallow_copy(argument);
+            new_deduced_argument->value = argument;
 
             P_LIST_ADD(new_deduction->deduced_parameters,
                     new_deduction->num_deduced_parameters,
@@ -3498,7 +3505,6 @@ deduction_result_t handle_explicit_template_arguments(
                     free_template_parameter_list((*explicit_template_arguments));
                     return DEDUCTION_FAILURE;
                 }
-
 
                 if (raw_explicit_template_arguments->arguments[current_arg]->kind == TPK_NONTYPE)
                 {

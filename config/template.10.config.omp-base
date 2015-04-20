@@ -26,16 +26,20 @@ linker_name = @GCC@
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
-{simd, !mmic, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !mmic, !avx2} compiler_options = @SIMD_FLAGS@
+{simd, !mmic, !knl, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !mmic, !knl, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {mmic} linker_options = -mmic
+{knl} preprocessor_options = -xMIC-AVX512
+{knl} compiler_options = -xMIC-AVX512
+{knl} linker_options = -xMIC-AVX512 -lifcore -limf -lirng -lintlc
 {fast-math} options = --variable=fast_math_enabled:1
+{simd, knl} options = --variable=knl_enabled:1
 {simd, mmic} options = --variable=mic_enabled:1
 {simd, avx2} options = --variable=avx2_enabled:1
-{mmic} preprocessor_options = -include immintrin.h
+{(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 {cluster} options = --variable=nanos_main_enabled:1
 {ompss} options = --variable=ompss_mode:1
@@ -53,6 +57,8 @@ linker_name = @GCC@
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
+{only-adjacent-accesses} options = --variable=only_adjacent_accesses:1
+{overlap-in-place} options = --variable=overlap_in_place:1
 
 [omp-base : omp-base-common]
 linker_options = -Xlinker --add-needed
@@ -75,6 +81,7 @@ linker_options = -Xlinker --enable-new-dtags
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
+linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
 
 [omp-base-ibm : omp-base-common]
 linker_options = -Wl,--add-needed
@@ -92,3 +99,4 @@ linker_options = -Wl,--enable-new-dtags
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_IBM_LDFLAGS@
+linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def

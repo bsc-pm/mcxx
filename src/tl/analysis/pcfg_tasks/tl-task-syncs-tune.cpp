@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- (C) Copyright 2006-2012 Barcelona Supercomputing Center             *
+ (C) Copyright 2006-2014 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -36,10 +36,10 @@ namespace {
 
     enum SyncModification
     {
-        None            = 0,
-        Keep            = 1u << 0,
-        MaybeToStatic   = 1u << 1,
-        Remove          = 1u << 2
+        None            = 0,        // 0
+        Keep            = 1u << 0,  // 1
+        MaybeToStatic   = 1u << 1,  // 2
+        Remove          = 1u << 2   // 4
     };
 
     inline SyncModification operator|(SyncModification a, SyncModification b)
@@ -135,8 +135,8 @@ namespace {
     {
         SyncModification modification_type = Keep;
 
-        NodeclMap m_reaching_defs_in = m_node->get_reaching_definitions_in();
-        NodeclSet m_killed_vars = m_node->get_killed_vars();
+        const NodeclMap& m_reaching_defs_in = m_node->get_reaching_definitions_in();
+        const NodeclSet& m_killed_vars = m_node->get_killed_vars();
         if((m_reaching_defs_in.count(m) == 1) && (m_killed_vars.find(m) == m_killed_vars.end()))
         {   // There is a unique reaching definition of the subscript and it is not defined inside the m_node node
             NBase m_reach_def = m_reaching_defs_in.find(m)->second.first;
@@ -163,64 +163,6 @@ namespace {
 
         return modification_type;
     }
-
-#if 0
-    SyncModification match_variable_values(
-            Node* n_node, Node* m_node,
-            const NBase& n, const NBase& m,
-            NBase& condition)
-    {
-        SyncModification modification_type = Keep;
-
-        NodeclMap n_reaching_defs_in = n_node->get_reaching_definitions_in();
-        NodeclSet n_killed_vars = n_node->get_killed_vars();
-        NodeclMap m_reaching_defs_in = m_node->get_reaching_definitions_in();
-        NodeclSet m_killed_vars = m_node->get_killed_vars();
-
-        if((n_reaching_defs_in.count(n) == 1) && (n_killed_vars.find(n) == n_killed_vars.end()) &&
-            (m_reaching_defs_in.count(m) == 1) && (m_killed_vars.find(m) == m_killed_vars.end()))
-        {
-            NBase n_reach_def = n_reaching_defs_in.find(n)->second.first;
-            NBase m_reach_def = m_reaching_defs_in.find(m)->second.first;
-
-            if(n_reach_def.is_constant())
-            {   // n definition is constant
-                if(m_reach_def.is_constant())
-                {   // m definition is constant
-                    modification_type = match_constant_values(n_reach_def, m_reach_def, condition);
-                }
-                else
-                {   // m is not constant | Try to compute equality from the reaching definition of m
-                    modification_type = match_const_and_var_values(n_node, m_node, n_reach_def, m_reach_def, condition);
-                }
-            }
-            else
-            {
-                if(m_reach_def.is_constant())
-                {   // n is not constant | Try to compute equality from the reaching definition of n
-                    modification_type = match_const_and_var_values(m_node, n_node, m_reach_def, n_reach_def, condition);
-                }
-                else
-                {
-                    if(n_reach_def.is<Nodecl::Symbol>() && m_reach_def.is<Nodecl::Symbol>())
-                    {   // n, m reaching definitions are symbols | Try to compute the equality from its reaching definitions
-                        modification_type = match_variable_values(n_node, m_node, n_reach_def, m_reach_def, condition);
-                    }
-                    else
-                    {
-                        modification_type = compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
-                    }
-                }
-            }
-        }
-        else
-        {   // We do not know whether the indexes are equal => compute the condition
-            modification_type = compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
-        }
-
-        return modification_type;
-    }
-#endif
 
     SyncModification match_array_subscripts(Node* n_node, Node* m_node,
                                             const Nodecl::List& n_subs, const Nodecl::List& m_subs,
@@ -260,8 +202,8 @@ namespace {
                     if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/ true)
                             && data_reference_is_modified_between_tasks(n_node, m_node, n))
                     {   // The two variables are the same and the variable has changed => we are sure there is no dependency
-                            modification_type = modification_type | Remove;
-                            goto match_array_subscripts_end;
+                        modification_type = modification_type | Remove;
+                        goto match_array_subscripts_end;
                     }
                     else
                     {   // The dependency still exists => compute the condition
@@ -466,11 +408,29 @@ match_array_subscripts_end:
         // 2.1.- Match source(out, inout) with target(in, out, inout)
         for(ObjectList<NBase>::iterator its = source_all_out_deps.begin(); its != source_all_out_deps.end(); ++its)
             for(ObjectList<NBase>::iterator itt = target_deps.begin(); itt != target_deps.end(); ++itt)
-                modification_type = modification_type | match_dependence(source, target, *its, *itt, condition);
+            {
+                NBase cond_part;
+                modification_type = modification_type | match_dependence(source, target, *its, *itt, cond_part);
+                if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
+                    continue;
+                if (condition.is_null())
+                    condition = cond_part;
+                else
+                    condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
+            }
         // 2.1.- Match source(in) with target(out, inout)
         for(ObjectList<NBase>::iterator its = source_in_deps.begin(); its != source_in_deps.end(); ++its)
             for(ObjectList<NBase>::iterator itt = target_all_out_deps.begin(); itt != target_all_out_deps.end(); ++itt)
-                modification_type = modification_type | match_dependence(source, target, *its, *itt, condition);
+            {
+                NBase cond_part;
+                modification_type = modification_type | match_dependence(source, target, *its, *itt, cond_part);
+                if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
+                    continue;
+                if (condition.is_null())
+                    condition = cond_part;
+                else
+                    condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
+            }
 
         // 3.- Perform the modifications according to the previous results
         //     The order of these condition is important because for each pair of variables in the dependency clauses
@@ -521,7 +481,7 @@ match_array_subscripts_end:
         _pcfg->disconnect_nodes(source, target);
         
         // Remove the target from the list of "next_synchronizations" of the source
-        _pcfg->remove_next_synchronization(source, target);
+        _pcfg->remove_next_sync_for_tasks(source, target);
     }
     
 }

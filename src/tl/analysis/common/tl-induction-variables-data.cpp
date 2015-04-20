@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- (C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+ (C) Copyright 2006-2014 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -157,6 +157,13 @@ namespace Utils {
                     && (_type == iv._type) && (_family == iv._family));
     }
 
+    std::string InductionVar::print_iv_as_range() const
+    {
+        return ("[" + prettyprint_iv_boundary_list(_lb) +
+                ":" + prettyprint_iv_boundary_list(_ub) +
+                ":" + (_incr.is_null() ? "NULL" : _incr.prettyprint()) + "]");
+    }
+    
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //
 
@@ -222,14 +229,6 @@ namespace Utils {
         {
             std::cerr << "        * " << it->first << ": " << prettyprint_induction_var(it->second) << std::endl;
         }
-    }
-    
-    bool induction_variable_list_contains_variable(const InductionVarList& iv_list, const NBase& var)
-    {
-        for (InductionVarList::const_iterator it = iv_list.begin(); it != iv_list.end(); ++it)
-            if (Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable(), var, /*skip_conversions*/ true))
-                return true;
-        return false;
     }
 
     InductionVar* get_induction_variable_from_list(const InductionVarList& ivs, const NBase& var)

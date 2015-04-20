@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 
 
 
@@ -49,11 +75,6 @@ namespace Optimizations {
     *         -    c2     =>    c1-c2     t            c1    -     =>  c1-c2     t
     *       /   \                                          /  \
     *     c1    t                                        c2   t
-    * R6i :      +                     +      
-    *          /   \                 /   \
-    *         +    c     =>         +    t1
-    *       /   \                  /  \
-    *     t1    t2                c   t2
     *
     * R7 :   *                                     R8 :    *                 *
     *      /   \          =>     c1 * c2                 /   \     =>      /   \
@@ -106,7 +127,36 @@ namespace Optimizations {
     *  +   t3 +   t4                    +  t3 +   t4
     * / \    / \                       / \   / \
     *t1 t2 t1  t2                    t1 t2  t1 t2
- 
+    *
+    * R50a : +                  +
+    *      /   \              /   \
+    *     +     t2        => c     + 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R50b : -                  -
+    *      /   \              /   \
+    *     -     t2        => c     + 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R50c : *                  *
+    *      /   \              /   \
+    *     *     t2        => c     * 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R51b : +                  -
+    *      /   \              /   \
+    *     -     t2        => c     - 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
+    *
+    * R51b : -                  +
+    *      /   \              /   \
+    *     +     t2        => c     - 
+    *   /  \                      / \    
+    *  c   t1                    t1  t2
     *
     */
     class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -135,9 +185,7 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::VectorBitwiseAnd& n );
         Ret visit_post( const Nodecl::VectorBitwiseOr& n );
         Ret visit_post( const Nodecl::VectorBitwiseShl& n );
-        Ret visit_post( const Nodecl::VectorBitwiseShlI& n );
         Ret visit_post( const Nodecl::VectorBitwiseShr& n );
-        Ret visit_post( const Nodecl::VectorBitwiseShrI& n );
         Ret visit_post( const Nodecl::VectorDiv& n );
         Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
         Ret visit_post( const Nodecl::VectorLowerThan& n );

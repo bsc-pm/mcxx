@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-(C) Copyright 2006-2009 Barcelona Supercomputing Center
+(C) Copyright 2006-2014 Barcelona Supercomputing Center
 Centro Nacional de Supercomputacion
 
 This file is part of Mercurium C/C++ source-to-source compiler.
@@ -153,7 +153,7 @@ namespace Analysis {
                             // Get the Reach Def Out of the current predecessors
                             for(ObjectList<Node*>::iterator itop = outer_parents.begin(); itop != outer_parents.end(); ++itop)
                             {
-                                NodeclMap outer_rd_out = (*itop)->get_reaching_definitions_out();
+                                const NodeclMap& outer_rd_out = (*itop)->get_reaching_definitions_out();
                                 pred_rd_out.insert(outer_rd_out.begin(), outer_rd_out.end());
                             }
                         }
@@ -167,7 +167,6 @@ namespace Analysis {
                     }
 
                     // Computing Reach Defs Out
-                    const NodeclMap& gen = current->get_generated_stmts();
                     NodeclSet killed;
                     if(current->is_omp_task_creation_node())
                     {   // Variables from non-task children nodes do not count here
@@ -189,6 +188,7 @@ namespace Analysis {
                     }
                     NodeclMap diff = Utils::nodecl_map_minus_nodecl_set(rd_in, killed);
 
+                    const NodeclMap& gen = current->get_generated_stmts();
                     rd_out = Utils::nodecl_map_union(gen, diff);
 
                     if (!Utils::nodecl_map_equivalence(old_rd_in, rd_in) || 

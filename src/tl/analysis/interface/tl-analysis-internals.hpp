@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -147,7 +147,7 @@ namespace Analysis {
             std::set<Nodecl::NodeclBase> visited_nodes)
     {
         NodeclMap all_reach_defs;
-        NodeclSet killed_vars = stmt_node->get_killed_vars();
+        const NodeclSet& killed_vars = stmt_node->get_killed_vars();
 
         // If n is being defined (killed) in this stmt, we don't look into their RD in
         // We study their RD out (LHS) instead.
@@ -178,39 +178,41 @@ namespace Analysis {
                 n_ma_it != n_mem_accesses.end();
                 n_ma_it++)
         {
+            const Nodecl::NodeclBase& n_ma = n_ma_it->no_conv();
 
 #ifdef DEBUG_PROPERTY
             std::string parent_str = "NULL";
 
-            if (!n_ma_it->get_parent().is_null())
+            if (!n_ma.get_parent().is_null())
             {
-                Nodecl::NodeclBase parent_node = n_ma_it->get_parent();
+                Nodecl::NodeclBase parent_node = n_ma.get_parent();
                 if (parent_node.is<Nodecl::Conversion>())
                     parent_str = parent_node.get_parent().prettyprint();
                 else
                     parent_str = parent_node.prettyprint();
             }
             
-            std::cerr << "   Mem access: " << n_ma_it->prettyprint() 
+            std::cerr << "   Mem access: " << n_ma.prettyprint() 
                 << " --> Parent: " << parent_str 
                 << " . Original node: " << original_stmt->get_id() 
                 << std::endl;
 #endif
-            if(all_reach_defs.find(*n_ma_it) == all_reach_defs.end())
+            if(all_reach_defs.find(n_ma) == all_reach_defs.end())
             {
-                if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
+                if(n_ma.is<Nodecl::ArraySubscript>() || n_ma.is<Nodecl::ClassMemberAccess>() ||
+                        (n_ma.is<Nodecl::Symbol>() && n_ma.get_type().no_ref().is_array()))
                 {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
                     continue;
                 }
                 else
                 {
                     WARNING_MESSAGE("No reaching definition arrives for nodecl %s.\n", 
-                                    n_ma_it->prettyprint().c_str());
+                                    n_ma.prettyprint().c_str());
                 }
             }
 
             std::pair<NodeclMap::iterator, NodeclMap::iterator> bounds =
-                all_reach_defs.equal_range(*n_ma_it);
+                all_reach_defs.equal_range(n_ma);
 
             // REACHING DEFINITIONS
             for(NodeclMap::iterator rd_it = bounds.first;
@@ -239,7 +241,7 @@ namespace Analysis {
                     // Visit and check property in current RD
                     TL::tribool reach_def_property =
                         nodecl_has_property_in_scope(scope_node, reach_defs_node, 
-                                original_stmt, reach_def_nodecl, *n_ma_it, pcfg, property_functor,
+                                original_stmt, reach_def_nodecl, n_ma, pcfg, property_functor,
                                 visited_nodes);
 #ifdef DEBUG_PROPERTY
                     std::cerr << "       <---End previous visit" << std::endl;
@@ -426,7 +428,7 @@ namespace Analysis {
                                        {
                                            TL::tribool cond_stmt_ma_property = 
                                                nodecl_has_property_in_scope(scope_node,
-                                                       cond_node, original_stmt, *itt, *n_ma_it, pcfg, 
+                                                       cond_node, original_stmt, *itt, n_ma, pcfg, 
                                                        property_functor, visited_nodes);
 
                                            if(cond_stmt_ma_property.is_false())

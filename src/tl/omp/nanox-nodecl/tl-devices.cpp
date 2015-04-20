@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -111,13 +111,14 @@ namespace TL { namespace Nanox {
                 || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
             Source val, extended_descr, extra_cast, instrument_before_c,
-            instrument_after_c, function_name_instr;
+            instrument_after_c, function_name_instr, val_type;
 
             // In some cases, the outline_function name is the same for two different tasks.
             // For this reason we add also the filename and the line
             val << outline_function.get_name()
                 << "@" << locus_get_filename(locus)
-                << "@" << locus_get_line(locus);
+                << "@" << locus_get_line(locus)
+                << "@" << val_type;
 
             std::string function_name;
             if (task_label.is_null())
@@ -138,10 +139,12 @@ namespace TL { namespace Nanox {
                 }
 
                 extended_descr << function_name;
+                val_type << "FUNCTION";
             }
             else
             {
                 extended_descr = task_label.get_text();
+                val_type << "LABEL";
             }
 
             // The description should contains:
@@ -149,8 +152,7 @@ namespace TL { namespace Nanox {
             //  - FILE: The filename
             //  - LINE: The line number
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
-            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
-
+            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus) << "@" << val_type;
 
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target an unsigned long long, in architectures of 32
@@ -168,19 +170,19 @@ namespace TL { namespace Nanox {
             instrument_before_c
                 << "static int nanos_funct_id_init = 0;"
                 << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
-                << "nanos_err_t err;"
+                << "nanos_err_t nanos_err;"
                 << "if (nanos_funct_id_init == 0)"
                 << "{"
-                <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val("
+                <<    "nanos_err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+                <<    "nanos_err = nanos_instrument_register_value_with_val("
                 <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
                 <<          "\"user-funct-location\","
                 <<          "\"" << val << "\","
                 <<          "\"" << extended_descr << "\","
                 <<          /* abort_when_registered */ "0);"
 
-                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
                 ;
@@ -216,7 +218,7 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_START;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
     }
 
@@ -229,37 +231,8 @@ namespace TL { namespace Nanox {
             << "event.type = NANOS_BURST_END;"
             << "event.key = nanos_instr_uf_location_key;"
             << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-            << "err = nanos_instrument_events(1, &event);"
+            << "nanos_err = nanos_instrument_events(1, &event);"
             ;
-    }
-
-    void DeviceProvider::create_weak_device_symbol(
-            const std::string& symbol_name,
-            Nodecl::NodeclBase root)
-    {
-        Source nanox_device_enable_section;
-        nanox_device_enable_section << "__attribute__((weak)) char " << symbol_name << " = 1;";
-
-        if (IS_FORTRAN_LANGUAGE)
-            Source::source_language = SourceLanguage::C;
-
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
-
-        Source::source_language = SourceLanguage::Current;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            _extra_c_code.prepend(functions_section_tree);
-        }
-        else
-        {
-            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
-        }
-    }
-
-    bool DeviceProvider::is_gpu_device() const
-    {
-        return false;
     }
 
     // This is only for Fortran!
@@ -324,6 +297,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 uniquestr(name.c_str()));
@@ -485,6 +459,57 @@ namespace TL { namespace Nanox {
         return result;
     }
 
+    static Source emit_allocate_statement_using_array(TL::Symbol private_sym, TL::Symbol shared_symbol)
+    {
+        Source result;
+
+        TL::Type t = private_sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        struct Aux
+        {
+            static void aux_rec(Source &array_shape, TL::Symbol orig_array, TL::Type t_aux, int& rank)
+            {
+                Source current_arg;
+                if (t_aux.is_fortran_array())
+                {
+                    aux_rec(array_shape, orig_array, t_aux.array_element(), rank);
+                    rank++;
+
+                    Source curent_arg;
+                    Nodecl::NodeclBase lower, upper;
+                    t_aux.array_get_bounds(lower, upper);
+
+                    current_arg
+                        << "LBOUND(" << as_symbol(orig_array) << ", DIM=" << rank << ")"
+                        << ":"
+                        << "UBOUND(" << as_symbol(orig_array) << ", DIM=" << rank << ")";
+
+                    array_shape.append_with_separator(current_arg, ",");
+                }
+            }
+
+            static void fill_array_shape(Source &array_shape, TL::Symbol orig_array)
+            {
+                int n = 0;
+                aux_rec(array_shape,
+                        orig_array,
+                        orig_array.get_type().no_ref(),
+                        n);
+            }
+        };
+
+        Source array_shape;
+        Aux::fill_array_shape(array_shape, shared_symbol);
+
+        result
+            << "ALLOCATE(" << private_sym.get_name() << "(" << array_shape <<  "));\n"
+            ;
+
+        return result;
+    }
+
     TL::Symbol DeviceProvider::new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
@@ -599,6 +624,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_SHARED_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 uniquestr(name.c_str()));
@@ -611,12 +637,15 @@ namespace TL { namespace Nanox {
                         if (sym.is_valid())
                         {
                             symbol_entity_specs_set_is_optional(private_sym, sym.is_optional());
+                            symbol_entity_specs_set_is_target(private_sym, sym.is_target());
                             symbol_entity_specs_set_is_allocatable(private_sym,
                                 (!sym.is_member() && sym.is_allocatable())
                                 || (*it)->is_copy_of_array_descriptor_allocatable());
 
                             symbol_map->add_map(sym, private_sym);
                         }
+
+
 
                         symbol_entity_specs_set_is_allocatable(private_sym,
                                 symbol_entity_specs_get_is_allocatable(private_sym) ||
@@ -816,17 +845,15 @@ namespace TL { namespace Nanox {
                             initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
                         }
 
-
                         if (sym.is_valid())
                         {
                             symbol_entity_specs_set_is_allocatable(private_sym,
-                                    (!sym.is_member() && sym.is_allocatable())
-                                    || (*it)->is_copy_of_array_descriptor_allocatable());
+                                    (*it)->get_private_type().is_fortran_array()
+                                    && (*it)->get_private_type().array_requires_descriptor());
 
                             if (symbol_entity_specs_get_is_allocatable(private_sym))
                             {
-                                initial_statements << emit_allocate_statement(private_sym, is_allocated_index,
-                                        lower_bound_index, upper_bound_index);
+                                initial_statements << emit_allocate_statement_using_array(private_sym, shared_reduction_sym);
                             }
 
                             symbol_map->add_map(sym, private_sym);
@@ -1275,13 +1302,13 @@ namespace TL { namespace Nanox {
         //         {
         //             if (first)
         //             {
-        //                 ancillary_source << "   nanos_err_t err;\n";
+        //                 ancillary_source << "   nanos_err_t nanos_err;\n";
         //                 first = false;
         //             }
 
         //             ancillary_source
-        //                 << "    err = nanos_free(p" << i << ");\n"
-        //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
+        //                 << "    nanos_err = nanos_free(p" << i << ");\n"
+        //                 << "    if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);\n"
         //                 ;
         //         }
         //     }

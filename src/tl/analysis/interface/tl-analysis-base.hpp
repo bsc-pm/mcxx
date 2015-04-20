@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- (C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+ (C) Copyright 2006-2014 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -130,17 +130,17 @@ namespace Analysis {
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
 //         void conditional_constant_propagation();
 
-        void use_def(const NBase& ast);
+        void use_def(const NBase& ast, bool propagate_graph_nodes);
 
-        void liveness(const NBase& ast);
+        void liveness(const NBase& ast, bool propagate_graph_nodes);
 
-        void reaching_definitions(const NBase& ast);
+        void reaching_definitions(const NBase& ast, bool propagate_graph_nodes);
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          */
-        void induction_variables(const NBase& ast);
+        void induction_variables(const NBase& ast, bool propagate_graph_nodes);
 
         void tune_task_synchronizations(const NBase& ast);
 
@@ -152,7 +152,7 @@ namespace Analysis {
 
         ObjectList<TaskDependencyGraph*> task_dependency_graph(const NBase& ast);
         
-        void all_analyses(const NBase& ast);
+        void all_analyses(const NBase& ast, bool propagate_graph_nodes);
         
 
         // ********************* Utils ******************** //

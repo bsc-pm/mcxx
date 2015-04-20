@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -484,12 +484,14 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
 %type<ast> nontype_specifier_but_SUSL
+%type<ast> nontype_specifier_but_SUSL_without_attribute
 %type<ast> nontype_specifier_for_named
 %type<ast> nontype_specifier_for_named_without_attribute
 %type<ast> nontype_specifier_seq
 %type<ast> nontype_specifier_seq_with_friend
 %type<ast> nontype_specifier_seq_but_SUSL
 %type<ast> nontype_specifier_seq_with_SUSL
+%type<ast> nontype_specifier_seq_with_SUSL_and_friend
 %type<ast> nontype_specifier_seq_for_named
 %type<ast> nontype_specifier_seq_for_named_with_friend
 %type<ast> nontype_specifier_without_attribute
@@ -581,6 +583,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_specifier_alone
 %type<ast> type_specifier_seq_0
 %type<ast> type_specifier_seq_ended_with_identifier
+%type<ast> declarating_type_specifier
+%type<ast> typeof_type_specifier
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
@@ -681,6 +685,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-opencl.y*/
 /*!include cxx-xl.y*/
 /*!include cxx-ms.y*/
+/*!include cxx-intel.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %type<ast> subparsing
@@ -1397,6 +1402,10 @@ decl_specifier_seq_0 : nontype_specifier_seq type_specifier_not_ended_with_ident
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
 }
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
 ;
 
 // This one ends with a named type specifier
@@ -1558,6 +1567,10 @@ decl_specifier_seq_friend : nontype_specifier_seq_with_friend type_specifier_not
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
 }
+| nontype_specifier_seq_with_SUSL_and_friend %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ast_get_locus($1), NULL);
+}
 ;
 
 nontype_specifier_seq : nontype_specifier
@@ -1629,7 +1642,7 @@ friend_specifier : FRIEND
 }
 ;
 
-nontype_specifier_but_SUSL : storage_class_specifier
+nontype_specifier_but_SUSL_without_attribute : storage_class_specifier
 {
 	$$ = $1;
 }
@@ -1656,11 +1669,22 @@ nontype_specifier_but_SUSL : storage_class_specifier
 }
 ;
 
-nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL
+nontype_specifier_but_SUSL : nontype_specifier_but_SUSL_without_attribute
+{
+	$$ = $1;
+}
+| std_attribute_specifier
 {
     $$ = $1;
 }
-| type_specifier_SUSL
+// GNU extension
+| gcc_attribute
+{
+	$$ = $1;
+}
+;
+
+nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL_without_attribute
 {
     $$ = $1;
 }
@@ -1799,7 +1823,7 @@ type_specifier_ended_with_identifier : named_simple_type_specifier
 }
 ;
 
-type_specifier_alone : class_specifier
+declarating_type_specifier : class_specifier
 {
 	$$ = $1;
 }
@@ -1810,6 +1834,20 @@ type_specifier_alone : class_specifier
 | elaborated_type_specifier
 {
 	$$ = $1;
+}
+;
+
+type_specifier_alone : declarating_type_specifier
+{
+    $$ = $1;
+}
+| builtin_types
+{
+    $$ = $1;
+}
+| typeof_type_specifier
+{
+    $$ = $1;
 }
 ;
 
@@ -1867,6 +1905,20 @@ nontype_specifier_seq_with_SUSL : nontype_specifier_seq type_specifier_SUSL nont
 }
 ;
 
+nontype_specifier_seq_with_SUSL_and_friend : nontype_specifier_seq_with_SUSL friend_specifier nontype_specifier_seq_with_SUSL
+{
+    $$ = ast_list_concat(ASTList($1, $2), $3);
+}
+| nontype_specifier_seq_with_SUSL friend_specifier
+{
+    $$ = ASTList($1, $2);
+}
+| friend_specifier nontype_specifier_seq_with_SUSL
+{
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
+}
+;
+
 type_specifier_seq_ended_with_identifier : nontype_specifier_seq_for_named type_specifier_ended_with_identifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ast_get_locus($1), NULL);
@@ -1913,18 +1965,24 @@ simple_type_specifier_not_ended_with_identifier : builtin_types
 {
     $$ = ASTLeaf(AST_DECLTYPE_AUTO, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+| typeof_type_specifier
+{
+    $$ = $1;
+}
+| GXX_UNDERLYING_TYPE '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_UNDERLYING_TYPE, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
 // GNU Extension (difficult to ensure that this does not end with an identifier..., use parentheses)
-| TYPEOF unary_expression %merge<ambiguityHandler>
+typeof_type_specifier : TYPEOF unary_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | TYPEOF '(' type_id ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-}
-| GXX_UNDERLYING_TYPE '(' type_id ')'
-{
-    $$ = ASTMake2(AST_GXX_UNDERLYING_TYPE, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
@@ -6608,6 +6666,7 @@ right_bracket_token : '>'
 /*!include cxx-opencl.y*/
 /*!include cxx-xl.y*/
 /*!include cxx-ms.y*/
+/*!include cxx-intel.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

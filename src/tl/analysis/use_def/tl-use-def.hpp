@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- (C) Copyright 2006-2013 Barcelona* Supercomputing Center
+ (C) Copyright 2006-2014 Barcelona* Supercomputing Center
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -49,7 +49,11 @@ namespace Analysis {
     private:
         //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
-        
+
+        //! The analysis must propagate information to outer nodes
+        //! Necessary when checking analysis results
+        bool _propagate_graph_nodes;
+
         //!Usage of IPA modifiable variable (reference variables, pointed values of pointer parameters and global variables)
         IpUsageMap _ipa_modif_vars;
         
@@ -64,36 +68,23 @@ namespace Analysis {
 
         //!Initialize all IPA modifiable variables' usage to NONE
         void initialize_ipa_var_usage();
-        
+
         /*!Method that computes recursively the Use-Definition information from a node
          * \param current Node from which the method begins the computation
          */
         void compute_usage_rec(Node* current);
 
-        void purge_local_variables(Scope graph_sc, NodeclSet& vars_set);
-
-        /*!Recursive method that returns a list with three elements:
-         * - The first is the list of upper exposed variables of the graph node;
-         * - The second is the list of killed variables of the graph node
-         * - The third is the list of undefined variables of the graph
-         */
-        ObjectList<NodeclSet> get_use_def_over_nodes(Node* current);
-
-        //!Propagate the Use-Def information from inner nodes to outer nodes
-        void set_graph_node_use_def(Node* graph_node);
-        
         //! Propagate the use-def of the children of a task creation to the task_creation node
         void propagate_task_usage_to_task_creation_node(Node* task_creation);
-        
-        void merge_children_usage(NodeclSet& ue_vars, NodeclSet& killed_vars, 
-                                   NodeclSet& undef_vars, int node_id);
 
     public:
         /*! Constructor
          * \param graph Pointer to the graph where to calculate the analysis
          * \param pcfgs List of pcfgs in the current translation unit (necessary for IPA)
          */
-        UseDef(ExtensibleGraph* graph, const ObjectList<ExtensibleGraph*>& pcfgs);
+        UseDef(ExtensibleGraph* graph,
+               bool propagate_graph_nodes,
+               const ObjectList<ExtensibleGraph*>& pcfgs);
 
         //! Method computing the Use-Definition information on the member #graph
         void compute_usage();
@@ -118,6 +109,10 @@ namespace Analysis {
         //! Pointer to the Node in a PCFG where the Nodecl is contained
         //! The results of the analysis performed during the visit will be attached to the node
         Node* _node;
+
+        //! The analysis must propagate information to outer nodes
+        //! Necessary when checking analysis results
+        bool _propagate_graph_nodes;
 
         //! State of the traversal
         /*!
@@ -230,6 +225,7 @@ namespace Analysis {
     public:
         // *** Constructor *** //
         UsageVisitor(Node* n,
+                bool propagate_graph_nodes,
                 ExtensibleGraph* pcfg,
                 IpUsageMap* ipa_modifiable_vars,
                 std::string c_lib_file,
@@ -253,6 +249,8 @@ namespace Analysis {
         Ret visit(const Nodecl::Dereference& n);
         Ret visit(const Nodecl::DivAssignment& n);
         Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::IntelAssume& n);
+        Ret visit(const Nodecl::IntelAssumeAligned& n);
         Ret visit(const Nodecl::MinusAssignment& n);
         Ret visit(const Nodecl::ModAssignment& n);
         Ret visit(const Nodecl::MulAssignment& n);
@@ -281,20 +279,32 @@ namespace Analysis {
     
     // **************************************************************************************************** //
     // ******************************** Utils methods for use-def analysis ******************************** //
-    
+
     NBase simplify_pointer(const NBase& original_variables);
     Nodecl::List simplify_pointers(const Nodecl::List& original_variables);
     Nodecl::List simplify_arguments(const Nodecl::List& original_args);
-    
+
     NBase split_var_depending_on_usage(NBase container, NBase contained);
-    
+
     bool any_parameter_is_pointer(const ObjectList<Symbol>& params);
     bool any_parameter_is_reference(const ObjectList<Symbol>& params);
-    
+
     SymToNodeclMap get_parameters_to_arguments_map(
         const ObjectList<Symbol>& params, 
         const Nodecl::List& args);
-    
+
+    void propagate_usage_to_ancestor(
+        Node* ancestor,
+        NodeclSet& ue_vars, NodeclSet& killed_vars,
+        NodeclSet& undef_vars, NodeclSet& used_addresses,
+        const NodeclSet& ue_children, const NodeclSet& killed_children,
+        const NodeclSet& undef_children, const NodeclSet& used_addresses_children);
+
+    //!Propagate the Use-Def information from inner nodes to outer nodes
+    // This method may be used from UseDef and from UsageVisitor classes
+    // (depending on whether graph information propagation is activated or not)
+    void set_graph_node_use_def(Node* graph_node);
+
     // ****************************** END Utils methods for use-def analysis ****************************** //    
     // **************************************************************************************************** //
     

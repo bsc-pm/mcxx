@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -49,7 +49,7 @@ namespace TL { namespace Nanox {
     {
         TL::Type get_fake_explicit_shape_array(TL::Type t)
         {
-            if (t.is_array())
+            if (t.is_fortran_array())
             {
                 Nodecl::NodeclBase lower, upper;
 
@@ -79,41 +79,46 @@ namespace TL { namespace Nanox {
         }
 
         // This is for Fortran only
-        TL::Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope)
+        TL::Symbol get_function_ptr_of_impl(
+                std::string name,
+                TL::Symbol sym,
+                TL::Type return_type,
+                TL::Type arg_type,
+                bool lvalue_param,
+                TL::Scope original_scope)
         {
             static int num = 0;
 
-            // FIXME - Avoid creating functions twice for a same t
+            // FIXME - Avoid creating functions twice for a same arg_type
             std::stringstream ss;
-            ss << "nanox_ptr_of_" 
-                << std::hex 
+            ss << name << "_"
+                << std::hex
                 << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
                 << std::dec
-                << "_" 
+                << "_"
                 << num;
 
             num++;
 
-            if (t.is_any_reference())
-                t = t.references_to();
-
-            TL::Type return_type = TL::Type::get_void_type().get_pointer_to();
+            if (arg_type.is_any_reference())
+                arg_type = arg_type.references_to();
 
             ObjectList<std::string> parameter_names;
             parameter_names.append("nanox_target_phony");
 
-            TL::Type argument_type = t;
+            TL::Type argument_type = arg_type;
 
-            if (t.is_pointer())
+            if (arg_type.is_pointer())
             {
                 // Do nothing. Use the original type
             }
-            else if (t.is_array())
+            else if (arg_type.is_array())
             {
-                argument_type = get_fake_explicit_shape_array(t);
+                argument_type = get_fake_explicit_shape_array(arg_type);
             }
 
-            argument_type = argument_type.get_lvalue_reference_to();
+            if (lvalue_param)
+                argument_type = argument_type.get_lvalue_reference_to();
 
             ObjectList<TL::Type> parameter_types;
             parameter_types.append(argument_type);
@@ -209,16 +214,43 @@ namespace TL { namespace Nanox {
 
 } }
 
-namespace TL {
+namespace TL { namespace Nanox {
 
-        TL::Symbol Nanox::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
-        {
-            return get_function_ptr_of_impl(sym, sym.get_type(), original_scope);
-        }
+    TL::Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
+    {
+        return get_function_ptr_of_impl(
+                "nanox_ptr_of",
+                sym,
+                /* return_type */ TL::Type::get_void_type().get_pointer_to(),
+                /* argument_type */ sym.get_type(),
+                /* lvalue_param */ true,
+                original_scope);
+    }
 
-        TL::Symbol Nanox::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
-        {
-            return get_function_ptr_of_impl(Symbol(NULL), t, original_scope);
-        }
-} 
+    TL::Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope)
+    {
+        return get_function_ptr_of_impl(
+                "nanox_ptr_of",
+                Symbol(NULL),
+                /* return_type */ TL::Type::get_void_type().get_pointer_to(),
+                /* argument_type */t,
+                /* lvalue_param */ true,
+                original_scope);
+    }
+
+    // Returns a function which converts the argument type into the return
+    // type. If the lvalue_param is true, the argument will be passed by
+    // reference to the function. Otherwise, It will be passed by value
+    TL::Symbol get_function_ptr_conversion(
+            TL::Type return_type, TL::Type argument_type, TL::Scope original_scope)
+    {
+        return get_function_ptr_of_impl(
+                "nanox_ptr_conversion",
+                Symbol(NULL),
+                return_type,
+                argument_type,
+                /*lvalue_param*/ false,
+                original_scope);
+    }
+}}
 

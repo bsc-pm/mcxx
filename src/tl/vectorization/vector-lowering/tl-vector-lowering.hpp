@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -36,17 +36,20 @@ namespace TL
         class VectorLoweringPhase : public TL::CompilerPhase
         {
             private:
+                bool _knl_enabled;
                 bool _knc_enabled;
                 bool _avx2_enabled;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
 
+                std::string _knl_enabled_str;
                 std::string _knc_enabled_str;
                 std::string _avx2_enabled_str;
                 std::string _intel_compiler_profile_str;
                 std::string _prefer_gather_scatter_str;
                 std::string _prefer_mask_gather_scatter_str;
 
+                void set_knl(const std::string knl_enabled_str);
                 void set_knc(const std::string knc_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
                 void set_intel_compiler_profile(
@@ -60,18 +63,6 @@ namespace TL
                 VectorLoweringPhase();
                 virtual void run(TL::DTO& dto);
         };
-
-
-        /*
-        class VectorLoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
-        {
-            public:
-                VectorLoweringVisitor();
-
-                virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
-                virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-        };
-        */
     }
 }
 

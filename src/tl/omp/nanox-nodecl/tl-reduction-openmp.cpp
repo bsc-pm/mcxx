@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -506,23 +506,23 @@ namespace TL { namespace Nanox {
             << reduction_declaration
             << "{"
             << as_type(get_bool_type()) << " red_single_guard;"
-            << "nanos_err_t err;"
-            << "err = nanos_enter_sync_init(&red_single_guard);"
-            << "if (err != NANOS_OK)"
-            <<     "nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_enter_sync_init(&red_single_guard);"
+            << "if (nanos_err != NANOS_OK)"
+            <<     "nanos_handle_error(nanos_err);"
             << "if (red_single_guard)"
             << "{"
             <<    "int nanos_num_threads = nanos_omp_get_num_threads();"
             <<    thread_initializing_reduction_info
-            <<    "err = nanos_release_sync_init();"
-            <<    "if (err != NANOS_OK)"
-            <<        "nanos_handle_error(err);"
+            <<    "nanos_err = nanos_release_sync_init();"
+            <<    "if (nanos_err != NANOS_OK)"
+            <<        "nanos_handle_error(nanos_err);"
             << "}"
             << "else"
             << "{"
-            <<    "err = nanos_wait_sync_init();"
-            <<    "if (err != NANOS_OK)"
-            <<        "nanos_handle_error(err);"
+            <<    "nanos_err = nanos_wait_sync_init();"
+            <<    "if (nanos_err != NANOS_OK)"
+            <<        "nanos_handle_error(nanos_err);"
             <<    thread_fetching_reduction_info
             << "}"
             << "}"
@@ -562,7 +562,7 @@ namespace TL { namespace Nanox {
                     Source number_of_bytes;
                     number_of_bytes << "SIZE(" << (*it)->get_symbol().get_name() << ") * " << reduction_element_type.get_size();
 
-                    element_size << as_expression(number_of_bytes.parse_expression(construct));
+                    element_size << as_expression(number_of_bytes.parse_expression(ref_tree));
                 }
                 else
                 {
@@ -587,10 +587,10 @@ namespace TL { namespace Nanox {
             (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
-                << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
+                << "nanos_err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 
                 << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                << "if (err != NANOS_OK)"
-                <<     "nanos_handle_error(err);"
+                << "if (nanos_err != NANOS_OK)"
+                <<     "nanos_handle_error(nanos_err);"
                 << nanos_red_name << "->original = (void*)" 
                 <<            (reduction_type.is_array() ? "" : "&") << (*it)->get_symbol().get_name() << ";"
                 << allocate_private_buffer
@@ -600,9 +600,9 @@ namespace TL { namespace Nanox {
                 << nanos_red_name << "->element_size = " << element_size << ";"
                 << nanos_red_name << "->num_scalars = " << num_scalars << ";"
                 << cleanup_code
-                << "err = nanos_register_reduction(" << nanos_red_name << ");"
-                << "if (err != NANOS_OK)"
-                <<     "nanos_handle_error(err);"
+                << "nanos_err = nanos_register_reduction(" << nanos_red_name << ");"
+                << "if (nanos_err != NANOS_OK)"
+                <<     "nanos_handle_error(nanos_err);"
                 ;
 
             if (IS_C_LANGUAGE
@@ -618,21 +618,21 @@ namespace TL { namespace Nanox {
                 }
 
                 allocate_private_buffer
-                    << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_num_threads, "
+                    << "nanos_err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_num_threads, "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
+                    << "if (nanos_err != NANOS_OK)"
+                    <<     "nanos_handle_error(nanos_err);"
                     << nanos_red_name << "->descriptor = " << nanos_red_name << "->privates;"
                     << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_private_type().get_pointer_to() ) << ")" << nanos_red_name << "->privates;"
                     ;
 
 
                 thread_fetching_reduction_info
-                    << "err = nanos_reduction_get(&" << nanos_red_name << ", " 
+                    << "nanos_err = nanos_reduction_get(&" << nanos_red_name << ", " 
                     << (reduction_type.is_array() ? "" : "&") << (*it)->get_symbol().get_name() << ");"
 
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
+                    << "if (nanos_err != NANOS_OK)"
+                    <<     "nanos_handle_error(nanos_err);"
                     << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_private_type().get_pointer_to() ) << ")" << nanos_red_name << "->privates;"
                     ;
                 cleanup_code
@@ -659,7 +659,7 @@ namespace TL { namespace Nanox {
                         Source size_call;
                         size_call << "SIZE(" << (*it)->get_symbol().get_name() << ")";
 
-                        num_scalars << as_expression(size_call.parse_expression(construct));
+                        num_scalars << as_expression(size_call.parse_expression(ref_tree));
                     }
                     else
                     {
@@ -676,11 +676,11 @@ namespace TL { namespace Nanox {
                         Source ubound_src;
                         ubound_src << "UBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << (rank - i) << ")";
 
-                        extra_dims 
+                        extra_dims
                             << "["
-                            << as_expression(lbound_src.parse_expression(construct))
+                           << as_expression(lbound_src.parse_expression(ref_tree))
                             << ":"
-                            << as_expression(ubound_src.parse_expression(construct))
+                            << as_expression(ubound_src.parse_expression(ref_tree))
                             << "]";
 
                         t = t.array_element();
@@ -690,26 +690,26 @@ namespace TL { namespace Nanox {
                 allocate_private_buffer
                     << "@FORTRAN_ALLOCATE@((*rdv_" << (*it)->get_field_name() << ")[0:(nanos_num_threads-1)]" << extra_dims <<");"
                     << nanos_red_name << "->privates = &(*rdv_" << (*it)->get_field_name() << ");"
-                    << "err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
+                    << "nanos_err = nanos_malloc(&" << nanos_red_name << "->descriptor, sizeof(" << as_type(private_reduction_vector_type) << "), "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
-                    << "err = nanos_memcpy(" << nanos_red_name << "->descriptor, "
+                    << "if (nanos_err != NANOS_OK)"
+                    <<     "nanos_handle_error(nanos_err);"
+                    << "nanos_err = nanos_memcpy(" << nanos_red_name << "->descriptor, "
                     "&rdv_" << (*it)->get_field_name() << ", sizeof(" << as_type(private_reduction_vector_type) << "));"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
+                    << "if (nanos_err != NANOS_OK)"
+                    <<     "nanos_handle_error(nanos_err);"
                     ;
 
                 thread_fetching_reduction_info
-                    << "err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
-                    << "err = nanos_memcpy("
+                    << "nanos_err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
+                    << "if (nanos_err != NANOS_OK)"
+                    <<     "nanos_handle_error(nanos_err);"
+                    << "nanos_err = nanos_memcpy("
                     << "&rdv_" << (*it)->get_field_name() << ","
                     << nanos_red_name << "->descriptor, "
                     << "sizeof(" << as_type(private_reduction_vector_type) << "));"
-                    << "if (err != NANOS_OK)"
-                    <<     "nanos_handle_error(err);"
+                    << "if (nanos_err != NANOS_OK)"
+                    <<     "nanos_handle_error(nanos_err);"
                     ;
 
                 TL::Symbol reduction_cleanup = create_reduction_cleanup_function(reduction, construct);

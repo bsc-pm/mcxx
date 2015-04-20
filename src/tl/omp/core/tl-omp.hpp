@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-(C) Copyright 2006-2013 Barcelona Supercomputing Center
+(C) Copyright 2006-2014 Barcelona Supercomputing Center
                       Centro Nacional de Supercomputacion
 
 This file is part of Mercurium C/C++ source-to-source compiler.
@@ -540,6 +540,7 @@ namespace OpenMP
                 Symbol _sym;
 
                 ObjectList<FunctionTaskDependency> _parameters;
+                ObjectList<TL::Symbol> _shared_closure;
 
                 TargetInfo _target_info;
 
@@ -610,6 +611,9 @@ namespace OpenMP
                 // The scope we used to parse the clauses
                 void set_parsing_scope(TL::Scope sc);
                 TL::Scope get_parsing_scope() const;
+
+                void set_shared_closure(const TL::ObjectList<TL::Symbol>&);
+                TL::ObjectList<TL::Symbol> get_shared_closure() const;
 
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);

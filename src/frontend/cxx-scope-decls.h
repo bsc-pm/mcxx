@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -337,6 +337,8 @@ struct scope_entry_tag
 
     // Type information of this symbol
     struct type_tag* type_information;
+    // private: used by cxx-typeutils.c
+    struct type_tag* _indirect_type[2];
 
     // Related decl_context of this symbol. Namespaces in C++ and all program
     // units in Fortran use this field

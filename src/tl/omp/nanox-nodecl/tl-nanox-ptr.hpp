@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -36,6 +36,10 @@ namespace TL { namespace Nanox {
     Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
     Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
 
+    Symbol get_function_ptr_conversion(
+            TL::Type return_type,
+            TL::Type argument_type,
+            TL::Scope original_scope);
 } }
 
 #endif // TL_NANOX_PTR_HPP

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -654,6 +654,7 @@ namespace Vectorization
                             _environment._function_return.make_nodecl(true, n.get_locus()),
                             return_value.shallow_copy(),
                             mask.shallow_copy(),
+                            Nodecl::NodeclBase::null(), // HasBeenDefinedFlag
                             _environment._function_return.get_type(),
                             n.get_locus()),
                         n.get_locus());
@@ -792,6 +793,10 @@ namespace Vectorization
     }
 
     void VectorizerVisitorStatement::visit(const Nodecl::UnknownPragma& n)
+    {
+    }
+
+    void VectorizerVisitorStatement::visit(const Nodecl::EmptyStatement& n)
     {
     }
 

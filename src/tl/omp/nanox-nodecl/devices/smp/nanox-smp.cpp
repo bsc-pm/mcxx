@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -334,16 +334,16 @@ namespace TL { namespace Nanox {
                                 << as_type(TL::Type::get_bool_type()) << name_private_copy_bool << ";"
                                 << ptr_type.get_declaration(outline_function_scope, name_private_copy)  << ";"
                                 << "{"
-                                <<      "nanos_err_t err;"
+                                <<      "nanos_err_t nanos_err;"
                                 <<      "if ((" << as_expression(data_ref.get_sizeof()) << ") > 4096)"
                                 <<      "{"
                                 <<          name_private_copy_bool << " =  1;"
-                                <<          "err = nanos_malloc("
+                                <<          "nanos_err = nanos_malloc("
                                 <<              "(void**) (&" << name_private_copy  << "), "
                                 <<              as_expression(data_ref.get_sizeof()) << ", "
                                 <<              "\"" << original_statements.get_filename() << "\", "
                                 <<              original_statements.get_line() << ");"
-                                <<          "if (err != NANOS_OK) nanos_handle_error (err);"
+                                <<          "if (nanos_err != NANOS_OK) nanos_handle_error (nanos_err);"
                                 <<      "}"
                                 <<      "else"
                                 <<      "{"
@@ -351,11 +351,11 @@ namespace TL { namespace Nanox {
                                 <<          name_private_copy << " = "
                                 <<              "(" << as_type(cast_type) << ") __builtin_alloca(" << as_expression(data_ref.get_sizeof()) << ");"
                                 <<      "}"
-                                <<      "err = nanos_memcpy("
+                                <<      "nanos_err = nanos_memcpy("
                                 <<         name_private_copy << ", "
                                 <<         "(" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ", "
                                 <<         as_expression(data_ref.get_sizeof()) << ");"
-                                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+                                <<      "if (nanos_err != NANOS_OK) nanos_handle_error (nanos_err);"
 
                                 <<  "}"
                                 ;
@@ -363,7 +363,7 @@ namespace TL { namespace Nanox {
                             extra_code_end
                                 << "if (" << name_private_copy_bool << ")"
                                 <<  "{"
-                                <<      "nanos_err_t err = nanos_free(" << name_private_copy << ");"
+                                <<      "nanos_err_t nanos_err = nanos_free(" << name_private_copy << ");"
                                 <<  "}"
                                 ;
 
@@ -465,6 +465,7 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
                         // // Pass the original reduced variable as if it were a shared
                         Source argument;
@@ -491,8 +492,8 @@ namespace TL { namespace Nanox {
         {
             extra_code_begin
                 << "{"
-                <<      "nanos_err_t err = nanos_dependence_release_all();"
-                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+                <<      "nanos_err_t nanos_err = nanos_dependence_release_all();"
+                <<      "if (nanos_err != NANOS_OK) nanos_handle_error (nanos_err);"
                 << "}"
                 ;
         }
@@ -504,16 +505,22 @@ namespace TL { namespace Nanox {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
            Source unpacked_function_call;
-            if (IS_CXX_LANGUAGE
-                    && !is_function_task
-                    && current_function.is_member()
-                    && !current_function.is_static())
-            {
-                unpacked_function_call << "args.this_->";
-            }
+           if (IS_CXX_LANGUAGE
+                   && !is_function_task
+                   && current_function.is_member()
+                   && !current_function.is_static())
+           {
+               unpacked_function_call
+                   << "args.this_->"
+                   ;
 
-           unpacked_function_call
-               << unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");";
+           }
+
+           unpacked_function_call << unpacked_function.get_qualified_name_for_expression(
+                   /* in_dependent_context */ 
+                   (current_function.get_type().is_template_specialized_type()
+                    && current_function.get_type().is_dependent())
+                   ) << "(" << unpacked_arguments << ");";
 
             outline_src
                 << "{"

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -75,28 +75,31 @@ namespace Vectorization
         {
             if (n.is<Nodecl::Symbol>())
             {
-                bool is_iv = is_iv_internal(scope_node, n);
-                bool is_iv_stride_one = false;
+                bool is_linear = is_linear_internal(scope_node, n);
+                bool is_linear_stride_one = false;
 
-                if (is_iv)
+                if (is_linear)
                 {
-                    std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
-                            = get_iv_lower_bound_internal(scope_node, n);
-                    ERROR_CONDITION(lower_bounds.size() != 1,
-                                    "Induction variable '%s' has %d lower bounds. "
-                                    "Only 1 lower bound supported.\n",
-                                    n.get_symbol().get_name().c_str(), lower_bounds.size());
-                    Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
+                    //std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+                    //        = get_linear_variable_lower_bound_internal(scope_node, n);
+                    Nodecl::NodeclBase step = get_linear_variable_increment_internal(scope_node, n);
 
-                    if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
+                    //ERROR_CONDITION(lower_bounds.size() != 1,
+                    //                "Induction variable '%s' has %d lower bounds. "
+                    //                "Only 1 lower bound supported.\n",
+                    //                n.get_symbol().get_name().c_str(), lower_bounds.size());
+
+                    //Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
+
+                    if (step.is_constant() && nodecl_is_one(step))
                     {
-                        is_iv_stride_one = true;
+                        is_linear_stride_one = true;
                     }
                 }
 
-                if (is_iv)
+                if (is_linear)
                 {
-                    if (is_iv_stride_one)
+                    if (is_linear_stride_one)
                     {
                         return true;
                     }
@@ -218,30 +221,33 @@ namespace Vectorization
     bool ExpressionEvolutionVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         // Collect information about the induction variables contained in the node
-        bool n_is_iv = is_iv_internal( _scope, n );
+        bool n_is_linear = is_linear_internal( _scope, n );
         walk( n.get_subscripted( ) );
         walk( n.get_subscripts( ) );
 
-        bool is_iv = is_iv_internal(_scope, n);
-        bool is_iv_stride_one = false;
+        bool is_linear = is_linear_internal(_scope, n);
+        bool is_linear_stride_one = false;
 
-        if (is_iv)
+        if (is_linear)
         {
-            std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
-                    = get_iv_lower_bound_internal(_scope, n);
-            ERROR_CONDITION(lower_bounds.size() != 1,
-                            "Induction variable '%s' has %d lower bounds. "
-                            "Only 1 lower bound supported.\n",
-                            n.prettyprint().c_str(), lower_bounds.size());
-            Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
+            //std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+            //        = get_linear_variable_lower_bound_internal(_scope, n);
+            Nodecl::NodeclBase step = get_linear_variable_increment_internal(_scope, n);
 
-            if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
+            //ERROR_CONDITION(lower_bounds.size() != 1,
+            //                "Induction variable '%s' has %d lower bounds. "
+            //                "Only 1 lower bound supported.\n",
+            //                n.prettyprint().c_str(), lower_bounds.size());
+
+            //Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
+
+            if (step.is_constant() && nodecl_is_one(step))
             {
-                is_iv_stride_one = true;
+                is_linear_stride_one = true;
             }
         }
 
-        _is_adjacent_access = ( n_is_iv && is_iv_stride_one);
+        _is_adjacent_access = ( n_is_linear && is_linear_stride_one);
 
         // 
         return !Analysis::Utils::nodecl_set_contains_nodecl( n, _killed );
@@ -434,27 +440,30 @@ namespace Vectorization
     bool ExpressionEvolutionVisitor::visit( const Nodecl::PointerToMember& n )
     {
         // Collect information about the induction variables contained in the node
-        bool is_iv = is_iv_internal(_scope, n);
-        bool is_iv_stride_one = false;
+        bool is_linear = is_linear_internal(_scope, n);
+        bool is_linear_stride_one = false;
 
-        if (is_iv)
+        if (is_linear)
         {
-            std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
-                    = get_iv_lower_bound_internal(_scope, n);
-            ERROR_CONDITION(lower_bounds.size() != 1,
-                            "Induction variable '%s' has %d lower bounds. "
-                            "Only 1 lower bound supported.\n",
-                            n.prettyprint().c_str(), lower_bounds.size());
-            Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
+            //std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> lower_bounds
+            //        = get_linear_variable_lower_bound_internal(_scope, n);
+            Nodecl::NodeclBase step = get_linear_variable_increment_internal(_scope, n);
 
-            if (lower_bound.is_constant() && nodecl_is_one(lower_bound))
+            //ERROR_CONDITION(lower_bounds.size() != 1,
+            //                "Induction variable '%s' has %d lower bounds. "
+            //                "Only 1 lower bound supported.\n",
+            //                n.prettyprint().c_str(), lower_bounds.size());
+
+            //Nodecl::NodeclBase lower_bound = *lower_bounds.begin();
+
+            if (step.is_constant() && nodecl_is_one(step))
             {
-                is_iv_stride_one = true;
+                is_linear_stride_one = true;
             }
         }
 
 
-        _is_adjacent_access = is_iv_stride_one;
+        _is_adjacent_access = is_linear_stride_one;
 
         return !Analysis::Utils::nodecl_set_contains_nodecl( n, _killed );
     }
@@ -539,7 +548,7 @@ namespace Vectorization
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Symbol& n )
     {
         // Collect information about the induction variables contained in the node
-        // bool n_is_iv = variable_is_iv( n );
+        // bool n_is_linear = variable_is_linear( n );
 
         //std::cerr << "Studying " << n.prettyprint() << std::endl;
 

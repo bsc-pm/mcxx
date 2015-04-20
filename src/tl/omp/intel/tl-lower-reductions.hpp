@@ -32,11 +32,46 @@
 
 namespace TL { namespace Intel {
 
+    TL::Symbol declare_reduction_pack(const TL::ObjectList<TL::Symbol> &sym,
+            Nodecl::NodeclBase location);
+
     TL::Symbol emit_callback_for_reduction(
-            OpenMP::Reduction* reduction,
+            bool simd_reduction,
+            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
+    TL::Symbol emit_callback_for_reduction_scalar(
+            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::Type reduction_pack_type,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function);
+
+    TL::Symbol emit_callback_for_reduction_simd_knc(
+            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
+            TL::Type reduction_pack_type,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function);
+
+    void update_reduction_uses(Nodecl::NodeclBase node,
+            const TL::ObjectList<Nodecl::OpenMP::ReductionItem>& reduction_items,
+            TL::Symbol reduction_pack_symbol);
+
+
+    struct ReplaceInOutMaster : Nodecl::ExhaustiveVisitor<void>
+    {
+        TL::Symbol _field;
+        TL::Symbol _orig_omp_in, _reduction_pack_symbol;
+        TL::Symbol _orig_omp_out, _reduced_symbol;
+
+        ReplaceInOutMaster(
+                TL::Symbol field,
+                TL::Symbol orig_omp_in,  TL::Symbol reduction_pack_symbol,
+                TL::Symbol orig_omp_out, TL::Symbol reduced_symbol);
+
+        virtual void visit(const Nodecl::Symbol& node);
+    };
 } }
 
 #endif // TL_LOWER_REDUCTIONS_HPP

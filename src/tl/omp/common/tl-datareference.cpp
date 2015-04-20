@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -97,12 +97,12 @@ namespace TL
                             && sym.get_type().no_ref().array_get_size().is_null())
                     {
                         // This is a 'A' where A is an assumed size array.
-                        // We cannot accept this case
-                        _data_ref._is_valid = false;
+                        _data_ref._is_assumed_size = true;
                     }
                 }
             }
 
+            // *a
             virtual void visit(const Nodecl::Dereference& derref)
             {
                 Nodecl::NodeclBase operand = derref.get_rhs();
@@ -140,6 +140,7 @@ namespace TL
                 }
             }
 
+            // &a
             virtual void visit(const Nodecl::Reference& ref)
             {
                 // In general we do not allow &x but there are some cases that may arise
@@ -169,11 +170,13 @@ namespace TL
                walk(c.get_nest());
             }
 
+            // (a)
             virtual void visit(const Nodecl::ParenthesizedExpression& p)
             {
                 walk(p.get_nest());
             }
 
+            // a[e]
             virtual void visit(const Nodecl::ArraySubscript& array)
             {
                 walk(array.get_subscripted());
@@ -217,11 +220,12 @@ namespace TL
                 {
                     // float (*p)[20][30]    (p[1])[2][3]  (we are in [2][3])
                     // Do nothing
+                    _data_ref._base_address = subscripted;
                 }
                 else if (subscripted.is<Nodecl::Dereference>())
                 {
                     // float (*p)[20][30]    (*p)[2][3]    (we are in [2][3])
-                    // This is like p[0][2][3] so the base address is p.
+                    // This is like p[0][2][3] so the base address is p[0] == *p.
                     // Do nothing
                 }
                 else
@@ -245,22 +249,7 @@ namespace TL
 
                 _data_ref._data_type = t;
 
-                if (member.get_member().get_kind() == NODECL_CLASS_MEMBER_ACCESS)
-                {
-                    _data_ref._base_address =
-                        Nodecl::Reference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
-                                    member.get_member().shallow_copy(),
-                                    /* member-form */ Nodecl::NodeclBase::null(),
-                                    t,
-                                    member.get_locus()
-                                    ),
-                                t.get_pointer_to(),
-                                member.get_locus());
-                }
-                else if (IS_CXX_LANGUAGE
-                        && member.get_member().get_kind() == NODECL_SYMBOL
+                if (IS_CXX_LANGUAGE
                         && _data_ref._base_address.get_kind() == NODECL_SYMBOL
                         && _data_ref._base_address.get_symbol().get_name() == "this")
                 {
@@ -279,37 +268,12 @@ namespace TL
                 else
                 {
                     // a.x
-                    // If the base address of the 'a' expression contains a Nodecl::Reference, remove it
-                    Nodecl::NodeclBase base_address = _data_ref._base_address;
-                    if (base_address.is<Nodecl::Reference>())
-                        base_address = base_address.as<Nodecl::Reference>().get_rhs();
-
                     _data_ref._base_address =
                         Nodecl::Reference::make(
-                                Nodecl::ClassMemberAccess::make(
-                                    base_address,
-                                    member.get_member().shallow_copy(),
-                                    member.get_member_literal().shallow_copy(),
-                                    t,
-                                    member.get_locus()
-                                    ),
+                                member.shallow_copy(),
                                 t.get_pointer_to(),
                                 member.get_locus());
                 }
-            }
-
-            virtual void visit(const Nodecl::CxxArraySectionSize & array)
-            {
-               // We need to define this visitor because we want to keep these
-               // kind of expressions but, as they are dependent, we don't
-               // compute anything
-            }
-
-            virtual void visit(const Nodecl::CxxArraySectionRange & array)
-            {
-               // We need to define this visitor because we want to keep these
-               // kind of expressions but, as they are dependent, we don't
-               // compute anything
             }
 
             virtual void visit(const Nodecl::Shaping& shaping_expr)
@@ -353,7 +317,11 @@ namespace TL
                     if (t.is_pointer())
                     {
                         // We do not really know the size, so normalize the region from 0
-                        lower_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                        lower_bounds.push_back(const_value_to_nodecl_with_basic_type(
+                                    const_value_get_zero(
+                                        type_get_size(get_ptrdiff_t_type()),
+                                        /* sign */ 1),
+                                    get_ptrdiff_t_type()));
                         if (index.is<Nodecl::Range>())
                         {
                             // compute the new upper bound normalized to 0
@@ -361,16 +329,21 @@ namespace TL
                                     Nodecl::Minus::make(
                                         Nodecl::ParenthesizedExpression::make(
                                             index.as<Nodecl::Range>().get_upper().shallow_copy(),
-                                            get_signed_int_type()),
+                                            get_ptrdiff_t_type()),
                                         Nodecl::ParenthesizedExpression::make(
                                             index.as<Nodecl::Range>().get_lower().shallow_copy(),
-                                            get_signed_int_type()),
-                                        get_signed_int_type()));
+                                            get_ptrdiff_t_type()),
+                                        get_ptrdiff_t_type()));
                         }
                         else
                         {
                             // A single element of this region
-                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                            upper_bounds.push_back(
+                                    const_value_to_nodecl_with_basic_type(
+                                        const_value_get_zero(
+                                            type_get_size(get_ptrdiff_t_type()),
+                                            /* sign */ 1),
+                                        get_ptrdiff_t_type()));
                         }
 
                         t = t.points_to();
@@ -418,7 +391,10 @@ namespace TL
                             Nodecl::Range::make(
                                     item.shallow_copy(),
                                     item.shallow_copy(),
-                                    /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
+                                    /* stride */ const_value_to_nodecl_with_basic_type(
+                                        const_value_get_one(
+                                            type_get_size(get_ptrdiff_t_type()), /* signed */ 1),
+                                        get_ptrdiff_t_type()),
                                     item.get_type(),
                                     item.get_locus());
 
@@ -435,7 +411,7 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::OmpSs::MultiDependence& multi_deps)
+            virtual void visit(const Nodecl::MultiReference& multi_deps)
             {
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
@@ -455,6 +431,7 @@ namespace TL
     DataReference::DataReference(Nodecl::NodeclBase expr)
         : Nodecl::NodeclBase(expr),
         _is_valid(true),
+        _is_assumed_size(false),
         _base_symbol(NULL),
         _data_type(NULL),
         _error_log("")
@@ -480,6 +457,11 @@ namespace TL
     bool DataReference::is_valid() const
     {
         return _is_valid;
+    }
+
+    bool DataReference::is_assumed_size_array() const
+    {
+        return _is_assumed_size;
     }
 
     //! Returns the warning log
@@ -612,11 +594,16 @@ namespace TL
                     reversed_sizes.begin(),
                     reversed_lower_bounds.begin());
 
-            TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
+            TL::Type index_type = TL::Type::get_ptrdiff_t_type();
 
             Nodecl::NodeclBase result =
                 Nodecl::Mul::make(
-                        const_value_to_nodecl(const_value_get_signed_int(it_type.get_size())),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_integer(
+                                it_type.get_size(),
+                                type_get_size(get_ptrdiff_t_type()),
+                                /* signed */ 1),
+                            get_ptrdiff_t_type()),
                         Nodecl::ParenthesizedExpression::make(
                             index_expression,
                             index_expression.get_type(),
@@ -721,21 +708,21 @@ namespace TL
 
                 t = t.get_pointer_to();
 
-                Nodecl::NodeclBase reference = Nodecl::Reference::make(
+                Nodecl::NodeclBase new_reference = Nodecl::Reference::make(
                         rhs,
                         t,
                         rhs.get_locus());
 
                 // We need to propagate some flags from the expression to the new reference node
                 nodecl_expr_set_is_type_dependent(
-                        reference.get_internal_nodecl(),
+                        new_reference.get_internal_nodecl(),
                         nodecl_expr_is_type_dependent(expr.get_internal_nodecl()));
 
                 nodecl_expr_set_is_value_dependent(
-                        reference.get_internal_nodecl(),
+                        new_reference.get_internal_nodecl(),
                         nodecl_expr_is_value_dependent(expr.get_internal_nodecl()));
 
-                return reference;
+                return new_reference;
             }
         }
         else if (expr.is<Nodecl::ArraySubscript>())
@@ -832,16 +819,20 @@ namespace TL
                         Nodecl::Minus::make(
                             Nodecl::ParenthesizedExpression::make(
                                 upper_bound,
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 upper_bound.get_locus()),
                             Nodecl::ParenthesizedExpression::make(
                                 lower_bound,
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 lower_bound.get_locus()),
-                            TL::Type::get_int_type(),
+                            TL::Type::get_ptrdiff_t_type(),
                             upper_bound.get_locus()),
-                        const_value_to_nodecl(const_value_get_signed_int(1)),
-                        TL::Type::get_int_type(),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_one(
+                                type_get_size(get_ptrdiff_t_type()),
+                                /* signed */ 1),
+                            get_ptrdiff_t_type()),
+                        TL::Type::get_ptrdiff_t_type(),
                         lower_bound.get_locus());
             }
 
@@ -850,23 +841,35 @@ namespace TL
             return Nodecl::Mul::make(
                     Nodecl::ParenthesizedExpression::make(
                         element_size,
-                        TL::Type::get_int_type(),
+                        TL::Type::get_ptrdiff_t_type(),
                         element_size.get_locus()),
                     Nodecl::ParenthesizedExpression::make(
                         array_size,
-                        TL::Type::get_int_type(),
+                        TL::Type::get_ptrdiff_t_type(),
                         array_size.get_locus()),
-                    TL::Type::get_int_type(),
+                    TL::Type::get_ptrdiff_t_type(),
                     element_size.get_locus());
 
             return array_size;
         }
+        else if (relevant_type.is_dependent())
+        {
+            Nodecl::NodeclBase result = Nodecl::Sizeof::make(
+                    Nodecl::Type::make(relevant_type),
+                    Nodecl::NodeclBase::null(),
+                    get_size_t_type());
+
+            result.set_is_value_dependent(true);
+            return result;
+        }
         else
         {
-            return const_value_to_nodecl(
-                    // FIXME - This should be size_t
-                    const_value_get_signed_int(
-                        relevant_type.get_size()));
+            return const_value_to_nodecl_with_basic_type(
+                    const_value_get_integer(
+                        relevant_type.get_size(),
+                        type_get_size(get_ptrdiff_t_type()),
+                        /* signed */ 1),
+                    get_ptrdiff_t_type());
         }
     }
 
@@ -903,7 +906,9 @@ namespace TL
             }
             else if (t.is_pointer())
             {
-                lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
+                lower_bound = const_value_to_nodecl_with_basic_type(
+                        const_value_get_zero(type_get_size(get_ptrdiff_t_type()), 1),
+                        get_ptrdiff_t_type());
             }
             else
             {
@@ -935,15 +940,15 @@ namespace TL
                         Nodecl::Minus::make(
                             Nodecl::ParenthesizedExpression::make(
                                 lower.shallow_copy(),
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 expr.get_locus()),
                             Nodecl::ParenthesizedExpression::make(
                                 lower_bound.shallow_copy(),
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 lower_bound.get_locus()),
-                            TL::Type::get_int_type(),
+                            TL::Type::get_ptrdiff_t_type(),
                             expr.get_locus()),
-                        TL::Type::get_int_type(),
+                        TL::Type::get_ptrdiff_t_type(),
                         expr.get_locus());
 
             indexes.append(current_index);
@@ -976,7 +981,11 @@ namespace TL
             else
             {
                 // This way it will have the same length as indexes
-                sizes.append(const_value_to_nodecl(const_value_get_one(4, 1)));
+                sizes.append(const_value_to_nodecl_with_basic_type(
+                            const_value_get_one(
+                                type_get_size(get_ptrdiff_t_type()),
+                                /* sign */ 1),
+                            get_ptrdiff_t_type()));
             }
 
 
@@ -1040,7 +1049,9 @@ namespace TL
             return compute_offsetof_array_subscript(expr, scope);
         }
 
-        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
+        return const_value_to_nodecl_with_basic_type(
+                const_value_get_zero(type_get_size(get_ptrdiff_t_type()), /* sign */ 1),
+                get_ptrdiff_t_type());
     }
 
     Nodecl::NodeclBase DataReference::compute_offsetof_copy(
@@ -1159,7 +1170,9 @@ namespace TL
             // A shaping itself does not imply any offset
         }
 
-        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
+        return const_value_to_nodecl_with_basic_type(
+                const_value_get_zero(type_get_size(get_ptrdiff_t_type()), 1),
+                get_ptrdiff_t_type());
     }
 
     Nodecl::NodeclBase DataReference::get_offsetof_dependence() const
@@ -1217,13 +1230,13 @@ namespace TL
         mr.read(_base_address);
     }
 
-    bool DataReference::is_multidependence() const
+    bool DataReference::is_multireference() const
     {
         return !_iterators.empty();
     }
 
-    TL::ObjectList<DataReference::MultiDepIterator>
-        DataReference::multidependences() const
+    TL::ObjectList<DataReference::MultiRefIterator>
+        DataReference::multireferences() const
     {
         return _iterators;
     }

@@ -29,7 +29,6 @@ config.h.in~
 *.la
 *.a
 *.so
-*.txt
 Makefile
 .deps/
 .libs/
@@ -44,6 +43,7 @@ config.h
 config.log
 config.status
 config/00.config.plain
+config/01.config.intel-plain
 config/10.config.analysis-base
 config/10.config.hlt
 config/10.config.omp-base
@@ -111,13 +111,6 @@ src/frontend/fortran/prescanner-scanner.h
 src/tl/omp/core/tl-omp-udr-builtins.cpp
 stamp-h1
 support/iso_fortran/iso_fortran_env.mf03
-support/iso_fortran/lt-mcxx_18596.backtrace.txt
-support/iso_fortran/lt-mcxx_18934.backtrace.txt
-support/iso_fortran/lt-mcxx_19168.backtrace.txt
-support/iso_fortran/lt-mcxx_19384.backtrace.txt
-support/iso_fortran/lt-mcxx_22150.backtrace.txt
-support/iso_fortran/lt-mcxx_22370.backtrace.txt
-support/iso_fortran/lt-mcxx_7100.backtrace.txt
 support/mpi/mpich/mpi.mf03
 support/mpi/mpich/mpi_base.mf03
 support/mpi/mpich/mpi_constants.mf03
@@ -139,6 +132,7 @@ tests/config/mercurium
 tests/config/mercurium-analysis
 tests/config/mercurium-cuda
 tests/config/mercurium-cxx11
+tests/config/mercurium-cxx14
 tests/config/mercurium-extensions
 tests/config/mercurium-fortran
 tests/config/mercurium-hlt
@@ -166,4 +160,3 @@ config/57.config.omp.all
 config/55.config.omp.intel.fortran
 src/frontend/cxx-asttype-str-internal.h
 src/frontend/cxx-asttype-str.gperf
-

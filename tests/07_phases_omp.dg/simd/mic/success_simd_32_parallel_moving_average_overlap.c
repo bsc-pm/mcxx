@@ -26,6 +26,7 @@
 
 /*
 <testinfo>
+test_CFLAGS="--only-adjacent-accesses --variable=prefetch_distance:4,1 --prefetch-in-place"
 test_generator=config/mercurium-parallel-simd-mic
 </testinfo>
 */

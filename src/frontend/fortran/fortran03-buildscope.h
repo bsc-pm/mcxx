@@ -48,7 +48,9 @@ LIBMF03_EXTERN type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size)
 LIBMF03_EXTERN type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size);
 
-LIBMF03_EXTERN type_t* fortran_gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context);
+LIBMF03_EXTERN type_t* fortran_gather_type_from_declaration_type_spec(AST a,
+        decl_context_t decl_context,
+        AST* length);
 
 LIBMF03_EXTERN void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context,

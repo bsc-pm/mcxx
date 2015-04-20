@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -53,6 +53,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <regex.h>
 
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -147,7 +148,7 @@
 "                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
-"  --Wx:<profile>:<flags>,options\n" \
+"  --Wx:<profile>:<flags>,<options>\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
 "  --openmp                 Enables OpenMP support (default)\n" \
@@ -189,7 +190,8 @@
 "                           number of THREADS.\n" \
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
-"  --opencl-build-opts=<options> Options passed to OpenCL compiler\n" \
+"  --opencl-build-opts=<options>\n" \
+"                           Options passed to OpenCL compiler\n" \
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
 "                           phases, use this flag to avoid the\n" \
 "                           compiler to unload them.\n" \
@@ -228,7 +230,8 @@
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
-"  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
+"  --disable-intrinsics=<comma-separated-intrinsics>\n" \
+"                           Disable given Fortran intrinsics\n" \
 "  --integer-kind=N         Set the default kind of INTEGER\n" \
 "                           By default it is 4. Fortran only\n" \
 "  --real-kind=N            Set the default kind of REAL\n" \
@@ -239,7 +242,7 @@
 "                           By default it is 4. Fortran only\n" \
 "  --character-kind=N       Set the default kind of CHARACTER\n" \
 "                           By default it is 1. Fortran only\n" \
-"  --fortran-array-descriptor=name\n" \
+"  --fortran-array-descriptor=<name>\n" \
 "                           Selects Fortran array descriptor\n" \
 "  --list-fortran-array-descriptors\n" \
 "                           Prints list of supported Fortran\n" \
@@ -258,7 +261,7 @@
 "                           Instead, keep 'x.mf03' and native 'x.mod'.\n" \
 "  --do-not-warn-config     Do not warn about wrong configuration\n" \
 "                           file names\n" \
-"  --vector-flavor=name     When emitting vector types use given\n" \
+"  --vector-flavor=<name>   When emitting vector types use given\n" \
 "                           flavor name. By default it is gnu.\n" \
 "                           See --vector-list-flavors\n" \
 "  --list-vector-flavors    Lists the supported vector flavors\n" \
@@ -309,6 +312,7 @@
 "  -m<name>\n" \
 "  -MP\n" \
 "  -MT <target>\n" \
+"  -pie\n" \
 "  -pipe\n" \
 "  -pthread\n" \
 "  -rdynamic\n" \
@@ -399,6 +403,7 @@ typedef enum
     OPTION_DISABLE_FILE_LOCKING,
     OPTION_XL_COMPATIBILITY,
     OPTION_LINE_MARKERS,
+    OPTION_PARALLEL,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -457,7 +462,7 @@ struct command_line_long_options command_line_long_options[] =
     {"fixed-form-length", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_FIXED_FORM_LENGTH},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
-    {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
+    {"disable-intrinsics", CLP_REQUIRED_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
     {"integer-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_INTEGER_KIND},
     {"real-kind", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_REAL_KIND},
@@ -482,6 +487,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
     {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
+    {"parallel", CLP_NO_ARGUMENT, OPTION_PARALLEL },
     // sentinel
     {NULL, 0, 0}
 };
@@ -555,6 +561,8 @@ static int parse_implicit_parameter_flag(int *should_advance, const char *specia
 static void list_environments(void);
 static void list_fortran_array_descriptors(void);
 static void list_vector_flavors(void);
+
+static void register_disable_intrinsics(const char* intrinsic_name);
 
 static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
@@ -1451,7 +1459,7 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_DISABLE_INTRINSICS:
                     {
-                        CURRENT_CONFIGURATION->disable_intrinsics = 1;
+                        register_disable_intrinsics(parameter_info.argument);
                         break;
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
@@ -1568,6 +1576,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_LINE_MARKERS:
                     {
                         CURRENT_CONFIGURATION->line_markers = 1;
+                        break;
+                    }
+                case OPTION_PARALLEL:
+                    {
+                        compilation_process.parallel_process = 1;
                         break;
                     }
                 default:
@@ -2118,6 +2131,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 {
                 }
                 else if (strcmp(argument, "-pipe") == 0)
+                {
+                }
+                else if (strcmp(argument, "-pie") == 0)
                 {
                 }
                 else if ((strcmp(argument, "-print-search-dirs") == 0)
@@ -3469,6 +3485,31 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
+
+        if (compilation_process.parallel_process)
+        {
+            const char * ext = strrchr(output_filename_basename, '.');
+            ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
+
+            char c[strlen(output_filename_basename) + 1];
+            memset(c, 0, sizeof(c));
+
+            strncpy(c, output_filename_basename, (size_t)(ext - output_filename_basename));
+            c[ext - output_filename_basename + 1] = '\0';
+
+            const char* pid_str = 0;
+            // We assume that pid_t can be represented by signed int
+            uniquestr_sprintf(&pid_str, "_%d", (int)getpid());
+            // append _pid
+            output_filename_basename = strappend(c, pid_str);
+            // append original extension
+            output_filename_basename = strappend(output_filename_basename, ext);
+
+            if (CURRENT_CONFIGURATION->keep_files)
+            {
+                fprintf(stderr, "Generated file will be left in '%s'\n", output_filename_basename);
+            }
+        }
 
         if (CURRENT_CONFIGURATION->output_directory != NULL)
         {
@@ -5062,4 +5103,41 @@ static void list_vector_flavors(void)
     fprintf(stdout, "If not specified, default vector flavor is gnu\n");
 
     exit(EXIT_SUCCESS);
+}
+
+static void register_disable_intrinsics(const char* intrinsic_name)
+{
+    char *tmp = xstrdup(intrinsic_name);
+
+    char *current_name = strtok(tmp, ",");
+
+    int regex_code;
+    regex_t match_intrinsic;
+
+    if ((regex_code = regcomp(&match_intrinsic, "^[A-Z]([A-Z0-9_]*)$", REG_NOSUB | REG_ICASE | REG_EXTENDED)) != 0)
+    {
+        char error_message[120];
+        regerror(regex_code, &match_intrinsic, error_message, 120);
+        internal_error("Error when compiling regular expression (%s)\n", error_message);
+    }
+
+    while (current_name != NULL)
+    {
+        if (regexec(&match_intrinsic, current_name, 0, NULL, 0) == 0)
+        {
+            P_LIST_ADD(CURRENT_CONFIGURATION->disabled_intrinsics_list,
+                    CURRENT_CONFIGURATION->num_disabled_intrinsics,
+                    uniquestr(current_name));
+        }
+        else
+        {
+            fprintf(stderr, "warning: malformed intrinsic name '%s', skipping\n", current_name);
+        }
+
+        current_name = strtok(NULL, ",");
+    }
+
+    regfree(&match_intrinsic);
+
+    xfree(tmp);
 }

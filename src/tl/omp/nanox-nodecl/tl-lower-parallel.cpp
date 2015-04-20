@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -103,18 +103,18 @@ namespace TL { namespace Nanox {
         Source outline_source, reduction_code_src, reduction_initialization_src;
         Nodecl::NodeclBase inner_placeholder;
         outline_source
-            << "nanos_err_t err;"
-            << "err = nanos_omp_set_implicit(nanos_current_wd());"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "err = nanos_enter_team();"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err_t nanos_err;"
+            << "nanos_err = nanos_omp_set_implicit(nanos_current_wd());"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+            << "nanos_err = nanos_enter_team();"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             << reduction_initialization_src
             << statement_placeholder(inner_placeholder)
             << reduction_code_src
-            << "err = nanos_omp_barrier();"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "err = nanos_leave_team();"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << "nanos_err = nanos_omp_barrier();"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+            << "nanos_err = nanos_leave_team();"
+            << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             ;
 
         Nodecl::NodeclBase reduction_initialization, reduction_code;
@@ -136,7 +136,9 @@ namespace TL { namespace Nanox {
         TL::Symbol called_task_dummy;
         TargetInformation target_info = implementation_it->second;
         std::string outline_name = target_info.get_outline_name();
-        CreateOutlineInfo info(outline_name,
+        CreateOutlineInfo info(
+                _lowering,
+                outline_name,
                 outline_info.get_data_items(),
                 target_info,
                 /* original statements */ statements,

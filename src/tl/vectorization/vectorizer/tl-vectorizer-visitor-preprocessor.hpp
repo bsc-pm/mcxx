@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -42,6 +42,8 @@ namespace Vectorization
             void visit_pre_post_increment(const Nodecl::Preincrement& n);
             void visit_pre_post_decrement(const Nodecl::Predecrement& n);
 
+            template <typename OpAssignment, typename Op> 
+                void visit_op_assignment(const OpAssignment& n);
 
         public:
             VectorizerVisitorPreprocessor();

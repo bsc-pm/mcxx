@@ -1,5 +1,33 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 
 #include "tl-expression-reduction.hpp"
+#include "tl-optimizations.hpp"
+
 #include "tl-nodecl-utils.hpp"
 
 namespace TL {
@@ -53,17 +81,6 @@ namespace Optimizations {
                             n.replace(lhs_rhs.shallow_copy());
                         }
                     }
-                    else
-                    {
-                        // R6i
-                        // Diego: I commented this rule some time ago.
-                        //        This rule is needed but it will probably
-                        //        make something fail or maybe it was commented
-                        //        for debugging. Let's keep this comment for a while
-                        Nodecl::NodeclBase tmp = lhs_lhs.shallow_copy();
-                        lhs_lhs.replace(rhs.shallow_copy());
-                        rhs.replace(tmp);
-                    }
                 }
                 else if(lhs.is<Nodecl::Minus>())
                 {   // R6c
@@ -85,9 +102,18 @@ namespace Optimizations {
                         }
                     }
                 }
-                else
-                {   // R2
-                    n.replace(Nodecl::Add::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+
+                // R2: This rule applys independetly from the kind of lhs
+                // Re-check again everything, the node could have changed
+                if (n.is<Nodecl::Add>())
+                {
+                    lhs = n.get_lhs();
+                    rhs = n.get_rhs();
+                    
+                    if (!lhs.is_constant() && rhs.is_constant())
+                    {
+                        n.replace(Nodecl::Add::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+                    }
                 }
             }
             else if(lhs.is_constant())
@@ -130,6 +156,54 @@ namespace Optimizations {
                         {
                             n.replace(rhs_rhs.shallow_copy());
                         }
+                    }
+                }
+            }
+
+            // The node could have changed
+            if (n.is<Nodecl::Add>())
+            {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
+                // R50a: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                if ((lhs.is<Nodecl::Add>()))
+                {
+                    Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::Add n_copy = n.shallow_copy().as<Nodecl::Add>();
+                        Nodecl::Add lhs_copy = lhs_add.shallow_copy().as<Nodecl::Add>();
+
+                        n_copy.get_lhs().replace(lhs_rhs.shallow_copy());
+                        lhs_copy.get_rhs().replace(n_copy);
+
+                        n.replace(lhs_copy);
+                    }
+                }
+                // R51a: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                else if ((lhs.is<Nodecl::Minus>()))
+                {
+                    Nodecl::Minus lhs_sub = lhs.as<Nodecl::Minus>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_sub.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_sub.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::Minus lhs_copy = lhs_sub.shallow_copy().as<Nodecl::Minus>();
+                        Nodecl::Minus new_rhs = Nodecl::Minus::make(
+                                lhs_rhs.shallow_copy(), rhs.shallow_copy(),
+                                n.get_type(), n.get_locus());
+
+                        lhs_copy.get_rhs().replace(new_rhs);
+                        n.replace(lhs_copy);
                     }
                 }
             }
@@ -466,6 +540,54 @@ namespace Optimizations {
                     n.replace(minus);
                 }
             }
+
+            // The node could have changed
+            if (n.is<Nodecl::Minus>())
+            {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
+                // R50b: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                if ((lhs.is<Nodecl::Minus>()))
+                {
+                    Nodecl::Minus lhs_sub = lhs.as<Nodecl::Minus>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_sub.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_sub.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::Minus lhs_copy = lhs_sub.shallow_copy().as<Nodecl::Minus>();
+                        Nodecl::Add new_rhs = Nodecl::Add::make(
+                                lhs_rhs.shallow_copy(), rhs.shallow_copy(),
+                                n.get_type(), n.get_locus());
+
+                        lhs_copy.get_rhs().replace(new_rhs);
+                        n.replace(lhs_copy);
+                    }
+                }
+                // R51b: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                else if ((lhs.is<Nodecl::Add>()))
+                {
+                    Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::Add lhs_copy = lhs_add.shallow_copy().as<Nodecl::Add>();
+                        Nodecl::Minus new_rhs = Nodecl::Minus::make(
+                                lhs_rhs.shallow_copy(), rhs.shallow_copy(),
+                                n.get_type(), n.get_locus());
+
+                        lhs_copy.get_rhs().replace(new_rhs);
+                        n.replace(lhs_copy);
+                    }
+                }
+            }
         }
     }
 
@@ -551,9 +673,46 @@ namespace Optimizations {
                             }
                         }
                     }
-                    else
-                    {   // R8
-                        n.replace(Nodecl::Mul::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+
+                    // R8: This rule applys independetly from the kind of lhs
+                    // Re-check again everything, the node could have changed
+                    if (n.is<Nodecl::Mul>())
+                    {
+                        lhs = n.get_lhs();
+                        rhs = n.get_rhs();
+
+                        if (!lhs.is_constant() && rhs.is_constant())
+                        {
+                            n.replace(Nodecl::Mul::make(rhs.shallow_copy(), lhs.shallow_copy(), lhs.get_type(), n.get_locus()));
+                        }
+                    }
+                }
+            }
+
+            // The node could have changed
+            if (n.is<Nodecl::Mul>())
+            {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
+                // R50c: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                if ((lhs.is<Nodecl::Mul>()))
+                {
+                    Nodecl::Mul lhs_add = lhs.as<Nodecl::Mul>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::Mul n_copy = n.shallow_copy().as<Nodecl::Mul>();
+                        Nodecl::Mul lhs_copy = lhs_add.shallow_copy().as<Nodecl::Mul>();
+
+                        n_copy.get_lhs().replace(lhs_rhs.shallow_copy());
+                        lhs_copy.get_rhs().replace(n_copy);
+
+                        n.replace(lhs_copy);
                     }
                 }
             }
@@ -632,9 +791,19 @@ namespace Optimizations {
                         }
                     }
                 }
-                else
-                {   // R2
-                    n.replace(Nodecl::VectorAdd::make(rhs.shallow_copy(), lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
+
+                // R2: This rule applys independetly from the kind of lhs
+                // Re-check again everything, the node could have changed
+                if (n.is<Nodecl::VectorAdd>())
+                {
+                    lhs = n.get_lhs();
+                    rhs = n.get_rhs();
+                    
+                    if (!lhs.is_constant() && rhs.is_constant())
+                    {
+                        n.replace(Nodecl::VectorAdd::make(rhs.shallow_copy(), lhs.shallow_copy(), 
+                                    n.get_mask().shallow_copy(), lhs.get_type(), n.get_locus()));
+                    }
                 }
             }
             else if(lhs.is_constant())
@@ -666,7 +835,7 @@ namespace Optimizations {
                     Nodecl::NodeclBase rhs_rhs = rhs_minus.get_rhs();
                     if(rhs_lhs.is_constant())
                     {   // R6d
-                        Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type());
+                        Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type());
                         const_value_t* c_value = _calc.compute_const_value(c);
                         if(!const_value_is_zero(c_value))
                         {
@@ -677,6 +846,54 @@ namespace Optimizations {
                         {
                             n.replace(rhs_rhs.shallow_copy());
                         }
+                    }
+                }
+            }
+
+            // The node could have changed
+            if (n.is<Nodecl::VectorAdd>())
+            {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
+                // R50a: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                if ((lhs.is<Nodecl::VectorAdd>()))
+                {
+                    Nodecl::VectorAdd lhs_add = lhs.as<Nodecl::VectorAdd>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::VectorAdd n_copy = n.shallow_copy().as<Nodecl::VectorAdd>();
+                        Nodecl::VectorAdd lhs_copy = lhs_add.shallow_copy().as<Nodecl::VectorAdd>();
+
+                        n_copy.get_lhs().replace(lhs_rhs.shallow_copy());
+                        lhs_copy.get_rhs().replace(n_copy);
+
+                        n.replace(lhs_copy);
+                    }
+                }
+                // R51a: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                else if ((lhs.is<Nodecl::VectorMinus>()))
+                {
+                    Nodecl::VectorMinus lhs_sub = lhs.as<Nodecl::VectorMinus>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_sub.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_sub.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::VectorMinus lhs_copy = lhs_sub.shallow_copy().as<Nodecl::VectorMinus>();
+                        Nodecl::VectorMinus new_rhs = Nodecl::VectorMinus::make(
+                                lhs_rhs.shallow_copy(), rhs.shallow_copy(), n.get_mask(),
+                                n.get_type(), n.get_locus());
+
+                        lhs_copy.get_rhs().replace(new_rhs);
+                        n.replace(lhs_copy);
                     }
                 }
             }
@@ -707,23 +924,7 @@ namespace Optimizations {
         }
     }
 
-    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShlI& n)
-    {
-        if(n.is_constant())
-        {   // R1
-            n.replace(const_value_to_nodecl(n.get_constant()));
-        }
-    }
-
     void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShr& n)
-    {
-        if(n.is_constant())
-        {   // R1
-            n.replace(const_value_to_nodecl(n.get_constant()));
-        }
-    }
-
-    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShrI& n)
     {
         if(n.is_constant())
         {   // R1
@@ -984,6 +1185,54 @@ namespace Optimizations {
                                 n.get_type().vector_num_elements(),
                                 const_value_get_zero(/*num_bytes*/ 4, /*sign*/1))));
             }
+
+            // The node could have changed
+            if (n.is<Nodecl::VectorMinus>())
+            {
+                lhs = n.get_lhs();
+                rhs = n.get_rhs();
+
+                // R50b: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                if ((lhs.is<Nodecl::VectorMinus>()))
+                {
+                    Nodecl::VectorMinus lhs_sub = lhs.as<Nodecl::VectorMinus>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_sub.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_sub.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::VectorMinus lhs_copy = lhs_sub.shallow_copy().as<Nodecl::VectorMinus>();
+                        Nodecl::VectorAdd new_rhs = Nodecl::VectorAdd::make(
+                                lhs_rhs.shallow_copy(), rhs.shallow_copy(), n.get_mask(),
+                                n.get_type(), n.get_locus());
+
+                        lhs_copy.get_rhs().replace(new_rhs);
+                        n.replace(lhs_copy);
+                    }
+                }
+                // R51b: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                else if ((lhs.is<Nodecl::VectorAdd>()))
+                {
+                    Nodecl::VectorAdd lhs_add = lhs.as<Nodecl::VectorAdd>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::VectorAdd lhs_copy = lhs_add.shallow_copy().as<Nodecl::VectorAdd>();
+                        Nodecl::VectorMinus new_rhs = Nodecl::VectorMinus::make(
+                                lhs_rhs.shallow_copy(), rhs.shallow_copy(), n.get_mask(),
+                                n.get_type(), n.get_locus());
+
+                        lhs_copy.get_rhs().replace(new_rhs);
+                        n.replace(lhs_copy);
+                    }
+                }
+            }
         }
     }
 
@@ -1066,9 +1315,45 @@ namespace Optimizations {
                             }
                         }
                     }
-                    else
-                    {   // R8
-                        n.replace(Nodecl::VectorMul::make(rhs.shallow_copy(), lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
+                    
+                    // R2: This rule applys independetly from the kind of lhs
+                    // Re-check again everything, the node could have changed
+                    if (n.is<Nodecl::VectorMul>())
+                    {
+                        lhs = n.get_lhs();
+                        rhs = n.get_rhs();
+
+                        if (!lhs.is_constant() && rhs.is_constant())
+                        {
+                            n.replace(Nodecl::VectorMul::make(rhs.shallow_copy(), lhs.shallow_copy(), 
+                                        n.get_mask().shallow_copy(), lhs.get_type(), n.get_locus()));
+                        }
+                    }
+                }
+            }
+
+            // The node could have changed
+            if (n.is<Nodecl::VectorMul>())
+            {
+
+                // R50c: 
+                // TODO: This rule is changing the order of the operations (as many other).
+                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                if ((lhs.is<Nodecl::VectorMul>()))
+                {
+                    Nodecl::VectorMul lhs_add = lhs.as<Nodecl::VectorMul>();
+                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+
+                    if (lhs_lhs.is_constant())
+                    {
+                        Nodecl::VectorMul n_copy = n.shallow_copy().as<Nodecl::VectorMul>();
+                        Nodecl::VectorMul lhs_copy = lhs_add.shallow_copy().as<Nodecl::VectorMul>();
+
+                        n_copy.get_lhs().replace(lhs_rhs.shallow_copy());
+                        lhs_copy.get_rhs().replace(n_copy);
+
+                        n.replace(lhs_copy);
                     }
                 }
             }
@@ -1112,11 +1397,28 @@ namespace Optimizations {
 
         if (it != _unitary_rhss.end())
         {
+            // Nullify nodecl from lhs (visitor)
             n.replace(const_value_to_nodecl(
                         const_value_get_zero(1, 4)));
-            it->replace(const_value_to_nodecl(
-                        const_value_get_zero(1, 4)));
+
+            // Nullify nodecl from rhs (list)
+            Nodecl::NodeclBase rhs_it = *it;
             _unitary_rhss.erase(it);
+
+            rhs_it.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+
+            Nodecl::NodeclBase rhs_it_parent = rhs_it.get_parent();
+
+            // Remove Conversion?
+            if ((!rhs_it_parent.is_null()) && rhs_it_parent.is<Nodecl::Conversion>())
+            {
+                TL::Type dst_type = rhs_it_parent.get_type().no_ref();
+                TL::Type src_type = rhs_it.get_type().no_ref(); 
+
+                if (dst_type.is_same_type(src_type))
+                    rhs_it_parent.replace(rhs_it);
+            }
         }
     }
  
@@ -1125,6 +1427,12 @@ namespace Optimizations {
     {
         Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
         Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+
+        if (Nodecl::Utils::structurally_equal_nodecls(lhs, rhs, true /*skip conversions*/))
+        {
+            n.replace(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)));
+            return;
+        }
 
         MinusRemover minus_remover;
         minus_remover.walk(lhs);
@@ -1143,8 +1451,9 @@ namespace Optimizations {
                         lhs.get_constant(), rhs.get_constant())));
         }
 
-        TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
-        reduce_expr_visitor.walk(n);
+        TL::Optimizations::canonicalize_and_fold(n, false /*fast_math*/);
+//        TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
+//        reduce_expr_visitor.walk(n);
 
         if (n.is<Nodecl::Minus>())
         {
@@ -1175,14 +1484,15 @@ namespace Optimizations {
 
     void UnitaryReductor::visit(const Nodecl::Conversion& n)
     {
-        //TODO
-        bool is_symbol_pre = n.get_nest().is<Nodecl::Symbol>();
-
         walk(n.get_nest());
+        
+        TL::Type dst_type = n.get_type().no_ref();
+        TL::Type src_type = n.get_nest().get_type().no_ref();
 
         bool is_integer_post = n.get_nest().is<Nodecl::IntegerLiteral>();
 
-        if (is_symbol_pre && is_integer_post)
+        //if (is_symbol_pre && is_integer_post)
+        if (is_integer_post && (src_type.is_same_type(dst_type)))
             n.replace(n.get_nest());
     }
 

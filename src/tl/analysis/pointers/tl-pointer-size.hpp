@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2013 B*arcelona Supercomputing Center
+ ( C) Copyright 2006-2014 B*arcelona Supercomputing Center
  Centro Nacional de Supercomputacion
  
  This file is part of Mercurium C/C++ source-to-source compiler.

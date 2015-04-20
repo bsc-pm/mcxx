@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -70,6 +70,14 @@ namespace TL { namespace Nanox {
                 {
                     ++_num_task_related_pragmas;
                     walk(task_expr.get_sequential_code());
+                }
+
+                void visit(const Nodecl::ObjectInit& object_init)
+                {
+                    TL::Symbol sym = object_init.get_symbol();
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
                 }
 
                 void visit(const Nodecl::FunctionCall &function_call)
@@ -154,6 +162,14 @@ namespace TL { namespace Nanox {
                     walk(task_expr);
                 }
 
+                void visit(const Nodecl::ObjectInit& object_init)
+                {
+                    TL::Symbol sym = object_init.get_symbol();
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
+                }
+
                 void visit(const Nodecl::FunctionCall& function_call)
                 {
                     Nodecl::NodeclBase called = function_call.get_called();
@@ -183,7 +199,7 @@ namespace TL { namespace Nanox {
 
                             Nodecl::NodeclBase new_function_code = Nodecl::Utils::deep_copy(
                                     function_code,
-                                    function_code,
+                                    called_sym.get_scope(),
                                     _function_translation_map);
 
                             // Make it member if the enclosing function is member
@@ -195,16 +211,18 @@ namespace TL { namespace Nanox {
                                         new_function_sym.get_internal_symbol(),
                                         /* is_definition */ 1);
                             }
-
-                            // Prepend a declaration of the new function symbol to the enclosing function code
-                            CXX_LANGUAGE()
+                            else
                             {
-                                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                                        /* optative context */ nodecl_null(),
-                                        new_function_sym,
-                                        function_call.get_locus());
+                                // Prepend a declaration of the new function symbol to the enclosing function code
+                                CXX_LANGUAGE()
+                                {
+                                    Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                                            /* optative context */ nodecl_null(),
+                                            new_function_sym,
+                                            function_call.get_locus());
 
-                                Nodecl::Utils::prepend_items_before(_enclosing_function_code, nodecl_decl);
+                                    Nodecl::Utils::prepend_items_before(_enclosing_function_code, nodecl_decl);
+                                }
                             }
 
                             // Prepend the new function code to the tree
@@ -229,7 +247,7 @@ namespace TL { namespace Nanox {
                 }
         };
 
-        Nodecl::NodeclBase new_stmts = stmts.shallow_copy();
+        Nodecl::NodeclBase new_stmts = Nodecl::Utils::deep_copy(stmts, stmts.retrieve_context());
 
         FinalStatementsPreVisitor pre_visitor(_function_translation_map);
         pre_visitor.walk(new_stmts);

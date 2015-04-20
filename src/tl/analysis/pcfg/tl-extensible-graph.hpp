@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -87,7 +87,6 @@ namespace Analysis {
 
 
         // *** Values used during the analysis *** //
-
         //! List of nodes containing task's code
         ObjectList<Node*> _task_nodes_l;
 
@@ -96,16 +95,24 @@ namespace Analysis {
 
         //! Map that relates each task in the graph with the tasks that are concurrent with it
         std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
+
         //! Map that relates each task with the previous points in the code 
         //! from where to look for sequential code concurrent with the task
-        std::map<Node*, ObjectList<Node*> > _last_sync;
+        std::map<Node*, ObjectList<Node*> > _last_sync_tasks;
+        std::map<Node*, ObjectList<Node*> > _last_sync_sequential;
+
         //! Map that relates each task with the posterior points in the code
         //! from where to look for sequential code concurrent with the task
-        std::map<Node*, ObjectList<Node*> > _next_sync;
-        
+        std::map<Node*, ObjectList<Node*> > _next_sync_tasks;
+        std::map<Node*, ObjectList<Node*> > _next_sync_sequential;
+
+
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
         std::map<int, int> _cluster_to_entry_map;
+
+        // *** Variables storing info about analyses built on top of the PCFG *** //
+        bool _usage_computed;
 
     private:
         //! We don't want to allow this kind of constructions
@@ -210,15 +217,15 @@ namespace Analysis {
          * \return           The new node
         */
         Node* append_new_child_to_parent(ObjectList<Node*> parents, ObjectList<NBase> stmts,
-                                         Node_type ntype = __Normal, Edge_type etype = __Always);
+                                         NodeType ntype = __Normal, EdgeType etype = __Always);
 
         //! Overladed method for unique \p parent and unique \p statement
         Node* append_new_child_to_parent(Node* parent, NBase stmt,
-                                         Node_type ntype = __Normal, Edge_type etype = __Always);
+                                         NodeType ntype = __Normal, EdgeType etype = __Always);
 
         //! Overladed method for multiple \p parents and unique \p statement
         Node* append_new_child_to_parent(ObjectList<Node*> parents, NBase stmt,
-                                         Node_type ntype = __Normal, Edge_type etype = __Always);
+                                         NodeType ntype = __Normal, EdgeType etype = __Always);
 
         //! Connects two nodes by creating a new edge between them. Only if they were not connected.
         /*!
@@ -232,23 +239,23 @@ namespace Analysis {
          *                      In such case, the edge will have a special attribute Back_Edge.
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes(Node* parent, Node* child, Edge_type etype = __Always, 
+        Edge* connect_nodes(Node* parent, Node* child, EdgeType etype = __Always,
                             const NBase& label = NBase::null(),
                              bool is_task_edge = false, bool is_back_edge = false);
 
         //! Overloaded method for a set of \p parents and a set of \p children.
         void connect_nodes(const ObjectList<Node*>& parents, const ObjectList<Node*>& children,
-                           const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(), 
+                           const ObjectList<EdgeType>& etypes=ObjectList<EdgeType>(),
                            const ObjectList<NBase>& elabels=ObjectList<NBase>());
 
         //! Overloaded method for a \p parent and a set of \p children.
         void connect_nodes(Node* parent, const ObjectList<Node*>& children,
-                           const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(),
+                           const ObjectList<EdgeType>& etypes=ObjectList<EdgeType>(),
                            const ObjectList<NBase>& elabels=ObjectList<NBase>());
 
         //! Overloaded method for a set of \p parents and a \p children.
         void connect_nodes(const ObjectList<Node*>& parents, Node* child, 
-                           const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(), 
+                           const ObjectList<EdgeType>& etypes=ObjectList<EdgeType>(),
                            const ObjectList<NBase>& elabels=ObjectList<NBase>(), 
                             bool is_task_edge = false, bool is_back_edge = false);
 
@@ -280,7 +287,7 @@ namespace Analysis {
         * \return The new composite node.
         */
         Node* create_graph_node(Node* outer_node, NBase label,
-                                Graph_type graph_type, NBase context = NBase::null());
+                                GraphType graph_type, NBase context = NBase::null());
 
         //! Builds a Flush node and connects it with the existent graph
         Node* create_flush_node(Node* outer_node, NBase n = NBase::null());
@@ -289,7 +296,7 @@ namespace Analysis {
         /*!
         * \param nodecl Statement that will be added to the new node
         */
-        Node* create_unconnected_node(Node_type type, NBase nodecl);
+        Node* create_unconnected_node(NodeType type, NBase nodecl);
 
         //! Deletes a node from the graph
         /*!
@@ -372,7 +379,7 @@ namespace Analysis {
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope() const;
 
-        NodeclSet get_global_variables() const;
+        const NodeclSet& get_global_variables() const;
         void set_global_vars(const NodeclSet& global_vars);
 
         //! Returns the symbol of the function contained in the graph
@@ -403,13 +410,20 @@ namespace Analysis {
         // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
         ObjectList<Node*> get_task_concurrent_tasks(Node* task) const;
         void add_concurrent_task_group(Node* task, ObjectList<Node*> concurrent_tasks);
-        ObjectList<Node*> get_task_last_synchronization(Node* task) const;
-        void add_last_synchronization(Node* task, ObjectList<Node*> last_sync);
-        ObjectList<Node*> get_task_next_synchronization(Node* task) const;
-        void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
-        void remove_next_synchronization(Node* task, Node* next_sync);
+
+        ObjectList<Node*> get_task_last_sync_for_tasks(Node* task) const;
+        ObjectList<Node*> get_task_last_sync_for_sequential_code(Node* task) const;
+        void add_last_sync_for_tasks(Node* task, Node* last_sync);
+        void set_last_sync_for_tasks(Node* task, Node* last_sync);
+        void add_last_sync_for_sequential_code(Node* task, Node* last_sync);
+
+        ObjectList<Node*> get_task_next_sync_for_tasks(Node* task) const;
+        ObjectList<Node*> get_task_next_sync_for_sequential_code(Node* task) const;
+        void add_next_sync_for_tasks(Node* task, Node* next_sync);
+        void add_next_sync_for_sequential_code(Node* task, Node* next_sync);
+        void remove_next_sync_for_tasks(Node* task, Node* next_sync);
         void remove_concurrent_task(Node* task, Node* old_concurrent_task);
-        
+
         // *** Consultants *** //
         static Node* is_for_loop_increment(Node* node);
         static bool node_is_in_loop(Node* current);
@@ -434,15 +448,14 @@ namespace Analysis {
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //
-        //!Returns true if a given nodecl is not modified in a given context
-        static bool is_constant_in_context(Node* context, NBase c);
-        
         static bool has_been_defined(Node* current, Node* scope, const NBase& n);
-        
+
         Node* find_nodecl(const NBase& n);           // structural search
         Node* find_nodecl_pointer(const NBase& n);   // pointer search
-        
-        bool usage_is_computed();
+
+        // *** Getters and setters for analyses built on top of the PCFG *** //
+        bool usage_is_computed() const;
+        void set_usage_computed();
 
     friend class PCFGVisitor;
     };

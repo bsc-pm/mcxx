@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -145,6 +145,14 @@ namespace Codegen
             void visit(const Nodecl::DivAssignment & node);
             void visit(const Nodecl::AddAssignment & node);
             void visit(const Nodecl::MinusAssignment & node);
+
+            void visit(const Nodecl::Preincrement& node);
+            void visit(const Nodecl::Postincrement& node);
+            void visit(const Nodecl::Predecrement& node);
+            void visit(const Nodecl::Postdecrement& node);
+
+            void visit(const Nodecl::ErrExpr& node);
+            void visit(const Nodecl::ErrStatement& node);
 
             void emit_explicit_use_statement(TL::Symbol &module,
                     Nodecl::List items,
@@ -422,6 +430,8 @@ namespace Codegen
             void emit_bitfield_store(const Nodecl::Assignment &node);
             void emit_bitfield_load(const Nodecl::ClassMemberAccess &node);
 
+            void common_increment(const Nodecl::NodeclBase& item);
+            void common_decrement(const Nodecl::NodeclBase& item);
 
             std::string compute_new_rename(TL::Symbol sym);
 

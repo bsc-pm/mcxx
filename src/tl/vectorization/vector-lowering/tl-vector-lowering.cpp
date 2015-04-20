@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,16 +28,24 @@
 #include "tl-vector-lowering-sse.hpp"
 #include "tl-vector-legalization-knc.hpp"
 #include "tl-vector-backend-knc.hpp"
+#include "tl-vector-legalization-knl.hpp"
+#include "tl-vector-backend-knl.hpp"
 #include "tl-vector-legalization-avx2.hpp"
 #include "tl-vector-backend-avx2.hpp"
+#include "tl-vectorization-three-addresses.hpp"
 
 
 namespace TL
 {
     namespace Vectorization
     {
-        VectorLoweringPhase::VectorLoweringPhase() : _knc_enabled(false), _avx2_enabled(false)
+        VectorLoweringPhase::VectorLoweringPhase() : _knl_enabled(false), _knc_enabled(false), _avx2_enabled(false)
         {
+            register_parameter("knl_enabled",
+                    "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
+                    _knl_enabled_str,
+                    "0").connect(std::bind(&VectorLoweringPhase::set_knl, this, std::placeholders::_1));
+
             register_parameter("mic_enabled",
                     "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
                     _knc_enabled_str,
@@ -57,6 +65,14 @@ namespace TL
                     "If set to '1' enables gather/scatter generation for unaligned load/stores",
                     _prefer_gather_scatter_str,
                     "0").connect(std::bind(&VectorLoweringPhase::set_prefer_gather_scatter, this, std::placeholders::_1));
+        }
+
+        void VectorLoweringPhase::set_knl(const std::string knl_enabled_str)
+        {
+            if (knl_enabled_str == "1")
+            {
+                _knl_enabled = true;
+            }
         }
 
         void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
@@ -102,6 +118,15 @@ namespace TL
             {
                 running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
             }
+            else if (_knc_enabled && _knl_enabled)
+            {
+                running_error("SIMD: KNL and KNC SIMD instruction sets enabled at the same time");
+            }
+            else if (_avx2_enabled && _knl_enabled)
+            {
+                running_error("SIMD: AVX2 and KNL SIMD instruction sets enabled at the same time");
+            }
+
 
             if(_avx2_enabled)
             {
@@ -119,10 +144,27 @@ namespace TL
                 KNCVectorLegalization knc_vector_legalization(
                         _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 knc_vector_legalization.walk(translation_unit);
+                
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
 
                 // Lowering to intrinsics
                 KNCVectorBackend knc_vector_backend;
                 knc_vector_backend.walk(translation_unit);
+            }
+            else if (_knl_enabled)
+            {
+                // KNL Legalization phase
+                KNLVectorLegalization knl_vector_legalization(
+                        _prefer_gather_scatter, _prefer_mask_gather_scatter);
+                knl_vector_legalization.walk(translation_unit);
+                
+                VectorizationThreeAddresses three_addresses_visitor;
+                three_addresses_visitor.walk(translation_unit);
+
+                // Lowering to intrinsics
+                KNLVectorBackend knl_vector_backend;
+                knl_vector_backend.walk(translation_unit);
             }
             else
             {

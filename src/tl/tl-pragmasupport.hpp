@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -373,12 +373,27 @@ namespace TL
             std::string _pragma_handled;
             PragmaMapDispatcher& _map_dispatcher;
 
+            static std::string remove_blanks(std::string str)
+            {
+                struct A
+                {
+                    static bool is_blank(char c)
+                    {
+                        return c == ' ' || c == '\t';
+                    }
+                };
+
+                str.erase(std::remove_if(str.begin(), str.end(), A::is_blank), str.end());
+
+                return str;
+            }
+
             template <typename T>
-            std::string get_pragma_name(T t)
+            static std::string get_pragma_name(T t)
             {
                 if (t.template is<Nodecl::PragmaCustomLine>())
                 {
-                    return t.template as<Nodecl::PragmaCustomLine>().get_text();
+                    return remove_blanks(t.template as<Nodecl::PragmaCustomLine>().get_text());
                 }
                 internal_error("Code unreachable", 0);
             }

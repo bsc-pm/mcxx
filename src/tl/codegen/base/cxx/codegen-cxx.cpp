@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -45,14 +45,14 @@ MCXX_END_DECLS
 #include "cxx-printscope.h"
 namespace Codegen {
 
-void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
+void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::ostream* out)
 {
     if (n.is_null())
         return;
 
-    // Keep the state and reset it
+    // Keep the state
     State old_state = state;
-    state = State();
+    state = new_state;
     std::ostream* old_out = file;
 
     state.nontype_template_argument_needs_parentheses =
@@ -75,6 +75,11 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
     // Restore previous state
     file = old_out;
     state = old_state;
+}
+
+void CxxBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
+{
+    codegen(n, State(), out);
 }
 
 void CxxBase::push_scope(TL::Scope sc)
@@ -184,9 +189,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
     BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
     BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
-    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
     BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  
@@ -657,7 +660,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
         set_indent_level(0);
 
         state.in_condition = 1;
-        state.condition_top = name;
+        state.condition_top = name.no_conv();
 
         walk(name);
 
@@ -716,17 +719,30 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         *(file) << "(*";
     }
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs);
-    if (needs_parentheses)
+    // If this is like (*this).x and we cannot emit it, ignore lhs
+    bool lhs_is_derref_this = (state._do_not_emit_this
+            && lhs.is<Nodecl::Dereference>()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().is_valid()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().get_name() == "this");
+
+    if (lhs_is_derref_this)
     {
-        *(file) << "(";
+        // do nothing
     }
-    // Left hand side does not care about the top level reference status
-    state.do_not_derref_rebindable_reference = false;
-    walk(lhs);
-    if (needs_parentheses)
+    else
     {
-        *(file) << ")";
+        bool needs_parentheses = operand_has_lower_priority(node, lhs);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        // Left hand side does not care about the top level reference status
+        state.do_not_derref_rebindable_reference = false;
+        walk(lhs);
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
     }
 
     if (!is_anonymous_union_accessor)
@@ -741,12 +757,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         {
             *(file) << "::";
         }
+        else if (lhs_is_derref_this)
+        {
+            // skip any separator
+        }
         else
         {
             *(file) << ".";
         }
 
-        needs_parentheses = operand_has_lower_priority(node, rhs);
+        bool needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
         {
             *(file) << "(";
@@ -989,7 +1009,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 {
     this->push_scope(node.retrieve_context());
 
-    walk(node.get_in_context());
+    ERROR_CONDITION(!node.get_in_context().is<Nodecl::List>(), "invalid node", 0);
+    Nodecl::List l = node.get_in_context().as<Nodecl::List>();
+
+    // Transient kludge
+    bool emit_decls = 
+    (l.size() != 1
+           && !(l[0].is<Nodecl::CompoundStatement>()
+               || l[0].is<Nodecl::ForStatement>()
+               || l[0].is<Nodecl::WhileStatement>()
+               || l[0].is<Nodecl::SwitchStatement>()
+               || l[0].is<Nodecl::IfElseStatement>()));
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* << fake context >> { */\n";
+        define_local_entities_in_trees(l);
+    }
+
+    walk(l);
+
+    if (emit_decls)
+    {
+        indent();
+        *file << "/* } << fake context >> */\n";
+    }
 
     this->pop_scope();
 }
@@ -1045,24 +1090,37 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    //
+    // If this is like (*this).x and we cannot emit it, ignore lhs
+    bool lhs_is_derref_this = (state._do_not_emit_this
+            && lhs.is<Nodecl::Dereference>()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().is_valid()
+            && lhs.as<Nodecl::Dereference>().get_rhs().get_symbol().get_name() == "this");
 
-    char needs_parentheses = operand_has_lower_priority(node, lhs);
-    if (needs_parentheses)
+    if (lhs_is_derref_this)
     {
-        *(file) << "(";
+        // Do nothing
     }
-    walk(lhs);
-
-    if (needs_parentheses)
+    else
     {
-        *(file) << ")";
+
+        bool needs_parentheses = operand_has_lower_priority(node, lhs);
+        if (needs_parentheses)
+        {
+            *(file) << "(";
+        }
+        walk(lhs);
+
+        if (needs_parentheses)
+        {
+            *(file) << ")";
+        }
+
+        *(file) << "."
+            << /* template tag if needed */ node.get_text();
     }
 
-    *(file) << "."
-         << /* template tag if needed */ node.get_text();
-
-
-    needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_parentheses = operand_has_lower_priority(node, rhs);
     if (needs_parentheses)
     {
         *(file) << "(";
@@ -1274,6 +1332,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
+                node.get_locus_str().c_str());
+    }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::ErrStatement& node)
+{
+    if (!this->is_file_output())
+    {
+        *(file) << "<<error statement>>";
+    }
+    else
+    {
+        internal_error("%s: error: <<error statement>> found when the output is a file",
                 node.get_locus_str().c_str());
     }
 }
@@ -1508,15 +1579,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
             indent();
             *(file) << "if (";
             walk(step);
-            *(file) << "> 0)\n;";
+            *(file) << "> 0)\n";
 
             inc_indent();
             indent();
             *(file) << "{\n";
 
+            // We need to keep the codegen status because we will emit two loops
+            std::map<TL::Symbol, codegen_status_t> old_codegen_status = _codegen_status;
             inc_indent();
             emit_range_loop_header(lc, statement, " <= ");
             dec_indent();
+            _codegen_status.swap(old_codegen_status);
 
             indent();
             *(file) << "}\n";
@@ -2879,7 +2953,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
 
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = condition;
+    state.condition_top = condition.no_conv();
 
     walk(condition);
 
@@ -3196,7 +3270,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     *(file) << "; ";
 
     Nodecl::NodeclBase old_condition_top = state.condition_top;
-    state.condition_top = cond;
+    state.condition_top = cond.no_conv();
 
     // But it is desirable for the condition in "for( ... ; (i = x) ; ...)"
     walk(cond);
@@ -3558,20 +3632,26 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     Nodecl::NodeclBase ub_expr = node.get_upper();
     Nodecl::NodeclBase step_expr = node.get_stride();
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     Nodecl::NodeclBase parent = node.get_parent();
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    bool enclose_in_square_brackets = (!parent.is<Nodecl::List>()
+            || !parent.get_parent().is<Nodecl::ArraySubscript>());
+
+    // Print the bracket when the range is not within an ArraySubscript (this is used by Analysis)
+    if(enclose_in_square_brackets)
     {
         *(file) << "[";
     }
-    
+
     walk(lb_expr);
     *(file) << ":";
     walk(ub_expr);
 
-    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
-    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    if(enclose_in_square_brackets)
     {
+        // When we enclose_in_square_brackets we also want to emit the stride,
+        // regardless of it being one
+        *(file) << ":";
+        walk(step_expr);
         *(file) << "]";
     }
     else
@@ -4150,7 +4230,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
 
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = expression;
+    state.condition_top = expression.no_conv();
 
     walk(expression);
 
@@ -4415,7 +4495,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     int old_indent = get_indent_level();
     set_indent_level(0);
     state.in_condition = 1;
-    state.condition_top = condition;
+    state.condition_top = condition.no_conv();
 
     emit_line_marker(condition);
     walk(condition);
@@ -4791,6 +4871,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PreprocessorLine& node)
 {
     *(file) << node.get_text() << "\n";
 }
+
+CxxBase::Ret CxxBase::visit(const Nodecl::IntelAssume& node)
+{
+    *(file) << "__assume(";
+    walk(node.get_assumed());
+    *(file) << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::IntelAssumeAligned& node)
+{
+    *(file) << "__assume_aligned(";
+    walk(node.get_pointer());
+    *(file) << ", ";
+    walk(node.get_alignment());
+    *(file) << ")";
+}
+
 
 bool CxxBase::symbol_is_same_or_nested_in(TL::Symbol symbol, TL::Symbol class_sym)
 {
@@ -6493,12 +6590,13 @@ void CxxBase::declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Sy
                 /* without template id */ true);
     }
 
-    // Dirty trick to remove the firsts two colons if the name of the function has them
+    // Protect this declarator because the decl-specifier seq might end with an
+    // id-expression that would end being "pasted" to the declarator-name
     if (function_name.size() >= 2 &&
             function_name[0] == ':' &&
             function_name[1] == ':')
     {
-        function_name = function_name.substr(2);
+        function_name = "(" + function_name + ")";
     }
 
     indent();
@@ -8780,8 +8878,6 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_CLASS_MEMBER_ACCESS:
         case NODECL_CXX_ARROW:
         case NODECL_CXX_POSTFIX_INITIALIZER:
-        case NODECL_CXX_ARRAY_SECTION_RANGE:
-        case NODECL_CXX_ARRAY_SECTION_SIZE:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
             {
@@ -8978,8 +9074,10 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
             || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
             // a + b & c -> (a + b) & c
             || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
-            // a #1 b #2 c -> (a #1 b) #2 c     [where #1 and #2 are ==, <, <=, >=, >, !=]
+            // a #1 b #2 c -> (a #1 b) #2 c   [where #1 and #2 are ==, <, <=, >=, >, !=]
             || (is_relational_operator(current_kind) && is_relational_operator(operand_kind))
+            // a #1 b #2 c -> (a #1 b) #2 c   [where #1 is |, &  #2 is ==, <, <=, >=, >, !=]
+            || (is_bitwise_bin_operator(current_kind) && is_relational_operator(operand_kind))
             )
     {
         return 1;
@@ -9350,9 +9448,14 @@ std::string CxxBase::gcc_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9387,9 +9490,14 @@ std::string CxxBase::ms_attributes_to_str(TL::Symbol symbol)
             std::stringstream ss_out;
             std::ostream *tmp_out = &ss_out;
 
+            bool b = this->is_file_output();
+            this->set_is_file_output(false);
             std::swap(file, tmp_out);
+
             walk_expression_list(it->get_expression_list().as<Nodecl::List>());
+
             std::swap(file, tmp_out);
+            this->set_is_file_output(b);
 
             result += ss_out.str();
 
@@ -9408,9 +9516,14 @@ std::string CxxBase::gcc_asm_specifier_to_str(TL::Symbol symbol)
         std::stringstream ss_out;
         std::ostream *tmp_out = &ss_out;
 
+        bool b = this->is_file_output();
+        this->set_is_file_output(false);
         std::swap(file, tmp_out);
+
         walk(symbol.get_asm_specification());
+
         std::swap(file, tmp_out);
+        this->set_is_file_output(b);
 
         result = ss_out.str();
     }
@@ -9425,8 +9538,16 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
         if (!symbol.function_noexcept().is_null())
         {
             exception_spec += " noexcept(";
-            exception_spec += this->codegen_to_str(symbol.function_noexcept(),
-                    symbol.get_scope());
+
+            std::stringstream ss;
+            State new_state(state);
+            new_state._do_not_emit_this = true;
+
+            push_scope(symbol.get_scope());
+            this->codegen(symbol.function_noexcept(), new_state, &ss);
+            pop_scope();
+
+            exception_spec += ss.str();
             exception_spec += ")";
         }
         else if (!symbol.function_throws_any_exception())
@@ -9846,6 +9967,7 @@ std::string CxxBase::end_inline_comment()
         return "";
     ERROR_CONDITION(state._inline_comment_nest < 0, "Wrong nesting of comments", 0);
 }
+
 
 } // Codegen
 

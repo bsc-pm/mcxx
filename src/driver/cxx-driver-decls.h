@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -168,12 +168,15 @@ typedef struct debug_options_tag
     char binary_check;
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
+    char ranges_verbose;
+    char analysis_perf;
     char print_pcfg;
     char print_pcfg_w_context;
     char print_pcfg_w_analysis;
     char print_pcfg_full;
     char print_tdg;
     char tdg_to_json;
+    // Others
     char do_not_codegen;
     char show_template_packs;
     char vectorization_verbose;
@@ -257,6 +260,9 @@ typedef struct compilation_process_tag
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_file_process_tag* current_file_process;
     struct compilation_configuration_tag *current_compilation_configuration;
+
+    // Flags
+    char parallel_process; // enables features allowing parallel compilation
 } compilation_process_t;
 
 typedef struct compilation_configuration_conditional_flags
@@ -385,7 +391,8 @@ typedef struct compilation_configuration_tag
     int output_column_width;
 
     // Disable Fortran intrinsics
-    char disable_intrinsics;
+    int num_disabled_intrinsics;
+    const char ** disabled_intrinsics_list;
 
     // Fortran module wrapping
     char do_not_wrap_fortran_modules;

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -226,9 +226,11 @@ namespace Vectorization
             return alignment_info->second;
         }
 
-        _analysis->get_assume_aligned_attribute(
-                Nodecl::Utils::get_enclosing_function(_scope).
-                get_function_code(), n);
+        Nodecl::NodeclBase function_code = _scope.is<Nodecl::FunctionCode>() ? 
+            _scope : Nodecl::Utils::get_enclosing_function(_scope).get_function_code();
+
+        return _analysis->get_assume_aligned_attribute(
+                function_code, n);
 
 /*
         int alignment = tl_sym.get_type().get_alignment_of();
@@ -246,7 +248,6 @@ namespace Vectorization
 */
         // There is no alignment info about the subscripted symbol
         // Assume unaligned
-        return -1;
     }
 
     bool SuitableAlignmentVisitor::is_suitable_expression(

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -41,7 +41,7 @@
 
 // Some gcc-isms
 #if defined(__GNUC__) && !defined(__clang__)
-  #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 3
+  #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
      // Supported in >=4.3
      #define NORETURN __attribute__((noreturn))
      #define WARN_UNUSED __attribute__((warn_unused_result))
@@ -51,13 +51,13 @@
      #define MALLOC_RETURN __attribute__((malloc))
      #define ALWAYS_INLINE __attribute__((always_inline))
      // Supported in >=4.4
-     #if (__GNUC_MINOR__ >= 4)
+     #if (__GNUC__ > 4 || __GNUC_MINOR__ >= 4)
         #define CHECK_PRINTF(x,y) __attribute__ ((format (gnu_printf, x, y)))
      #else
         #define CHECK_PRINTF(x,y) __attribute__ ((format (printf, x, y)))
      #endif
      // Supported in >=4.5
-     #if (__GNUC_MINOR__ >= 5)
+     #if (__GNUC__ > 4 || __GNUC_MINOR__ >= 5)
         #define DEPRECATED_REASON(r) __attribute__((deprecated(r)))
      #else
         #define DEPRECATED_REASON(r) __attribute__((deprecated))

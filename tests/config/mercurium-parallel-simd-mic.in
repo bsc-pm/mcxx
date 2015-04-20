@@ -66,12 +66,11 @@ test_CC_intel_rtl="\${INTEL_RTL}"
 
 if [ "$1" = "svml" ];
 then
-test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL}"
-else
-test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --enable-ms-builtins ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --enable-ms-builtins ${PROGRAMMING_MODEL}"
+SVML="--svml --fast-math"
 fi
+
+test_CFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} --enable-ms-builtins   ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic \${SVML} --enable-ms-builtins ${PROGRAMMING_MODEL}"
 test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"
 EOF
 

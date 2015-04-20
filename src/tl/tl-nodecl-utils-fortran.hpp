@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -121,7 +121,16 @@ namespace Nodecl { namespace Utils { namespace Fortran {
 
                 if (sym.is_function())
                 {
-                    _extra_insert_sym.insert(sym);
+                    // An statement function has to be duplicated because its expression
+                    // may use a dummy argument (see #2280)
+                    if (sym.is_statement_function_statement())
+                    {
+                        _extra_new_sym.insert(sym);
+                    }
+                    else
+                    {
+                        _extra_insert_sym.insert(sym);
+                    }
 
                     if (sym.is_nested_function())
                     {

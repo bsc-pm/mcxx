@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -126,7 +126,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, bgt, "I,J", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ble, "I,J", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, blt, "I,J", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, bit_size, "I", I, simplify_bit_size) \
-FORTRAN_GENERIC_INTRINSIC(NULL, btest, "I,POS", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, btest, "I,POS", E, simplify_btest) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ceiling, "A,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, char, "I,?KIND", E, simplify_char) \
 FORTRAN_GENERIC_INTRINSIC(NULL, cmplx, "X,?Y,?KIND", E, simplify_cmplx) \
@@ -167,17 +167,17 @@ FORTRAN_GENERIC_INTRINSIC(NULL, huge, "X", I, simplify_huge) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hypot, "X,Y", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, iachar, "C,?KIND", E, simplify_iachar) \
 FORTRAN_GENERIC_INTRINSIC_2(NULL, iall, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, iand, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, iand, "I,J", E, simplify_iand) \
 FORTRAN_GENERIC_INTRINSIC_2(NULL, iany, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, ibclr, "I,POS", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ibclr, "I,POS", E, simplify_ibclr) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ibits, "I,POS,LEN", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, ibset, "I,POS", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ibset, "I,POS", E, simplify_ibset) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ichar, "C,?KIND", E, simplify_ichar) \
-FORTRAN_GENERIC_INTRINSIC(NULL, ieor, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ieor, "I,J", E, simplify_ieor) \
 FORTRAN_GENERIC_INTRINSIC(NULL, image_index, "COARRAY,SUB", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, index, "STRING,SUBSTRING,?BACK,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, int, "A,?KIND", E, simplify_int) \
-FORTRAN_GENERIC_INTRINSIC(NULL, ior, "I,J", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ior, "I,J", E, simplify_ior) \
 FORTRAN_GENERIC_INTRINSIC_2(NULL, iparity, "ARRAY,DIM,?MASK", T, NULL, "ARRAY,?MASK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ishft, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ishftc, "I,SHIFT,?SIZE", E, NULL) \
@@ -1306,6 +1306,23 @@ static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
 static void fortran_finish_intrinsic_modules(decl_context_t decl_context);
 
+static int pstrcasecmp(const char** a, const char** b)
+{
+    return strcasecmp(*a, *b);
+}
+
+static char intrinsic_has_been_disabled(const char* c)
+{
+    if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0) {
+        return (bsearch(&c,
+                    CURRENT_CONFIGURATION->disabled_intrinsics_list,
+                    CURRENT_CONFIGURATION->num_disabled_intrinsics,
+                    sizeof(const char*),
+                    (int (*)(const void*, const void*))pstrcasecmp) != NULL);
+    }
+    return 0;
+}
+
 void fortran_init_intrinsics(decl_context_t decl_context)
 {
     fortran_create_scope_for_intrinsics(decl_context);
@@ -1313,10 +1330,20 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
     decl_context_t fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
 
+    if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0)
+    {
+        // Sort the list of disabled intrinsics lists
+        qsort(CURRENT_CONFIGURATION->disabled_intrinsics_list,
+                CURRENT_CONFIGURATION->num_disabled_intrinsics,
+                sizeof(const char*),
+                (int (*)(const void*, const void*))pstrcasecmp);
+    }
+
 #define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
         decl_context_t relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
+        char disabled = 0; \
         if (module_name != NULL) \
         { \
             rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name); \
@@ -1324,6 +1351,11 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             module_sym = (scope_entry_t*)rb_node_get_info(query); \
             relevant_decl_context = module_sym->related_decl_context; \
         } \
+        else { \
+            disabled = intrinsic_has_been_disabled(#name); \
+        } \
+        if (!disabled) \
+        { \
         scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, uniquestr(#name)); \
         new_intrinsic->locus = make_locus("(fortran-intrinsic)", 0, 0); \
         new_intrinsic->kind = SK_FUNCTION; \
@@ -1350,6 +1382,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             symbol_entity_specs_set_is_module_procedure(new_intrinsic, 1); \
             symbol_entity_specs_add_related_symbols(module_sym, \
                     new_intrinsic); \
+        } \
         } \
     }
 
@@ -1416,6 +1449,10 @@ static scope_entry_t* register_specific_intrinsic_name(
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
+    if (intrinsic_has_been_disabled(generic_name)
+            || intrinsic_has_been_disabled(specific_name))
+        return NULL;
+
 #define MAX_SPECIFIC_PARAMETERS 7
     scope_entry_t* generic_entry = fortran_query_intrinsic_name_str(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
@@ -1531,6 +1568,9 @@ static scope_entry_t* register_custom_intrinsic(
         int num_types,
         type_t* t0, type_t* t1, type_t* t2)
 {
+    if (intrinsic_has_been_disabled(specific_name))
+        return NULL;
+
     type_t* types[3] = { t0, t1, t2 };
 
     scope_entry_t* entry = get_intrinsic_symbol_(NULL,

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2015 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -155,6 +155,25 @@ namespace Nodecl {
                 {
                     nodecl_set_child(_n, i, new_childs[i].get_internal_nodecl());
                 }
+            }
+
+            // C++ bits
+            bool is_value_dependent() const
+            {
+                return nodecl_expr_is_value_dependent(_n);
+            }
+            void set_is_value_dependent(bool b)
+            {
+                nodecl_expr_set_is_value_dependent(_n, b);
+            }
+
+            bool is_type_dependent() const
+            {
+                return nodecl_expr_is_type_dependent(_n);
+            }
+            void set_is_type_dependent(bool b)
+            {
+                nodecl_expr_set_is_type_dependent(_n, b);
             }
 
             // Internal use only
@@ -720,7 +739,26 @@ namespace Nodecl {
                     this->push_back_(n);
             }
 
+            // See prepend for an explanation of this function
             void prepend(Nodecl::NodeclBase n)
+            {
+                if (n.is<Nodecl::List>())
+                {
+                    Nodecl::List l = n.as<Nodecl::List>();
+                    for (Nodecl::List::reverse_iterator it = l.rbegin(); it != l.rend(); it++)
+                    {
+                        this->push_front_(*it);
+                    }
+                }
+                else
+                    this->push_front_(n);
+            }
+
+            // This method performs several push_fronts if 'n' is a list which
+            // effectively prepends the items of 'n' in reverse order.
+            // Use prepend if you want the items of 'n' be prepended
+            // in the same order as they appear in 'n'
+            void prepend_reversed(Nodecl::NodeclBase n)
             {
                 if (n.is<Nodecl::List>())
                 {

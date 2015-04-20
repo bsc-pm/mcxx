@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-(C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+(C) Copyright 2006-2014 Barcelona Supercomputing Center             *
 Centro Nacional de Supercomputacion
 
 This file is part of Mercurium C/C++ source-to-source compiler.
@@ -34,7 +34,48 @@ namespace TL {
 namespace Analysis {
 
     std::set<Symbol> _warned_unreach_funcs;
-    
+    struct Usage {
+        NodeclSet _ue_vars;
+        NodeclSet _def_vars;
+        NodeclSet _undef_vars;
+    };
+    std::set<Symbol> _known_called_funcs_usage;
+
+    //! This method computes on the fly the usage information of a graph node
+    //! Necessary for IPA analysis
+    void gather_graph_usage_rec(Node* n)
+    {
+        if (n->is_visited())
+            return;
+
+        n->set_visited(true);
+
+        // 1.- Gather info for the current node, if it is a graph node
+        if (n->is_graph_node())
+        {
+            // 1.1.- Make sure we solve the graphs from inside to outside
+            Node* entry = n->get_graph_entry_node();
+            gather_graph_usage_rec(entry);
+
+            // 1.2.- Compute the usage of the current graph
+            set_graph_node_use_def(n);
+            ExtensibleGraph::clear_visits_extgraph(n);
+        }
+
+        // 2.- Keep iterating with the children
+        const ObjectList<Node*>& children = n->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+            gather_graph_usage_rec(*it);
+    }
+
+    void gather_graph_usage(ExtensibleGraph* graph)
+    {
+        Node* n = graph->get_graph();
+        gather_graph_usage_rec(n);
+        ExtensibleGraph::clear_visits(n);
+        graph->set_usage_computed();
+    }
+
     // ******************************************************************************************** //
     // ********************* Known function code IP usage propagation methods ********************* //
     
@@ -157,11 +198,12 @@ namespace Analysis {
         }
     }
     
-    void UsageVisitor::ipa_propagate_known_function_usage(ExtensibleGraph* called_pcfg, 
-                                                          const Nodecl::List& args)
+    void UsageVisitor::ipa_propagate_known_function_usage(
+            ExtensibleGraph* called_pcfg,
+            const Nodecl::List& args)
     {
         Node* pcfg_node = called_pcfg->get_graph();
-                    
+
         // 1.- Check the usage of the parameters
         //     They all will be UE, but additionally we may have KILLED and UNDEF 
         //     if assignments or function calls appear in the arguments
@@ -184,18 +226,28 @@ namespace Analysis {
             if (n.is<Nodecl::Reference>() || n.get_type().is_pointer())
                 _node->add_used_address(n);
         }
-        
+
         // 2.- Pointer and reference parameters can also be KILLED | UNDEFINED
         // 2.1.- Map parameters to arguments in the current function call
-        const ObjectList<Symbol>& called_params = called_pcfg->get_function_symbol().get_function_parameters();
+        Symbol func_sym = called_pcfg->get_function_symbol();
+        const ObjectList<Symbol>& called_params = func_sym.get_function_parameters();
         const SymToNodeclMap& param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
 
         // 2.2.- Get the usage computed for the called function
-        NodeclSet called_ue_vars = pcfg_node->get_ue_vars();
-        NodeclSet called_killed_vars = pcfg_node->get_killed_vars();
-        NodeclSet called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
-        // 2.3.- Propagate pointer parameters usage to the current node
+        if (!_propagate_graph_nodes
+                && _known_called_funcs_usage.find(func_sym) == _known_called_funcs_usage.end())
+        {   // The function usage has already been computed, retrieve it
+            // Compute the graph usage
+            gather_graph_usage(called_pcfg);
 
+            // Insert the usage in the cache
+            _known_called_funcs_usage.insert(func_sym);
+        }
+        const NodeclSet& called_ue_vars = pcfg_node->get_ue_vars();
+        const NodeclSet& called_killed_vars = pcfg_node->get_killed_vars();
+        const NodeclSet& called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
+
+        // 2.3.- Propagate pointer parameters usage to the current node
         if (any_parameter_is_pointer(called_params))
         {
             propagate_called_func_pointed_values_usage_to_func_call(
@@ -219,12 +271,15 @@ namespace Analysis {
 
         // 3. Usage of the global variables must be propagated too
         // 3.1 Add the global variables used in the called graph to the current graph
-        NodeclSet ipa_global_vars = called_pcfg->get_global_variables();
+        const NodeclSet& ipa_global_vars = called_pcfg->get_global_variables();
         _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
-        propagate_global_variables_usage(called_ue_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
-        propagate_global_variables_usage(called_killed_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
-        propagate_global_variables_usage(called_undef_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
+        propagate_global_variables_usage(called_ue_vars, ipa_global_vars,
+                                         param_to_arg_map, Utils::UsageKind::USED);
+        propagate_global_variables_usage(called_killed_vars, ipa_global_vars,
+                                         param_to_arg_map, Utils::UsageKind::DEFINED);
+        propagate_global_variables_usage(called_undef_vars, ipa_global_vars,
+                                         param_to_arg_map, Utils::UsageKind::UNDEFINED);
     }
     
     // ******************* END Known function code IP usage propagation methods ******************* //
@@ -261,7 +316,7 @@ namespace Analysis {
         // 2.- Check for the usage in the graph of the function to propagate Usage 
         //     until the point we are currently (only for reference parameters and global variables)
         SymToNodeclMap param_to_arg_map = get_parameters_to_arguments_map(params, args);
-        NodeclSet global_vars = _pcfg->get_global_variables();
+        const NodeclSet& global_vars = _pcfg->get_global_variables();
         for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
         {
             NBase var = it->first;
@@ -346,7 +401,7 @@ namespace Analysis {
                     // Only examine the arguments (and global variables in 'pure' case)
                     side_effects = false;
 
-                    NodeclSet ue_vars;
+                    NodeclSet& ue_vars = _node->get_ue_vars();
                     NodeclSet killed_vars;
                     NodeclSet undef_vars;
                     // Set all parameters as used (if not previously killed or undefined)
@@ -361,8 +416,8 @@ namespace Analysis {
 
                     if(attr_name == "pure")
                     {   // Set all global variables variables as upper exposed (if not previously killed or undefined)
-                        NodeclSet global_vars = _pcfg->get_global_variables();
-                        for(NodeclSet::iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
+                        const NodeclSet& global_vars = _pcfg->get_global_variables();
+                        for(NodeclSet::const_iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
                         {
                             if (Utils::nodecl_set_contains_enclosing_nodecl(*it_g, killed_vars).is_null() && 
                                 Utils::nodecl_set_contains_enclosing_nodecl(*it_g, undef_vars).is_null())
@@ -372,7 +427,6 @@ namespace Analysis {
                             // FIXME If an enclosed part is in some set, we should be splitting the usage here
                         }
                     }
-                    _node->add_ue_var(ue_vars);
                     if(attr_name == "pure")
                         break;
                 }
@@ -527,7 +581,7 @@ namespace Analysis {
                 else
                 {   // We have the prototype, use it to determine the usage
                     ObjectList<Symbol>::const_iterator itp = params.begin();
-                    NBase one = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                    NBase one = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                     for(Nodecl::List::iterator ita = args.begin(); ita != args.end(); ++ita)
                     {
                         NBase arg = *ita;
@@ -551,11 +605,14 @@ namespace Analysis {
                                 if(ptr_to_size_map.find(arg) != ptr_to_size_map.end())
                                 {   // type* v = malloc(...) || type* v = calloc(...)
                                     NBase lb, ub, step;
-                                    lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
+                                    lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                     NBase length = ptr_to_size_map.find(arg)->second;
                                     if(length.is_constant())
-                                        ub = const_value_to_nodecl(const_value_sub(length.get_constant(), 
-                                                                                    const_value_get_one(/*bytes*/4, /*signed*/1)));
+                                        ub = const_value_to_nodecl_with_basic_type(const_value_sub(length.get_constant(), 
+                                                    const_value_get_one(
+                                                        /*bytes*/type_get_size(get_ptrdiff_t_type()),
+                                                        /*signed*/1)),
+                                                get_ptrdiff_t_type());
                                     else
                                         ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
                                     step = one.shallow_copy();
@@ -584,7 +641,9 @@ namespace Analysis {
                             {   // type v[2];
                                 NBase lb, ub, step;
                                 arg_t.array_get_bounds(lb, ub);
-                                step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                                step = const_value_to_nodecl_with_basic_type(const_value_get_one(
+                                            /*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1),
+                                        get_ptrdiff_t_type());
                                 Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                 NBase arg_points_to = 
                                         Nodecl::ArraySubscript::make(arg.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
@@ -644,11 +703,14 @@ namespace Analysis {
                                         if (ptr_to_size_map.find(arg_referenced) != ptr_to_size_map.end())
                                         {   // type* v = malloc(...) || type* v = calloc(...)
                                             NBase lb, ub, step;
-                                            lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
+                                            lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(
+                                                        /*bytes*/type_get_size(get_ptrdiff_t_type()),
+                                                        /*signed*/1),
+                                                    get_ptrdiff_t_type());
                                             NBase length = ptr_to_size_map.find(arg_referenced)->second;
                                             if(length.is_constant())
-                                                ub = const_value_to_nodecl(const_value_sub(length.get_constant(), 
-                                                                                            const_value_get_one(/*bytes*/4, /*signed*/1)));
+                                                ub = const_value_to_nodecl_with_basic_type(const_value_sub(length.get_constant(), 
+                                                                                            const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1)), get_ptrdiff_t_type());
                                             else
                                                 ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
                                             
@@ -667,7 +729,7 @@ namespace Analysis {
                                     {   // type v[2];
                                         NBase lb, ub, step;
                                         arg_t.array_get_bounds(lb, ub);
-                                        step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                                        step = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                         Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                         modifiable_arg = Nodecl::ArraySubscript::make(arg_referenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
                                     }
@@ -714,7 +776,7 @@ namespace Analysis {
                                 if(ptr_to_size_map.find(arg_dereferenced) != ptr_to_size_map.end())
                                 {   // type* v = malloc(...) || type* v = calloc(...)
                                     NBase lb, ub, step;
-                                    lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
+                                    lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                     ub = Nodecl::Minus::make(ptr_to_size_map.find(arg_dereferenced)->second.shallow_copy(), 
                                                              one.shallow_copy(), one.get_type());
                                     step = one.shallow_copy();
@@ -734,7 +796,7 @@ namespace Analysis {
                                 arg_t.array_get_bounds(lb, ub);
                                 Scope sc(Utils::get_nodecl_base(arg_dereferenced).get_symbol().get_scope());
                                 arg_t = arg_t.array_element().get_array_to_with_region(lb, ub, lb, ub, sc);
-                                step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                                step = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                 Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                 arg_points_to = Nodecl::ArraySubscript::make(arg_dereferenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
                             }
@@ -768,9 +830,9 @@ namespace Analysis {
                     }
                     
                     // Set all global variables to undefined
-                    NodeclSet killed = _node->get_killed_vars();
-                    NodeclSet global_vars = _pcfg->get_global_variables();
-                    for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+                    const NodeclSet& killed = _node->get_killed_vars();
+                    const NodeclSet& global_vars = _pcfg->get_global_variables();
+                    for(NodeclSet::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
                     {
                         if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
                             Utils::nodecl_set_contains_enclosed_nodecl(*it, killed).is_null())
@@ -788,7 +850,7 @@ namespace Analysis {
     {
         // All parameters as UNDEFINED, we do not know whether they are passed by value or by reference
         // All global variables as UNDEFINED
-        NodeclSet killed = _node->get_killed_vars();
+        const NodeclSet& killed = _node->get_killed_vars();
         for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
         {
             if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
@@ -798,8 +860,8 @@ namespace Analysis {
             }
         }
         
-        NodeclSet global_vars = _pcfg->get_global_variables();
-        for(NodeclSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+        const NodeclSet& global_vars = _pcfg->get_global_variables();
+        for (NodeclSet::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
             if (Utils::nodecl_set_contains_enclosing_nodecl(*it, killed).is_null() &&
                 Utils::nodecl_set_contains_enclosed_nodecl(*it, killed).is_null())

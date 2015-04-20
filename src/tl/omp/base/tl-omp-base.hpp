@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -110,8 +110,11 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-
-                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine, bool ignore_targer_info);
+                Nodecl::List make_execution_environment(
+                        OpenMP::DataSharingEnvironment&,
+                        PragmaCustomLine,
+                        bool ignore_targer_info,
+                        bool is_inline_task);
 
                 Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);
@@ -148,6 +151,18 @@ namespace TL
                         Nodecl::List& environment);
 
                 void nest_context_in_pragma(TL::PragmaCustomStatement directive);
+
+                void taskloop_block_loop(
+                        Nodecl::NodeclBase directive,
+                        Nodecl::NodeclBase statement,
+                        Nodecl::NodeclBase execution_environment,
+                        Nodecl::NodeclBase num_blocks);
+
+                void taskloop_extend_dependences(
+                        Nodecl::NodeclBase execution_environment,
+                        TL::Symbol orig_induction_var,
+                        TL::Symbol new_induction_var,
+                        TL::Symbol block_extent_var);
 
             public:
                 template <typename T>

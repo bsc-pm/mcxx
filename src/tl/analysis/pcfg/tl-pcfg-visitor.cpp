@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -129,7 +129,7 @@ next_it:    ;
         while( !node->is_visited( ) )
         {
             node->set_visited( true );
-            Node_type n_type = node->get_type( );
+            NodeType n_type = node->get_type( );
             if( n_type == __Graph )
                 compute_catch_parents( node->get_graph_entry_node( ) );
             else if( n_type == __Exit )
@@ -181,7 +181,7 @@ next_it:    ;
         Node* result;
 
         // Compute the type of node for the new merged node
-        Node_type ntype;
+        NodeType ntype;
         if( n.is<Nodecl::FunctionCall>( ) || n.is<Nodecl::VirtualFunctionCall>( ) )
         {
             ntype = ( _utils->_is_vector ? __VectorFunctionCall : __FunctionCall );
@@ -461,7 +461,7 @@ next_it:    ;
     template <typename T>
     ObjectList<Node*> PCFGVisitor::visit_conditional_expression( const T& n )
     {
-        Graph_type n_type = ( _utils->_is_vector ? __VectorCondExpr : __CondExpr );
+        GraphType n_type = ( _utils->_is_vector ? __VectorCondExpr : __CondExpr );
         Node* cond_expr_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, n_type );
         Node* entry_node = cond_expr_node->get_graph_entry_node( );
 
@@ -534,7 +534,7 @@ next_it:    ;
 
     ObjectList<Node*> PCFGVisitor::visit_literal_node(const NBase& n)
     {
-        Node_type n_type = ( _utils->_is_vector ? __VectorNormal : __Normal );
+        NodeType n_type = ( _utils->_is_vector ? __VectorNormal : __Normal );
         Node* basic_node = new Node( _utils->_nid, n_type, _utils->_outer_nodes.top( ), n );
         return ObjectList<Node*>( 1, basic_node );
     }
@@ -597,7 +597,7 @@ next_it:    ;
 
     ObjectList<Node*> PCFGVisitor::visit_vector_memory_func(const NBase& n, char mem_access_type)
     {
-        Node_type n_type;
+        NodeType n_type;
         if( mem_access_type == '1' )
             n_type = __VectorLoad;
         else if( mem_access_type == '2' )
@@ -1140,8 +1140,6 @@ next_it:    ;
             else        // expression_nodes.size() > 1
                 last_node = merge_nodes( n, expression_nodes );
 
-            if( !last_node->is_empty_node( ) )
-            {
                 // Connect the partial node created recursively with the piece of Graph build until this moment
                 ObjectList<Node*> expr_first_nodes = get_first_nodes( last_node );
                 for( ObjectList<Node*>::iterator it = expr_first_nodes.begin( );
@@ -1162,11 +1160,6 @@ next_it:    ;
                 // Recompute actual last nodes for the actual graph
                 if( !_utils->_last_nodes.empty( ) )
                     _utils->_last_nodes = ObjectList<Node*>( 1, last_node );
-            }
-            else
-            {   // do nothing; this case appears when the expression is "new"
-                // In this case we don't need adding this statement to the graph because it is meaningless
-            }
         }
         else
         {
@@ -1295,7 +1288,7 @@ next_it:    ;
         exit_node->set_id( ++( _utils->_nid ) );
 
         // Compute the true/false edges from the loop condition
-        Edge_type aux_etype = __Always;
+        EdgeType aux_etype = __Always;
         if( cond != NULL )
         {
             ObjectList<Edge*> exit_edges = cond->get_exit_edges( );
@@ -1336,7 +1329,7 @@ next_it:    ;
                 last_next = last_next->get_children()[0];
                 last_next->set_outer_node(for_graph_node);
             }
-            _pcfg->connect_nodes(_utils->_last_nodes, first_next, ObjectList<Edge_type>(_utils->_last_nodes.size(), aux_etype));
+            _pcfg->connect_nodes(_utils->_last_nodes, first_next, ObjectList<EdgeType>(_utils->_last_nodes.size(), aux_etype));
             if( cond != NULL )
             {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
                 _pcfg->connect_nodes(last_next, cond, __Always, NBase::null(), 
@@ -1552,7 +1545,7 @@ next_it:    ;
             if( !else_node_l.empty( ) )
                 _pcfg->connect_nodes( _utils->_last_nodes, if_else_exit );
             else
-                _pcfg->connect_nodes(_utils->_last_nodes, if_else_exit, ObjectList<Edge_type>(_utils->_last_nodes.size(), __FalseEdge));
+                _pcfg->connect_nodes(_utils->_last_nodes, if_else_exit, ObjectList<EdgeType>(_utils->_last_nodes.size(), __FalseEdge));
 
             // Connect the Exit node in that cases where it has not been connected before
             if( ( all_tasks_then && all_tasks_else ) || cond_node->get_exit_edges().empty() )
@@ -1591,6 +1584,18 @@ next_it:    ;
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
         return visit_literal_node( n );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntelAssume& n )
+    {
+        Node* basic_node = new Node(_utils->_nid, __Builtin, _utils->_outer_nodes.top(), n);
+        return ObjectList<Node*>(1, basic_node);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntelAssumeAligned& n )
+    {
+        Node* basic_node = new Node(_utils->_nid, __Builtin, _utils->_outer_nodes.top(), n);
+        return ObjectList<Node*>(1, basic_node);
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
@@ -2423,6 +2428,12 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Prefetch& n )
+    {
+        _utils->_pragma_nodes.top( )._clauses.append(n);
+        return ObjectList<Node*>( );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
@@ -2692,7 +2703,7 @@ next_it:    ;
 
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
-        const char* s = "create";
+        const char* s = "Create";
         int slen = strlen(s);
         NBase label = Nodecl::StringLiteral::make(
                 Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
@@ -2732,7 +2743,7 @@ next_it:    ;
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
-        const char* s = "create";
+        const char* s = "Create";
         int slen = strlen(s);
         NBase label = Nodecl::StringLiteral::make(
                 Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
@@ -3159,6 +3170,11 @@ next_it:    ;
         return ObjectList<Node*>( 1, merge_nodes( n, all_nodes ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorArithmeticShr& n )
+    {
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorAssignment& n )
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
@@ -3184,17 +3200,7 @@ next_it:    ;
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseShlI& n )
-    {
-        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseShr& n )
-    {
-        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseShrI& n )
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
@@ -3384,6 +3390,11 @@ next_it:    ;
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorPrefetch& n )
+    {
+        return visit_vector_memory_func( n, /*mem_access_type = load*/ '1' );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorPromotion& n )
     {
         return visit_vector_unary_node( n, n.get_rhs( ) );
@@ -3480,8 +3491,8 @@ next_it:    ;
         _utils->_break_nodes.pop( );
 
         int n_conn = _utils->_last_nodes.size();
-        _pcfg->connect_nodes(_utils->_last_nodes, cond_node, 
-                             ObjectList<Edge_type>(n_conn, __Always), 
+        _pcfg->connect_nodes(_utils->_last_nodes, cond_node,
+                             ObjectList<EdgeType>(n_conn, __Always),
                              ObjectList<NBase>(n_conn, NBase::null()),
                               /*is_task_edge*/false, /*is_back_edge*/true );
         ObjectList<Edge*> cond_exits = cond_node->get_exit_edges( );
