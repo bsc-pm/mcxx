@@ -21953,7 +21953,12 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
 
     if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
-        nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
+    {
+        if (is_array_section_size)
+            nodecl_upper = nodecl_shallow_copy(array_type_get_array_size_expr(indexed_type));
+        else
+            nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
+    }
 
 #define MAX_NESTING_OF_ARRAY_REGIONS (16)
 
