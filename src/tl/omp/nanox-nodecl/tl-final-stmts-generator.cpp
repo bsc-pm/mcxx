@@ -72,6 +72,14 @@ namespace TL { namespace Nanox {
                     walk(task_expr.get_sequential_code());
                 }
 
+                void visit(const Nodecl::ObjectInit& object_init)
+                {
+                    TL::Symbol sym = object_init.get_symbol();
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
+                }
+
                 void visit(const Nodecl::FunctionCall &function_call)
                 {
                     Nodecl::NodeclBase called = function_call.get_called();
@@ -154,6 +162,14 @@ namespace TL { namespace Nanox {
                     walk(task_expr);
                 }
 
+                void visit(const Nodecl::ObjectInit& object_init)
+                {
+                    TL::Symbol sym = object_init.get_symbol();
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                        walk(value);
+                }
+
                 void visit(const Nodecl::FunctionCall& function_call)
                 {
                     Nodecl::NodeclBase called = function_call.get_called();
@@ -231,7 +247,7 @@ namespace TL { namespace Nanox {
                 }
         };
 
-        Nodecl::NodeclBase new_stmts = stmts.shallow_copy();
+        Nodecl::NodeclBase new_stmts = Nodecl::Utils::deep_copy(stmts, stmts.retrieve_context());
 
         FinalStatementsPreVisitor pre_visitor(_function_translation_map);
         pre_visitor.walk(new_stmts);

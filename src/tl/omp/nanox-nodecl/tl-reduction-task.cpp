@@ -449,262 +449,277 @@ namespace TL { namespace Nanox {
 
     };
 
-    void LoweringVisitor::handle_reductions_on_task(
+    bool LoweringVisitor::handle_reductions_on_task(
             Nodecl::NodeclBase construct,
             OutlineInfo& outline_info,
             Nodecl::NodeclBase statements,
+            bool generate_final_stmts,
             Nodecl::NodeclBase& final_statements)
     {
-        if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
+        if (!Nanos::Version::interface_is_at_least("task_reduction", 1000))
+            return false;
+
+        int num_reductions = 0;
+
+        TL::Source
+            reductions_stuff,
+            final_clause_stuff,
+            // This source represents an expression which is used to check if
+            // we can do an optimization in the final code. This optimization
+            // consists on calling the original code (with a serial closure) if
+            // we are in a final context and the reduction variables that we
+            // are using have not been registered previously
+            final_clause_opt_expr,
+            extra_array_red_memcpy;
+
+        std::map<TL::Symbol, std::string> reduction_symbols_map;
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
         {
-            bool there_are_reductions_on_task = false;
-            TL::Source reductions_stuff, reductions_stuff_final;
-            std::map<TL::Symbol, std::string> reduction_symbols_map;
+            if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
+                continue;
 
-            TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-            for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                    it != data_items.end();
-                    it++)
+            TL::Symbol reduction_item = (*it)->get_symbol();
+            std::string storage_name = (*it)->get_field_name() + "_storage";
+
+            std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
+            TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
+
+            TL::Type reduction_type = reduction_item.get_type();
+
+            TL::Symbol reduction_function, reduction_function_original_var;
+            create_reduction_functions(reduction_info,
+                    construct,
+                    reduction_item,
+                    reduction_function,
+                    reduction_function_original_var,
+                    _reduction_on_tasks_red_map);
+
+            TL::Symbol initializer_function;
+            create_initializer_function(reduction_info,
+                    construct,
+                    reduction_type,
+                    initializer_function,
+                    _reduction_on_tasks_ini_map);
+
+            // Mandatory TL::Sources to be filled by any reduction
+            TL::Source
+                orig_address, // address of the original reduction variable
+                storage_var; // variable which holds the address of the storage
+
+            // Specific TL::Sources to be filled only by Fortran array reduction
+            TL::Source extra_array_red_decl;
+
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                if ((*it)->get_sharing() != OutlineDataItem::SHARING_TASK_REDUCTION)
-                    continue;
-
-                TL::Symbol reduction_item = (*it)->get_symbol();
-
-                there_are_reductions_on_task = true;
-
-                std::string storage_name = (*it)->get_field_name() + "_storage";
-
-                std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
-                TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
-
-                TL::Type reduction_type = reduction_item.get_type();
-
-                TL::Symbol reduction_function, reduction_function_original_var;
-                create_reduction_functions(reduction_info,
-                        construct,
-                        reduction_item,
-                        reduction_function,
-                        reduction_function_original_var,
-                        _reduction_on_tasks_red_map);
-
-                TL::Symbol initializer_function;
-                create_initializer_function(reduction_info,
-                        construct,
-                        reduction_type,
-                        initializer_function,
-                        _reduction_on_tasks_ini_map);
-
-                // Mandatory TL::Sources to be filled by any reduction
-                TL::Source
-                    orig_address, // address of the original reduction variable
-                    storage_var, // variable which holds the address of the storage
-                    final_stmts; // This source contains the stmts for the final clause support
-
-                // Specific TL::Sources to be filled only by Fortran array reduction
-                TL::Source extra_array_red_decl, extra_array_red_memcpy;
-
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                storage_var << storage_name;
+                orig_address  <<  "(void *) &" << (*it)->get_field_name();
+                final_clause_stuff
+                    << "if (" << storage_var << " == 0)"
+                    << "{"
+                    <<     storage_name  << " = &" << (*it)->get_field_name() << ";"
+                    << "}"
+                    ;
+            }
+            else
+            {
+                if (reduction_type.is_array())
                 {
-                    storage_var << storage_name;
-                    orig_address  <<  "(void *) &" << (*it)->get_field_name();
-                    final_stmts
+                    size_t size_of_array_descriptor =
+                        fortran_size_of_array_descriptor(
+                                fortran_get_rank0_type(reduction_type.get_internal_type()),
+                                fortran_get_rank_of_type(reduction_type.get_internal_type()));
+
+                    TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
+                    if (reduction_item.is_allocatable())
+                    {
+                        orig_address << ptr_of_sym.get_name() << "(" << (*it)->get_field_name() << ")";
+                    }
+                    else
+                    {
+                        orig_address <<  "(void *) &" << (*it)->get_field_name();
+                    }
+
+                    extra_array_red_decl << "void* indirect;";
+                    storage_var << "indirect";
+
+                    extra_array_red_memcpy
+                        << "nanos_err = nanos_memcpy("
+                        <<      "(void **) &" << storage_name << ","
+                        <<      "indirect,"
+                        <<      size_of_array_descriptor << ");"
+                        ;
+
+                    final_clause_stuff
                         << "if (" << storage_var << " == 0)"
                         << "{"
-                        <<     storage_name  << " = &" << (*it)->get_field_name() << ";"
+                        <<     "nanos_err = nanos_memcpy("
+                        <<         "(void **) &" << storage_name << ","
+                        <<         orig_address << ","
+                        <<         size_of_array_descriptor << ");"
+                        << "}"
+                        << "else"
+                        << "{"
+                        <<     extra_array_red_memcpy
                         << "}"
                         ;
                 }
                 else
                 {
-                    if (reduction_type.is_array())
-                    {
-                        size_t size_of_array_descriptor =
-                            fortran_size_of_array_descriptor(
-                                    fortran_get_rank0_type(reduction_type.get_internal_type()),
-                                    fortran_get_rank_of_type(reduction_type.get_internal_type()));
+                    // We need to convert a void* type into a pointer to the reduction type.
+                    // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
+                    // conversion directly in the FORTRAN source. For this reason we introduce
+                    // a new function that will be defined in a C file.
+                    TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
+                            // Destination
+                            reduction_type.get_pointer_to(),
+                            // Origin
+                            TL::Type::get_void_type().get_pointer_to(),
+                            construct.retrieve_context());
 
-                        TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
-                        if (reduction_item.is_allocatable())
-                        {
-                            orig_address << ptr_of_sym.get_name() << "(" << (*it)->get_field_name() << ")";
-                        }
-                        else
-                        {
-                            orig_address <<  "(void *) &" << (*it)->get_field_name();
-                        }
-
-                        extra_array_red_decl << "void* indirect;";
-                        storage_var << "indirect";
-
-                        extra_array_red_memcpy
-                            << "nanos_err = nanos_memcpy("
-                            <<      "(void **) &" << storage_name << ","
-                            <<      "indirect,"
-                            <<      size_of_array_descriptor << ");"
-                            ;
-
-                        final_stmts
-                            << "if (" << storage_var << " == 0)"
-                            << "{"
-                            <<     "nanos_err = nanos_memcpy("
-                            <<         "(void **) &" << storage_name << ","
-                            <<         orig_address << ","
-                            <<         size_of_array_descriptor << ");"
-                            << "}"
-                            << "else"
-                            << "{"
-                            <<     extra_array_red_memcpy
-                            << "}"
-                            ;
-                    }
-                    else
-                    {
-                        // We need to convert a void* type into a pointer to the reduction type.
-                        // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
-                        // conversion directly in the FORTRAN source. For this reason we introduce
-                        // a new function that will be defined in a C file.
-                        TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
-                                // Destination
-                                reduction_type.get_pointer_to(),
-                                // Origin
-                                TL::Type::get_void_type().get_pointer_to(),
-                                construct.retrieve_context());
-
-                        orig_address <<  "(void *) &"<< (*it)->get_field_name();
-                        storage_var << storage_name;
+                    orig_address <<  "(void *) &"<< (*it)->get_field_name();
+                    storage_var << storage_name;
 
 
-                        final_stmts
-                            << "if (" << storage_var << " == 0)"
-                            << "{"
-                            <<     storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
-                            << "}"
-                            ;
-                    }
+                    final_clause_stuff
+                        << "if (" << storage_var << " == 0)"
+                        << "{"
+                        <<     storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
+                        << "}"
+                        ;
                 }
-
-                reductions_stuff
-                    << extra_array_red_decl
-                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                    << "nanos_err = nanos_task_reduction_get_thread_storage("
-                    <<         orig_address  << ","
-                    <<         "(void **) &" << storage_var << ");"
-                    << extra_array_red_memcpy
-                    ;
-
-                reductions_stuff_final
-                    << extra_array_red_decl
-                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                    << "nanos_err = nanos_task_reduction_get_thread_storage("
-                    <<         orig_address  << ","
-                    <<         "(void **) &" << storage_var << ");"
-                    << final_stmts
-                    ;
-
-                reduction_symbols_map[reduction_item] = storage_name;
             }
 
-            if (there_are_reductions_on_task)
+            if (num_reductions > 0)
+                final_clause_opt_expr << " && ";
+            final_clause_opt_expr << storage_var << " == 0 ";
+            num_reductions++;
+
+            reductions_stuff
+                << extra_array_red_decl
+                << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                << "nanos_err = nanos_task_reduction_get_thread_storage("
+                <<         orig_address  << ","
+                <<         "(void **) &" << storage_var << ");"
+                ;
+
+            reduction_symbols_map[reduction_item] = storage_name;
+        }
+
+        if (num_reductions != 0)
+        {
+            // Generating the final code if needed
+            if (generate_final_stmts)
             {
-                // Generating the final code
+                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it4 = _final_stmts_map.find(construct);
+                ERROR_CONDITION(it4 == _final_stmts_map.end(), "Unreachable code", 0);
+
+                Nodecl::NodeclBase placeholder;
+                TL::Source new_statements_src;
+                new_statements_src
+                    << "{"
+                    <<      "nanos_err_t nanos_err;"
+                    <<      reductions_stuff
+                    <<      "if (" << final_clause_opt_expr  << ")"
+                    <<      "{"
+                    <<          as_statement(it4->second)
+                    <<      "}"
+                    <<      "else"
+                    <<      "{"
+                    <<          final_clause_stuff
+                    <<          statement_placeholder(placeholder)
+                    <<      "}"
+                    << "}"
+                    ;
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::C;
+
+                Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::Current;
+
+                TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+                std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
+                for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
+                        it != reduction_symbols_map.end();
+                        ++it)
                 {
-                    TL::Source extra_declarations;
-                    extra_declarations << "nanos_err_t nanos_err;";
+                    TL::Symbol reduction_sym = it->first;
+                    std::string storage_name = it->second;
+                    TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
+                    ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
 
-                    Nodecl::NodeclBase placeholder;
-                    TL::Source new_statements_src;
-                    new_statements_src
-                        << "{"
-                        <<      extra_declarations
-                        <<      reductions_stuff_final
-                        <<      statement_placeholder(placeholder)
-                        << "}"
-                        ;
+                    Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
+                            storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
+                            storage_sym.get_type().points_to());
 
-                    if (IS_FORTRAN_LANGUAGE)
-                        Source::source_language = SourceLanguage::C;
-
-                    Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
-
-                    if (IS_FORTRAN_LANGUAGE)
-                        Source::source_language = SourceLanguage::Current;
-
-                    TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
-                    std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
-                    for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
-                            it != reduction_symbols_map.end();
-                            ++it)
-                    {
-                        TL::Symbol reduction_sym = it->first;
-                        std::string storage_name = it->second;
-                        TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
-                        ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
-
-                        Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
-                                storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
-                                storage_sym.get_type().points_to());
-
-                        reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
-                    }
-
-                    ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
-                    Nodecl::NodeclBase copied_statements = statements.shallow_copy();
-                    visitor.walk(copied_statements);
-
-                    placeholder.replace(copied_statements);
-
-                    final_statements = new_statements;
+                    reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
                 }
 
-                // Generating the task code
+                ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
+                Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+                visitor.walk(copied_statements);
+
+                placeholder.replace(copied_statements);
+
+                final_statements = new_statements;
+            }
+
+            // Generating the task code
+            {
+                TL::Source new_statements_src;
+                Nodecl::NodeclBase placeholder;
+                new_statements_src
+                    << "{"
+                    <<      "nanos_err_t nanos_err;"
+                    <<      reductions_stuff
+                    <<      extra_array_red_memcpy
+                    <<      statement_placeholder(placeholder)
+                    << "}"
+                    ;
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::C;
+
+                Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::Current;
+
+
+                TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+                std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
+                for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
+                        it != reduction_symbols_map.end();
+                        ++it)
                 {
-                    TL::Source new_statements_src;
-                    Nodecl::NodeclBase placeholder;
-                    new_statements_src
-                        << "{"
-                        <<      "nanos_err_t nanos_err;"
-                        <<      reductions_stuff
-                        <<      statement_placeholder(placeholder)
-                        << "}"
-                        ;
+                    TL::Symbol reduction_sym = it->first;
+                    std::string storage_name = it->second;
+                    TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
+                    ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
 
-                    if (IS_FORTRAN_LANGUAGE)
-                        Source::source_language = SourceLanguage::C;
+                    Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
+                            storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
+                            storage_sym.get_type().points_to());
 
-                    Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
-
-                    if (IS_FORTRAN_LANGUAGE)
-                        Source::source_language = SourceLanguage::Current;
-
-
-                    TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
-                    std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
-                    for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
-                            it != reduction_symbols_map.end();
-                            ++it)
-                    {
-                        TL::Symbol reduction_sym = it->first;
-                        std::string storage_name = it->second;
-                        TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
-                        ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
-
-                        Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
-                                storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
-                                storage_sym.get_type().points_to());
-
-                        reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
-                    }
-
-                    ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
-                    Nodecl::NodeclBase copied_statements = statements.shallow_copy();
-                    visitor.walk(copied_statements);
-
-                    placeholder.replace(copied_statements);
-                    statements.replace(new_statements);
+                    reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
                 }
+
+                ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
+                Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+                visitor.walk(copied_statements);
+
+                placeholder.replace(copied_statements);
+                statements.replace(new_statements);
             }
         }
+
+        return (num_reductions != 0);
     }
 
     void LoweringVisitor::register_reductions(Nodecl::NodeclBase construct, OutlineInfo& outline_info, TL::Source& src)

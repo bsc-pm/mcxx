@@ -21879,6 +21879,52 @@ static void check_gcc_builtin_va_arg(AST expression,
             t, locus);
 }
 
+static nodecl_t promote_node_to_ptrdiff_t(nodecl_t n, decl_context_t decl_context)
+{
+    if (nodecl_is_null(n))
+        return n;
+
+    if (nodecl_is_err_expr(n))
+        return n;
+
+    if (nodecl_expr_is_type_dependent(n))
+        return n;
+
+    if (!is_integral_type(get_unqualified_type(
+                    no_ref(nodecl_get_type(n)))))
+    {
+        error_printf("%s: error: expression '%s' must be of integral type\n",
+                nodecl_locus_to_str(n),
+                codegen_to_str(n, decl_context));
+        return nodecl_make_err_expr(nodecl_get_locus(n));
+    }
+
+    if (!equivalent_types(
+                get_unqualified_type(no_ref(nodecl_get_type(n))),
+                get_ptrdiff_t_type()))
+    {
+
+        if (nodecl_is_constant(n))
+        {
+            return const_value_to_nodecl_with_basic_type(
+                    const_value_cast_to_bytes(
+                        nodecl_get_constant(n),
+                        type_get_size(get_ptrdiff_t_type()),
+                        /* sign */ 1),
+                    get_ptrdiff_t_type());
+        }
+        else
+        {
+            n = nodecl_make_conversion(
+                    nodecl_shallow_copy(n),
+                    get_ptrdiff_t_type(),
+                    nodecl_get_locus(n));
+        }
+    }
+
+    return n;
+}
+
 static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_t nodecl_lower,
         nodecl_t nodecl_upper,
@@ -21888,6 +21934,9 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    nodecl_lower = promote_node_to_ptrdiff_t(nodecl_lower, decl_context);
+    nodecl_upper = promote_node_to_ptrdiff_t(nodecl_upper, decl_context);
+    nodecl_stride = promote_node_to_ptrdiff_t(nodecl_stride, decl_context);
 
     if (nodecl_is_err_expr(nodecl_postfix)
             || (!nodecl_is_null(nodecl_lower) && nodecl_is_err_expr(nodecl_lower))
@@ -21904,7 +21953,12 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
 
     if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
-        nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
+    {
+        if (is_array_section_size)
+            nodecl_upper = nodecl_shallow_copy(array_type_get_array_size_expr(indexed_type));
+        else
+            nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
+    }
 
 #define MAX_NESTING_OF_ARRAY_REGIONS (16)
 
@@ -21928,12 +21982,15 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
             const_value_t* cval_upper = nodecl_get_constant(nodecl_upper);
 
             nodecl_upper =
-                const_value_to_nodecl(
+                const_value_to_nodecl_with_basic_type(
                         const_value_sub( // (U +L) - 1
                             const_value_add( // U + L
                                 cval_upper, // U
                                 cval_lower),// L
-                            const_value_get_one(/* num_bytes */ 4, /* signed */ 1)));
+                            const_value_get_one(
+                                /* num_bytes */ type_get_size(get_ptrdiff_t_type()),
+                                /* signed */ 1)),
+                        get_ptrdiff_t_type());
         }
         else
         {
@@ -21941,19 +21998,24 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
                 nodecl_make_minus(
                         nodecl_make_add(
                             nodecl_shallow_copy(nodecl_upper), nodecl_shallow_copy(nodecl_lower),
-                            get_signed_int_type(),
+                            get_ptrdiff_t_type(),
                             nodecl_get_locus(nodecl_upper)),
                         nodecl_make_integer_literal(
-                            get_signed_int_type(),
-                            const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                            get_ptrdiff_t_type(),
+                            const_value_get_one(
+                                /* num_bytes */ type_get_size(get_ptrdiff_t_type()),
+                                /* sign */ 1),
                             nodecl_get_locus(nodecl_upper)),
-                        get_signed_int_type(),
+                        get_ptrdiff_t_type(),
                         nodecl_get_locus(nodecl_upper));
         }
     }
 
-    nodecl_t nodecl_range = nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, 
-            get_signed_int_type(), locus);
+    nodecl_t nodecl_range = nodecl_make_range(
+            nodecl_lower,
+            nodecl_upper,
+            nodecl_stride,
+            get_ptrdiff_t_type(), locus);
 
     type_t* result_type = NULL;
     if (is_array_type(indexed_type))
@@ -21961,7 +22023,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_t array_lower_bound = array_type_get_array_lower_bound(indexed_type);
         nodecl_t array_upper_bound = array_type_get_array_upper_bound(indexed_type);
         decl_context_t array_decl_context = array_type_get_array_size_expr_context(indexed_type);
-    
+
         result_type = get_array_type_bounds_with_regions(
                 array_type_get_element_type(indexed_type),
                 array_lower_bound,
@@ -22094,7 +22156,10 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
     }
     else
     {
-        nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+        nodecl_stride = const_value_to_nodecl_with_basic_type(
+                const_value_get_one(
+                    /* bytes */ type_get_size(get_ptrdiff_t_type()), /* signed */ 1),
+                get_ptrdiff_t_type());
     }
     
     char is_array_section_size = (ASTKind(expression) == AST_ARRAY_SECTION_SIZE);
@@ -22134,12 +22199,13 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         standard_conversion_t scs;
         if (!standard_conversion_between_types(&scs,
                     no_ref(current_expr_type),
-                    get_signed_int_type(),
+                    get_ptrdiff_t_type(),
                     locus))
         {
-            error_printf("%s: error: shaping expression '%s' cannot be converted to 'int'\n",
+            error_printf("%s: error: shaping expression '%s' cannot be converted to '%s'\n",
                     nodecl_locus_to_str(current_expr),
-                    codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)));
+                    codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)),
+                    print_type_str(get_ptrdiff_t_type(), decl_context));
             xfree(list);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -25451,7 +25517,7 @@ static void instantiate_range(nodecl_instantiate_expr_visitor_t *v, nodecl_t nod
             nodecl_lower,
             nodecl_upper,
             nodecl_stride,
-            get_signed_int_type(),
+            get_ptrdiff_t_type(),
             nodecl_get_locus(node));
 }
 

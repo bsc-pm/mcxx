@@ -317,7 +317,11 @@ namespace TL
                     if (t.is_pointer())
                     {
                         // We do not really know the size, so normalize the region from 0
-                        lower_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                        lower_bounds.push_back(const_value_to_nodecl_with_basic_type(
+                                    const_value_get_zero(
+                                        type_get_size(get_ptrdiff_t_type()),
+                                        /* sign */ 1),
+                                    get_ptrdiff_t_type()));
                         if (index.is<Nodecl::Range>())
                         {
                             // compute the new upper bound normalized to 0
@@ -325,16 +329,21 @@ namespace TL
                                     Nodecl::Minus::make(
                                         Nodecl::ParenthesizedExpression::make(
                                             index.as<Nodecl::Range>().get_upper().shallow_copy(),
-                                            get_signed_int_type()),
+                                            get_ptrdiff_t_type()),
                                         Nodecl::ParenthesizedExpression::make(
                                             index.as<Nodecl::Range>().get_lower().shallow_copy(),
-                                            get_signed_int_type()),
-                                        get_signed_int_type()));
+                                            get_ptrdiff_t_type()),
+                                        get_ptrdiff_t_type()));
                         }
                         else
                         {
                             // A single element of this region
-                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
+                            upper_bounds.push_back(
+                                    const_value_to_nodecl_with_basic_type(
+                                        const_value_get_zero(
+                                            type_get_size(get_ptrdiff_t_type()),
+                                            /* sign */ 1),
+                                        get_ptrdiff_t_type()));
                         }
 
                         t = t.points_to();
@@ -382,7 +391,10 @@ namespace TL
                             Nodecl::Range::make(
                                     item.shallow_copy(),
                                     item.shallow_copy(),
-                                    /* stride */ const_value_to_nodecl(const_value_get_signed_int(1)),
+                                    /* stride */ const_value_to_nodecl_with_basic_type(
+                                        const_value_get_one(
+                                            type_get_size(get_ptrdiff_t_type()), /* signed */ 1),
+                                        get_ptrdiff_t_type()),
                                     item.get_type(),
                                     item.get_locus());
 
@@ -582,11 +594,16 @@ namespace TL
                     reversed_sizes.begin(),
                     reversed_lower_bounds.begin());
 
-            TL::Type index_type = CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t();
+            TL::Type index_type = TL::Type::get_ptrdiff_t_type();
 
             Nodecl::NodeclBase result =
                 Nodecl::Mul::make(
-                        const_value_to_nodecl(const_value_get_signed_int(it_type.get_size())),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_integer(
+                                it_type.get_size(),
+                                type_get_size(get_ptrdiff_t_type()),
+                                /* signed */ 1),
+                            get_ptrdiff_t_type()),
                         Nodecl::ParenthesizedExpression::make(
                             index_expression,
                             index_expression.get_type(),
@@ -802,16 +819,20 @@ namespace TL
                         Nodecl::Minus::make(
                             Nodecl::ParenthesizedExpression::make(
                                 upper_bound,
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 upper_bound.get_locus()),
                             Nodecl::ParenthesizedExpression::make(
                                 lower_bound,
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 lower_bound.get_locus()),
-                            TL::Type::get_int_type(),
+                            TL::Type::get_ptrdiff_t_type(),
                             upper_bound.get_locus()),
-                        const_value_to_nodecl(const_value_get_signed_int(1)),
-                        TL::Type::get_int_type(),
+                        const_value_to_nodecl_with_basic_type(
+                            const_value_get_one(
+                                type_get_size(get_ptrdiff_t_type()),
+                                /* signed */ 1),
+                            get_ptrdiff_t_type()),
+                        TL::Type::get_ptrdiff_t_type(),
                         lower_bound.get_locus());
             }
 
@@ -820,13 +841,13 @@ namespace TL
             return Nodecl::Mul::make(
                     Nodecl::ParenthesizedExpression::make(
                         element_size,
-                        TL::Type::get_int_type(),
+                        TL::Type::get_ptrdiff_t_type(),
                         element_size.get_locus()),
                     Nodecl::ParenthesizedExpression::make(
                         array_size,
-                        TL::Type::get_int_type(),
+                        TL::Type::get_ptrdiff_t_type(),
                         array_size.get_locus()),
-                    TL::Type::get_int_type(),
+                    TL::Type::get_ptrdiff_t_type(),
                     element_size.get_locus());
 
             return array_size;
@@ -843,10 +864,12 @@ namespace TL
         }
         else
         {
-            return const_value_to_nodecl(
-                    // FIXME - This should be size_t
-                    const_value_get_signed_int(
-                        relevant_type.get_size()));
+            return const_value_to_nodecl_with_basic_type(
+                    const_value_get_integer(
+                        relevant_type.get_size(),
+                        type_get_size(get_ptrdiff_t_type()),
+                        /* signed */ 1),
+                    get_ptrdiff_t_type());
         }
     }
 
@@ -883,7 +906,9 @@ namespace TL
             }
             else if (t.is_pointer())
             {
-                lower_bound = const_value_to_nodecl(const_value_get_zero(4, 1));
+                lower_bound = const_value_to_nodecl_with_basic_type(
+                        const_value_get_zero(type_get_size(get_ptrdiff_t_type()), 1),
+                        get_ptrdiff_t_type());
             }
             else
             {
@@ -915,15 +940,15 @@ namespace TL
                         Nodecl::Minus::make(
                             Nodecl::ParenthesizedExpression::make(
                                 lower.shallow_copy(),
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 expr.get_locus()),
                             Nodecl::ParenthesizedExpression::make(
                                 lower_bound.shallow_copy(),
-                                TL::Type::get_int_type(),
+                                TL::Type::get_ptrdiff_t_type(),
                                 lower_bound.get_locus()),
-                            TL::Type::get_int_type(),
+                            TL::Type::get_ptrdiff_t_type(),
                             expr.get_locus()),
-                        TL::Type::get_int_type(),
+                        TL::Type::get_ptrdiff_t_type(),
                         expr.get_locus());
 
             indexes.append(current_index);
@@ -956,7 +981,11 @@ namespace TL
             else
             {
                 // This way it will have the same length as indexes
-                sizes.append(const_value_to_nodecl(const_value_get_one(4, 1)));
+                sizes.append(const_value_to_nodecl_with_basic_type(
+                            const_value_get_one(
+                                type_get_size(get_ptrdiff_t_type()),
+                                /* sign */ 1),
+                            get_ptrdiff_t_type()));
             }
 
 
@@ -1020,7 +1049,9 @@ namespace TL
             return compute_offsetof_array_subscript(expr, scope);
         }
 
-        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
+        return const_value_to_nodecl_with_basic_type(
+                const_value_get_zero(type_get_size(get_ptrdiff_t_type()), /* sign */ 1),
+                get_ptrdiff_t_type());
     }
 
     Nodecl::NodeclBase DataReference::compute_offsetof_copy(
@@ -1139,7 +1170,9 @@ namespace TL
             // A shaping itself does not imply any offset
         }
 
-        return const_value_to_nodecl(const_value_get_integer(0, type_get_size(get_ptrdiff_t_type()), 1));
+        return const_value_to_nodecl_with_basic_type(
+                const_value_get_zero(type_get_size(get_ptrdiff_t_type()), 1),
+                get_ptrdiff_t_type());
     }
 
     Nodecl::NodeclBase DataReference::get_offsetof_dependence() const

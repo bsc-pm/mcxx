@@ -1901,6 +1901,9 @@ static void check_component_ref_(AST expr,
             check_array_ref_(rhs, decl_context, *nodecl_output, *nodecl_output, nodecl_output,
                     do_complete_array_ranks, require_lower_bound);
 
+            if (nodecl_is_err_expr(*nodecl_output))
+                return;
+
             if (fortran_is_array_type(lhs_type)
                     && fortran_is_array_type(no_ref(nodecl_get_type(*nodecl_output))))
             {
@@ -2006,7 +2009,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     {
         error_printf("%s: error: '%s' is not a derived-type-name\n",
                 ast_location(expr),
-                ASTText(derived_name));
+                strtolower(ASTText(derived_name)));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
@@ -5456,18 +5459,6 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
         }
     }
 
-    if (correct_option < 0)
-    {
-        ERROR_CONDITION(prioritize[0].t == NULL && prioritize[3].t == NULL, 
-                "Invalid ambiguity", 0);
-
-        // Use function call if no class member access ambiguity has arisen
-        if (prioritize[3].t == NULL)
-            correct_option = prioritize[0].idx;
-        else
-            correct_option = prioritize[3].idx;
-    }
-
     for (i = 0; i < num_ambig; i++)
     {
         if (i == correct_option)
@@ -5478,12 +5469,36 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
         {
             nodecl_free(nodecl_check_expr[i]);
             if (ambig_diag[i] != NULL)
-                diagnostic_context_discard(ambig_diag[i]);
+            {
+                if (correct_option < 0)
+                {
+                    diagnostic_context_commit(ambig_diag[i]);
+                }
+                else
+                {
+                    diagnostic_context_discard(ambig_diag[i]);
+                }
+            }
         }
     }
 
-    ast_replace_with_ambiguity(expr, correct_option);
-    *nodecl_output = nodecl_check_expr[correct_option];
+    if (correct_option < 0)
+    {
+        ERROR_CONDITION(prioritize[0].t == NULL && prioritize[3].t == NULL, 
+                "Invalid ambiguity", 0);
+        if (prioritize[3].t == NULL)
+            correct_option = prioritize[0].idx;
+        else
+            correct_option = prioritize[3].idx;
+        ast_replace_with_ambiguity(expr, correct_option);
+
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+    }
+    else
+    {
+        ast_replace_with_ambiguity(expr, correct_option);
+        *nodecl_output = nodecl_check_expr[correct_option];
+    }
 }
 
 static type_t* common_kind(type_t* t1, type_t* t2)

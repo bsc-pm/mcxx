@@ -581,7 +581,7 @@ namespace Analysis {
                 else
                 {   // We have the prototype, use it to determine the usage
                     ObjectList<Symbol>::const_iterator itp = params.begin();
-                    NBase one = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                    NBase one = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                     for(Nodecl::List::iterator ita = args.begin(); ita != args.end(); ++ita)
                     {
                         NBase arg = *ita;
@@ -605,11 +605,14 @@ namespace Analysis {
                                 if(ptr_to_size_map.find(arg) != ptr_to_size_map.end())
                                 {   // type* v = malloc(...) || type* v = calloc(...)
                                     NBase lb, ub, step;
-                                    lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
+                                    lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                     NBase length = ptr_to_size_map.find(arg)->second;
                                     if(length.is_constant())
-                                        ub = const_value_to_nodecl(const_value_sub(length.get_constant(), 
-                                                                                    const_value_get_one(/*bytes*/4, /*signed*/1)));
+                                        ub = const_value_to_nodecl_with_basic_type(const_value_sub(length.get_constant(), 
+                                                    const_value_get_one(
+                                                        /*bytes*/type_get_size(get_ptrdiff_t_type()),
+                                                        /*signed*/1)),
+                                                get_ptrdiff_t_type());
                                     else
                                         ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
                                     step = one.shallow_copy();
@@ -638,7 +641,9 @@ namespace Analysis {
                             {   // type v[2];
                                 NBase lb, ub, step;
                                 arg_t.array_get_bounds(lb, ub);
-                                step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                                step = const_value_to_nodecl_with_basic_type(const_value_get_one(
+                                            /*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1),
+                                        get_ptrdiff_t_type());
                                 Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                 NBase arg_points_to = 
                                         Nodecl::ArraySubscript::make(arg.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
@@ -698,11 +703,14 @@ namespace Analysis {
                                         if (ptr_to_size_map.find(arg_referenced) != ptr_to_size_map.end())
                                         {   // type* v = malloc(...) || type* v = calloc(...)
                                             NBase lb, ub, step;
-                                            lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
+                                            lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(
+                                                        /*bytes*/type_get_size(get_ptrdiff_t_type()),
+                                                        /*signed*/1),
+                                                    get_ptrdiff_t_type());
                                             NBase length = ptr_to_size_map.find(arg_referenced)->second;
                                             if(length.is_constant())
-                                                ub = const_value_to_nodecl(const_value_sub(length.get_constant(), 
-                                                                                            const_value_get_one(/*bytes*/4, /*signed*/1)));
+                                                ub = const_value_to_nodecl_with_basic_type(const_value_sub(length.get_constant(), 
+                                                                                            const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1)), get_ptrdiff_t_type());
                                             else
                                                 ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
                                             
@@ -721,7 +729,7 @@ namespace Analysis {
                                     {   // type v[2];
                                         NBase lb, ub, step;
                                         arg_t.array_get_bounds(lb, ub);
-                                        step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                                        step = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                         Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                         modifiable_arg = Nodecl::ArraySubscript::make(arg_referenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
                                     }
@@ -768,7 +776,7 @@ namespace Analysis {
                                 if(ptr_to_size_map.find(arg_dereferenced) != ptr_to_size_map.end())
                                 {   // type* v = malloc(...) || type* v = calloc(...)
                                     NBase lb, ub, step;
-                                    lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
+                                    lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                     ub = Nodecl::Minus::make(ptr_to_size_map.find(arg_dereferenced)->second.shallow_copy(), 
                                                              one.shallow_copy(), one.get_type());
                                     step = one.shallow_copy();
@@ -788,7 +796,7 @@ namespace Analysis {
                                 arg_t.array_get_bounds(lb, ub);
                                 Scope sc(Utils::get_nodecl_base(arg_dereferenced).get_symbol().get_scope());
                                 arg_t = arg_t.array_element().get_array_to_with_region(lb, ub, lb, ub, sc);
-                                step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
+                                step = const_value_to_nodecl_with_basic_type(const_value_get_one(/*bytes*/type_get_size(get_ptrdiff_t_type()), /*signed*/1), get_ptrdiff_t_type());
                                 Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
                                 arg_points_to = Nodecl::ArraySubscript::make(arg_dereferenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
                             }
