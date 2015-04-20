@@ -554,6 +554,8 @@ namespace TL
 
                 void add_shared_common(Symbol sym, TL::Type field_type);
 
+                OutlineDataItem* capture_descriptor(OutlineDataItem &outline_info, Symbol sym);
+
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
                     : _outline_info(outline_info), _sc(sc) { }

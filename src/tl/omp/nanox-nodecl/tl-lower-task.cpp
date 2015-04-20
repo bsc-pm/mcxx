@@ -1530,6 +1530,21 @@ void LoweringVisitor::fill_arguments(
                                 << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << ") \n"
                                 ;
                         }
+                        else if (t.is_array() && t.array_requires_descriptor())
+                        {
+                            // This must be an assumed shape, so it will have a descriptor
+                            OutlineDataItem* copy_of_array_descriptor = (*it)->get_copy_of_array_descriptor();
+                            ERROR_CONDITION(copy_of_array_descriptor == NULL, "Missing array descriptor copy entity", 0);
+
+                            fill_outline_arguments <<
+                                "ol_args %" << (*it)->get_field_name() << " => "
+                                << "MERCURIUM_LOC( ol_args %" << copy_of_array_descriptor->get_field_name() << ")\n"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args % " << (*it)->get_field_name() << " => "
+                                << "MERCURIUM_LOC( imm_args %" << copy_of_array_descriptor->get_field_name() << ")\n"
+                                ;
+                        }
                         else
                         {
                             Source lbound_specifier;
@@ -2702,10 +2717,11 @@ void LoweringVisitor::emit_translation_function_region(
             << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             ;
 
-        if ((*it)->get_symbol().is_allocatable()
-                || ((*it)->get_symbol().get_type().is_pointer()
-                    && (*it)->get_symbol().get_type().points_to().is_array()
-                    && (*it)->get_symbol().get_type().points_to().array_requires_descriptor()))
+        if (((*it)->get_symbol().get_type().no_ref().is_fortran_array()
+                    && (*it)->get_symbol().get_type().no_ref().array_requires_descriptor())
+                || ((*it)->get_symbol().get_type().no_ref().is_pointer()
+                    && (*it)->get_symbol().get_type().no_ref().points_to().is_fortran_array()
+                    && (*it)->get_symbol().get_type().no_ref().points_to().array_requires_descriptor()))
         {
             TL::Symbol new_function = get_function_modify_array_descriptor(
                     (*it)->get_field_name(),

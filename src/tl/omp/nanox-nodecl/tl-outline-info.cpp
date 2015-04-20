@@ -171,29 +171,10 @@ namespace TL { namespace Nanox {
         }
     }
 
-    void OutlineInfoRegisterEntities::add_shared_opaque_and_captured_array_descriptor(Symbol sym)
+    OutlineDataItem* OutlineInfoRegisterEntities::capture_descriptor(
+            OutlineDataItem &outline_info,
+            Symbol sym)
     {
-        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This function is only for Fortran", 0);
-
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-
-        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
-
-        Type t = sym.get_type();
-        if (t.is_any_reference())
-        {
-            t = t.references_to();
-        }
-
-        TL::Type void_pointer = TL::Type::get_void_type().get_pointer_to();
-        outline_info.set_field_type(void_pointer);
-
-        TL::Type in_outline_type = t.get_lvalue_reference_to();
-        in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
-
-        outline_info.set_in_outline_type(in_outline_type);
-
-
         // Capture the descriptor
         TL::Type array_type = sym.get_type().no_ref();
         if (array_type.is_pointer())
@@ -203,6 +184,7 @@ namespace TL { namespace Nanox {
 
         ERROR_CONDITION(!array_type.is_fortran_array(), "Invalid type", 0);
 
+        TL::Type void_pointer = TL::Type::get_void_type().get_pointer_to();
         TL::Type suitable_integer = fortran_choose_int_type_from_kind(void_pointer.get_size());
 
         size_t size_of_array_descriptor = fortran_size_of_array_descriptor(
@@ -269,7 +251,33 @@ namespace TL { namespace Nanox {
         captured_array_descriptor_info.set_in_outline_type(outline_info.get_in_outline_type());
         captured_array_descriptor_info.set_is_copy_of_array_descriptor_allocatable(sym.is_allocatable());
 
-        outline_info.set_copy_of_array_descriptor(&captured_array_descriptor_info);
+        return &captured_array_descriptor_info;
+    }
+
+    void OutlineInfoRegisterEntities::add_shared_opaque_and_captured_array_descriptor(Symbol sym)
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This function is only for Fortran", 0);
+
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        TL::Type void_pointer = TL::Type::get_void_type().get_pointer_to();
+        outline_info.set_field_type(void_pointer);
+
+        TL::Type in_outline_type = t.get_lvalue_reference_to();
+        in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+        outline_info.set_in_outline_type(in_outline_type);
+
+        OutlineDataItem* captured_array_descriptor_info = this->capture_descriptor(outline_info, sym);
+        outline_info.set_copy_of_array_descriptor(captured_array_descriptor_info);
     }
 
     void OutlineInfoRegisterEntities::add_shared_with_capture(Symbol sym)
@@ -580,10 +588,12 @@ namespace TL { namespace Nanox {
 
             Nodecl::NodeclBase result_lower, result_upper;
 
-            // If the symbol is a shared allocatable we want the original type
-            if (sym.is_allocatable()
+            // If the array is shared and requires a descriptor, return its
+            // type
+            if (t.array_requires_descriptor()
                     && outline_data_item != NULL
-                    && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED))
+                    && (outline_data_item->get_sharing() == OutlineDataItem::SHARING_SHARED
+                        || outline_data_item->get_sharing() == OutlineDataItem::SHARING_REDUCTION))
                 return t;
 
             if (sym.is_allocatable()
@@ -629,22 +639,8 @@ namespace TL { namespace Nanox {
 
             if (lower.is_null())
             {
-                if (t.array_requires_descriptor()
-                        && sym.is_parameter()
-                        && !sym.is_allocatable()
-                        && !(sym.get_type().is_pointer()
-                            || (sym.get_type().is_any_reference()
-                                && sym.get_type().references_to().is_pointer())))
+                if (t.array_requires_descriptor())
                 {
-                    // This is an assumed shape, the lower is actually one
-                    result_lower = const_value_to_nodecl(const_value_get_one(4, 1));
-                }
-                else if (sym.get_type().is_pointer()
-                        || (sym.get_type().is_any_reference()
-                            && sym.get_type().references_to().is_pointer())
-                        || sym.is_allocatable())
-                {
-
                     Counter& counter = CounterManager::get_counter("array-lower-boundaries");
                     std::stringstream ss;
                     ss << "mcc_lower_bound_" << (int)counter++;
@@ -683,6 +679,10 @@ namespace TL { namespace Nanox {
                     result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
+                }
+                else
+                {
+                    // We can reach here for assumed size arrays
                 }
             }
             else if (lower.is<Nodecl::Symbol>()
@@ -1054,15 +1054,17 @@ namespace TL { namespace Nanox {
         TL::Type private_type;
         if (IS_FORTRAN_LANGUAGE)
         {
-            if (symbol.is_allocatable())
+            if ((symbol.get_type().no_ref().is_fortran_array()
+                        && symbol.get_type().no_ref().array_requires_descriptor())
+                    || (symbol.get_type().no_ref().is_pointer()
+                        && symbol.get_type().no_ref().points_to().is_fortran_array()))
             {
-                // ALLOCATABLEs are slightly special
-                private_type = reduction_type;
+                OutlineDataItem* captured_array_descriptor_info =
+                    this->capture_descriptor(outline_info, symbol);
+                outline_info.set_copy_of_array_descriptor(captured_array_descriptor_info);
             }
-            else
-            {
-                private_type = in_outline_type.no_ref();
-            }
+
+            private_type = in_outline_type.no_ref();
         }
         else
         {
@@ -1119,9 +1121,10 @@ namespace TL { namespace Nanox {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     if (IS_FORTRAN_LANGUAGE)
                     {
-                        // For ALLOCATABLE and shared pointers, copy the descriptor
-                        if ((sym.is_allocatable()
-                                    && sym.get_type().no_ref().is_fortran_array())
+                        // For dummy arguments with assumed shape, ALLOCATABLE,
+                        // and pointers to array, copy the descriptor
+                        if ((sym.get_type().no_ref().is_fortran_array()
+                                    && sym.get_type().no_ref().array_requires_descriptor())
                                 || (sym.get_type().no_ref().is_pointer()
                                     && sym.get_type().no_ref().points_to().is_fortran_array()))
                         {
