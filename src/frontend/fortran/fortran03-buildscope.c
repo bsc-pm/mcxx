@@ -5285,7 +5285,8 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
     }
 }
 
-static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_data_stmt_do(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST data_stmt_set_list = ASTSon0(a);
 
@@ -5370,6 +5371,31 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 nodecl_make_fortran_data(nodecl_item_set,
                     nodecl_data_set, ast_get_locus(data_stmt_set)));
     }
+}
+
+struct delayed_data_statement_t
+{
+    AST a;
+    decl_context_t decl_context;
+};
+
+static void delayed_compute_data_stmt(void * info, nodecl_t* nodecl_output)
+{
+    struct delayed_data_statement_t *data = (struct delayed_data_statement_t*)info;
+
+    build_scope_data_stmt_do(data->a, data->decl_context, nodecl_output);
+
+    xfree(data);
+}
+
+static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    struct delayed_data_statement_t *data = (struct delayed_data_statement_t*)xmalloc(sizeof(*data));
+
+    data->a = a;
+    data->decl_context = decl_context;
+
+    build_scope_delay_list_add(delayed_compute_data_stmt, data);
 }
 
 static void build_scope_deallocate_stmt(AST a, 
