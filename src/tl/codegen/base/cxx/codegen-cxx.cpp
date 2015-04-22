@@ -6638,24 +6638,19 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
 bool CxxBase::is_local_symbol(TL::Symbol entry)
 {
     return entry.is_valid()
-        && (entry.get_scope().is_block_scope()
+        && ((entry.get_scope().is_block_scope()
+                    && entry.get_scope() == this->get_current_scope())
                 || entry.get_scope().is_function_scope()
                 || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol())));
 }
 
-bool CxxBase::is_local_symbol_but_local_class(TL::Symbol entry)
+// Note: is_nonlocal_symbol is NOT EQUIVALENT to !is_local_symbol
+bool CxxBase::is_nonlocal_symbol(TL::Symbol entry)
 {
-    return is_local_symbol(entry)
-        // C++ local classes are not considered here
-        && !(IS_CXX_LANGUAGE && entry.is_class() && entry.get_scope().is_block_scope());
-}
-
-// Note: is_nonlocal_symbol_but_local_class is NOT EQUIVALENT to !is_local_symbol_but_local_class
-bool CxxBase::is_nonlocal_symbol_but_local_class(TL::Symbol entry)
-{
-    return !is_local_symbol(entry)
-        // C++ Local classes are obiously non local
-        && !(IS_CXX_LANGUAGE && entry.is_class() && entry.get_scope().is_block_scope());
+    return !(entry.is_valid()
+            && (entry.get_scope().is_block_scope()
+                || entry.get_scope().is_function_scope()
+                || (entry.is_member() && is_local_symbol(entry.get_class_type().get_symbol()))));
 }
 
 bool CxxBase::is_prototype_symbol(TL::Symbol entry)
@@ -6692,7 +6687,7 @@ void CxxBase::declare_symbol_always(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 {
-    if (is_local_symbol_but_local_class(symbol))
+    if (is_local_symbol(symbol))
     {
         do_define_symbol(symbol,
                 &CxxBase::declare_symbol_if_local,
@@ -6702,7 +6697,7 @@ void CxxBase::define_symbol_if_local(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 {
-    if (is_local_symbol_but_local_class(symbol))
+    if (is_local_symbol(symbol))
     {
         do_declare_symbol(symbol,
                 &CxxBase::declare_symbol_if_local,
@@ -6712,7 +6707,7 @@ void CxxBase::declare_symbol_if_local(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol_but_local_class(symbol))
+    if (is_nonlocal_symbol(symbol))
     {
         do_define_symbol(symbol,
                 &CxxBase::declare_symbol_if_nonlocal,
@@ -6722,7 +6717,7 @@ void CxxBase::define_symbol_if_nonlocal(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol_but_local_class(symbol))
+    if (is_nonlocal_symbol(symbol))
     {
         do_declare_symbol(symbol,
                 &CxxBase::declare_symbol_if_nonlocal,
@@ -6732,7 +6727,7 @@ void CxxBase::declare_symbol_if_nonlocal(TL::Symbol symbol)
 
 void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol_but_local_class(symbol)
+    if (is_nonlocal_symbol(symbol)
             && !is_prototype_symbol(symbol))
     {
         do_define_symbol(symbol,
@@ -6743,7 +6738,7 @@ void CxxBase::define_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 
 void CxxBase::declare_symbol_if_nonlocal_nonprototype(TL::Symbol symbol)
 {
-    if (is_nonlocal_symbol_but_local_class(symbol)
+    if (is_nonlocal_symbol(symbol)
             && !is_prototype_symbol(symbol))
     {
         do_declare_symbol(symbol,
@@ -7031,7 +7026,7 @@ void CxxBase::emit_declarations_of_initializer(TL::Symbol symbol)
                     || symbol.is_defined_inside_class())))
     {
         if (symbol.is_member()
-                // FIXME -> || !is_local_symbol_but_local_class(symbol))
+                // FIXME -> || !is_local_symbol(symbol))
             || (!symbol.get_scope().is_block_scope()
                     && !symbol.get_scope().is_function_scope()))
                     {

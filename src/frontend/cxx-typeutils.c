@@ -6730,6 +6730,12 @@ extern inline char function_type_get_has_ellipsis(type_t* function_type)
 static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
         type_t* (new_function_type)(type_t*, parameter_info_t*, int, ref_qualifier_t))
 {
+    if (function_type_get_lacking_prototype(t))
+    {
+        return get_nonproto_function_type(new_return,
+                function_type_get_num_parameters(t));
+    }
+
     ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
 
     int num_parameters = function_type_get_num_parameters(t);

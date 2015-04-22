@@ -395,13 +395,34 @@ static nodecl_t simplify_bit_size(scope_entry_t* entry UNUSED_PARAMETER, int num
 static nodecl_t simplify_len(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t str = arguments[0];
+    nodecl_t kind = arguments[1];
 
     type_t* t = fortran_get_rank0_type(no_ref(nodecl_get_type(str)));
 
     if (array_type_is_unknown_size(t))
         return nodecl_null();
 
-    return nodecl_shallow_copy(array_type_get_array_size_expr(t));
+    int kind_ = type_get_size(fortran_get_default_integer_type());
+
+    nodecl_t n = array_type_get_array_size_expr(t);
+    if (nodecl_is_constant(n))
+    {
+        if (!nodecl_is_null(kind))
+        {
+            if (!nodecl_is_constant(kind))
+                return nodecl_null();
+
+            kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
+        }
+
+        t = choose_int_type_from_kind(kind, kind_);
+        return const_value_to_nodecl_with_basic_type(
+                const_value_cast_to_bytes(nodecl_get_constant(n),
+                    type_get_size(t), /* sign */ 1),
+                t);
+    }
+
+    return nodecl_null();
 }
 
 static nodecl_t simplify_kind(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -590,8 +611,13 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
                 if (!nodecl_is_constant(bound))
                     return nodecl_null();
 
-                return const_value_to_nodecl_with_basic_type(nodecl_get_constant(bound), 
-                        choose_int_type_from_kind(kind, kind_));
+                t = choose_int_type_from_kind(kind, kind_);
+                return const_value_to_nodecl_with_basic_type(
+                        const_value_cast_to_bytes(
+                            nodecl_get_constant(bound),
+                            type_get_size(t),
+                            /* sign */ 1),
+                        t);
             }
         }
     }
@@ -2598,9 +2624,11 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     if (!nodecl_is_null(kind_arg))
         kind = const_value_cast_to_signed_int(nodecl_get_constant(kind_arg));
 
+    type_t* t = choose_int_type_from_kind(kind_arg, kind);
+
     return const_value_to_nodecl_with_basic_type(
-            const_value_get_integer(val, /* bytes */ 1, /* sign */ 1),
-            fortran_choose_int_type_from_kind(kind));
+            const_value_get_integer(val, type_get_size(t), /* sign */ 1),
+            t);
 }
 
 static nodecl_t simplify_ichar(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -2787,7 +2815,11 @@ static nodecl_t simplify_nint(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     }
 
     type_t* integer_type = choose_int_type_from_kind(kind, kind_);
-    const_value_t* integer_value = compute_nint(nodecl_get_constant(arg));
+    const_value_t* integer_value = 
+        const_value_cast_to_bytes(
+                compute_nint(nodecl_get_constant(arg)),
+                type_get_size(integer_type),
+                /* sign */ 1);
 
     return const_value_to_nodecl_with_basic_type(
             integer_value,
