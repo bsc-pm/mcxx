@@ -130,18 +130,17 @@ struct const_value_tag
     } value;
 };
 
-typedef
-struct const_value_hash_bucket_tag
+static rb_red_blk_tree* _int_hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2];
+
+static int cvalue_uint_cmp(const void *a, const void* b)
 {
-    const_value_t* constant_value;
-    struct const_value_hash_bucket_tag *next;
-} const_value_hash_bucket_t;
+    cvalue_uint_t ca = *(cvalue_uint_t*)a;
+    cvalue_uint_t cb = *(cvalue_uint_t*)b;
 
-enum { CVAL_HASH_SIZE = 37 };
-
-typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
-
-static const_value_hash_t _int_hash_pool[(MCXX_MAX_BYTES_INTEGER + 1) * 2] = { { (const_value_hash_bucket_t*)0 } };
+    if (ca < cb) return -1;
+    else if (ca > cb) return 1;
+    else return 0;
+}
 
 const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char sign)
 {
@@ -157,37 +156,32 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
         value &= ~mask;
     }
 
-    unsigned int bucket_index = value % CVAL_HASH_SIZE;
-
     int pool = 2 * num_bytes + !!sign;
-
-    const_value_hash_bucket_t* bucket = _int_hash_pool[pool][bucket_index];
-
-    while (bucket != NULL)
+    if (_int_hash_pool[pool] == NULL)
     {
-        if (bucket->constant_value->value.i == value)
-        {
-            break;
-        }
-        bucket = bucket->next;
+        _int_hash_pool[pool] = rb_tree_create(cvalue_uint_cmp, NULL, NULL);
     }
 
-    if (bucket == NULL)
+    rb_red_blk_node* n = rb_tree_query(_int_hash_pool[pool], &value);
+
+    if (n == NULL)
     {
-        bucket = xcalloc(1, sizeof(*bucket));
+        const_value_t* cval = xcalloc(1, sizeof(*cval));
+        cval->kind = CVK_INTEGER;
+        cval->value.i = value;
+        cval->num_bytes = num_bytes;
+        cval->sign = sign;
 
-        bucket->constant_value = xcalloc(1, sizeof(*bucket->constant_value));
-        bucket->constant_value->kind = CVK_INTEGER;
-        bucket->constant_value->value.i = value;
-        bucket->constant_value->num_bytes = num_bytes;
-        bucket->constant_value->sign = sign;
+        cvalue_uint_t* k = xmalloc(sizeof(*k));
+        *k = value;
+        rb_tree_insert(_int_hash_pool[pool], k, cval);
 
-        bucket->next = _int_hash_pool[pool][bucket_index];
-
-        _int_hash_pool[pool][bucket_index] = bucket;
+        return cval;
     }
-
-    return bucket->constant_value;
+    else
+    {
+        return (const_value_t*)rb_node_get_info(n);
+    }
 }
 
 #define GET_SIGNED_INTEGER(type)  \
@@ -212,176 +206,49 @@ GET_INTEGER(short_int)
 GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 
-enum {
-    FLOAT_HASH = 0,
-    DOUBLE_HASH,
-    LONG_DOUBLE_HASH,
+#define CONST_VALUE_GET_FLOAT(name, type, cvk_kind, field) \
+static inline int cache_cmp_##name(const void* v1, const void *v2) \
+{ \
+    type f1 = *(type*)v1; \
+    type f2 = *(type*)v2; \
+ \
+    if (f1 < f2) return -1; \
+    else if (f1 > f2) return 1; \
+    else return 0; \
+} \
+const_value_t* const_value_get_##name(type f) \
+{ \
+    static rb_red_blk_tree* _floating_cache = NULL; \
+    if (_floating_cache == NULL) \
+    { \
+        _floating_cache = rb_tree_create(cache_cmp_##name, NULL, NULL); \
+    } \
+ \
+    rb_red_blk_node* n = rb_tree_query(_floating_cache, &f); \
+ \
+    if (n == NULL) \
+    { \
+        const_value_t* v = xcalloc(1, sizeof(*v)); \
+        v->kind = cvk_kind; \
+        v->value.field = f; \
+        v->sign = 1; \
+ \
+        type* k = xmalloc(sizeof(*k)); \
+        *k = f; \
+        rb_tree_insert(_floating_cache, k, v); \
+        return v; \
+    } \
+    else \
+    { \
+        return (const_value_t*)rb_node_get_info(n); \
+    } \
+}
+
+CONST_VALUE_GET_FLOAT(float, float, CVK_FLOAT, f);
+CONST_VALUE_GET_FLOAT(double, double, CVK_DOUBLE, d);
+CONST_VALUE_GET_FLOAT(long_double, long double, CVK_LONG_DOUBLE, ld);
 #ifdef HAVE_QUADMATH_H
-    FLOAT128_HASH,
-#endif
-    NUM_FLOATING_HASHES
-};
-
-static const_value_hash_t _floating_hash_pool[NUM_FLOATING_HASHES] = { { (const_value_hash_bucket_t*)0 } };
-
-const_value_t* const_value_get_float(float f)
-{
-    union { 
-        float f;
-        uint32_t x;
-    } r = { f };
-
-    unsigned int bucket_index = r.x % CVAL_HASH_SIZE;
-    const_value_hash_bucket_t* bucket = _floating_hash_pool[FLOAT_HASH][bucket_index];
-
-    while (bucket != NULL)
-    {
-        if (bucket->constant_value->value.f == f)
-        {
-            break;
-        }
-        bucket = bucket->next;
-    }
-
-    if (bucket == NULL)
-    {
-        bucket = xcalloc(1, sizeof(*bucket));
-
-        const_value_t* v = xcalloc(1, sizeof(*v));
-        v->kind = CVK_FLOAT;
-        v->value.f = f;
-        v->sign = 1;
-
-        bucket->constant_value = v;
-        bucket->next = _floating_hash_pool[FLOAT_HASH][bucket_index];
-        _floating_hash_pool[FLOAT_HASH][bucket_index] = bucket;
-    }
-
-    return bucket->constant_value;
-}
-
-const_value_t* const_value_get_double(double d)
-{
-    union {
-        double d;
-        uint64_t x;
-    } r = { d };
-
-    unsigned int bucket_index = r.x % CVAL_HASH_SIZE;
-    const_value_hash_bucket_t* bucket = _floating_hash_pool[DOUBLE_HASH][bucket_index];
-
-    while (bucket != NULL)
-    {
-        if (bucket->constant_value->value.d == d)
-        {
-            break;
-        }
-        bucket = bucket->next;
-    }
-
-    if (bucket == NULL)
-    {
-        bucket = xcalloc(1, sizeof(*bucket));
-
-        const_value_t* v = xcalloc(1, sizeof(*v));
-        v->kind = CVK_DOUBLE;
-        v->value.d = d;
-        v->sign = 1;
-
-        bucket->constant_value = v;
-        bucket->next = _floating_hash_pool[DOUBLE_HASH][bucket_index];
-        _floating_hash_pool[DOUBLE_HASH][bucket_index] = bucket;
-    }
-
-    return bucket->constant_value;
-}
-
-const_value_t* const_value_get_long_double(long double ld)
-{
-    union {
-        long double ld;
-        unsigned char x[sizeof(long double)];
-    } r = { ld };
-
-    unsigned int bucket_index = 0;
-    unsigned int i;
-    for (i = 0; i < sizeof(long double); i++)
-    {
-        bucket_index += (((unsigned int)r.x[i]) << i);
-    }
-    bucket_index %= CVAL_HASH_SIZE;
-
-    const_value_hash_bucket_t* bucket = _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index];
-
-    while (bucket != NULL)
-    {
-        if (bucket->constant_value->value.ld == ld)
-        {
-            break;
-        }
-        bucket = bucket->next;
-    }
-
-    if (bucket == NULL)
-    {
-        bucket = xcalloc(1, sizeof(*bucket));
-
-        const_value_t* v = xcalloc(1, sizeof(*v));
-        v->kind = CVK_LONG_DOUBLE;
-        v->value.ld = ld;
-        v->sign = 1;
-
-        bucket->constant_value = v;
-        bucket->next = _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index];
-        _floating_hash_pool[LONG_DOUBLE_HASH][bucket_index] = bucket;
-    }
-
-    return bucket->constant_value;
-}
-
-#ifdef HAVE_QUADMATH_H
-const_value_t* const_value_get_float128(__float128 f128)
-{
-    union {
-        __float128 f128;
-        unsigned char x[sizeof(__float128)];
-    } r = { f128 };
-
-    unsigned int bucket_index = 0;
-    unsigned int i;
-    for (i = 0; i < sizeof(__float128); i++)
-    {
-        bucket_index += (((unsigned int)r.x[i]) << i);
-    }
-    bucket_index %= CVAL_HASH_SIZE;
-
-    const_value_hash_bucket_t* bucket = _floating_hash_pool[FLOAT128_HASH][bucket_index];
-
-    while (bucket != NULL)
-    {
-        if (bucket->constant_value->value.f128 == f128)
-        {
-            break;
-        }
-        bucket = bucket->next;
-    }
-
-    if (bucket == NULL)
-    {
-        bucket = xcalloc(1, sizeof(*bucket));
-
-        const_value_t* v = xcalloc(1, sizeof(*v));
-        v->kind = CVK_FLOAT128;
-        v->value.f128 = f128;
-        v->sign = 1;
-
-        bucket->constant_value = v;
-        bucket->next = _floating_hash_pool[FLOAT128_HASH][bucket_index];
-        _floating_hash_pool[FLOAT128_HASH][bucket_index] = bucket;
-    }
-
-    return bucket->constant_value;
-}
+CONST_VALUE_GET_FLOAT(float128, __float128, CVK_FLOAT128, f128);
 #endif
 
 #define OTHER_KIND default : { internal_error("Unexpected literal kind", 0); }
