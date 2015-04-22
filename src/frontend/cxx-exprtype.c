@@ -10249,76 +10249,67 @@ static char conversion_is_valid_static_cast(
         RETURN(1);
 
     // Apply lvalue conversions
-    type_t* before_lvalue_conv = orig_type;
     orig_type = no_ref(orig_type);
     if (is_array_type(orig_type))
         orig_type = get_pointer_type(array_type_get_element_type(orig_type));
     else if (is_function_type(orig_type))
         orig_type = get_pointer_type(orig_type);
 
-    if (!equivalent_types(before_lvalue_conv, orig_type))
+    if (
+            // A scoped enum can be converted to an integral type
+            (is_scoped_enum_type(orig_type)
+             && is_integral_type(dest_type))
+            // An enum or integral can be converted to enum
+            || ((is_enum_type(orig_type)
+                    || is_integral_type(orig_type))
+                && is_enum_type(dest_type))
+            // A base pointer can be converted to derived type
+            || (is_pointer_to_class_type(orig_type)
+                && is_pointer_to_class_type(dest_type)
+                && class_type_is_base_instantiating(
+                    pointer_type_get_pointee_type(orig_type),
+                    pointer_type_get_pointee_type(dest_type),
+                    locus)
+                && !class_type_is_ambiguous_base_of_derived_class(
+                    pointer_type_get_pointee_type(orig_type),
+                    pointer_type_get_pointee_type(dest_type))
+                && !class_type_is_virtual_base_or_base_of_virtual_base(
+                    pointer_type_get_pointee_type(orig_type),
+                    pointer_type_get_pointee_type(dest_type))
+                && is_more_or_equal_cv_qualified_type(
+                    pointer_type_get_pointee_type(dest_type),
+                    pointer_type_get_pointee_type(orig_type)))
+            // A pointer to member can be converted to a base pointer if the opposite
+            // conversion exists
+            // cv1 T D::* -> cv2 T B::*
+            || (is_pointer_to_member_type(orig_type)
+                    && is_pointer_to_member_type(dest_type)
+                    && class_type_is_base_instantiating(
+                        // B
+                        pointer_to_member_type_get_class_type(dest_type),
+                        // D
+                        pointer_to_member_type_get_class_type(orig_type),
+                        locus)
+                    //  T B::* -> T D::*
+                    && standard_conversion_between_types(&scs, 
+                        get_unqualified_type(dest_type),
+                        get_unqualified_type(orig_type),
+                        locus)
+                    // cv2 >= cv1
+                    && is_more_or_equal_cv_qualified_type(
+                        pointer_type_get_pointee_type(dest_type),
+                        pointer_type_get_pointee_type(orig_type)))
+            // cv1 void* -> cv2 T*  where cv2 >= cv1
+            || (is_pointer_to_void_type(orig_type)
+                    && is_pointer_type(dest_type)
+                    && is_more_or_equal_cv_qualified_type(
+                        pointer_type_get_pointee_type(dest_type),
+                        pointer_type_get_pointee_type(orig_type)))
+            )
     {
         unary_record_conversion_to_result(orig_type, nodecl_expression);
+        RETURN(1);
     }
-
-    // A scoped enum can be converted to an integral type
-    if (is_scoped_enum_type(orig_type)
-            && is_integral_type(dest_type))
-        RETURN(1);
-
-    // An enum or integral can be converted to enum
-    if ((is_enum_type(orig_type)
-                || is_integral_type(orig_type))
-            && is_enum_type(dest_type))
-        RETURN(1);
-
-    // A base pointer can be converted to derived type
-    if (is_pointer_to_class_type(orig_type)
-            && is_pointer_to_class_type(dest_type)
-            && class_type_is_base_instantiating(
-                pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type),
-                locus)
-            && !class_type_is_ambiguous_base_of_derived_class(
-                pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type))
-            && !class_type_is_virtual_base_or_base_of_virtual_base(
-                pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type))
-            && is_more_or_equal_cv_qualified_type(
-                pointer_type_get_pointee_type(dest_type),
-                pointer_type_get_pointee_type(orig_type)))
-        RETURN(1);
-
-    // A pointer to member can be converted to a base pointer if the opposite
-    // conversion exists
-    // cv1 T D::* -> cv2 T B::*
-    if (is_pointer_to_member_type(orig_type)
-            && is_pointer_to_member_type(dest_type)
-            && class_type_is_base_instantiating(
-                // B
-                pointer_to_member_type_get_class_type(dest_type),
-                // D
-                pointer_to_member_type_get_class_type(orig_type),
-                locus)
-            //  T B::* -> T D::*
-            && standard_conversion_between_types(&scs, 
-                get_unqualified_type(dest_type),
-                get_unqualified_type(orig_type),
-                locus)
-            // cv2 >= cv1
-            && is_more_or_equal_cv_qualified_type(
-                pointer_type_get_pointee_type(dest_type),
-                pointer_type_get_pointee_type(orig_type)))
-        RETURN(1);
-
-    // cv1 void* -> cv2 T*  where cv2 >= cv1
-    if (is_pointer_to_void_type(orig_type)
-            && is_pointer_type(dest_type)
-            && is_more_or_equal_cv_qualified_type(
-                pointer_type_get_pointee_type(dest_type),
-                pointer_type_get_pointee_type(orig_type)))
-        RETURN(1);
 
     // No conversion was possible using static_cast
     RETURN(0);
