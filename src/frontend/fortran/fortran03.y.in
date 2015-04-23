@@ -6313,9 +6313,16 @@ extern char* yytext;
 extern char* actual_line;
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
+#ifdef FORTRAN_NEW_SCANNER
 	fprintf(stderr, "%s:%d:%d: error: %s\n",
             mf03lloc.first_filename,
             mf03lloc.first_line,
             mf03lloc.first_column,
             c);
+#else
+	fprintf(stderr, "%s:%d: error: %s\n",
+            mf03lloc.first_filename,
+            mf03lloc.first_line,
+            c);
+#endif
 }
