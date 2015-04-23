@@ -381,10 +381,12 @@ identifier {idnondigit}({idnondigit}|{digit})*
  /* preprocess */
 
 ^[ \t]*# { 
+    update_location();
     BEGIN(preprocess); 
 }
 
 <preprocess>[ ]*pragma[ ]+ {
+    update_location();
 	BEGIN(pragma_line);
 }
 
@@ -648,7 +650,7 @@ type {
         // Give a chance to the empty "directive" since some ill-designed
         // pragmas might need this
         directive_kind = lookup_pragma_directive(current_pragma_prefix, "");
-        parse_token_text(); 
+        parse_token_text();
         update_location();
     }
     else
@@ -790,19 +792,20 @@ type {
 
 [ \t]+ {
     // Ignore the blank if we are not yet within any parentheses
-    update_location();
 	if (pragma_custom_var_list_parentheses > 0)
     {
         parse_token_text();
+        update_location();
         return PRAGMA_CLAUSE_ARG_TEXT;
     }
+    update_location();
 }
 
 {identifier} {
-    update_location();
     if (pragma_custom_var_list_parentheses > 0)
     {
         parse_token_text();
+        update_location();
         return PRAGMA_CLAUSE_ARG_TEXT;
     }
     else
@@ -812,6 +815,7 @@ type {
         // and 'doe' must be lexed as another custom clause
         BEGIN(pragma_custom_var_list);
         parse_token_text(); 
+        update_location();
         return PRAGMA_CUSTOM_CLAUSE; 
     }
 }
@@ -2383,9 +2387,11 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         while (*end != '\0')
             end++;
 
+        // *end == '\0'
         end--;
 
-        while (end != discard_source)
+        // the character pointed by discard_source must be unput as well
+        while (end >= discard_source)
         {
             unput(*end);
             end--;
