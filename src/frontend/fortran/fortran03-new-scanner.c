@@ -2874,25 +2874,17 @@ static inline void preanalyze_statement(char expect_label)
         int peek_idx_end_of_keyword = 0;
         if (is_letter(p))
         {
-            char can_be_keyword = 1;
             while (is_letter(p)
                     || p == '_'
                     || is_decimal_digit(p))
             {
-                if (can_be_keyword
-                        && !is_letter(p))
-                    can_be_keyword = 0;
+                tiny_dyncharbuf_add(&keyword, p);
 
-                if (can_be_keyword)
+                struct fortran_keyword_tag *t = fortran_keywords_lookup(keyword.buf, keyword.num);
+                if (t != NULL)
                 {
-                    tiny_dyncharbuf_add(&keyword, p);
-
-                    struct fortran_keyword_tag *t = fortran_keywords_lookup(keyword.buf, keyword.num);
-                    if (t != NULL)
-                    {
-                        kw = t;
-                        peek_idx_end_of_keyword = peek_idx;
-                    }
+                    kw = t;
+                    peek_idx_end_of_keyword = peek_idx;
                 }
 
                 peek_idx++;
@@ -2908,20 +2900,20 @@ static inline void preanalyze_statement(char expect_label)
             return;
         }
 
+        if (p == ':'
+                && keyword.num > 0
+                && allow_named_label)
+        {
+            // FOO:IF(A>1)STOP1
+            //    ^
+            peek_idx++;
+            allow_named_label = 0;
+            // try again
+            continue;
+        }
+
         if (kw == NULL)
         {
-            if (p == ':'
-                    && keyword.num > 0
-                    && allow_named_label)
-            {
-                // FOO:IF(A>1)STOP1
-                //    ^
-                peek_idx++;
-                allow_named_label = 0;
-                // try again
-                continue;
-            }
-
             // Well, we could not classify this statement with any known
             // keyword, maybe there are no more keywords or it is an error
             done_with_keywords = 1;
