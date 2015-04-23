@@ -778,6 +778,7 @@ static char finish_character(char result)
     else
     {
         lexer_state.character_context_hollerith_length = 0;
+        lexer_state.character_context = 0;
 
         lexer_state.current_file->current_location.line++;
         lexer_state.current_file->current_location.column = 1;
