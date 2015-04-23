@@ -1000,6 +1000,9 @@ static inline int fixed_form_get(token_location_t* loc)
                 if (past_eof())
                     ROLLBACK;
 
+                if (is_newline(lexer_state.current_file->current_pos[0]))
+                    ROLLBACK;
+
                 if (!is_tab_form)
                 {
                     if (lexer_state.current_file->current_pos[0] == '0'
