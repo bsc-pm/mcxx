@@ -1967,10 +1967,20 @@ static void update_location_str(const char* c)
             scanning_now.line_number++;
             scanning_now.column_number = 1;
 
-            c++;
-            // DOS endings are \r\n, skip \n
-            if (*c == '\n')
+            if (*c == '\r')
+            {
                 c++;
+                // DOS endings are \r\n, skip \n
+                if (*c == '\n')
+                {
+                    c++;
+                }
+            }
+            else
+            {
+                // *c == '\n'
+                c++;
+            }
         }
         else
         {
