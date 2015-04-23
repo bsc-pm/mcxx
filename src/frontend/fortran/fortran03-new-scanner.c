@@ -2874,16 +2874,25 @@ static inline void preanalyze_statement(char expect_label)
         int peek_idx_end_of_keyword = 0;
         if (is_letter(p))
         {
+            char can_be_keyword = 1;
             while (is_letter(p)
-                    || p == '_')
+                    || p == '_'
+                    || is_decimal_digit(p))
             {
-                tiny_dyncharbuf_add(&keyword, p);
+                if (can_be_keyword
+                        && !is_letter(p))
+                    can_be_keyword = 0;
 
-                struct fortran_keyword_tag *t = fortran_keywords_lookup(keyword.buf, keyword.num);
-                if (t != NULL)
+                if (can_be_keyword)
                 {
-                    kw = t;
-                    peek_idx_end_of_keyword = peek_idx;
+                    tiny_dyncharbuf_add(&keyword, p);
+
+                    struct fortran_keyword_tag *t = fortran_keywords_lookup(keyword.buf, keyword.num);
+                    if (t != NULL)
+                    {
+                        kw = t;
+                        peek_idx_end_of_keyword = peek_idx;
+                    }
                 }
 
                 peek_idx++;
