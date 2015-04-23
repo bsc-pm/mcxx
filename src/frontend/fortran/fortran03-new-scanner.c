@@ -133,6 +133,9 @@ struct fixed_form_state_tag
 
     // Language part: non-executable vs executable
     language_part_t language_part;
+
+    // States that we are inside an INTERFACE block
+    char in_interface_generic_spec:1;
 } fixed_form_state_t;
 
 static
@@ -2916,8 +2919,54 @@ static inline void preanalyze_statement(char expect_label)
                     {
                         lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
                     }
+
+                    // Remember that this is an INTERFACE with generic-spec
+                    if (kw->token_id == TOKEN_INTERFACE
+                            && is_letter(p))
+                    {
+                        lexer_state.fixed_form.in_interface_generic_spec = 1;
+                    }
+                    else if (kw->token_id == TOKEN_ENDINTERFACE)
+                    {
+                        lexer_state.fixed_form.in_interface_generic_spec = 0;
+                    }
+
                     // This keyword identifies this statement
                     done_with_keywords = 1;
+                    break;
+                }
+            case TOKEN_MODULE:
+                {
+                    // Special case for MODULEidentifier vs MODULEPROCEDUREidentifier
+                    // In general it is enough to just add a blank after the keyword
+                    p = peek(peek_idx_end_of_keyword + 1);
+                    if (is_letter(p) || is_decimal_digit(p))
+                    {
+                        token_location_t loc;
+                        peek_loc(peek_idx_end_of_keyword + 1, &loc);
+                        peek_insert(peek_idx_end_of_keyword + 1, ' ', loc); 
+                        peek_idx = peek_idx_end_of_keyword + 2;
+                    }
+                    else
+                    {
+                        peek_idx = peek_idx_end_of_keyword + 1;
+                    }
+
+                    if (is_nonexecutable_statement(kw->token_id))
+                    {
+                        lexer_state.fixed_form.language_part = LANG_NONEXECUTABLE_PART;
+                    }
+                    else
+                    {
+                        lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
+                    }
+
+                    if (!lexer_state.fixed_form.in_interface_generic_spec)
+                    {
+                        // This keyword identifies this statement
+                        done_with_keywords = 1;
+                    }
+                    // otherwise this may be a MODULE PROCEDURE
                     break;
                 }
             case TOKEN_DO:
