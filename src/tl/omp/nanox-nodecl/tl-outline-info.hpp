@@ -172,6 +172,7 @@ namespace TL
                 TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
+                OutlineDataItem* _lastprivate_shared;
 
                 // This outline data item represents the C++ this object
                 bool _is_cxx_this;
@@ -195,6 +196,7 @@ namespace TL
                     _is_copy_of_array_descriptor_allocatable(false),
                     _base_symbol_of_argument(),
                     _is_lastprivate(),
+                    _lastprivate_shared(NULL),
                     _is_cxx_this(false)
                 {
                 }
@@ -394,6 +396,16 @@ namespace TL
                 void set_is_lastprivate(bool b)
                 {
                     _is_lastprivate = b;
+                }
+
+                void set_lastprivate_shared(OutlineDataItem* lastprivate_shared)
+                {
+                    _lastprivate_shared = lastprivate_shared;
+                }
+
+                OutlineDataItem* get_lastprivate_shared() const
+                {
+                    return _lastprivate_shared;
                 }
 
                 void set_base_symbol_of_argument(TL::Symbol symbol)

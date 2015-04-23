@@ -449,41 +449,68 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
 
         // Add a new symbol just to hold the address
-        TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
-        new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
+            TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
+            new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
+
+            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
+            sym_ref.set_type(t.get_lvalue_reference_to());
+
+            Nodecl::NodeclBase value =
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to());
+
+            this->add_capture_with_value(
+                    new_addr_symbol,
+                    value);
+
+            OutlineDataItem* lastprivate_shared = &_outline_info.get_entity_for_symbol(new_addr_symbol);
+            ERROR_CONDITION(lastprivate_shared == NULL, "This should not be NULL here", 0);
+            outline_info.set_lastprivate_shared(lastprivate_shared);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            new_addr_symbol.get_internal_symbol()->type_information = get_pointer_type(get_void_type());
-        }
+            if ((sym.get_type().no_ref().is_fortran_array()
+                        && sym.get_type().no_ref().array_requires_descriptor())
+                    || (sym.get_type().no_ref().is_pointer()
+                        && sym.get_type().no_ref().points_to().is_fortran_array()))
+            {
+                OutlineDataItem* captured_array_descriptor_info = this->capture_descriptor(outline_info, sym);
+                // Since captured_array_descriptor_info was created from outline_info we need to make sure we pass
+                // a reference to the array
+                TL::Type shared_type = sym.get_type().no_ref().get_lvalue_reference_to();
+                captured_array_descriptor_info->set_in_outline_type(shared_type);
+                outline_info.set_lastprivate_shared(captured_array_descriptor_info);
+            }
+            else
+            {
+                TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
+                new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                new_addr_symbol.get_internal_symbol()->type_information =
+                    TL::Type::get_void_type().get_pointer_to().get_internal_type();
 
-        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
-        sym_ref.set_type(t.get_lvalue_reference_to());
+                Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
+                sym_ref.set_type(t.get_lvalue_reference_to());
 
-        Nodecl::NodeclBase value =
-                Nodecl::Reference::make(sym_ref, t.get_pointer_to());
+                Nodecl::NodeclBase value =
+                    Nodecl::Dereference::make(
+                            Nodecl::Reference::make(sym_ref, t.get_pointer_to()),
+                            t.get_lvalue_reference_to());
 
-        FORTRAN_LANGUAGE()
-        {
-            value = Nodecl::Dereference::make(
-                    value,
-                    t.get_lvalue_reference_to());
-        }
+                this->add_capture_with_value(
+                        new_addr_symbol,
+                        value);
 
-        this->add_capture_with_value(
-                new_addr_symbol,
-                value);
+                OutlineDataItem &new_outline_info = _outline_info.get_entity_for_symbol(new_addr_symbol);
 
-        FORTRAN_LANGUAGE()
-        {
-            OutlineDataItem &new_outline_info = _outline_info.get_entity_for_symbol(new_addr_symbol);
+                TL::Type new_type = add_extra_dimensions(sym, sym.get_type());
+                new_outline_info.set_in_outline_type(new_type.no_ref().get_lvalue_reference_to());
 
-            TL::Type new_type = add_extra_dimensions(sym, sym.get_type());
-            new_outline_info.set_in_outline_type(new_type.no_ref().get_lvalue_reference_to());
+                OutlineDataItem* lastprivate_shared = &_outline_info.get_entity_for_symbol(new_addr_symbol);
+                outline_info.set_lastprivate_shared(lastprivate_shared);
+            }
         }
     }
 
