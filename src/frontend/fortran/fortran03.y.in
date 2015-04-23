@@ -6309,9 +6309,6 @@ labeldef : label
 /*!define GRAMMAR_CODE*/
 /*!undefine GRAMMAR_CODE*/
 
-// Used in fortran-driver.c to determine the maximum size for parser memory
-unsigned long long limit_for_parse_memory = SIZE_MAX / sizeof(yyGLRStackItem);
-
 extern char* yytext;
 extern char* actual_line;
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
