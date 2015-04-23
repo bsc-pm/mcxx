@@ -6,10 +6,12 @@
           MODULE PROCEDURE memoirr, memoiri
       END INTERFACE
       CONTAINS
-          SUBROUTINE memoirr
+          SUBROUTINE memoirr(a)
+              integer  a
               CONTINUE
           END SUBROUTINE memoirr
-          SUBROUTINE memoiri
+          SUBROUTINE memoiri(a)
+              real  a
               CONTINUE
           END SUBROUTINE memoiri
       END MODULE memoir
