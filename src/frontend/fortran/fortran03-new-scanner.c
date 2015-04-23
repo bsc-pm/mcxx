@@ -164,6 +164,8 @@ struct new_lexer_state_t
     char in_nonblock_do_construct:1;
     // previous character was a letter
     char previous_was_letter:1;
+    // we are in a comment
+    char in_comment:1;
 
     // Delimiter for 'a' "b" character constant
     char character_context_delim;
@@ -419,6 +421,44 @@ static inline char is_hex_digit(int c)
     return ('0' <= c && c <= '9')
         || ('a' <= c && c <= 'f')
         || ('A' <= c && c <= 'F');
+}
+
+typedef
+struct tiny_dyncharbuf_tag
+{
+    int capacity;
+    int num;
+    char *buf;
+} tiny_dyncharbuf_t;
+
+static inline void tiny_dyncharbuf_new(tiny_dyncharbuf_t* t, int initial_size)
+{
+    t->capacity = initial_size;
+    t->buf = xmalloc(sizeof(*t->buf) * t->capacity);
+    t->num = 0;
+}
+
+static inline void tiny_dyncharbuf_add(tiny_dyncharbuf_t* t, char c)
+{
+    if (t->num >= t->capacity)
+    {
+        t->capacity *= 2;
+        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->capacity + 1));
+    }
+    t->buf[t->num] = c;
+    t->num++;
+}
+
+static inline void tiny_dyncharbuf_add_str(tiny_dyncharbuf_t* t, const char* str)
+{
+    if (str == NULL)
+        return;
+
+    unsigned int i;
+    for (i = 0; i < strlen(str); i++)
+    {
+        tiny_dyncharbuf_add(t, str[i]);
+    }
 }
 
 static inline char past_eof(void)
@@ -739,37 +779,89 @@ static char finish_character(char result)
         }
         else
         {
-            if (is_decimal_digit(result))
+            if (!lexer_state.in_comment)
             {
-                if (lexer_state.character_context_hollerith_length == 0)
+                if (is_decimal_digit(result))
                 {
-                    if (!lexer_state.previous_was_letter)
-                        lexer_state.character_context_hollerith_length = result - '0';
+                    if (lexer_state.character_context_hollerith_length == 0)
+                    {
+                        if (!lexer_state.previous_was_letter)
+                            lexer_state.character_context_hollerith_length = result - '0';
+                    }
+                    else
+                    {
+                        lexer_state.character_context_hollerith_length =
+                            lexer_state.character_context_hollerith_length * 10
+                            + result - '0';
+                    }
+                }
+                else if ((result == '\''
+                            || result == '"'))
+                {
+                    lexer_state.character_context = 1;
+                    lexer_state.character_context_delim = result;
+                }
+                else if (tolower(result) == 'h'
+                        && lexer_state.character_context_hollerith_length > 0)
+                {
+                    lexer_state.character_context = 1;
                 }
                 else
                 {
-                    lexer_state.character_context_hollerith_length =
-                        lexer_state.character_context_hollerith_length * 10
-                        + result - '0';
+                    lexer_state.character_context_hollerith_length = 0;
                 }
-            }
-            else if ((result == '\''
-                        || result == '"'))
-            {
-                lexer_state.character_context = 1;
-                lexer_state.character_context_delim = result;
-            }
-            else if (tolower(result) == 'h'
-                    && lexer_state.character_context_hollerith_length > 0)
-            {
-                lexer_state.character_context = 1;
-            }
-            else
-            {
-                lexer_state.character_context_hollerith_length = 0;
+
+                lexer_state.previous_was_letter = is_letter(result);
             }
 
-            lexer_state.previous_was_letter = is_letter(result);
+            if (!lexer_state.in_comment
+                    && result == '!')
+            {
+                // Maybe this starts a comment, we need to peek a bit in order to be sure
+                const char * p = lexer_state.current_file->current_pos;
+
+                lexer_state.current_file->current_pos++;
+                if (!past_eof())
+                {
+                    if (lexer_state.current_file->current_pos[0] == '$')
+                    {
+                        lexer_state.current_file->current_pos++;
+                        if (!past_eof())
+                        {
+                            if (is_blank(lexer_state.current_file->current_pos[0]))
+                            {
+                                if (CURRENT_CONFIGURATION->disable_empty_sentinels)
+                                    lexer_state.in_comment = 1;
+                            }
+                            else if (is_letter(lexer_state.current_file->current_pos[0]))
+                            {
+                                // Maybe this is a known sentinel
+                                tiny_dyncharbuf_t sentinel;
+                                tiny_dyncharbuf_new(&sentinel, 8);
+                                while (!past_eof()
+                                        && is_letter(lexer_state.current_file->current_pos[0]))
+                                {
+                                    tiny_dyncharbuf_add(&sentinel, lexer_state.current_file->current_pos[0]);
+                                    lexer_state.current_file->current_pos++;
+                                }
+                                tiny_dyncharbuf_add(&sentinel, '\0');
+
+                                if (!is_known_sentinel_str(sentinel.buf, NULL))
+                                {
+                                    lexer_state.in_comment = 1;
+                                }
+                                xfree(sentinel.buf);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lexer_state.in_comment = 1;
+                    }
+                }
+
+                lexer_state.current_file->current_pos = p;
+            }
         }
 
         lexer_state.current_file->current_location.column++;
@@ -777,6 +869,7 @@ static char finish_character(char result)
     }
     else
     {
+        lexer_state.in_comment = 0;
         lexer_state.character_context_hollerith_length = 0;
         lexer_state.character_context = 0;
 
@@ -1194,7 +1287,8 @@ static inline int free_form_get(token_location_t* loc)
 
     int result = lexer_state.current_file->current_pos[0];
 
-    while (result == '&')
+    while (result == '&'
+            && !lexer_state.in_comment)
     {
         const char* const keep = lexer_state.current_file->current_pos;
         const char keep_bol = lexer_state.bol;
@@ -1704,43 +1798,6 @@ static inline int peek(int n)
     return peek_loc(n, NULL);
 }
 
-typedef
-struct tiny_dyncharbuf_tag
-{
-    int capacity;
-    int num;
-    char *buf;
-} tiny_dyncharbuf_t;
-
-static inline void tiny_dyncharbuf_new(tiny_dyncharbuf_t* t, int initial_size)
-{
-    t->capacity = initial_size;
-    t->buf = xmalloc(sizeof(*t->buf) * t->capacity);
-    t->num = 0;
-}
-
-static inline void tiny_dyncharbuf_add(tiny_dyncharbuf_t* t, char c)
-{
-    if (t->num >= t->capacity)
-    {
-        t->capacity *= 2;
-        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->capacity + 1));
-    }
-    t->buf[t->num] = c;
-    t->num++;
-}
-
-static inline void tiny_dyncharbuf_add_str(tiny_dyncharbuf_t* t, const char* str)
-{
-    if (str == NULL)
-        return;
-
-    unsigned int i;
-    for (i = 0; i < strlen(str); i++)
-    {
-        tiny_dyncharbuf_add(t, str[i]);
-    }
-}
 
 static char* scan_kind(void)
 {
