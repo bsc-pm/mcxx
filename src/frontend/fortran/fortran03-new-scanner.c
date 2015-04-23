@@ -2872,19 +2872,23 @@ static inline void preanalyze_statement(char expect_label)
         keyword.num = 0;
         struct fortran_keyword_tag *kw = NULL;
         int peek_idx_end_of_keyword = 0;
-        while (is_letter(p))
+        if (is_letter(p))
         {
-            tiny_dyncharbuf_add(&keyword, p);
-
-            struct fortran_keyword_tag *t = fortran_keywords_lookup(keyword.buf, keyword.num);
-            if (t != NULL)
+            while (is_letter(p)
+                    || p == '_')
             {
-                kw = t;
-                peek_idx_end_of_keyword = peek_idx;
-            }
+                tiny_dyncharbuf_add(&keyword, p);
 
-            peek_idx++;
-            p = peek(peek_idx);
+                struct fortran_keyword_tag *t = fortran_keywords_lookup(keyword.buf, keyword.num);
+                if (t != NULL)
+                {
+                    kw = t;
+                    peek_idx_end_of_keyword = peek_idx;
+                }
+
+                peek_idx++;
+                p = peek(peek_idx);
+            }
         }
 
         if (!got_label
@@ -2898,6 +2902,7 @@ static inline void preanalyze_statement(char expect_label)
         if (kw == NULL)
         {
             if (p == ':'
+                    && keyword.num > 0
                     && allow_named_label)
             {
                 // FOO:IF(A>1)STOP1
