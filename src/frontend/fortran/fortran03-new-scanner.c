@@ -802,9 +802,19 @@ static inline int fixed_form_get(token_location_t* loc)
     {
         result = lexer_state.current_file->current_pos[0];
 
-        if (is_newline(result))
+        // If this is a newline or a comment initiator
+        if (is_newline(result)
+                || ((result == '!'
+                        && !lexer_state.character_context
+                        && (lexer_state.current_file->current_location.column
+                            <= CURRENT_CONFIGURATION->input_column_width))
+                    || (lexer_state.current_file->current_location.column == 1
+                        && (tolower(result) == 'c'
+                            || tolower(result) == 'd'
+                            || result == '*'))))
         {
-            if (lexer_state.character_context
+            if (is_newline(result)
+                    && lexer_state.character_context
                     && (lexer_state.current_file->current_location.column
                         <= CURRENT_CONFIGURATION->input_column_width))
             {
@@ -820,6 +830,15 @@ static inline int fixed_form_get(token_location_t* loc)
             const char* const keep = lexer_state.current_file->current_pos;
             const token_location_t keep_location = lexer_state.current_file->current_location;
 
+            // Transform these into !
+            if (lexer_state.current_file->current_location.column == 1
+                    && (tolower(result) == 'c'
+                        || tolower(result) == 'd'
+                        || result == '*'))
+            {
+                result = '!';
+            }
+
 #define ROLLBACK \
             { \
                 lexer_state.current_file->current_pos = keep; \
@@ -827,7 +846,19 @@ static inline int fixed_form_get(token_location_t* loc)
                 break; \
             }
 
-            if (result == '\n')
+            // If this was not a newline, advance until the newline
+            while (!past_eof()
+                    && !is_newline(lexer_state.current_file->current_pos[0]))
+            {
+                lexer_state.current_file->current_location.column++;
+                lexer_state.current_file->current_pos++;
+            }
+
+            if (past_eof())
+                ROLLBACK;
+
+            // Handle the newline
+            if (lexer_state.current_file->current_pos[0] == '\n')
             {
                 lexer_state.current_file->current_location.column = 1;
                 lexer_state.current_file->current_location.line++;
@@ -836,7 +867,7 @@ static inline int fixed_form_get(token_location_t* loc)
                 if (past_eof())
                     ROLLBACK;
             }
-            else if (result == '\r')
+            else if (lexer_state.current_file->current_pos[0] == '\r')
             {
                 lexer_state.current_file->current_location.column = 1;
                 lexer_state.current_file->current_location.line++;
@@ -860,6 +891,8 @@ static inline int fixed_form_get(token_location_t* loc)
             if (past_eof())
                 ROLLBACK;
 
+            // Now it may happen that the next line is just a comment
+            // but we have to be extra careful with sentinels
             if ((lexer_state.sentinel == NULL
                         && (lexer_state.current_file->current_pos[0] == '!'
                             || lexer_state.current_file->current_pos[0] == '*'
@@ -1022,7 +1055,6 @@ static inline int fixed_form_get(token_location_t* loc)
 
                 lexer_state.current_file->current_location.column++;
                 lexer_state.current_file->current_pos++;
-
             }
             else
             {
@@ -1133,15 +1165,6 @@ static inline int fixed_form_get(token_location_t* loc)
             else
                 lexer_state.current_file->current_location.column++;
             lexer_state.current_file->current_pos++;
-        }
-        else if (lexer_state.current_file->current_location.column == 1
-                && (tolower(result) == 'c'
-                    || tolower(result) == 'd'
-                    || result == '*'))
-        {
-            // Comment
-            result = '!';
-            break;
         }
         else
         {
