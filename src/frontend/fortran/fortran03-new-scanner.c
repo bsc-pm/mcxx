@@ -897,18 +897,9 @@ static inline int fixed_form_get(token_location_t* loc)
         result = lexer_state.current_file->current_pos[0];
 
         // If this is a newline or a comment initiator
-        if (is_newline(result)
-                || ((result == '!'
-                        && !lexer_state.character_context
-                        && (lexer_state.current_file->current_location.column
-                            <= CURRENT_CONFIGURATION->input_column_width))
-                    || (lexer_state.current_file->current_location.column == 1
-                        && (tolower(result) == 'c'
-                            || tolower(result) == 'd'
-                            || result == '*'))))
+        if (is_newline(result))
         {
-            if (is_newline(result)
-                    && lexer_state.character_context
+            if (lexer_state.character_context
                     && (lexer_state.current_file->current_location.column
                         <= CURRENT_CONFIGURATION->input_column_width))
             {
@@ -924,28 +915,11 @@ static inline int fixed_form_get(token_location_t* loc)
             const char* const keep = lexer_state.current_file->current_pos;
             const token_location_t keep_location = lexer_state.current_file->current_location;
 
-            // Transform these into !
-            if (lexer_state.current_file->current_location.column == 1
-                    && (tolower(result) == 'c'
-                        || tolower(result) == 'd'
-                        || result == '*'))
-            {
-                result = '!';
-            }
-
 #define ROLLBACK \
             { \
                 lexer_state.current_file->current_pos = keep; \
                 lexer_state.current_file->current_location = keep_location; \
                 break; \
-            }
-
-            // If this was not a newline, advance until the newline
-            while (!past_eof()
-                    && !is_newline(lexer_state.current_file->current_pos[0]))
-            {
-                lexer_state.current_file->current_location.column++;
-                lexer_state.current_file->current_pos++;
             }
 
             if (past_eof())
@@ -985,77 +959,100 @@ static inline int fixed_form_get(token_location_t* loc)
             if (past_eof())
                 ROLLBACK;
 
-            // Now it may happen that the next line is just a comment
-            // but we have to be extra careful with sentinels
-            if ((lexer_state.sentinel == NULL
-                        && (lexer_state.current_file->current_pos[0] == '!'
-                            || lexer_state.current_file->current_pos[0] == '*'
-                            || tolower(lexer_state.current_file->current_pos[0]) == 'c'))
-                    || tolower(lexer_state.current_file->current_pos[0]) == 'd')
+            char can_continue = 1;
+            for (;;)
             {
-                if (tolower(lexer_state.current_file->current_pos[0]) != 'd')
+                // Now it may happen that the next line is just a comment
+                // but we have to be extra careful with sentinels
+                if ((lexer_state.sentinel == NULL
+                            && (lexer_state.current_file->current_pos[0] == '!'
+                                || lexer_state.current_file->current_pos[0] == '*'
+                                || tolower(lexer_state.current_file->current_pos[0]) == 'c'))
+                        || tolower(lexer_state.current_file->current_pos[0]) == 'd')
                 {
-                    lexer_state.current_file->current_location.column++;
-                    lexer_state.current_file->current_pos++;
-                    if (!past_eof())
+                    if (tolower(lexer_state.current_file->current_pos[0]) != 'd')
                     {
-                        if (lexer_state.current_file->current_pos[0] == '$')
+                        lexer_state.current_file->current_location.column++;
+                        lexer_state.current_file->current_pos++;
+                        if (!past_eof())
                         {
-                            char sentinel[4] = { '\0', '\0', '\0', '\0' };
-                            // Cowardly refusing to continue through a comment line
-                            // if it has the form !$<known-sentinel> or !$ and we
-                            // did not disable empty sentinels
-                            char ok = 1;
-                            int i;
-                            lexer_state.current_file->current_pos++;
-                            lexer_state.current_file->current_location.column++;
-                            for (i = 0; i < 3; i++)
+                            if (lexer_state.current_file->current_pos[0] == '$')
                             {
-                                if (past_eof())
-                                {
-                                    ok = 0;
-                                    break;
-                                }
-                                // Note that this is OK, it will make for a shorter sentinel
-                                if (!is_letter(lexer_state.current_file->current_pos[0]))
-                                    break;
-
-                                sentinel[i] = lexer_state.current_file->current_pos[0];
+                                char sentinel[4] = { '\0', '\0', '\0', '\0' };
+                                // Cowardly refusing to continue through a comment line
+                                // if it has the form !$<known-sentinel> or !$ and we
+                                // did not disable empty sentinels
+                                char ok = 1;
+                                int i;
                                 lexer_state.current_file->current_pos++;
                                 lexer_state.current_file->current_location.column++;
+                                for (i = 0; i < 3; i++)
+                                {
+                                    if (past_eof())
+                                    {
+                                        ok = 0;
+                                        break;
+                                    }
+                                    // Note that this is OK, it will make for a shorter sentinel
+                                    if (!is_letter(lexer_state.current_file->current_pos[0]))
+                                        break;
+
+                                    sentinel[i] = lexer_state.current_file->current_pos[0];
+                                    lexer_state.current_file->current_pos++;
+                                    lexer_state.current_file->current_location.column++;
+                                }
+
+                                if (!ok)
+                                {
+                                    can_continue = 0;
+                                    break;
+                                }
+
+                                // If this is a known sentinel, do not traverse it
+                                // Note: sentinels in fixed form _must_ be 3 letters long
+                                if (strlen(sentinel) == 3
+                                        && is_known_sentinel_str(sentinel, NULL))
+                                {
+                                    can_continue = 0;
+                                    break;
+                                }
+
+                                // Maybe it is an empty sentinel
+                                if (sentinel[0] == ' '
+                                        && sentinel[1] == ' '
+                                        && sentinel[2] == ' '
+                                        && !CURRENT_CONFIGURATION->disable_empty_sentinels)
+                                {
+                                    can_continue = 0;
+                                    break;
+                                }
                             }
-
-                            if (!ok)
-                                ROLLBACK;
-
-                            // If this is a known sentinel, do not traverse it
-                            // Note: sentinels in fixed form _must_ be 3 letters long
-                            if (strlen(sentinel) == 3
-                                    && is_known_sentinel_str(sentinel, NULL))
-                                ROLLBACK;
-
-                            // Maybe it is an empty sentinel
-                            if (sentinel[0] == ' '
-                                    && sentinel[1] == ' '
-                                    && sentinel[2] == ' '
-                                    && !CURRENT_CONFIGURATION->disable_empty_sentinels)
-                                ROLLBACK;
                         }
                     }
-                }
 
-                while (!past_eof()
-                        && !is_newline(lexer_state.current_file->current_pos[0]))
+                    while (!past_eof()
+                            && !is_newline(lexer_state.current_file->current_pos[0]))
+                    {
+                        lexer_state.current_file->current_location.column++;
+                        lexer_state.current_file->current_pos++;
+                    }
+                    if (past_eof())
+                    {
+                        can_continue = 0;
+                        break;
+                    }
+
+                    // continue to the next line (redundant)
+                    continue;
+                }
+                else
                 {
-                    lexer_state.current_file->current_location.column++;
-                    lexer_state.current_file->current_pos++;
+                    break;
                 }
-                if (past_eof())
-                    ROLLBACK;
-
-                // continue to the next line
-                continue;
             }
+
+            if (!can_continue)
+                ROLLBACK;
 
             if (lexer_state.sentinel == NULL)
             {
@@ -1262,6 +1259,14 @@ static inline int fixed_form_get(token_location_t* loc)
             else
                 lexer_state.current_file->current_location.column++;
             lexer_state.current_file->current_pos++;
+        }
+        else if (lexer_state.current_file->current_location.column == 1
+                && (tolower(result) == 'c'
+                    || tolower(result) == 'd'
+                    || result == '*'))
+        {
+            result = '!';
+            break;
         }
         else
         {
