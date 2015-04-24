@@ -900,6 +900,7 @@ static inline int fixed_form_get(token_location_t* loc)
         if (is_newline(result)
                 || (result == '!'
                     && !lexer_state.in_comment
+                    && !lexer_state.character_context
                     && lexer_state.current_file->current_location.column != 1
                     && lexer_state.current_file->current_location.column != 6
                     && (lexer_state.current_file->current_location.column
