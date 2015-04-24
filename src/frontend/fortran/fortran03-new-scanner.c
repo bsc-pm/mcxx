@@ -2458,6 +2458,7 @@ static inline char is_format_statement(void)
     // Now find the matching closing parenthesis
     while (p != EOF
             && !is_newline(p)
+            && !(!in_string && p == '!')
             && (level > 0))
     {
         if (!in_string)
@@ -2510,7 +2511,8 @@ static inline char is_format_statement(void)
 
     // Expect an end-of-statement here
     if (!is_newline(p)
-            && p != ';')
+            && p != ';'
+            && p != '!')
         return 0;
 
     // This FORMAT seems fine
