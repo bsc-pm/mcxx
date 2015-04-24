@@ -896,10 +896,17 @@ static inline int fixed_form_get(token_location_t* loc)
     {
         result = lexer_state.current_file->current_pos[0];
 
-        // If this is a newline or a comment initiator
-        if (is_newline(result))
+        // If this is a newline or an inline comment initiator
+        if (is_newline(result)
+                || (result == '!'
+                    && !lexer_state.in_comment
+                    && lexer_state.current_file->current_location.column != 1
+                    && lexer_state.current_file->current_location.column != 6
+                    && (lexer_state.current_file->current_location.column
+                        <= CURRENT_CONFIGURATION->input_column_width)))
         {
-            if (lexer_state.character_context
+            if (is_newline(result)
+                    && lexer_state.character_context
                     && (lexer_state.current_file->current_location.column
                         <= CURRENT_CONFIGURATION->input_column_width))
             {
@@ -920,6 +927,16 @@ static inline int fixed_form_get(token_location_t* loc)
                 lexer_state.current_file->current_pos = keep; \
                 lexer_state.current_file->current_location = keep_location; \
                 break; \
+            }
+
+            if (result == '!')
+            {
+                // Move to the end of the line
+                while (!is_newline(lexer_state.current_file->current_pos[0]))
+                {
+                    lexer_state.current_file->current_location.column++;
+                    lexer_state.current_file->current_pos++;
+                }
             }
 
             if (past_eof())
@@ -1042,8 +1059,138 @@ static inline int fixed_form_get(token_location_t* loc)
                         break;
                     }
 
+                    // Advance newline
+                    if (lexer_state.current_file->current_pos[0] == '\n')
+                    {
+                        lexer_state.current_file->current_location.column = 1;
+                        lexer_state.current_file->current_location.line++;
+
+                        lexer_state.current_file->current_pos++;
+                        if (past_eof())
+                        {
+                            can_continue = 0;
+                            break;
+                        }
+                    }
+                    else if (lexer_state.current_file->current_pos[0] == '\r')
+                    {
+                        lexer_state.current_file->current_location.column = 1;
+                        lexer_state.current_file->current_location.line++;
+
+                        lexer_state.current_file->current_pos++;
+                        if (past_eof())
+                        {
+                            can_continue = 0;
+                            break;
+                        }
+
+                        if (lexer_state.current_file->current_pos[0] == '\n')
+                        {
+                            lexer_state.current_file->current_pos++;
+                            if (past_eof())
+                            {
+                                can_continue = 0;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+
                     // continue to the next line (redundant)
                     continue;
+                }
+                else if (is_blank(lexer_state.current_file->current_pos[0]))
+                {
+                    // Make sure that we do not find a comment (except in the 6th column)
+                    const char* const keep2 = lexer_state.current_file->current_pos;
+                    const token_location_t keep_location2 = lexer_state.current_file->current_location;
+
+                    while (!past_eof()
+                            && is_blank(lexer_state.current_file->current_pos[0]))
+                    {
+                        if (lexer_state.current_file->current_pos[0] == '\t'
+                                && lexer_state.current_file->current_location.column == 1)
+                        {
+                            lexer_state.current_file->current_pos++;
+                            lexer_state.current_file->current_location.column = 6;
+                        }
+                        else
+                        {
+                            lexer_state.current_file->current_pos++;
+                            lexer_state.current_file->current_location.column++;
+                        }
+                    }
+
+                    if (!past_eof()
+                            && lexer_state.current_file->current_pos[0] == '!'
+                            && lexer_state.current_file->current_location.column != 6)
+                    {
+                        // Now advance till end of line
+                        while (!past_eof()
+                                && !is_newline(lexer_state.current_file->current_pos[0]))
+                        {
+                            lexer_state.current_file->current_location.column++;
+                            lexer_state.current_file->current_pos++;
+                        }
+                        if (past_eof())
+                        {
+                            can_continue = 0;
+                            break;
+                        }
+
+                        // Advance newline
+                        if (lexer_state.current_file->current_pos[0] == '\n')
+                        {
+                            lexer_state.current_file->current_location.column = 1;
+                            lexer_state.current_file->current_location.line++;
+
+                            lexer_state.current_file->current_pos++;
+                            if (past_eof())
+                            {
+                                can_continue = 0;
+                                break;
+                            }
+                        }
+                        else if (lexer_state.current_file->current_pos[0] == '\r')
+                        {
+                            lexer_state.current_file->current_location.column = 1;
+                            lexer_state.current_file->current_location.line++;
+
+                            lexer_state.current_file->current_pos++;
+                            if (past_eof())
+                            {
+                                can_continue = 0;
+                                break;
+                            }
+
+                            if (lexer_state.current_file->current_pos[0] == '\n')
+                            {
+                                lexer_state.current_file->current_pos++;
+                                if (past_eof())
+                                {
+                                    can_continue = 0;
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+
+                        // Continue to the next line (redundant)
+                        continue;
+                    }
+                    else
+                    {
+                        // Not a comment
+                        lexer_state.current_file->current_pos = keep2;
+                        lexer_state.current_file->current_location = keep_location2;
+                        break;
+                    }
                 }
                 else
                 {
