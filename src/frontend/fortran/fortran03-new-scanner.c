@@ -4175,7 +4175,8 @@ extern int new_mf03lex(void)
                             char* fractional_part = scan_fractional_part_of_real_literal();
                             return commit_text_and_free(REAL_LITERAL, fractional_part, loc);
                         }
-                        else if (is_letter(c1))
+
+                        if (is_letter(c1))
                         {
                             tiny_dyncharbuf_t user_def_op;
                             tiny_dyncharbuf_new(&user_def_op, 32);
@@ -4209,6 +4210,7 @@ extern int new_mf03lex(void)
                             tiny_dyncharbuf_add(&user_def_op, '\0');
                             return commit_text_and_free(USER_DEFINED_OPERATOR, user_def_op.buf, loc); // '.[a-z].'
                         }
+                        break;
                     }
                     // string literals
                 case '"':
