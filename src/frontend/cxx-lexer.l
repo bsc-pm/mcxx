@@ -502,7 +502,7 @@ type {
         // All the whole line may be handled as an unknown pragma
 		BEGIN(gcc_pragma);
         // current yytext must be included in the "unknown pragma"
-		yymore();
+		unput_string(yytext);
 		matched = 1;
     }
     else if (strcasecmp(yytext, "ident") == 0)
@@ -510,7 +510,7 @@ type {
         // All the whole line will be handled as an unknown pragma
 		BEGIN(unknown_pragma);
         // current yytext must be included in the "unknown pragma"
-		yymore();
+		unput_string(yytext);
 		matched = 1;
 	}
 
@@ -534,7 +534,7 @@ type {
 					yytext);
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
-			yymore();
+			unput_string(yytext);
 		}
 		else
 		{
