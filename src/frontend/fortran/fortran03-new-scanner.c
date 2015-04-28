@@ -4687,7 +4687,7 @@ extern int new_mf03lex(void)
                         tiny_dyncharbuf_new(&str, 32);
 
                         tiny_dyncharbuf_add(&str, c0);
-                        char c = peek(0);
+                        int c = peek(0);
                         while (c != '@'
                                 && !is_newline(c)
                                 && c != EOF)
@@ -5130,7 +5130,7 @@ extern int new_mf03lex(void)
                     tiny_dyncharbuf_add(&str, c0);
 
                     int parentheses = 0;
-                    char c = peek(0);
+                    int c = peek(0);
                     while ((c != ')'
                                 || parentheses > 0)
                             && !is_newline(c)
