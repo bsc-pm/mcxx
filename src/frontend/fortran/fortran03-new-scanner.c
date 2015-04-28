@@ -1573,7 +1573,6 @@ static inline int free_form_get(token_location_t* loc)
             {
                 if (lexer_state.sentinel != NULL)
                 {
-                    // This line is just a comment
                     lexer_state.current_file->current_pos++;
                     lexer_state.current_file->current_location.column++;
                     if (past_eof())
@@ -1581,8 +1580,23 @@ static inline int free_form_get(token_location_t* loc)
 
                     if (lexer_state.current_file->current_pos[0] != '$')
                     {
-                        do_rollback = 1;
-                        break;
+                        // This is a comment like the following case
+                        // !$OMP TASK &
+                        // !!$OMP FOO                  <-- comment
+                        // !$OMP SHARED(BAR)           <-- legitimate continuation
+                        while (!past_eof()
+                                && !is_newline(lexer_state.current_file->current_pos[0]))
+                        {
+                            lexer_state.current_file->current_location.column++;
+                            lexer_state.current_file->current_pos++;
+                        }
+
+                        if (past_eof())
+                            break;
+
+                        // Comment done (we have not yet handled the newline, it will
+                        // be handled in the next iteration)
+                        continue;
                     }
 
                     lexer_state.current_file->current_pos++;
