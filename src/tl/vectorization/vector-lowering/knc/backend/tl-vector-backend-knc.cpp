@@ -2403,11 +2403,20 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorReductionAdd& n)
     {
-        TL::Type type = n.get_type().basic_type();
+        TL::Type type = n.get_type().no_ref();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Source intrin_src, intrin_name;
+        TL::Source intrin_src, intrin_name, mask_prefix, mask_args;
 
-        intrin_name << KNC_INTRIN_PREFIX << "_reduce_add";
+        intrin_name << KNC_INTRIN_PREFIX
+            << mask_prefix
+            << "_"
+            << "reduce_add"
+            ;
+
+        process_mask_component(mask, mask_prefix, mask_args, type,
+                KNCConfigMaskProcessing::ONLY_MASK);
+
 
         if (type.is_float())
         {
@@ -2429,13 +2438,12 @@ namespace Vectorization
                     locus_to_str(n.get_locus()));
         }
 
-        walk(n.get_scalar_dst());
         walk(n.get_vector_src());
 
-        intrin_src << as_expression(n.get_scalar_dst())
-            << " += "
+        intrin_src 
             << intrin_name
             << "("
+            << mask_args
             << as_expression(n.get_vector_src())
             << ")";
 

@@ -131,11 +131,13 @@ namespace TL
             {
                 Nodecl::ExpressionStatement post_reduction_stmt =
                     Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorReductionAdd::make(
+                            Nodecl::AddAssignment::make(
                                 scalar_symbol.make_nodecl(true),
-                                vector_symbol.make_nodecl(true),
-                                Utils::get_null_mask(),
-                                scalar_symbol.get_type()));
+                                Nodecl::VectorReductionAdd::make(
+                                    vector_symbol.make_nodecl(true),
+                                    Utils::get_null_mask(),
+                                    scalar_symbol.get_type()),
+                            scalar_symbol.get_type()));
 
                 post_nodecls.append(post_reduction_stmt);
             }
@@ -143,10 +145,12 @@ namespace TL
             {
                 Nodecl::ExpressionStatement post_reduction_stmt =
                     Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorReductionMinus::make(
+                            Nodecl::AddAssignment::make(
                                 scalar_symbol.make_nodecl(true),
-                                vector_symbol.make_nodecl(true),
-                                Utils::get_null_mask(),
+                                Nodecl::VectorReductionMinus::make(
+                                    vector_symbol.make_nodecl(true),
+                                    Utils::get_null_mask(),
+                                    scalar_symbol.get_type()),
                                 scalar_symbol.get_type()));
 
                 post_nodecls.append(post_reduction_stmt);

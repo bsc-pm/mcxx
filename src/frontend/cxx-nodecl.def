@@ -191,9 +191,9 @@ expression : literal
            | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_RSQRT([rhs]expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_ADD([vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_MINUS([vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_MUL([vector_src]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_DIFFERENT([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt

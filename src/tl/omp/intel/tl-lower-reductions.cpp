@@ -409,21 +409,24 @@ namespace TL
                 _replace_inout->walk(node.get_lhs());
                 _replace_inout->walk(node.get_rhs());
 
-                Nodecl::NodeclBase vector_reduction_add =
-                    Nodecl::VectorReductionAdd::make(
+                // Do not emit AddAssigment: old value is already in lane 0
+                Nodecl::NodeclBase assignment =
+                    Nodecl::Assignment::make(
                             node.get_lhs().shallow_copy(),
-                            Nodecl::VectorLoad::make(
-                                Nodecl::Reference::make(
-                                    node.get_rhs().shallow_copy(),
-                                    node.get_rhs().get_type().no_ref().get_pointer_to()),
+                            Nodecl::VectorReductionAdd::make(
+                                Nodecl::VectorLoad::make(
+                                    Nodecl::Reference::make(
+                                        node.get_rhs().shallow_copy(),
+                                        node.get_rhs().get_type().no_ref().get_pointer_to()),
+                                    _new_omp_mask.make_nodecl(),
+                                    Nodecl::List::make(
+                                        Nodecl::AlignedFlag::make()),
+                                    vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
                                 _new_omp_mask.make_nodecl(),
-                                Nodecl::List::make(
-                                    Nodecl::AlignedFlag::make()),
-                                vector_type_of_scalar(node.get_rhs().get_type()).get_lvalue_reference_to()),
-                            _new_omp_mask.make_nodecl(),
+                                node.get_type()),
                             node.get_type());
 
-                node.replace(vector_reduction_add);
+                node.replace(assignment);
             }
 
             virtual void unhandled_node(const Nodecl::NodeclBase& n)

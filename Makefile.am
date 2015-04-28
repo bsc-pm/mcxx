@@ -1848,6 +1848,7 @@ src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cxxflags) \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/omp/core \
                           -I $(top_srcdir)/src/tl/omp/common \
+                          -I $(top_srcdir)/src/tl/hlt \
                           $(END)
 
 src_tl_omp_simd_libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
@@ -1856,6 +1857,7 @@ src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
                           $(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
                           $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
                           $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+                          $(top_builddir)/src/tl/hlt/libtl-hlt.la \
                           $(END)
 
 
