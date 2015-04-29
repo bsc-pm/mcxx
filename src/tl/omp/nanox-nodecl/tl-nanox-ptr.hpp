@@ -40,6 +40,10 @@ namespace TL { namespace Nanox {
             TL::Type return_type,
             TL::Type argument_type,
             TL::Scope original_scope);
+
+    Symbol get_copy_descriptor_function(TL::Symbol orig_sym,
+            TL::Symbol dest_sym,
+            TL::Scope original_scope);
 } }
 
 #endif // TL_NANOX_PTR_HPP

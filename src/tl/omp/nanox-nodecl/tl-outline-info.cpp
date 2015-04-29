@@ -209,20 +209,39 @@ namespace TL { namespace Nanox {
                     const_value_to_nodecl(const_value_get_signed_int(num_items)),
                     _sc.get_decl_context());
 
-        TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
+        // TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
+        // Nodecl::NodeclBase prepare_capture;
+        // {
+        //     Source src;
+        //     src
+        //         << "{"
+        //         << "nanos_err_t nanos_err;"
+        //         << "nanos_err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
+        //         <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
+        //         <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
+        //         <<     size_of_array_descriptor
+        //         << ");"
+        //         << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+        //         << "}"
+        //         ;
 
+        //     Source::source_language = SourceLanguage::C;
+        //     prepare_capture = src.parse_statement(_sc);
+        //     Source::source_language = SourceLanguage::Fortran;
+        // }
+
+        TL::Symbol copy_descriptor_function = get_copy_descriptor_function(
+                /* dest_symbol */ captured_array_descriptor,
+                /* source_symbol */ sym,
+                _sc);
         Nodecl::NodeclBase prepare_capture;
         {
             Source src;
             src
                 << "{"
-                << "nanos_err_t nanos_err;"
-                << "nanos_err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
-                <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
-                <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
-                <<     size_of_array_descriptor
-                << ");"
-                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+                << as_expression(copy_descriptor_function.make_nodecl(/* set_ref_type */ true))
+                << "(" << as_expression(captured_array_descriptor.make_nodecl(/* set_ref_type */ true)) << ","
+                <<        as_expression(sym.make_nodecl(/* set_ref_type */ true)) << ");"
                 << "}"
                 ;
 
