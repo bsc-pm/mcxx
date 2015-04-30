@@ -66,13 +66,13 @@ namespace Vectorization
             {
                 result << KNC_INTRIN_PREFIX << "_castps_pd";
             }
-            else if (type_to.is_signed_int() || type_to.is_unsigned_int())
+            else if (type_to.is_integral_type())
             {
                 result << KNC_INTRIN_PREFIX << "_castps_si" <<
                     KNC_VECTOR_BIT_SIZE;
             }
         }
-        else if (type_from.is_signed_int() || type_from.is_unsigned_int())
+        else if (type_from.is_integral_type())
         {
             if (type_to.is_float())
             {
@@ -114,22 +114,26 @@ namespace Vectorization
         {
             result << KNC_INTRIN_PREFIX << "_undefined()";
         }
-        else if (type.is_double())
+        else if (type.is_double() || type.is_integral_type() || type.is_void())
         {
-            result << get_casting_intrinsic(TL::Type::get_float_type(), type) << "("
-                << KNC_INTRIN_PREFIX << "_undefined()";
-        }
-        else if (type.is_signed_int() ||
-                type.is_unsigned_int())
-        {
-            result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+            result << get_casting_intrinsic(TL::Type::get_float_type(), type) 
                 << "(" << KNC_INTRIN_PREFIX << "_undefined())";
         }
-        else if (type.is_void())
-        {
-            result << get_casting_intrinsic(TL::Type::get_float_type(), type)
-                << "(" << KNC_INTRIN_PREFIX << "_undefined())";
-        }
+       // else if (type.is_double())
+       // {
+       //     result << get_casting_intrinsic(TL::Type::get_float_type(), type) 
+       //         << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+       // }
+       // else if (type.is_integral_type())
+       // {
+       //     result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+       //         << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+       // }
+       // else if (type.is_void())
+       // {
+       //     result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+       //         << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+       // }
         else
         {
             running_error("KNC Backend: undef intrinsic not supported for type '%s'",
@@ -292,6 +296,11 @@ namespace Vectorization
         {
             intrin_type_suffix << "epi32";
         }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+        }
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type: %s.",
@@ -356,6 +365,11 @@ namespace Vectorization
                 type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
+        }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
         }
         else
         {
@@ -1591,9 +1605,15 @@ namespace Vectorization
         {
             intrin_type_suffix << "pd";
         }
-        else if (type.is_integral_type())
+        else if (type.is_signed_int() ||
+                type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
+        }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
         }
         else
         {
@@ -1759,12 +1779,21 @@ namespace Vectorization
             intrin_type_suffix << "pd";
             conversion_arg << "_MM_DOWNCONV_PD_NONE";
         }
-        else if (type.is_integral_type())
+        else if (type.is_signed_int() ||
+                type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
             casting_args << get_casting_to_scalar_pointer(
                     TL::Type::get_void_type());
             conversion_arg << "_MM_DOWNCONV_PS_NONE";
+        }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+            casting_args << get_casting_to_scalar_pointer(
+                    TL::Type::get_void_type());
+            conversion_arg << "_MM_DOWNCONV_PD_NONE";
         }
         else
         {
@@ -2430,6 +2459,11 @@ namespace Vectorization
                 type.is_unsigned_int())
         {
             intrin_name << "_epi32";
+        }
+        else if (type.is_signed_long_long_int() ||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_name << "_epi64";
         }
         else
         {
