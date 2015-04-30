@@ -6230,7 +6230,7 @@ static void build_scope_enum_def(AST a,
     unsupported_construct(a, "ENUM");
 }
 
-static void build_scope_equivalence_stmt(AST a, 
+static void do_build_scope_equivalence_stmt(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
@@ -6270,7 +6270,32 @@ static void build_scope_equivalence_stmt(AST a,
         equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
                     nodecl_equivalence);
     }
+}
 
+struct delayed_equivalence_statement_t
+{
+    AST a;
+    decl_context_t decl_context;
+};
+
+static void delayed_equivalence_statement(void *info, nodecl_t* nodecl_output)
+{
+    struct delayed_equivalence_statement_t* data = (struct delayed_equivalence_statement_t*)info;
+
+    do_build_scope_equivalence_stmt(data->a, data->decl_context, nodecl_output);
+
+    xfree(data);
+}
+
+static void build_scope_equivalence_stmt(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    struct delayed_equivalence_statement_t * data = xmalloc(sizeof(*data));
+    data->a = a;
+    data->decl_context = decl_context;
+
+    build_scope_delay_list_add(delayed_equivalence_statement, data);
 }
 
 static void build_scope_exit_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
