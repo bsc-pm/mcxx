@@ -2964,8 +2964,7 @@ static inline void preanalyze_statement(char expect_label)
                             && loc.line == line
                             && !CURRENT_CONFIGURATION->disable_empty_sentinels)
                     {
-                        peek_loc(peek_idx + 3, &loc);
-                        peek_insert(peek_idx + 3, ' ', loc);
+                        peek_insert(peek_idx + 2, ' ', loc);
                     }
                 }
             }
