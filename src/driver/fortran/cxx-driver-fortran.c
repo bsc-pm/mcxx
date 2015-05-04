@@ -689,15 +689,17 @@ void driver_fortran_register_module(const char* module_name,
     }
 }
 
-static struct flock_table_tag
+typedef struct flock_item_tag
 {
     int fd;
     const char* filename;
-} _flock_table[1];
+} flock_item_t;
+
+static flock_item_t flock_item;
 
 void driver_fortran_hide_mercurium_modules(void)
 {
-    int i, num_modules = CURRENT_COMPILED_FILE->num_module_files_to_hide;
+    int num_modules = CURRENT_COMPILED_FILE->num_module_files_to_hide;
 
     // Sort the files because we want to lock them always in the same order
     qsort(CURRENT_COMPILED_FILE->module_files_to_hide,
@@ -705,37 +707,35 @@ void driver_fortran_hide_mercurium_modules(void)
             sizeof(*CURRENT_COMPILED_FILE->module_files_to_hide),
             (int(*)(const void*, const void*))strcasecmp);
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "DRIVER-FORTRAN: Allocating flock table for '%d' modules\n", num_modules);
-    }
-
     // We will unlock it in driver_fortran_restore_mercurium_modules
-    lock_modules(&_flock_table[0].fd, &_flock_table[0].filename);
-
-    for (i = 0; i < num_modules; i++)
+    if (num_modules > 0)
     {
-        const char* filename = CURRENT_COMPILED_FILE->module_files_to_hide[i];
+        lock_modules(&flock_item.fd, &flock_item.filename);
 
-        hide_mercurium_module(filename);
+        int i;
+        for (i = 0; i < num_modules; i++)
+        {
+            const char* filename = CURRENT_COMPILED_FILE->module_files_to_hide[i];
+
+            hide_mercurium_module(filename);
+        }
     }
 }
 
 void driver_fortran_restore_mercurium_modules(void)
 {
-    int i, num_modules = CURRENT_COMPILED_FILE->num_module_files_to_hide;
+    int num_modules = CURRENT_COMPILED_FILE->num_module_files_to_hide;
 
-    for (i = 0; i < num_modules; i++)
+    if (num_modules > 0)
     {
-        const char* filename = CURRENT_COMPILED_FILE->module_files_to_hide[i];
+        int i;
+        for (i = 0; i < num_modules; i++)
+        {
+            const char* filename = CURRENT_COMPILED_FILE->module_files_to_hide[i];
 
-        restore_mercurium_module(filename);
-    }
+            restore_mercurium_module(filename);
+        }
 
-    unlock_modules(_flock_table[0].fd, _flock_table[0].filename);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "DRIVER-FORTRAN: Freeing flock table\n");
+        unlock_modules(flock_item.fd, flock_item.filename);
     }
 }
