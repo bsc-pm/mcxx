@@ -577,6 +577,16 @@ namespace TL { namespace OpenMP {
                                     const_value_get_signed_int(0), make_locus("", 0, 0)));
                     }
                 }
+
+                new_red->set_locus(ast_get_locus(tree));
+
+                if (!Core::_silent_declare_reduction)
+                {
+                    info_printf("%s: info: declared reduction '%s' for type '%s'\n", 
+                            ast_location(tree),
+                            reduction_name.c_str(),
+                            fortran_print_type_str(reduction_type));
+                }
             }
             else
             {
