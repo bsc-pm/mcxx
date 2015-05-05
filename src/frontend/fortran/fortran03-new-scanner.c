@@ -3585,13 +3585,6 @@ static const char* return_pragma_prefix_longest_match(
     return longest_match;
 }
 
-// means: no more letters available for this file
-static inline char is_end_of_file(void)
-{
-    return peek_empty()
-        && past_eof();
-}
-
 // This is the lexer <-> parser interface from yacc/bison
 // this function just returns the next token from the current
 // input stream
