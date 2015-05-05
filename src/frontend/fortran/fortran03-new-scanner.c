@@ -2473,55 +2473,108 @@ static inline char is_format_statement(void)
     p = peek(peek_idx);
 
     char delim = 0;
-    int level = 1;
+    int parenthesis_level = 1;
     char in_string = 0;
 
-    // Now find the matching closing parenthesis
-    while (p != EOF
-            && !is_newline(p)
-            && !(!in_string && p == '!')
-            && (level > 0))
+    tiny_dyncharbuf_t int_str;
+    tiny_dyncharbuf_new(&int_str, 5);
+
+    char prev_was_letter = 0;
+    for (;;)
     {
+        if (p == EOF
+                || is_newline(p))
+            break;
+
         if (!in_string)
         {
+            if (p == '!'
+                    || p == ';')
+                break;
+
             if (p == '(')
             {
-                level++;
+                parenthesis_level++;
             }
             else if (p == ')')
             {
-                level--;
+                if (parenthesis_level > 0)
+                {
+                    parenthesis_level--;
+                    if (parenthesis_level == 0)
+                        break;
+                }
             }
-            else if (p == '\'' || p == '"')
+            else if (p == '\''
+                    || p == '"')
             {
                 delim = p;
                 in_string = 1;
             }
+            // Holleritz
+            else if (tolower(p) == 'h'
+                    && int_str.num > 0)
+            {
+                tiny_dyncharbuf_add(&int_str, '\0');
+                int skip = atoi(int_str.buf);
+                if (skip > 0)
+                {
+                    peek_idx++;
+                    p = peek(peek_idx);
+
+                    while (skip > 0
+                            && !is_newline(p))
+                    {
+                        skip--;
+
+                        peek_idx++;
+                        p = peek(peek_idx);
+                    }
+                    // we read too much
+                    peek_idx--;
+                }
+                int_str.num = 0;
+            }
+
+            if (is_decimal_digit(p)
+                    && !prev_was_letter)
+            {
+                tiny_dyncharbuf_add(&int_str, p);
+            }
+            else
+            {
+                int_str.num = 0;
+            }
+
+            prev_was_letter = is_letter(p);
         }
-        else
+        else if (in_string)
         {
             if (p == delim)
             {
-                int p1 = peek(peek_idx + 1);
-                if (p1 != delim)
+                if (peek(peek_idx + 1) != delim)
                 {
                     in_string = 0;
                 }
-                else // p1 == delim
+                else
                 {
-                    // Skip the delimiter as we do not want
-                    // to see again
+                    // skip this delimiter
                     peek_idx++;
                 }
             }
         }
+
         peek_idx++;
         p = peek(peek_idx);
     }
 
     // Unbalanced parentheses or opened string
-    if ((level > 0) || (in_string == 1)) 
+    if ((parenthesis_level > 0) || (in_string == 1)) 
         return 0;
+
+    // Skip the closing parenthesis
+    peek_idx++;
+    p = peek(peek_idx);
 
     // Skip blanks after closing parenthesis
     while (is_blank(p))
@@ -2875,6 +2928,8 @@ static inline int preanalyze_advance_parenthesis(int peek_idx)
                         peek_idx++;
                         p = peek(peek_idx);
                     }
+                    // we read too much
+                    peek_idx--;
                 }
                 int_str.num = 0;
             }
