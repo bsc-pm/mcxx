@@ -1416,6 +1416,13 @@ static inline int fixed_form_get(token_location_t* loc)
             result = '!';
             break;
         }
+        else if (lexer_state.current_file->current_location.column == 6
+                && result == '0')
+        {
+            // A zero in column 6 is to be ignored
+            lexer_state.current_file->current_location.column++;
+            lexer_state.current_file->current_pos++;
+        }
         else
         {
             // done
