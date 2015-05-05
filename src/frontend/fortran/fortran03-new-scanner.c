@@ -4130,7 +4130,7 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_add_str(&t_str, str);
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
                                 xfree(kind_str);
-                                tiny_dyncharbuf_add_str(&t_str, '\0');
+                                tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(TOKEN_TRUE, t_str.buf, loc);
                             }
@@ -4167,7 +4167,7 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_add_str(&t_str, str);
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
                                 xfree(kind_str);
-                                tiny_dyncharbuf_add_str(&t_str, '\0');
+                                tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(TOKEN_FALSE, t_str.buf, loc);
                             }
