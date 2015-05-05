@@ -3413,6 +3413,37 @@ static inline void preanalyze_statement(char expect_label)
                     lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
                     break;
                 }
+            case TOKEN_ASSIGN:
+                {
+                    // ASSIGN 100 TO I we need to add a blank after ASSIGN and
+                    // move until TO so another blank is added after it
+                    //
+                    // Note: we could add another blank imemdiately before TO
+                    // but TO cannot be the suffix of an integer constant
+                    token_location_t loc;
+                    peek_loc(peek_idx_end_of_keyword, &loc);
+                    peek_insert(peek_idx_end_of_keyword + 1, ' ', loc); 
+                    peek_idx = peek_idx_end_of_keyword + 2;
+
+                    p = peek(peek_idx);
+                    if (is_decimal_digit(p))
+                    {
+                        // Advance right before TO
+                        while (is_decimal_digit(p))
+                        {
+                            peek_idx++;
+                            p = peek(peek_idx);
+                        }
+                    }
+                    else
+                    {
+                        // Prudently stop here
+                        done_with_keywords = 1;
+                    }
+
+                    lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
+                    break;
+                }
                 /* find default case at the beginning */
         }
     }
