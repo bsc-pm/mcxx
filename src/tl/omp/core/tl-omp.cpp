@@ -113,6 +113,17 @@ namespace TL
             }
         }
 
+        void DataSharingEnvironment::get_all_symbols(ObjectList<Symbol>& sym_list)
+        {
+            // Traverse using insertion order
+            for (map_symbol_data_sharing_insertion_t::iterator it = _map->i.begin();
+                    it != _map->i.end();
+                    it++)
+            {
+                sym_list.append(*it);
+            }
+        }
+
         void DataSharingEnvironment::get_all_symbols_info(DataSharingAttribute data_attribute, 
                 ObjectList<DataSharingInfoPair>& sym_list)
         {

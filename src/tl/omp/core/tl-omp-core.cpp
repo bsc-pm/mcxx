@@ -549,7 +549,6 @@ namespace TL
         class SavedExpressions : public Nodecl::NodeclVisitor<void>
         {
             private:
-
                 bool is_local_to_current_function(TL::Symbol sym)
                 {
                     return (sym.get_scope().is_block_scope()
@@ -624,6 +623,11 @@ namespace TL
                 SavedExpressions(TL::Scope sc)
                      : _sc(sc)
                 {
+                }
+
+                void walk_symbol(TL::Symbol sym)
+                {
+                    walk_type(sym.get_type());
                 }
 
                 virtual Ret visit(const Nodecl::Symbol &n)
@@ -1558,6 +1562,14 @@ namespace TL
             // Saved expressions from VLAs
             SavedExpressions saved_expressions(statement.retrieve_context());
             saved_expressions.walk(statement);
+
+            // Review first the symbols in the datasharing so we are not
+            // dependent on their actual occurrence or not
+            ObjectList<TL::Symbol> all_symbols;
+            data_sharing.get_all_symbols(all_symbols);
+            all_symbols.map(
+                        std::bind(&SavedExpressions::walk_symbol, &saved_expressions, std::placeholders::_1)
+                    );
 
             FORTRAN_LANGUAGE()
             {
