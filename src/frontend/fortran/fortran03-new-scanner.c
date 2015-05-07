@@ -891,7 +891,7 @@ static char finish_character(char result)
 
 static inline int fixed_form_get(token_location_t* loc)
 {
-    int result;
+    int result = EOF;
     while (!past_eof())
     {
         result = lexer_state.current_file->current_pos[0];
