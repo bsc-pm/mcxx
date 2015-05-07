@@ -25,6 +25,7 @@
  --------------------------------------------------------------------*/
 
 #include "cxx-cexpr.h"
+#include "tl-alias-analysis.hpp"
 #include "tl-task-syncs-tune.hpp"
 #include "tl-task-syncs-utils.hpp"
 
@@ -172,7 +173,7 @@ namespace {
         Nodecl::List::iterator itn = n_subs.begin();
         Nodecl::List::iterator itm = m_subs.begin();
         bool cannot_match = false;
-        for(; (itn != n_subs.end()) && !(modification_type & Remove); ++itn, ++itm)
+        for(; (itn != n_subs.end() && itm != m_subs.end()) && !(modification_type & Remove); ++itn, ++itm)
         {
             const Nodecl::NodeclBase& n = *itn;
             const Nodecl::NodeclBase& m = *itm;
@@ -275,11 +276,34 @@ match_array_subscripts_end:
         {
             if(m_.is<Nodecl::ArraySubscript>())
             {
-                modification_type = match_array_subscripts(
-                        n_node, m_node,
-                        n_.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>(),
-                        m_.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>(),
-                        condition);
+                const Nodecl::ArraySubscript& m_arr = m_.as<Nodecl::ArraySubscript>();
+                const Nodecl::ArraySubscript& n_arr = n_.as<Nodecl::ArraySubscript>();
+
+                // Check the base refers to the same object
+                const NBase& m_base = m_arr.get_subscripted();
+                const NBase& n_base = n_arr.get_subscripted();
+                if (!Nodecl::Utils::structurally_equal_nodecls(m_base, n_base, /*skip_conversions*/ true))
+                {
+                    tribool there_exists_alias = accesses_may_be_alias(n_, m_);
+                    if (there_exists_alias.is_false())
+                    {
+                        modification_type = Remove;
+                    }
+                    else
+                    {
+                        condition = Nodecl::BooleanLiteral::make(Type::get_bool_type(),
+                                                                 const_value_get_one(/*num_bytes*/ 4, /*sign*/ 1));
+                        modification_type = MaybeToStatic;
+                    }
+                }
+                else
+                {
+                    modification_type = match_array_subscripts(
+                            n_node, m_node,
+                            n_arr.get_subscripts().as<Nodecl::List>(),
+                            m_arr.get_subscripts().as<Nodecl::List>(),
+                            condition);
+                }
             }
             else
                 modification_type = Remove;
@@ -413,10 +437,15 @@ match_array_subscripts_end:
                 modification_type = modification_type | match_dependence(source, target, *its, *itt, cond_part);
                 if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
                     continue;
+                if (cond_part.is<Nodecl::BooleanLiteral>())     // Not able to build the condition
+                    goto match_modification;
                 if (condition.is_null())
                     condition = cond_part;
                 else
-                    condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
+                {   // If 'cond_part' is already in 'condition', then we do not have to add it again
+                    if (!Nodecl::Utils::nodecl_contains_nodecl_by_structure(condition, cond_part))
+                        condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
+                }
             }
         // 2.1.- Match source(in) with target(out, inout)
         for(ObjectList<NBase>::iterator its = source_in_deps.begin(); its != source_in_deps.end(); ++its)
@@ -426,12 +455,19 @@ match_array_subscripts_end:
                 modification_type = modification_type | match_dependence(source, target, *its, *itt, cond_part);
                 if (cond_part.is_null())    // The pair <*its, *itt> does no cause dependency
                     continue;
+                if (cond_part.is<Nodecl::BooleanLiteral>())     // Not able to build the condition
+                    goto match_modification;
                 if (condition.is_null())
                     condition = cond_part;
                 else
-                    condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
+                {
+                    // If 'cond_part' is already in 'condition', then we do not have to add it again
+                    if (!Nodecl::Utils::nodecl_contains_nodecl_by_structure(condition, cond_part))
+                        condition = Nodecl::LogicalOr::make(condition.shallow_copy(), cond_part, cond_part.get_type());
+                }
             }
 
+match_modification:
         // 3.- Perform the modifications according to the previous results
         //     The order of these condition is important because for each pair of variables in the dependency clauses
         //     we compute a modification that is joined to the previous ones. So these conditions go from 

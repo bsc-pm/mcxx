@@ -1440,7 +1440,13 @@ namespace Analysis {
             else if(stmt_node->is_exit_node() && (stmt_node->get_outer_node()->get_id() != 0))
                 stmt_node = stmt_node->get_outer_node()->get_children()[0];
             else
-                stmt_node = stmt_node->get_children()[0];
+            {
+                const ObjectList<Node*> children = stmt_node->get_children();
+                if (!children.empty())
+                    stmt_node = children[0];
+                else
+                    return false;
+            }
         }
         
         if(stmt_node->has_statements() && (stmt_node == node))

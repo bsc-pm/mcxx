@@ -1516,8 +1516,6 @@ AC_ARG_ENABLE([analysis],
 
 if test x$is_enabled_analysis = xyes;
 then
-  INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
-  COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
   AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
   if test x$is_enabled_vectorization = xyes

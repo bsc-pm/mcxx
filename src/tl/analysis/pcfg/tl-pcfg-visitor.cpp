@@ -34,6 +34,8 @@
 namespace TL {
 namespace Analysis {
 
+    std::map<Symbol, Nodecl::NodeclBase> analysis_asserted_decls;
+
     // ************************************************************************************** //
     // ************************************ Constructors ************************************ //
 
@@ -654,6 +656,13 @@ next_it:    ;
         _utils->_assert_nodes.pop( );
         _utils->_pragma_nodes.pop( );
 
+        return ObjectList<Node*>( );
+    }
+
+    // Necessary for checking analysis of default constructors
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::AssertDecl& n )
+    {
+        analysis_asserted_decls[n.get_symbol()] = n.get_environment();
         return ObjectList<Node*>( );
     }
 
@@ -1861,15 +1870,15 @@ next_it:    ;
             Type n_type = n.get_symbol( ).get_type( );
             if( n_type.is_aggregate( ) || n_type.is_class( ) || n_type.is_array( ) )
             {   // Field or Index designators can appear
-                ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
-                if( init_expr.empty( ) )
+                ObjectList<Node*> init_exprs = walk( n.get_symbol( ).get_value( ) );
+                if( init_exprs.empty( ) )
                 {   // do nothing: The Object Init is not initialized
                     return ObjectList<Node*>( );
                 }
                 else
                 {
                     bool unnamed_member_initialization = false;
-                    for( ObjectList<Node*>::iterator it = init_expr.begin( ); it != init_expr.end( ); ++it )
+                    for( ObjectList<Node*>::iterator it = init_exprs.begin( ); it != init_exprs.end( ); ++it )
                     {
                         if( ( *it )->is_graph_node( ) )
                         {
@@ -1916,19 +1925,20 @@ next_it:    ;
                             ERROR_CONDITION( it_expr.size( ) != 1,
                                             "More than one statement created for an structured value initialization\n", 0 );
 
+                            NBase init_expr = it_expr[0];
                             NBase it_init;
-                            if( it_expr[0].is<Nodecl::Assignment>( ) )
+                            if( init_expr.is<Nodecl::Assignment>( ) )
                             {   // struct A a = { .b = { .y = 3 } }  ->  b.y = 3 is Assignment created by visit::FieldDesignator
-                                Nodecl::Assignment ass = it_expr[0].as<Nodecl::Assignment>( );
+                                Nodecl::Assignment ass = init_expr.as<Nodecl::Assignment>( );
                                 Nodecl::ClassMemberAccess new_lhs =
                                     Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ),
                                                                     /* member-form */ NBase::null(),
                                                                     ass.get_type( ), n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
                             }
-                            else if( it_expr[0].is<Nodecl::FieldDesignator>( ) )
+                            else if( init_expr.is<Nodecl::FieldDesignator>( ) )
                             {   // struct A a = { .x = 3 }            -> .x = 3 is FieldDesignator
-                                Nodecl::FieldDesignator fd = it_expr[0].as<Nodecl::FieldDesignator>( );
+                                Nodecl::FieldDesignator fd = init_expr.as<Nodecl::FieldDesignator>( );
 
                                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                                 Nodecl::ClassMemberAccess new_lhs =
@@ -1936,6 +1946,10 @@ next_it:    ;
                                                                     /* member-form */ NBase::null(),
                                                                     t, n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
+                            }
+                            else if (init_expr.is<Nodecl::ValueInitialization>())
+                            {   // struct A a; -> the default constructor is called here
+                                it_init = n;
                             }
                             else
                             {   // struct B b = { 3 };
@@ -1947,6 +1961,20 @@ next_it:    ;
                             Node* it_init_node = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ), it_init );
                             _pcfg->connect_nodes( _utils->_last_nodes, it_init_node );
                             _utils->_last_nodes = ObjectList<Node*>( 1, it_init_node );
+
+                            // Some declaration may contain an assertion: to check the default constructors
+                            Symbol called_sym = n.get_symbol();
+                            if (init_expr.is<Nodecl::ValueInitialization>()
+                                    && analysis_asserted_decls.find(called_sym) != analysis_asserted_decls.end())
+                            {
+                                // Walk the clauses of the assertion to add its information in the PCFG
+                                _utils->_assert_nodes.push(it_init_node);
+                                PCFGPragmaInfo current_pragma;
+                                _utils->_pragma_nodes.push(current_pragma);
+                                walk(analysis_asserted_decls[called_sym]);
+                                _utils->_assert_nodes.pop();
+                                _utils->_pragma_nodes.pop();
+                            }
                         }
                     }
                     // FIXME If we fix the case of an unnamed member initialization, then we can delete this node
@@ -3149,6 +3177,12 @@ next_it:    ;
             WARNING_MESSAGE( "Ignoring unknown pragma '%s' during PCFG construction",
                              n.get_text( ).c_str( ) );
         return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ValueInitialization& n )
+    {   // No node to be created here since it is a call to the default constructor
+        Node* basic_node = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ), n );
+        return ObjectList<Node*>( 1, basic_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorAdd& n )

@@ -1205,26 +1205,44 @@ src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				$(END)
 
 ##########################################################################
+# src/tl/analysis/aliasing
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/aliasing/libaliasing.la
+
+src_tl_analysis_aliasing_libaliasing_la_CFLAGS   = $(tl_cflags) -I$(top_srcdir)/src/tl/analysis/common
+src_tl_analysis_aliasing_libaliasing_la_CXXFLAGS = $(tl_cflags) -I$(top_srcdir)/src/tl/analysis/common
+src_tl_analysis_aliasing_libaliasing_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_aliasing_libaliasing_la_LIBADD   = $(tl_libadd) src/tl/libtl.la \
+                                                   src/tl/omp/common/libtlomp-common.la \
+                                                   src/tl/analysis/common/libanalysis_utils.la
+
+src_tl_analysis_aliasing_libaliasing_la_SOURCES = \
+        src/tl/analysis/aliasing/tl-alias-analysis.hpp \
+        src/tl/analysis/aliasing/tl-alias-analysis.cpp \
+        $(END)
+
+##########################################################################
 # src/tl/analysis/pcfg
 ##########################################################################
 
 lib_LTLIBRARIES += src/tl/analysis/pcfg/libpcfg.la
 
 PCFG_COMMON_FLAGS= $(tl_cflags) \
-		$(ANALYSIS_CFLAGS) \
-		-I $(srcdir)/src/tl/analysis/loops \
-		-I $(srcdir)/src/tl/omp/common \
-		$(END)
+        $(ANALYSIS_CFLAGS) \
+        -I $(srcdir)/src/tl/analysis/loops \
+        -I $(srcdir)/src/tl/omp/common \
+        $(END)
 
-src_tl_analysis_pcfg_libpcfg_la_CFLAGS = $(PCFG_COMMON_FLAGS)
+src_tl_analysis_pcfg_libpcfg_la_CFLAGS   = $(PCFG_COMMON_FLAGS) \
+                                           -I $(srcdir)/src/tl/analysis/aliasing
 src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS)
-src_tl_analysis_pcfg_libpcfg_la_LDFLAGS = $(tl_ldflags)
-src_tl_analysis_pcfg_libpcfg_la_LIBADD = $(tl_libadd)\
-										 src/tl/libtl.la \
-										 src/tl/omp/common/libtlomp-common.la \
-										 src/tl/analysis/common/libanalysis_utils.la \
-										 $(END)
-
+src_tl_analysis_pcfg_libpcfg_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_pcfg_libpcfg_la_LIBADD   = $(tl_libadd)\
+                                           src/tl/libtl.la \
+                                           src/tl/omp/common/libtlomp-common.la \
+                                           src/tl/analysis/common/libanalysis_utils.la \
+                                           $(END)
 
 src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
                     src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
@@ -1330,12 +1348,15 @@ src_tl_analysis_loops_libloops_analysis_la_SOURCES = src/tl/analysis/loops/tl-iv
 
 lib_LTLIBRARIES += src/tl/analysis/pcfg_tasks/libpcfg_tasks.la
 
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CFLAGS = $(tl_cflags)
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LDFLAGS = $(tl_ldflags)
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
-							src/tl/libtl.la \
-							$(ANALYSIS_LIBADD)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CFLAGS   = $(tl_cflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CXXFLAGS = $(tl_cflags) \
+                                                       -I $(srcdir)/src/tl/analysis/aliasing \
+                                                       $(ANALYSIS_CFLAGS)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD   = $(tl_libadd) \
+                                                       src/tl/libtl.la \
+                                                       src/tl/analysis/aliasing/libaliasing.la \
+                                                       $(ANALYSIS_LIBADD)
 
 src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
 			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.hpp \
@@ -2985,7 +3006,6 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config/00.config.plain \
        config/01.config.intel-plain \
-       config/10.config.analysis-base \
        config/10.config.hlt \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
