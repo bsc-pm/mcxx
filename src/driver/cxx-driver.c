@@ -287,6 +287,10 @@
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
 "  --line-markers           Adds line markers to the generated file\n" \
+"  --parallel               EXPERIMENTAL: behave in a way that \n" \
+"                           allows parallel compilation of the same\n" \
+"                           source codes without reusing intermediate\n" \
+"                           filenames\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
