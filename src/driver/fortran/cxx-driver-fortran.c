@@ -520,7 +520,8 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
     temporal_file_t temp_dir = new_temporal_dir();
 
     // First move the native module, keeping the file name
-    const char* temp_native = strappend(strappend(temp_dir->name, "/"), module_to_wrap->native_file);
+    const char* temp_native = strappend(strappend(temp_dir->name, "/"), 
+            give_basename(module_to_wrap->native_file));
     if (move_file(module_to_wrap->native_file, temp_native) != 0)
     {
         running_error("Error when wrapping a module: move_file '%s' -> '%s' failed. %s\n",
@@ -528,7 +529,8 @@ static void wrap_module_file(module_to_wrap_info_t* module_to_wrap)
     }
 
     // Do likewise for the mercurium file
-    const char* temp_mercurium = strappend(strappend(temp_dir->name, "/"), module_to_wrap->mercurium_file);
+    const char* temp_mercurium = strappend(strappend(temp_dir->name, "/"),
+            give_basename(module_to_wrap->mercurium_file));
     if (move_file(module_to_wrap->mercurium_file, temp_mercurium) != 0)
     {
         running_error("Error when wrapping a module: move_file '%s' -> '%s' failed. %s\n",
