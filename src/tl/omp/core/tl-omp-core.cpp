@@ -1272,7 +1272,8 @@ namespace TL
                                 );
                     }
 
-                    if (is_implicit)
+                    if (is_implicit
+                            || sym_data_sharing == DS_UNDEFINED)
                     {
                         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
                                 "the induction variable of OpenMP loop construct has predetermined private data-sharing");
@@ -1739,8 +1740,8 @@ namespace TL
 
                 _openmp_info->push_current_data_sharing(data_sharing);
                 ObjectList<Symbol> extra_symbols;
-                common_parallel_handler(construct, data_sharing, extra_symbols);
                 common_for_handler(construct, stmt, data_sharing, extra_symbols);
+                common_parallel_handler(construct, data_sharing, extra_symbols);
                 get_data_extra_symbols(data_sharing, extra_symbols);
             }
         }
@@ -1764,8 +1765,8 @@ namespace TL
 
             _openmp_info->push_current_data_sharing(data_sharing);
             ObjectList<Symbol> extra_symbols;
-            common_workshare_handler(construct, data_sharing, extra_symbols);
             (this->*common_loop_handler)(construct, loop, data_sharing, extra_symbols);
+            common_workshare_handler(construct, data_sharing, extra_symbols);
 
             // Maybe in a future this construct has support to dependences
             get_dependences_info(construct.get_pragma_line(), data_sharing,
@@ -1797,8 +1798,8 @@ namespace TL
 
             _openmp_info->push_current_data_sharing(data_sharing);
             ObjectList<Symbol> extra_symbols;
-            common_workshare_handler(construct, data_sharing, extra_symbols);
             common_for_handler(construct, stmt, data_sharing, extra_symbols);
+            common_workshare_handler(construct, data_sharing, extra_symbols);
             // Maybe in a future this construct has support to dependences
             get_dependences_info(construct.get_pragma_line(), data_sharing,
                     /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
@@ -1829,8 +1830,8 @@ namespace TL
                 }
 
                 ObjectList<Symbol> extra_symbols;
-                common_parallel_handler(construct, data_sharing, extra_symbols);
                 common_for_handler(construct, stmt, data_sharing, extra_symbols);
+                common_parallel_handler(construct, data_sharing, extra_symbols);
 
                 // Maybe in a future this construct has support to dependences
                 get_dependences_info(construct.get_pragma_line(), data_sharing,
