@@ -324,10 +324,18 @@ namespace TL
                     if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
                             && ((_data_attrib & DS_PRIVATE) != DS_PRIVATE))
                     {
-                        std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of induction variable '" 
-                            << data_ref.prettyprint() 
-                            << "' is predetermined private" 
-                            << std::endl;
+                        error_printf("%s: error: data sharing of induction variable '%s' cannot be shared\n",
+                            _ref_tree.get_locus_str().c_str(),
+                            data_ref.prettyprint().c_str());
+                        return;
+                    }
+
+                    if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
+                            && ((_data_attrib & DS_FIRSTPRIVATE) == DS_FIRSTPRIVATE))
+                    {
+                        error_printf("%s: error: data sharing of induction variable '%s' cannot be firstprivate\n",
+                            _ref_tree.get_locus_str().c_str(),
+                            data_ref.prettyprint().c_str());
                         return;
                     }
 
