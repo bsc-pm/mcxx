@@ -69,8 +69,10 @@ namespace TL { namespace OpenMP {
                             || _iterators.contains(sym))
                         return;
 
-                    if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
-                            == DS_UNDEFINED)
+                    DataSharing current_datasharing =
+                        _data_sharing.get_data_sharing(sym,
+                                /* check_enclosing */ false);
+                    if (current_datasharing.attr == DS_UNDEFINED)
                     {
                        _symbols.append(sym);
                     }
@@ -214,10 +216,9 @@ namespace TL { namespace OpenMP {
             }
 
 
-            if((default_data_attr & DS_AUTO) == DS_AUTO)
+            if ((default_data_attr & DS_AUTO) == DS_AUTO)
             {
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO),
-                        "'default(auto)'");
+                data_sharing.set_data_sharing(sym, DS_AUTO, DSK_EXPLICIT, "'default(auto)'");
             }
             else if (in_ompss_mode)
             {
@@ -247,31 +248,31 @@ namespace TL { namespace OpenMP {
                 //          inout([10][20] p) -> firstprivate(p)
                 if (IS_FORTRAN_LANGUAGE)
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
                 }
                 else if (expr.is<Nodecl::Symbol>())
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
                 }
                 else if (sym.get_type().is_array()
                         || (sym.get_type().is_any_reference()
                             && sym.get_type().references_to().is_array()))
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is an array mentioned in a non-trivial dependence "
                             "and it did not have an explicit data-sharing");
                 }
                 else if (sym.get_type().is_class())
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "the variable is an object mentioned in a non-trivial dependence "
                             "and it did not have an explicit data-sharing");
                 }
                 else
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                             "the variable is a non-array mentioned in a non-trivial dependence "
                             "and it did not have an explicit data-sharing");
                 }

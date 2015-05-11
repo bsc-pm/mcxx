@@ -318,9 +318,20 @@ namespace TL
                 void operator()(DataReference data_ref)
                 {
                     Symbol sym = data_ref.get_base_symbol();
+                    DataSharing previous_ds =
+                        _data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
-                    if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false)
-                            == DS_SHARED)
+                    if (previous_ds.kind == DSK_PREDETERMINED_INDUCTION_VAR
+                            && ((_data_attrib & DS_PRIVATE) != DS_PRIVATE))
+                    {
+                        std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of induction variable '" 
+                            << data_ref.prettyprint() 
+                            << "' is predetermined private" 
+                            << std::endl;
+                        return;
+                    }
+
+                    if ((previous_ds.attr == DS_SHARED)
                             && (_data_attrib & DS_PRIVATE))
                     {
                         std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of '" 
@@ -351,11 +362,11 @@ namespace TL
 
                     if (data_ref.has_symbol())
                     {
-                        _data_sharing.set_data_sharing(sym, _data_attrib, ss.str());
+                        _data_sharing.set_data_sharing(sym, _data_attrib, DSK_EXPLICIT, ss.str());
                     }
                     else
                     {
-                        _data_sharing.set_data_sharing(sym, _data_attrib, data_ref, ss.str());
+                        _data_sharing.set_data_sharing(sym, _data_attrib, DSK_EXPLICIT, data_ref, ss.str());
                     }
                 }
         };
@@ -868,11 +879,11 @@ namespace TL
                             it++)
                     {
                         TL::Symbol &sym(*it);
-                        DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                        DataSharing data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
-                        if (data_attr == DS_UNDEFINED)
+                        if (data_attr.attr == DS_UNDEFINED)
                         {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                            data_sharing.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
                                     "this is the induction variable of a sequential loop inside the current construct");
                         }
                     }
@@ -906,7 +917,7 @@ namespace TL
                         && sym.get_name() == "this")
                 {
                     // 'this' is special
-                    data_sharing.set_data_sharing(sym, DS_SHARED,
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "'this' pseudo-variable is always shared");
                     continue;
                 }
@@ -914,7 +925,7 @@ namespace TL
                 if (IS_FORTRAN_LANGUAGE
                         && sym.get_type().no_ref().is_function())
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                             "dummy procedures are firstprivate");
                     continue;
                 }
@@ -922,7 +933,7 @@ namespace TL
                 // Saved expressions must be, as their name says, saved
                 if (sym.is_saved_expression())
                 {
-                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE,
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                             "internal saved-expression must have their value captured");
                     continue;
                 }
@@ -934,18 +945,18 @@ namespace TL
                     reason << (sym.is_thread() ? "__thread" : "thread_local")
                            << " variables are threadprivate";
 
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
+                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE, DSK_IMPLICIT, reason.str());
                 }
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+                DataSharing data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                if ((data_attr.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
                 data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
-                if (data_attr == DS_UNDEFINED)
+                if (data_attr.attr == DS_UNDEFINED)
                 {
                     if (default_data_attr == DS_NONE)
                     {
@@ -957,7 +968,7 @@ namespace TL
                                 << std::endl;
 
                             // Maybe we do not want to assume always shared?
-                            data_sharing.set_data_sharing(sym, DS_SHARED,
+                            data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                     "'default(none)' was specified but this variable (incorrectly) does not  "
                                     "have an explicit or predetermined data-sharing. 'shared' was chosen instead");
 
@@ -969,13 +980,13 @@ namespace TL
                         // Set the symbol as having default data sharing
                         if (there_is_default_clause)
                         {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
+                            data_sharing.set_data_sharing(sym, default_data_attr, DSK_IMPLICIT,
                                     "there is a 'default' clause and the variable does "
                                     "not have any explicit or predetermined data-sharing");
                         }
                         else
                         {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
+                            data_sharing.set_data_sharing(sym, default_data_attr, DSK_IMPLICIT,
                                     "the variable does not have any explicit or predetermined data-sharing");
                         }
                     }
@@ -1255,16 +1266,14 @@ namespace TL
                 if (!sym.get_scope()
                         .scope_is_enclosed_by(outer_statement.retrieve_context()))
                 {
-                    DataSharingAttribute sym_data_sharing = (DataSharingAttribute)
-                        (data_sharing.get_data_sharing(sym, /* check enclosing */ false) & ~DS_IMPLICIT);
+                    DataSharing sym_data_sharing =
+                        data_sharing.get_data_sharing(sym, /* check enclosing */ false);
 
-                    bool is_implicit = (data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & DS_IMPLICIT);
-
-                    if (!is_implicit
-                            && sym_data_sharing != DS_UNDEFINED
-                            && sym_data_sharing != DS_PRIVATE
-                            && sym_data_sharing != DS_LASTPRIVATE
-                            && sym_data_sharing != DS_NONE)
+                    if (sym_data_sharing.kind != DSK_IMPLICIT
+                            && sym_data_sharing.attr != DS_UNDEFINED
+                            && sym_data_sharing.attr != DS_PRIVATE
+                            && sym_data_sharing.attr != DS_LASTPRIVATE
+                            && sym_data_sharing.attr != DS_NONE)
                     {
                         running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
                                 statement.get_locus_str().c_str(),
@@ -1272,17 +1281,8 @@ namespace TL
                                 );
                     }
 
-                    if (is_implicit
-                            || sym_data_sharing == DS_UNDEFINED)
-                    {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
-                                "the induction variable of OpenMP loop construct has predetermined private data-sharing");
-                    }
-                    else
-                    {
-                        data_sharing.set_data_sharing(sym, sym_data_sharing,
-                                "the induction variable of OpenMP loop construct has explicit data-sharing");
-                    }
+                    data_sharing.set_data_sharing(sym, DS_PRIVATE, DSK_PREDETERMINED_INDUCTION_VAR,
+                            "the induction variable of OpenMP loop construct has predetermined private data-sharing");
                 }
 
                 sanity_check_for_loop(statement);
@@ -1378,11 +1378,11 @@ namespace TL
                         it++)
                 {
                     TL::Symbol &sym(*it);
-                    DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                    DataSharing data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
-                    if (data_attr == DS_UNDEFINED)
+                    if (data_attr.attr == DS_UNDEFINED)
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                        data_sharing.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
                                 "induction variable of a sequential loop enclosed by a task");
                     }
                 }
@@ -1434,7 +1434,7 @@ namespace TL
                         && sym.get_name() == "this")
                 {
                     // 'this' is special
-                    data_sharing.set_data_sharing(sym, DS_SHARED,
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "'this' pseudo-variable is always shared");
                     continue;
                 }
@@ -1442,14 +1442,14 @@ namespace TL
                 if (IS_FORTRAN_LANGUAGE
                         && sym.get_type().no_ref().is_function())
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                             "dummy procedures are firstprivate");
                     continue;
                 }
 
                 if (sym.is_cray_pointee())
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                    data_sharing.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
                             "Cray pointee is private");
                     sym  = sym.get_cray_pointer();
                 }
@@ -1461,20 +1461,22 @@ namespace TL
                     reason << (sym.is_thread() ? "__thread" : "thread_local")
                            << " variables are threadprivate";
 
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_THREADPRIVATE | DS_IMPLICIT), reason.str());
+                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE, DSK_IMPLICIT, reason.str());
                 }
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+                DataSharing data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                if ((data_attr.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
                 data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 std::string reason;
-                if (data_attr == DS_UNDEFINED)
+                if (data_attr.attr == DS_UNDEFINED)
                 {
+                    DataSharingAttribute implicit_data_attr;
+
                     if (default_data_attr == DS_NONE)
                     {
                         std::cerr << it->get_locus_str() 
@@ -1482,7 +1484,7 @@ namespace TL
                             << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
                             << std::endl;
 
-                        data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
+                        implicit_data_attr = DS_FIRSTPRIVATE;
                         reason =
                             "'default(none)' was specified but this variable (incorrectly) does not  "
                             "have an explicit or predetermined data-sharing. 'firstprivate' was chosen instead "
@@ -1501,9 +1503,8 @@ namespace TL
                         {
                             while ((enclosing != NULL) && is_shared)
                             {
-                                DataSharingAttribute ds = enclosing->get_data_sharing(sym, /* check_enclosing */ false);
-                                ds = (DataSharingAttribute)(ds & ~DS_IMPLICIT);
-                                is_shared = (is_shared && (ds == DS_SHARED));
+                                DataSharing ds = enclosing->get_data_sharing(sym, /* check_enclosing */ false);
+                                is_shared = (is_shared && (ds.attr == DS_SHARED));
 
                                 // Stop once we see the innermost parallel
                                 if (enclosing->get_is_parallel())
@@ -1540,17 +1541,17 @@ namespace TL
 
                         if (is_shared)
                         {
-                            data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
+                            implicit_data_attr = DS_SHARED;
                         }
                         else
                         {
-                            data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
+                            implicit_data_attr = DS_FIRSTPRIVATE;
                         }
                     }
                     else
                     {
                         // Set the symbol as having the default data sharing
-                        data_attr = (DataSharingAttribute)(default_data_attr | DS_IMPLICIT);
+                        implicit_data_attr = default_data_attr;
                         if (there_is_default_clause)
                         {
                             reason = "there is a 'default' clause and the variable does "
@@ -1563,11 +1564,11 @@ namespace TL
                         }
                     }
 
-                    data_sharing.set_data_sharing(sym, data_attr, reason);
+                    data_sharing.set_data_sharing(sym, implicit_data_attr, DSK_IMPLICIT, reason);
                 }
 
                 if (IS_FORTRAN_LANGUAGE
-                        && (data_attr & DS_PRIVATE)
+                        && (data_attr.attr & DS_PRIVATE)
                         && sym.is_parameter()
                         && sym.get_type().no_ref().is_array()
                         && !sym.get_type().no_ref().array_requires_descriptor()
@@ -1575,8 +1576,7 @@ namespace TL
                 {
                     std::cerr << it->get_locus_str()
                         << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
-                    data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
-                    data_sharing.set_data_sharing(sym, data_attr,
+                    data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                             "this is an assumed size array that was attempted to be privatized");
                 }
             }
@@ -1645,18 +1645,17 @@ namespace TL
                     if (saved_expressions.symbols.contains(sym))
                         continue;
 
-                    DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+                    DataSharing data_attr = data_sharing.get_data_sharing(sym);
 
                     // Do nothing with threadprivates
-                    if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                    if ((data_attr.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                         continue;
 
                     data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
-                    if (data_attr == DS_UNDEFINED)
+                    if (data_attr.attr == DS_UNDEFINED)
                     {
-                        data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
-                        data_sharing.set_data_sharing(sym, data_attr,
+                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "this variable happens to be indirectly accesible in the body of the construct");
                     }
                 }
@@ -1669,11 +1668,10 @@ namespace TL
             {
                 TL::Symbol &sym(*it);
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /*enclosing */ false);
-                if (data_attr == DS_UNDEFINED)
+                DataSharing data_attr = data_sharing.get_data_sharing(sym, /*enclosing */ false);
+                if (data_attr.attr == DS_UNDEFINED)
                 {
-                    data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
-                    data_sharing.set_data_sharing(sym, data_attr,
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                             "internal variable that captures the size of a variable-length array");
                 }
             }
@@ -1688,13 +1686,13 @@ namespace TL
                     ++it)
             {
                 Symbol sym(*it);
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                DataSharing data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 std::string reason;
-                if (data_attr == DS_UNDEFINED)
+                if (data_attr.attr == DS_UNDEFINED)
                 {
                      data_sharing.set_data_sharing(sym,
-                             (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                             DS_FIRSTPRIVATE, DSK_IMPLICIT,
                              std::string("the variable does not have any explicit or "
                                  "predetermined data-sharing, assuming firstprivate"));
                 }
@@ -1967,7 +1965,7 @@ namespace TL
                         continue;
                     }
 
-                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE,
+                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE, DSK_EXPLICIT,
                             "explicitly mentioned in a 'threadprivate' directive");
                 }
             }

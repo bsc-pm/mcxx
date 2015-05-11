@@ -2931,7 +2931,6 @@ namespace TL { namespace OpenMP {
             std::string string_of_data_sharing(DataSharingAttribute data_attr) const
             {
                 std::string result;
-                data_attr = DataSharingAttribute(data_attr & ~DS_IMPLICIT);
 
                 switch (data_attr)
                 {

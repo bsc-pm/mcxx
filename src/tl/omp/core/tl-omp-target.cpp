@@ -455,31 +455,31 @@ namespace TL
                     //          copy_inout([10][20] p) -> firstprivate(p)
                     if (IS_FORTRAN_LANGUAGE)
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
                     else if (expr.is<Nodecl::Symbol>())
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
                     else if (sym.get_type().is_array()
                             || (sym.get_type().is_any_reference()
                                 && sym.get_type().references_to().is_array()))
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is an array mentioned in a non-trivial copy "
                                 "and it did not have an explicit data-sharing");
                     }
                     else if (sym.get_type().is_class())
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is an object mentioned in a non-trivial dependence "
                                 "and it did not have an explicit data-sharing");
                     }
                     else
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                        data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                                 "the variable is a non-array mentioned in a non-trivial copy "
                                 "and it did not have an explicit data-sharing");
                     }
