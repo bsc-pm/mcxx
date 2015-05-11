@@ -199,6 +199,29 @@ namespace TL
             Core::reduction_map_info.clear();
         }
 
+        static bool it_is_a_special_case_of_data_sharing(TL::DataReference data_ref)
+        {
+            Symbol base_sym = data_ref.get_base_symbol();
+            if (IS_CXX_LANGUAGE
+                    && base_sym.get_name() == "this")
+            {
+                // Data-sharings of non-static data members have to be handled specially
+                // because we introduced the class member access
+                if (data_ref.is<Nodecl::ClassMemberAccess>()
+                        && data_ref.as<Nodecl::ClassMemberAccess>().get_member().is<Nodecl::Symbol>())
+                {
+                    return true;
+                }
+            }
+            if (IS_FORTRAN_LANGUAGE
+                    && base_sym.get_type().no_ref().is_pointer()
+                    && data_ref.is<Nodecl::Dereference>())
+            {
+                return true;
+            }
+            return false;
+        }
+
         void Core::get_clause_symbols(
                 PragmaCustomClause clause,
                 const TL::ObjectList<TL::Symbol> &symbols_in_construct,
@@ -225,8 +248,15 @@ namespace TL
                     }
                     else
                     {
-                        Symbol base_sym = data_ref.get_base_symbol();
+                        if (!data_ref.is<Nodecl::Symbol>()
+                            && !it_is_a_special_case_of_data_sharing(data_ref))
+                        {
+                            error_printf("%s: error: '%s' is not a valid name for data sharing\n",
+                                    data_ref.get_locus_str().c_str(), data_ref.prettyprint().c_str());
+                            continue;
+                        }
 
+                        Symbol base_sym = data_ref.get_base_symbol();
                         if (_discard_unused_data_sharings
                                 && !symbols_in_construct.contains(base_sym))
                         {
