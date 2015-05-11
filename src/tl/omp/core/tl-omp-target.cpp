@@ -400,7 +400,7 @@ namespace TL
         }
 
         static void add_copy_items(PragmaCustomLine construct, 
-                DataSharingEnvironment& data_sharing,
+                DataSharingEnvironment& data_sharing_environment,
                 const ObjectList<Nodecl::NodeclBase>& list,
                 CopyDirection copy_direction,
                 TargetInfo& target_info,
@@ -455,31 +455,31 @@ namespace TL
                     //          copy_inout([10][20] p) -> firstprivate(p)
                     if (IS_FORTRAN_LANGUAGE)
                     {
-                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                        data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
                     else if (expr.is<Nodecl::Symbol>())
                     {
-                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                        data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
                     else if (sym.get_type().is_array()
                             || (sym.get_type().is_any_reference()
                                 && sym.get_type().references_to().is_array()))
                     {
-                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                        data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is an array mentioned in a non-trivial copy "
                                 "and it did not have an explicit data-sharing");
                     }
                     else if (sym.get_type().is_class())
                     {
-                        data_sharing.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
+                        data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "the variable is an object mentioned in a non-trivial dependence "
                                 "and it did not have an explicit data-sharing");
                     }
                     else
                     {
-                        data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
+                        data_sharing_environment.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                                 "the variable is a non-array mentioned in a non-trivial copy "
                                 "and it did not have an explicit data-sharing");
                     }
@@ -515,7 +515,7 @@ namespace TL
 
         // This function is invoked only for inline tasks (and some other
         // constructs though target info is unused for them)
-        void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
+        void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing_environment)
         {
             if (_target_context.empty())
                 return;
@@ -527,19 +527,19 @@ namespace TL
             target_info.set_target_symbol(enclosing_function);
             TargetContext& target_ctx = _target_context.top();
 
-            add_copy_items(construct, data_sharing,
+            add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_in,
                     COPY_DIR_IN,
                     target_info,
                     in_ompss_mode());
 
-            add_copy_items(construct, data_sharing,
+            add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_out,
                     COPY_DIR_OUT,
                     target_info,
                     in_ompss_mode());
 
-            add_copy_items(construct, data_sharing,
+            add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_inout,
                     COPY_DIR_INOUT,
                     target_info,
@@ -558,7 +558,7 @@ namespace TL
                 // Copy the dependences, as well
 
                 ObjectList<DependencyItem> dependences;
-                data_sharing.get_all_dependences(dependences);
+                data_sharing_environment.get_all_dependences(dependences);
 
                 ObjectList<Nodecl::NodeclBase> dep_list_in;
                 ObjectList<Nodecl::NodeclBase> dep_list_out;
@@ -597,19 +597,19 @@ namespace TL
                     p->append(it->get_dependency_expression());
                 }
 
-                add_copy_items(construct, data_sharing,
+                add_copy_items(construct, data_sharing_environment,
                         dep_list_in,
                         COPY_DIR_IN,
                         target_info,
                         in_ompss_mode());
 
-                add_copy_items(construct, data_sharing,
+                add_copy_items(construct, data_sharing_environment,
                         dep_list_out,
                         COPY_DIR_OUT,
                         target_info,
                         in_ompss_mode());
 
-                add_copy_items(construct, data_sharing,
+                add_copy_items(construct, data_sharing_environment,
                         dep_list_inout,
                         COPY_DIR_INOUT,
                         target_info,
@@ -635,7 +635,7 @@ namespace TL
                 // In devices with disjoint memory, it may be wrong to use a
                 // global variables inside a pragma task without copying it.
                 ObjectList<Symbol> ds_syms;
-                data_sharing.get_all_symbols(DS_SHARED, ds_syms);
+                data_sharing_environment.get_all_symbols(DS_SHARED, ds_syms);
 
                 for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
                         io_it != ds_syms.end(); 
@@ -659,7 +659,7 @@ namespace TL
             }
 
             // Store the target information in the current data sharing
-            data_sharing.set_target_info(target_info);
+            data_sharing_environment.set_target_info(target_info);
         }
     }
 }

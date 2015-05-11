@@ -176,7 +176,7 @@ namespace TL
                 DataSharingKind ds_kind,
                 const std::string& reason)
         {
-            (*_map)[sym] = DataSharingAttributeInfo(DataSharing(data_attr, ds_kind), reason);
+            (*_map)[sym] = DataSharingAttributeInfo(DataSharingValue(data_attr, ds_kind), reason);
         }
 
         void DataSharingEnvironment::set_data_sharing(Symbol sym,
@@ -193,7 +193,7 @@ namespace TL
         {
             TL::Symbol sym = reduction_symbol.get_symbol();
             (*_map)[sym] = DataSharingAttributeInfo(
-                    DataSharing(DS_REDUCTION, DSK_EXPLICIT),
+                    DataSharingValue(DS_REDUCTION, DSK_EXPLICIT),
                     reason);
             _reduction_symbols.append(reduction_symbol);
         }
@@ -202,7 +202,7 @@ namespace TL
         {
             TL::Symbol sym = reduction_symbol.get_symbol();
             (*_map)[sym] = DataSharingAttributeInfo(
-                    DataSharing(DS_SIMD_REDUCTION, DSK_EXPLICIT),
+                    DataSharingValue(DS_SIMD_REDUCTION, DSK_EXPLICIT),
                     /* reason */ "");
             _simd_reduction_symbols.append(reduction_symbol);
         }
@@ -267,7 +267,7 @@ namespace TL
             return result;
         }
 
-        DataSharing DataSharingEnvironment::get_data_sharing(Symbol sym, bool check_enclosing)
+        DataSharingValue DataSharingEnvironment::get_data_sharing(Symbol sym, bool check_enclosing)
         {
             return get_data_sharing_info(sym, check_enclosing).data_sharing;
         }
@@ -330,56 +330,59 @@ namespace TL
             _disable_clause_warnings = b;
         }
 
-        DataSharingEnvironment& Info::get_new_data_sharing(Nodecl::NodeclBase a)
+        DataSharingEnvironment& Info::get_new_data_sharing_environment(Nodecl::NodeclBase a)
         {
-            if (_map_data_sharing.find(a) != _map_data_sharing.end())
-                delete _map_data_sharing[a];
+            if (_map_data_sharing_environment.find(a) != _map_data_sharing_environment.end())
+                delete _map_data_sharing_environment[a];
 
-            DataSharingEnvironment* new_data_sharing = new DataSharingEnvironment(_current_data_sharing);
-            _map_data_sharing[a] = new_data_sharing;
+            DataSharingEnvironment* new_data_sharing_environment =
+                new DataSharingEnvironment(_current_data_sharing_environment);
+            _map_data_sharing_environment[a] = new_data_sharing_environment;
 
-            return *new_data_sharing;
+            return *new_data_sharing_environment;
         }
 
-        DataSharingEnvironment& Info::get_data_sharing(Nodecl::NodeclBase a)
+        DataSharingEnvironment& Info::get_data_sharing_environment(Nodecl::NodeclBase a)
         {
-            if (_map_data_sharing.find(a) == _map_data_sharing.end())
-                return *_root_data_sharing;
+            if (_map_data_sharing_environment.find(a) == _map_data_sharing_environment.end())
+                return *_root_data_sharing_environment;
             else 
-                return *(_map_data_sharing[a]);
+                return *(_map_data_sharing_environment[a]);
         }
 
-        DataSharingEnvironment& Info::get_current_data_sharing()
+        DataSharingEnvironment& Info::get_current_data_sharing_environment()
         {
-            return *_current_data_sharing;
+            return *_current_data_sharing_environment;
         }
 
-        DataSharingEnvironment& Info::get_root_data_sharing()
+        DataSharingEnvironment& Info::get_root_data_sharing_environment()
         {
-            return *_current_data_sharing;
+            return *_current_data_sharing_environment;
         }
 
-        void Info::push_current_data_sharing(DataSharingEnvironment& data_sharing)
+        void Info::push_current_data_sharing_environment(DataSharingEnvironment& data_sharing_environment)
         {
-            _stack_data_sharing.push(_current_data_sharing);
-            _current_data_sharing = &data_sharing;
+            _stack_data_sharing_environment.push(_current_data_sharing_environment);
+            _current_data_sharing_environment = &data_sharing_environment;
         }
 
-        void Info::pop_current_data_sharing()
+        void Info::pop_current_data_sharing_environment()
         {
-            _current_data_sharing = _stack_data_sharing.top();
-            _stack_data_sharing.pop();
+            _current_data_sharing_environment = _stack_data_sharing_environment.top();
+            _stack_data_sharing_environment.pop();
         }
 
         void Info::reset()
         {
-            if (_root_data_sharing != NULL)
+            if (_root_data_sharing_environment != NULL)
             {
-                delete _root_data_sharing;
+                delete _root_data_sharing_environment;
             }
-            _current_data_sharing = _root_data_sharing = new DataSharingEnvironment(NULL);
+            _current_data_sharing_environment
+                = _root_data_sharing_environment
+                = new DataSharingEnvironment(NULL);
             // Why stack is so special?
-            _stack_data_sharing = std::stack<DataSharingEnvironment*>();
+            _stack_data_sharing_environment = std::stack<DataSharingEnvironment*>();
         }
 
         DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)

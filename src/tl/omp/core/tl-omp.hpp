@@ -102,14 +102,14 @@ namespace OpenMP
         DSK_PREDETERMINED_INDUCTION_VAR,
     };
 
-    struct DataSharing
+    struct DataSharingValue
     {
         DataSharingAttribute attr;
         DataSharingKind kind;
 
-        DataSharing()
+        DataSharingValue()
             : attr(DS_UNDEFINED), kind(DSK_NONE) { }
-        DataSharing(DataSharingAttribute a, DataSharingKind k)
+        DataSharingValue(DataSharingAttribute a, DataSharingKind k)
             : attr(a), kind(k) { }
     };
 
@@ -363,12 +363,12 @@ namespace OpenMP
             int *_num_refs;
             struct DataSharingAttributeInfo
             {
-                DataSharing data_sharing;
+                DataSharingValue data_sharing;
                 std::string reason;
 
                 DataSharingAttributeInfo()
                     : data_sharing(), reason("(symbol has undefined data-sharing)") { }
-                DataSharingAttributeInfo(DataSharing ds,
+                DataSharingAttributeInfo(DataSharingValue ds,
                         const std::string &r)
                     : data_sharing(ds), reason(r) { }
             };
@@ -457,7 +457,7 @@ namespace OpenMP
                 * \param check_enclosing Checks enclosing data sharings
                 * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                 */
-            DataSharing get_data_sharing(Symbol sym, bool check_enclosing = true);
+            DataSharingValue get_data_sharing(Symbol sym, bool check_enclosing = true);
 
             //! Gets the data sharing attribute reason of a symbol
             /*!
@@ -501,24 +501,24 @@ namespace OpenMP
         class LIBTL_CLASS Info : public Object
         {
             private:
-                DataSharingEnvironment* _root_data_sharing;
-                DataSharingEnvironment* _current_data_sharing;
-                std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing;
-                std::stack<DataSharingEnvironment*> _stack_data_sharing;
+                DataSharingEnvironment* _root_data_sharing_environment;
+                DataSharingEnvironment* _current_data_sharing_environment;
+                std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing_environment;
+                std::stack<DataSharingEnvironment*> _stack_data_sharing_environment;
 
             public:
-                Info(DataSharingEnvironment* root_data_sharing)
-                    : _root_data_sharing(root_data_sharing), 
-                    _current_data_sharing(root_data_sharing) { }
+                Info(DataSharingEnvironment* root_data_sharing_environment)
+                    : _root_data_sharing_environment(root_data_sharing_environment),
+                    _current_data_sharing_environment(root_data_sharing_environment) { }
 
-                DataSharingEnvironment& get_new_data_sharing(Nodecl::NodeclBase);
-                DataSharingEnvironment& get_data_sharing(Nodecl::NodeclBase);
+                DataSharingEnvironment& get_new_data_sharing_environment(Nodecl::NodeclBase);
+                DataSharingEnvironment& get_data_sharing_environment(Nodecl::NodeclBase);
 
-                DataSharingEnvironment& get_current_data_sharing();
-                DataSharingEnvironment& get_root_data_sharing();
+                DataSharingEnvironment& get_current_data_sharing_environment();
+                DataSharingEnvironment& get_root_data_sharing_environment();
 
-                void push_current_data_sharing(DataSharingEnvironment&);
-                void pop_current_data_sharing();
+                void push_current_data_sharing_environment(DataSharingEnvironment&);
+                void pop_current_data_sharing_environment();
 
                 void reset();
         };
