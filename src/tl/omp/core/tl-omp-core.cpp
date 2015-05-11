@@ -318,10 +318,10 @@ namespace TL
                 void operator()(DataReference data_ref)
                 {
                     Symbol sym = data_ref.get_base_symbol();
-                    DataSharingValue previous_ds =
+                    DataSharingValue previous_datasharing =
                         _data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
-                    if (previous_ds.kind == DSK_PREDETERMINED_INDUCTION_VAR
+                    if (previous_datasharing.kind == DSK_PREDETERMINED_INDUCTION_VAR
                             && ((_data_attrib & DS_PRIVATE) != DS_PRIVATE))
                     {
                         std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of induction variable '" 
@@ -331,7 +331,7 @@ namespace TL
                         return;
                     }
 
-                    if ((previous_ds.attr == DS_SHARED)
+                    if ((previous_datasharing.attr == DS_SHARED)
                             && (_data_attrib & DS_PRIVATE))
                     {
                         std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of '" 
@@ -881,9 +881,9 @@ namespace TL
                             it++)
                     {
                         TL::Symbol &sym(*it);
-                        DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
+                        DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
-                        if (data_attr.attr == DS_UNDEFINED)
+                        if (data_sharing.attr == DS_UNDEFINED)
                         {
                             data_sharing_environment.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
                                     "this is the induction variable of a sequential loop inside the current construct");
@@ -950,15 +950,15 @@ namespace TL
                     data_sharing_environment.set_data_sharing(sym, DS_THREADPRIVATE, DSK_IMPLICIT, reason.str());
                 }
 
-                DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym);
+                DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if ((data_attr.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                if ((data_sharing.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
-                data_attr = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
+                data_sharing = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
-                if (data_attr.attr == DS_UNDEFINED)
+                if (data_sharing.attr == DS_UNDEFINED)
                 {
                     if (default_data_attr == DS_NONE)
                     {
@@ -1380,9 +1380,9 @@ namespace TL
                         it++)
                 {
                     TL::Symbol &sym(*it);
-                    DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
+                    DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
-                    if (data_attr.attr == DS_UNDEFINED)
+                    if (data_sharing.attr == DS_UNDEFINED)
                     {
                         data_sharing_environment.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
                                 "induction variable of a sequential loop enclosed by a task");
@@ -1466,16 +1466,16 @@ namespace TL
                     data_sharing_environment.set_data_sharing(sym, DS_THREADPRIVATE, DSK_IMPLICIT, reason.str());
                 }
 
-                DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym);
+                DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if ((data_attr.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                if ((data_sharing.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
-                data_attr = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
+                data_sharing = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
                 std::string reason;
-                if (data_attr.attr == DS_UNDEFINED)
+                if (data_sharing.attr == DS_UNDEFINED)
                 {
                     DataSharingAttribute implicit_data_attr;
 
@@ -1570,7 +1570,7 @@ namespace TL
                 }
 
                 if (IS_FORTRAN_LANGUAGE
-                        && (data_attr.attr & DS_PRIVATE)
+                        && (data_sharing.attr & DS_PRIVATE)
                         && sym.is_parameter()
                         && sym.get_type().no_ref().is_array()
                         && !sym.get_type().no_ref().array_requires_descriptor()
@@ -1647,15 +1647,15 @@ namespace TL
                     if (saved_expressions.symbols.contains(sym))
                         continue;
 
-                    DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym);
+                    DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym);
 
                     // Do nothing with threadprivates
-                    if ((data_attr.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                    if ((data_sharing.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                         continue;
 
-                    data_attr = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
+                    data_sharing = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
-                    if (data_attr.attr == DS_UNDEFINED)
+                    if (data_sharing.attr == DS_UNDEFINED)
                     {
                         data_sharing_environment.set_data_sharing(sym, DS_SHARED, DSK_IMPLICIT,
                                 "this variable happens to be indirectly accesible in the body of the construct");
@@ -1670,8 +1670,8 @@ namespace TL
             {
                 TL::Symbol &sym(*it);
 
-                DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym, /*enclosing */ false);
-                if (data_attr.attr == DS_UNDEFINED)
+                DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym, /*enclosing */ false);
+                if (data_sharing.attr == DS_UNDEFINED)
                 {
                     data_sharing_environment.set_data_sharing(sym, DS_FIRSTPRIVATE, DSK_IMPLICIT,
                             "internal variable that captures the size of a variable-length array");
@@ -1688,10 +1688,10 @@ namespace TL
                     ++it)
             {
                 Symbol sym(*it);
-                DataSharingValue data_attr = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
+                DataSharingValue data_sharing = data_sharing_environment.get_data_sharing(sym, /* check_enclosing */ false);
 
                 std::string reason;
-                if (data_attr.attr == DS_UNDEFINED)
+                if (data_sharing.attr == DS_UNDEFINED)
                 {
                      data_sharing_environment.set_data_sharing(sym,
                              DS_FIRSTPRIVATE, DSK_IMPLICIT,
