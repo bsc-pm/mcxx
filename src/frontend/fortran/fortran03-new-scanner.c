@@ -663,7 +663,7 @@ static char handle_preprocessor_line(void)
 
         // Go to end of the line
         while (!past_eof()
-                && is_newline(lexer_state.current_file->current_pos[0]))
+                && !is_newline(lexer_state.current_file->current_pos[0]))
         {
             lexer_state.current_file->current_pos++;
             lexer_state.current_file->current_location.column++;
