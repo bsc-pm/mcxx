@@ -237,10 +237,10 @@ AC_SUBST([FORTRAN_TESTS_ENABLED])
 dnl -- End Fortran tests ---
 
 dnl -- New Fortran scanner ---
-fortran_new_scanner="no"
+fortran_new_scanner="yes"
 AC_MSG_CHECKING([if new Fortran scanner has been enabled])
 AC_ARG_ENABLE([new-fortran-scanner],
-    AS_HELP_STRING([--enable-new-fortran-scanner], [Enables new Fortran scanner (EXPERIMENTAL)]),
+    AS_HELP_STRING([--enable-new-fortran-scanner], [Enables new Fortran scanner]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
