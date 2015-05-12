@@ -116,7 +116,7 @@ static inline AST ast_list_leaf(AST elem);
 static inline AST ast_list(AST previous_list, AST last_element);
 
 // Returns the head of a list
-static inline AST ast_list_head(AST list);
+static inline AST ast_list_head(const_AST list);
 
 // Concatenates two lists
 static inline AST ast_list_concat(AST before, AST after);
