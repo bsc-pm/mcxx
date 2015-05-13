@@ -2259,13 +2259,16 @@ fi
 
 echo ""
 echo " * Intel OpenMP RTL :" $is_enabled_tl_omp_intel
-echo ""
 
 if test x$is_enabled_tl_omp_intel = xyes;
 then
+  echo ""
   echo "   Intel OpenMP RTL library:" $intel_omp_lib
 fi
 
+echo ""
+echo " * Devices testing:"
+echo ""
 echo "   MPI testing enabled:" $mpi_valid
 echo "   CUDA testing enabled:" $cuda_valid
 echo "   OpenCL testing enabled:" $opencl_valid
