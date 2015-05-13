@@ -677,6 +677,7 @@ static const char* safe_asttext(AST a)
 %type<ast> decimal_literal 
 %type<ast> hollerith_constant
 %type<ast> labeldef
+%type<ast> invalid_comma_io_opt
 // Node types
 %type<node_type> sign
 // Token rules
@@ -3978,11 +3979,32 @@ close_spec : TOKEN_UNIT '=' file_unit_number
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
-read_stmt : labeldef TOKEN_READ '(' io_control_spec_list ')' input_output_item_list eos %dprec 2
+invalid_comma_io_opt : /* empty */
 {
-    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, $6, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
+    /* do nothing */
 }
-| labeldef TOKEN_READ '(' io_control_spec_list ')' eos %dprec 2
+| ','
+{
+    warn_printf(
+#ifdef FORTRAN_NEW_SCANNER
+        "%s:%d:%d: "
+#else
+        "%s:%d: "
+#endif
+        "warning: extra comma between control-spec-list and item-list\n",
+            @1.first_filename,
+            @1.first_line
+#ifdef FORTRAN_NEW_SCANNER
+            , @1.first_column
+#endif
+        );
+}
+;
+read_stmt : labeldef TOKEN_READ '(' io_control_spec_list ')' invalid_comma_io_opt input_output_item_list eos %dprec 2
+{
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, $7, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
+}
+| labeldef TOKEN_READ '(' io_control_spec_list ')' invalid_comma_io_opt eos %dprec 2
 {
     $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, NULL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 }
@@ -4013,11 +4035,11 @@ read_stmt : labeldef TOKEN_READ '(' io_control_spec_list ')' input_output_item_l
     $$ = ASTMake3Label(AST_READ_STATEMENT, $1, io_control_spec_list, NULL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 }
 ;
-write_stmt : labeldef TOKEN_WRITE '(' io_control_spec_list ')' input_output_item_list eos
+write_stmt : labeldef TOKEN_WRITE '(' io_control_spec_list ')' invalid_comma_io_opt input_output_item_list eos
 {
-    $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, $6, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
+    $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, $7, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 }
-| labeldef TOKEN_WRITE '(' io_control_spec_list ')' eos
+| labeldef TOKEN_WRITE '(' io_control_spec_list ')' invalid_comma_io_opt eos
 {
     $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, NULL, make_locus(@2.first_filename, @2.first_line, @2.first_column), $2.token_text);
 }
