@@ -2138,6 +2138,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
+           tests/config/mercurium-fe-only
            tests/config/mercurium-hlt
            tests/config/mercurium-nanox
            tests/config/mercurium-omp

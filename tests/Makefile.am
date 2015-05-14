@@ -34,6 +34,7 @@ DISTCLEANFILES+=test.log test.log.xml
 prepare-check: ./config/bets wipe-modules
 	chmod +x config/bets
 	chmod +x config/mercurium-libraries
+	chmod +x config/mercurium-fe-only
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
 	chmod +x config/mercurium-nanox

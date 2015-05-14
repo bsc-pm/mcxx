@@ -28,9 +28,8 @@
 
 /*
 <testinfo>
-export test_nolink=no
 test_compile_fail=yes
-test_generator=config/mercurium
+test_generator="config/mercurium run"
 </testinfo>
 */
 

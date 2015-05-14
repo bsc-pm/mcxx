@@ -28,8 +28,9 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium
-test_compile_fail=yes
+test_generator=config/mercurium-fe-only
+test_ignore=yes
+test_ignore_reason="convoluted friend declarations"
 </testinfo>
 */
 struct A2
