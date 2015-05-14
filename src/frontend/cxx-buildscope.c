@@ -15252,6 +15252,11 @@ static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pre
     if (nodecl_get_kind(node) == NODECL_FUNCTION_CODE)
         return 0;
 
+    if (nodecl_get_kind(node) == NODECL_OBJECT_INIT)
+        return mercurium_pretty_function_has_been_used(
+                mercurium_pretty_function,
+                nodecl_get_symbol(node)->value);
+
     if (nodecl_get_symbol(node) == mercurium_pretty_function)
         return 1;
 
