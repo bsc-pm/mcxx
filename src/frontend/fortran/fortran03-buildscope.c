@@ -311,7 +311,7 @@ void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
 
-    symbol_entity_specs_add_related_symbols(unknown_info, entry);
+    symbol_entity_specs_insert_related_symbols(unknown_info, entry);
 }
 
 void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
