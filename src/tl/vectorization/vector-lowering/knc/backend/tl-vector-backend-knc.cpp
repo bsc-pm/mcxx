@@ -1785,7 +1785,7 @@ namespace Vectorization
             intrin_type_suffix << "epi32";
             casting_args << get_casting_to_scalar_pointer(
                     TL::Type::get_void_type());
-            conversion_arg << "_MM_DOWNCONV_PS_NONE";
+            conversion_arg << "_MM_DOWNCONV_EPI32_NONE";
         }
         else if (type.is_signed_long_long_int() ||
                 type.is_unsigned_long_long_int())
@@ -1793,7 +1793,7 @@ namespace Vectorization
             intrin_type_suffix << "epi64";
             casting_args << get_casting_to_scalar_pointer(
                     TL::Type::get_void_type());
-            conversion_arg << "_MM_DOWNCONV_PD_NONE";
+            conversion_arg << "_MM_DOWNCONV_EPI64_NONE";
         }
         else
         {
@@ -1978,10 +1978,17 @@ namespace Vectorization
             intrin_type_suffix << "pd";
             extra_args << "_MM_DOWNCONV_PD_NONE";
         }
-        else if (type.is_integral_type())
+        else if (type.is_signed_int()||
+                type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
             extra_args << "_MM_DOWNCONV_EPI32_NONE";
+        }
+        else if (type.is_signed_long_long_int()||
+                type.is_unsigned_long_long_int())
+        {
+            intrin_type_suffix << "epi64";
+            extra_args << "_MM_DOWNCONV_EPI64_NONE";
         }
         else
         {
