@@ -3109,6 +3109,8 @@ config_edit = \
      -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
      -e 's|@MIC_TOOLS[@]|$(MIC_TOOLS)|g' \
      -e 's|@CORRECTNESS_LOG_DIR[@]|$(CORRECTNESS_LOG_DIR)|g' \
+     -e 's|@DLB_LIB[@]|$(DLB_LIB)|g' \
+     -e 's|@DLB_INCLUDE[@]|$(DLB_INCLUDE)|g' \
     $(END)
 
 # Cross compiler profile names

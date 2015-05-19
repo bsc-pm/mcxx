@@ -83,6 +83,9 @@ linker_name = @GCC@
 {overlap-in-place} options = --variable=overlap_in_place:1
 
 [omp-base : omp-base-common]
+#dlb
+{dlb} preprocessor_options = -I@DLB_INCLUDE@
+#
 linker_options = -Xlinker --add-needed
 #nanos++
 {openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
@@ -102,10 +105,22 @@ linker_options = -Xlinker --enable-new-dtags
 # New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+# used by XL
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
+# needed for the new link mechanism
 linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+# dlb
+{dlb} linker_options = -L@DLB_LIB@
+{dlb,!(instrument|instrumentation|debug)} linker_options= -ldlb
+{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{dlb,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
+{dlb,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
+{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
 [omp-base-ibm : omp-base-common]
+#dlb
+{dlb} preprocessor_options = -I@DLB_INCLUDE@
+#
 linker_options = -Wl,--add-needed
 #nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
@@ -120,5 +135,14 @@ linker_options = -Wl,--enable-new-dtags
 # New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+# used by XL
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_IBM_LDFLAGS@
+# needed for the new link mechanism
 linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+# dlb
+{dlb} linker_options = -L@DLB_LIB@
+{dlb,!(instrument|instrumentation|debug)} linker_options = -ldlb
+{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{dlb,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
+{dlb,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
+{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@

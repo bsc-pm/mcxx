@@ -816,6 +816,44 @@ AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
+dnl --------------------- Dynamic Load Balancing -------------------------------
+# Eventually we can attempt to figure this out from the nanos-installation
+is_enabled_dlb="no"
+dlb_include=""
+dlb_lib=""
+AC_ARG_WITH([dlb],
+       AS_HELP_STRING([--with-dlb=dir], [Directory of Dynamic Load Balancing (DLB) installation]),
+       [
+        dlb_include="${withval}/include"
+        dlb_lib="${withval}/lib"
+       ]
+)
+AC_ARG_WITH([dlb-include],
+       AS_HELP_STRING([--with-dlb-include=dir], [Directory of Dynamic Load Balancing (DLB) headers]),
+       [
+        dlb_include="${withval}"
+       ]
+)
+
+AC_ARG_WITH([dlb-lib],
+       AS_HELP_STRING([--with-dlb-lib=dir], [Directory of Dynamic Load Balancing (DLB) libraries]),
+       [
+        dlb_lib="${withval}"
+       ]
+)
+
+DLB_INCLUDE=$dlb_include
+DLB_LIB=$dlb_lib
+
+if test -n "$dlb_include" -a -n "$dlb_lib";
+then
+    is_enabled_dlb="yes"
+fi
+
+AC_SUBST([DLB_INCLUDE])
+AC_SUBST([DLB_LIB])
+dnl --------------------- End of Dynamic Load Balancing -------------------------------
+
 dnl --------------------- Support for Intel OpenMP RTL ---------------------------------
 is_enabled_tl_omp_intel="no"
 
@@ -2256,6 +2294,14 @@ then
       nanox_pm_selection_desc="error"
   fi
   echo "   Nanos++ Prog.Model. Selection Mechanism:" $nanox_pm_selection_desc
+fi
+
+echo ""
+echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
+if test x$is_enabled_dlb = xyes;
+then
+  echo "   DLB includes :" $dlb_include
+  echo "   DLB libraries:" $dlb_lib
 fi
 
 echo ""
