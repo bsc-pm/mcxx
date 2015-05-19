@@ -242,6 +242,7 @@ namespace Analysis {
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::Alignof& n );
         Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::AssertDecl& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Firstprivate& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Private& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
@@ -440,6 +441,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );
         Ret visit( const Nodecl::UnknownPragma& n );
+        Ret visit( const Nodecl::ValueInitialization& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
         Ret visit( const Nodecl::VectorArithmeticShr& n );

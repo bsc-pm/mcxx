@@ -565,9 +565,10 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        OpenMP::DataSharingEnvironment &data_sharing = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &data_sharing_environment =
+            _core.get_openmp_info()->get_data_sharing_environment(directive);
         Nodecl::List environment = this->make_execution_environment(
-                data_sharing,
+                data_sharing_environment,
                 pragma_line,
                 /* ignore_target_info */ true,
                 /* is_inline_task */ false);
@@ -599,7 +600,7 @@ namespace TL { namespace OpenMP {
         pragma_line.diagnostic_unused_clauses();
 
         TL::ObjectList<OpenMP::DependencyItem> dependences;
-        data_sharing.get_all_dependences(dependences);
+        data_sharing_environment.get_all_dependences(dependences);
         if (!dependences.empty())
         {
             if (!this->in_ompss_mode())
@@ -656,7 +657,7 @@ namespace TL { namespace OpenMP {
     void Base::task_handler_pre(TL::PragmaCustomStatement) { }
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         if (emit_omp_report())
@@ -906,7 +907,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
@@ -1043,7 +1044,7 @@ namespace TL { namespace OpenMP {
     void Base::single_handler_pre(TL::PragmaCustomStatement) { }
     void Base::single_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         if (emit_omp_report())
@@ -1103,7 +1104,7 @@ namespace TL { namespace OpenMP {
     void Base::workshare_handler_pre(TL::PragmaCustomStatement) { }
     void Base::workshare_handler_post(TL::PragmaCustomStatement directive)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         if (emit_omp_report())
@@ -1192,7 +1193,7 @@ namespace TL { namespace OpenMP {
             bool barrier_at_end,
             bool is_combined_worksharing)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(ds,
@@ -1274,7 +1275,7 @@ namespace TL { namespace OpenMP {
             bool barrier_at_end,
             bool is_combined_worksharing)
     {
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment(
@@ -1521,7 +1522,7 @@ namespace TL { namespace OpenMP {
                 ;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         warn_printf("%s: warning: 'taskloop' construct is EXPERIMENTAL\n",
@@ -1678,7 +1679,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
@@ -2228,7 +2229,7 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(stmt);
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(stmt);
 
             Nodecl::List environment = this->make_execution_environment(ds,
                     pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
@@ -2275,7 +2276,7 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(decl);
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(decl);
 
             Nodecl::List environment = this->make_execution_environment(ds,
                 pragma_line, /* ignore_target_info */ false, /* is_inline_task */ false);
@@ -2498,7 +2499,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
@@ -2646,7 +2647,7 @@ namespace TL { namespace OpenMP {
             return;
         }
 
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
@@ -2764,7 +2765,7 @@ namespace TL { namespace OpenMP {
     void Base::threadprivate_handler_post(TL::PragmaCustomDirective directive)
     {
         TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
-        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing_environment(directive);
 
         if (emit_omp_report())
         {
@@ -2931,7 +2932,6 @@ namespace TL { namespace OpenMP {
             std::string string_of_data_sharing(DataSharingAttribute data_attr) const
             {
                 std::string result;
-                data_attr = DataSharingAttribute(data_attr & ~DS_IMPLICIT);
 
                 switch (data_attr)
                 {

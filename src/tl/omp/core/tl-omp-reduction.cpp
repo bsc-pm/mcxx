@@ -62,7 +62,7 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
             const ObjectList<Symbol>& symbols_in_construct,
-            DataSharingEnvironment& data_sharing,
+            DataSharingEnvironment& data_sharing_environment,
             ObjectList<ReductionSymbol>& sym_list,
             ObjectList<Symbol>& extra_symbols)
     {
@@ -133,7 +133,7 @@ namespace TL { namespace OpenMP {
                 Source src;
                 src
                     << "#line " << construct.get_line() << " \"" << construct.get_filename() << "\"\n"
-                    << variable
+                    << pad_to_column(construct.get_column()) << variable
                     ;
 
                 Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
@@ -295,7 +295,7 @@ namespace TL { namespace OpenMP {
                             type_name);
                 }
 
-                add_extra_symbols(DataReference(var_tree), data_sharing, extra_symbols);
+                add_extra_symbols(DataReference(var_tree), data_sharing_environment, extra_symbols);
             }
         }
     }
@@ -577,6 +577,16 @@ namespace TL { namespace OpenMP {
                                     const_value_get_signed_int(0), make_locus("", 0, 0)));
                     }
                 }
+
+                new_red->set_locus(ast_get_locus(tree));
+
+                if (!Core::_silent_declare_reduction)
+                {
+                    info_printf("%s: info: declared reduction '%s' for type '%s'\n", 
+                            ast_location(tree),
+                            reduction_name.c_str(),
+                            fortran_print_type_str(reduction_type));
+                }
             }
             else
             {
@@ -644,7 +654,7 @@ namespace TL { namespace OpenMP {
 
         Source declare_reduction_src;
         declare_reduction_src << "# " << directive.get_line() << " \"" << directive.get_filename() << "\"\n";
-        declare_reduction_src << declare_reduction_arg;
+        declare_reduction_src << pad_to_column(directive.get_column()) << declare_reduction_arg;
 
         PragmaCustomClause initializer = pragma_line.get_clause("initializer");
         if (initializer.is_defined())

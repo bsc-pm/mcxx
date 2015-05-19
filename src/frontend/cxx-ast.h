@@ -56,6 +56,9 @@ static inline void ast_set_parent(AST a, AST parent);
 // Returns the line of the node
 static inline unsigned int ast_get_line(const_AST a);
 
+// Returns the column of the node
+static inline unsigned int ast_get_column(const_AST a);
+
 // Returns the related bit of text of the node
 static inline const char* ast_get_text(const_AST a);
 
@@ -113,7 +116,7 @@ static inline AST ast_list_leaf(AST elem);
 static inline AST ast_list(AST previous_list, AST last_element);
 
 // Returns the head of a list
-static inline AST ast_list_head(AST list);
+static inline AST ast_list_head(const_AST list);
 
 // Concatenates two lists
 static inline AST ast_list_concat(AST before, AST after);

@@ -403,6 +403,9 @@ typedef struct compilation_configuration_tag
 
     // Directory where we generate modules
     const char* module_out_dir;
+    // Pattern used to tell the native compiler
+    // where we want the modules be generated
+    const char* module_out_pattern;
 
     // Directory where we unwrap the native modules
     const char* module_native_dir;

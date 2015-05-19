@@ -196,9 +196,9 @@ static void build_scope_declarator_rec(
         decl_context_t *prototype_context,
         nodecl_t* nodecl_output);
 
-static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declarator_type, 
-        gather_decl_spec_t* gather_info, decl_context_t decl_context);
-static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
+static scope_entry_t* build_scope_declarator_name(AST declarator,
+        type_t* type_specifier,
+        type_t* declarator_type,
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
 static void build_scope_linkage_specifier(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -330,7 +330,7 @@ static void build_scope_explicit_instantiation(AST a, decl_context_t decl_contex
 
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
-static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
+static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 static scope_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
@@ -351,8 +351,6 @@ static void build_exception_spec(type_t* function_type, AST a,
         decl_context_t decl_context,
         decl_context_t prototype_context,
         nodecl_t* nodecl_output);
-
-static char is_constructor_declarator(AST a);
 
 static char find_function_declaration(AST declarator_id, 
         type_t* declarator_type, 
@@ -1279,30 +1277,26 @@ static void build_scope_explicit_instantiation(AST a,
                 nodecl_output);
     }
 
-    decl_context_t current_decl_context = decl_context;
-    if (simple_type_info == NULL
-            && is_constructor_declarator(declarator))
-    {
-        current_decl_context.decl_flags |= DF_CONSTRUCTOR;
-    }
-
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, simple_type_info,
-            &declarator_type, current_decl_context, nodecl_output);
+            &declarator_type, decl_context, nodecl_output);
 
     nodecl_t declarator_name_opt = nodecl_null();
     scope_entry_t* entry = NULL;
     if (declarator != NULL)
     {
-        entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, current_decl_context);
+        entry = build_scope_declarator_name(declarator,
+                simple_type_info,
+                declarator_type,
+                &gather_info, decl_context);
 
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);
 
-        AST id_expr = get_declarator_id_expression(declarator, current_decl_context);
-        compute_nodecl_name_from_id_expression(ASTSon0(id_expr), current_decl_context, &declarator_name_opt);
+        AST id_expr = get_declarator_id_expression(declarator, decl_context);
+        compute_nodecl_name_from_id_expression(ASTSon0(id_expr), decl_context, &declarator_name_opt);
         // We do this to fix the declarator_name_opt
-        query_nodecl_name_flags(current_decl_context, declarator_name_opt, NULL, DF_DEPENDENT_TYPENAME);
+        query_nodecl_name_flags(decl_context, declarator_name_opt, NULL, DF_DEPENDENT_TYPENAME);
 
         if (entry == NULL
                 || (entry->kind != SK_FUNCTION
@@ -2130,7 +2124,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     {
         C_LANGUAGE()
         {
-            warn_printf("%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
+            warn_printf("%s: warning: declaration does not have a decl-specifier, assuming 'int'\n",
                     ast_location(a));
 
             simple_type_info = get_signed_int_type();
@@ -2172,15 +2166,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             decl_context_t current_decl_context = decl_context;
 
-            CXX_LANGUAGE()
-            {
-                if (simple_type_info == NULL
-                        && is_constructor_declarator(init_declarator))
-                {
-                    current_decl_context.decl_flags |= DF_CONSTRUCTOR;
-                }
-            }
-
             ERROR_CONDITION(ASTKind(init_declarator) != AST_INIT_DECLARATOR,
                     "Invalid node", 0);
 
@@ -2201,7 +2186,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             compute_declarator_type(declarator, &current_gather_info,
                     simple_type_info, &declarator_type, current_decl_context, &nodecl_declarator);
 
-            scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type,
+            scope_entry_t *entry = build_scope_declarator_name(declarator,
+                    simple_type_info, declarator_type,
                     &current_gather_info, current_decl_context);
 
             // Something is wrong
@@ -9893,6 +9879,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     class_entry->symbol_name);
 
             *injected_symbol = *class_entry;
+            // the injected class name is logically in the class-scope
+            injected_symbol->decl_context = inner_decl_context;
             injected_symbol->do_not_print = 1;
 
             symbol_entity_specs_set_is_member(injected_symbol, 1);
@@ -10166,15 +10154,20 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
             AST nested_name = ASTSon1(declarator_name);
             AST name = ASTSon2(declarator_name);
 
-            decl_flags_t decl_flags = DF_NONE;
-
-            if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+            // Extra check for this case X::A::A<int>
+            if (ASTKind(name) == AST_TEMPLATE_ID
+                    // The last component of the nested-name-spec
+                    && ASTKind(ASTSon0(name)) == AST_SYMBOL
+                    && ASTKind(ASTSon1(nested_name)) == AST_SYMBOL
+                    && strcmp(ASTText(ASTSon1(nested_name)),
+                        ASTText(ASTSon0(name))) == 0)
             {
-                decl_flags |= DF_CONSTRUCTOR;
+                // Converts the lookup below into X::A::A
+                name = ASTSon0(name);
             }
 
-            scope_entry_list_t* symbols = query_nested_name_flags(decl_context, 
-                    global_op, nested_name, name, NULL, decl_flags);
+            scope_entry_list_t* symbols = query_nested_name(decl_context, 
+                    global_op, nested_name, name, NULL);
 
             if (symbols == NULL)
             {
@@ -10875,7 +10868,9 @@ static void set_function_parameter_clause(type_t** function_type,
 
             if (parameter_declarator != NULL)
             {
-                entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context);
+                entry = build_scope_declarator_name(parameter_declarator,
+                        simple_type_info, type_info,
+                        &param_decl_gather_info, param_decl_context);
             }
 
             if (is_void_type(type_info))
@@ -10933,7 +10928,7 @@ static void set_function_parameter_clause(type_t** function_type,
                     uniquestr_sprintf(&arg_name, "mcc_arg_%d_%d", function_declarator_nesting_level, num_parameters);
                 }
                 AST declarator_id = ASTLeaf(AST_SYMBOL, ast_get_locus(parameter_decl_spec_seq), arg_name);
-                entry = register_new_variable_name(declarator_id, type_info, &param_decl_gather_info, param_decl_context);
+                entry = register_new_var_or_fun_name(declarator_id, type_info, &param_decl_gather_info, param_decl_context);
                 entry->do_not_print = 1;
             }
 
@@ -11389,6 +11384,7 @@ static void build_scope_declarator_rec(
     }
 }
 
+#if 0
 static char is_constructor_declarator_rec(AST a, char seen_decl_func)
 {
     ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
@@ -11460,26 +11456,7 @@ static char is_constructor_declarator(AST a)
 {
     return is_constructor_declarator_rec(a, 0);
 }
-
-/*
- * This function fills the symbol table with the information of this declarator
- */
-static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declarator_type,
-        gather_decl_spec_t* gather_info, decl_context_t decl_context)
-{
-    AST declarator_id_expr = get_declarator_id_expression(declarator, decl_context);
-
-    if (declarator_id_expr == NULL)
-        return NULL;
-
-    ERROR_CONDITION(ASTKind(declarator_id_expr) != AST_DECLARATOR_ID_EXPR,
-            "Invalid node '%s'\n", ast_print_node_type(ASTKind(declarator_id_expr)));
-
-    scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info,
-            decl_context);
-
-    return entry;
-}
+#endif
 
 void update_function_default_arguments(scope_entry_t* function_symbol, 
         type_t* declarator_type, 
@@ -11633,17 +11610,29 @@ static void update_function_specifiers(scope_entry_t* entry,
     }
 }
 
+static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
+{
+    symbol_entity_specs_copy_related_symbols_from(dest, orig);
+}
 
 /*
- * This function fills information for a declarator_id_expr. Actually only
- * unqualified names can be signed up since qualified names should have been
- * declared elsewhere.
+ * This function fills the symbol table with the information of this declarator
  */
-static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
-        gather_decl_spec_t* gather_info, 
+static scope_entry_t* build_scope_declarator_name(AST declarator,
+        type_t* type_specifier, // used here only for proper diagnostics
+        type_t* declarator_type,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
-    AST declarator_id = ASTSon0(declarator_name);
+    AST declarator_id_expr = get_declarator_id_expression(declarator, decl_context);
+
+    if (declarator_id_expr == NULL)
+        return NULL;
+
+    ERROR_CONDITION(ASTKind(declarator_id_expr) != AST_DECLARATOR_ID_EXPR,
+            "Invalid node '%s'\n", ast_print_node_type(ASTKind(declarator_id_expr)));
+
+    AST declarator_id = ASTSon0(declarator_id_expr);
 
     switch (ASTKind(declarator_id))
     {
@@ -11655,17 +11644,58 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // We are not declaring a variable but a type
                 if (gather_info->is_typedef)
                 {
+                    if (type_specifier == NULL)
+                    {
+                        error_printf("%s: error: typedef declaration lacks a type-specifier\n",
+                                ast_location(declarator));
+                        declarator_type = get_error_type();
+                    }
                     return register_new_typedef_name(declarator_id, declarator_type, gather_info, decl_context);
                 }
                 else
                 {
-                    return register_new_variable_name(declarator_id, declarator_type, gather_info, decl_context);
+                    char name_of_a_constructor =
+                        is_function_type(declarator_type)
+                        && decl_context.current_scope->kind == CLASS_SCOPE
+                        && decl_context.current_scope->related_entry != NULL
+                        && decl_context.current_scope->related_entry->symbol_name != NULL
+                        && strcmp(decl_context.current_scope->related_entry->symbol_name,
+                                ASTText(declarator_id)) == 0;
+
+                    if (type_specifier == NULL)
+                    {
+                        if (name_of_a_constructor)
+                        {
+                            // this names a constructor
+                            decl_context.decl_flags |= DF_CONSTRUCTOR;
+                        }
+                        else
+                        {
+                            error_printf("%s: error: declaration lacks a type-specifier\n",
+                                    ast_location(declarator));
+                        }
+                    }
+                    else
+                    {
+                        if (name_of_a_constructor)
+                        {
+                            error_printf("%s: error: constructor declaration cannot have a type-specifier\n",
+                                    ast_location(declarator));
+                        }
+                    }
+                    return register_new_var_or_fun_name(declarator_id, declarator_type, gather_info, decl_context);
                 }
                 break;
             }
         case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here // FIXME - Template arguments are not checked
         case AST_DESTRUCTOR_ID :
             {
+                if (type_specifier != NULL)
+                {
+                    error_printf("%s: error: destructor declarator cannot have a type-specifier\n",
+                            ast_location(declarator));
+                }
+
                 // An unqualified destructor name "~name"
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
@@ -11675,13 +11705,19 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 }
                 // Adjust to 'function () returning void'
                 declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
-                return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
+                return register_new_var_or_fun_name(destructor_id, declarator_type, gather_info, decl_context);
                 break;
             }
         case AST_TEMPLATE_ID :
             {
                 if (!is_function_type(declarator_type))
                 {
+                    if (type_specifier == NULL)
+                    {
+                        error_printf("%s: declaration lacks a type-specifier\n",
+                                ast_location(declarator));
+                    }
+
                     scope_entry_list_t* entry_list = query_nested_name(decl_context,
                             NULL, NULL,
                             declarator_id,
@@ -11698,44 +11734,79 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 }
                 else
                 {
-                    scope_entry_t *entry = NULL;
+                    // This is for the weird cases like this
+                    //
+                    // template <typename T>
+                    // struct C { };
+                    //
+                    // template <>
+                    // struct C<int> { C<int>() { } };
 
-                    char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
+                    AST template_name = ASTSon0(declarator_id);
+                    char name_of_a_constructor =
+                        (ASTKind(template_name) == AST_SYMBOL)
+                        && is_function_type(declarator_type)
+                        && decl_context.current_scope->kind == CLASS_SCOPE
+                        && decl_context.current_scope->related_entry != NULL
+                        && decl_context.current_scope->related_entry->symbol_name != NULL
+                        && strcmp(decl_context.current_scope->related_entry->symbol_name,
+                                ASTText(template_name)) == 0;
 
-                    if (ok
-                            && entry != NULL
-                            && entry->kind == SK_FUNCTION)
+                    if (type_specifier == NULL)
                     {
-                        update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
+                        if (name_of_a_constructor)
+                        {
+                            // Check the specialization actually mentions the current class
+                            scope_entry_list_t* entry_list = query_nested_name(decl_context,
+                                    NULL, NULL,
+                                    declarator_id,
+                                    NULL);
+
+                            if (entry_list == NULL
+                                    || entry_list_head(entry_list)->kind != SK_CLASS
+                                    || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
+                                        != decl_context.current_scope->related_entry))
+                            {
+                                error_printf("%s: error: invalid constructor declaration '%s'\n",
+                                        ast_location(declarator),
+                                        prettyprint_in_buffer(declarator));
+                                return NULL;
+                            }
+
+                            // this names a constructor
+                            decl_context.decl_flags |= DF_CONSTRUCTOR;
+                            // now drop the template-id and work only with the name
+                            declarator_id = template_name;
+                        }
+                        else
+                        {
+                            error_printf("%s: error: declaration lacks a type-specifier\n",
+                                    ast_location(declarator));
+                        }
                     }
-                    return entry;
+                    else
+                    {
+                        if (name_of_a_constructor)
+                        {
+                            error_printf("%s: error: constructor declaration cannot have a type-specifier\n",
+                                    ast_location(declarator));
+                        }
+                    }
+
+                    return register_new_var_or_fun_name(declarator_id, declarator_type, gather_info, decl_context);
                 }
-
-                break;
-            }
-
-            {
-                // An unqualified operator_function_id "operator +"
-                const char* operator_function_name = get_operator_function_name(declarator_id);
-                AST operator_id = ASTLeaf(AST_SYMBOL,
-                        ast_get_locus(declarator_id),
-                        operator_function_name);
-                // Keep the parent of the original declarator
-                ast_set_parent(operator_id, ast_get_parent(declarator_id));
-
-                if (gather_info->is_friend)
-                {
-                    // We should check the template arguments even if we are not going to use them
-                    nodecl_t nodecl_dummy = nodecl_null();
-                    compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_dummy);
-                }
-
 
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID:
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
             {
+                if (type_specifier == NULL)
+                {
+                    error_printf("%s: error: declaration lacks a type-specifier\n",
+                            ast_location(declarator));
+                }
+
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
                 AST operator_id = ASTLeaf(AST_SYMBOL,
@@ -11753,7 +11824,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                 if (ASTKind(declarator_id) == AST_OPERATOR_FUNCTION_ID)
                 {
-                    return register_new_variable_name(operator_id, declarator_type, gather_info, decl_context);
+                    return register_new_var_or_fun_name(operator_id, declarator_type, gather_info, decl_context);
                 }
                 else
                 {
@@ -11771,6 +11842,12 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             }
         case AST_CONVERSION_FUNCTION_ID :
             {
+                if (type_specifier != NULL)
+                {
+                    error_printf("%s: error: conversion function declaration cannot have any type-specifier\n",
+                            ast_location(declarator));
+                }
+
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "BUILDSCOPE: Registering a conversion function in %s\n", ast_location(declarator_id));
@@ -11787,7 +11864,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                         conversion_function_name);
                 // Keep the parent of the original declarator
                 ast_set_parent(conversion_id, ast_get_parent(declarator_id));
-                return register_new_variable_name(conversion_id, declarator_type, gather_info, decl_context);
+                return register_new_var_or_fun_name(conversion_id, declarator_type, gather_info, decl_context);
                 break;
             }
             // Qualified ones
@@ -11796,6 +11873,12 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // A qualified id "a::b::c"
                 if (!is_function_type(declarator_type))
                 {
+                    if (type_specifier == NULL)
+                    {
+                        error_printf("%s: declaration lacks a type-specifier\n",
+                                ast_location(declarator));
+                    }
+
                     scope_entry_list_t* entry_list = query_nested_name(decl_context,
                             ASTSon0(declarator_id),
                             ASTSon1(declarator_id),
@@ -11816,11 +11899,118 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 {
                     scope_entry_t *entry = NULL;
 
-                    if (ASTKind(ASTSon2(declarator_id)) == AST_DESTRUCTOR_ID
-                            || ASTKind(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
+                    AST unqualified_part = ASTSon2(declarator_id);
+                    switch (ASTKind(unqualified_part))
                     {
-                        // Adjust the type to 'const function () returning void'
-                        declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
+                        case AST_TEMPLATE_ID:
+                        case AST_SYMBOL:
+                            {
+                                // A::B::X, check that A::B designates a
+                                // class, if X == B then this designates a
+                                // constructor
+
+                                AST lookup_id = declarator_id;
+
+                                if (ASTKind(unqualified_part) == AST_TEMPLATE_ID
+                                        && ASTKind(ASTSon0(unqualified_part)) == AST_SYMBOL)
+                                {
+                                    lookup_id = ast_copy(declarator_id);
+                                    // Transform A::B::B<int> into A::B::B
+                                    // so we can make a lookup that finds
+                                    // the injected class-name
+                                    ast_set_child(
+                                            lookup_id, 2,
+                                            ASTSon0(ASTSon2(lookup_id)));
+                                }
+
+                                char name_of_a_constructor = 0;
+                                scope_entry_list_t * entry_list = query_id_expression(
+                                        decl_context,
+                                        lookup_id,
+                                        /* field_path */ NULL);
+
+                                if (ASTKind(unqualified_part) == AST_TEMPLATE_ID)
+                                {
+                                    ast_free(lookup_id);
+                                }
+
+                                if (entry_list != NULL)
+                                {
+                                    entry = entry_list_head(entry_list);
+
+                                    if (entry->kind == SK_CLASS
+                                            // this only happens when A::B::B under normal lookups
+                                            && symbol_entity_specs_get_is_injected_class_name(entry)
+                                            /*
+                                               && tail->symbol_name != NULL
+                                               && is_function_type(declarator_type)
+                                               && strcmp(ASTText(unqualified_part), tail->symbol_name) == 0
+                                            */
+                                            )
+                                    {
+                                        name_of_a_constructor = 1;
+                                    }
+                                }
+
+                                entry_list_free(entry_list);
+
+                                if (type_specifier == NULL)
+                                {
+                                    if (name_of_a_constructor)
+                                    {
+                                        // this names a constructor
+                                        decl_context.decl_flags |= DF_CONSTRUCTOR;
+                                    }
+                                    else
+                                    {
+                                        error_printf("%s: declaration lacks a type-specifier\n",
+                                                ast_location(declarator));
+                                    }
+                                }
+                                else
+                                {
+                                    if (name_of_a_constructor)
+                                    {
+                                        error_printf("%s: constructor declaration cannot have a type-specifier\n",
+                                                ast_location(declarator));
+                                    }
+                                }
+
+                                break;
+                            }
+                        case AST_CONVERSION_FUNCTION_ID:
+                            {
+                                if (type_specifier != NULL)
+                                {
+                                    error_printf("%s: error: conversion function declaration cannot have a type-specifier\n",
+                                            ast_location(declarator));
+                                }
+                                break;
+                            }
+                        case AST_DESTRUCTOR_ID:
+                        case AST_DESTRUCTOR_TEMPLATE_ID:
+                            {
+                                if (type_specifier != NULL)
+                                {
+                                    error_printf("%s: error: destructor declarator cannot have any type-specifier\n",
+                                            ast_location(declarator));
+                                }
+                                // Adjust the type to 'const function () returning void'
+                                declarator_type = get_const_qualified_type(
+                                        get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
+                                break;
+                            }
+                        case AST_OPERATOR_FUNCTION_ID:
+                        case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
+                            {
+                                if (type_specifier == NULL)
+                                {
+                                    error_printf("%s: error: declaration lacks a type-specifier\n",
+                                            ast_location(declarator));
+                                }
+                                break;
+                            }
+                        default: { }
                     }
 
                     char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
@@ -11846,11 +12036,6 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
     }
 
     return NULL;
-}
-
-static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
-{
-    symbol_entity_specs_copy_related_symbols_from(dest, orig);
 }
 
 /*
@@ -12085,7 +12270,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 /*
  * This function registers a new "variable" (non type) name
  */
-static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
+static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     if (!is_function_type(declarator_type)
@@ -12185,11 +12370,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         // No existing function was found
         const char* function_name = ASTText(declarator_id);
 
-        if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+        char declares_a_constructor = BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR);
+        decl_context.decl_flags &= ~DF_CONSTRUCTOR;
+        if (declares_a_constructor)
         {
             function_name = strprepend(function_name, "constructor ");
-            decl_context.decl_flags &= ~DF_CONSTRUCTOR;
         }
+
         scope_entry_t* new_entry = NULL;
 
         if (!gather_info->is_template)
@@ -12317,6 +12504,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     new_entry->decl_context.current_scope,
                     (new_entry->kind == SK_TEMPLATE)
                    );
+        }
+
+        if (declares_a_constructor)
+        {
+            symbol_entity_specs_set_is_constructor(new_entry, 1);
         }
 
         symbol_entity_specs_set_is_user_declared(new_entry, 1);
@@ -14037,8 +14229,6 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
     gather_info.is_template = 1;
     gather_info.is_explicit_specialization = is_explicit_specialization;
 
-    char is_constructor = 0;
-
     AST type_specifier = NULL;
     if (decl_specifier_seq != NULL)
     {
@@ -14096,19 +14286,6 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         AST declarator = ASTSon0(init_declarator);
         AST initializer = ASTSon1(init_declarator);
 
-        if (simple_type_info != NULL)
-        {
-            // This is not a constructor
-            is_constructor = 0;
-        }
-        else
-        {
-            if (is_constructor_declarator(declarator))
-            {
-                is_constructor = 1;
-            }
-        }
-
         // Note that the scope where this declarator will be declared includes
         // the template parameters, since the symbol will have to be qualified
         // it will not create a symbol in "st" but will fetch the previously
@@ -14116,15 +14293,12 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         type_t* declarator_type = NULL;
 
         decl_context_t new_decl_context = decl_context;
-        if (is_constructor)
-        {
-            new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-        }
 
         compute_declarator_type(declarator,
                 &gather_info, simple_type_info, &declarator_type,
                 new_decl_context, nodecl_output);
-        scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
+        scope_entry_t *entry = build_scope_declarator_name(declarator,
+                simple_type_info, declarator_type,
                 &gather_info, new_decl_context);
 
         char ok = 1;
@@ -15006,7 +15180,8 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
                         simple_type_info, &declarator_type, decl_context,
                         &nodecl_declarator);
 
-                scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
+                scope_entry_t *entry = build_scope_declarator_name(declarator,
+                        simple_type_info, declarator_type,
                         &current_gather_info, decl_context);
 
                 if (!symbol_is_parameter_of_function(entry, function_entry))
@@ -15130,20 +15305,10 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     type_t* type_info = NULL;
 
-    char is_constructor = 0;
-
     if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
                 &type_info, decl_context, nodecl_output);
-    }
-
-    if (type_info == NULL)
-    {
-        if (is_constructor_declarator(function_declarator))
-        {
-            is_constructor = 1;
-        }
     }
 
     // function_declarator
@@ -15151,14 +15316,12 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
     scope_entry_t* entry = NULL;
 
     decl_context_t new_decl_context = decl_context;
-    if (is_constructor)
-    {
-        new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-    }
 
     compute_declarator_type(function_declarator, &gather_info, type_info,
             &declarator_type, new_decl_context, nodecl_output);
-    entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context);
+    entry = build_scope_declarator_name(function_declarator,
+            type_info, declarator_type,
+            &gather_info, new_decl_context);
 
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
 
@@ -15212,7 +15375,7 @@ void set_parameters_as_related_symbols(scope_entry_t* entry,
             if (is_definition
                     && gather_info->arguments_info[i].entry == NULL)
             {
-                error_printf("%s: error: parameter %d does not have name\n",
+                error_printf("%s: error: parameter %d does not have a name\n",
                         locus_to_str(locus), i + 1);
             }
         }
@@ -15251,6 +15414,11 @@ static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pre
     // Stop in nested functions
     if (nodecl_get_kind(node) == NODECL_FUNCTION_CODE)
         return 0;
+
+    if (nodecl_get_kind(node) == NODECL_OBJECT_INIT)
+        return mercurium_pretty_function_has_been_used(
+                mercurium_pretty_function,
+                nodecl_get_symbol(node)->value);
 
     if (nodecl_get_symbol(node) == mercurium_pretty_function)
         return 1;
@@ -15874,8 +16042,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
         gather_decl_spec_list_t* gather_decl_spec_list,
 
         gather_decl_spec_t * gather_info,
-        decl_context_t* block_context,
-        char *is_constructor
+        decl_context_t* block_context
         )
 {
     DEBUG_CODE()
@@ -15913,41 +16080,6 @@ static scope_entry_t* build_scope_function_definition_declarator(
 
     if (type_info == NULL)
     {
-        CXX_LANGUAGE()
-        {
-            // This is a constructor
-            if (is_constructor_declarator(function_declarator))
-            {
-                *is_constructor = 1;
-
-                AST declarator_name = get_declarator_name(function_declarator, decl_context);
-                if (decl_context.current_scope->kind == CLASS_SCOPE
-                        && ASTKind(declarator_name) == AST_TEMPLATE_ID)
-                {
-                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name, NULL);
-                    if (entry_list == NULL
-                            || entry_list_head(entry_list)->kind != SK_CLASS
-                            || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
-                                != decl_context.current_scope->related_entry))
-                    {
-                        error_printf("%s: error: invalid constructor declaration '%s'\n",
-                                ast_location(declarator_name),
-                                prettyprint_in_buffer(declarator_name));
-                        return NULL;
-                    }
-                    // Clobber declarator_name with something sane
-                    //
-                    // A<int>() will become A()
-                    //
-                    // This is mean but constructors in this form are too unwieldy
-                    AST parent = ASTParent(declarator_name);
-                    int child_num = ast_num_of_given_child(parent, declarator_name);
-                    ast_replace(declarator_name, ASTSon0(declarator_name));
-                    ast_set_child(parent, child_num, declarator_name);
-                }
-            }
-        }
-
         C_LANGUAGE()
         {
             // There is no decl specifier sequence at all
@@ -15957,12 +16089,12 @@ static scope_entry_t* build_scope_function_definition_declarator(
             {
                 if (decl_spec_seq == NULL)
                 {
-                    warn_printf("%s: warning: function definition does not have decl-specifier, assuming 'int'\n",
+                    warn_printf("%s: warning: function definition does not have a decl-specifier, assuming 'int'\n",
                             ast_location(function_definition));
                 }
                 else
                 {
-                    warn_printf("%s: warning: function definition does not have type-specifier, assuming 'int'\n",
+                    warn_printf("%s: warning: function definition does not have a type-specifier, assuming 'int'\n",
                             ast_location(function_definition));
                 }
 
@@ -15981,10 +16113,6 @@ static scope_entry_t* build_scope_function_definition_declarator(
     scope_entry_t* entry = NULL;
 
     decl_context_t new_decl_context = decl_context;
-    if (*is_constructor)
-    {
-        new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-    }
 
     // block-context will be updated for qualified-id to reflect the exact context
     build_scope_declarator_with_parameter_context(function_declarator, gather_info, type_info, &declarator_type,
@@ -15997,7 +16125,9 @@ static scope_entry_t* build_scope_function_definition_declarator(
         return NULL;
     }
 
-    entry = build_scope_declarator_name(function_declarator, declarator_type, gather_info, new_decl_context);
+    entry = build_scope_declarator_name(function_declarator,
+            type_info, declarator_type,
+            gather_info, new_decl_context);
 
     if (entry == NULL)
     {
@@ -16502,7 +16632,6 @@ static scope_entry_t* build_scope_function_definition(
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
-    char is_constructor = 0;
     scope_entry_t* entry = build_scope_function_definition_declarator(
             function_definition,
             decl_context,
@@ -16513,8 +16642,7 @@ static scope_entry_t* build_scope_function_definition(
             gather_decl_spec_list,
 
             &gather_info,
-            &block_context,
-            &is_constructor);
+            &block_context);
 
     if (entry == NULL)
         return NULL;
@@ -16931,8 +17059,8 @@ static char is_virtual_destructor(type_t* class_type)
     return 0;
 }
 
-static void update_member_function_info(AST declarator_name,
-        char is_constructor,
+static void update_member_function_info(
+        AST declarator_name,
         scope_entry_t* entry,
         type_t* class_type)
 {
@@ -16941,12 +17069,10 @@ static void update_member_function_info(AST declarator_name,
     switch (ASTKind(declarator_name))
     {
         case AST_SYMBOL :
+        case AST_TEMPLATE_ID :
             {
-                if (is_constructor)
+                if (symbol_entity_specs_get_is_constructor(entry))
                 {
-                    // This is a constructor
-                    symbol_entity_specs_set_is_constructor(entry, 1);
-
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s' is a constructor\n", 
@@ -17024,7 +17150,6 @@ static void update_member_function_info(AST declarator_name,
                 break;
             }
         case AST_QUALIFIED_ID :
-        case AST_TEMPLATE_ID :
             {
                 internal_error("Unreachable code", 0);
                 break;
@@ -17091,7 +17216,6 @@ static scope_entry_t* build_scope_member_function_definition(
     gather_decl_spec_t *gather_info = xcalloc(1, sizeof(*gather_info));
     gather_info->inside_class_specifier = 1;
 
-    char is_constructor = 0;
     scope_entry_t* entry = build_scope_function_definition_declarator(
             function_definition,
             decl_context,
@@ -17102,8 +17226,7 @@ static scope_entry_t* build_scope_member_function_definition(
             gather_decl_spec_list,
 
             gather_info,
-            &block_context,
-            &is_constructor);
+            &block_context);
 
     if (entry == NULL)
         return NULL;
@@ -17131,7 +17254,7 @@ static scope_entry_t* build_scope_member_function_definition(
         return NULL;
     }
 
-    update_member_function_info(declarator_name, is_constructor, entry, class_info);
+    update_member_function_info(declarator_name, entry, class_info);
 
     DEBUG_CODE()
     {
@@ -17191,8 +17314,6 @@ static void build_scope_default_or_delete_member_function_definition(
     gather_info.is_template = is_template;
     gather_info.is_explicit_specialization = is_explicit_specialization;
 
-    const char* class_name = named_type_get_symbol(class_info)->symbol_name;
-
     AST function_header = ASTSon0(a);
 
     if (ASTKind(function_header) == AST_AMBIGUITY)
@@ -17214,19 +17335,6 @@ static void build_scope_default_or_delete_member_function_definition(
     }
 
     AST declarator_name = get_declarator_name(declarator, decl_context);
-    char is_constructor = 0;
-    if (is_constructor_declarator(declarator))
-    {
-        if (strcmp(class_name, ASTText(declarator_name)) == 0)
-        {
-            is_constructor = 1;
-        }
-    }
-
-    if (is_constructor)
-    {
-        new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-    }
 
     type_t* declarator_type = NULL;
 
@@ -17235,8 +17343,8 @@ static void build_scope_default_or_delete_member_function_definition(
             new_decl_context, nodecl_output);
     scope_entry_t *entry =
         build_scope_declarator_name(declarator,
-                declarator_type, &gather_info,
-                new_decl_context);
+                member_type, declarator_type,
+                &gather_info, new_decl_context);
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
@@ -17244,7 +17352,7 @@ static void build_scope_default_or_delete_member_function_definition(
 
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol for default/delete", 0);
 
-    update_member_function_info(declarator_name, is_constructor, entry, class_info);
+    update_member_function_info(declarator_name, entry, class_info);
 
     switch (ASTKind(a))
     {
@@ -17294,8 +17402,8 @@ void build_scope_friend_declarator(decl_context_t decl_context,
 
     scope_entry_t *entry =
         build_scope_declarator_name(declarator,
-                declarator_type, gather_info,
-                decl_context);
+                member_type, declarator_type,
+                gather_info, decl_context);
 
     if (entry == NULL
             || (entry->kind != SK_FUNCTION
@@ -17500,7 +17608,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         for_each_element(list, iter)
         {
             AST declarator = ASTSon1(iter);
-            char is_constructor = 0;
 
             gather_decl_spec_t current_gather_info;
             copy_gather_info(&current_gather_info, &gather_info);
@@ -17539,8 +17646,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (identifier != NULL)
                         {
-                            bitfield_symbol = build_scope_declarator_name(identifier, declarator_type, &current_gather_info, 
-                                    decl_context);
+                            bitfield_symbol = build_scope_declarator_name(identifier,
+                                    member_type, declarator_type,
+                                    &current_gather_info, decl_context);
                         }
                         else
                         {
@@ -17628,47 +17736,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         AST declarator_name = get_declarator_name(declarator, decl_context);
                         AST initializer = ASTSon1(declarator);
 
-                        // Change name of constructors
-                        if (member_type == NULL)
-                        {
-                            if (is_constructor_declarator(declarator))
-                            {
-                                if (ASTKind(declarator_name) == AST_TEMPLATE_ID)
-                                {
-                                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name, NULL);
-                                    if (entry_list == NULL
-                                            || entry_list_head(entry_list)->kind != SK_CLASS
-                                            || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
-                                                != decl_context.current_scope->related_entry))
-                                    {
-                                        error_printf("%s: error: invalid constructor declaration '%s'\n",
-                                                ast_location(declarator_name),
-                                                prettyprint_in_buffer(a));
-                                        return;
-                                    }
-                                    // Clobber declarator_name with something sane
-                                    //
-                                    // A<int>() will become A()
-                                    //
-                                    // This is mean but constructors in this form are too unwieldy
-                                    AST parent = ASTParent(declarator_name);
-                                    int child_num = ast_num_of_given_child(parent, declarator_name);
-                                    ast_replace(declarator_name, ASTSon0(declarator_name));
-                                    ast_set_child(parent, child_num, declarator_name);
-                                }
-
-                                if (strcmp(class_name, ASTText(declarator_name)) == 0)
-                                {
-                                    is_constructor = 1;
-                                }
-                            }
-                        }
-
                         decl_context_t new_decl_context = decl_context;
-                        if (is_constructor)
-                        {
-                            new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-                        }
 
                         type_t* declarator_type = NULL;
 
@@ -17677,8 +17745,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 new_decl_context, nodecl_output);
                         scope_entry_t *entry =
                             build_scope_declarator_name(ASTSon0(declarator),
-                                    declarator_type, &current_gather_info,
-                                    new_decl_context);
+                                    member_type, declarator_type,
+                                    &current_gather_info, new_decl_context);
 
                         if (entry == NULL)
                             continue;
@@ -17703,7 +17771,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (entry->kind == SK_FUNCTION)
                         {
-                            update_member_function_info(declarator_name, is_constructor, entry, class_info);
+                            update_member_function_info(declarator_name, entry, class_info);
 
                             // This function might be hiding using declarations, remove those
                             hide_using_declarations(class_type, entry);
@@ -18492,9 +18560,12 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
         type_t* declarator_type = NULL;
 
-        compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
+        compute_declarator_type(declarator, &gather_info,
+                type_info, &declarator_type,
                 decl_context, nodecl_output);
-        scope_entry_t* entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
+        scope_entry_t* entry = build_scope_declarator_name(declarator,
+                type_info, declarator_type,
+                &gather_info, decl_context);
 
         // FIXME: Handle VLAs here
         ERROR_CONDITION(gather_info.num_vla_dimension_symbols > 0, "Unsupported VLAs at the declaration", 0);
@@ -19032,7 +19103,9 @@ static void build_scope_for_statement_range(AST a,
     }
 
 
-    scope_entry_t* iterator_symbol = build_scope_declarator_name(declarator, declarator_type, &gather_info, block_context);
+    scope_entry_t* iterator_symbol = build_scope_declarator_name(declarator,
+            type_info, declarator_type,
+            &gather_info, block_context);
 
     ERROR_CONDITION(gather_info.num_vla_dimension_symbols > 0, "Unsupported VLAs at the declaration", 0);
 
@@ -19996,7 +20069,8 @@ static void build_scope_try_block(AST a,
                         catch_handler_context, &dummy);
 
                 scope_entry_t* entry = build_scope_declarator_name(declarator,
-                        declarator_type, &gather_info, catch_handler_context);
+                        type_info, declarator_type,
+                        &gather_info, catch_handler_context);
 
                 if (entry != NULL)
                 {

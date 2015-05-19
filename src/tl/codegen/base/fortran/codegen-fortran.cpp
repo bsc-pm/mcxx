@@ -4798,7 +4798,20 @@ OPERATOR_TABLE
             }
             // Declare USEs that may affect internal subprograms but appear at the
             // enclosing program unit
-            declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
+            TL::Scope sc;
+            if (statement_seq.is_null())
+            {
+                sc = entry.get_related_scope();
+            }
+            else
+            {
+                sc = statement_seq.retrieve_context();
+                // Sanity check
+                ERROR_CONDITION(entry.get_related_scope().get_decl_context().current_scope
+                        != sc.get_decl_context().current_scope,
+                        "Inconsistent scopes", 0);
+            }
+            declare_use_statements(internal_subprograms, sc, use_stmt_info);
 
             // Check every related entries lest they required stuff coming from other modules
             TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();

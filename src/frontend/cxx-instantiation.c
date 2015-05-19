@@ -1471,8 +1471,10 @@ static void instantiate_class_common(
                 inner_decl_context.current_scope, being_instantiated_sym->symbol_name);
 
         *injected_symbol = *being_instantiated_sym;
-
+        // the injected class name is logically in the class-scope
+        injected_symbol->decl_context = inner_decl_context;
         injected_symbol->do_not_print = 1;
+
         symbol_entity_specs_set_is_member(injected_symbol, 1);
         symbol_entity_specs_set_class_type(injected_symbol, get_user_defined_type(being_instantiated_sym));
         symbol_entity_specs_set_is_injected_class_name(injected_symbol, 1);

@@ -209,20 +209,39 @@ namespace TL { namespace Nanox {
                     const_value_to_nodecl(const_value_get_signed_int(num_items)),
                     _sc.get_decl_context());
 
-        TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
+        // TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
+        // Nodecl::NodeclBase prepare_capture;
+        // {
+        //     Source src;
+        //     src
+        //         << "{"
+        //         << "nanos_err_t nanos_err;"
+        //         << "nanos_err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
+        //         <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
+        //         <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
+        //         <<     size_of_array_descriptor
+        //         << ");"
+        //         << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+        //         << "}"
+        //         ;
 
+        //     Source::source_language = SourceLanguage::C;
+        //     prepare_capture = src.parse_statement(_sc);
+        //     Source::source_language = SourceLanguage::Fortran;
+        // }
+
+        TL::Symbol copy_descriptor_function = get_copy_descriptor_function(
+                /* dest_symbol */ captured_array_descriptor,
+                /* source_symbol */ sym,
+                _sc);
         Nodecl::NodeclBase prepare_capture;
         {
             Source src;
             src
                 << "{"
-                << "nanos_err_t nanos_err;"
-                << "nanos_err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
-                <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
-                <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
-                <<     size_of_array_descriptor
-                << ");"
-                << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
+                << as_expression(copy_descriptor_function.make_nodecl(/* set_ref_type */ true))
+                << "(" << as_expression(captured_array_descriptor.make_nodecl(/* set_ref_type */ true)) << ","
+                <<        as_expression(sym.make_nodecl(/* set_ref_type */ true)) << ");"
                 << "}"
                 ;
 
@@ -449,41 +468,68 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
 
         // Add a new symbol just to hold the address
-        TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
-        new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
+            TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
+            new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
             new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
+
+            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
+            sym_ref.set_type(t.get_lvalue_reference_to());
+
+            Nodecl::NodeclBase value =
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to());
+
+            this->add_capture_with_value(
+                    new_addr_symbol,
+                    value);
+
+            OutlineDataItem* lastprivate_shared = &_outline_info.get_entity_for_symbol(new_addr_symbol);
+            ERROR_CONDITION(lastprivate_shared == NULL, "This should not be NULL here", 0);
+            outline_info.set_lastprivate_shared(lastprivate_shared);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            new_addr_symbol.get_internal_symbol()->type_information = get_pointer_type(get_void_type());
-        }
+            if ((sym.get_type().no_ref().is_fortran_array()
+                        && sym.get_type().no_ref().array_requires_descriptor())
+                    || (sym.get_type().no_ref().is_pointer()
+                        && sym.get_type().no_ref().points_to().is_fortran_array()))
+            {
+                OutlineDataItem* captured_array_descriptor_info = this->capture_descriptor(outline_info, sym);
+                // Since captured_array_descriptor_info was created from outline_info we need to make sure we pass
+                // a reference to the array
+                TL::Type shared_type = sym.get_type().no_ref().get_lvalue_reference_to();
+                captured_array_descriptor_info->set_in_outline_type(shared_type);
+                outline_info.set_lastprivate_shared(captured_array_descriptor_info);
+            }
+            else
+            {
+                TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
+                new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                new_addr_symbol.get_internal_symbol()->type_information =
+                    TL::Type::get_void_type().get_pointer_to().get_internal_type();
 
-        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
-        sym_ref.set_type(t.get_lvalue_reference_to());
+                Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
+                sym_ref.set_type(t.get_lvalue_reference_to());
 
-        Nodecl::NodeclBase value =
-                Nodecl::Reference::make(sym_ref, t.get_pointer_to());
+                Nodecl::NodeclBase value =
+                    Nodecl::Dereference::make(
+                            Nodecl::Reference::make(sym_ref, t.get_pointer_to()),
+                            t.get_lvalue_reference_to());
 
-        FORTRAN_LANGUAGE()
-        {
-            value = Nodecl::Dereference::make(
-                    value,
-                    t.get_lvalue_reference_to());
-        }
+                this->add_capture_with_value(
+                        new_addr_symbol,
+                        value);
 
-        this->add_capture_with_value(
-                new_addr_symbol,
-                value);
+                OutlineDataItem &new_outline_info = _outline_info.get_entity_for_symbol(new_addr_symbol);
 
-        FORTRAN_LANGUAGE()
-        {
-            OutlineDataItem &new_outline_info = _outline_info.get_entity_for_symbol(new_addr_symbol);
+                TL::Type new_type = add_extra_dimensions(sym, sym.get_type());
+                new_outline_info.set_in_outline_type(new_type.no_ref().get_lvalue_reference_to());
 
-            TL::Type new_type = add_extra_dimensions(sym, sym.get_type());
-            new_outline_info.set_in_outline_type(new_type.no_ref().get_lvalue_reference_to());
+                OutlineDataItem* lastprivate_shared = &_outline_info.get_entity_for_symbol(new_addr_symbol);
+                outline_info.set_lastprivate_shared(lastprivate_shared);
+            }
         }
     }
 
@@ -755,9 +801,8 @@ namespace TL { namespace Nanox {
                         // FIXME - We should check this earlier. In OpenMP::Core
                         if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                         {
-                            error_printf("%s:%d: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
-                                    sym.get_filename().c_str(),
-                                    sym.get_line(),
+                            error_printf("%s: error: symbol '%s' cannot be FIRSTPRIVATE since it is an assumed size array\n",
+                                    sym.get_locus_str().c_str(),
                                     sym.get_name().c_str());
                         }
                     }

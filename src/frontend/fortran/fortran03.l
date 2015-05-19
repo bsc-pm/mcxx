@@ -65,8 +65,31 @@ static int include_stack_size = 0;
 static int pragma_custom_var_list_parentheses = 0;
 static const char *current_pragma_prefix = NULL;
 
+struct scan_file_descriptor 
+{
+    // This is the (physical) filename being scanned
+    const char* filename;
+
+    // This is the logical filename that we are scanning.
+    // current_filename != filename only in Fortran fixed-form because we scan
+    // the output of prescanner
+    const char* current_filename;
+
+    FILE* file_descriptor;
+    struct yy_buffer_state* scanning_buffer;
+
+    // Line of current token
+    unsigned int line_number;
+    // Column where the current token starts
+    unsigned column_number;
+    // Fortran: After a joined line we have to move to this line if new_line > 0 
+    unsigned int new_line; 
+    // Fortran: Number of joined lines so far
+    unsigned int joined_lines;
+};
+
 static struct scan_file_descriptor include_stack[MAX_INCLUDE_DEPTH];
-struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
+static struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
 
 #define MAX_PRAGMA_CONSTRUCT_STACK 64
 static const char* pragma_construct_stack[MAX_PRAGMA_CONSTRUCT_STACK] = { 0 };
@@ -840,11 +863,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
         // Well, we found the newline but parentheses were not 
         // properly nested
         fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
-                scanning_now.current_filename,
-                scanning_now.line_number);
+                fortran_scanning_now->current_filename,
+                fortran_scanning_now->line_number);
     }
     // Head back to initial state and finish this pragma
-    scanning_now.line_number++;
+    fortran_scanning_now->line_number++;
     BEGIN(INITIAL);
     RETURN_PRAGMA_EOS;
 }
@@ -2426,6 +2449,7 @@ goto {
 #endif
 
 #define FLEX_LVAL mf03lval
+#define FLEX_LLOC mf03lloc
 
 static void parse_token_text(void)
 {
@@ -2434,9 +2458,11 @@ static void parse_token_text(void)
 
 UNUSED_PARAMETER static void parse_token_text_str(const char* c)
 {
-    FLEX_LVAL.token_atrib.token_line = fortran_scanning_now->line_number;
-    FLEX_LVAL.token_atrib.token_file = uniquestr(fortran_scanning_now->current_filename);
     FLEX_LVAL.token_atrib.token_text = uniquestr(c);
+
+    FLEX_LLOC.first_filename = uniquestr(fortran_scanning_now->current_filename);
+    FLEX_LLOC.first_line = fortran_scanning_now->line_number;
+    FLEX_LLOC.first_column = fortran_scanning_now->column_number;
 }
 
 static void reintroduce_continued_line(char* continued_line,
@@ -2767,8 +2793,11 @@ int yywrap()
 	return end_of_file();
 }
 
-int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename)
+int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename,
+        char is_fixed_form)
 {
+    ERROR_CONDITION(is_fixed_form, "This scanner does not support fixed form", 0);
+
 	FILE* file;
 
 	file = fopen(scanned_filename, "r");
@@ -2783,6 +2812,7 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 	fortran_scanning_now->filename = uniquestr(scanned_filename);
 	fortran_scanning_now->file_descriptor = file;
 	fortran_scanning_now->line_number = 1;
+	fortran_scanning_now->column_number = 0; // Not implemented yet
 
     fortran_scanning_now->current_filename = uniquestr(input_filename);
 
@@ -2796,7 +2826,7 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 	return 0;
 }
 
-char* TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
+static const char* const TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 // maybe this is not the best place to change the configuration but it must work
 compilation_configuration_t* string_scanning_configuration = 0;
 
@@ -2813,6 +2843,7 @@ int mf03_prepare_string_for_scanning(const char* str)
 	include_stack_size = 0;
 	fortran_scanning_now = &include_stack[include_stack_size];
 	fortran_scanning_now->line_number = 1;
+	fortran_scanning_now->column_number = 0; // Not implemented yet
 	fortran_scanning_now->new_line = 0;
 	fortran_scanning_now->joined_lines = 0;
 	

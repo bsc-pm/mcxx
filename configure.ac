@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.7],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.8],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -235,6 +235,39 @@ AC_ARG_ENABLE([fortran-tests],
 FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
 AC_SUBST([FORTRAN_TESTS_ENABLED])
 dnl -- End Fortran tests ---
+
+dnl -- New Fortran scanner ---
+fortran_new_scanner="yes"
+AC_MSG_CHECKING([if new Fortran scanner has been enabled])
+AC_ARG_ENABLE([new-fortran-scanner],
+    AS_HELP_STRING([--enable-new-fortran-scanner], [Enables new Fortran scanner]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         fortran_new_scanner="yes"
+         dnl no, they have not been disabled
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              fortran_new_scanner="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+FORTRAN_NEW_SCANNER=$fortran_new_scanner
+AC_SUBST([FORTRAN_NEW_SCANNER])
+AM_CONDITIONAL([FORTRAN_NEW_SCANNER], test x$fortran_new_scanner = xyes)
+if test x$fortran_new_scanner = xyes;
+then
+    AC_DEFINE([FORTRAN_NEW_SCANNER], 1, [Define to 1 if binaries are installed in pkglibdir])
+fi
+dnl -- End New Fortran scanner --
 
 dnl -- Extra compilers ---
 
@@ -782,6 +815,44 @@ AC_SUBST([NANOX_SSE])
 AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
+
+dnl --------------------- Dynamic Load Balancing -------------------------------
+# Eventually we can attempt to figure this out from the nanos-installation
+is_enabled_dlb="no"
+dlb_include=""
+dlb_lib=""
+AC_ARG_WITH([dlb],
+       AS_HELP_STRING([--with-dlb=dir], [Directory of Dynamic Load Balancing (DLB) installation]),
+       [
+        dlb_include="${withval}/include"
+        dlb_lib="${withval}/lib"
+       ]
+)
+AC_ARG_WITH([dlb-include],
+       AS_HELP_STRING([--with-dlb-include=dir], [Directory of Dynamic Load Balancing (DLB) headers]),
+       [
+        dlb_include="${withval}"
+       ]
+)
+
+AC_ARG_WITH([dlb-lib],
+       AS_HELP_STRING([--with-dlb-lib=dir], [Directory of Dynamic Load Balancing (DLB) libraries]),
+       [
+        dlb_lib="${withval}"
+       ]
+)
+
+DLB_INCLUDE=$dlb_include
+DLB_LIB=$dlb_lib
+
+if test -n "$dlb_include" -a -n "$dlb_lib";
+then
+    is_enabled_dlb="yes"
+fi
+
+AC_SUBST([DLB_INCLUDE])
+AC_SUBST([DLB_LIB])
+dnl --------------------- End of Dynamic Load Balancing -------------------------------
 
 dnl --------------------- Support for Intel OpenMP RTL ---------------------------------
 is_enabled_tl_omp_intel="no"
@@ -1483,8 +1554,6 @@ AC_ARG_ENABLE([analysis],
 
 if test x$is_enabled_analysis = xyes;
 then
-  INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
-  COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
   AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
   if test x$is_enabled_vectorization = xyes
@@ -2107,6 +2176,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
+           tests/config/mercurium-fe-only
            tests/config/mercurium-hlt
            tests/config/mercurium-nanox
            tests/config/mercurium-omp
@@ -2148,6 +2218,13 @@ echo "Mercurium configuration summary"
 echo "==============================="
 echo ""
 echo " * C++ dialect used to build Mercurium : $cxxdialect"
+echo ""
+if test x$fortran_new_scanner = xyes;
+then
+    echo " * Fortran scanner: new, more precise, handmade scanner"
+else
+    echo " * Fortran scanner: traditional, less precise, flex-based scanner"
+fi
 echo ""
 echo " * Tools configured:"
 echo ""
@@ -2220,14 +2297,25 @@ then
 fi
 
 echo ""
-echo " * Intel OpenMP RTL :" $is_enabled_tl_omp_intel
+echo " * Dynamic Load Balancing (DLB) :" $is_enabled_dlb
+if test x$is_enabled_dlb = xyes;
+then
+  echo "   DLB includes :" $dlb_include
+  echo "   DLB libraries:" $dlb_lib
+fi
+
 echo ""
+echo " * Intel OpenMP RTL :" $is_enabled_tl_omp_intel
 
 if test x$is_enabled_tl_omp_intel = xyes;
 then
+  echo ""
   echo "   Intel OpenMP RTL library:" $intel_omp_lib
 fi
 
+echo ""
+echo " * Devices testing:"
+echo ""
 echo "   MPI testing enabled:" $mpi_valid
 echo "   CUDA testing enabled:" $cuda_valid
 echo "   OpenCL testing enabled:" $opencl_valid

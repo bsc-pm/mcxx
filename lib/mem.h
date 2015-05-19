@@ -56,6 +56,9 @@ void *xcalloc(size_t nmemb, size_t size) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
 void *xrealloc(void *ptr, size_t size) MEM_WARN_UNUSED; // realloc does not have malloc property
 char *xstrdup(const char *s) MEM_WARN_UNUSED MEM_MALLOC_RETURN;
 
+// Guaranteed to call free
+void c_free(void *ptr);
+
 #ifdef __cplusplus
 }
 #endif

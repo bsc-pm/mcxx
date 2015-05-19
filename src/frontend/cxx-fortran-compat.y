@@ -16,7 +16,7 @@ nondeclarating_statement : fortran_allocate_statement
 
 fortran_allocate_statement : C_FORTRAN_ALLOCATE '(' expression ')' ';'
 {
-    $$ = ASTMake1(AST_FORTRAN_ALLOCATE_STATEMENT, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_FORTRAN_ALLOCATE_STATEMENT, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 

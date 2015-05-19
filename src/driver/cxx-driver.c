@@ -126,6 +126,7 @@
 "                           temporal files\n" \
 "  -J <dir>                 Sets <dir> as the output module directory\n" \
 "                           This flag is only meaningful for Fortran\n" \
+"                           See flag --module-out-pattern flag\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
 "                           file directory is used\n" \
@@ -255,6 +256,13 @@
 "                           when looking for a Fortran module. \n" \
 "                           Does not affect the native compiler like\n" \
 "                           -I does\n" \
+"  --module-out-pattern=<pattern>\n" \
+"                           When -J is enabled, use this pattern to\n" \
+"                           tell the native compiler where the modules\n" \
+"                           will be created. By default pattern is \"-J%s\"\n" \
+"                           Use commas (,) in the pattern if the expansion\n" \
+"                           of the pattern involves more than one parameter\n" \
+"                           (e.g. --module-out-pattern=\"-module,%s\")\n" \
 "  --do-not-wrap-modules    When creating a module 'x', do not create\n" \
 "                           a 'x.mod' files wrapping 'x.mf03' and the\n" \
 "                           native Fortran compiler 'x.mod' file.\n" \
@@ -287,6 +295,10 @@
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
 "  --line-markers           Adds line markers to the generated file\n" \
+"  --parallel               EXPERIMENTAL: behave in a way that \n" \
+"                           allows parallel compilation of the same\n" \
+"                           source codes without reusing intermediate\n" \
+"                           filenames\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -394,6 +406,7 @@ typedef enum
     OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS,
     OPTION_SEARCH_MODULES,
     OPTION_SEARCH_INCLUDES,
+    OPTION_MODULE_OUT_PATTERN,
     OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES,
     OPTION_DO_NOT_WRAP_FORTRAN_MODULES,
     OPTION_VECTOR_FLAVOR,
@@ -473,6 +486,7 @@ struct command_line_long_options command_line_long_options[] =
     {"list-fortran-array-descriptors", CLP_NO_ARGUMENT, OPTION_LIST_FORTRAN_ARRAY_DESCRIPTORS},
     {"search-modules", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_MODULES},
     {"search-includes", CLP_REQUIRED_ARGUMENT, OPTION_SEARCH_INCLUDES},
+    {"module-out-pattern", CLP_REQUIRED_ARGUMENT, OPTION_MODULE_OUT_PATTERN},
     {"do-not-warn-config", CLP_NO_ARGUMENT, OPTION_DO_NOT_WARN_BAD_CONFIG_FILENAMES},
     {"do-not-wrap-modules", CLP_NO_ARGUMENT, OPTION_DO_NOT_WRAP_FORTRAN_MODULES },
     {"vector-flavor", CLP_REQUIRED_ARGUMENT, OPTION_VECTOR_FLAVOR},
@@ -533,7 +547,9 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
 
+#ifndef FORTRAN_NEW_SCANNER
 static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename, char preprocessed);
+#endif
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig);
@@ -773,7 +789,7 @@ static void ensure_codegen_is_loaded(void)
 static void help_message(void)
 {
     fprintf(stdout, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
-    fprintf(stdout, HELP_STRING);
+    fprintf(stdout, "%s", HELP_STRING);
 
     // We need to load the phases to show their help
     load_compiler_phases(CURRENT_CONFIGURATION);
@@ -1152,6 +1168,11 @@ int parse_arguments(int argc, const char* argv[],
                         P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
                                 uniquestr(parameter_info.argument));
                         CURRENT_CONFIGURATION->module_out_dir = uniquestr(parameter_info.argument);
+
+                        if (CURRENT_CONFIGURATION->module_out_pattern == NULL)
+                        {
+                            CURRENT_CONFIGURATION->module_out_pattern = "-J%s";
+                        }
                         break;
                     }
                 case 'L' :
@@ -1373,6 +1394,20 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         P_LIST_ADD(CURRENT_CONFIGURATION->include_dirs, CURRENT_CONFIGURATION->num_include_dirs,
                                 uniquestr(parameter_info.argument));
+                        break;
+                    }
+                case OPTION_MODULE_OUT_PATTERN:
+                    {
+                        if (strstr(parameter_info.argument, "%s") == NULL)
+                        {
+                            fprintf(stderr, "warning: ignoring '--module-out-pattern=%s' parameter "
+                                    "because the pattern does not contain '%%s'\n",
+                                    parameter_info.argument);
+                        }
+                        else
+                        {
+                            CURRENT_CONFIGURATION->module_out_pattern = uniquestr(parameter_info.argument);
+                        }
                         break;
                     }
                 case OPTION_PRINT_CONFIG_FILE:
@@ -2936,14 +2971,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
+#ifndef FORTRAN_NEW_SCANNER
         char preprocessed = 0;
+#endif
         // If the file is not preprocessed or we've ben told to preprocess it
         if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
                     && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
+#ifndef FORTRAN_NEW_SCANNER
             preprocessed = 1;
+#endif
             timing_t timing_preprocessing;
 
             const char* old_preprocessor_name = CURRENT_CONFIGURATION->preprocessor_name;
@@ -2979,14 +3018,17 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             }
         }
 
-        if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+        char is_fixed_form  = (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
                 // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
                 //  - AND we were NOT told to be xfree form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
-                && !CURRENT_CONFIGURATION->pass_through)
+                && !CURRENT_CONFIGURATION->pass_through);
+
+#ifndef FORTRAN_NEW_SCANNER
+        if (is_fixed_form)
         {
             timing_t timing_prescanning;
 
@@ -3007,7 +3049,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
                         translation_unit->input_filename);
             }
+
+            is_fixed_form = 0;
         }
+#endif
 
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
@@ -3048,7 +3093,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 FORTRAN_LANGUAGE()
                 {
-                    if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                    if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename, is_fixed_form) != 0)
                     {
                         running_error("Could not open file '%s'", parsed_filename);
                     }
@@ -3056,8 +3101,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 // * Parse file
                 parse_translation_unit(translation_unit, parsed_filename);
-                // Close file parsed
-                close_scanned_file();
+                // The scanner automatically closes the file
 
                 if (CURRENT_CONFIGURATION->debug_options.print_parse_tree)
                 {
@@ -3901,6 +3945,7 @@ const char* preprocess_file(const char* input_filename)
     return preprocess_single_file(input_filename, NULL);
 }
 
+#ifndef FORTRAN_NEW_SCANNER
 static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename, char preprocessed)
 {
     temporal_file_t prescanned_file = new_temporal_file();
@@ -3996,6 +4041,7 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         return NULL;
     }
 }
+#endif
 
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, 
@@ -4051,6 +4097,21 @@ static void native_compilation(translation_unit_t* translation_unit,
         num_arguments += 1;
     }
 
+    if (CURRENT_CONFIGURATION->module_out_dir != NULL)
+    {
+        ERROR_CONDITION(CURRENT_CONFIGURATION->module_out_pattern == NULL,
+                "Expecting a pattern for the module out parameter",
+                0);
+        int num_commas = 0;
+        int i, N = strlen(CURRENT_CONFIGURATION->module_out_pattern);
+        for (i = 0; i < N; i++)
+        {
+            if (CURRENT_CONFIGURATION->module_out_pattern[i] == ',')
+                num_commas++;
+        }
+        num_arguments += num_commas + 1;
+    }
+
     // -c -o output input
     num_arguments += 4;
     // NULL
@@ -4070,6 +4131,44 @@ static void native_compilation(translation_unit_t* translation_unit,
 
         native_compilation_args[ipos] = uniquestr(c);
         ipos++;
+    }
+
+    if (CURRENT_CONFIGURATION->module_out_dir != NULL)
+    {
+        char already_expanded = 0;
+
+        char *tmp = xstrdup(CURRENT_CONFIGURATION->module_out_pattern);
+
+        char *current_param = strtok(tmp, ",");
+
+        while (current_param != NULL)
+        {
+            char *p = NULL;
+            if (!already_expanded
+                    && (p = strstr(current_param, "%s")) != NULL)
+            {
+                // Expand '%s'
+                int length = strlen(current_param) + strlen(CURRENT_CONFIGURATION->module_out_dir) + 1;
+                char expanded[length];
+                expanded[0] = '\0';
+
+                strncat(expanded, current_param, p - current_param);
+                strcat(expanded, CURRENT_CONFIGURATION->module_out_dir);
+                strcat(expanded, p + 2);
+
+                native_compilation_args[ipos] = uniquestr(expanded);
+
+                already_expanded = 1;
+            }
+            else
+            {
+                native_compilation_args[ipos] = uniquestr(current_param);
+            }
+            ipos++;
+            current_param = strtok(NULL, ",");
+        }
+
+        xfree(tmp);
     }
 
     {

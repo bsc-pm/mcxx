@@ -84,6 +84,11 @@ static inline unsigned int ast_get_line(const_AST a)
     return locus_get_line(a->locus);
 }
 
+static inline unsigned int ast_get_column(const_AST a)
+{
+    return locus_get_column(a->locus);
+}
+
 static inline const char* ast_get_text(const_AST a)
 {
     return a->text;
@@ -300,35 +305,23 @@ static inline int ast_num_children(const_AST a)
     return ast_count_bitmap(a->bitmap_sons);
 }
 
-static inline AST ast_list_leaf(AST a)
-{
-    ERROR_CONDITION(a == NULL, "Invalid tree", 0);
-    AST result = ast_make(AST_NODE_LIST, 2, NULL, a, NULL, NULL, 
-            ast_get_locus(a), ast_get_text(a));
-
-    return result;
-}
 
 static inline AST ast_list(AST list, AST last_elem)
 {
     ERROR_CONDITION(last_elem == NULL, "Invalid tree", 0);
-    const char* filename = NULL;
-    if (list != NULL)
-    {
-        filename = ast_get_filename(list);
-    }
-    else
-    {
-        filename = ast_get_filename(last_elem);
-    }
 
     AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            make_locus(filename, ast_get_line(last_elem), 0), ast_get_text(last_elem));
-
+            NULL, /* lists have a calculated locus not a physical one */
+            ast_get_text(last_elem));
     return a;
 }
 
-static inline AST ast_list_head(AST list)
+static inline AST ast_list_leaf(AST a)
+{
+    return ast_list(NULL, a);
+}
+
+static inline AST ast_list_head(const_AST list)
 {
     if (list == NULL)
         return NULL;
@@ -336,10 +329,10 @@ static inline AST ast_list_head(AST list)
     if (ASTKind(list) != AST_NODE_LIST)
         return NULL;
 
-    AST iter;
+    const_AST iter;
     for_each_element(list, iter)
     {
-        return iter;
+        return (AST)iter;
     }
 
     return NULL;
@@ -534,13 +527,21 @@ static inline void ast_replace_with_ambiguity(AST a, int n)
     // }
 }
 
+static inline AST ast_list_head(const_AST list);
 static inline const locus_t* ast_get_locus(const_AST a)
 {
-    return a->locus;
+    if (ASTKind(a) != AST_NODE_LIST)
+        return a->locus;
+    else
+        return ast_get_locus(
+                ASTSon1(ast_list_head(a))
+                );
 }
 
 static inline void ast_set_locus(AST a, const locus_t* locus)
 {
+    ERROR_CONDITION(ASTKind(a) == AST_NODE_LIST,
+            "list nodes do not have locus", 0);
     a->locus = locus;
 }
 

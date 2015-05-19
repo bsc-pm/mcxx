@@ -98,25 +98,30 @@ namespace TL { namespace Nanox {
         {
             if ((*it)->get_is_lastprivate())
             {
-                if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                        && (*it)->get_private_type().is_array())
+                ERROR_CONDITION((*it)->get_lastprivate_shared() == NULL, "This cannot be NULL", 0);
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    lastprivate_updates
-                        << "__builtin_memcpy(" << (*it)->get_symbol().get_name() << "_addr, " 
-                        << (*it)->get_symbol().get_name() << ", "
-                        << "sizeof(" << as_type((*it)->get_private_type()) << "));"
-                        ;
-                }
-                else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                {
-                    lastprivate_updates
-                        << "*" << (*it)->get_symbol().get_name() << "_addr = " << (*it)->get_symbol().get_name() << ";"
-                        ;
+                    if ((*it)->get_private_type().is_array())
+                    {
+                        lastprivate_updates
+                            << "__builtin_memcpy(" << (*it)->get_lastprivate_shared()->get_symbol().get_name()
+                            << "," << (*it)->get_symbol().get_name() << ", "
+                            << "sizeof(" << as_type((*it)->get_private_type()) << "));"
+                            ;
+                    }
+                    else
+                    {
+                        lastprivate_updates
+                            << "*" << (*it)->get_lastprivate_shared()->get_symbol().get_name()
+                            << " = " << (*it)->get_symbol().get_name() << ";"
+                            ;
+                    }
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
                     lastprivate_updates
-                        << (*it)->get_symbol().get_name() << "_addr = " << (*it)->get_symbol().get_name() << "\n"
+                        << (*it)->get_lastprivate_shared()->get_symbol().get_name()
+                        << " = " << (*it)->get_symbol().get_name() << "\n"
                         ;
                 }
                 num_items++;

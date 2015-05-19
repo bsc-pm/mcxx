@@ -105,7 +105,7 @@ namespace TL
 
                         src 
                             << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n"
-                            << (*it_src)
+                            << pad_to_column(ref_tree.get_column()) << (*it_src)
                             ;
 
                         AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);

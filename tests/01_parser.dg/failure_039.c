@@ -29,7 +29,7 @@
 /*
 <testinfo>
 test_compile_fail=yes
-test_generator=config/mercurium
+test_generator=config/mercurium-fe-only
 </testinfo>
 */
 

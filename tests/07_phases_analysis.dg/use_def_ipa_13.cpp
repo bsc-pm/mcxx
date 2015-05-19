@@ -36,21 +36,25 @@
 
 struct R {
     int b[2];
+    R() {}
 };
 struct S {
     int a;
     struct R r;
+    S() {}
 };
 
 struct Q {
     int* a;
     int b[2];
+    Q() {}
 };
 struct T {
     int* a;
     Q* s;
     int* b;
     int* c;
+    T() {}
 };
 
 void foo1(int a, int &b, ...);
@@ -71,7 +75,7 @@ int main(int argc, char** argv)
     
     
     // *** pointers *** //
-    T t1, t2, t3;
+    T t1;
     t1.a = (int*) malloc(sizeof(int)*2);
     t1.s = (Q*) malloc(sizeof(Q)*2);
     
