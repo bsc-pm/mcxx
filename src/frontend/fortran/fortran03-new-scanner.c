@@ -3659,21 +3659,25 @@ static const char* return_pragma_prefix_longest_match(
     const char *start = lexed_directive;
     const char *end = discard_source;
 
-    // Keep the relevant directive of the lexed input
-    *relevant_directive = xmalloc((end - start + 1) * sizeof(char));
-    strncpy(*relevant_directive, start, end - start);
-    (*relevant_directive)[end - start] = '\0';
-
-    // Now advance the token stream
-    // The first letter is always already consumed
-    start++;
-
-    while (start != end)
+    if (longest_match != NULL)
     {
-        start++;
-        get();
-    }
+        ERROR_CONDITION(start == NULL || end == NULL || (end <= start),
+                "Invalid values for the cursors", 0);
+        // Keep the relevant directive of the lexed input
+        *relevant_directive = xmalloc((end - start + 1) * sizeof(char));
+        strncpy(*relevant_directive, start, end - start);
+        (*relevant_directive)[end - start] = '\0';
 
+        // Now advance the token stream
+        // The first letter is always already consumed
+        start++;
+
+        while (start != end)
+        {
+            start++;
+            get();
+        }
+    }
 
     return longest_match;
 }
@@ -5063,8 +5067,8 @@ extern int new_mf03lex(void)
                                                 loc.filename,
                                                 loc.line,
                                                 loc.column,
-                                                lexer_state.sentinel,
-                                                str.buf);
+                                                strtoupper(lexer_state.sentinel),
+                                                strtoupper(str.buf));
                                         break;
                                     }
                                 default: internal_error("Invalid pragma directive kind kind=%d", directive_kind);
