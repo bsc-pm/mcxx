@@ -106,6 +106,38 @@ namespace TL
         }
     };
 
+    struct ReplaceInOutSIMDKNC : Nodecl::ExhaustiveVisitor<void>
+    {
+        TL::Symbol _orig_omp_in, _new_omp_in;
+        TL::Symbol _orig_omp_out, _new_omp_out;
+
+        ReplaceInOutSIMDKNC(
+                TL::Symbol orig_omp_in,  TL::Symbol new_omp_in,
+                TL::Symbol orig_omp_out, TL::Symbol new_omp_out)
+            : _orig_omp_in(orig_omp_in), _new_omp_in(new_omp_in),
+            _orig_omp_out(orig_omp_out), _new_omp_out(new_omp_out)
+        { }
+
+        virtual void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+
+            TL::Symbol *new_symbol = NULL;
+
+            if (sym == _orig_omp_in)
+                new_symbol = &_new_omp_in;
+            else if (sym == _orig_omp_out)
+                new_symbol = &_new_omp_out;
+            else
+                return;
+
+            Nodecl::NodeclBase new_symbol_ref =
+                new_symbol->make_nodecl(/* set_ref_type */ true, node.get_locus());
+
+            node.replace(new_symbol_ref);
+        }
+    };
+
     TL::Symbol Intel::emit_callback_for_reduction_scalar(
             TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
@@ -186,15 +218,15 @@ namespace TL
             // When a SIMD KNC reduction is requested, we do not return a function but
             // an array of functions
             TL::ObjectList<SIMDReductionPair> pairs;
+
             for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
                    it != reduction_items.end();
                    it++)
             {
                 SIMDReductionPair p = emit_callback_for_reduction_simd_knc(
-                    reduction_items,
-                    reduction_pack_type,
-                    location,
-                    current_function);
+                        *it,
+                        location,
+                        current_function);
 
                 pairs.append(p);
             }
@@ -305,22 +337,19 @@ namespace TL
 
         struct SIMDizeCombiner : Nodecl::NodeclVisitor<void>
         {
-            TL::Symbol _field;
             TL::Symbol _orig_omp_in, _new_omp_in;
             TL::Symbol _orig_omp_out, _new_omp_out;
             TL::Symbol _new_omp_mask;
 
-            ReplaceInOut * _replace_inout;
+            ReplaceInOutSIMDKNC * _replace_inout;
 
             SIMDizeCombiner() : _replace_inout(NULL) { }
 
             void init(
-                    TL::Symbol field,
                     TL::Symbol orig_omp_in,  TL::Symbol new_omp_in,
                     TL::Symbol orig_omp_out, TL::Symbol new_omp_out,
                                              TL::Symbol new_omp_mask)
             {
-                _field = field;
                 _orig_omp_in = orig_omp_in;
                 _new_omp_in = new_omp_in;
                 _orig_omp_out = orig_omp_out;
@@ -328,7 +357,7 @@ namespace TL
                 _new_omp_mask = new_omp_mask;
 
                 delete _replace_inout;
-                _replace_inout = new ReplaceInOut(field,
+                _replace_inout = new ReplaceInOutSIMDKNC(
                         orig_omp_in, new_omp_in,
                         orig_omp_out, new_omp_out);
             }
@@ -441,8 +470,7 @@ namespace TL
         };
 
         TL::Symbol generate_simd_combiner_knc(SIMDizeCombiner &simdizer,
-                TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
-                TL::Type reduction_pack_type,
+                Nodecl::OpenMP::ReductionItem &reduction_item,
                 Nodecl::NodeclBase location,
                 TL::Symbol current_function)
         {
@@ -450,10 +478,10 @@ namespace TL
             TL::ObjectList<TL::Type> parameter_types;
 
             parameter_names.append("red_omp_out");
-            parameter_types.append(reduction_pack_type.get_lvalue_reference_to());
+            parameter_types.append(reduction_item.get_reduction_type().get_type().get_lvalue_reference_to());
 
             parameter_names.append("red_omp_in");
-            parameter_types.append(reduction_pack_type.get_lvalue_reference_to());
+            parameter_types.append(reduction_item.get_reduction_type().get_type().get_lvalue_reference_to());
 
             TL::Symbol mmask_16_typedef = current_function.get_scope().get_symbol_from_name("__mmask16");
             ERROR_CONDITION(!mmask_16_typedef.is_valid(), "__mmask16 not found in the scope", 0);
@@ -485,28 +513,20 @@ namespace TL
             TL::Symbol red_omp_mask = empty_stmt.retrieve_context().get_symbol_from_name("red_omp_mask");
 
             TL::Source combiner;
-            TL::ObjectList<TL::Symbol> reduction_fields = reduction_pack_type.get_fields();
-            TL::ObjectList<TL::Symbol>::iterator it_fields = reduction_fields.begin();
-            for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
-                    it != reduction_items.end();
-                    it++, it_fields++)
-            {
-                Nodecl::OpenMP::ReductionItem &current(*it);
-                TL::Symbol reductor = current.get_reductor().get_symbol();
-                OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
 
-                Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
+            TL::Symbol reductor = reduction_item.get_reductor().get_symbol();
+            OpenMP::Reduction* reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
 
-                simdizer.init(
-                        *it_fields,
-                        reduction->get_omp_in(), red_omp_in,
-                        reduction->get_omp_out(), red_omp_out,
-                        red_omp_mask);
-                simdizer.walk(combiner_expr);
+            Nodecl::NodeclBase combiner_expr = reduction->get_combiner().shallow_copy();
 
-                combiner << as_expression(combiner_expr) << ";"
-                    ;
-            }
+            simdizer.init(
+                    reduction->get_omp_in(), red_omp_in,
+                    reduction->get_omp_out(), red_omp_out,
+                    red_omp_mask);
+            simdizer.walk(combiner_expr);
+
+            combiner << as_expression(combiner_expr) << ";"
+                ;
 
             Nodecl::NodeclBase new_body_tree = combiner.parse_statement(empty_stmt);
             empty_stmt.replace(new_body_tree);
@@ -576,22 +596,23 @@ namespace TL
 
     // SIMD - KNC
     Intel::SIMDReductionPair Intel::emit_callback_for_reduction_simd_knc(
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
-            TL::Type reduction_pack_type,
+            Nodecl::OpenMP::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function)
     {
         SIMDizeVerticalCombiner vertical_simdizer;
         TL::Symbol vertical_combiner = generate_simd_combiner_knc(
                 vertical_simdizer,
-                reduction_items, reduction_pack_type,
-                location, current_function);
+                reduction_item,
+                location,
+                current_function);
 
         SIMDizeHorizontalCombiner horizontal_simdizer;
         TL::Symbol horizontal_combiner = generate_simd_combiner_knc(
                 horizontal_simdizer,
-                reduction_items, reduction_pack_type,
-                location, current_function);
+                reduction_item,
+                location,
+                current_function);
 
         SIMDReductionPair p;
         p.horizontal_combiner = horizontal_combiner;

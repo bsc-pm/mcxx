@@ -55,8 +55,7 @@ namespace TL { namespace Intel {
     };
 
     SIMDReductionPair emit_callback_for_reduction_simd_knc(
-            TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
-            TL::Type reduction_pack_type,
+            Nodecl::OpenMP::ReductionItem &reduction_item,
             Nodecl::NodeclBase location,
             TL::Symbol current_function);
 
