@@ -50,6 +50,9 @@ LIBMF03_EXTERN void fortran_check_initialization(
         char is_pointer_initialization,
         nodecl_t* nodecl_output);
 
+LIBMF03_EXTERN void fortran_cast_initialization(scope_entry_t* entry,
+        nodecl_t *nodecl_init);
+
 LIBMF03_EXTERN type_t* common_type_of_binary_operation(type_t* t1, type_t* t2);
 LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2);
 

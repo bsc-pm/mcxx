@@ -40,7 +40,7 @@ omp_declare_reduction : omp_dr_reduction_id ':' omp_dr_typename_list ':' omp_dr_
 
 omp_dr_reduction_id : omp_dr_operator
 {
-    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_OMP_DR_OPERATOR, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | omp_dr_identifier
 {
@@ -50,7 +50,7 @@ omp_dr_reduction_id : omp_dr_operator
 
 omp_dr_identifier : identifier_token
 {
-    $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 

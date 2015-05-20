@@ -66,6 +66,7 @@ namespace OpenMP
     enum DataSharingAttribute
     {
         DS_UNDEFINED = 0,
+
         //! Shared data sharing
         DS_SHARED = BITMAP(0),
         //! Private data sharing
@@ -76,7 +77,7 @@ namespace OpenMP
         DS_LASTPRIVATE = BITMAP(3) | DS_PRIVATE,
         //! Both lastprivate and firstprivate
         DS_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
-        //! Reduction data-sharing 
+        //! Reduction data-sharing
         DS_REDUCTION = BITMAP(4),
         //! Threadprivate data-sharing
         DS_THREADPRIVATE = BITMAP(5),
@@ -84,18 +85,32 @@ namespace OpenMP
         DS_COPYIN = BITMAP(6),
         //! Copy private data-sharing
         DS_COPYPRIVATE = BITMAP(7),
+        //! Auto data sharing
+        DS_AUTO = BITMAP(8),
+        //! SIMD Reduction data-sharing
+        DS_SIMD_REDUCTION = BITMAP(9),
 
         //! Special to state no data sharing
-        DS_NONE = BITMAP(8),
+        DS_NONE = BITMAP(10),
+    };
 
-        //! Auto data sharing
-        DS_AUTO = BITMAP(9),
+    enum DataSharingKind
+    {
+        DSK_NONE = 0,
+        DSK_EXPLICIT,
+        DSK_IMPLICIT,
+        DSK_PREDETERMINED_INDUCTION_VAR,
+    };
 
-        //! States that the data sharing is implicit. Special attribute that makes no difference
-        DS_IMPLICIT = BITMAP(15),
+    struct DataSharingValue
+    {
+        DataSharingAttribute attr;
+        DataSharingKind kind;
 
-        //! Reduction data-sharing 
-        DS_SIMD_REDUCTION = BITMAP(16)
+        DataSharingValue()
+            : attr(DS_UNDEFINED), kind(DSK_NONE) { }
+        DataSharingValue(DataSharingAttribute a, DataSharingKind k)
+            : attr(a), kind(k) { }
     };
 
 #undef BITMAP
@@ -348,14 +363,14 @@ namespace OpenMP
             int *_num_refs;
             struct DataSharingAttributeInfo
             {
-                DataSharingAttribute attr;
+                DataSharingValue data_sharing;
                 std::string reason;
 
                 DataSharingAttributeInfo()
-                    : attr(DS_UNDEFINED), reason("(symbol has undefined data-sharing)") { }
-                DataSharingAttributeInfo(DataSharingAttribute a,
+                    : data_sharing(), reason("(symbol has undefined data-sharing)") { }
+                DataSharingAttributeInfo(DataSharingValue ds,
                         const std::string &r)
-                    : attr(a), reason(r) { }
+                    : data_sharing(ds), reason(r) { }
             };
 
             typedef TL::ObjectList<Symbol> map_symbol_data_sharing_insertion_t;
@@ -404,7 +419,9 @@ namespace OpenMP
                 * \param data_attr The symbol to which the data sharing will be set
                 * \param reason String used in data-sharing reports
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
+            void set_data_sharing(Symbol sym,
+                    DataSharingAttribute data_attr,
+                    DataSharingKind kind,
                     const std::string& reason);
 
             //! Sets a data sharing attribute of a symbol
@@ -414,7 +431,10 @@ namespace OpenMP
                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
                 * \param reason String used in data-sharing reports
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
+            void set_data_sharing(Symbol sym,
+                    DataSharingAttribute data_attr,
+                    DataSharingKind kind,
+                    DataReference data_ref,
                     const std::string& reason);
 
             //! Adds a reduction symbol
@@ -437,7 +457,7 @@ namespace OpenMP
                 * \param check_enclosing Checks enclosing data sharings
                 * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                 */
-            DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
+            DataSharingValue get_data_sharing(Symbol sym, bool check_enclosing = true);
 
             //! Gets the data sharing attribute reason of a symbol
             /*!
@@ -455,6 +475,9 @@ namespace OpenMP
 
             //! Returns all symbols that match the given data attribute
             void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
+
+            //! Returns all symbols in the current data sharing
+            void get_all_symbols(ObjectList<Symbol> &symbols);
 
             typedef std::pair<Symbol, std::string> DataSharingInfoPair;
             void get_all_symbols_info(DataSharingAttribute data_attr, ObjectList<DataSharingInfoPair> &symbols);
@@ -478,24 +501,24 @@ namespace OpenMP
         class LIBTL_CLASS Info : public Object
         {
             private:
-                DataSharingEnvironment* _root_data_sharing;
-                DataSharingEnvironment* _current_data_sharing;
-                std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing;
-                std::stack<DataSharingEnvironment*> _stack_data_sharing;
+                DataSharingEnvironment* _root_data_sharing_environment;
+                DataSharingEnvironment* _current_data_sharing_environment;
+                std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing_environment;
+                std::stack<DataSharingEnvironment*> _stack_data_sharing_environment;
 
             public:
-                Info(DataSharingEnvironment* root_data_sharing)
-                    : _root_data_sharing(root_data_sharing), 
-                    _current_data_sharing(root_data_sharing) { }
+                Info(DataSharingEnvironment* root_data_sharing_environment)
+                    : _root_data_sharing_environment(root_data_sharing_environment),
+                    _current_data_sharing_environment(root_data_sharing_environment) { }
 
-                DataSharingEnvironment& get_new_data_sharing(Nodecl::NodeclBase);
-                DataSharingEnvironment& get_data_sharing(Nodecl::NodeclBase);
+                DataSharingEnvironment& get_new_data_sharing_environment(Nodecl::NodeclBase);
+                DataSharingEnvironment& get_data_sharing_environment(Nodecl::NodeclBase);
 
-                DataSharingEnvironment& get_current_data_sharing();
-                DataSharingEnvironment& get_root_data_sharing();
+                DataSharingEnvironment& get_current_data_sharing_environment();
+                DataSharingEnvironment& get_root_data_sharing_environment();
 
-                void push_current_data_sharing(DataSharingEnvironment&);
-                void pop_current_data_sharing();
+                void push_current_data_sharing_environment(DataSharingEnvironment&);
+                void pop_current_data_sharing_environment();
 
                 void reset();
         };

@@ -87,6 +87,8 @@ test_CC_nanox_mercurium="\${MCC}"
 test_CXX_nanox_mercurium="\${MCXX}"
 test_FC_nanox_mercurium="\${MFC}"
 
+test_FFLAGS="\${test_FFLAGS} --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner"
+
 test_CFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} -std=gnu99 ${COMMON_NANOX_CFLAGS}"
 test_CXXFLAGS_nanox_mercurium="${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 test_FFLAGS_nanox_mercurium="${PROGRAMMING_MODEL}"

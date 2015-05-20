@@ -1,5 +1,5 @@
 ! <testinfo>
-! export test_FFLAGS="--free"
+! test_FFLAGS="--free"
 ! test_generator=config/mercurium-fortran
 ! </testinfo>
       SUBROUTINE ZZZ(I)

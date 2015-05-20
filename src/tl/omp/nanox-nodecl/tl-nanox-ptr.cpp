@@ -49,7 +49,7 @@ namespace TL { namespace Nanox {
     {
         TL::Type get_fake_explicit_shape_array(TL::Type t)
         {
-            if (t.is_array())
+            if (t.is_fortran_array())
             {
                 Nodecl::NodeclBase lower, upper;
 
@@ -210,6 +210,141 @@ namespace TL { namespace Nanox {
             return result;
         }
 
+        TL::Symbol get_copy_descriptor_function_impl(
+                TL::Symbol dest_symbol,
+                TL::Symbol source_symbol,
+                TL::Scope original_scope)
+        {
+            ERROR_CONDITION(!(source_symbol.get_type().no_ref().is_fortran_array()
+                        && source_symbol.get_type().no_ref().array_requires_descriptor())
+                    && !(source_symbol.get_type().no_ref().is_pointer()
+                        && source_symbol.get_type().no_ref().points_to().is_fortran_array()),
+                    "Invalid source type it must be an array with descriptor or a pointer to array", 0);
+            ERROR_CONDITION(!dest_symbol.get_type().no_ref().is_fortran_array(),
+                    "Invalid dest types, it must be an array", 0);
+            ERROR_CONDITION(dest_symbol.get_type().no_ref().array_requires_descriptor(),
+                    "Invalid dest symbol, it should be an array NOT requiring a descriptor", 0);
+            ERROR_CONDITION(!dest_symbol.get_type().no_ref().array_has_size()
+                    || !dest_symbol.get_type().no_ref().array_get_size().is_constant(),
+                    "Invalid dest symbol, it should have a constant size", 0);
+
+            static int num = 0;
+            // FIXME - Avoid creating functions twice for the same source_symbol type
+            std::stringstream ss;
+            ss << "nanox_copy_arr_desc_"
+                << std::hex
+                << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
+                << std::dec
+                << "_"
+                << num;
+
+            num++;
+
+            ObjectList<std::string> parameter_names;
+            ObjectList<TL::Type> parameter_types;
+
+            // 1. Dest parameter
+            TL::Type argument_type = dest_symbol.get_type().no_ref();
+            argument_type = argument_type.get_lvalue_reference_to();
+
+            parameter_types.append(argument_type);
+            parameter_names.append("nanox_descriptor_copy");
+
+            // 2. Source parameter
+            argument_type = source_symbol.get_type().no_ref();
+            argument_type = argument_type.get_lvalue_reference_to();
+
+            parameter_types.append(argument_type);
+            parameter_names.append("nanox_descriptor_source");
+
+            // -- Create function
+            TL::Symbol result = SymbolUtils::new_function_symbol(
+                    CURRENT_COMPILED_FILE->global_decl_context,
+                    ss.str(),
+                    /* has_return */ false,
+                    /* return_name */ "",
+                    TL::Type::get_void_type(),
+                    parameter_names,
+                    parameter_types);
+
+            ObjectList<TL::Symbol> parameters = result.get_related_symbols();
+            // Propagate ALLOCATABLE attribute of orig_symbol
+            symbol_entity_specs_set_is_allocatable(parameters[1].get_internal_symbol(),
+                    source_symbol.is_valid() && source_symbol.is_allocatable());
+
+            // Make sure we have a proper module info in the context of the parameter
+            scope_entry_t* new_used_modules_info =
+                ::get_or_create_used_modules_symbol_info(parameters[1].get_scope().get_decl_context());
+
+            type_t* basic_type = no_ref(parameters[1].get_internal_symbol()->type_information);
+
+            while (is_pointer_type(basic_type)
+                    || fortran_is_array_type(basic_type))
+            {
+                if (is_pointer_type(basic_type))
+                    basic_type = pointer_type_get_pointee_type(basic_type);
+                else if (fortran_is_array_type(basic_type))
+                    basic_type = array_type_get_element_type(basic_type);
+            }
+
+            // The type may come from a module, emit a USE
+            if (is_named_class_type(basic_type)
+                    && (symbol_entity_specs_get_in_module(named_type_get_symbol(basic_type))
+                        || symbol_entity_specs_get_from_module(named_type_get_symbol(basic_type))))
+            {
+                scope_entry_t* orig_symbol =
+                        named_type_get_symbol(basic_type);
+
+                scope_entry_t* module =
+                    symbol_entity_specs_get_from_module(orig_symbol);
+                if (module == NULL)
+                    module = symbol_entity_specs_get_in_module(orig_symbol);
+
+                // Insert the symbol from the module in the local scope
+                scope_entry_t* used_symbol = insert_symbol_from_module(
+                        orig_symbol,
+                        parameters[1].get_scope().get_decl_context(),
+                        orig_symbol->symbol_name,
+                        module,
+                        NULL);
+
+                // Update the type to refer to the USEd one and not the original
+                // from the module
+                parameters[1].get_internal_symbol()->type_information =
+                    fortran_update_basic_type_with_type(
+                            parameters[1].get_internal_symbol()->type_information,
+                            get_user_defined_type(used_symbol));
+
+                // Add an explicit USE statement
+                new_used_modules_info->value = nodecl_make_list_1(
+                        nodecl_make_fortran_use_only(
+                            nodecl_make_symbol(module, NULL),
+                            nodecl_make_list_1(
+                                nodecl_make_symbol(used_symbol, NULL)),
+                            NULL));
+
+            }
+
+            Source src;
+            src << "extern void " << ss.str() << "_ (void *dest, void *source)"
+                << "{"
+                << "__builtin_memcpy(dest, source, " << dest_symbol.get_type().no_ref().get_size() << ");"
+                << "}"
+                ;
+
+            // Parse as C
+            Source::source_language = SourceLanguage::C;
+            Nodecl::List n = src.parse_global(original_scope).as<Nodecl::List>();
+            Source::source_language = SourceLanguage::Current;
+
+            Nodecl::List& extra_c_code = Lowering::get_extra_c_code();
+
+            extra_c_code.append(n);
+
+
+            return result;
+        }
+
     }
 
 } }
@@ -250,6 +385,17 @@ namespace TL { namespace Nanox {
                 return_type,
                 argument_type,
                 /*lvalue_param*/ false,
+                original_scope);
+    }
+
+    TL::Symbol get_copy_descriptor_function(
+            TL::Symbol dest_symbol,
+            TL::Symbol source_symbol,
+            TL::Scope original_scope)
+    {
+        return get_copy_descriptor_function_impl(
+                dest_symbol,
+                source_symbol,
                 original_scope);
     }
 }}

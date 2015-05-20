@@ -60,6 +60,7 @@ LIBMF03_EXTERN char fortran_is_scalar_type(type_t* t);
 LIBMF03_EXTERN char fortran_is_pointer_to_array_type(type_t* t);
 LIBMF03_EXTERN char fortran_is_array_type_or_pointer_to(type_t* t);
 
+LIBMF03_EXTERN type_t* fortran_get_basic_type(type_t* type_info);
 LIBMF03_EXTERN type_t* fortran_replace_return_type_of_function_type(type_t* function_type, 
         type_t* new_return_type);
 

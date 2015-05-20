@@ -11,21 +11,40 @@ compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
 {openmp} compiler_phase = libtlomp-base.so
+
+#analysis
+{analysis} compiler_phase = libtest_analysis.so
+{analysis} options = --debug-flags=analysis_verbose
+{pcfg} options = --variable=pcfg_enabled:1
+{use-def} options = --variable=use_def_enabled:1
+{liveness} options = --variable=liveness_enabled:1
+{reaching-defs} options = --variable=reaching_defs_enabled:1
+{induction-vars} options = --variable=induction_vars_enabled:1
+{task-sync-tune} options = --variable=task_sync_tune_enabled:1
+{range} options = --variable=range_analysis_enabled:1
+{complexity} options = --variable=cyclomatic_complexity_enabled:1
+{auto-scope} compiler_phase = libtlomp_auto_scope.so
+{auto-scope} options = --variable=auto_scope_enabled:1
+{tdg} options = --variable=tdg_enabled:1
+{analysis-check} pragma_prefix = analysis_check
+{analysis-check} compiler_phase = libanalysis_check.so
 {(openmp|ompss), (openmp-lint|task-correctness), !analysis-check} compiler_phase = libtlomp-lint.so
 {complexity} compiler_phase = libtlcomplexity.so
 {(openmp|ompss), (openmp-lint|task-correctness)} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp-lint} options = --variable=lint_deprecated_flag:1
+
+#simd
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
+
+# nanos++
 {openmp} pragma_prefix = nanos
 {openmp} compiler_phase = libtlnanos-version.so
-#analysis
-{analysis-check} pragma_prefix = analysis_check
-{analysis-check} compiler_phase = libanalysis_check.so
-# nanos++
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
+
+#simd
 {simd, !mmic, !knl, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
 {simd, !mmic, !knl, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
@@ -42,6 +61,8 @@ linker_name = @GCC@
 {(mmic|knl)} preprocessor_options = -include immintrin.h
 {simd, avx2} preprocessor_options = -include immintrin.h
 {cluster} options = --variable=nanos_main_enabled:1
+
+#omp
 {ompss} options = --variable=ompss_mode:1
 {!ompss} options = --variable=copy_deps_by_default:0
 {ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
@@ -54,6 +75,7 @@ linker_name = @GCC@
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so
 {openmp} compiler_phase = libtlnanox-nanosmain.so
+
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
@@ -61,6 +83,9 @@ linker_name = @GCC@
 {overlap-in-place} options = --variable=overlap_in_place:1
 
 [omp-base : omp-base-common]
+#dlb
+{dlb} preprocessor_options = -I@DLB_INCLUDE@
+#
 linker_options = -Xlinker --add-needed
 #nanos++
 {openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
@@ -80,10 +105,22 @@ linker_options = -Xlinker --enable-new-dtags
 # New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+# used by XL
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
+# needed for the new link mechanism
 linker_options = -Xlinker --dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+# dlb
+{dlb} linker_options = -L@DLB_LIB@
+{dlb,!(instrument|instrumentation|debug)} linker_options= -ldlb
+{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{dlb,(instrument|instrumentation),!debug} linker_options  = -ldlb_instr
+{dlb,(instrument|instrumentation),debug} linker_options  = -ldlb_instr_dbg
+{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@
 
 [omp-base-ibm : omp-base-common]
+#dlb
+{dlb} preprocessor_options = -I@DLB_INCLUDE@
+#
 linker_options = -Wl,--add-needed
 #nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
@@ -98,5 +135,14 @@ linker_options = -Wl,--enable-new-dtags
 # New linking mechanism (libnanox-omp.so | libnanox-ompss.so)
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 @NANOX_NEW_LINK@{openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Wl,--no-as-needed -lnanox-ompss -lnanox-c -lnanox -lpthread -lrt
+# used by XL
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_IBM_LDFLAGS@
+# needed for the new link mechanism
 linker_options = -Wl,--dynamic-list=@PKGDATADIR@/nanos/nanos-exports.def
+# dlb
+{dlb} linker_options = -L@DLB_LIB@
+{dlb,!(instrument|instrumentation|debug)} linker_options = -ldlb
+{dlb,!(instrument|instrumentation),debug} linker_options = -ldlb_dbg
+{dlb,(instrument|instrumentation),!debug} linker_options = -ldlb_instr
+{dlb,(instrument|instrumentation),debug} linker_options = -ldlb_instr_dbg
+{dlb} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @DLB_LIB@

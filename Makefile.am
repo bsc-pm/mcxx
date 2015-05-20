@@ -692,19 +692,22 @@ src/frontend/cxx-asttype-nodecl.def : $(NODECL_DEPS)
 
 lib_LTLIBRARIES += src/frontend/fortran/libmf03.la src/frontend/fortran/libmf03-prescanner.la
 
-BUILT_SOURCES += src/frontend/fortran/fortran03-scanner.c
+BUILT_SOURCES += src/frontend/fortran/fortran03-flex-scanner.c
 BUILT_SOURCES += src/frontend/fortran/fortran03-parser.c
 BUILT_SOURCES += src/frontend/fortran/fortran03-parser-internal.h
 BUILT_SOURCES += src/frontend/fortran/fortran03.y
 BUILT_SOURCES += src/frontend/fortran/prescanner-scanner.h
 BUILT_SOURCES += src/frontend/fortran/fortran03-modules-bits.h
+BUILT_SOURCES += src/frontend/fortran/fortran03-keywords.c
 
 # Mercurium C/C++ compiler runtime library
 src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-parser.c \
                      src/frontend/fortran/fortran03-parser.h \
                      src/frontend/fortran/fortran03-lexer.h \
-                     src/frontend/fortran/fortran03-scanner.c \
+                     src/frontend/fortran/fortran03-keywords.c \
+                     src/frontend/fortran/fortran03-new-scanner.h \
+                     src/frontend/fortran/fortran03-new-scanner.c \
                      src/frontend/fortran/fortran03-parser-internal.h \
                      src/frontend/fortran/fortran03-cexpr.h \
                      src/frontend/fortran/fortran03-cexpr.c \
@@ -736,6 +739,12 @@ src_frontend_fortran_libmf03_la_SOURCES = \
                      src/frontend/fortran/fortran03-codegen.h \
                      src/frontend/fortran/libmf03-common.h \
                      $(END)
+
+if !FORTRAN_NEW_SCANNER
+src_frontend_fortran_libmf03_la_SOURCES += \
+                     src/frontend/fortran/fortran03-flex-scanner.c \
+                     $(END)
+endif
 
 src_frontend_fortran_libmf03_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
@@ -821,6 +830,22 @@ EXTRA_DIST += src/frontend/fortran/fortran03.y.in
 EXTRA_DIST += src/frontend/fortran/prescanner.l
 EXTRA_DIST += src/frontend/fortran/prescanner-scanner.h
 
+if GPERF_BUILDING
+CLEANFILES += src/frontend/fortran/fortran03-keywords.c
+endif
+src/frontend/fortran/fortran03-keywords.c : $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf
+if GPERF_BUILDING
+	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fortran_keywords_hash --struct-type \
+      --initializer-suffix=,0 --lookup-function-name=fortran_keywords_lookup --output=src/frontend/fortran/fortran03-keywords.c \
+	  --ignore-case --compare-strncmp \
+      $(srcdir)/src/frontend/fortran/fortran03-keywords.gperf
+else
+	@echo "*** ERROR: file fortran03-keywords.gperf was modified but no suitable gperf was found during configure ***"
+	@exit 1
+endif
+
+EXTRA_DIST += src/frontend/fortran/fortran03-keywords.gperf
+
 src/frontend/fortran/fortran03.y : $(TPP) $(top_srcdir)/src/frontend/fortran/fortran03.y.in $(addprefix $(top_srcdir)/, $(ADDITIONAL_GRAMMARS_FORTRAN))
 	$(TPP_verbose)(rm -f src/frontend/fortran/fortran03.y && $(TPP) -I$(top_srcdir)/src/frontend -I$(top_srcdir)/src/frontend/fortran -o src/frontend/fortran/fortran03.y -D FORTRAN2003 $(top_srcdir)/src/frontend/fortran/fortran03.y.in && chmod -w src/frontend/fortran/fortran03.y)
 
@@ -843,14 +868,14 @@ endif
 EXTRA_DIST += src/frontend/fortran/fortran03.l
 
 if FLEX_BUILDING
-CLEANFILES += src/frontend/fortran/fortran03-scanner.c
+CLEANFILES += src/frontend/fortran/fortran03-flex-scanner.c
 endif
 
-EXTRA_DIST += src/frontend/fortran/fortran03-scanner.c
+EXTRA_DIST += src/frontend/fortran/fortran03-flex-scanner.c
 
 if FLEX_BUILDING
-src/frontend/fortran/fortran03-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
-	$(FLEX_verbose)$(FLEX) -Pmf03 -d -i -o src/frontend/fortran/fortran03-scanner.c -8 $(top_srcdir)/src/frontend/fortran/fortran03.l
+src/frontend/fortran/fortran03-flex-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
+	$(FLEX_verbose)$(FLEX) -Pmf03 -d -i -o src/frontend/fortran/fortran03-flex-scanner.c -8 $(top_srcdir)/src/frontend/fortran/fortran03.l
 endif
 
 if FLEX_BUILDING
@@ -1180,26 +1205,44 @@ src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				$(END)
 
 ##########################################################################
+# src/tl/analysis/aliasing
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/aliasing/libaliasing.la
+
+src_tl_analysis_aliasing_libaliasing_la_CFLAGS   = $(tl_cflags) -I$(top_srcdir)/src/tl/analysis/common
+src_tl_analysis_aliasing_libaliasing_la_CXXFLAGS = $(tl_cflags) -I$(top_srcdir)/src/tl/analysis/common
+src_tl_analysis_aliasing_libaliasing_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_aliasing_libaliasing_la_LIBADD   = $(tl_libadd) src/tl/libtl.la \
+                                                   src/tl/omp/common/libtlomp-common.la \
+                                                   src/tl/analysis/common/libanalysis_utils.la
+
+src_tl_analysis_aliasing_libaliasing_la_SOURCES = \
+        src/tl/analysis/aliasing/tl-alias-analysis.hpp \
+        src/tl/analysis/aliasing/tl-alias-analysis.cpp \
+        $(END)
+
+##########################################################################
 # src/tl/analysis/pcfg
 ##########################################################################
 
 lib_LTLIBRARIES += src/tl/analysis/pcfg/libpcfg.la
 
 PCFG_COMMON_FLAGS= $(tl_cflags) \
-		$(ANALYSIS_CFLAGS) \
-		-I $(srcdir)/src/tl/analysis/loops \
-		-I $(srcdir)/src/tl/omp/common \
-		$(END)
+        $(ANALYSIS_CFLAGS) \
+        -I $(srcdir)/src/tl/analysis/loops \
+        -I $(srcdir)/src/tl/omp/common \
+        $(END)
 
-src_tl_analysis_pcfg_libpcfg_la_CFLAGS = $(PCFG_COMMON_FLAGS)
+src_tl_analysis_pcfg_libpcfg_la_CFLAGS   = $(PCFG_COMMON_FLAGS) \
+                                           -I $(srcdir)/src/tl/analysis/aliasing
 src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS)
-src_tl_analysis_pcfg_libpcfg_la_LDFLAGS = $(tl_ldflags)
-src_tl_analysis_pcfg_libpcfg_la_LIBADD = $(tl_libadd)\
-										 src/tl/libtl.la \
-										 src/tl/omp/common/libtlomp-common.la \
-										 src/tl/analysis/common/libanalysis_utils.la \
-										 $(END)
-
+src_tl_analysis_pcfg_libpcfg_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_pcfg_libpcfg_la_LIBADD   = $(tl_libadd)\
+                                           src/tl/libtl.la \
+                                           src/tl/omp/common/libtlomp-common.la \
+                                           src/tl/analysis/common/libanalysis_utils.la \
+                                           $(END)
 
 src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
                     src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
@@ -1305,12 +1348,15 @@ src_tl_analysis_loops_libloops_analysis_la_SOURCES = src/tl/analysis/loops/tl-iv
 
 lib_LTLIBRARIES += src/tl/analysis/pcfg_tasks/libpcfg_tasks.la
 
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CFLAGS = $(tl_cflags)
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LDFLAGS = $(tl_ldflags)
-src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
-							src/tl/libtl.la \
-							$(ANALYSIS_LIBADD)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CFLAGS   = $(tl_cflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CXXFLAGS = $(tl_cflags) \
+                                                       -I $(srcdir)/src/tl/analysis/aliasing \
+                                                       $(ANALYSIS_CFLAGS)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD   = $(tl_libadd) \
+                                                       src/tl/libtl.la \
+                                                       src/tl/analysis/aliasing/libaliasing.la \
+                                                       $(ANALYSIS_LIBADD)
 
 src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
 			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.hpp \
@@ -2962,7 +3008,6 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config/00.config.plain \
        config/01.config.intel-plain \
-       config/10.config.analysis-base \
        config/10.config.hlt \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
@@ -3066,6 +3111,8 @@ config_edit = \
      -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
      -e 's|@MIC_TOOLS[@]|$(MIC_TOOLS)|g' \
      -e 's|@CORRECTNESS_LOG_DIR[@]|$(CORRECTNESS_LOG_DIR)|g' \
+     -e 's|@DLB_LIB[@]|$(DLB_LIB)|g' \
+     -e 's|@DLB_INCLUDE[@]|$(DLB_INCLUDE)|g' \
     $(END)
 
 # Cross compiler profile names

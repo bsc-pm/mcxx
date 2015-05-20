@@ -217,7 +217,7 @@ namespace Analysis {
                     {
                         if(_pointer_to_size_map.find(subscripted.no_conv()) != _pointer_to_size_map.end())
                         {
-                            ctr_lb = const_value_to_nodecl(const_value_get_zero(/* bytes */ 4, /* signed*/ 1));
+                            ctr_lb = const_value_to_nodecl_with_basic_type(const_value_get_zero(/* bytes */ type_get_size(get_ptrdiff_t_type()), /* signed*/ 1), get_ptrdiff_t_type());
                             ctr_ub = _pointer_to_size_map[subscripted];
                         }
                         else
@@ -249,8 +249,8 @@ namespace Analysis {
             
                 // This case creates two ranges: [ctr_lb:ctd_lb] and [ctd_ub:ctr_ub]
                 NBase lb, ub;
-                const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
-                NBase one_nodecl = NBase(const_value_to_nodecl(one));
+                const_value_t* one = const_value_get_one(/*bytes*/ type_get_size(get_ptrdiff_t_type()), /*signed*/ 1);
+                NBase one_nodecl = NBase(const_value_to_nodecl_with_basic_type(one, get_ptrdiff_t_type()));
                 Nodecl::Range ctr_analysis = Nodecl::Range::make(ctr_lb.shallow_copy(), ctr_ub.shallow_copy(), 
                                                                  one_nodecl.shallow_copy(), ctd_subscript_t);
                 Nodecl::Range ctd_analysis = Nodecl::Range::make(ctd_lb.shallow_copy(), ctd_ub.shallow_copy(), 

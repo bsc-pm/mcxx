@@ -26,6 +26,7 @@
 
 
 #include "tl-lowering-visitor.hpp"
+#include "tl-counters.hpp"
 
 #include "tl-nodecl-utils.hpp"
 #include "cxx-diagnostic.h"
@@ -256,6 +257,8 @@ namespace TL { namespace Nanox {
                 expr_type = expr_type.references_to();
             }
 
+            Source atomic_union; // Defined below
+
             critical_source
                 << "{"
                 <<   type << " __oldval;"
@@ -263,14 +266,15 @@ namespace TL { namespace Nanox {
 
                 <<   temporary
 
+
                 <<   "do {"
                 <<      "__oldval = (" << lhs << ");"
                 <<      "__newval = __oldval " << op << " (" << rhs << ");"
                 <<      "__sync_synchronize();"
                 <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "("
                 <<                 "(" << proper_int_type << "*)&(" << lhs << "),"
-                <<                 "*(" << proper_int_type << "*)&__oldval,"
-                <<                 "*(" << proper_int_type << "*)&__newval ));"
+                <<                 "(" << atomic_union << "){__oldval}.__addr,"
+                <<                 "(" << atomic_union << "){__newval}.__addr));"
                 << "}"
                 ;
 
@@ -336,6 +340,20 @@ namespace TL { namespace Nanox {
                 {
                     internal_error("Code unreachable", 0);
                 }
+            }
+
+            // Atomic union
+            Counter& union_counter = CounterManager::get_counter("nanos++-union-atomic");
+            atomic_union << "__nanos_atomic_union_" << (int)union_counter;
+            union_counter++;
+            Source atomic_type_decl;
+            atomic_type_decl << "typedef union { " << type << " __val;" << proper_int_type << " __addr; } " << atomic_union << ";"
+                ;
+
+            Nodecl::NodeclBase n = atomic_type_decl.parse_global(expr);
+            if (!n.is_null())
+            {
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(expr, n);
             }
 
             return critical_source.parse_statement(expr);

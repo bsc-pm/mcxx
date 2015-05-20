@@ -31,6 +31,7 @@
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
 #include "cxx-graphviz.h"
+#include "cxx-entrylist.h"
 #include <algorithm>
 
 namespace Nodecl
@@ -1421,6 +1422,10 @@ namespace Nodecl
             TL::Counter &counter = TL::CounterManager::get_counter("label_visitor");
 
             std::string register_name, symbol_name;
+
+            decl_context_t decl_context = _sc.get_decl_context();
+            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
             if (IS_FORTRAN_LANGUAGE
                     && is_numeric_label)
             {
@@ -1443,32 +1448,53 @@ namespace Nodecl
                     ss >> x;
                 }
 
-                // FIXME - Make this more robust!
-                // Add 10000 to this label
-                x += 10000 + (int)counter;
+                bool repeated = true;
 
-                std::stringstream ss;
-                ss << x;
+                while (repeated)
+                {
+                    // Add 10000 to this label
+                    // and check if the name has already been used
+                    int new_x = x + 10000 + (int)counter;
+                    counter++;
 
-                symbol_name = ss.str();
-                register_name = ".label_" + symbol_name;
+                    ERROR_CONDITION(new_x > 99999, "Cannot generate a new temporary label", 0);
+
+                    std::stringstream ss;
+                    ss << new_x;
+
+                    symbol_name = ss.str();
+                    register_name = ".label_" + symbol_name;
+
+                    scope_entry_list_t* entry_list = ::query_name_str_flags(
+                            program_unit_context,
+                            uniquestr(register_name.c_str()),
+                            NULL,
+                            DF_ONLY_CURRENT_SCOPE);
+
+                    if (entry_list == NULL)
+                    {
+                        repeated = false;
+                    }
+                    else
+                    {
+                        ::entry_list_free(entry_list);
+                    }
+                }
             }
             else
             {
                 std::stringstream ss;
                 ss << sym.get_name() << "_" << (int)counter;
+                counter++;
 
                 symbol_name = ss.str();
                 register_name = symbol_name;
             }
-            counter++;
 
-            decl_context_t decl_context = _sc.get_decl_context();
             scope_entry_t* new_label = NULL;
-            if (IS_FORTRAN_LANGUAGE && !is_numeric_label)
+            if (IS_FORTRAN_LANGUAGE)
             {
-                // Nonnumeric labels in Fortran live in the program unit context
-                decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+                // Labels in Fortran live in the program unit context
                 new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope,
                         uniquestr(register_name.c_str()));
             }
@@ -1710,11 +1736,11 @@ namespace Nodecl
             TL::Source src;
             src
                 << "#line " << ref_scope.get_line() << " \"" << ref_scope.get_filename() << "\"\n"
+                << TL::pad_to_column(ref_scope.get_column())
                 << variable
                 ;
 
             Nodecl::NodeclBase var_tree = src.parse_expression(ref_scope.retrieve_context());
-
             nodecl_list.append(var_tree);
         }
 

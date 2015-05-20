@@ -562,7 +562,7 @@ namespace TL { namespace Nanox {
                     Source number_of_bytes;
                     number_of_bytes << "SIZE(" << (*it)->get_symbol().get_name() << ") * " << reduction_element_type.get_size();
 
-                    element_size << as_expression(number_of_bytes.parse_expression(construct));
+                    element_size << as_expression(number_of_bytes.parse_expression(ref_tree));
                 }
                 else
                 {
@@ -659,7 +659,7 @@ namespace TL { namespace Nanox {
                         Source size_call;
                         size_call << "SIZE(" << (*it)->get_symbol().get_name() << ")";
 
-                        num_scalars << as_expression(size_call.parse_expression(construct));
+                        num_scalars << as_expression(size_call.parse_expression(ref_tree));
                     }
                     else
                     {
@@ -676,11 +676,11 @@ namespace TL { namespace Nanox {
                         Source ubound_src;
                         ubound_src << "UBOUND(" << (*it)->get_symbol().get_name() << ", DIM = " << (rank - i) << ")";
 
-                        extra_dims 
+                        extra_dims
                             << "["
-                            << as_expression(lbound_src.parse_expression(construct))
+                           << as_expression(lbound_src.parse_expression(ref_tree))
                             << ":"
-                            << as_expression(ubound_src.parse_expression(construct))
+                            << as_expression(ubound_src.parse_expression(ref_tree))
                             << "]";
 
                         t = t.array_element();

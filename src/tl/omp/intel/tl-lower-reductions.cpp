@@ -183,18 +183,23 @@ namespace TL
     {
         if (simd_knc)
         {
-            if (reduction_items.size() != 1)
+            // When a SIMD KNC reduction is requested, we do not return a function but
+            // an array of functions
+            TL::ObjectList<SIMDReductionPair> pairs;
+            for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
+                   it != reduction_items.end();
+                   it++)
             {
-                error_printf("%s: error: SIMD reductions are implemented only for one variable at a time\n",
-                        location.get_locus_str().c_str());
-                return TL::Symbol();
-            }
-
-            return emit_callback_for_reduction_simd_knc(
+                SIMDReductionPair p = emit_callback_for_reduction_simd_knc(
                     reduction_items,
                     reduction_pack_type,
                     location,
                     current_function);
+
+                pairs.append(p);
+            }
+
+            return emit_array_of_reduction_simd_functions(pairs, location, current_function);
         }
         else
         {
@@ -512,8 +517,65 @@ namespace TL
         }
     }
 
+    TL::Symbol Intel::emit_array_of_reduction_simd_functions(
+            const TL::ObjectList<SIMDReductionPair>& pairs,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function)
+    {
+        TL::Counter &counters = TL::CounterManager::get_counter("intel-omp-reduction");
+        std::stringstream ss;
+        ss << "_red_arr_" << (int)counters;
+        counters++;
+
+        TL::ObjectList<TL::Type> void_ptr_void_ptr;
+        void_ptr_void_ptr.append(TL::Type::get_void_type().get_pointer_to());
+        void_ptr_void_ptr.append(TL::Type::get_void_type().get_pointer_to());
+
+        TL::Type fun_type = TL::Type::get_void_type().
+            get_function_returning(void_ptr_void_ptr);
+
+        TL::Type ptr_fun_type = fun_type.get_pointer_to();
+        TL::Type array_2_ptr_fun_type = ptr_fun_type.get_array_to(
+                const_value_to_nodecl(const_value_get_signed_int(2 * pairs.size())),
+                current_function.get_scope());
+
+        TL::Symbol array_of_pf = current_function.get_scope().new_symbol(ss.str());
+        array_of_pf.get_internal_symbol()->kind = SK_VARIABLE;
+        symbol_entity_specs_set_is_user_declared(array_of_pf.get_internal_symbol(), 1);
+        array_of_pf.set_type(array_2_ptr_fun_type);
+
+
+        TL::ObjectList<Nodecl::NodeclBase> initializers;
+        for (TL::ObjectList<SIMDReductionPair>::const_iterator it = pairs.begin();
+                it != pairs.end();
+                it++)
+        {
+            initializers.append(
+                    Nodecl::Cast::make(
+                        it->vertical_combiner.make_nodecl(),
+                        ptr_fun_type,
+                        /* cast_type */ "C"));
+            initializers.append(
+                    Nodecl::Cast::make(
+                        it->horizontal_combiner.make_nodecl(),
+                        ptr_fun_type,
+                        /* cast_type */ "C"));
+        }
+
+        Nodecl::NodeclBase array_initializer =
+            Nodecl::StructuredValue::make(
+                    Nodecl::List::make(initializers),
+                    Nodecl::StructuredValueBracedImplicit::make(),
+                    array_of_pf.get_type());
+        array_of_pf.set_value(array_initializer);
+
+        Nodecl::NodeclBase object_init = Nodecl::ObjectInit::make(array_of_pf);
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(location, object_init);
+        return array_of_pf;
+    }
+
     // SIMD - KNC
-    TL::Symbol Intel::emit_callback_for_reduction_simd_knc(
+    Intel::SIMDReductionPair Intel::emit_callback_for_reduction_simd_knc(
             TL::ObjectList<Nodecl::OpenMP::ReductionItem> &reduction_items,
             TL::Type reduction_pack_type,
             Nodecl::NodeclBase location,
@@ -531,46 +593,10 @@ namespace TL
                 reduction_items, reduction_pack_type,
                 location, current_function);
 
-        TL::Counter &counters = TL::CounterManager::get_counter("intel-omp-reduction");
-        std::stringstream ss;
-        ss << "_red_arr_" << (int)counters;
-        counters++;
+        SIMDReductionPair p;
+        p.horizontal_combiner = horizontal_combiner;
+        p.vertical_combiner = vertical_combiner;
 
-        TL::ObjectList<TL::Type> void_ptr_void_ptr;
-        void_ptr_void_ptr.append(TL::Type::get_void_type().get_pointer_to());
-        void_ptr_void_ptr.append(TL::Type::get_void_type().get_pointer_to());
-
-        TL::Type fun_type = TL::Type::get_void_type().
-            get_function_returning(void_ptr_void_ptr);
-
-        TL::Type ptr_fun_type = fun_type.get_pointer_to();
-        TL::Type array_2_ptr_fun_type = ptr_fun_type.get_array_to(
-                const_value_to_nodecl(const_value_get_signed_int(2)),
-                current_function.get_scope());
-
-        TL::Symbol array_of_pf = current_function.get_scope().new_symbol(ss.str());
-        array_of_pf.get_internal_symbol()->kind = SK_VARIABLE;
-        symbol_entity_specs_set_is_user_declared(array_of_pf.get_internal_symbol(), 1);
-        array_of_pf.set_type(array_2_ptr_fun_type);
-
-        Nodecl::NodeclBase array_initializer = 
-            Nodecl::StructuredValue::make(
-                    Nodecl::List::make(
-                        Nodecl::Cast::make(
-                            vertical_combiner.make_nodecl(),
-                            ptr_fun_type,
-                            /* cast_type */ "C"),
-                        Nodecl::Cast::make(
-                            horizontal_combiner.make_nodecl(),
-                            ptr_fun_type,
-                            /* cast_type */ "C")),
-                    Nodecl::StructuredValueBracedImplicit::make(),
-                    array_of_pf.get_type());
-        array_of_pf.set_value(array_initializer);
-
-        Nodecl::NodeclBase object_init = Nodecl::ObjectInit::make(array_of_pf);
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(location, object_init);
-
-        return array_of_pf;
+        return p;
     }
 }

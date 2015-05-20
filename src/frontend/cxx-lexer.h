@@ -41,30 +41,37 @@ typedef
 struct token_atrib_tag 
 {
     const char* token_text;
-    const char* token_file;
-    unsigned int token_line;
 } token_atrib_t;
 
-struct scan_file_descriptor 
+typedef struct parser_location_tag
 {
-    char in_include_file;
-    const char* filename;
+    const char* first_filename;
+    int first_line;
+    int first_column;
+} parser_location_t;
 
-    // Current filename due to include lines
-    const char* current_filename;
-    unsigned int line_number;
-    
-    // Fortran: After a joined line we have to move to this line if new_line > 0 
-    unsigned int new_line; 
+# define YYLLOC_DEFAULT(Current, Rhs, N)                                \
+    do                                                                  \
+      if (N)                                                            \
+        {                                                               \
+          (Current).first_filename = YYRHSLOC (Rhs, 1).first_filename;  \
+          (Current).first_line     = YYRHSLOC (Rhs, 1).first_line;      \
+          (Current).first_column   = YYRHSLOC (Rhs, 1).first_column;    \
+        }                                                               \
+      else                                                              \
+        {                                                               \
+          (Current).first_filename   =                                  \
+            YYRHSLOC (Rhs, 0).first_filename;                           \
+          (Current).first_line =                                        \
+            YYRHSLOC (Rhs, 0).first_line;                               \
+          (Current).first_column =                                      \
+            YYRHSLOC (Rhs, 0).first_column;                             \
+        }                                                               \
+    while (0)
 
-    // Fortran: Number of joined lines so far
-    unsigned int joined_lines;
+LIBMCXX_EXTERN void update_parser_location(const char* current_text, parser_location_t* loc);
 
-    FILE* file_descriptor;
-    struct yy_buffer_state* scanning_buffer;
-};
-
-LIBMCXX_EXTERN struct scan_file_descriptor scanning_now;
+#define YYLTYPE parser_location_t
 
 LIBMCXX_EXTERN int mcxx_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
 LIBMCXX_EXTERN int mc99_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
@@ -85,8 +92,6 @@ LIBMCXX_EXTERN int mcxx_flex_debug;
 
 LIBMCXX_EXTERN int mcxxdebug;
 LIBMCXX_EXTERN int mc99debug;
-
-LIBMCXX_EXTERN void close_scanned_file(void); 
 
 MCXX_END_DECLS
 

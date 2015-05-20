@@ -134,7 +134,9 @@ void DeviceMPI::generate_additional_mpi_code(
                 typelist_src.append_with_separator(ompss_mpi_type, ",");
 
                 if (parameters_called[i].get_type().array_has_size()) {
-                    blocklen_src.append_with_separator(parameters_called[i].get_type().array_get_size().prettyprint(), ",");
+                    blocklen_src.append_with_separator(
+                            as_expression(parameters_called[i].get_type().array_get_size().shallow_copy())
+                            , ",");
                 } else {
                     blocklen_src.append_with_separator("1", ",");
                 }
@@ -1144,23 +1146,23 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                     strerror(errno));
         }
 
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+        compilation_configuration_t* prev_config = CURRENT_CONFIGURATION;
 
-        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
-        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+        compilation_configuration_t* auxcc_configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (auxcc_configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+        SET_CURRENT_CONFIGURATION(auxcc_configuration);
 
         // Make sure phases are loaded (this is needed for codegen)
-        load_compiler_phases(configuration);
+        load_compiler_phases(auxcc_configuration);
 
         TL::CompilationProcess::add_file(new_filename, "auxcc");
 
         ::mark_file_for_cleanup(new_filename.c_str());
 
-        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(auxcc_configuration->codegen_phase);
         phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
-
+        SET_CURRENT_CONFIGURATION(prev_config);
 
         fclose(ancillary_file);
         // Do not forget the clear the code for next files

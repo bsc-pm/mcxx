@@ -172,6 +172,7 @@ namespace TL
                 TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
+                OutlineDataItem* _lastprivate_shared;
 
                 // This outline data item represents the C++ this object
                 bool _is_cxx_this;
@@ -195,6 +196,7 @@ namespace TL
                     _is_copy_of_array_descriptor_allocatable(false),
                     _base_symbol_of_argument(),
                     _is_lastprivate(),
+                    _lastprivate_shared(NULL),
                     _is_cxx_this(false)
                 {
                 }
@@ -396,6 +398,16 @@ namespace TL
                     _is_lastprivate = b;
                 }
 
+                void set_lastprivate_shared(OutlineDataItem* lastprivate_shared)
+                {
+                    _lastprivate_shared = lastprivate_shared;
+                }
+
+                OutlineDataItem* get_lastprivate_shared() const
+                {
+                    return _lastprivate_shared;
+                }
+
                 void set_base_symbol_of_argument(TL::Symbol symbol)
                 {
                     _base_symbol_of_argument = symbol;
@@ -553,6 +565,8 @@ namespace TL
                 Scope _sc;
 
                 void add_shared_common(Symbol sym, TL::Type field_type);
+
+                OutlineDataItem* capture_descriptor(OutlineDataItem &outline_info, Symbol sym);
 
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)

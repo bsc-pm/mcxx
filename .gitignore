@@ -101,6 +101,8 @@ src/frontend/cxx-scanner.c
 src/frontend/cxx-symbol-deep-copy-entity-specs.c
 src/frontend/cxx03.l
 src/frontend/cxx03.y
+src/frontend/fortran/fortran03-flex-scanner.c
+src/frontend/fortran/fortran03-keywords.c
 src/frontend/fortran/fortran03-modules-bits.h
 src/frontend/fortran/fortran03-parser-internal.h
 src/frontend/fortran/fortran03-parser.c
@@ -134,6 +136,7 @@ tests/config/mercurium-cuda
 tests/config/mercurium-cxx11
 tests/config/mercurium-cxx14
 tests/config/mercurium-extensions
+tests/config/mercurium-fe-only
 tests/config/mercurium-fortran
 tests/config/mercurium-hlt
 tests/config/mercurium-libraries

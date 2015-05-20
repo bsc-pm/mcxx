@@ -5015,7 +5015,6 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                          A<T...> a; // Only one template parameter, but it could be extended by the template argument pack
                        };
                      */
-// #warning FIXME - This should not happen
                     internal_error("Code unreachable", 0);
                     break;
                 }
@@ -5097,60 +5096,28 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     // }
                     && !is_dependent_type(result->arguments[i]->type))
             {
-                type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
-                if (is_unresolved_overloaded_type(arg_type))
-                {
-                    // We got an unresolved entity here, try to solve it
-                    scope_entry_t* entry = address_of_overloaded_function(
-                            unresolved_overloaded_type_get_overload_set(arg_type),
-                            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                            dest_type,
-                            new_template_context,
-                            locus);
+                nodecl_t nodecl_arg = nodecl_null();
+                char ok = check_nodecl_template_argument_can_be_converted_to_parameter_type(
+                        result->arguments[i]->value,
+                        dest_type,
+                        template_name_context,
+                        &nodecl_arg);
 
-                    if (entry == NULL)
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
-                                    " the type of the template parameter\n");
-                        }
-                        error_printf("%s: error: cannot solve address of overload function in template argument number %d\n",
-                                locus_to_str(locus), i);
-                        free_template_parameter_list(result);
-                        return NULL;
-                    }
-
-                    // If the symbol is not null, update the argument with its real function
-                    result->arguments[i]->value = nodecl_make_symbol(entry, locus);
-                    nodecl_set_type(result->arguments[i]->value, entry->type_information);
-                }
-                else
+                if (!ok)
                 {
-                    // We can't allow a user defined conversion here since it
-                    // would mean executing user code at compile time, which is
-                    // not possible, so we check for a SCS.
-                    //
-                    if (!is_dependent_type(arg_type))
-                    {
-                        standard_conversion_t scs_conv;
-                        if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(dest_type), locus))
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
-                            }
-                            error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
-                                    "type '%s' of the corresponding template parameter\n",
-                                    locus_to_str(locus),
-                                    print_type_str(arg_type, template_name_context),
-                                    i + 1,
-                                    print_type_str(dest_type, template_name_context));
-                            free_template_parameter_list(result);
-                            return NULL;
-                        }
-                    }
+                    type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
+                    error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
+                            "type '%s' of the corresponding template parameter\n",
+                            locus_to_str(locus),
+                            print_type_str(arg_type, template_name_context),
+                            i + 1,
+                            print_type_str(dest_type, template_name_context));
+                    free_template_parameter_list(result);
+                    return NULL;
                 }
+
+                nodecl_free(result->arguments[i]->value);
+                result->arguments[i]->value = nodecl_arg;
             }
         }
     }
@@ -5248,59 +5215,29 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     else if (!nodecl_expr_is_value_dependent(result->arguments[i]->value))
                     {
                         type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
-                        if (is_unresolved_overloaded_type(arg_type))
+                        if (!is_dependent_type(arg_type))
                         {
-                            // We got an unresolved entity here, try to solve it
-                            scope_entry_t* entry = address_of_overloaded_function(
-                                    unresolved_overloaded_type_get_overload_set(arg_type),
-                                    unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                                    parameter_type,
-                                    new_template_context,
-                                    locus);
+                            nodecl_t nodecl_arg = nodecl_null();
+                            char ok = check_nodecl_template_argument_can_be_converted_to_parameter_type(
+                                    result->arguments[i]->value,
+                                    get_unqualified_type(parameter_type),
+                                    template_name_context,
+                                    &nodecl_arg);
 
-                            if (entry == NULL)
+                            if (!ok)
                             {
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
-                                            " the type of the template parameter\n");
-                                }
-                                error_printf("%s: error: cannot solve address of overload "
-                                        "function in template argument number %d\n",
-                                        locus_to_str(locus), i);
+                                error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
+                                        "type '%s' of the corresponding template parameter\n",
+                                        locus_to_str(locus),
+                                        print_type_str(arg_type, template_name_context),
+                                        i + 1,
+                                        print_type_str(parameter_type, template_name_context));
                                 free_template_parameter_list(result);
                                 return NULL;
                             }
 
-                            // If the symbol is not null, update the argument with its real function
-                            result->arguments[i]->value = nodecl_make_symbol(entry, locus);
-                            nodecl_set_type(result->arguments[i]->value, entry->type_information);
-                        }
-                        else
-                        {
-                            // We can't allow a user defined conversion here since it
-                            // would mean executing user code at compile time, which is
-                            // not possible, so we check for a SCS.
-                            //
-                            if (!is_dependent_type(arg_type))
-                            {
-                                standard_conversion_t scs_conv;
-                                if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(parameter_type), locus))
-                                {
-                                    DEBUG_CODE()
-                                    {
-                                        fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
-                                    }
-                                    error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
-                                            "type '%s' of the corresponding template parameter pack\n",
-                                            locus_to_str(locus),
-                                            print_type_str(arg_type, template_name_context),
-                                            i + 1,
-                                            print_type_str(parameter_type, template_name_context));
-                                    free_template_parameter_list(result);
-                                    return NULL;
-                                }
-                            }
+                            nodecl_free(result->arguments[i]->value);
+                            result->arguments[i]->value = nodecl_arg;
                         }
                     }
                 }

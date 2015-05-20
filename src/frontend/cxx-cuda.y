@@ -31,23 +31,23 @@ postfix_expression : cuda_kernel_call
 
 cuda_specifiers : CUDA_DEVICE
 {
-    $$ = ASTLeaf(AST_CUDA_DEVICE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_DEVICE, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | CUDA_GLOBAL
 {
-    $$ = ASTLeaf(AST_CUDA_GLOBAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_GLOBAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | CUDA_HOST
 {
-    $$ = ASTLeaf(AST_CUDA_HOST, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_HOST, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | CUDA_CONSTANT
 {
-    $$ = ASTLeaf(AST_CUDA_CONSTANT, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_CONSTANT, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | CUDA_SHARED
 {
-    $$ = ASTLeaf(AST_CUDA_SHARED, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_CUDA_SHARED, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 

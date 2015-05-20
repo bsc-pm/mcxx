@@ -71,19 +71,19 @@ superscalar_region_spec_list : superscalar_region_spec
 
 superscalar_region_spec : '{' '}'
 {
-	$$ = ASTLeaf(AST_SUPERSCALAR_REGION_SPEC_FULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTLeaf(AST_SUPERSCALAR_REGION_SPEC_FULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' expression '}'
 {
-	$$ = ASTMake1(AST_SUPERSCALAR_REGION_SPEC_SINGLE, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake1(AST_SUPERSCALAR_REGION_SPEC_SINGLE, $2, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' expression TWO_DOTS expression '}'
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_RANGE, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_RANGE, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | '{' expression ':' expression '}'
 {
-	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_LENGTH, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_SUPERSCALAR_REGION_SPEC_LENGTH, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 

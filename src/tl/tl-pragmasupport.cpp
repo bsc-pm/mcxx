@@ -216,7 +216,7 @@ namespace TL
 
             Source src;
             src << "#line " << this->get_line() << " \"" << this->get_filename() << "\"\n"
-                << *it;
+                << pad_to_column(this->get_column()) << *it;
 
             Nodecl::NodeclBase current_expr = src.parse_expression(ref_scope);
 

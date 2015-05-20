@@ -10249,76 +10249,67 @@ static char conversion_is_valid_static_cast(
         RETURN(1);
 
     // Apply lvalue conversions
-    type_t* before_lvalue_conv = orig_type;
     orig_type = no_ref(orig_type);
     if (is_array_type(orig_type))
         orig_type = get_pointer_type(array_type_get_element_type(orig_type));
     else if (is_function_type(orig_type))
         orig_type = get_pointer_type(orig_type);
 
-    if (!equivalent_types(before_lvalue_conv, orig_type))
+    if (
+            // A scoped enum can be converted to an integral type
+            (is_scoped_enum_type(orig_type)
+             && is_integral_type(dest_type))
+            // An enum or integral can be converted to enum
+            || ((is_enum_type(orig_type)
+                    || is_integral_type(orig_type))
+                && is_enum_type(dest_type))
+            // A base pointer can be converted to derived type
+            || (is_pointer_to_class_type(orig_type)
+                && is_pointer_to_class_type(dest_type)
+                && class_type_is_base_instantiating(
+                    pointer_type_get_pointee_type(orig_type),
+                    pointer_type_get_pointee_type(dest_type),
+                    locus)
+                && !class_type_is_ambiguous_base_of_derived_class(
+                    pointer_type_get_pointee_type(orig_type),
+                    pointer_type_get_pointee_type(dest_type))
+                && !class_type_is_virtual_base_or_base_of_virtual_base(
+                    pointer_type_get_pointee_type(orig_type),
+                    pointer_type_get_pointee_type(dest_type))
+                && is_more_or_equal_cv_qualified_type(
+                    pointer_type_get_pointee_type(dest_type),
+                    pointer_type_get_pointee_type(orig_type)))
+            // A pointer to member can be converted to a base pointer if the opposite
+            // conversion exists
+            // cv1 T D::* -> cv2 T B::*
+            || (is_pointer_to_member_type(orig_type)
+                    && is_pointer_to_member_type(dest_type)
+                    && class_type_is_base_instantiating(
+                        // B
+                        pointer_to_member_type_get_class_type(dest_type),
+                        // D
+                        pointer_to_member_type_get_class_type(orig_type),
+                        locus)
+                    //  T B::* -> T D::*
+                    && standard_conversion_between_types(&scs, 
+                        get_unqualified_type(dest_type),
+                        get_unqualified_type(orig_type),
+                        locus)
+                    // cv2 >= cv1
+                    && is_more_or_equal_cv_qualified_type(
+                        pointer_type_get_pointee_type(dest_type),
+                        pointer_type_get_pointee_type(orig_type)))
+            // cv1 void* -> cv2 T*  where cv2 >= cv1
+            || (is_pointer_to_void_type(orig_type)
+                    && is_pointer_type(dest_type)
+                    && is_more_or_equal_cv_qualified_type(
+                        pointer_type_get_pointee_type(dest_type),
+                        pointer_type_get_pointee_type(orig_type)))
+            )
     {
         unary_record_conversion_to_result(orig_type, nodecl_expression);
+        RETURN(1);
     }
-
-    // A scoped enum can be converted to an integral type
-    if (is_scoped_enum_type(orig_type)
-            && is_integral_type(dest_type))
-        RETURN(1);
-
-    // An enum or integral can be converted to enum
-    if ((is_enum_type(orig_type)
-                || is_integral_type(orig_type))
-            && is_enum_type(dest_type))
-        RETURN(1);
-
-    // A base pointer can be converted to derived type
-    if (is_pointer_to_class_type(orig_type)
-            && is_pointer_to_class_type(dest_type)
-            && class_type_is_base_instantiating(
-                pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type),
-                locus)
-            && !class_type_is_ambiguous_base_of_derived_class(
-                pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type))
-            && !class_type_is_virtual_base_or_base_of_virtual_base(
-                pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type))
-            && is_more_or_equal_cv_qualified_type(
-                pointer_type_get_pointee_type(dest_type),
-                pointer_type_get_pointee_type(orig_type)))
-        RETURN(1);
-
-    // A pointer to member can be converted to a base pointer if the opposite
-    // conversion exists
-    // cv1 T D::* -> cv2 T B::*
-    if (is_pointer_to_member_type(orig_type)
-            && is_pointer_to_member_type(dest_type)
-            && class_type_is_base_instantiating(
-                // B
-                pointer_to_member_type_get_class_type(dest_type),
-                // D
-                pointer_to_member_type_get_class_type(orig_type),
-                locus)
-            //  T B::* -> T D::*
-            && standard_conversion_between_types(&scs, 
-                get_unqualified_type(dest_type),
-                get_unqualified_type(orig_type),
-                locus)
-            // cv2 >= cv1
-            && is_more_or_equal_cv_qualified_type(
-                pointer_type_get_pointee_type(dest_type),
-                pointer_type_get_pointee_type(orig_type)))
-        RETURN(1);
-
-    // cv1 void* -> cv2 T*  where cv2 >= cv1
-    if (is_pointer_to_void_type(orig_type)
-            && is_pointer_type(dest_type)
-            && is_more_or_equal_cv_qualified_type(
-                pointer_type_get_pointee_type(dest_type),
-                pointer_type_get_pointee_type(orig_type)))
-        RETURN(1);
 
     // No conversion was possible using static_cast
     RETURN(0);
@@ -15916,6 +15907,20 @@ static void check_nodecl_member_access(
                     }
                     else
                     {
+                        // Make sure the type of this static data member is complete
+                        if (is_class_type_or_array_thereof(type_of_class_member_access))
+                        {
+                            type_t* class_type_of_class_member_access = type_of_class_member_access;
+                            if (is_array_type(class_type_of_class_member_access))
+                                class_type_of_class_member_access =
+                                    array_type_get_element_type(class_type_of_class_member_access);
+
+                            scope_entry_t* class_symbol_of_class_member_access =
+                                named_type_get_symbol(class_type_of_class_member_access);
+                            class_type_complete_if_needed(class_symbol_of_class_member_access,
+                                    decl_context, locus);
+                        }
+
                         type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
                     }
                 }
@@ -21779,8 +21784,8 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         //
         // if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
         // {
-        //     error_printf("%s:%d: error: last statement must be an expression statement\n",
-        //                 locus);
+        //     error_printf("%s: error: last statement must be an expression statement\n",
+        //                 locus_to_str(locus));
         //     *nodecl_output = nodecl_make_err_expr(locus);
         //     return;
         // }
@@ -21865,6 +21870,52 @@ static void check_gcc_builtin_va_arg(AST expression,
             t, locus);
 }
 
+static nodecl_t promote_node_to_ptrdiff_t(nodecl_t n, decl_context_t decl_context)
+{
+    if (nodecl_is_null(n))
+        return n;
+
+    if (nodecl_is_err_expr(n))
+        return n;
+
+    if (nodecl_expr_is_type_dependent(n))
+        return n;
+
+    if (!is_integral_type(get_unqualified_type(
+                    no_ref(nodecl_get_type(n)))))
+    {
+        error_printf("%s: error: expression '%s' must be of integral type\n",
+                nodecl_locus_to_str(n),
+                codegen_to_str(n, decl_context));
+        return nodecl_make_err_expr(nodecl_get_locus(n));
+    }
+
+    if (!equivalent_types(
+                get_unqualified_type(no_ref(nodecl_get_type(n))),
+                get_ptrdiff_t_type()))
+    {
+
+        if (nodecl_is_constant(n))
+        {
+            return const_value_to_nodecl_with_basic_type(
+                    const_value_cast_to_bytes(
+                        nodecl_get_constant(n),
+                        type_get_size(get_ptrdiff_t_type()),
+                        /* sign */ 1),
+                    get_ptrdiff_t_type());
+        }
+        else
+        {
+            n = nodecl_make_conversion(
+                    nodecl_shallow_copy(n),
+                    get_ptrdiff_t_type(),
+                    nodecl_get_locus(n));
+        }
+    }
+
+    return n;
+}
+
 static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_t nodecl_lower,
         nodecl_t nodecl_upper,
@@ -21874,6 +21925,9 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    nodecl_lower = promote_node_to_ptrdiff_t(nodecl_lower, decl_context);
+    nodecl_upper = promote_node_to_ptrdiff_t(nodecl_upper, decl_context);
+    nodecl_stride = promote_node_to_ptrdiff_t(nodecl_stride, decl_context);
 
     if (nodecl_is_err_expr(nodecl_postfix)
             || (!nodecl_is_null(nodecl_lower) && nodecl_is_err_expr(nodecl_lower))
@@ -21890,7 +21944,12 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
 
     if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
-        nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
+    {
+        if (is_array_section_size)
+            nodecl_upper = nodecl_shallow_copy(array_type_get_array_size_expr(indexed_type));
+        else
+            nodecl_upper = nodecl_shallow_copy(array_type_get_array_upper_bound(indexed_type));
+    }
 
 #define MAX_NESTING_OF_ARRAY_REGIONS (16)
 
@@ -21914,12 +21973,15 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
             const_value_t* cval_upper = nodecl_get_constant(nodecl_upper);
 
             nodecl_upper =
-                const_value_to_nodecl(
+                const_value_to_nodecl_with_basic_type(
                         const_value_sub( // (U +L) - 1
                             const_value_add( // U + L
                                 cval_upper, // U
                                 cval_lower),// L
-                            const_value_get_one(/* num_bytes */ 4, /* signed */ 1)));
+                            const_value_get_one(
+                                /* num_bytes */ type_get_size(get_ptrdiff_t_type()),
+                                /* signed */ 1)),
+                        get_ptrdiff_t_type());
         }
         else
         {
@@ -21927,19 +21989,24 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
                 nodecl_make_minus(
                         nodecl_make_add(
                             nodecl_shallow_copy(nodecl_upper), nodecl_shallow_copy(nodecl_lower),
-                            get_signed_int_type(),
+                            get_ptrdiff_t_type(),
                             nodecl_get_locus(nodecl_upper)),
                         nodecl_make_integer_literal(
-                            get_signed_int_type(),
-                            const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                            get_ptrdiff_t_type(),
+                            const_value_get_one(
+                                /* num_bytes */ type_get_size(get_ptrdiff_t_type()),
+                                /* sign */ 1),
                             nodecl_get_locus(nodecl_upper)),
-                        get_signed_int_type(),
+                        get_ptrdiff_t_type(),
                         nodecl_get_locus(nodecl_upper));
         }
     }
 
-    nodecl_t nodecl_range = nodecl_make_range(nodecl_lower, nodecl_upper, nodecl_stride, 
-            get_signed_int_type(), locus);
+    nodecl_t nodecl_range = nodecl_make_range(
+            nodecl_lower,
+            nodecl_upper,
+            nodecl_stride,
+            get_ptrdiff_t_type(), locus);
 
     type_t* result_type = NULL;
     if (is_array_type(indexed_type))
@@ -21947,7 +22014,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_t array_lower_bound = array_type_get_array_lower_bound(indexed_type);
         nodecl_t array_upper_bound = array_type_get_array_upper_bound(indexed_type);
         decl_context_t array_decl_context = array_type_get_array_size_expr_context(indexed_type);
-    
+
         result_type = get_array_type_bounds_with_regions(
                 array_type_get_element_type(indexed_type),
                 array_lower_bound,
@@ -22080,7 +22147,10 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
     }
     else
     {
-        nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ 4, /* signed */ 1));
+        nodecl_stride = const_value_to_nodecl_with_basic_type(
+                const_value_get_one(
+                    /* bytes */ type_get_size(get_ptrdiff_t_type()), /* signed */ 1),
+                get_ptrdiff_t_type());
     }
     
     char is_array_section_size = (ASTKind(expression) == AST_ARRAY_SECTION_SIZE);
@@ -22120,12 +22190,13 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         standard_conversion_t scs;
         if (!standard_conversion_between_types(&scs,
                     no_ref(current_expr_type),
-                    get_signed_int_type(),
+                    get_ptrdiff_t_type(),
                     locus))
         {
-            error_printf("%s: error: shaping expression '%s' cannot be converted to 'int'\n",
+            error_printf("%s: error: shaping expression '%s' cannot be converted to '%s'\n",
                     nodecl_locus_to_str(current_expr),
-                    codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)));
+                    codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)),
+                    print_type_str(get_ptrdiff_t_type(), decl_context));
             xfree(list);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -24831,6 +24902,254 @@ nodecl_t cxx_nodecl_make_function_call(
     }
 }
 
+char check_nodecl_template_argument_can_be_converted_to_parameter_type(
+        nodecl_t nodecl_argument,
+        type_t* parameter_type,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_out)
+{
+    const locus_t* locus = nodecl_get_locus(nodecl_argument);
+    type_t* argument_type = nodecl_get_type(nodecl_argument);
+    parameter_type = get_unqualified_type(parameter_type);
+
+    if (is_dependent_type(parameter_type)
+            || nodecl_expr_is_type_dependent(nodecl_argument)
+            || is_dependent_type(argument_type))
+    {
+        *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+        return 1;
+    }
+
+    standard_conversion_t scs;
+    if (is_integral_type(parameter_type)
+            || is_enum_type(parameter_type))
+    {
+        if (!standard_conversion_between_types(&scs, argument_type, parameter_type, locus))
+            return 0;
+
+        // for a non-type template-parameter of integral or enumeration type,
+        // integral promotions and integral conversions are applied
+        if ((scs.conv[0] == SCI_IDENTITY) 
+                || ((scs.conv[0] == SCI_NO_CONVERSION
+                        || scs.conv[0] == SCI_LVALUE_TO_RVALUE)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_INTEGRAL_PROMOTION
+                        || scs.conv[1] == SCI_INTEGRAL_CONVERSION
+                        || scs.conv[1] == SCI_BOOLEAN_CONVERSION)
+                    && (scs.conv[2] == SCI_NO_CONVERSION)))
+        {
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else if (is_pointer_type(parameter_type)
+            && !is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        if (!standard_conversion_between_types(&scs, argument_type, parameter_type, locus))
+            return 0;
+
+        // for a non-type template-parameter of type pointer to object, qualification conversions (4.4) and the
+        // array-to-pointer conversion (4.2) are applied; if the template-argument is of type std::nullptr_t, the
+        // null pointer conversion (4.10) is applied. [ Note: In particular, neither the null pointer conversion for
+        // a zero-valued integral constant expression (4.10) nor the derived-to-base conversion (4.10) are applied.
+        // Although 0 is a valid template-argument for a non-type template-parameter of integral type, it is not
+        // a valid template-argument for a non-type template-parameter of pointer type. However, both (int*)0
+        // and nullptr are valid template-arguments for a non-type template-parameter of type “pointer to int.”
+        // — end note ]
+        if ((scs.conv[0] == SCI_IDENTITY) 
+                || ((scs.conv[0] == SCI_NO_CONVERSION
+                        || scs.conv[0] == SCI_LVALUE_TO_RVALUE
+                        || scs.conv[0] == SCI_ARRAY_TO_POINTER)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)
+                    && (scs.conv[2] == SCI_NO_CONVERSION
+                        || scs.conv[2] == SCI_QUALIFICATION_CONVERSION)))
+        {
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else if (is_any_reference_type(parameter_type)
+            && !is_function_type(no_ref(parameter_type)))
+    {
+        // For a non-type template-parameter of type reference to object, no
+        // conversions apply. The type referred to by the reference may be more
+        // cv-qualified than the (otherwise identical) type of the template- argument.
+        // The template-parameter is bound directly to the template-argument, which
+        // shall be an lvalue.
+
+        if (!equivalent_types(
+                    get_unqualified_type(no_ref(parameter_type)),
+                    get_unqualified_type(no_ref(argument_type))))
+            return 0;
+
+        if (!is_more_or_equal_cv_qualified_type(no_ref(parameter_type),
+                    no_ref(argument_type)))
+            return 0;
+
+        if (!is_lvalue_reference_type(argument_type))
+            return 0;
+
+        *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+        return 1;
+    }
+    else if (is_pointer_type(parameter_type)
+            && is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        // For a non-type template-parameter of type pointer to function, the
+        // function-to-pointer conversion (4.3) is applied; if the template-argument is
+        // of type std::nullptr_t, the null pointer conversion (4.10) is applied. If
+        // the template-argument represents a set of overloaded functions (or a pointer
+        // to such), the matching function is selected from the set (13.4).
+
+        if (is_unresolved_overloaded_type(argument_type))
+        {
+            scope_entry_t* entry = address_of_overloaded_function(
+                    unresolved_overloaded_type_get_overload_set(argument_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(argument_type),
+                    parameter_type,
+                    decl_context,
+                    locus);
+
+            if (entry == NULL)
+                return 0;
+
+            *nodecl_out = nodecl_make_symbol(entry, locus);
+            nodecl_set_type(*nodecl_out,
+                    get_pointer_type(entry->type_information));
+            return 1;
+        }
+        else
+        {
+            if (!standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus))
+                return 0;
+
+            if ((scs.conv[0] == SCI_IDENTITY)
+                    || ((scs.conv[0] == SCI_NO_CONVERSION
+                        || scs.conv[0] == SCI_FUNCTION_TO_POINTER)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)))
+            {
+                *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+                return 1;
+            }
+        }
+    }
+    else if (is_any_reference_type(parameter_type)
+            && is_function_type(no_ref(parameter_type)))
+    {
+        // For a non-type template-parameter of type reference to function, no
+        // conversions apply. If the template- argument represents a set of
+        // overloaded functions, the matching function is selected from the set
+        // (13.4).
+        if (is_unresolved_overloaded_type(argument_type))
+        {
+            scope_entry_t* entry = address_of_overloaded_function(
+                    unresolved_overloaded_type_get_overload_set(argument_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(argument_type),
+                    parameter_type,
+                    decl_context,
+                    locus);
+
+            if (entry == NULL)
+                return 0;
+
+            *nodecl_out = nodecl_make_symbol(entry, locus);
+            nodecl_set_type(*nodecl_out,
+                    get_lvalue_reference_type(entry->type_information));
+            return 1;
+        }
+        else
+        {
+            if (!equivalent_types(parameter_type, argument_type))
+                return 0;
+
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else if (is_pointer_to_member_type(parameter_type)
+            && is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        // For a non-type template-parameter of type pointer to member function, if the template-argument is of
+        // type std::nullptr_t, the null member pointer conversion (4.11) is applied; otherwise, no conversions
+        // apply. If the template-argument represents a set of overloaded member functions, the matching member
+        // function is selected from the set (13.4).
+        if (is_unresolved_overloaded_type(argument_type))
+        {
+            scope_entry_t* entry = address_of_overloaded_function(
+                    unresolved_overloaded_type_get_overload_set(argument_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(argument_type),
+                    parameter_type,
+                    decl_context,
+                    locus);
+
+            if (entry == NULL)
+                return 0;
+
+            *nodecl_out = nodecl_make_symbol(entry, locus);
+            nodecl_set_type(*nodecl_out,
+                    get_pointer_to_member_type(entry->type_information,
+                        symbol_entity_specs_get_class_type(entry)));
+            return 1;
+        }
+        else
+        {
+            if (!standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus))
+                return 0;
+
+            if ((scs.conv[0] == SCI_IDENTITY)
+                    || ((scs.conv[0] == SCI_NO_CONVERSION)
+                        && (scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)
+                        && (scs.conv[2] == SCI_NO_CONVERSION)))
+            {
+                *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+                return 1;
+            }
+        }
+    }
+    else if (is_pointer_to_member_type(parameter_type)
+            && !is_function_type(pointer_type_get_pointee_type(parameter_type)))
+    {
+        // For a non-type template-parameter of type pointer to data member, qualification conversions (4.4) are
+        // applied; if the template-argument is of type std::nullptr_t, the null member pointer conversion (4.11)
+        // is applied.
+        if (!standard_conversion_between_types(&scs,
+                    argument_type,
+                    parameter_type,
+                    locus))
+            return 0;
+
+        if (scs.conv[0] == SCI_IDENTITY)
+            return 1;
+
+        if ((scs.conv[0] == SCI_IDENTITY)
+                || ((scs.conv[0] == SCI_NO_CONVERSION)
+                    && (scs.conv[1] == SCI_NO_CONVERSION
+                        || scs.conv[1] == SCI_NULLPTR_TO_POINTER_CONVERSION)
+                    && (scs.conv[2] == SCI_NO_CONVERSION
+                        || scs.conv[2] == SCI_QUALIFICATION_CONVERSION)))
+        {
+            *nodecl_out = nodecl_shallow_copy(nodecl_argument);
+            return 1;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable argument_type=%s parameter_type=%s",
+                print_declarator(argument_type),
+                print_declarator(parameter_type));
+    }
+
+    return 0;
+}
+
 char check_nontype_template_argument_type(type_t* t)
 {
     return is_integral_type(t)
@@ -24841,8 +25160,9 @@ char check_nontype_template_argument_type(type_t* t)
         || is_dependent_type(t);
 }
 
-char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
-        decl_context_t decl_context, 
+char check_nodecl_nontype_template_argument_expression(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     if (nodecl_expr_is_value_dependent(nodecl_expr)
@@ -24956,8 +25276,8 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
     return 1;
 }
 
-char check_nontype_template_argument_expression(AST expression, 
-        decl_context_t decl_context, 
+char check_nontype_template_argument_expression(AST expression,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
@@ -25188,7 +25508,7 @@ static void instantiate_range(nodecl_instantiate_expr_visitor_t *v, nodecl_t nod
             nodecl_lower,
             nodecl_upper,
             nodecl_stride,
-            get_signed_int_type(),
+            get_ptrdiff_t_type(),
             nodecl_get_locus(node));
 }
 

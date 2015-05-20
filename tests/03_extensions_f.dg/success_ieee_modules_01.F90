@@ -1,9 +1,9 @@
 ! <testinfo>
 ! test_generator=config/mercurium-extensions
 ! compile_versions="mod mod2 use all"
-! test_FFLAGS_mod="-DWRITE_MOD"
-! test_FFLAGS_mod2="-DWRITE_MOD2"
-! test_FFLAGS_use="-DUSE_MOD"
+! test_FFLAGS_mod="--do-not-wrap-modules -DWRITE_MOD"
+! test_FFLAGS_mod2="--do-not-wrap-modules -DWRITE_MOD2"
+! test_FFLAGS_use="--do-not-wrap-modules -DUSE_MOD"
 ! test_FFLAGS_all="-DWRITE_MOD -DWRITE_MOD2 -DUSE_MOD"
 ! </testinfo>
 #ifdef WRITE_MOD

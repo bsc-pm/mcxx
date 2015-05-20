@@ -16,11 +16,11 @@
 
 primary_expression : MCC_ARRAY_SUBSCRIPT_CHECK '(' assignment_expression ',' constant_expression ')'
 {
-    $$ = ASTMake2(AST_MCC_ARRAY_SUBSCRIPT_CHECK, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake2(AST_MCC_ARRAY_SUBSCRIPT_CHECK, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MCC_CONST_VALUE_CHECK '(' assignment_expression ')'
 {
-    $$ = ASTMake1(AST_MCC_CONSTANT_VALUE_CHECK, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_MCC_CONSTANT_VALUE_CHECK, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -48,7 +48,7 @@ noshape_cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_CAST, $2, $4, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -76,8 +76,8 @@ shape: '[' expression ']'
 
 iteration_statement : FOR '[' symbol_literal_ref ']' '(' for_init_statement condition_opt ';' expression_opt ')' statement
 {
-    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $6, $7, $9, make_locus($1.token_file, $1.token_line, 0), NULL);
-	$$ = ASTMake4(AST_FOR_STATEMENT, loop_control, $11, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $6, $7, $9, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+	$$ = ASTMake4(AST_FOR_STATEMENT, loop_control, $11, NULL, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 
 }
 ;
@@ -100,11 +100,11 @@ type_specifier_SUSL : mercurium_extended_type_specifiers
 
 mercurium_extended_type_specifiers : MCC_BOOL
 {
-	$$ = ASTLeaf(AST_MCC_BOOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_MCC_BOOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | MCC_MASK
 {
-	$$ = ASTLeaf(AST_MCC_MASK, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_MCC_MASK, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 

@@ -89,6 +89,7 @@ static inline const locus_t* nodecl_get_locus(nodecl_t);
 
 static inline const char* nodecl_get_filename(nodecl_t);
 static inline unsigned int nodecl_get_line(nodecl_t);
+static inline unsigned int nodecl_get_column(nodecl_t);
 static inline const char* nodecl_locus_to_str(nodecl_t);
 
 static inline void nodecl_set_locus(nodecl_t n, const locus_t* locus);

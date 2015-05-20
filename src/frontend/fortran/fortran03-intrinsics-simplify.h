@@ -35,6 +35,71 @@
 #include "fortran03-cexpr.h"
 #include "cxx-typeutils.h"
 
+static const_value_t* compute_binary_elemental(
+        const_value_t* cval_a,
+        const_value_t* cval_b,
+        const_value_t* (*compute)(const_value_t*, const_value_t*))
+{
+    if (const_value_is_array(cval_a)
+            || const_value_is_array(cval_b))
+    {
+        if (const_value_is_array(cval_a)
+                && const_value_is_array(cval_b)
+                && const_value_get_num_elements(cval_a) != const_value_get_num_elements(cval_b))
+            return NULL;
+
+        int num_elements;
+        if (const_value_is_array(cval_a))
+            num_elements = const_value_get_num_elements(cval_a);
+        else
+            num_elements = const_value_get_num_elements(cval_b);
+
+        if (num_elements == 0)
+            return const_value_make_array(0, NULL);
+
+        const_value_t* const_vals[num_elements];
+
+        int k;
+        for (k = 0; k < num_elements; k++)
+        {
+            const_value_t* current_val = NULL;
+            if (const_value_is_array(cval_a)
+                    && const_value_is_array(cval_b))
+            {
+                current_val = compute_binary_elemental(
+                        const_value_get_element_num(cval_a, k),
+                        const_value_get_element_num(cval_b, k),
+                        compute);
+            }
+            else if (const_value_is_array(cval_a))
+            {
+                current_val = compute_binary_elemental(
+                        const_value_get_element_num(cval_a, k),
+                        cval_b,
+                        compute);
+            }
+            else
+            {
+                current_val = compute_binary_elemental(
+                        cval_a,
+                        const_value_get_element_num(cval_b, k),
+                        compute);
+            }
+
+            if (current_val == NULL)
+                return NULL;
+
+            const_vals[k] = current_val;
+        }
+
+        return const_value_make_array(num_elements, const_vals);
+    }
+    else
+    {
+        return compute(cval_a, cval_b);
+    }
+}
+
 static nodecl_t nodecl_make_int_literal(int n)
 {
     return nodecl_make_integer_literal(fortran_get_default_integer_type(), 
@@ -330,13 +395,34 @@ static nodecl_t simplify_bit_size(scope_entry_t* entry UNUSED_PARAMETER, int num
 static nodecl_t simplify_len(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t str = arguments[0];
+    nodecl_t kind = arguments[1];
 
     type_t* t = fortran_get_rank0_type(no_ref(nodecl_get_type(str)));
 
     if (array_type_is_unknown_size(t))
         return nodecl_null();
 
-    return nodecl_shallow_copy(array_type_get_array_size_expr(t));
+    int kind_ = type_get_size(fortran_get_default_integer_type());
+
+    nodecl_t n = array_type_get_array_size_expr(t);
+    if (nodecl_is_constant(n))
+    {
+        if (!nodecl_is_null(kind))
+        {
+            if (!nodecl_is_constant(kind))
+                return nodecl_null();
+
+            kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
+        }
+
+        t = choose_int_type_from_kind(kind, kind_);
+        return const_value_to_nodecl_with_basic_type(
+                const_value_cast_to_bytes(nodecl_get_constant(n),
+                    type_get_size(t), /* sign */ 1),
+                t);
+    }
+
+    return nodecl_null();
 }
 
 static nodecl_t simplify_kind(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -525,8 +611,13 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
                 if (!nodecl_is_constant(bound))
                     return nodecl_null();
 
-                return const_value_to_nodecl_with_basic_type(nodecl_get_constant(bound), 
-                        choose_int_type_from_kind(kind, kind_));
+                t = choose_int_type_from_kind(kind, kind_);
+                return const_value_to_nodecl_with_basic_type(
+                        const_value_cast_to_bytes(
+                            nodecl_get_constant(bound),
+                            type_get_size(t),
+                            /* sign */ 1),
+                        t);
             }
         }
     }
@@ -595,7 +686,9 @@ static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
             if (!array_type_is_unknown_size(t))
             {
-                return nodecl_shallow_copy(array_type_get_array_size_expr(t));
+                nodecl_t n = array_type_get_array_size_expr(t);
+                if (nodecl_is_constant(n))
+                    return nodecl_shallow_copy(n);
             }
         }
     }
@@ -2531,15 +2624,153 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     if (!nodecl_is_null(kind_arg))
         kind = const_value_cast_to_signed_int(nodecl_get_constant(kind_arg));
 
+    type_t* t = choose_int_type_from_kind(kind_arg, kind);
+
     return const_value_to_nodecl_with_basic_type(
-            const_value_get_integer(val, /* bytes */ 1, /* sign */ 1),
-            fortran_choose_int_type_from_kind(kind));
+            const_value_get_integer(val, type_get_size(t), /* sign */ 1),
+            t);
 }
 
 static nodecl_t simplify_ichar(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     // Mercurium only supports ASCII thus ichar is the same as iachar
     return simplify_iachar(entry, num_arguments, arguments);
+}
+
+static const_value_t* compute_ibclr(const_value_t* cval_i, const_value_t* cval_pos)
+{
+    if (!const_value_is_integer(cval_i)
+            || !const_value_is_integer(cval_pos))
+        return NULL;
+
+    cvalue_int_t i = const_value_cast_to_cvalue_int(cval_i);
+    cvalue_int_t pos = const_value_cast_to_cvalue_int(cval_pos);
+
+    int bytes = const_value_get_bytes(cval_i);
+    int bits = bytes * 8;
+
+    if (pos < 0
+            || pos >= bits)
+        return NULL;
+
+    cvalue_uint_t new_i = i & ~(1 << pos);
+    return const_value_get_integer(new_i, bytes, /* signed */ 1);
+}
+
+static nodecl_t simplify_ibclr(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_pos = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_pos == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_pos,
+            compute_ibclr);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_ibset(const_value_t* cval_i, const_value_t* cval_pos)
+{
+    if (!const_value_is_integer(cval_i)
+            || !const_value_is_integer(cval_pos))
+        return NULL;
+
+    cvalue_int_t i = const_value_cast_to_cvalue_int(cval_i);
+    cvalue_int_t pos = const_value_cast_to_cvalue_int(cval_pos);
+
+    int bytes = const_value_get_bytes(cval_i);
+    int bits = bytes * 8;
+
+    if (pos < 0
+            || pos >= bits)
+        return NULL;
+
+    cvalue_uint_t new_i = i | (1 << pos);
+    return const_value_get_integer(new_i, bytes, /* signed */ 1);
+}
+
+
+static nodecl_t simplify_ibset(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_pos = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_pos == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_pos,
+            compute_ibset);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_btest(const_value_t* cval_i, const_value_t* cval_pos)
+{
+    if (!const_value_is_integer(cval_i)
+            || !const_value_is_integer(cval_pos))
+        return NULL;
+
+    cvalue_int_t i = const_value_cast_to_cvalue_int(cval_i);
+    cvalue_int_t pos = const_value_cast_to_cvalue_int(cval_pos);
+
+    int bytes = const_value_get_bytes(cval_i);
+    int bits = bytes * 8;
+
+    if (pos < 0
+            || pos >= bits)
+        return NULL;
+
+    cvalue_uint_t test_bit = (i & (1 << pos));
+
+    if (test_bit)
+    {
+        return const_value_get_one(fortran_get_default_logical_type_kind(), 1);
+    }
+    else
+    {
+        return const_value_get_zero(fortran_get_default_logical_type_kind(), 1);
+    }
+}
+
+static nodecl_t simplify_btest(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_pos = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_pos == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_pos,
+            compute_btest);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl_with_basic_type(cval,
+            fortran_get_default_logical_type());
 }
 
 static const_value_t* compute_nint(const_value_t* cval)
@@ -2584,7 +2815,11 @@ static nodecl_t simplify_nint(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     }
 
     type_t* integer_type = choose_int_type_from_kind(kind, kind_);
-    const_value_t* integer_value = compute_nint(nodecl_get_constant(arg));
+    const_value_t* integer_value = 
+        const_value_cast_to_bytes(
+                compute_nint(nodecl_get_constant(arg)),
+                type_get_size(integer_type),
+                /* sign */ 1);
 
     return const_value_to_nodecl_with_basic_type(
             integer_value,
@@ -2656,4 +2891,106 @@ static nodecl_t simplify_mcc_null(scope_entry_t* entry UNUSED_PARAMETER,
 
     nodecl_set_type(zero_pointer, get_variant_type_zero(fortran_get_default_integer_type()));
     return zero_pointer;
+}
+
+static const_value_t* compute_ieor(const_value_t* val_i, const_value_t* val_j)
+{
+    if (!const_value_is_integer(val_i)
+            || !const_value_is_integer(val_j))
+        return NULL;
+
+    return const_value_get_integer(
+            const_value_cast_to_cvalue_uint(val_i) ^ const_value_cast_to_cvalue_uint(val_j),
+            const_value_get_bytes(val_i),
+            /* signed */ 1);
+}
+
+static nodecl_t simplify_ieor(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_j = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_j == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_j,
+            compute_ieor);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_ior(const_value_t* val_i, const_value_t* val_j)
+{
+    if (!const_value_is_integer(val_i)
+            || !const_value_is_integer(val_j))
+        return NULL;
+
+    return const_value_get_integer(
+            const_value_cast_to_cvalue_uint(val_i) | const_value_cast_to_cvalue_uint(val_j),
+            const_value_get_bytes(val_i),
+            /* signed */ 1);
+}
+
+static nodecl_t simplify_ior(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_j = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_j == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_j,
+            compute_ior);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
+}
+
+static const_value_t* compute_iand(const_value_t* val_i, const_value_t* val_j)
+{
+    if (!const_value_is_integer(val_i)
+            || !const_value_is_integer(val_j))
+        return NULL;
+
+    return const_value_get_integer(
+            const_value_cast_to_cvalue_uint(val_i) & const_value_cast_to_cvalue_uint(val_j),
+            const_value_get_bytes(val_i),
+            /* signed */ 1);
+}
+
+static nodecl_t simplify_iand(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments)
+{
+    const_value_t *cval_i = nodecl_get_constant(arguments[0]);
+    const_value_t *cval_j = nodecl_get_constant(arguments[1]);
+
+    if (cval_i == NULL
+            || cval_j == NULL)
+        return nodecl_null();
+
+    const_value_t* cval = compute_binary_elemental(
+            cval_i,
+            cval_j,
+            compute_iand);
+
+    if (cval == NULL)
+        return nodecl_null();
+
+    return const_value_to_nodecl(cval);
 }

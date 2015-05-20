@@ -267,6 +267,9 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
 LIBMCXX_EXTERN type_t* get_array_type_unknown_size_dependent(
         type_t* element_type);
 
+LIBMCXX_EXTERN type_t* array_type_rebase(type_t* array_type,
+        type_t* new_element_type);
+
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
         parameter_info_t* parameter_info, int num_parameters,
         ref_qualifier_t ref_qualifier);

@@ -182,7 +182,7 @@ namespace TL
             {
                 std::string filename = locus_get_filename(d);
                 unsigned int line = locus_get_line(d);
-                unsigned int column = locus_get_col(d);
+                unsigned int column = locus_get_column(d);
 
                 mw.write(filename);
                 mw.write(line);

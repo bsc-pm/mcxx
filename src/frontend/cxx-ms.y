@@ -22,7 +22,7 @@ nontype_specifier : declspec_specifier
 
 declspec_specifier : TOKEN_DECLSPEC '(' extended_decl_modifier_list ')'
 {
-    $$ = ASTMake1(AST_MS_DECLSPEC, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake1(AST_MS_DECLSPEC, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -48,11 +48,11 @@ extended_decl_modifier_list0 : extended_decl_modifier
 
 extended_decl_modifier : identifier_token
 {
-    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, NULL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 | identifier_token '(' expression_list ')'
 {
-    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
@@ -64,19 +64,19 @@ attribute_specifier : declspec_specifier
 
 builtin_types : MS_INT8
 {
-    $$ = ASTLeaf(AST_MS_INT8, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_MS_INT8, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MS_INT16
 {
-    $$ = ASTLeaf(AST_MS_INT16, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_MS_INT16, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MS_INT32
 {
-    $$ = ASTLeaf(AST_MS_INT32, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_MS_INT32, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 | MS_INT64
 {
-    $$ = ASTLeaf(AST_MS_INT64, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTLeaf(AST_MS_INT64, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 

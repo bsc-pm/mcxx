@@ -107,10 +107,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
             OutlineDataItem& outline_data_item);
         void handle_vla_saved_expr(Nodecl::NodeclBase saved_expr, OutlineInfo& outline_info);
 
-        void handle_reductions_on_task(
+        //! This function returns true if the current task has at least one reduction.
+        //! Otherwise, it returns false
+        bool handle_reductions_on_task(
                 Nodecl::NodeclBase construct,
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase statements,
+                bool generate_final_stmts,
                 Nodecl::NodeclBase& final_statements);
 
         void fill_arguments(
@@ -478,10 +481,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
-
-
-        void generate_final_stmts(Nodecl::NodeclBase stmts);
-
 };
 
 } }

@@ -413,9 +413,8 @@ namespace Codegen
                     );
 
             bool is_local_symbol(TL::Symbol entry);
-            bool is_local_symbol_but_local_class(TL::Symbol entry);
-            // Note: is_nonlocal_symbol_but_local_class is NOT EQUIVALENT to !is_local_symbol_but_local_class
-            bool is_nonlocal_symbol_but_local_class(TL::Symbol entry);
+            // Note: is_nonlocal_symbol is NOT EQUIVALENT to !is_local_symbol
+            bool is_nonlocal_symbol(TL::Symbol entry);
             bool is_prototype_symbol(TL::Symbol entry);
             bool all_enclosing_classes_are_user_declared(TL::Symbol entry);
 

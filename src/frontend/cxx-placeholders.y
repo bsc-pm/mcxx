@@ -22,7 +22,7 @@ statement : statement_placeholder
 statement_placeholder : STATEMENT_PLACEHOLDER 
 {
     // This is an empty statement
-    $$ = ASTLeaf(AST_STATEMENT_PLACEHOLDER, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_STATEMENT_PLACEHOLDER, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 /*!endif*/
@@ -30,7 +30,7 @@ statement_placeholder : STATEMENT_PLACEHOLDER
 statement_placeholder : STATEMENT_PLACEHOLDER eos
 {
     // This is an empty statement
-    $$ = ASTLeaf(AST_STATEMENT_PLACEHOLDER, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_STATEMENT_PLACEHOLDER, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 /*!endif*/

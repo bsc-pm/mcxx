@@ -272,6 +272,8 @@ type_t* fortran_replace_return_type_of_function_type(type_t* function_type, type
 {
     ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
 
+    cv_qualifier_t cv = get_cv_qualifier(function_type_get_return_type(function_type));
+
     int num_parameters = function_type_get_num_parameters(function_type);
     if (!function_type_get_lacking_prototype(function_type))
     {
@@ -283,11 +285,15 @@ type_t* fortran_replace_return_type_of_function_type(type_t* function_type, type
             parameter_info[i].type_info = function_type_get_parameter_type_num(function_type, i);
         }
 
-        return get_new_function_type(new_return_type, parameter_info, num_parameters, REF_QUALIFIER_NONE);
+        return get_new_function_type(
+                get_cv_qualified_type(new_return_type, cv),
+                parameter_info, num_parameters, REF_QUALIFIER_NONE);
     }
     else
     {
-        return get_nonproto_function_type(new_return_type, num_parameters);
+        return get_nonproto_function_type(
+                get_cv_qualified_type(new_return_type, cv),
+                num_parameters);
     }
 }
 
@@ -334,6 +340,31 @@ char fortran_equivalent_tkr_types(type_t* t1, type_t* t2)
     return 1;
 }
 
+type_t* fortran_get_basic_type(type_t* type_info)
+{
+    // Many functions drop the reference type, so chek it the first
+    if (is_lvalue_reference_type(type_info))
+    {
+        return fortran_get_basic_type(no_ref(type_info));
+    }
+    else if (is_pointer_type(type_info))
+    {
+        return fortran_get_basic_type(pointer_type_get_pointee_type(type_info));
+    }
+    else if (fortran_is_array_type(type_info))
+    {
+        return fortran_get_basic_type(array_type_get_element_type(type_info));
+    }
+    else if (is_function_type(type_info))
+    {
+        return fortran_get_basic_type(function_type_get_return_type(type_info));
+    }
+    else
+    {
+        return type_info;
+    }
+}
+
 type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_type)
 {
     if (is_error_type(basic_type))
@@ -347,9 +378,12 @@ type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_typ
     }
     else if (is_pointer_type(type_info))
     {
-        return get_pointer_type(
-                fortran_update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
-                );
+        cv_qualifier_t cv = get_cv_qualifier(type_info);
+        return get_cv_qualified_type(
+                get_pointer_type(
+                    fortran_update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
+                    ),
+                cv);
     }
     else if (fortran_is_array_type(type_info))
     {
@@ -358,7 +392,6 @@ type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_typ
                 array_type_get_array_lower_bound(type_info),
                 array_type_get_array_upper_bound(type_info),
                 array_type_get_array_size_expr_context(type_info));
-
     }
     else if (is_function_type(type_info))
     {
@@ -366,7 +399,8 @@ type_t* fortran_update_basic_type_with_type(type_t* type_info, type_t* basic_typ
     }
     else
     {
-        return basic_type;
+        cv_qualifier_t cv = get_cv_qualifier(type_info);
+        return get_cv_qualified_type(basic_type, cv);
     }
 }
 

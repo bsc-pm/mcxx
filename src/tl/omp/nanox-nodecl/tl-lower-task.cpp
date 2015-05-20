@@ -597,7 +597,6 @@ void LoweringVisitor::emit_async_common(
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024))
     {
-
         if (IS_FORTRAN_LANGUAGE
                 && !final_condition.is_constant())
         {
@@ -618,6 +617,14 @@ void LoweringVisitor::emit_async_common(
                 << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
                 ;
         }
+    }
+
+    // Only tasks created in a parallel construct are marked as implicit
+    if (Nanos::Version::interface_is_at_least("master", 5029))
+    {
+        dynamic_wd_info
+            << "nanos_wd_dyn_props.flags.is_implicit = 0;"
+            ;
     }
 
     Source dynamic_size;
@@ -934,17 +941,24 @@ void LoweringVisitor::visit_task(
 
     OutlineInfo outline_info(*_lowering, environment, function_symbol);
 
+    bool generate_final_stmts = Nanos::Version::interface_is_at_least("master", 5024)
+            && !_lowering->final_clause_transformation_disabled()
+            && outline_info.only_has_smp_or_mpi_implementations()
+            && !inside_task_expression;
+
     // In the case of task reductions, we cannot use the final stmts generated
     // by the FinalStmtsGenerator because we need to introduce some extra function
     // calls to obtain the thread private storage
     //
     // The task_reduction_final_statements will be filled if the current task has
     // a reduction clause
+    bool has_task_reduction = false;
     Nodecl::NodeclBase task_reduction_final_statements;
-    handle_reductions_on_task(
+    has_task_reduction = handle_reductions_on_task(
             construct,
             outline_info,
             statements,
+            generate_final_stmts,
             task_reduction_final_statements);
 
     // Handle the special object 'this'
@@ -971,10 +985,7 @@ void LoweringVisitor::visit_task(
     }
 
     Nodecl::NodeclBase new_construct;
-    if (!_lowering->final_clause_transformation_disabled()
-            && Nanos::Version::interface_is_at_least("master", 5024)
-            && outline_info.only_has_smp_or_mpi_implementations()
-            && !inside_task_expression)
+    if (generate_final_stmts)
     {
         // We create a new Node OpenMP::Task with the same childs as the
         // original construct. Another solution is shallow copy all the
@@ -1036,7 +1047,7 @@ void LoweringVisitor::visit_task(
     }
 
     // Our implementation of reduction tasks forces them to be tied
-    bool is_untied = task_environment.is_untied && !task_reduction_final_statements.is_null();
+    bool is_untied = task_environment.is_untied && !has_task_reduction;
 
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
@@ -1435,7 +1446,7 @@ void LoweringVisitor::fill_arguments(
 
                         if ((*it)->get_captured_value().is_null())
                         {
-                            if (t.is_pointer())
+                            if (t.is_pointer() || t.is_function())
                             {
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " => " << (*it)->get_symbol().get_name() << "\n"
@@ -1463,7 +1474,7 @@ void LoweringVisitor::fill_arguments(
                                 fill_outline_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
                                 fill_immediate_arguments << "IF (" << as_expression(condition.shallow_copy()) << ") THEN\n";
                             }
-                            if (t.is_pointer())
+                            if (t.is_pointer() || t.is_function())
                             {
                                 fill_outline_arguments <<
                                     "ol_args % " << (*it)->get_field_name() << " => " << as_expression(captured.shallow_copy()) << "\n"
@@ -1517,6 +1528,21 @@ void LoweringVisitor::fill_arguments(
                             fill_immediate_arguments << 
                                 "imm_args % " << (*it)->get_field_name() << " => " 
                                 << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << ") \n"
+                                ;
+                        }
+                        else if (t.is_array() && t.array_requires_descriptor())
+                        {
+                            // This must be an assumed shape, so it will have a descriptor
+                            OutlineDataItem* copy_of_array_descriptor = (*it)->get_copy_of_array_descriptor();
+                            ERROR_CONDITION(copy_of_array_descriptor == NULL, "Missing array descriptor copy entity", 0);
+
+                            fill_outline_arguments <<
+                                "ol_args %" << (*it)->get_field_name() << " => "
+                                << "MERCURIUM_LOC( ol_args %" << copy_of_array_descriptor->get_field_name() << ")\n"
+                                ;
+                            fill_immediate_arguments <<
+                                "imm_args % " << (*it)->get_field_name() << " => "
+                                << "MERCURIUM_LOC( imm_args %" << copy_of_array_descriptor->get_field_name() << ")\n"
                                 ;
                         }
                         else
@@ -2691,10 +2717,11 @@ void LoweringVisitor::emit_translation_function_region(
             << "if (nanos_err != NANOS_OK) nanos_handle_error(nanos_err);"
             ;
 
-        if ((*it)->get_symbol().is_allocatable()
-                || ((*it)->get_symbol().get_type().is_pointer()
-                    && (*it)->get_symbol().get_type().points_to().is_array()
-                    && (*it)->get_symbol().get_type().points_to().array_requires_descriptor()))
+        if (((*it)->get_symbol().get_type().no_ref().is_fortran_array()
+                    && (*it)->get_symbol().get_type().no_ref().array_requires_descriptor())
+                || ((*it)->get_symbol().get_type().no_ref().is_pointer()
+                    && (*it)->get_symbol().get_type().no_ref().points_to().is_fortran_array()
+                    && (*it)->get_symbol().get_type().no_ref().points_to().array_requires_descriptor()))
         {
             TL::Symbol new_function = get_function_modify_array_descriptor(
                     (*it)->get_field_name(),

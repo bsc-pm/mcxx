@@ -19,7 +19,7 @@
 
 nodecl_literal_expr : NODECL_LITERAL_EXPR '(' nodecl_literal_attribute_seq  ')'
 {
-    $$ = ASTMake1(AST_NODECL_LITERAL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_NODECL_LITERAL, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -30,7 +30,7 @@ nodecl_literal_stmt : NODECL_LITERAL_STMT '(' nodecl_literal_attribute_seq ')'
 nodecl_literal_stmt : NODECL_LITERAL_STMT '(' nodecl_literal_attribute_seq ')' eos
 /*!endif*/
 {
-    $$ = ASTMake1(AST_NODECL_LITERAL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_NODECL_LITERAL, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -46,13 +46,13 @@ nodecl_literal_attribute_seq : nodecl_literal_attribute_seq ',' nodecl_string_li
 
 symbol_literal_ref : SYMBOL_LITERAL_REF '(' nodecl_string_literal ')'
 {
-    $$ = ASTMake1(AST_SYMBOL_LITERAL_REF, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_SYMBOL_LITERAL_REF, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
 type_literal_ref : TYPE_LITERAL_REF '(' nodecl_string_literal ')'
 {
-    $$ = ASTMake1(AST_TYPE_LITERAL_REF, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_TYPE_LITERAL_REF, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
@@ -63,7 +63,7 @@ nodecl_string_literal : CHAR_LITERAL
 nodecl_string_literal : STRING_LITERAL
 /*!endif*/
 {
-    $$ = ASTLeaf(AST_STRING_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    $$ = ASTLeaf(AST_STRING_LITERAL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 

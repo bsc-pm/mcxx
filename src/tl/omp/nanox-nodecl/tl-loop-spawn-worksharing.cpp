@@ -167,6 +167,14 @@ namespace TL { namespace Nanox {
                 ;
         }
 
+        // Only tasks created in a parallel construct are marked as implicit
+        if (Nanos::Version::interface_is_at_least("master", 5029))
+        {
+            dynamic_wd_info
+                << "dyn_props.flags.is_implicit = 0;"
+                ;
+        }
+
         Source spawn_code;
         spawn_code
         << "{"

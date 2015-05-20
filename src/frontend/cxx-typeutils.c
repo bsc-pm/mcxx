@@ -4174,6 +4174,11 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
         return result;
 }
 
+type_t* array_type_rebase(type_t* array_type, type_t* new_element_type)
+{
+    return _clone_array_type(array_type, new_element_type);
+}
+
 extern inline type_t* get_unqualified_type(type_t* t)
 {
     t = advance_over_typedefs(t);
@@ -4697,8 +4702,9 @@ static type_t* _get_array_type(
                 *(data[i].value) = const_value_cast_to_8(
                         nodecl_get_constant(*(data[i].nodecl)));
                 // Simplify the tree now
-                *(data[i].nodecl) = const_value_to_nodecl_cached(
-                        nodecl_get_constant(*(data[i].nodecl)));
+                *(data[i].nodecl) = const_value_to_nodecl_with_basic_type_cached(
+                        nodecl_get_constant(*(data[i].nodecl)),
+                        get_ptrdiff_t_type());
             }
         }
     }
@@ -4878,24 +4884,57 @@ static type_t* _get_array_type(
     return result;
 }
 
-static nodecl_t get_zero_tree(const locus_t* locus) 
+static nodecl_t get_zero_tree(const locus_t* locus)
 {
-    return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_zero(type_get_size(get_signed_int_type()), 1), 
+    return nodecl_make_integer_literal(get_ptrdiff_t_type(),
+            const_value_get_zero(type_get_size(get_ptrdiff_t_type()), 1),
             locus);
 }
 
 static nodecl_t get_one_tree(const locus_t* locus)
 {
-    return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_one(type_get_size(get_signed_int_type()), 1), 
+    return nodecl_make_integer_literal(get_ptrdiff_t_type(),
+            const_value_get_one(type_get_size(get_ptrdiff_t_type()), 1),
             locus);
+}
+
+static nodecl_t convert_node_to_ptrdiff_t(nodecl_t n)
+{
+    if (nodecl_is_null(n))
+        return n;
+
+    if (nodecl_expr_is_value_dependent(n)
+            || nodecl_expr_is_type_dependent(n))
+        return n;
+
+    if (!equivalent_types(
+                get_unqualified_type(no_ref(nodecl_get_type(n))),
+                get_ptrdiff_t_type()))
+    {
+        const_value_t* cv = nodecl_get_constant(n);
+        n = nodecl_make_conversion(
+                nodecl_shallow_copy(n),
+                get_ptrdiff_t_type(),
+                nodecl_get_locus(n));
+
+        if (cv != NULL)
+        {
+            cv = const_value_cast_to_bytes(
+                    cv,
+                    type_get_size(get_ptrdiff_t_type()), /* sign */ 1);
+            nodecl_set_constant(n, cv);
+        }
+    }
+
+    return n;
 }
 
 extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t decl_context)
 {
-    nodecl_t lower_bound = nodecl_null(); 
-    nodecl_t upper_bound = nodecl_null(); 
+    whole_size = convert_node_to_ptrdiff_t(whole_size);
+
+    nodecl_t lower_bound = nodecl_null();
+    nodecl_t upper_bound = nodecl_null();
     if (!nodecl_is_null(whole_size))
     {
         lower_bound = get_zero_tree(nodecl_get_locus(whole_size));
@@ -4904,21 +4943,26 @@ extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, 
         {
             // Compute the constant
             const_value_t* c = const_value_sub(
-                    nodecl_get_constant(whole_size),
-                    const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                    const_value_cast_to_bytes(
+                        nodecl_get_constant(whole_size),
+                        type_get_size(get_ptrdiff_t_type()),
+                        /* signed */ 1),
+                    const_value_get_one(
+                        /* bytes */ type_get_size(get_ptrdiff_t_type()),
+                        /* signed */ 1));
 
-            upper_bound = const_value_to_nodecl_cached(c);
+            upper_bound = const_value_to_nodecl_with_basic_type_cached(c, get_ptrdiff_t_type());
         }
         else
         {
             nodecl_t temp = nodecl_shallow_copy(whole_size);
 
             upper_bound = nodecl_make_minus(
-                    nodecl_make_parenthesized_expression(temp, 
-                        nodecl_get_type(temp), 
+                    nodecl_make_parenthesized_expression(temp,
+                        nodecl_get_type(temp),
                         nodecl_get_locus(whole_size)),
                     get_one_tree(nodecl_get_locus(whole_size)),
-                    get_signed_int_type(),
+                    get_ptrdiff_t_type(),
                     nodecl_get_locus(whole_size));
 
             nodecl_expr_set_is_value_dependent(upper_bound,
@@ -4937,6 +4981,8 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
         nodecl_t whole_size,
         decl_context_t decl_context)
 {
+    whole_size = convert_node_to_ptrdiff_t(whole_size);
+
     nodecl_t lower_bound = nodecl_null();
     nodecl_t upper_bound = nodecl_null();
     if (!nodecl_is_null(whole_size))
@@ -4948,20 +4994,23 @@ static type_t* get_array_type_for_literal_string(type_t* element_type,
             // Compute the constant
             const_value_t* c = const_value_sub(
                     nodecl_get_constant(whole_size),
-                    const_value_get_one(/* bytes */ 4, /* signed */ 1));
+                    const_value_get_one(
+                        /* bytes */ type_get_size(get_ptrdiff_t_type()),
+                        /* signed */ 1));
 
-            upper_bound = const_value_to_nodecl_cached(c);
+            upper_bound = const_value_to_nodecl_with_basic_type_cached(c,
+                    get_ptrdiff_t_type());
         }
         else
         {
             nodecl_t temp = nodecl_shallow_copy(whole_size);
 
             upper_bound = nodecl_make_minus(
-                    nodecl_make_parenthesized_expression(temp, 
-                        nodecl_get_type(temp), 
+                    nodecl_make_parenthesized_expression(temp,
+                        nodecl_get_type(temp),
                         nodecl_get_locus(whole_size)),
                     get_one_tree(nodecl_get_locus(whole_size)),
-                    get_signed_int_type(),
+                    get_ptrdiff_t_type(),
                     nodecl_get_locus(whole_size));
 
             nodecl_expr_set_is_value_dependent(upper_bound,
@@ -4988,12 +5037,13 @@ static nodecl_t compute_whole_size_given_bounds(
     if (nodecl_is_constant(lower_bound)
             && nodecl_is_constant(upper_bound))
     {
-        whole_size = const_value_to_nodecl_cached(
+        whole_size = const_value_to_nodecl_with_basic_type_cached(
                 const_value_add(
                     const_value_sub(
                         nodecl_get_constant(upper_bound),
                         nodecl_get_constant(lower_bound)),
-                    const_value_get_one(4, 1)));
+                    const_value_get_one(type_get_size(get_ptrdiff_t_type()), 1)),
+                get_ptrdiff_t_type());
     }
     else
     {
@@ -5008,12 +5058,12 @@ static nodecl_t compute_whole_size_given_bounds(
                         nodecl_make_minus(
                             upper_bound,
                             lower_bound,
-                            get_signed_int_type(),
+                            get_ptrdiff_t_type(),
                             nodecl_get_locus(lower_bound)),
-                        get_signed_int_type(),
+                        get_ptrdiff_t_type(),
                         nodecl_get_locus(lower_bound)),
                     one_tree,
-                    get_signed_int_type(),
+                    get_ptrdiff_t_type(),
                     nodecl_get_locus(lower_bound));
     }
 
@@ -5026,6 +5076,9 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
         decl_context_t decl_context,
         char with_descriptor)
 {
+    lower_bound = convert_node_to_ptrdiff_t(lower_bound);
+    upper_bound = convert_node_to_ptrdiff_t(upper_bound);
+
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context,
@@ -5061,12 +5114,19 @@ extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
     lower_bound = nodecl_shallow_copy(lower_bound);
     upper_bound = nodecl_shallow_copy(upper_bound);
 
+    lower_bound = convert_node_to_ptrdiff_t(lower_bound);
+    upper_bound = convert_node_to_ptrdiff_t(upper_bound);
+
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     nodecl_t region_lower_bound = nodecl_get_child(region, 0);
     nodecl_t region_upper_bound = nodecl_get_child(region, 1);
     nodecl_t region_stride = nodecl_get_child(region, 2);
-    
+
+    region_lower_bound = convert_node_to_ptrdiff_t(region_lower_bound);
+    region_upper_bound = convert_node_to_ptrdiff_t(region_upper_bound);
+    region_stride = convert_node_to_ptrdiff_t(region_stride);
+
     nodecl_t region_whole_size = compute_whole_size_given_bounds(region_lower_bound, region_upper_bound);
 
     array_region_t* array_region = xcalloc(1, sizeof(*array_region));
@@ -5075,7 +5135,7 @@ extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->stride = region_stride;
     array_region->whole_size = region_whole_size;
     array_region->region_decl_context = region_decl_context;
-    
+
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
             array_region,
             /* with_descriptor */ 0,
@@ -6670,6 +6730,12 @@ extern inline char function_type_get_has_ellipsis(type_t* function_type)
 static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
         type_t* (new_function_type)(type_t*, parameter_info_t*, int, ref_qualifier_t))
 {
+    if (function_type_get_lacking_prototype(t))
+    {
+        return get_nonproto_function_type(new_return,
+                function_type_get_num_parameters(t));
+    }
+
     ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
 
     int num_parameters = function_type_get_num_parameters(t);
@@ -13453,8 +13519,8 @@ extern inline char is_error_type(type_t* t)
 extern inline type_t* get_literal_string_type(int length, type_t* base_type)
 {
     nodecl_t integer_literal = nodecl_make_integer_literal(
-            get_signed_int_type(),
-            const_value_get_unsigned_int(length),
+            get_ptrdiff_t_type(),
+            const_value_get_integer(length, type_get_size(get_ptrdiff_t_type()), /* sign */ 1),
             make_locus("", 0, 0));
 
     type_t* array_type = get_array_type_for_literal_string(
@@ -15308,7 +15374,7 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
                     upper_bound,
                     new_decl_context,
                     nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
-                        get_signed_int_type(), make_locus("", 0, 0)),
+                        get_ptrdiff_t_type(), make_locus("", 0, 0)),
                     new_decl_context);
         }
         else
@@ -16534,7 +16600,7 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
                     upper_bound,
                     array_type_get_array_size_expr_context(orig),
                     nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
-                        get_signed_int_type(), make_locus("", 0, 0)),
+                        get_ptrdiff_t_type(), make_locus("", 0, 0)),
                     array_type_get_array_size_expr_context(orig));
         }
         else

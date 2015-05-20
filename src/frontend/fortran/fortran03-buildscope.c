@@ -311,7 +311,7 @@ void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_untyped_symbols_info(decl_context);
 
-    symbol_entity_specs_add_related_symbols(unknown_info, entry);
+    symbol_entity_specs_insert_related_symbols(unknown_info, entry);
 }
 
 void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
@@ -754,6 +754,221 @@ static void build_scope_program_unit_internal(AST program_unit,
     }
 }
 
+typedef void build_scope_delay_fun_t(void*, nodecl_t*);
+
+typedef
+struct build_scope_delay_info_tag
+{
+    build_scope_delay_fun_t* fun;
+    void *data;
+} build_scope_delay_info_t;
+
+typedef
+struct build_scope_delay_tag
+{
+    int num_delayed;
+    build_scope_delay_info_t* list;
+} build_scope_delay_list_t;
+
+
+enum { BUILD_SCOPE_DELAY_STACK_MAX = 16 };
+
+int _current_delay_stack_idx = 0;
+static build_scope_delay_list_t* _current_delay_stack[BUILD_SCOPE_DELAY_STACK_MAX];
+
+static void build_scope_delay_list_push(build_scope_delay_list_t* delay_list)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == BUILD_SCOPE_DELAY_STACK_MAX, "Too many delayed scopes", 0);
+    _current_delay_stack[_current_delay_stack_idx] = delay_list;
+    _current_delay_stack_idx++;
+}
+
+static void build_scope_delay_list_pop(void)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == 0, "Empty stack", 0);
+    _current_delay_stack_idx--;
+}
+
+static void build_scope_delay_list_run(build_scope_delay_list_t* delay_list,
+        nodecl_t *nodecl_output)
+{
+    int i;
+    for (i = 0; i < delay_list->num_delayed; i++)
+    {
+        nodecl_t nodecl_current = nodecl_null();
+        (delay_list->list[i].fun)(delay_list->list[i].data, &nodecl_current);
+
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_current);
+    }
+
+    delay_list->num_delayed = 0;
+    xfree(delay_list->list);
+}
+
+static void build_scope_delay_list_add(build_scope_delay_fun_t* fun, void *data)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == 0, "No active delay list", 0);
+
+    build_scope_delay_info_t new_delayed = { fun, data };
+
+    build_scope_delay_list_t *current_delay_list = _current_delay_stack[_current_delay_stack_idx - 1];
+
+    P_LIST_ADD(
+            current_delay_list->list,
+            current_delay_list->num_delayed,
+            new_delayed);
+}
+
+typedef char build_scope_delay_list_cmp_fun_t(void *key, void *data);
+
+static void build_scope_delay_list_advance(void *key,
+        build_scope_delay_list_cmp_fun_t *cmp_fun,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(_current_delay_stack_idx == 0, "No active delay list", 0);
+    build_scope_delay_list_t *current_delay_list = _current_delay_stack[_current_delay_stack_idx - 1];
+
+    char found = 0;
+    int i;
+    for (i = 0; i < current_delay_list->num_delayed && !found; i++)
+    {
+        if (cmp_fun(current_delay_list->list[i].data, key))
+        {
+            (current_delay_list->list[i].fun)(current_delay_list->list[i].data, nodecl_output);
+
+            current_delay_list->num_delayed--;
+            for (; i < current_delay_list->num_delayed; i++)
+            {
+                current_delay_list->list[i] = current_delay_list->list[i + 1];
+            }
+            found = 1;
+        }
+    }
+
+    ERROR_CONDITION(!found, "Delayed element not found", 0);
+}
+
+
+struct delayed_character_length_t
+{
+    type_t* character_type;
+    AST length;
+    decl_context_t decl_context;
+    int num_symbols;
+    scope_entry_t** symbols;
+};
+
+static type_t* delayed_character_length_update_type(type_t* original_type, type_t* new_type)
+{
+    if (is_lvalue_reference_type(original_type))
+    {
+        return get_lvalue_reference_type(
+                delayed_character_length_update_type(
+                    reference_type_get_referenced_type(original_type),
+                    new_type));
+    }
+    else if (fortran_is_character_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        return get_cv_qualified_type(new_type, cv_qualif);
+    }
+    else if (is_pointer_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        return get_cv_qualified_type(
+                get_pointer_type(
+                    delayed_character_length_update_type(
+                        pointer_type_get_pointee_type(original_type),
+                        new_type)),
+                cv_qualif);
+    }
+    else if (fortran_is_array_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        return get_cv_qualified_type(
+                array_type_rebase(
+                    original_type,
+                    delayed_character_length_update_type(
+                        array_type_get_element_type(original_type),
+                        new_type)),
+                cv_qualif);
+    }
+    else if (is_function_type(original_type))
+    {
+        return function_type_replace_return_type(original_type,
+                delayed_character_length_update_type(
+                    function_type_get_return_type(original_type),
+                    new_type));
+    }
+    else
+    {
+        internal_error("Unexpected type '%s'\n", print_declarator(original_type));
+    }
+}
+
+
+static struct delayed_character_length_t* delayed_character_length_new(
+        type_t* character_type,
+        AST character_length,
+        decl_context_t decl_context,
+        int num_symbols,
+        scope_entry_t* symbols[])
+{
+    struct delayed_character_length_t* result = xcalloc(1, sizeof(*result));
+
+    ERROR_CONDITION(!fortran_is_character_type(character_type), "Invalid type", 0);
+    result->character_type = character_type;
+    result->length = character_length;
+    result->decl_context = decl_context;
+    result->num_symbols = num_symbols;
+    result->symbols = xcalloc(num_symbols, sizeof(*result->symbols));
+    memcpy(result->symbols, symbols, sizeof(*result->symbols)*num_symbols);
+
+    return result;
+}
+
+static void delayed_compute_character_length(void *info, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    struct delayed_character_length_t* data = (struct delayed_character_length_t*)info;
+
+    nodecl_t nodecl_len = nodecl_null();
+    fortran_check_expression(data->length, data->decl_context, &nodecl_len);
+
+    if (nodecl_is_err_expr(nodecl_len))
+    {
+        int i;
+        for (i = 0; i < data->num_symbols; i++)
+        {
+            data->symbols[i]->type_information = get_error_type();
+        }
+    }
+    else
+    {
+        nodecl_t lower_bound = nodecl_make_integer_literal(
+                get_signed_int_type(),
+                const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                nodecl_get_locus(nodecl_len));
+        type_t* updated_char_type = get_array_type_bounds(
+                array_type_get_element_type(data->character_type),
+                lower_bound, nodecl_len, data->decl_context);
+
+        int i;
+        for (i = 0; i < data->num_symbols; i++)
+        {
+            data->symbols[i]->type_information = delayed_character_length_update_type(
+                    data->symbols[i]->type_information,
+                    updated_char_type);
+        }
+    }
+
+    xfree(data->symbols);
+    xfree(data);
+}
+
+
 // We use this for the following case
 //
 // TYPE(X) FUNCTION FOO()
@@ -761,14 +976,15 @@ static void build_scope_program_unit_internal(AST program_unit,
 // END FUNCTION FOO
 //
 // We have to wait until all the USE-statements have been processed
-// to fully parse delayed_function_type_spec
-static AST delayed_function_type_spec = NULL;
+// to fully parse postponed_function_type_spec
+static AST postponed_function_type_spec = NULL;
 //
-
-static void solve_delayed_function_type_spec(decl_context_t decl_context)
+static void solve_postponed_function_type_spec(decl_context_t decl_context)
 {
-    type_t* function_type_spec = fortran_gather_type_from_declaration_type_spec(delayed_function_type_spec, decl_context);
-    delayed_function_type_spec = NULL;
+    AST length = NULL;
+    type_t* function_type_spec =
+        fortran_gather_type_from_declaration_type_spec(postponed_function_type_spec, decl_context, &length);
+    postponed_function_type_spec = NULL;
 
     if (is_error_type(function_type_spec))
         return;
@@ -789,6 +1005,20 @@ static void solve_delayed_function_type_spec(decl_context_t decl_context)
                 function_type_spec);
         symbol_entity_specs_set_is_implicit_basic_type(result_name, 0);
         remove_untyped_symbol(decl_context, result_name);
+    }
+
+    if (fortran_is_character_type(function_type_spec)
+            && length != NULL)
+    {
+        struct delayed_character_length_t *data = 
+            delayed_character_length_new(
+                    /* character_type */ function_type_spec,
+                    /* character_length */ length,
+                    decl_context,
+                    /* number_of_symbols */ 2,
+                    (scope_entry_t*[2]){current_function, result_name});
+
+        build_scope_delay_list_add(delayed_compute_character_length, data);
     }
 }
 
@@ -1314,12 +1544,14 @@ static void build_global_program_unit(AST program_unit)
             &nodecl_internal_subprograms);
 }
 
-static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
-        decl_context_t decl_context);
 
-type_t* fortran_gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context)
+
+static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
+        decl_context_t decl_context, AST *character_length_out);
+
+type_t* fortran_gather_type_from_declaration_type_spec(AST a, decl_context_t decl_context, AST *character_length_out)
 {
-    return fortran_gather_type_from_declaration_type_spec_(a, decl_context);
+    return fortran_gather_type_from_declaration_type_spec_(a, decl_context, character_length_out);
 }
 
 static type_t* get_derived_type_name(AST a, decl_context_t decl_context);
@@ -1353,7 +1585,8 @@ static type_t* fortran_gather_type_from_declaration_type_spec_of_component(AST a
     }
     else
     {
-        result = fortran_gather_type_from_declaration_type_spec_(a, decl_context);
+        result = fortran_gather_type_from_declaration_type_spec_(a, decl_context,
+                /* character_length_out */ NULL);
     }
 
     return result;
@@ -1507,6 +1740,12 @@ static scope_entry_t* new_procedure_symbol(
                         ASTText(name));
                 return NULL;
             }
+
+            if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            {
+                entry->kind = SK_VARIABLE;
+            }
+
             remove_unknown_kind_symbol(entry->decl_context, entry);
         }
     }
@@ -1518,7 +1757,9 @@ static scope_entry_t* new_procedure_symbol(
 
     program_unit_context.current_scope->related_entry = entry;
 
-    entry->kind = SK_FUNCTION;
+    if (entry->kind == SK_UNDEFINED)
+        entry->kind = SK_FUNCTION;
+
     entry->locus = ast_get_locus(name);
     symbol_entity_specs_set_is_implicit_basic_type(entry, 1);
     entry->defined = 1;
@@ -1559,7 +1800,7 @@ static scope_entry_t* new_procedure_symbol(
                 else
                 {
                     AST declaration_type_spec = ASTSon0(prefix_spec);
-                    delayed_function_type_spec = declaration_type_spec;
+                    postponed_function_type_spec = declaration_type_spec;
                 }
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
@@ -1749,6 +1990,10 @@ static scope_entry_t* new_procedure_symbol(
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
             REF_QUALIFIER_NONE);
     entry->type_information = function_type;
+    if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+    {
+        entry->type_information = get_lvalue_reference_type(entry->type_information);
+    }
 
     symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     entry->related_decl_context = program_unit_context;
@@ -2063,12 +2308,12 @@ static void build_scope_program_unit_body_declarations(
             }
 
             // If the current statement is not a USE we have to solve
-            if (delayed_function_type_spec != NULL
+            if (postponed_function_type_spec != NULL
                     && ASTKind(stmt) != AST_USE_STATEMENT
                     && ASTKind(stmt) != AST_USE_ONLY_STATEMENT
                     && ASTKind(stmt) != AST_IMPORT_STATEMENT)
             {
-                solve_delayed_function_type_spec(decl_context);
+                solve_postponed_function_type_spec(decl_context);
             }
 
             if (!allowed_statement(stmt, decl_context))
@@ -2092,9 +2337,9 @@ static void build_scope_program_unit_body_declarations(
     }
 
     // If we reach the end and the type is not yet defined, solve it now
-    if (delayed_function_type_spec != NULL)
+    if (postponed_function_type_spec != NULL)
     {
-        solve_delayed_function_type_spec(decl_context);
+        solve_postponed_function_type_spec(decl_context);
     }
 }
 
@@ -2166,6 +2411,8 @@ struct internal_subprograms_info_tag
     AST end_statement;
     AST internal_subprograms;
     const locus_t* locus;
+
+    build_scope_delay_list_t delayed_list;
 } internal_subprograms_info_t;
 
 static int count_internal_subprograms(AST internal_subprograms)
@@ -2187,6 +2434,8 @@ static scope_entry_t* build_scope_internal_subprogram(
         decl_context_t decl_context,
         internal_subprograms_info_t* internal_subprograms_info)
 {
+    build_scope_delay_list_push(&internal_subprograms_info->delayed_list);
+
     decl_context_t subprogram_unit_context = new_internal_program_unit_context(decl_context);
 
     scope_entry_t* new_entry = NULL;
@@ -2283,6 +2532,8 @@ static scope_entry_t* build_scope_internal_subprogram(
                 &(internal_subprograms_info->nodecl_output));
     }
 
+    build_scope_delay_list_pop();
+
     return new_entry;
 }
 
@@ -2342,6 +2593,10 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                     n_num_internal_program_units,
                     n_internal_subprograms_info,
                     internal_subprograms_info[i].decl_context);
+
+            build_scope_delay_list_run(
+                    &internal_subprograms_info[i].delayed_list,
+                    &(internal_subprograms_info[i].nodecl_output));
 
             build_scope_program_unit_body_executable(
                     allow_all_statements,
@@ -2433,11 +2688,14 @@ static void build_scope_program_unit_body(
         nodecl_t* nodecl_internal_subprograms)
 {
     // 1) Program unit declaration only
+    build_scope_delay_list_t program_unit_delayed = { .num_delayed = 0 };
+    build_scope_delay_list_push(&program_unit_delayed);
     build_scope_program_unit_body_declarations(
             allowed_statement,
             program_unit_stmts, 
             decl_context, 
             nodecl_output);
+    build_scope_delay_list_pop();
 
     int num_internal_program_units = count_internal_subprograms(internal_subprograms);
     // Count how many internal subprograms are there
@@ -2452,6 +2710,8 @@ static void build_scope_program_unit_body(
             decl_context);
     
     // 3) Program unit remaining statements
+    build_scope_delay_list_run(&program_unit_delayed, nodecl_output);
+
     build_scope_program_unit_body_executable(
             allowed_statement,
             program_unit_stmts, 
@@ -2725,6 +2985,19 @@ static void fortran_build_scope_statement_inside_block_context(
 {
     decl_context_t new_context = fortran_new_block_context(decl_context);
     fortran_build_scope_statement(statement, new_context, nodecl_output);
+
+    if (nodecl_is_null(*nodecl_output))
+    {
+        // Sometimes nonempty blocks do not generate executable code
+        //    DO I = 1, 100
+        //      100 FORMAT(I6)
+        //    END DO
+        // (a similar code was found in a real application)
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_empty_statement(ast_get_locus(statement))
+                );
+    }
+
     *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
@@ -2908,8 +3181,12 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 }
 
 static type_t* fortran_gather_type_from_declaration_type_spec_(AST a, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        AST *character_length_out)
 {
+    if (character_length_out != NULL)
+        *character_length_out = NULL;
+
     type_t* result = NULL;
     switch (ASTKind(a))
     {
@@ -2948,7 +3225,8 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 }
                 else
                 {
-                    element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                    element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context,
+                            /* char_length */ NULL);
                 }
 
                 result = get_complex_type(element_type);
@@ -2966,7 +3244,6 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                     kind = ASTSon1(char_selector);
                 }
 
-                char is_undefined = 0;
                 if (kind != NULL)
                 {
                     result = choose_type_from_kind(kind, decl_context, 
@@ -2974,15 +3251,10 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                             fortran_get_default_character_type_kind);
                 }
 
-                nodecl_t nodecl_len = nodecl_null();
-                if (len != NULL
-                        && ASTKind(len) == AST_SYMBOL
-                        && strcmp(ASTText(len), "*") == 0)
+                if (len == NULL
+                        || character_length_out == NULL)
                 {
-                    is_undefined = 1;
-                }
-                else 
-                {
+                    nodecl_t nodecl_len = nodecl_null();
                     if (len == NULL)
                     {
                         nodecl_len = const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), 1));
@@ -2990,21 +3262,31 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                     else
                     {
                         fortran_check_expression(len, decl_context, &nodecl_len);
+                        if (nodecl_is_err_expr(nodecl_len))
+                        {
+                            return get_error_type();
+                        }
                     }
-                }
 
-                if (!is_undefined)
-                {
                     nodecl_t lower_bound = nodecl_make_integer_literal(
                             get_signed_int_type(),
                             const_value_get_one(type_get_size(get_signed_int_type()), 1),
                             nodecl_get_locus(nodecl_len));
                     result = get_array_type_bounds(result, lower_bound, nodecl_len, decl_context);
                 }
-                else
+                else if (ASTKind(len) == AST_SYMBOL
+                        && strcmp(ASTText(len), "*") == 0)
                 {
+                    // undefined length
                     result = get_array_type(result, nodecl_null(), decl_context);
                 }
+                else
+                {
+                    // We delay the evaluation of this expression and return a CHARACTER(LEN=*)
+                    *character_length_out = len;
+                    result = get_array_type(result, nodecl_null(), decl_context);
+                }
+
                 break;
             }
         case AST_BOOL_TYPE:
@@ -3031,7 +3313,8 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_VECTOR_TYPE:
             {
-                type_t* element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                type_t* element_type = fortran_gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context,
+                        /* character_length_out */ NULL);
                 // Generic vector
                 result = get_vector_type(element_type, 0);
                 break;
@@ -3404,17 +3687,24 @@ enum array_spec_kind_tag
     ARRAY_SPEC_KIND_ERROR,
 } array_spec_kind_t;
 
-static type_t* compute_type_from_array_spec(type_t* basic_type, 
+static type_t* eval_array_spec(type_t* basic_type, 
         AST array_spec_list, 
         decl_context_t decl_context,
+        char check_expressions,
         // This is used for saved array expressions
         nodecl_t* nodecl_output)
 {
     char was_ref = is_lvalue_reference_type(basic_type);
 
-    // We do not save dimensions in non function scopes
-    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION)
+    // We do not save dimensions in non function or dummy procedure scopes
+    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION
+            && !(decl_context.current_scope->related_entry->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(
+                    decl_context.current_scope->related_entry,
+                    decl_context.current_scope->related_entry->decl_context.current_scope->related_entry)))
+    {
         nodecl_output = NULL;
+    }
 
     // explicit-shape-spec   is   [lower:]upper
     // assumed-shape-spec    is   [lower]:
@@ -3444,7 +3734,8 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         nodecl_t lower_bound = nodecl_null();
         nodecl_t upper_bound = nodecl_null();
 
-        if (lower_bound_tree != NULL
+        if (check_expressions
+                && lower_bound_tree != NULL
                 && (ASTKind(lower_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(lower_bound_tree), "*") != 0) ))
         {
@@ -3463,7 +3754,8 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
             }
         }
 
-        if (upper_bound_tree != NULL
+        if (check_expressions
+                && upper_bound_tree != NULL
                 && (ASTKind(upper_bound_tree) != AST_SYMBOL
                     || (strcmp(ASTText(upper_bound_tree), "*") != 0) ))
         {
@@ -3582,10 +3874,19 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
+                if (!equivalent_types(
+                            get_unqualified_type(no_ref(nodecl_get_type(lower_bound))),
+                            get_ptrdiff_t_type()))
+                {
+                    lower_bound = nodecl_make_conversion(lower_bound,
+                            get_ptrdiff_t_type(),
+                            nodecl_get_locus(lower_bound));
+                }
+
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = nodecl_get_locus(lower_bound);
                 new_vla_dim->value = lower_bound;
-                new_vla_dim->type_information = no_ref(nodecl_get_type(lower_bound));
+                new_vla_dim->type_information = get_ptrdiff_t_type();
                 symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
                 lower_bound = nodecl_make_symbol(new_vla_dim,
@@ -3615,10 +3916,19 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 
                 scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
 
+                if (!equivalent_types(
+                            get_unqualified_type(no_ref(nodecl_get_type(upper_bound))),
+                            get_ptrdiff_t_type()))
+                {
+                    upper_bound = nodecl_make_conversion(upper_bound,
+                            get_ptrdiff_t_type(),
+                            nodecl_get_locus(upper_bound));
+                }
+
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = nodecl_get_locus(upper_bound);
                 new_vla_dim->value = upper_bound;
-                new_vla_dim->type_information = no_ref(nodecl_get_type(upper_bound));
+                new_vla_dim->type_information = get_ptrdiff_t_type();
                 symbol_entity_specs_set_is_saved_expression(new_vla_dim, 1);
 
                 upper_bound = nodecl_make_symbol(new_vla_dim,
@@ -3686,6 +3996,140 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 
     return array_type;
 }
+
+struct delayed_array_spec_t
+{
+    scope_entry_t* entry;
+    type_t* basic_type;
+    AST array_spec_list;
+    decl_context_t decl_context;
+};
+
+static type_t* delayed_array_spec_update_type(type_t* original_type, type_t* new_array)
+{
+    if (is_lvalue_reference_type(original_type))
+    {
+        return get_lvalue_reference_type(
+                delayed_array_spec_update_type(
+                    reference_type_get_referenced_type(original_type), new_array));
+    }
+    else if (is_pointer_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+        return get_cv_qualified_type(
+                    get_pointer_type(
+                        delayed_array_spec_update_type(
+                            pointer_type_get_pointee_type(original_type), new_array)),
+                    cv_qualif);
+    }
+    // note that fortran_is_array_type skips references
+    // so the ordering is important
+    else if (fortran_is_array_type(original_type))
+    {
+        cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
+
+        type_t* updated_element_type = NULL;
+        if (fortran_is_array_type(array_type_get_element_type(original_type)))
+        {
+            ERROR_CONDITION(!fortran_is_array_type(new_array),
+                    "This should be an array too", 0);
+
+            updated_element_type = delayed_array_spec_update_type(
+                    array_type_get_element_type(original_type),
+                    array_type_get_element_type(new_array));
+
+        }
+        else
+        {
+            // No update actually
+            updated_element_type =
+                array_type_get_element_type(original_type);
+        }
+
+        type_t* result_type = array_type_rebase(new_array,
+                updated_element_type);
+
+        return get_cv_qualified_type(
+                result_type,
+                cv_qualif);
+    }
+    else
+    {
+        internal_error("Unexpected type '%s' here\n", print_declarator(original_type));
+    }
+}
+
+static char delayed_array_specifier_cmp(void *key, void *info)
+{
+    scope_entry_t* entry = (scope_entry_t*)key;
+    struct delayed_array_spec_t* data = (struct delayed_array_spec_t*)info;
+
+    return (data->entry == entry);
+}
+
+static void delayed_compute_type_from_array_spec(void *info, nodecl_t* nodecl_output)
+{
+    struct delayed_array_spec_t* data = (struct delayed_array_spec_t*)info;
+
+    type_t* array_type = eval_array_spec(data->basic_type,
+            data->array_spec_list,
+            data->decl_context,
+            /* check_expressions */ 1,
+            nodecl_output);
+
+    if (is_error_type(array_type))
+    {
+        data->entry->type_information = array_type;
+    }
+    else
+    {
+        data->entry->type_information =
+            delayed_array_spec_update_type(data->entry->type_information, array_type);
+    }
+
+    // Make sure we cast the initialization when it was delayed
+    fortran_cast_initialization(data->entry, &data->entry->value);
+
+    xfree(data);
+}
+
+static void compute_type_from_array_spec(
+        scope_entry_t* entry,
+        type_t* basic_type,
+        AST array_spec_list,
+        decl_context_t decl_context,
+        char allow_nonconstant)
+{
+    if (!allow_nonconstant)
+    {
+        type_t* array_type = eval_array_spec(basic_type,
+                array_spec_list,
+                decl_context,
+                /* check_expressions */ 1,
+                /* nodecl_output */ NULL);
+        entry->type_information = array_type;
+    }
+    else
+    {
+        type_t* array_type = eval_array_spec(basic_type,
+                array_spec_list,
+                decl_context,
+                /* check_expressions */ 0,
+                /* nodecl_output */ NULL);
+        entry->type_information = array_type;
+
+        // Now register a delayed process
+
+        struct delayed_array_spec_t * data = xmalloc(sizeof(*data));
+        data->entry = entry;
+        data->basic_type = basic_type;
+        data->array_spec_list = array_spec_list;
+        data->decl_context = decl_context;
+
+        build_scope_delay_list_add(delayed_compute_type_from_array_spec, data);
+    }
+}
+
 
 static char array_type_is_deferred_shape(type_t* t)
 {
@@ -3888,11 +4332,12 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context,
 
             if (!is_error_type(entry->type_information))
             {
-                type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
+                compute_type_from_array_spec(
+                        entry,
+                        no_ref(entry->type_information),
                         array_spec,
                         decl_context,
-                        /* nodecl_output */ NULL);
-                entry->type_information = array_type;
+                        /* allow_nonconstant */ 0);
 
                 if (was_ref)
                 {
@@ -4426,11 +4871,12 @@ static void build_scope_common_stmt(AST a,
 
                 if (!is_error_type(sym->type_information))
                 {
-                    type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
+                    compute_type_from_array_spec(
+                            sym,
+                            no_ref(sym->type_information),
                             array_spec,
                             decl_context,
-                            /* nodecl_output */ NULL);
-                    sym->type_information = array_type;
+                            /* allow_nonconstant */ 0);
 
                     if (was_ref)
                     {
@@ -4839,7 +5285,8 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
     }
 }
 
-static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_data_stmt_do(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST data_stmt_set_list = ASTSon0(a);
 
@@ -4924,6 +5371,31 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 nodecl_make_fortran_data(nodecl_item_set,
                     nodecl_data_set, ast_get_locus(data_stmt_set)));
     }
+}
+
+struct delayed_data_statement_t
+{
+    AST a;
+    decl_context_t decl_context;
+};
+
+static void delayed_compute_data_stmt(void * info, nodecl_t* nodecl_output)
+{
+    struct delayed_data_statement_t *data = (struct delayed_data_statement_t*)info;
+
+    build_scope_data_stmt_do(data->a, data->decl_context, nodecl_output);
+
+    xfree(data);
+}
+
+static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    struct delayed_data_statement_t *data = (struct delayed_data_statement_t*)xmalloc(sizeof(*data));
+
+    data->a = a;
+    data->decl_context = decl_context;
+
+    build_scope_delay_list_add(delayed_compute_data_stmt, data);
 }
 
 static void build_scope_deallocate_stmt(AST a, 
@@ -5333,11 +5805,12 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 if (current_attr_spec.is_dimension 
                         && !is_error_type(entry->type_information))
                 {
-                    type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                    compute_type_from_array_spec(
+                            entry,
+                            entry->type_information, 
                             current_attr_spec.array_spec,
                             decl_context,
-                            /* nodecl_output */ NULL);
-                    entry->type_information = array_type;
+                            /* allow_nonconstant */ 0);
                 }
 
                 if (current_attr_spec.is_allocatable)
@@ -5459,7 +5932,8 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     }
 }
 
-static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_dimension_stmt(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST array_name_dim_spec_list = ASTSon0(a);
     AST it;
@@ -5489,14 +5963,15 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
             entry->type_information = pointer_type_get_pointee_type(no_ref(entry->type_information));
         }
 
+        char is_parameter = is_const_qualified_type(no_ref(entry->type_information));
+
         AST array_spec = ASTSon1(dimension_decl);
-        nodecl_t nodecl_saved_dim = nodecl_null();
-        type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
+        compute_type_from_array_spec(
+                entry,
+                no_ref(entry->type_information), 
                 array_spec,
                 decl_context,
-                &nodecl_saved_dim);
-
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
+                /* allow_nonconstant */ !is_parameter);
 
         if (entry->kind == SK_UNDEFINED)
         {
@@ -5506,8 +5981,6 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         if (!is_error_type(entry->type_information))
         {
-            entry->type_information = array_type;
-
             if (is_pointer)
             {
                 entry->type_information = get_pointer_type(no_ref(entry->type_information));
@@ -5757,7 +6230,7 @@ static void build_scope_enum_def(AST a,
     unsupported_construct(a, "ENUM");
 }
 
-static void build_scope_equivalence_stmt(AST a, 
+static void do_build_scope_equivalence_stmt(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
@@ -5797,7 +6270,32 @@ static void build_scope_equivalence_stmt(AST a,
         equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
                     nodecl_equivalence);
     }
+}
 
+struct delayed_equivalence_statement_t
+{
+    AST a;
+    decl_context_t decl_context;
+};
+
+static void delayed_equivalence_statement(void *info, nodecl_t* nodecl_output)
+{
+    struct delayed_equivalence_statement_t* data = (struct delayed_equivalence_statement_t*)info;
+
+    do_build_scope_equivalence_stmt(data->a, data->decl_context, nodecl_output);
+
+    xfree(data);
+}
+
+static void build_scope_equivalence_stmt(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    struct delayed_equivalence_statement_t * data = xmalloc(sizeof(*data));
+    data->a = a;
+    data->decl_context = decl_context;
+
+    build_scope_delay_list_add(delayed_equivalence_statement, data);
 }
 
 static void build_scope_exit_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5824,9 +6322,9 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
         //If entry already has kind SK_FUNCTION then we must show an error
-        if (entry->kind == SK_FUNCTION) 
+        if (entry->kind == SK_FUNCTION)
         {
-            // We have seen an INTRINSIC statement before for the same symbol 
+            // We have seen an INTRINSIC statement before for the same symbol
             if (symbol_entity_specs_get_is_builtin(entry))
             {
                 error_printf("%s: error: entity '%s' already has INTRINSIC attribute and INTRINSIC attribute conflicts with EXTERNAL attribute\n",
@@ -5835,9 +6333,29 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
                 continue;
             }
             // We have seen an EXTERNAL statement before for the same symbol
-            else 
+            else if (symbol_entity_specs_get_is_extern(entry))
             {
                 error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+                continue;
+            }
+        }
+        else if (entry->kind == SK_VARIABLE)
+        {
+            if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            {
+                if (is_function_type(no_ref(entry->type_information)))
+                {
+                    error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                            ast_location(name),
+                            entry->symbol_name);
+                    continue;
+                }
+            }
+            else
+            {
+                error_printf("%s: error: entity '%s' cannot have EXTERNAL attribute\n",
                         ast_location(name),
                         entry->symbol_name);
                 continue;
@@ -5846,9 +6364,17 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (entry->kind == SK_UNDEFINED)
         {
-            // We mark the symbol as a external function
-            entry->kind = SK_FUNCTION;
-            symbol_entity_specs_set_is_extern(entry, 1);
+            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            {
+                // We mark the symbol as a external function
+                entry->kind = SK_FUNCTION;
+                symbol_entity_specs_set_is_extern(entry, 1);
+            }
+            else
+            {
+                // This is a dummy procedure
+                entry->kind = SK_VARIABLE;
+            }
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
@@ -6131,7 +6657,11 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
             AST declaration_type_spec = ASTSon0(implicit_spec);
             AST letter_spec_list = ASTSon1(implicit_spec);
 
-            type_t* basic_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+            type_t* basic_type = fortran_gather_type_from_declaration_type_spec(
+                    declaration_type_spec,
+                    decl_context,
+                    // FIXME - we should allow nonconstant CHARACTERs here
+                    /* character_length_out */ NULL);
 
             if (basic_type == NULL)
             {
@@ -6708,7 +7238,7 @@ static void build_scope_intrinsic_stmt(AST a,
                     continue;
                 }
 
-                entry->kind = SK_FUNCTION;  
+                entry->kind = SK_FUNCTION;
             }
         }
         // The symbol does not exist, we add an alias to the intrinsic symbol in the current scope
@@ -6934,6 +7464,14 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
             remove_unknown_kind_symbol(decl_context, entry);
         }
 
+        if (fortran_is_array_type(entry->type_information))
+        {
+            // We need to "undelay" this symbol
+            build_scope_delay_list_advance(entry, delayed_array_specifier_cmp,
+                    // we do not want it to be non-constant
+                    /* nodecl_output */ NULL);
+        }
+
         nodecl_t nodecl_init = nodecl_null();
         fortran_check_initialization(entry, constant_expr, decl_context, /* is_pointer_init */ 0,
                 &nodecl_init);
@@ -6965,7 +7503,8 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
     }
 }
 
-static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST cray_pointer_spec_list = ASTSon0(a);
 
@@ -7045,19 +7584,15 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
                 continue;
             }
 
-            nodecl_t nodecl_saved_dim = nodecl_null();
-
-            type_t* array_type = compute_type_from_array_spec(no_ref(pointee_entry->type_information), 
+            compute_type_from_array_spec(
+                    pointee_entry,
+                    no_ref(pointee_entry->type_information), 
                     array_spec,
                     decl_context,
-                    &nodecl_saved_dim);
-
-            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
-
-            pointee_entry->type_information = array_type;
+                    /* allow_nonconstant */ 1);
 
             pointee_entry->kind = SK_VARIABLE;
-            remove_unknown_kind_symbol(decl_context, pointer_entry);
+            remove_unknown_kind_symbol(decl_context, pointee_entry);
         }
 
         // We would change it into a SK_VARIABLE but it could be a function, so leave it undefined
@@ -7066,7 +7601,8 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
     }
 }
 
-static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_pointer_stmt(AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST pointer_decl_list = ASTSon0(a);
     AST it;
@@ -7119,15 +7655,12 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
                 continue;
             }
 
-            nodecl_t nodecl_saved_dim = nodecl_null();
-
-            type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
+            compute_type_from_array_spec(
+                    entry,
+                    no_ref(entry->type_information), 
                     array_spec,
                     decl_context,
-                    &nodecl_saved_dim);
-
-            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
-            entry->type_information = array_type;
+                    /* allow_nonconstant */ 1);
         }
 
         if (entry->kind == SK_UNDEFINED)
@@ -7339,7 +7872,10 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
         }
         else
         {
-            return_type = fortran_gather_type_from_declaration_type_spec(proc_interface, decl_context);
+            return_type = fortran_gather_type_from_declaration_type_spec(proc_interface,
+                    decl_context,
+                    // FIXME - support nonconstant character lengths here
+                    /* character_length_out */ NULL);
         }
     }
 
@@ -7401,7 +7937,14 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
         {
             if (entry->kind == SK_UNDEFINED)
             {
-                entry->kind = SK_FUNCTION;
+                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                {
+                    entry->kind = SK_FUNCTION;
+                }
+                else
+                {
+                    entry->kind = SK_VARIABLE;
+                }
                 remove_unknown_kind_symbol(decl_context, entry);
 
                 synthesize_procedure_type(entry, interface, return_type, decl_context,
@@ -7409,7 +7952,15 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
             }
             else if (entry->kind == SK_FUNCTION)
             {
-                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n", 
+                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                        ast_location(name),
+                        entry->symbol_name);
+            }
+            else if (entry->kind == SK_VARIABLE
+                    && symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
+                    && is_function_type(no_ref(entry->type_information)))
+            {
+                error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
                         ast_location(name),
                         entry->symbol_name);
             }
@@ -7754,19 +8305,15 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
                 char was_ref = is_lvalue_reference_type(entry->type_information);
 
-                nodecl_t nodecl_saved_dim = nodecl_null();
-                
-                type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
+                compute_type_from_array_spec(
+                        entry,
+                        no_ref(entry->type_information),
                         array_spec,
                         decl_context,
-                        &nodecl_saved_dim);
-
-                *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
+                        /* allow_nonconstant */ 1);
 
                 if (!is_error_type(entry->type_information))
                 {
-                    entry->type_information = array_type;
-
                     if (was_ref)
                     {
                         entry->type_information = get_lvalue_reference_type(entry->type_information);
@@ -7795,7 +8342,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
 static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_context, 
         char is_typedef,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     DEBUG_CODE()
     {
@@ -7805,7 +8352,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
     AST attr_spec_list = ASTSon1(a);
     AST entity_decl_list = ASTSon2(a);
 
-    type_t* basic_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+    AST character_length_out = NULL;
+    type_t* basic_type =
+        fortran_gather_type_from_declaration_type_spec(declaration_type_spec,
+                decl_context,
+                &character_length_out);
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
@@ -7814,6 +8365,9 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
     {
         gather_attr_spec_list(attr_spec_list, decl_context, &attr_spec);
     }
+
+    scope_entry_t** delayed_character_symbols = NULL;
+    int num_delayed_character_symbols = 0;
 
     AST it;
     for_each_element(entity_decl_list, it)
@@ -7875,6 +8429,14 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         entry->type_information = fortran_update_basic_type_with_type(entry->type_information, basic_type);
         symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
+
+        if (fortran_is_character_type(basic_type)
+                && character_length_out != NULL)
+        {
+            P_LIST_ADD(delayed_character_symbols,
+                    num_delayed_character_symbols,
+                    entry);
+        }
 
         entry->locus = ast_get_locus(declaration);
 
@@ -7982,14 +8544,15 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             char was_ref = is_lvalue_reference_type(entry->type_information);
             cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
 
-            nodecl_t nodecl_saved_dim = nodecl_null();
+            char is_parameter = is_const_qualified_type(no_ref(entry->type_information))
+                || current_attr_spec.is_constant;
 
-            type_t* array_type = compute_type_from_array_spec(no_ref(get_unqualified_type(entry->type_information)),
+            compute_type_from_array_spec(
+                    entry,
+                    get_unqualified_type(no_ref(entry->type_information)),
                     current_attr_spec.array_spec,
                     decl_context,
-                    &nodecl_saved_dim);
-
-            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_saved_dim);
+                    /* allow_nonconstant */ !is_parameter);
 
             if (!is_typedef)
             {
@@ -8000,8 +8563,6 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
             if (!is_error_type(entry->type_information))
             {
-                entry->type_information = array_type;
-
                 entry->type_information = get_cv_qualified_type(entry->type_information, cv_qualif);
 
                 if (was_ref)
@@ -8117,8 +8678,15 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             if (!current_attr_spec.is_pointer
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
-                entry->kind = SK_FUNCTION;
-                symbol_entity_specs_set_is_extern(entry, 1);
+                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                {
+                    entry->kind = SK_FUNCTION;
+                    symbol_entity_specs_set_is_extern(entry, 1);
+                }
+                else
+                {
+                    entry->kind = SK_VARIABLE;
+                }
                 remove_unknown_kind_symbol(decl_context, entry);
             }
         }
@@ -8305,6 +8873,23 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                          entry->symbol_name);
             }
         }
+    }
+
+    if (num_delayed_character_symbols > 0)
+    {
+
+        struct delayed_character_length_t *data = 
+            delayed_character_length_new(
+                    basic_type,
+                    character_length_out,
+                    decl_context,
+                    num_delayed_character_symbols,
+                    delayed_character_symbols);
+        build_scope_delay_list_add(delayed_compute_character_length, data);
+
+        xfree(delayed_character_symbols);
+        num_delayed_character_symbols = 0;
+        delayed_character_symbols = NULL;
     }
 }
 

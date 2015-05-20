@@ -459,6 +459,57 @@ namespace TL { namespace Nanox {
         return result;
     }
 
+    static Source emit_allocate_statement_using_array(TL::Symbol private_sym, TL::Symbol shared_symbol)
+    {
+        Source result;
+
+        TL::Type t = private_sym.get_type();
+        if (t.is_any_reference())
+            t = t.references_to();
+
+        struct Aux
+        {
+            static void aux_rec(Source &array_shape, TL::Symbol orig_array, TL::Type t_aux, int& rank)
+            {
+                Source current_arg;
+                if (t_aux.is_fortran_array())
+                {
+                    aux_rec(array_shape, orig_array, t_aux.array_element(), rank);
+                    rank++;
+
+                    Source curent_arg;
+                    Nodecl::NodeclBase lower, upper;
+                    t_aux.array_get_bounds(lower, upper);
+
+                    current_arg
+                        << "LBOUND(" << as_symbol(orig_array) << ", DIM=" << rank << ")"
+                        << ":"
+                        << "UBOUND(" << as_symbol(orig_array) << ", DIM=" << rank << ")";
+
+                    array_shape.append_with_separator(current_arg, ",");
+                }
+            }
+
+            static void fill_array_shape(Source &array_shape, TL::Symbol orig_array)
+            {
+                int n = 0;
+                aux_rec(array_shape,
+                        orig_array,
+                        orig_array.get_type().no_ref(),
+                        n);
+            }
+        };
+
+        Source array_shape;
+        Aux::fill_array_shape(array_shape, shared_symbol);
+
+        result
+            << "ALLOCATE(" << private_sym.get_name() << "(" << array_shape <<  "));\n"
+            ;
+
+        return result;
+    }
+
     TL::Symbol DeviceProvider::new_function_symbol_unpacked(
             TL::Symbol current_function,
             const std::string& function_name,
@@ -586,12 +637,15 @@ namespace TL { namespace Nanox {
                         if (sym.is_valid())
                         {
                             symbol_entity_specs_set_is_optional(private_sym, sym.is_optional());
+                            symbol_entity_specs_set_is_target(private_sym, sym.is_target());
                             symbol_entity_specs_set_is_allocatable(private_sym,
                                 (!sym.is_member() && sym.is_allocatable())
                                 || (*it)->is_copy_of_array_descriptor_allocatable());
 
                             symbol_map->add_map(sym, private_sym);
                         }
+
+
 
                         symbol_entity_specs_set_is_allocatable(private_sym,
                                 symbol_entity_specs_get_is_allocatable(private_sym) ||
@@ -791,17 +845,15 @@ namespace TL { namespace Nanox {
                             initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), private_sym));
                         }
 
-
                         if (sym.is_valid())
                         {
                             symbol_entity_specs_set_is_allocatable(private_sym,
-                                    (!sym.is_member() && sym.is_allocatable())
-                                    || (*it)->is_copy_of_array_descriptor_allocatable());
+                                    (*it)->get_private_type().is_fortran_array()
+                                    && (*it)->get_private_type().array_requires_descriptor());
 
                             if (symbol_entity_specs_get_is_allocatable(private_sym))
                             {
-                                initial_statements << emit_allocate_statement(private_sym, is_allocated_index,
-                                        lower_bound_index, upper_bound_index);
+                                initial_statements << emit_allocate_statement_using_array(private_sym, shared_reduction_sym);
                             }
 
                             symbol_map->add_map(sym, private_sym);

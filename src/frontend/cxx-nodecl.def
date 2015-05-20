@@ -252,6 +252,7 @@ structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
   | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
   | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
   | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
+  | NODECL_STRUCTURED_VALUE_FORTRAN_TYPESPEC_ARRAY_CONSTRUCTOR()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
       | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt

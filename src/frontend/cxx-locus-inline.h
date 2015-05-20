@@ -61,7 +61,7 @@ static inline unsigned int locus_get_line(const locus_t* l)
     return l == NULL ? 0 : l->line;
 }
 
-static inline unsigned int locus_get_col(const locus_t* l)
+static inline unsigned int locus_get_column(const locus_t* l)
 {
     return l == NULL ? 0 : l->col;
 }

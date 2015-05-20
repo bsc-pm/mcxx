@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+source @abs_builddir@/mercurium-libraries
+
+cat <<EOF
+MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose"
+test_CC="\${MCXX} --profile=plaincc"
+test_CXX="\${MCXX} --profile=plaincxx"
+test_FC="\${MCXX} --profile=plainfc"
+test_noexec=yes
+test_CFLAGS="\${test_CFLAGS} -y --typecheck"
+test_CXXFLAGS="\${test_CXXFLAGS} -y --typecheck"
+test_FFLAGS="\${test_CFLAGS} -y --typecheck"
+EOF
