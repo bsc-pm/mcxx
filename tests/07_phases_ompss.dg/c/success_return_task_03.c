@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CFLAGS=--variable=enable_input_by_value_dependences:1
 </testinfo>
 */
 #include<assert.h>
