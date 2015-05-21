@@ -1117,10 +1117,11 @@ namespace TL
 
         static void separate_input_arguments(
                 const TL::PragmaCustomDeclaration& construct,
+                Symbol function_symbol,
                 const ObjectList<Nodecl::NodeclBase>& all_input_args,
+                bool enable_input_by_value_dependences,
                 ObjectList<Nodecl::NodeclBase>& input_args,
-                ObjectList<Nodecl::NodeclBase>& input_value_args,
-                Symbol function_symbol)
+                ObjectList<Nodecl::NodeclBase>& input_value_args)
         {
             for (ObjectList<Nodecl::NodeclBase>::const_iterator it = all_input_args.begin();
                     it != all_input_args.end();
@@ -1131,17 +1132,17 @@ namespace TL
                         && input_argument.is<Nodecl::Symbol>())
                 {
                     Symbol sym = input_argument.get_symbol();
-                    if (sym.is_parameter()
+                    if (enable_input_by_value_dependences
+                            && sym.is_parameter()
                             && !sym.get_type().is_any_reference())
                     {
-                        warn_printf("%s: warning: defining an input dependence on the '%s' parameter "
-                                "which is not a pointer nor a reference is an experimental feature. "
-                                "Please, remove this dependence if you are not sure that you need it.\n",
-                                construct.get_locus_str().c_str(),
-                                sym.get_name().c_str());
+                            warn_printf("%s: warning: defining an input dependence on the '%s' parameter "
+                                    "which is not a pointer nor a reference is an experimental feature.\n "
+                                    "Please, remove this dependence if you are not sure that you need it.\n",
+                                    construct.get_locus_str().c_str(),
+                                    sym.get_name().c_str());
 
-
-                        input_value_args.append(input_argument);
+                            input_value_args.append(input_argument);
                     }
                     else
                     {
@@ -1184,8 +1185,14 @@ namespace TL
                 ObjectList<Nodecl::NodeclBase> all_input_arguments;
                 all_input_arguments = parse_dependences_ompss_clause(input_clause, parsing_scope);
                 all_input_arguments = update_clauses(all_input_arguments, function_sym);
-
-               separate_input_arguments(construct, all_input_arguments, input_arguments, input_value_arguments, function_sym);
+               separate_input_arguments(
+                       construct,
+                       function_sym,
+                       all_input_arguments,
+                       _enable_input_by_value_dependences,
+                       // Out
+                       input_arguments,
+                       input_value_arguments);
             }
 
             TL::ObjectList<std::string> input_private_names;
