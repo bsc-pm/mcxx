@@ -55,14 +55,14 @@ struct implicit_info_tag
 
 static implicit_letter_set_t* allocate_implicit_letter_set(void)
 {
-    implicit_letter_set_t* result = xcalloc(1, sizeof(*result));
+    implicit_letter_set_t* result = NEW0(implicit_letter_set_t);
 
     return result;
 }
 
 static implicit_info_data_t* allocate_implicit_info_data(void)
 {
-    implicit_info_data_t* result = xcalloc(1, sizeof(*result));
+    implicit_info_data_t* result = NEW0(implicit_info_data_t);
 
     result->implicit_letter_set = allocate_implicit_letter_set();
 
@@ -71,7 +71,7 @@ static implicit_info_data_t* allocate_implicit_info_data(void)
     
 static implicit_info_t* allocate_implicit_info(void)
 {
-    implicit_info_t* result = xcalloc(1, sizeof(*result));
+    implicit_info_t* result = NEW0(implicit_info_t);
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = allocate_implicit_letter_set();
@@ -81,7 +81,7 @@ static implicit_info_t* allocate_implicit_info(void)
 
 static implicit_info_t* allocate_implicit_info_sharing_set(implicit_info_t* implicit_letter_set)
 {
-    implicit_info_t* result = xcalloc(1, sizeof(*result));
+    implicit_info_t* result = NEW0(implicit_info_t);
 
     result->data = allocate_implicit_info_data();
     result->data->implicit_letter_set = implicit_letter_set->data->implicit_letter_set;
@@ -588,7 +588,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                     // Use the first entry found
                     result_list = entry_list_new(entry_list_head(entry_list));
                     entry_list_free(entry_list);
-                    xfree(intrinsics_seen);
+                    DELETE(intrinsics_seen);
                     return result_list;
                 }
             }
@@ -689,7 +689,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
         }
     }
 
-    xfree(intrinsics_seen);
+    DELETE(intrinsics_seen);
     return result_list;
 }
 

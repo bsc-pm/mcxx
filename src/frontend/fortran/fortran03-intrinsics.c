@@ -415,7 +415,7 @@ static intrinsic_variant_info_t get_variant(const char* keywords)
             keyword_index++;
         }
         result.num_keywords = keyword_index;
-        xfree(c);
+        DELETE(c);
     }
     else
     {
@@ -446,7 +446,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         int i;
         for (i = 0; i < num_actual_arguments; i++)
         {
-            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
+            scope_entry_t* new_keyword_sym = NEW0(scope_entry_t);
             new_keyword_sym->kind = SK_VARIABLE;
             uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
             new_keyword_sym->decl_context = entry->decl_context;
@@ -469,7 +469,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         int i;
         for (i = 0; i < current_variant.num_keywords; i++)
         {
-            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
+            scope_entry_t* new_keyword_sym = NEW0(scope_entry_t);
             new_keyword_sym->kind = SK_VARIABLE;
             new_keyword_sym->symbol_name = uniquestr(current_variant.keyword_names[i]);
             new_keyword_sym->decl_context = entry->decl_context;
@@ -1175,13 +1175,13 @@ static scope_entry_t* get_intrinsic_symbol_(
     else
     {
         // Create a new descriptor
-        intrinsic_descr_t *p = xcalloc(1, sizeof(*p));
+        intrinsic_descr_t *p = NEW0(intrinsic_descr_t);
         p->name = name;
         p->result_type = result_type;
         p->num_types = num_types;
         if (num_types > 0)
         {
-            p->parameter_types = xcalloc(num_types, sizeof(*p->parameter_types));
+            p->parameter_types = NEW_VEC(type_t*, num_types);
             memcpy(p->parameter_types, types, num_types * sizeof(*p->parameter_types));
         }
 
@@ -1195,7 +1195,7 @@ static scope_entry_t* get_intrinsic_symbol_(
         type_t* function_type = get_new_function_type(result_type, param_info, num_types, REF_QUALIFIER_NONE);
 
         // We do not want it be signed in the scope
-        scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+        scope_entry_t* new_entry = NEW0(scope_entry_t);
         if (generic_symbol != NULL)
         {
             new_entry->locus = generic_symbol->locus;
@@ -1423,7 +1423,7 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
     {
         scope_entry_t* dummy_arg = symbol_entity_specs_get_related_symbols_num(intrinsic, i);
 
-        scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
+        scope_entry_t* new_keyword_sym = NEW0(scope_entry_t);
         new_keyword_sym->kind = SK_VARIABLE;
         new_keyword_sym->symbol_name = uniquestr(dummy_arg->symbol_name);
         new_keyword_sym->decl_context = entry->decl_context;

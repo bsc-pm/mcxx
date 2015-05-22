@@ -1966,7 +1966,7 @@ static void compute_length_of_literal_string(
     int capacity_codepoints = 16;
     *num_codepoints = 0;
 
-    (*codepoints) = xcalloc(capacity_codepoints, sizeof(**codepoints));
+    (*codepoints) = NEW_VEC0(int, capacity_codepoints);
 
     *base_type = NULL;
 
@@ -1978,7 +1978,7 @@ static void compute_length_of_literal_string(
             if (*num_codepoints == capacity_codepoints) \
             { \
                 capacity_codepoints *= 2; \
-                (*codepoints) = xrealloc((*codepoints), capacity_codepoints * sizeof(**codepoints)); \
+                (*codepoints) = NEW_REALLOC(int, (*codepoints), capacity_codepoints); \
             } \
             (*codepoints)[*num_codepoints] = v_; \
             (*num_codepoints)++; \
@@ -2176,7 +2176,7 @@ static void compute_length_of_literal_string(
                                                    locus_to_str(locus),
                                                    ill_literal);
                                            *num_codepoints = -1;
-                                           xfree(*codepoints);
+                                           DELETE(*codepoints);
                                            return;
                                        }
 
@@ -2215,7 +2215,7 @@ static void compute_length_of_literal_string(
                                    error_printf("%s: error: invalid escape sequence '%s'\n",
                                            locus_to_str(locus), c);
                                    *num_codepoints = -1;
-                                   xfree(*codepoints);
+                                   DELETE(*codepoints);
                                    return;
                                }
                 }
@@ -2345,7 +2345,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 
         // Usually there are no surrogates, so initially allocate the same number of codepoints
         int capacity_out = num_codepoints;
-        uint16_t *output_buffer = xcalloc(capacity_out, sizeof(*output_buffer));
+        uint16_t *output_buffer = NEW_VEC0(uint16_t, capacity_out);
 
         char done = 0;
         while (!done)
@@ -2366,8 +2366,8 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
                 if (errno == E2BIG)
                 {
                     capacity_out *= 2;
-                    xfree(output_buffer);
-                    output_buffer = xcalloc(capacity_out, sizeof(*output_buffer));
+                    DELETE(output_buffer);
+                    output_buffer = NEW_VEC0(uint16_t, capacity_out);
 
                     // Reset the state of iconv
                     iconv(cd, NULL, NULL, NULL, NULL);
@@ -2380,7 +2380,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
                     error_printf("%s: error: discarding invalid UTF-16 literal\n",
                             ast_location(expr));
                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
-                    xfree(output_buffer);
+                    DELETE(output_buffer);
                 }
                 else
                 {
@@ -2399,7 +2399,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
             length = (outbytesbeginning - outbytesleft) / sizeof(uint16_t);
         }
 
-        xfree(output_buffer);
+        DELETE(output_buffer);
         iconv_close(cd);
     }
     else if (is_char32_t_type(get_unqualified_type(base_type)))
@@ -7887,7 +7887,7 @@ static const_value_t* compute_subconstant_of_array_subscript(
     {
         if (!nodecl_is_constant(list[i]))
         {
-            xfree(list);
+            DELETE(list);
             return NULL;
         }
     }
@@ -7902,7 +7902,7 @@ static const_value_t* compute_subconstant_of_array_subscript(
         if (!nodecl_is_constant(
                     array_type_get_array_size_expr(subscripted_type)))
         {
-            xfree(list);
+            DELETE(list);
             return NULL;
         }
 
@@ -7916,7 +7916,7 @@ static const_value_t* compute_subconstant_of_array_subscript(
 
         if (idx < 0 || idx >= length)
         {
-            xfree(list);
+            DELETE(list);
             return NULL;
         }
 
@@ -7926,7 +7926,7 @@ static const_value_t* compute_subconstant_of_array_subscript(
         cval = const_value_get_element_num(cval, idx);
     }
 
-    xfree(list);
+    DELETE(list);
 
     return cval;
 }
@@ -9482,7 +9482,7 @@ static void check_new_expression_impl(
             arguments[i + 2] = nodecl_get_type(nodecl_list[i]);
         }
 
-        xfree(nodecl_list);
+        DELETE(nodecl_list);
     }
 
     if (has_dependent_placement_args)
@@ -9676,7 +9676,7 @@ static void check_new_expression_impl(
                     nodecl_expr);
         }
 
-        xfree(list);
+        DELETE(list);
     }
 
     nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, locus);
@@ -11318,7 +11318,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
             argument_types[num_arguments] = argument_type;
             num_arguments++;
         }
-        xfree(list);
+        DELETE(list);
     }
 
     entry_list_free(entry_list);
@@ -11680,7 +11680,7 @@ static char check_argument_types_of_call(
                     arg);
         }
 
-        xfree(list);
+        DELETE(list);
     }
 
     return no_arg_is_faulty;
@@ -11873,7 +11873,7 @@ static void handle_computed_function_type(
     const_value_t* const_val = NULL;
     scope_entry_t* specific_name = compute_function(generic_name, arg_types, list, num_elements, &const_val);
 
-    xfree(list);
+    DELETE(list);
 
     if (specific_name == NULL)
     {
@@ -12020,7 +12020,7 @@ static void check_nodecl_function_call_cxx(
             any_arg_is_value_dependent = 1;
         }
     }
-    xfree(list);
+    DELETE(list);
 
     scope_entry_t* this_symbol = resolve_symbol_this(decl_context);
 
@@ -12209,7 +12209,7 @@ static void check_nodecl_function_call_cxx(
             // This +1 is because 0 is reserved for the implicit argument type
             argument_types[i + 1] = nodecl_get_type(nodecl_arg);
         }
-        xfree(list);
+        DELETE(list);
     }
 
     // This will be filled later
@@ -12316,8 +12316,7 @@ static void check_nodecl_function_call_cxx(
                 if (is_pointer_to_function_type(no_ref(destination_type)))
                 {
                     // Create a faked surrogate function with the type described below
-                    scope_entry_t* surrogate_symbol =
-                        xcalloc(1, sizeof(*surrogate_symbol));
+                    scope_entry_t* surrogate_symbol = NEW0(scope_entry_t);
 
                     // Add to candidates
                     candidates = entry_list_add(candidates, surrogate_symbol);
@@ -12731,7 +12730,7 @@ static void check_nodecl_function_call_cxx(
             nodecl_argument_list_output = nodecl_append_to_list(nodecl_argument_list_output, nodecl_arg);
         }
 
-        xfree(list);
+        DELETE(list);
     }
 
     type_t* return_type = function_type_get_return_type(function_type_of_called);
@@ -13479,7 +13478,7 @@ static void implement_nongeneric_lambda_expression(
             if (nodecl_is_err_expr(nodecl_init))
             {
                 *nodecl_output = nodecl_init;
-                xfree(capture_list);
+                DELETE(capture_list);
                 instantiation_symbol_map_pop(instantiation_symbol_map);
                 instantiation_symbol_map_pop(initializers_map);
                 return;
@@ -13840,7 +13839,7 @@ static void implement_generic_lambda_expression(
 
     // Compute the template parameters and the generic type
     template_parameter_list_t* invented_template_parameter_list =
-        xcalloc(1, sizeof(*invented_template_parameter_list));
+        NEW0(template_parameter_list_t);
 
     int num_parameters = function_type_get_num_parameters(lambda_function_type);
     parameter_info_t invented_function_param_info[num_parameters + 1];
@@ -13857,9 +13856,9 @@ static void implement_generic_lambda_expression(
         if (type_contains_auto(param_type))
         {
             template_parameter_t* current_template_parameter
-                = xcalloc(1, sizeof(*current_template_parameter));
+                = NEW0(template_parameter_t);
             current_template_parameter->entry
-                = xcalloc(1, sizeof(*current_template_parameter->entry));
+                = NEW0(scope_entry_t);
             symbol_entity_specs_set_template_parameter_nesting(current_template_parameter->entry, 1);
             symbol_entity_specs_set_template_parameter_position(current_template_parameter->entry, i);
 
@@ -13893,9 +13892,9 @@ static void implement_generic_lambda_expression(
         }
     }
 
-    invented_template_parameter_list->arguments = xcalloc(
-            invented_template_parameter_list->num_parameters,
-            sizeof(*invented_template_parameter_list->arguments));
+    invented_template_parameter_list->arguments = NEW_VEC0(
+            template_parameter_value_t*,
+            invented_template_parameter_list->num_parameters);
 
     if (has_ellipsis)
     {
@@ -14168,7 +14167,7 @@ static void implement_generic_lambda_expression(
             if (nodecl_is_err_expr(nodecl_init))
             {
                 *nodecl_output = nodecl_init;
-                xfree(capture_list);
+                DELETE(capture_list);
                 instantiation_symbol_map_pop(instantiation_symbol_map);
                 instantiation_symbol_map_pop(initializers_map);
                 return;
@@ -14911,7 +14910,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                     ast_get_locus(expression)));
     }
     num_capture_copy = 0;
-    xfree(capture_copy_info); capture_copy_info = NULL;
+    DELETE(capture_copy_info); capture_copy_info = NULL;
 
     for (i = 0; i < num_capture_ref; i++)
     {
@@ -14928,7 +14927,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                     ast_get_locus(expression)));
     }
     num_capture_ref = 0;
-    xfree(capture_ref_info); capture_ref_info = NULL;
+    DELETE(capture_ref_info); capture_ref_info = NULL;
 
     // A lambda is dependent if the enclosing function is dependent
     scope_entry_t* enclosing_function = NULL;
@@ -15042,7 +15041,7 @@ static char there_are_template_packs(nodecl_t n)
     int num_packs_to_expand = 0;
     get_packs_in_expression(n, &packs_to_expand, &num_packs_to_expand);
 
-    xfree(packs_to_expand);
+    DELETE(packs_to_expand);
 
     return (num_packs_to_expand > 0);
 }
@@ -15476,7 +15475,7 @@ static const_value_t* compute_subconstant_of_class_member_access(
         }
     }
 
-    xfree(path_info);
+    DELETE(path_info);
 
     if (result == NULL
             || const_value_is_unknown(result))
@@ -17170,7 +17169,7 @@ static char update_stack_to_designator(type_t* declared_type,
                                         nodecl_get_locus(current_designator)),
                                     nodecl_get_locus(current_designator)));
 
-                        xfree(designators);
+                        DELETE(designators);
 
                         designators = reversed_list;
                         designator_list_length = num_items_reversed_list;
@@ -17204,7 +17203,7 @@ static char update_stack_to_designator(type_t* declared_type,
         i++;
     }
 
-    xfree(designators);
+    DELETE(designators);
 
     return 1;
 }
@@ -17326,7 +17325,7 @@ static void nodecl_make_designator(nodecl_t *nodecl_output, type_t* declared_typ
 
     nodecl_make_designator_rec(nodecl_output, declared_type, designators, 0, num_designators);
 
-    xfree(designators);
+    DELETE(designators);
 }
 
 char is_narrowing_conversion_type(type_t* orig_type,
@@ -17646,7 +17645,7 @@ static const_value_t* get_zero_value_of_type(type_t* t)
 
         int num_fields = entry_list_size(fields);
 
-        const_value_t** cval = xcalloc(num_fields, sizeof(*cval));
+        const_value_t** cval = NEW_VEC0(const_value_t*, num_fields);
         scope_entry_list_iterator_t* it = NULL;
         int i;
         for (i = 0, it = entry_list_iterator_begin(fields);
@@ -17663,7 +17662,7 @@ static const_value_t* get_zero_value_of_type(type_t* t)
 
         const_value_t* result = const_value_make_struct(num_fields, cval, t);
 
-        xfree(cval);
+        DELETE(cval);
         return result;
     }
     else
@@ -18001,9 +18000,9 @@ void check_nodecl_braced_initializer(
             if (type_stack[type_stack_idx].num_items > 0)
             {
                 type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].num_items;
-                type_stack[type_stack_idx].values = xcalloc(
-                        type_stack[type_stack_idx].num_items,
-                        sizeof(*type_stack[type_stack_idx].values));
+                type_stack[type_stack_idx].values = NEW_VEC0(
+                        const_value_t*,
+                        type_stack[type_stack_idx].num_items);
             }
 
             DEBUG_CODE()
@@ -18135,10 +18134,10 @@ void check_nodecl_braced_initializer(
                         // Free the stack
                         while (type_stack_idx >= 0)
                         {
-                            xfree(type_stack[type_stack_idx].values);
+                            DELETE(type_stack[type_stack_idx].values);
                             type_stack[type_stack_idx].values = NULL;
 
-                            xfree(type_stack[type_stack_idx].fields);
+                            DELETE(type_stack[type_stack_idx].fields);
                             type_stack[type_stack_idx].fields = NULL;
                             type_stack_idx--;
                         }
@@ -18155,7 +18154,7 @@ void check_nodecl_braced_initializer(
                         {
                             // Not constant, everything won't we constant either
                             type_stack[type_stack_idx].num_values = -1;
-                            xfree(type_stack[type_stack_idx].values);
+                            DELETE(type_stack[type_stack_idx].values);
                             type_stack[type_stack_idx].values = NULL;
                         }
                         else
@@ -18164,9 +18163,10 @@ void check_nodecl_braced_initializer(
                             {
                                 // Make room
                                 type_stack[type_stack_idx].values =
-                                    xrealloc(type_stack[type_stack_idx].values,
-                                            (type_stack[type_stack_idx].item + 1) *
-                                            sizeof(*type_stack[type_stack_idx].values));
+                                    NEW_REALLOC(
+                                            const_value_t*,
+                                            type_stack[type_stack_idx].values,
+                                            (type_stack[type_stack_idx].item + 1));
 
                                 int j;
                                 for (j = type_stack[type_stack_idx].num_values;
@@ -18223,10 +18223,10 @@ void check_nodecl_braced_initializer(
                         const_value_t* current_aggregate =
                             generate_aggregate_constant(type_stack, type_stack_idx);
 
-                        xfree(type_stack[type_stack_idx].values);
+                        DELETE(type_stack[type_stack_idx].values);
                         type_stack[type_stack_idx].values = NULL;
 
-                        xfree(type_stack[type_stack_idx].fields);
+                        DELETE(type_stack[type_stack_idx].fields);
                         type_stack[type_stack_idx].fields = NULL;
 
                         type_stack_idx--;
@@ -18236,7 +18236,7 @@ void check_nodecl_braced_initializer(
                             if (current_aggregate == NULL)
                             {
                                 type_stack[type_stack_idx].num_values = -1;
-                                xfree(type_stack[type_stack_idx].values);
+                                DELETE(type_stack[type_stack_idx].values);
                                 type_stack[type_stack_idx].values = NULL;
                             }
                             else
@@ -18245,9 +18245,10 @@ void check_nodecl_braced_initializer(
                                 {
                                     // Make room
                                     type_stack[type_stack_idx].values =
-                                        xrealloc(type_stack[type_stack_idx].values,
-                                                (type_stack[type_stack_idx].item + 1) *
-                                                sizeof(*type_stack[type_stack_idx].values));
+                                        NEW_REALLOC(
+                                                const_value_t*,
+                                                type_stack[type_stack_idx].values,
+                                                (type_stack[type_stack_idx].item + 1));
 
                                     int j;
                                     for (j = type_stack[type_stack_idx].num_values;
@@ -18296,7 +18297,7 @@ void check_nodecl_braced_initializer(
                                     // Not constant, everything won't we constant either
                                     type_stack[type_stack_idx].num_values = -1;
 
-                                    xfree(type_stack[type_stack_idx].values);
+                                    DELETE(type_stack[type_stack_idx].values);
                                     type_stack[type_stack_idx].values = NULL;
                                 }
                                 else
@@ -18305,9 +18306,10 @@ void check_nodecl_braced_initializer(
                                     {
                                         // Make room
                                         type_stack[type_stack_idx].values =
-                                            xrealloc(type_stack[type_stack_idx].values,
-                                                    (type_stack[type_stack_idx].item + 1)*
-                                                    sizeof(*type_stack[type_stack_idx].values));
+                                            NEW_REALLOC(
+                                                    const_value_t*,
+                                                    type_stack[type_stack_idx].values,
+                                                    (type_stack[type_stack_idx].item + 1));
 
                                         int j;
                                         for (j = type_stack[type_stack_idx].num_values;
@@ -18402,9 +18404,9 @@ void check_nodecl_braced_initializer(
                     type_stack[type_stack_idx].num_values = type_stack[type_stack_idx].num_items;
                     if (type_stack[type_stack_idx].num_values > 0)
                     {
-                        type_stack[type_stack_idx].values = xcalloc(
-                                type_stack[type_stack_idx].num_values,
-                                sizeof(*type_stack[type_stack_idx].values));
+                        type_stack[type_stack_idx].values = NEW_VEC0(
+                                const_value_t*,
+                                type_stack[type_stack_idx].num_values);
                     }
 
                     // Note that we are not consuming any item here
@@ -18413,7 +18415,7 @@ void check_nodecl_braced_initializer(
             }
 
             // Deallocate nodecl list
-            xfree(list);
+            DELETE(list);
 
             if (is_array_type(declared_type)
                     && type_stack[0].num_items == -1)
@@ -18430,10 +18432,10 @@ void check_nodecl_braced_initializer(
 
             initializer_type = type_stack[0].type;
 
-            xfree(type_stack[0].fields);
+            DELETE(type_stack[0].fields);
             type_stack[0].fields = 0;
 
-            xfree(type_stack[0].values);
+            DELETE(type_stack[0].values);
             type_stack[0].values = 0;
         }
 
@@ -18576,7 +18578,7 @@ void check_nodecl_braced_initializer(
                 error_printf("%s", message);
             }
             entry_list_free(candidates);
-            xfree(nodecl_list);
+            DELETE(nodecl_list);
             *nodecl_output = nodecl_make_err_expr(
                     locus);
         }
@@ -18584,7 +18586,7 @@ void check_nodecl_braced_initializer(
         {
             if (function_has_been_deleted(decl_context, constructor, locus))
             {
-                xfree(nodecl_list);
+                DELETE(nodecl_list);
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
                 return;
@@ -18624,7 +18626,7 @@ void check_nodecl_braced_initializer(
 
             if (is_initializer_constructor)
             {
-                xfree(nodecl_list);
+                DELETE(nodecl_list);
 
                 nodecl_t nodecl_arg = nodecl_null();
                 check_nodecl_function_argument_initialization(
@@ -18636,7 +18638,7 @@ void check_nodecl_braced_initializer(
 
                 if (nodecl_is_err_expr(nodecl_arg))
                 {
-                    xfree(nodecl_list);
+                    DELETE(nodecl_list);
                     *nodecl_output = nodecl_make_err_expr(
                             locus);
                     return;
@@ -18670,7 +18672,7 @@ void check_nodecl_braced_initializer(
                                 &nodecl_arg);
                         if (nodecl_is_err_expr(nodecl_arg))
                         {
-                            xfree(nodecl_list);
+                            DELETE(nodecl_list);
                             *nodecl_output = nodecl_arg;
                             nodecl_free(nodecl_old_arg);
                             return;
@@ -18690,7 +18692,7 @@ void check_nodecl_braced_initializer(
 
                             if (is_error_type(default_argument_promoted_type))
                             {
-                                xfree(nodecl_list);
+                                DELETE(nodecl_list);
                                 *nodecl_output = nodecl_make_err_expr(locus);
                                 nodecl_free(nodecl_arguments_output);
                                 return;
@@ -18702,7 +18704,7 @@ void check_nodecl_braced_initializer(
                             nodecl_arg);
                 }
 
-                xfree(nodecl_list);
+                DELETE(nodecl_list);
 
                 *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor,
@@ -18821,7 +18823,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
     if (designator_path != NULL)
     {
         designator_path->num_items = num_designators;
-        designator_path->items = xcalloc(num_designators, sizeof(*designator_path->items));
+        designator_path->items = NEW_VEC0(designator_path_item_t, num_designators);
     }
 
     int i;
@@ -18909,7 +18911,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
         }
     }
 
-    xfree(nodecl_designator_list);
+    DELETE(nodecl_designator_list);
 
     if (!ok)
     {
@@ -19046,7 +19048,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             }
 
             entry_list_free(candidates);
-            xfree(list);
+            DELETE(list);
 
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -19056,7 +19058,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             entry_list_free(candidates);
             if (function_has_been_deleted(decl_context, chosen_constructor, locus))
             {
-                xfree(list);
+                DELETE(list);
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
@@ -19105,7 +19107,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                     if (is_error_type(default_argument_promoted_type))
                     {
-                        xfree(list);
+                        DELETE(list);
                         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
                         return;
                     }
@@ -19130,7 +19132,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     decl_context,
                     locus);
         }
-        xfree(list);
+        DELETE(list);
     }
     else
     {
@@ -19661,7 +19663,7 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
         nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
     }
 
-    xfree(types);
+    DELETE(types);
 }
 
 static void compute_nodecl_designator_list(AST designator_list, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -19806,7 +19808,7 @@ static void compute_nodecl_direct_initializer(AST initializer,
                 if (nodecl_is_err_expr(current_nodecl))
                 {
                     *nodecl_output = current_nodecl;
-                    xfree(nodecl_list);
+                    DELETE(nodecl_list);
                     return;
                 }
 
@@ -19817,7 +19819,7 @@ static void compute_nodecl_direct_initializer(AST initializer,
 
                 P_LIST_ADD(type_seq, num_types, nodecl_get_type(current_nodecl));
             }
-            xfree(nodecl_list);
+            DELETE(nodecl_list);
         }
     }
 
@@ -19828,7 +19830,7 @@ static void compute_nodecl_direct_initializer(AST initializer,
     nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
     nodecl_expr_set_is_value_dependent(*nodecl_output, any_is_value_dependent);
 
-    xfree(type_seq);
+    DELETE(type_seq);
 }
 
 void compute_nodecl_initialization(AST initializer,
@@ -20814,7 +20816,7 @@ void build_unary_builtin_operators(type_t* t1,
         }
     }
 
-    xfree(accessibles_1);
+    DELETE(accessibles_1);
 }
 
 static
@@ -20922,8 +20924,8 @@ void build_binary_builtin_operators(type_t* t1,
         }
     }
 
-    xfree(accessibles_2);
-    xfree(accessibles_1);
+    DELETE(accessibles_2);
+    DELETE(accessibles_1);
 }
 
 // All this is just for conditional expressions (ternary 'operator ?')
@@ -21061,9 +21063,9 @@ void build_ternary_builtin_operators(type_t* t1,
         }
     }
 
-    xfree(accessibles_3);
-    xfree(accessibles_2);
-    xfree(accessibles_1);
+    DELETE(accessibles_3);
+    DELETE(accessibles_2);
+    DELETE(accessibles_1);
 }
 
 static void check_sizeof_type(type_t* t, 
@@ -21809,7 +21811,7 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         return;
     }
 
-    xfree(nodecl_list);
+    DELETE(nodecl_list);
 
     *nodecl_output = nodecl_make_compound_expression(
             nodecl_context,
@@ -22197,7 +22199,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                     nodecl_locus_to_str(current_expr),
                     codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)),
                     print_type_str(get_ptrdiff_t_type(), decl_context));
-            xfree(list);
+            DELETE(list);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
@@ -22217,7 +22219,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         error_printf("%s: error: shaped expression '%s' does not have pointer type\n",
                 nodecl_locus_to_str(nodecl_shaped_expr),
                 codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
-        xfree(list);
+        DELETE(list);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
@@ -22241,7 +22243,7 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                 nodecl_shallow_copy(current_expr),
                 decl_context);
     }
-    xfree(list);
+    DELETE(list);
 
     *nodecl_output = nodecl_make_shaping(nodecl_shaped_expr, 
             nodecl_shape_list, 
@@ -23080,7 +23082,7 @@ static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_funct
             break;
         }
     }
-    xfree(list);
+    DELETE(list);
 
     ERROR_CONDITION(nodecl_is_null(nodecl_return_statement), "Return statement not found", 0);
 
@@ -23131,9 +23133,8 @@ constexpr_function_get_constants_of_arguments(
         num_parameters--;
     }
 
-    map_of_parameters_with_their_arguments_t* result = xcalloc(
-            num_arguments,
-            sizeof(*result));
+    map_of_parameters_with_their_arguments_t* result =
+        NEW_VEC0(map_of_parameters_with_their_arguments_t, num_arguments);
     *num_map_items = 0;
 
 #define ERROR_MESSAGE_THIS \
@@ -23171,8 +23172,8 @@ constexpr_function_get_constants_of_arguments(
         } \
         error_message; \
         *num_map_items = -1; \
-        xfree(list_of_arguments); \
-        xfree(result); \
+        DELETE(list_of_arguments); \
+        DELETE(result); \
         return NULL; \
     }
 
@@ -23250,7 +23251,7 @@ constexpr_function_get_constants_of_arguments(
             internal_error("Code unreachable", 0);
         }
     }
-    xfree(list_of_arguments);
+    DELETE(list_of_arguments);
 
     DEBUG_CODE()
     {
@@ -23270,7 +23271,7 @@ static void free_map_of_parameters_and_values(map_of_parameters_with_their_argum
     int i;
     for (i = 0; i < num_map_items; i++)
     {
-        xfree(map[i].value_list);
+        DELETE(map[i].value_list);
     }
 }
 
@@ -23489,7 +23490,7 @@ static const_value_t* evaluate_constexpr_constructor(
         entry_list_free(all_members_list);
     }
 
-    const_value_t** values = xcalloc(num_all_members, sizeof(*values));
+    const_value_t** values = NEW_VEC0(const_value_t*, num_all_members);
 
     int i, N = 0;
     nodecl_t *nodecl_list = nodecl_unpack_list(nodecl_initializers, &N);
@@ -23544,8 +23545,8 @@ static const_value_t* evaluate_constexpr_constructor(
                         get_qualified_symbol_name(current_member, current_member->decl_context));
             }
 
-            xfree(all_members);
-            xfree(values);
+            DELETE(all_members);
+            DELETE(values);
             free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
             return NULL;
         }
@@ -23624,8 +23625,8 @@ static const_value_t* evaluate_constexpr_constructor(
                             get_qualified_symbol_name(current_member, current_member->decl_context));
                 }
 
-                xfree(all_members);
-                xfree(values);
+                DELETE(all_members);
+                DELETE(values);
                 free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
                 return NULL;
             }
@@ -23635,8 +23636,8 @@ static const_value_t* evaluate_constexpr_constructor(
     const_value_t* structured_value =
         const_value_make_struct(num_all_members, values, class_type);
 
-    xfree(all_members);
-    xfree(values);
+    DELETE(all_members);
+    DELETE(values);
     free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
 
     return structured_value;
@@ -24331,23 +24332,24 @@ static void define_inherited_constructor(
         }
     }
 
-    xfree(type_seq);
+    DELETE(type_seq);
     check_expr_flags.must_be_constant = must_be_constant;
 #undef return
 }
 
+typedef
 struct instantiate_default_argument_header_message_fun_data_tag
 {
     // scope_entry_t* called_symbol;
     scope_entry_t* function_with_defaults;
     int arg_i;
     const locus_t* locus;
-};
+} instantiate_default_argument_header_message_fun_data_t;
 
 static const char* instantiate_default_argument_header_message_fun(void* v)
 {
-    struct instantiate_default_argument_header_message_fun_data_tag* p =
-        (struct instantiate_default_argument_header_message_fun_data_tag*)v;
+    instantiate_default_argument_header_message_fun_data_t* p =
+        (instantiate_default_argument_header_message_fun_data_t*)v;
 
     const char* default_argument_context_str;
     uniquestr_sprintf(&default_argument_context_str,
@@ -24538,7 +24540,7 @@ nodecl_t cxx_nodecl_make_function_call(
         converted_arg_list = nodecl_append_to_list(converted_arg_list, list[i]);
     }
 
-    xfree(list);
+    DELETE(list);
 
     if (called_symbol != NULL)
     {
@@ -24663,7 +24665,8 @@ nodecl_t cxx_nodecl_make_function_call(
                     header_message_fun_t instantiation_header;
                     instantiation_header.message_fun = instantiate_default_argument_header_message_fun;
                     {
-                        struct instantiate_default_argument_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+                        instantiate_default_argument_header_message_fun_data_t* p =
+                            NEW0(instantiate_default_argument_header_message_fun_data_t);
                         // p->called_symbol = called_symbol;
                         p->function_with_defaults = function_with_defaults;
                         p->arg_i = arg_i;
@@ -24796,7 +24799,7 @@ nodecl_t cxx_nodecl_make_function_call(
                         {
                             first_argument = simplify_args[0];
                         }
-                        xfree(simplify_args);
+                        DELETE(simplify_args);
 
                         nodecl_set_constant(result,
                                 nodecl_get_constant(first_argument));
@@ -24811,7 +24814,7 @@ nodecl_t cxx_nodecl_make_function_call(
                         nodecl_t simplified_value = (symbol_entity_specs_get_simplify_function(called_symbol))
                             (called_symbol, num_simplify_args, simplify_args);
 
-                        xfree(simplify_args);
+                        DELETE(simplify_args);
 
                         if (!nodecl_is_null(simplified_value)
                                 && nodecl_is_constant(simplified_value))
@@ -25712,7 +25715,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
 
         nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, copied_part);
     }
-    xfree(rest_of_parts);
+    DELETE(rest_of_parts);
 
     nodecl_t (*nodecl_make_cxx_dep_fun_name)(nodecl_t, const locus_t*) = NULL;
     if (can_qualify)
@@ -25863,7 +25866,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
                 int num_items;
                 nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
                 result = nodecl_shallow_copy(list[v->pack_index]);
-                xfree(list);
+                DELETE(list);
             }
             else
             {
@@ -25933,7 +25936,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             nodecl_t* list = nodecl_unpack_list(mapped_symbol->value, &num_items);
             nodecl_t sub_symbol = list[v->pack_index];
             result = nodecl_shallow_copy(sub_symbol);
-            xfree(list);
+            DELETE(list);
         }
         else
         {
@@ -25982,7 +25985,7 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
 {
     scope_entry_t* lambda_symbol = nodecl_get_symbol(node);
 
-    scope_entry_t* instantiated_lambda_symbol = xcalloc(1, sizeof(*instantiated_lambda_symbol));
+    scope_entry_t* instantiated_lambda_symbol = NEW0(scope_entry_t);
     instantiated_lambda_symbol->decl_context = v->decl_context;
     instantiated_lambda_symbol->kind = lambda_symbol->kind;
     instantiated_lambda_symbol->locus = lambda_symbol->locus;
@@ -26000,7 +26003,7 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
     {
         scope_entry_t* orig_param = symbol_entity_specs_get_related_symbols_num(instantiated_lambda_symbol, i);
 
-        scope_entry_t* param = xcalloc(1, sizeof(*param));
+        scope_entry_t* param = NEW0(scope_entry_t);
         param->defined = 1;
         param->kind = SK_VARIABLE;
         param->locus = nodecl_get_locus(node);
@@ -26026,7 +26029,7 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
 
         nodecl_set_symbol(list[i], mapped_symbol);
     }
-    xfree(list);
+    DELETE(list);
 
     implement_lambda_expression(
             v->decl_context,
@@ -26044,11 +26047,11 @@ static void instantiate_cxx_lambda(nodecl_instantiate_expr_visitor_t* v, nodecl_
         scope_entry_t* param = symbol_entity_specs_get_related_symbols_num(instantiated_lambda_symbol, i);
 
         symbol_entity_specs_free(param);
-        xfree(param);
+        DELETE(param);
     }
 
     symbol_entity_specs_free(instantiated_lambda_symbol);
-    xfree(instantiated_lambda_symbol);
+    DELETE(instantiated_lambda_symbol);
 }
 
 static void instantiate_class_member_access(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -26127,7 +26130,7 @@ static nodecl_t update_common_dep_name_nested(
 
         nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
     }
-    xfree(list);
+    DELETE(list);
 
     nodecl_t nodecl_name = (*func)(nodecl_result_list, nodecl_get_locus(node));
 
@@ -26597,7 +26600,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
             nodecl_free(new_list);
             nodecl_free(current_arg);
-            xfree(list);
+            DELETE(list);
             return;
         }
 
@@ -26614,7 +26617,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
                     current_arg);
         }
     }
-    xfree(list);
+    DELETE(list);
 
     check_nodecl_function_call(nodecl_called,
             new_list,
@@ -26995,7 +26998,7 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
         type_seq = get_sequence_of_types_append_type(type_seq, nodecl_get_type(expr));
     }
 
-    xfree(list);
+    DELETE(list);
 
     v->nodecl_result = nodecl_make_cxx_parenthesized_initializer(nodecl_result_list,
             type_seq,
@@ -27056,7 +27059,7 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
         P_LIST_ADD(types, num_types, nodecl_get_type(expr));
     }
 
-    xfree(list);
+    DELETE(list);
 
     v->nodecl_result = nodecl_make_cxx_braced_initializer(nodecl_result_list,
             get_braced_list_type(num_types, types),
@@ -27219,7 +27222,7 @@ static void instantiate_cxx_dep_new(nodecl_instantiate_expr_visitor_t* v, nodecl
         nodecl_t new_item = instantiate_expr_walk(v, list[i]);
         new_nodecl_placement_list = nodecl_append_to_list(new_nodecl_placement_list, new_item);
     }
-    xfree(list);
+    DELETE(list);
 
     new_type = update_type_for_instantiation(
             new_type,

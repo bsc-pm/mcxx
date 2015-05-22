@@ -523,7 +523,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
                     }
                 }
 
-                xfree(number_of_elements_str);
+                DELETE(number_of_elements_str);
             }
         }
         else

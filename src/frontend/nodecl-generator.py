@@ -374,7 +374,7 @@ def generate_check_routines(rule_map):
     print "   {"
     print "      fun(list[i]);"
     print "   }"
-    print "   xfree(list);"
+    print "   DELETE(list);"
     print "}"
     print "static inline void nodecl_check_nullable_list_rule(nodecl_t n, void (*fun)(nodecl_t))"
     print "{"
@@ -1305,7 +1305,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
           {
                   result = nodecl_append_to_list(result, nodecl_shallow_copy(list[i]));
           }
-          xfree(list);
+          DELETE(list);
           return result;
           break;
         }
@@ -1459,7 +1459,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
                   result = nodecl_append_to_list(result, nodecl_deep_copy_rec(list[i], new_decl_context,
                           *synth_symbol_map, synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));
           }
-          xfree(list);
+          DELETE(list);
           break;
         }
 """

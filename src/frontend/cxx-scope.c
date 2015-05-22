@@ -99,17 +99,17 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
 {
     ERROR_CONDITION(tpl == NULL, "Template parameters cannot be NULL here", 0);
 
-    template_parameter_list_t* result = xcalloc(1, sizeof(*result));
+    template_parameter_list_t* result = NEW0(template_parameter_list_t);
     result->num_parameters = tpl->num_parameters;
     result->parameters = tpl->parameters;
 
-    result->arguments = xcalloc(tpl->num_parameters, sizeof(*result->arguments));
+    result->arguments = NEW_VEC0(template_parameter_value_t*, tpl->num_parameters);
     int i;
     for (i = 0; i < result->num_parameters; i++)
     {
         if (tpl->arguments[i] != NULL)
         {
-            result->arguments[i] = xmalloc(sizeof(*result->arguments[i]));
+            result->arguments[i] = NEW(template_parameter_value_t);
             *result->arguments[i] = *tpl->arguments[i];
             result->arguments[i]->value = nodecl_shallow_copy(tpl->arguments[i]->value);
         }
@@ -133,10 +133,10 @@ void free_template_parameter_list(template_parameter_list_t* tpl)
         {
             nodecl_free(tpl->arguments[i]->value);
         }
-        xfree(tpl->arguments[i]);
+        DELETE(tpl->arguments[i]);
     }
-    xfree(tpl->arguments);
-    xfree(tpl);
+    DELETE(tpl->arguments);
+    DELETE(tpl);
 }
 
 static void copy_template_parameter_list(template_parameter_list_t* dest, template_parameter_list_t* src)
@@ -150,15 +150,15 @@ static void copy_template_parameter_list(template_parameter_list_t* dest, templa
     dest->parameters = NULL;
     if (src->parameters != NULL)
     {
-        dest->parameters = xcalloc(src->num_parameters, sizeof(*(dest->parameters)));
+        dest->parameters = NEW_VEC0(template_parameter_t*, src->num_parameters);
         memcpy(dest->parameters, src->parameters, src->num_parameters * sizeof(*src->parameters));
     }
-    dest->arguments = xcalloc(src->num_parameters, sizeof(*(dest->arguments)));
+    dest->arguments = NEW_VEC0(template_parameter_value_t*, src->num_parameters);
     for (i = 0; i < src->num_parameters; i++)
     {
         if (src->arguments[i] != NULL)
         {
-            dest->arguments[i] = xmalloc(sizeof(*dest->arguments[i]));
+            dest->arguments[i] = NEW(template_parameter_value_t);
             *dest->arguments[i] = *src->arguments[i];
             dest->arguments[i]->value = nodecl_shallow_copy(src->arguments[i]->value);
         }
@@ -199,7 +199,7 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_e
 // Any new scope should be created using this one
 scope_t* _new_scope(void)
 {
-    scope_t* result = xcalloc(1, sizeof(*result));
+    scope_t* result = NEW0(scope_t);
 
     result->dhash = dhash_ptr_new(5);
 
@@ -316,8 +316,7 @@ decl_context_t new_global_context(void)
 {
     decl_context_t result = new_decl_context();
 
-    scope_entry_t* global_scope_namespace 
-        = xcalloc(1, sizeof(*global_scope_namespace));
+    scope_entry_t* global_scope_namespace = NEW0(scope_entry_t);
     global_scope_namespace->kind = SK_NAMESPACE;
 
     // Create global scope
@@ -465,12 +464,9 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
     // ERROR_CONDITION(name != uniquestr(name), "Invalid name", 0);
 
-    scope_entry_t* result;
+    scope_entry_t* result = NEW0(scope_entry_t);
 
-    result = xcalloc(1, sizeof(*result));
     result->symbol_name = uniquestr(name);
-    // Remember, for template parameters, .current_scope will not contain
-    // its declaration scope but will be in .template_scope
     result->decl_context = decl_context;
 
     insert_alias(sc, result, result->symbol_name);
@@ -1065,7 +1061,7 @@ static scope_entry_t* create_new_dependent_entity(
 
     if (result == NULL)
     {
-        result = xcalloc(1, sizeof(*result));
+        result = NEW0(scope_entry_t);
 
         result->kind = SK_DEPENDENT_ENTITY;
         result->decl_context = decl_context;
@@ -1513,7 +1509,7 @@ nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name)
 
         nodecl_t last_part = list[num_items - 1];
 
-        xfree(list);
+        DELETE(list);
 
         return last_part;
     }
@@ -2267,14 +2263,14 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
         if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
-            xfree(associated_namespaces);
+            DELETE(associated_namespaces);
             return result;
         }
 
         current_scope = current_scope->contained_in;
     }
 
-    xfree(associated_namespaces);
+    DELETE(associated_namespaces);
 
     return result;
 }
@@ -2311,14 +2307,14 @@ static nodecl_t update_nodecl_template_argument_expression(
                     &nodecl_item);
             if (nodecl_is_err_expr(nodecl_item))
             {
-                xfree(list);
+                DELETE(list);
                 return nodecl_item;
             }
             list[i] = nodecl_item;
         }
 
         nodecl_output = nodecl_make_list_n(num_items, list);
-        xfree(list);
+        DELETE(list);
     }
     else
     {
@@ -2386,7 +2382,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
         const locus_t* locus,
         int pack_index)
 {
-    template_parameter_value_t* result = xcalloc(1, sizeof(*result));
+    template_parameter_value_t* result = NEW0(template_parameter_value_t);
     result->kind = v->kind;
     result->is_default = 0;
 
@@ -2397,7 +2393,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                 instantiation_symbol_map, pack_index);
         if (updated_type == NULL)
         {
-            xfree(result);
+            DELETE(result);
             return NULL;
         }
 
@@ -2430,7 +2426,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 
                     if (nodecl_is_err_expr(updated_expr))
                     {
-                        xfree(result);
+                        DELETE(result);
                         nodecl_free(updated_list);
                         return NULL;
                     }
@@ -2453,7 +2449,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                 {
                     if (nodecl_is_err_expr(result->value))
                     {
-                        xfree(result);
+                        DELETE(result);
                         return NULL;
                     }
 
@@ -2555,7 +2551,7 @@ static nodecl_t update_dependent_typename_dependent_parts(
                 new_current_part);
     }
 
-    xfree(list);
+    DELETE(list);
 
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, locus);
 
@@ -2772,7 +2768,7 @@ int get_length_of_pack_expansion_from_expression(nodecl_t expr,
 
     int len = get_length_of_pack_expansion_common(num_packs_to_expand, packs_to_expand, decl_context, locus);
 
-    xfree(packs_to_expand);
+    DELETE(packs_to_expand);
 
     return len;
 }
@@ -2788,7 +2784,7 @@ int get_length_of_pack_expansion_from_type(type_t* pack_type,
 
     int len = get_length_of_pack_expansion_common(num_packs_to_expand, packs_to_expand, decl_context, locus);
 
-    xfree(packs_to_expand);
+    DELETE(packs_to_expand);
 
     return len;
 }
@@ -2901,7 +2897,7 @@ static type_t* update_pack_type(type_t* pack_type,
     }
 
     type_t** types = NULL;
-    types = xcalloc(len, sizeof(*types));
+    types = NEW_VEC0(type_t*, len);
     int i;
     for (i = 0; i < len; i++)
     {
@@ -2923,7 +2919,7 @@ static type_t* update_pack_type(type_t* pack_type,
                     | get_cv_qualifier(pack_type_get_packed_type(pack_type)));
         if (types[i] == NULL)
         {
-            xfree(types);
+            DELETE(types);
             return NULL;
         }
         DEBUG_CODE()
@@ -2934,7 +2930,7 @@ static type_t* update_pack_type(type_t* pack_type,
     }
 
     type_t* result = get_sequence_of_types(len, types);
-    xfree(types);
+    DELETE(types);
 
     return result;
 }
@@ -2960,7 +2956,7 @@ static char add_mapping_for_return_type_symbol(scope_entry_t* entry,
     if (new_type == NULL)
         return 0;
 
-    scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+    scope_entry_t* new_entry = NEW0(scope_entry_t);
     new_entry->symbol_name = entry->symbol_name;
     new_entry->kind = entry->kind;
     new_entry->decl_context = decl_context;
@@ -2998,7 +2994,7 @@ static char add_mapping_for_return_type_symbol(scope_entry_t* entry,
                     new_entry->symbol_name,
                     num_sub_parameter);
 
-            scope_entry_t* new_sub_parameter = xcalloc(sizeof(*new_sub_parameter), 1);
+            scope_entry_t* new_sub_parameter = NEW0(scope_entry_t);
 
             new_sub_parameter->symbol_name = c;
             new_sub_parameter->kind = SK_VARIABLE;
@@ -3443,8 +3439,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                 template_specialized_type_get_template_arguments(orig_symbol->type_information);
 
             // First make an update for all the current template arguments
-            template_parameter_value_t **updated_parameter_values = xcalloc(current_template_arguments->num_parameters, 
-                    sizeof(*updated_parameter_values));
+            template_parameter_value_t **updated_parameter_values =
+                NEW_VEC0(template_parameter_value_t*, current_template_arguments->num_parameters);
 
             int i;
             for (i = 0; i < current_template_arguments->num_parameters; i++)
@@ -3461,12 +3457,12 @@ static type_t* update_type_aux_(type_t* orig_type,
                      {
                          fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
                      }
-                     xfree(updated_parameter_values);
+                     DELETE(updated_parameter_values);
                      return NULL;
                 }
             }
 
-            template_parameter_list_t* expanded_template_parameters = xcalloc(1, sizeof(*expanded_template_parameters));
+            template_parameter_list_t* expanded_template_parameters = NEW0(template_parameter_list_t);
             int i_arg = 0;
 
             // Expand all the arguments
@@ -3482,7 +3478,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                                 int k, num_items = sequence_of_types_get_num_types(updated_parameter_values[i_arg]->type);
                                 for (k = 0; k < num_items; k++)
                                 {
-                                    template_parameter_value_t *new_value = xcalloc(1, sizeof(*new_value));
+                                    template_parameter_value_t *new_value = NEW0(template_parameter_value_t);
                                     new_value->kind = updated_parameter_values[i_arg]->kind;
                                     new_value->type =
                                         sequence_of_types_get_type_num(updated_parameter_values[i_arg]->type, k);
@@ -3510,7 +3506,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                                 int k;
                                 for (k = 0; k < num_items; k++)
                                 {
-                                    template_parameter_value_t *new_value = xcalloc(1, sizeof(*new_value));
+                                    template_parameter_value_t *new_value = NEW0(template_parameter_value_t);
                                     new_value->kind = updated_parameter_values[i_arg]->kind;
                                     // FIXME - What about this case? template <typename ...T, T...N>
                                     new_value->type = updated_parameter_values[i_arg]->type;
@@ -3520,7 +3516,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                                             expanded_template_parameters->num_parameters,
                                             new_value);
                                 }
-                                xfree(list);
+                                DELETE(list);
                                 nodecl_free(updated_parameter_values[i_arg]->value);
                             }
                             else
@@ -3535,11 +3531,12 @@ static type_t* update_type_aux_(type_t* orig_type,
                 }
                 i_arg++;
             }
-            xfree(updated_parameter_values);
+            DELETE(updated_parameter_values);
 
             // Allocate room for the parameters, this is required by complete_template_parameters_of_template_class
-            expanded_template_parameters->parameters = xcalloc(expanded_template_parameters->num_parameters,
-                    sizeof(*(expanded_template_parameters->parameters)));
+            expanded_template_parameters->parameters = NEW_VEC0(
+                    template_parameter_t*,
+                    expanded_template_parameters->num_parameters);
 
             template_parameter_list_t* updated_template_arguments = complete_template_parameters_of_template_class(
                     decl_context,
@@ -3553,7 +3550,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Completion of template parameters failed\n");
                 }
-                xfree(expanded_template_parameters->parameters);
+                DELETE(expanded_template_parameters->parameters);
                 free_template_parameter_list(expanded_template_parameters);
                 return NULL;
             }
@@ -3574,7 +3571,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                         ->parameters !=
                         expanded_template_parameters->parameters))
             {
-                xfree(expanded_template_parameters->parameters);
+                DELETE(expanded_template_parameters->parameters);
             }
             free_template_parameter_list(expanded_template_parameters);
             free_template_parameter_list(updated_template_arguments);
@@ -3861,7 +3858,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 }
             }
 
-            xfree(packed_parameter_types);
+            DELETE(packed_parameter_types);
             packed_parameter_types = NULL;
         }
 
@@ -3912,9 +3909,9 @@ static type_t* update_type_aux_(type_t* orig_type,
                     // Something went wrong when updating the symbols
                     for (i = 0; i < num_new_symbols; i++)
                     {
-                        xfree(new_symbols[i]);
+                        DELETE(new_symbols[i]);
                     }
-                    xfree(new_symbols);
+                    DELETE(new_symbols);
 
                     return NULL;
                 }
@@ -3931,16 +3928,16 @@ static type_t* update_type_aux_(type_t* orig_type,
                     // be used at all
                     for (i = 0; i < num_new_symbols; i++)
                     {
-                        xfree(new_symbols[i]);
+                        DELETE(new_symbols[i]);
                     }
-                    xfree(new_symbols);
+                    DELETE(new_symbols);
 
                     return NULL;
                 }
 
                 // Note that we do not free each new_symbol in case of success
                 // as they may be actually used in the expression
-                xfree(new_symbols);
+                DELETE(new_symbols);
             }
         }
 
@@ -3953,7 +3950,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             updated_function_type = get_new_function_type_trailing_type(return_type,
                     unpacked_parameter_types, num_unpacked_parameter_types, REF_QUALIFIER_NONE);
 
-        xfree(unpacked_parameter_types);
+        DELETE(unpacked_parameter_types);
 
         updated_function_type = get_cv_qualified_type(updated_function_type, cv_qualifier);
 
@@ -4091,7 +4088,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
             }
-            xfree(list);
+            DELETE(list);
 
             ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
 
@@ -4100,7 +4097,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
             }
-            xfree(list);
+            DELETE(list);
 
             fixed_type = get_user_defined_type(fix_dependent_entry);
 
@@ -4429,7 +4426,7 @@ static char check_single_template_argument_from_syntax(AST template_parameter,
 
     if (res != NULL)
     {
-        xfree(res);
+        DELETE(res);
         return 1;
     }
     else
@@ -4494,8 +4491,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                     is_expansion = 1;
                 }
 
-                template_parameter_value_t* t_argument =
-                    xcalloc(1, sizeof(*t_argument));
+                template_parameter_value_t* t_argument = NEW0(template_parameter_value_t);
 
                 AST expr = ASTSon0(template_parameter);
 
@@ -4504,7 +4500,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (nodecl_is_err_expr(nodecl_expr))
                 {
-                    xfree(t_argument);
+                    DELETE(t_argument);
                     return NULL;
                 }
 
@@ -4535,8 +4531,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                     is_expansion = 1;
                 }
 
-                template_parameter_value_t* t_argument = 
-                    xcalloc(1, sizeof(*t_argument));
+                template_parameter_value_t* t_argument = NEW0(template_parameter_value_t);
 
                 AST type_template_parameter = ASTSon0(template_parameter);
                 AST type_specifier_seq = ASTSon0(type_template_parameter);
@@ -4562,7 +4557,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 if (is_error_type(type_info))
                 {
                     set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
-                    xfree(t_argument);
+                    DELETE(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -4576,7 +4571,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 if (is_error_type(declarator_type))
                 {
                     set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
-                    xfree(t_argument);
+                    DELETE(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -4589,7 +4584,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                             ast_get_locus(template_parameter)))
                 {
                     set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
-                    xfree(t_argument);
+                    DELETE(t_argument);
                     return NULL;
                 }
 
@@ -4601,7 +4596,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                     if (abstract_decl != NULL)
                     {
                         set_is_inside_pack_expansion(keep_is_inside_pack_expansion);
-                        xfree(t_argument);
+                        DELETE(t_argument);
                         error_printf("%s: error: invalid template-argument number %d\n",
                                 ast_location(template_parameter),
                                 position);
@@ -4693,7 +4688,7 @@ static void get_template_arguments_from_syntax_rec(
 
             ast_fix_parents_inside_intepretation(current_interpretation);
 
-            potential_results[i] = xcalloc(1, sizeof(*(potential_results[i])));
+            potential_results[i] = NEW0(template_parameter_list_t);
             copy_template_parameter_list(potential_results[i], *result);
             potential_positions[i] = *position;
 
@@ -4759,11 +4754,11 @@ static void get_template_arguments_from_syntax_rec(
 
             // Update the result with the new ones
             free_template_parameter_list(*result);
-            *result = xcalloc(1, sizeof(*result));
+            *result = NEW0(template_parameter_list_t);
             copy_template_parameter_list(*result, potential_results[valid]);
             *position = potential_positions[valid];
 
-            template_parameter_list_t* cached = xcalloc(1, sizeof(*cached));
+            template_parameter_list_t* cached = NEW0(template_parameter_list_t);
             copy_template_parameter_list(cached, potential_results[valid]);
             dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, cached);
         }
@@ -4810,7 +4805,7 @@ static void get_template_arguments_from_syntax_rec(
 
         (*position)++;
 
-        template_parameter_list_t* cached = xcalloc(1, sizeof(*cached));
+        template_parameter_list_t* cached = NEW0(template_parameter_list_t);
         copy_template_parameter_list(cached, *result);
         dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, cached);
     }
@@ -4829,7 +4824,7 @@ static void destroy_cached_template_parameter_lists(const char* key UNUSED_PARAM
         return;
 
     template_parameter_list_t* tpl = (template_parameter_list_t*)info;
-    xfree(tpl->parameters);
+    DELETE(tpl->parameters);
     free_template_parameter_list(tpl);
 }
 
@@ -4837,7 +4832,7 @@ template_parameter_list_t* get_template_arguments_from_syntax(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context)
 {
-    template_parameter_list_t* result = xcalloc(1, sizeof(*result));
+    template_parameter_list_t* result = NEW0(template_parameter_list_t);
     if (template_parameters_list_tree == NULL)
     {
         return result;
@@ -4857,7 +4852,7 @@ template_parameter_list_t* get_template_arguments_from_syntax(
     if (result != NULL)
     {
         // Empty parameters, they will be filled elsewhere
-        result->parameters = xcalloc(result->num_parameters, sizeof(*(result->parameters)));
+        result->parameters = NEW_VEC0(template_parameter_t*, result->num_parameters);
     }
 
     dhash_ptr_walk(disambig_hash, destroy_cached_template_parameter_lists, NULL);
@@ -4955,8 +4950,10 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     // Make room for all the arguments
     if (result->num_parameters < primary_template_parameters->num_parameters)
     {
-        result->arguments = xrealloc(result->arguments,
-                primary_template_parameters->num_parameters * sizeof(*result->arguments));
+        result->arguments = NEW_REALLOC(
+                template_parameter_value_t*,
+                result->arguments,
+                primary_template_parameters->num_parameters);
         int k;
         for (k = result->num_parameters; k < primary_template_parameters->num_parameters; k++)
         {
@@ -5131,7 +5128,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
             // We will fold this argument
             int last_argument_index = i;
-            template_parameter_value_t* folded_value = xcalloc(1, sizeof(*folded_value));
+            template_parameter_value_t* folded_value = NEW0(template_parameter_value_t);
             folded_value->kind = pack_base_kind;
 
             type_t* parameter_type = NULL;
@@ -5259,7 +5256,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         {
             // Empty argument for this variadic parameter
             // Create an empty one
-            template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
+            template_parameter_value_t* new_value = NEW0(template_parameter_value_t);
             new_value->kind = template_parameter_kind_get_base_kind(last->kind);
             new_value->type = get_sequence_of_types(0, NULL);
             new_value->value = nodecl_null(); // Empty list
@@ -5280,7 +5277,10 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     if (original_num_arguments > primary_template_parameters->num_parameters)
     {
         // Adjust the size of this buffer
-        result->arguments = xrealloc(result->arguments, result->num_parameters * sizeof(*result->arguments));
+        result->arguments = NEW_REALLOC(
+                template_parameter_value_t*,
+                result->arguments,
+                result->num_parameters);
     }
 
     return result;
@@ -5420,7 +5420,7 @@ static const char* template_arguments_to_str_ex(
                             strbuilder_append(argument, " /* } */ ");
                         }
 
-                        xfree(list);
+                        DELETE(list);
                     }
                     else
                     {
@@ -5986,7 +5986,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     {
         if (value->entry == NULL)
         {
-            value->entry = xcalloc(1, sizeof(*value->entry));
+            value->entry = NEW0(scope_entry_t);
             value->entry->symbol_name = parameter_entry->symbol_name;
             value->entry->decl_context = context;
             symbol_entity_specs_set_is_template_parameter(value->entry, 1);
@@ -6010,7 +6010,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
                     {
                         // FIXME - This is a bit nonregular respect the other
                         // cases, can it be fixed? Maybe using a template-alias?
-                        xfree(value->entry);
+                        DELETE(value->entry);
                         value->entry = named_type_get_symbol(value->type);
                         break;
                     }
@@ -6072,7 +6072,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
                     }
                     fprintf(stderr, "'");
 
-                    xfree(list);
+                    DELETE(list);
                 }
                 else
                 {
@@ -6313,7 +6313,7 @@ void print_template_parameter_list_aux(template_parameter_list_t* template_param
 
                                 fprintf(stderr, "\n");
 
-                                xfree(list);
+                                DELETE(list);
                             }
                             else
                             {
@@ -6397,7 +6397,7 @@ static scope_entry_list_t* query_nodecl_simple_name(
                     && !BITMAP_TEST(decl_flags, DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY)
                     && is_dependent_type(symbol_entity_specs_get_class_type(head)))
             {
-                scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
+                scope_entry_t* new_sym = NEW0(scope_entry_t);
                 new_sym->kind = SK_DEPENDENT_ENTITY;
                 new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
                 new_sym->decl_context = decl_context;
@@ -6520,7 +6520,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
             }
         }
 
-        scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
+        scope_entry_t* new_sym = NEW0(scope_entry_t);
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->decl_context = decl_context;
         new_sym->locus = locus;
@@ -6649,7 +6649,7 @@ scope_entry_list_t* query_nodecl_template_id(
             dependent_typename_get_components(template_symbol->type_information, &dependent_entity, &nodecl_parts);
             // nodecl_parts here lacks the template-id part
 
-            scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
+            scope_entry_t* new_sym = NEW0(scope_entry_t);
             new_sym->kind = SK_DEPENDENT_ENTITY;
             new_sym->locus = nodecl_get_locus(nodecl_name);
             new_sym->symbol_name = dependent_entity->symbol_name;
@@ -6791,7 +6791,7 @@ scope_entry_list_t* query_nodecl_template_id(
             dependent_typename_get_components(destructor_symbol->type_information, &dependent_entity, &nodecl_parts);
             // nodecl_parts here lacks the template-id part
 
-            scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
+            scope_entry_t* new_sym = NEW0(scope_entry_t);
             new_sym->kind = SK_DEPENDENT_ENTITY;
             new_sym->locus = nodecl_get_locus(nodecl_name);
             new_sym->symbol_name = dependent_entity->symbol_name;
@@ -7113,7 +7113,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 || entry_list_size(current_entry_list) > 1)
         {
             entry_list_free(current_entry_list);
-            xfree(list);
+            DELETE(list);
             return NULL;
         }
 
@@ -7150,7 +7150,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                             i, num_items,
                             nodecl_get_locus(current_name),
                             list);
-                    xfree(list);
+                    DELETE(list);
 
                     if (dependent_symbol == NULL)
                         return NULL;
@@ -7210,7 +7210,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                                 i, num_items,
                                 nodecl_get_locus(current_name),
                                 list);
-                        xfree(list);
+                        DELETE(list);
 
                         if (dependent_symbol == NULL)
                             return NULL;
@@ -7235,7 +7235,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         i, num_items,
                         nodecl_get_locus(current_name),
                         list);
-                xfree(list);
+                DELETE(list);
 
                 if (dependent_symbol == NULL)
                     return NULL;
@@ -7379,11 +7379,11 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 field_path,
                 extra_data))
     {
-        xfree(result);
+        DELETE(result);
         return NULL;
     }
 
-    xfree(list);
+    DELETE(list);
 
     return result;
 }
@@ -8299,7 +8299,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                     {
                         appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
                     }
-                    xfree(list);
+                    DELETE(list);
 
                     ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
 
@@ -8308,13 +8308,13 @@ scope_entry_list_t* query_dependent_entity_in_context(
                     {
                         appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
                     }
-                    xfree(list);
+                    DELETE(list);
 
                     dependent_parts = nodecl_make_cxx_dep_name_nested(
                             appended_dependent_parts,
                             nodecl_get_locus(dependent_parts));
 
-                    scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
+                    scope_entry_t* new_sym = NEW0(scope_entry_t);
                     new_sym->kind = SK_DEPENDENT_ENTITY;
                     new_sym->locus = locus;
                     new_sym->symbol_name = new_class_dependent_entry->symbol_name;
@@ -8328,7 +8328,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                 else if (is_named_type(new_class_type)
                         && is_dependent_type(new_class_type))
                 {
-                    scope_entry_t* new_sym = xcalloc(1, sizeof(*new_sym));
+                    scope_entry_t* new_sym = NEW0(scope_entry_t);
                     new_sym->kind = SK_DEPENDENT_ENTITY;
                     new_sym->locus = locus;
                     new_sym->symbol_name = dependent_entity->symbol_name;

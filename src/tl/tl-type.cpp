@@ -367,7 +367,8 @@ namespace TL
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
    
-        parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+        parameters_list = NEW_VEC(parameter_info_t,
+                num_parameters + has_ellipsis);
 
         for (i=0; i<num_parameters; i++)
         {
@@ -1110,7 +1111,7 @@ namespace TL
                     );
         }
 
-        xfree(mdi);
+        DELETE(mdi);
 
         return result;
     }

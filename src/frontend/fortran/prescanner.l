@@ -665,5 +665,5 @@ void * prescannerrealloc (void * ptr, size_t bytes)
 }
 void   prescannerfree (void * ptr)
 {
-    xfree(ptr);
+    DELETE(ptr);
 }

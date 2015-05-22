@@ -310,7 +310,7 @@ void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_
                 is_dependent = 1;
             }
         }
-        xfree(list);
+        DELETE(list);
     }
 
     nodecl_t function_form = nodecl_null();

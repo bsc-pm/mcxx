@@ -719,7 +719,7 @@ static void build_scope_program_unit_internal(AST program_unit,
                                 "Invalid kind for second item of the list", 0);
 
                         nodecl_nested_pragma = list[1];
-                        xfree(list);
+                        DELETE(list);
                     }
 
                     nodecl_t nodecl_pragma_declaration =
@@ -802,7 +802,7 @@ static void build_scope_delay_list_run(build_scope_delay_list_t* delay_list,
     }
 
     delay_list->num_delayed = 0;
-    xfree(delay_list->list);
+    DELETE(delay_list->list);
 }
 
 static void build_scope_delay_list_add(build_scope_delay_fun_t* fun, void *data)
@@ -849,14 +849,15 @@ static void build_scope_delay_list_advance(void *key,
 }
 
 
-struct delayed_character_length_t
+typedef
+struct delayed_character_length_tag
 {
     type_t* character_type;
     AST length;
     decl_context_t decl_context;
     int num_symbols;
     scope_entry_t** symbols;
-};
+} delayed_character_length_t;
 
 static type_t* delayed_character_length_update_type(type_t* original_type, type_t* new_type)
 {
@@ -910,21 +911,21 @@ static type_t* delayed_character_length_update_type(type_t* original_type, type_
 }
 
 
-static struct delayed_character_length_t* delayed_character_length_new(
+static delayed_character_length_t* delayed_character_length_new(
         type_t* character_type,
         AST character_length,
         decl_context_t decl_context,
         int num_symbols,
         scope_entry_t* symbols[])
 {
-    struct delayed_character_length_t* result = xcalloc(1, sizeof(*result));
+    delayed_character_length_t* result = NEW0(delayed_character_length_t);
 
     ERROR_CONDITION(!fortran_is_character_type(character_type), "Invalid type", 0);
     result->character_type = character_type;
     result->length = character_length;
     result->decl_context = decl_context;
     result->num_symbols = num_symbols;
-    result->symbols = xcalloc(num_symbols, sizeof(*result->symbols));
+    result->symbols = NEW_VEC0(scope_entry_t*, num_symbols);
     memcpy(result->symbols, symbols, sizeof(*result->symbols)*num_symbols);
 
     return result;
@@ -932,7 +933,7 @@ static struct delayed_character_length_t* delayed_character_length_new(
 
 static void delayed_compute_character_length(void *info, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    struct delayed_character_length_t* data = (struct delayed_character_length_t*)info;
+    delayed_character_length_t* data = (delayed_character_length_t*)info;
 
     nodecl_t nodecl_len = nodecl_null();
     fortran_check_expression(data->length, data->decl_context, &nodecl_len);
@@ -964,8 +965,8 @@ static void delayed_compute_character_length(void *info, nodecl_t* nodecl_output
         }
     }
 
-    xfree(data->symbols);
-    xfree(data);
+    DELETE(data->symbols);
+    DELETE(data);
 }
 
 
@@ -1010,7 +1011,7 @@ static void solve_postponed_function_type_spec(decl_context_t decl_context)
     if (fortran_is_character_type(function_type_spec)
             && length != NULL)
     {
-        struct delayed_character_length_t *data = 
+        delayed_character_length_t *data = 
             delayed_character_length_new(
                     /* character_type */ function_type_spec,
                     /* character_length */ length,
@@ -1862,7 +1863,7 @@ static scope_entry_t* new_procedure_symbol(
                 snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
                 alternate_return_name[63] = '\0';
 
-                dummy_arg = xcalloc(1, sizeof(*dummy_arg));
+                dummy_arg = NEW0(scope_entry_t);
 
                 dummy_arg->symbol_name = uniquestr(alternate_return_name);
                 // This is actually a label parameter
@@ -2126,7 +2127,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
                 snprintf(alternate_return_name, 64, ".alternate-return-%d", num_alternate_returns);
                 alternate_return_name[63] = '\0';
 
-                dummy_arg = xcalloc(1, sizeof(*dummy_arg));
+                dummy_arg = NEW0(scope_entry_t);
 
                 dummy_arg->symbol_name = uniquestr(alternate_return_name);
                 // This is actually a label parameter
@@ -3997,13 +3998,14 @@ static type_t* eval_array_spec(type_t* basic_type,
     return array_type;
 }
 
-struct delayed_array_spec_t
+typedef
+struct delayed_array_spec_tag
 {
     scope_entry_t* entry;
     type_t* basic_type;
     AST array_spec_list;
     decl_context_t decl_context;
-};
+} delayed_array_spec_t;
 
 static type_t* delayed_array_spec_update_type(type_t* original_type, type_t* new_array)
 {
@@ -4062,14 +4064,14 @@ static type_t* delayed_array_spec_update_type(type_t* original_type, type_t* new
 static char delayed_array_specifier_cmp(void *key, void *info)
 {
     scope_entry_t* entry = (scope_entry_t*)key;
-    struct delayed_array_spec_t* data = (struct delayed_array_spec_t*)info;
+    delayed_array_spec_t* data = (delayed_array_spec_t*)info;
 
     return (data->entry == entry);
 }
 
 static void delayed_compute_type_from_array_spec(void *info, nodecl_t* nodecl_output)
 {
-    struct delayed_array_spec_t* data = (struct delayed_array_spec_t*)info;
+    delayed_array_spec_t* data = (delayed_array_spec_t*)info;
 
     type_t* array_type = eval_array_spec(data->basic_type,
             data->array_spec_list,
@@ -4090,7 +4092,7 @@ static void delayed_compute_type_from_array_spec(void *info, nodecl_t* nodecl_ou
     // Make sure we cast the initialization when it was delayed
     fortran_cast_initialization(data->entry, &data->entry->value);
 
-    xfree(data);
+    DELETE(data);
 }
 
 static void compute_type_from_array_spec(
@@ -4120,7 +4122,7 @@ static void compute_type_from_array_spec(
 
         // Now register a delayed process
 
-        struct delayed_array_spec_t * data = xmalloc(sizeof(*data));
+        delayed_array_spec_t * data = NEW(delayed_array_spec_t);
         data->entry = entry;
         data->basic_type = basic_type;
         data->array_spec_list = array_spec_list;
@@ -5373,24 +5375,25 @@ static void build_scope_data_stmt_do(AST a, decl_context_t decl_context,
     }
 }
 
-struct delayed_data_statement_t
+typedef
+struct delayed_data_statement_tag
 {
     AST a;
     decl_context_t decl_context;
-};
+} delayed_data_statement_t;
 
 static void delayed_compute_data_stmt(void * info, nodecl_t* nodecl_output)
 {
-    struct delayed_data_statement_t *data = (struct delayed_data_statement_t*)info;
+    delayed_data_statement_t *data = (delayed_data_statement_t*)info;
 
     build_scope_data_stmt_do(data->a, data->decl_context, nodecl_output);
 
-    xfree(data);
+    DELETE(data);
 }
 
 static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    struct delayed_data_statement_t *data = (struct delayed_data_statement_t*)xmalloc(sizeof(*data));
+    delayed_data_statement_t *data = NEW(delayed_data_statement_t);
 
     data->a = a;
     data->decl_context = decl_context;
@@ -6272,26 +6275,27 @@ static void do_build_scope_equivalence_stmt(AST a,
     }
 }
 
-struct delayed_equivalence_statement_t
+typedef
+struct delayed_equivalence_statement_tag
 {
     AST a;
     decl_context_t decl_context;
-};
+} delayed_equivalence_statement_t;
 
 static void delayed_equivalence_statement(void *info, nodecl_t* nodecl_output)
 {
-    struct delayed_equivalence_statement_t* data = (struct delayed_equivalence_statement_t*)info;
+    delayed_equivalence_statement_t* data = (delayed_equivalence_statement_t*)info;
 
     do_build_scope_equivalence_stmt(data->a, data->decl_context, nodecl_output);
 
-    xfree(data);
+    DELETE(data);
 }
 
 static void build_scope_equivalence_stmt(AST a,
         decl_context_t decl_context,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    struct delayed_equivalence_statement_t * data = xmalloc(sizeof(*data));
+    delayed_equivalence_statement_t * data = NEW(delayed_equivalence_statement_t);
     data->a = a;
     data->decl_context = decl_context;
 
@@ -8187,7 +8191,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     }
 
     // Result symbol (for consistency with remaining functions in the language)
-    scope_entry_t* result_sym = xcalloc(1, sizeof(*result_sym));
+    scope_entry_t* result_sym = NEW0(scope_entry_t);
     result_sym->symbol_name = entry->symbol_name;
     result_sym->kind = SK_VARIABLE;
     result_sym->decl_context = decl_context;
@@ -8878,7 +8882,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
     if (num_delayed_character_symbols > 0)
     {
 
-        struct delayed_character_length_t *data = 
+        delayed_character_length_t *data = 
             delayed_character_length_new(
                     basic_type,
                     character_length_out,
@@ -8887,7 +8891,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
                     delayed_character_symbols);
         build_scope_delay_list_add(delayed_compute_character_length, data);
 
-        xfree(delayed_character_symbols);
+        DELETE(delayed_character_symbols);
         num_delayed_character_symbols = 0;
         delayed_character_symbols = NULL;
     }
@@ -10813,7 +10817,7 @@ static void resolve_external_calls_inside_a_function(nodecl_t function_code,
         }
     }
 
-    xfree(list);
+    DELETE(list);
 }
 
 static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
@@ -10863,7 +10867,7 @@ static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
         }
     }
 
-    xfree(list);
+    DELETE(list);
 
     DEBUG_CODE()
     {

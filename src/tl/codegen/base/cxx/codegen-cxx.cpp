@@ -3878,7 +3878,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     *(file) << quote_c_string(bytes, length, prefix);
 
-    ::xfree(bytes);
+    DELETE(bytes);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ValueInitialization& node)

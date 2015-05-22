@@ -86,7 +86,7 @@ static symbol_map_t* get_empty_map(void)
 
     if (result == NULL)
     {
-        result = xcalloc(1, sizeof(*result));
+        result = NEW0(symbol_map_t);
         result->map = empty_map_fun;
         result->dtor = empty_map_dtor;
     }
@@ -151,7 +151,7 @@ static void nested_symbol_map_dtor(symbol_map_t* symbol_map UNUSED_PARAMETER) { 
 
 nested_symbol_map_t* new_nested_symbol_map(symbol_map_t* enclosing_map)
 {
-    nested_symbol_map_t *nested_symbol_map = xcalloc(1, sizeof(*nested_symbol_map));
+    nested_symbol_map_t *nested_symbol_map = NEW0(nested_symbol_map_t);
 
     nested_symbol_map->base_.map = nested_symbol_map_fun;
     nested_symbol_map->base_.dtor = nested_symbol_map_dtor;
@@ -298,7 +298,7 @@ static void create_symbols(const char* name UNUSED_PARAMETER,
         if (mapped_symbol == entry)
         {
             // then create a new symbol in the scope being created...
-            scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+            scope_entry_t* new_entry = NEW0(scope_entry_t);
             new_entry->decl_context = data->new_decl_context;
             new_entry->symbol_name = entry->symbol_name;
 
@@ -357,7 +357,7 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     // Fill the created symbols
     dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)fill_symbols, &closure_info);
 
-    xfree(closure_info.filled_symbols);
+    DELETE(closure_info.filled_symbols);
 }
 
 static decl_context_t copy_function_scope(decl_context_t new_decl_context,
@@ -551,13 +551,13 @@ struct symbol_deep_copy_map_tag
 
 nodecl_deep_copy_map_t* nodecl_deep_copy_map_new(void)
 {
-    nodecl_deep_copy_map_t* nodecl_deep_copy_map = xcalloc(1, sizeof(*nodecl_deep_copy_map));
+    nodecl_deep_copy_map_t* nodecl_deep_copy_map = NEW0(nodecl_deep_copy_map_t);
     return nodecl_deep_copy_map;
 }
 
 symbol_deep_copy_map_t* symbol_deep_copy_map_new(void)
 {
-    symbol_deep_copy_map_t* symbol_deep_copy_map = xcalloc(1, sizeof(*symbol_deep_copy_map));
+    symbol_deep_copy_map_t* symbol_deep_copy_map = NEW0(symbol_deep_copy_map_t);
     return symbol_deep_copy_map;
 }
 
@@ -566,10 +566,10 @@ void nodecl_deep_copy_map_free(nodecl_deep_copy_map_t* nodecl_deep_copy_map)
     if (nodecl_deep_copy_map == NULL)
         return;
 
-    xfree(nodecl_deep_copy_map->orig);
-    xfree(nodecl_deep_copy_map->copied);
+    DELETE(nodecl_deep_copy_map->orig);
+    DELETE(nodecl_deep_copy_map->copied);
 
-    xfree(nodecl_deep_copy_map);
+    DELETE(nodecl_deep_copy_map);
 }
 
 void symbol_deep_copy_map_free(symbol_deep_copy_map_t* symbol_deep_copy_map)
@@ -577,10 +577,10 @@ void symbol_deep_copy_map_free(symbol_deep_copy_map_t* symbol_deep_copy_map)
     if (symbol_deep_copy_map == NULL)
         return;
 
-    xfree(symbol_deep_copy_map->orig);
-    xfree(symbol_deep_copy_map->copied);
+    DELETE(symbol_deep_copy_map->orig);
+    DELETE(symbol_deep_copy_map->copied);
 
-    xfree(symbol_deep_copy_map);
+    DELETE(symbol_deep_copy_map);
 }
 
 void nodecl_deep_copy_map_traverse(

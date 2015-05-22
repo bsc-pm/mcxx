@@ -280,7 +280,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     {
         if (include_counter == 0)
         {
-            top_level_include_t *new_top_level_include = xcalloc(1, sizeof(*new_top_level_include));
+            top_level_include_t *new_top_level_include = NEW0(top_level_include_t);
 
             new_top_level_include->included_file = uniquestr(filename);
 
@@ -340,7 +340,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 
 	open_included_file(filename);
 
-	xfree(filename);
+	DELETE(filename);
 }
 
 ^[[:blank:]]*INCLUDE[[:blank:]]*{INCLUDE_CONSTANT_STRING_B}[[:blank:]]*([!][^\n\r]*)?{newline} {
@@ -353,7 +353,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 
 	open_included_file(filename);
 
-	xfree(filename);
+	DELETE(filename);
 }
 
 
@@ -1142,7 +1142,7 @@ x["][0-9a-f]+["] {
     length_hollerith_buffer = 0;
     count_hollerith_constant = atoi(q);
 
-    xfree((void*)q);
+    DELETE((void*)q);
 
     if (count_hollerith_constant == 0)
     {
@@ -2481,7 +2481,7 @@ static void reintroduce_continued_line(char* continued_line,
     else
     {
         // We need to skip the two sentinels and create a new string without them
-        temporal = xcalloc(strlen(continued_line) + 1, sizeof(char));
+        temporal = NEW_VEC0(char, strlen(continued_line) + 1);
         char *q = temporal;
         const char *p = continued_line;
 
@@ -2625,7 +2625,7 @@ static void reintroduce_continued_line(char* continued_line,
     fortran_scanning_now->joined_lines += num_joined_lines;
     DEBUG_CODE() DEBUG_MESSAGE("Incrementing joined_lines (%d)\n", fortran_scanning_now->joined_lines);
     // Free
-    xfree(temporal);
+    DELETE(temporal);
 }
 
 static char* get_included_filename(char* include_line, char delim)
@@ -2654,7 +2654,7 @@ static char* get_included_filename(char* include_line, char delim)
 		final = strrchr(include_line, delim);
 	}
 	
-	result = xcalloc((size_t)(final-start+1), sizeof(char));
+	result = NEW_VEC0(char, final-start+1);
 
 	// Remove delimiters inside the string
 	//     o''callaghan -> o'callaghan
@@ -2848,7 +2848,7 @@ int mf03_prepare_string_for_scanning(const char* str)
 	fortran_scanning_now->joined_lines = 0;
 	
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
-	fortran_scanning_now->filename = xcalloc(strlen(TL_SOURCE_STRING) + strlen(current_filename) + 10, sizeof(char));
+	fortran_scanning_now->filename = NEW_VEC0(char, strlen(TL_SOURCE_STRING) + strlen(current_filename) + 10);
     char filename[256];
 	snprintf(filename, 255, "%s-%s-%d", TL_SOURCE_STRING, current_filename, num_string);
     filename[255] = '\0';
@@ -2856,7 +2856,7 @@ int mf03_prepare_string_for_scanning(const char* str)
 	
 	// Change the configuration for scanning strings:
 	if (!string_scanning_configuration){
-		string_scanning_configuration = (compilation_configuration_t*)xmalloc(sizeof(compilation_configuration_t));
+		string_scanning_configuration = NEW(compilation_configuration_t);
 		*string_scanning_configuration = *(compilation_process.current_compilation_configuration);
 	}
 	
@@ -3238,7 +3238,7 @@ static const char* format_pragma_string(const char* c)
     }
 
     const char* res = uniquestr(tmp);
-    xfree(tmp);
+    DELETE(tmp);
 
     return res;
 }
@@ -3362,7 +3362,7 @@ static void parse_line_marker(const char* str, const char** filename, unsigned i
     if (*p == '"')
     {
         int length = 64;
-        char *c = xmalloc(sizeof(*c) * length);
+        char *c = NEW_VEC(char, length);
         char *last_char = &c[length - 1];
         *last_char = '\0';
 
@@ -3380,10 +3380,10 @@ static void parse_line_marker(const char* str, const char** filename, unsigned i
                 if (length > 4096)
                     break;
 
-                // Too long, xrealloc
+                // Too long, realloc
                 int old_length = length;
                 length *= 2;
-                c = xrealloc(c, sizeof(*c) * length);
+                c = NEW_REALLOC(char, c, length);
                 last_char = &c[length - 1];
                 *last_char = '\0';
                 q = &c[old_length - 1];
@@ -3405,7 +3405,7 @@ static void parse_line_marker(const char* str, const char** filename, unsigned i
         *q = '\0';
 
         *filename = uniquestr(c);
-        xfree(c);
+        DELETE(c);
 
         // Skip blanks
         while (*p == ' ' || *p == '\t') p++;
@@ -3477,5 +3477,5 @@ void * mf03realloc (void * ptr, size_t bytes)
 }
 void   mf03free (void * ptr)
 {
-    xfree(ptr);
+    DELETE(ptr);
 }

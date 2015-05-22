@@ -490,7 +490,7 @@ static void register_module_for_later_wrap(const char* module_name, const char* 
         if (strcasecmp(CURRENT_COMPILED_FILE->modules_to_wrap[i]->module_name, module_name) == 0)
             return;
     }
-    module_to_wrap_info_t *module_to_wrap = xcalloc(1, sizeof(*module_to_wrap));
+    module_to_wrap_info_t *module_to_wrap = NEW0(module_to_wrap_info_t);
 
     module_to_wrap->module_name = module_name;
     module_to_wrap->mercurium_file = mf03_filename;
@@ -595,10 +595,10 @@ void driver_fortran_wrap_all_modules(void)
 
         wrap_module_file(module_to_wrap);
 
-        xfree(module_to_wrap);
+        DELETE(module_to_wrap);
     }
 
-    xfree(CURRENT_COMPILED_FILE->modules_to_wrap);
+    DELETE(CURRENT_COMPILED_FILE->modules_to_wrap);
     CURRENT_COMPILED_FILE->num_modules_to_wrap = 0;
 }
 
@@ -613,10 +613,10 @@ void driver_fortran_discard_all_modules(void)
         // The native file will not exist
         mark_file_for_cleanup(module_to_wrap->mercurium_file);
 
-        xfree(module_to_wrap);
+        DELETE(module_to_wrap);
     }
 
-    xfree(CURRENT_COMPILED_FILE->modules_to_wrap);
+    DELETE(CURRENT_COMPILED_FILE->modules_to_wrap);
     CURRENT_COMPILED_FILE->num_modules_to_wrap = 0;
 }
 

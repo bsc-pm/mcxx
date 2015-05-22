@@ -114,7 +114,7 @@ namespace TL {
 
 			mc99_delete_buffer(scan_line);
 
-            ::xfree(line);
+            DELETE(line);
 
             return result;
         }
@@ -144,7 +144,7 @@ namespace TL {
 
 			mcxx_delete_buffer(scan_line);
 
-            ::xfree(line);
+            DELETE(line);
 
             return result;
         }
@@ -181,7 +181,7 @@ namespace TL {
 			mf03_delete_buffer(scan_line);
 #endif
 
-            ::xfree(line);
+            DELETE(line);
 
             return result;
         }

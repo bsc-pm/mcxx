@@ -940,7 +940,7 @@ OPERATOR_TABLE
                 *(file) << " // ACHAR(0)";
             }
 
-            xfree(bytes);
+            DELETE(bytes);
         }
     }
 

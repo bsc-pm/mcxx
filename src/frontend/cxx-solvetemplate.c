@@ -146,12 +146,12 @@ type_t* solve_class_template(type_t* template_type,
 
         if (more_specialized == NULL)
         {
-            xfree(matching_set);
+            DELETE(matching_set);
             for (i = 0; i < num_deductions; i++)
             {
                 free_template_parameter_list(deduction_results[i]);
             }
-            xfree(deduction_results);
+            DELETE(deduction_results);
 
             return NULL;
         }
@@ -179,12 +179,12 @@ type_t* solve_class_template(type_t* template_type,
                     locus_to_str(locus),
                     print_type_str(specialized_type, named_type_get_symbol(specialized_type)->decl_context));
 
-            xfree(matching_set);
+            DELETE(matching_set);
             for (i = 0; i < num_deductions; i++)
             {
                 free_template_parameter_list(deduction_results[i]);
             }
-            xfree(deduction_results);
+            DELETE(deduction_results);
 
             return NULL;
         }
@@ -201,8 +201,8 @@ type_t* solve_class_template(type_t* template_type,
             }
         }
 
-        xfree(matching_set);
-        xfree(deduction_results);
+        DELETE(matching_set);
+        DELETE(deduction_results);
 
         return more_specialized;
     }

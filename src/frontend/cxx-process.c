@@ -51,11 +51,11 @@ translation_unit_t* add_new_file_to_compilation_process(
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration)
 {
-    translation_unit_t* translation_unit = (translation_unit_t*)xcalloc(1, sizeof(*translation_unit));
+    translation_unit_t* translation_unit = NEW0(translation_unit_t);
     // Initialize with the translation unit root tree
     translation_unit->input_filename = uniquestr(file_path);
 
-    compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) xcalloc(1, sizeof(*new_compiled_file));
+    compilation_file_process_t *new_compiled_file = NEW0(compilation_file_process_t);
 
     configuration->verbose = CURRENT_CONFIGURATION->verbose;
     configuration->do_not_link = CURRENT_CONFIGURATION->do_not_link;
@@ -162,9 +162,9 @@ void debug_message(const char* message, const char* kind, const char* source_fil
         fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
     }
 
-    xfree(kind_copy);
-    xfree(sanitized_message);
-    xfree(long_message);
+    DELETE(kind_copy);
+    DELETE(sanitized_message);
+    DELETE(long_message);
 
 #if defined(HAVE_BACKTRACE) && defined(HAVE_BACKTRACE_SYMBOLS_FD)
     if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
@@ -213,7 +213,7 @@ void running_error(const char* message, ...)
         raise(SIGABRT);
 
 
-    xfree(sanitized_message);
+    DELETE(sanitized_message);
 
     exit(EXIT_FAILURE);
 }

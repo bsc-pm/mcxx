@@ -46,7 +46,7 @@
 #define YYMAXDEPTH (10000000)
 
 #define YYMALLOC xmalloc
-#define YYFREE xfree
+#define YYFREE DELETE
 #define YYREALLOC xrealloc
 
 %}
@@ -6565,7 +6565,7 @@ string_literal : STRING_LITERAL
 {
 	const char* str1 = ASTText($1);
 	const char* str2 = $2.token_text;
-	char* text = xcalloc(strlen(str1) + strlen(str2) + 1, sizeof(*text));
+	char* text = NEW_VEC0(char, strlen(str1) + strlen(str2) + 1);
 
 	strcat(text, str1);
 	strcat(text, str2);

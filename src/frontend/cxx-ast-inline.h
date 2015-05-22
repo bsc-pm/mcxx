@@ -35,6 +35,7 @@
 MCXX_BEGIN_DECLS
 
 // Definition of the type
+typedef
 struct AST_tag
 {
     // Node type (1024 different node types)
@@ -66,7 +67,7 @@ struct AST_tag
 
     // This is used by nodecl trees
     struct nodecl_expr_info_tag* expr_info;
-};
+} AST_node_t;
 
 
 static inline node_t ast_get_kind(const_AST a)
@@ -172,7 +173,7 @@ static inline AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
         AST child0, AST child1, AST child2, AST child3, 
         const locus_t* location, const char *text)
 {
-    AST result = (AST)xmalloc(sizeof(*result));
+    AST result = NEW(AST_node_t);
     // ERROR_CONDITION(result & 0x1 != 0, "Invalid pointer for AST", 0);
 
     result->node_type = type;
@@ -194,9 +195,7 @@ static inline AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
     num_children = ast_count_bitmap(bitmap_sons);
 
     result->bitmap_sons = bitmap_sons;
-    result->children = (AST*)xmalloc(
-            sizeof(*result->children) *
-            num_children);
+    result->children = NEW_VEC(AST, num_children);
 
     int idx = 0;
 #define ADD_SON(n) \
@@ -237,8 +236,7 @@ static inline void ast_reallocate_children(AST a, int num_child, AST new_child)
         a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
     }
 
-    a->children = (AST*)xmalloc(sizeof(*a->children) *
-            (ast_count_bitmap(a->bitmap_sons)));
+    a->children = NEW_VEC(AST, ast_count_bitmap(a->bitmap_sons));
 
     // Now for every old son, update the new children
     int i;
@@ -262,9 +260,9 @@ static inline void ast_reallocate_children(AST a, int num_child, AST new_child)
         }
     }
 
-    // Now xfree the old children (if any)
+    // Now DELETE the old children (if any)
     if (old_children != NULL)
-        xfree(old_children);
+        DELETE(old_children);
 }
 
 static inline void ast_set_child_but_parent(AST a, int num_child, AST new_child)
@@ -414,7 +412,7 @@ static inline AST ast_make_ambiguous(AST son0, AST son1)
             int original_son0 = son0->num_ambig;
 
             son0->num_ambig += son1->num_ambig;
-            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+            son0->ambig = NEW_REALLOC(AST, son0->ambig, son0->num_ambig);
 
             int i;
             for (i = 0; i < son1->num_ambig; i++)
@@ -427,7 +425,7 @@ static inline AST ast_make_ambiguous(AST son0, AST son1)
         else
         {
             son0->num_ambig++;
-            son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+            son0->ambig = NEW_REALLOC(AST, son0->ambig, son0->num_ambig);
             son0->ambig[son0->num_ambig-1] = son1;
 
             return son0;
@@ -436,7 +434,7 @@ static inline AST ast_make_ambiguous(AST son0, AST son1)
     else if (ASTKind(son1) == AST_AMBIGUITY)
     {
         son1->num_ambig++;
-        son1->ambig = (AST*) xrealloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
+        son1->ambig = NEW_REALLOC(AST, son1->ambig, son1->num_ambig);
         son1->ambig[son1->num_ambig-1] = son0;
 
         return son1;
@@ -446,7 +444,7 @@ static inline AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, make_locus("", 0, 0), NULL);
 
         result->num_ambig = 2;
-        result->ambig = (AST*) xmalloc(sizeof(*(result->ambig))* result->num_ambig);
+        result->ambig = NEW_VEC(AST, result->num_ambig);
         result->ambig[0] = son0;
         result->ambig[1] = son1;
         result->locus = son0->locus;
@@ -454,7 +452,6 @@ static inline AST ast_make_ambiguous(AST son0, AST son1)
         return result;
     }
 }
-
 
 static inline void ast_replace(AST dest, const_AST src)
 {
@@ -492,11 +489,11 @@ static inline void ast_free(AST a)
         }
     }
 
-    xfree(a->expr_info);
-    xfree(a->children);
+    DELETE(a->expr_info);
+    DELETE(a->children);
     // Clear the node for safety
     // __builtin_memset(a, 0, sizeof(*a));
-    xfree(a);
+    DELETE(a);
 }
 
 static inline void ast_replace_with_ambiguity(AST a, int n)

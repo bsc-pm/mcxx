@@ -434,7 +434,7 @@ struct tiny_dyncharbuf_tag
 static inline void tiny_dyncharbuf_new(tiny_dyncharbuf_t* t, int initial_size)
 {
     t->capacity = initial_size;
-    t->buf = xmalloc(sizeof(*t->buf) * t->capacity);
+    t->buf = NEW_VEC(char, t->capacity);
     t->num = 0;
 }
 
@@ -443,7 +443,7 @@ static inline void tiny_dyncharbuf_add(tiny_dyncharbuf_t* t, char c)
     if (t->num >= t->capacity)
     {
         t->capacity *= 2;
-        t->buf = xrealloc(t->buf, sizeof(*(t->buf)) * (t->capacity + 1));
+        t->buf = NEW_REALLOC(char, t->buf, (t->capacity + 1));
     }
     t->buf[t->num] = c;
     t->num++;
@@ -850,7 +850,7 @@ static char finish_character(char result)
                                 {
                                     lexer_state.in_comment = 1;
                                 }
-                                xfree(sentinel.buf);
+                                DELETE(sentinel.buf);
                             }
                         }
                     }
@@ -1759,7 +1759,7 @@ static inline void peek_init(void)
 {
     if (_peek_queue.buffer == NULL)
     {
-        _peek_queue.buffer = xmalloc(PEEK_INITIAL_SIZE * sizeof(*_peek_queue.buffer));
+        _peek_queue.buffer = NEW_VEC(peek_token_info_t, PEEK_INITIAL_SIZE);
         _peek_queue.size = PEEK_INITIAL_SIZE;
     }
     _peek_queue.back = 0;
@@ -1795,13 +1795,13 @@ static void peek_print(void)
 static inline void peek_grow(void)
 {
     int new_size = _peek_queue.size * 2;
-    peek_token_info_t *new_buffer = xmalloc(new_size * sizeof(*new_buffer));
+    peek_token_info_t *new_buffer = NEW_VEC(peek_token_info_t, new_size);
 
     memcpy(&new_buffer[(new_size - 1) + _peek_queue.back + 1],
             _peek_queue.buffer,
             _peek_queue.size * sizeof(*new_buffer));
 
-    xfree(_peek_queue.buffer);
+    DELETE(_peek_queue.buffer);
     _peek_queue.buffer = new_buffer;
     _peek_queue.size = new_size;
 }
@@ -2052,7 +2052,7 @@ static int commit_text_and_free(int token_id, char* str,
         token_location_t loc)
 {
     token_id = commit_text(token_id, str, loc);
-    xfree(str);
+    DELETE(str);
     return token_id;
 }
 
@@ -2251,7 +2251,7 @@ static char* scan_fractional_part_of_real_literal(void)
     {
         char *kind_str = scan_kind();
         tiny_dyncharbuf_add_str(&str, kind_str);
-        xfree(kind_str);
+        DELETE(kind_str);
     }
 
     tiny_dyncharbuf_add(&str, '\0');
@@ -2313,7 +2313,7 @@ static char is_include_line(void)
     if (p != delim
             || include_filename_buf.num == 1)
     {
-        xfree(include_filename_buf.buf);
+        DELETE(include_filename_buf.buf);
         return 0;
     }
 
@@ -2332,7 +2332,7 @@ static char is_include_line(void)
     if (!is_newline(p))
     {
         // There is junk
-        xfree(include_filename_buf.buf);
+        DELETE(include_filename_buf.buf);
         return 0;
     }
 
@@ -2356,7 +2356,7 @@ static char is_include_line(void)
             CURRENT_CONFIGURATION->include_dirs,
             include_filename_buf.buf,
             /* origin */ loc.filename);
-    xfree(include_filename_buf.buf);
+    DELETE(include_filename_buf.buf);
 
     if (include_filename == NULL)
     {
@@ -2859,7 +2859,7 @@ static inline void peek_keywords_of_statement(char expect_label)
         lexer_state.fixed_form.language_part = LANG_EXECUTABLE_PART;
     }
 
-    xfree(keyword.buf);
+    DELETE(keyword.buf);
 }
 #endif
 
@@ -2966,7 +2966,7 @@ static inline int preanalyze_advance_parenthesis(int peek_idx)
         p = peek(peek_idx);
     }
 
-    xfree(int_str.buf);
+    DELETE(int_str.buf);
     return peek_idx;
 }
 
@@ -3503,7 +3503,7 @@ static inline void preanalyze_statement(char expect_label)
         }
     }
 
-    xfree(keyword.buf);
+    DELETE(keyword.buf);
 }
 
 static inline char is_known_sentinel(char** sentinel)
@@ -3536,7 +3536,7 @@ static inline char is_known_sentinel(char** sentinel)
     }
     else
     {
-        xfree(tmp_sentinel.buf);
+        DELETE(tmp_sentinel.buf);
         *sentinel = xstrdup(out_sentinel);
         return 1;
     }
@@ -3664,7 +3664,7 @@ static const char* return_pragma_prefix_longest_match(
         ERROR_CONDITION(start == NULL || end == NULL || (end <= start),
                 "Invalid values for the cursors", 0);
         // Keep the relevant directive of the lexed input
-        *relevant_directive = xmalloc((end - start + 1) * sizeof(char));
+        *relevant_directive = NEW_VEC(char, (end - start + 1));
         strncpy(*relevant_directive, start, end - start);
         (*relevant_directive)[end - start] = '\0';
 
@@ -3850,7 +3850,7 @@ extern int new_mf03lex(void)
                                     tiny_dyncharbuf_add_str(&str, "!$");
                                     tiny_dyncharbuf_add_str(&str, sentinel);
 
-                                    xfree(sentinel);
+                                    DELETE(sentinel);
 
                                     // Everything will be scanned as a single token
                                     int c = peek(0);
@@ -4226,7 +4226,7 @@ extern int new_mf03lex(void)
 
                                 tiny_dyncharbuf_add_str(&t_str, str);
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
-                                xfree(kind_str);
+                                DELETE(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(TOKEN_TRUE, t_str.buf, loc);
@@ -4263,7 +4263,7 @@ extern int new_mf03lex(void)
 
                                 tiny_dyncharbuf_add_str(&t_str, str);
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
-                                xfree(kind_str);
+                                DELETE(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(TOKEN_FALSE, t_str.buf, loc);
@@ -4513,7 +4513,7 @@ extern int new_mf03lex(void)
                             tiny_dyncharbuf_new(&t_str, strlen(identifier.buf) + 32 + 1);
 
                             tiny_dyncharbuf_add_str(&t_str, identifier.buf);
-                            xfree(identifier.buf);
+                            DELETE(identifier.buf);
 
                             tiny_dyncharbuf_add(&t_str, c1); // _
                             tiny_dyncharbuf_add(&t_str, c2); // " or '
@@ -4522,7 +4522,7 @@ extern int new_mf03lex(void)
                             char *text = NULL;
                             scan_character_literal(t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
                                     &token_id, &text);
-                            xfree(t_str.buf);
+                            DELETE(t_str.buf);
 
                             return commit_text_and_free(token_id, text, loc);
                         }
@@ -4588,9 +4588,9 @@ extern int new_mf03lex(void)
                             tiny_dyncharbuf_t t_str;
                             tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(fractional_part) + 1);
                             tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                            xfree(digits.buf);
+                            DELETE(digits.buf);
                             tiny_dyncharbuf_add_str(&t_str, fractional_part);
-                            xfree(fractional_part);
+                            DELETE(fractional_part);
 
                             tiny_dyncharbuf_add(&t_str, '\0');
 
@@ -4630,9 +4630,9 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_t t_str;
                                 tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(fractional_part) + 1);
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                                xfree(digits.buf);
+                                DELETE(digits.buf);
                                 tiny_dyncharbuf_add_str(&t_str, fractional_part);
-                                xfree(fractional_part);
+                                DELETE(fractional_part);
 
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
@@ -4655,7 +4655,7 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + 32 + 1);
 
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                                xfree(digits.buf);
+                                DELETE(digits.buf);
 
                                 tiny_dyncharbuf_add(&t_str, c1); // _
                                 tiny_dyncharbuf_add(&t_str, c2); // " or '
@@ -4665,7 +4665,7 @@ extern int new_mf03lex(void)
                                 char* text;
                                 scan_character_literal(/*prefix */ t_str.buf, /* delim */ c2, /* allow_suffix_boz */ 0, loc,
                                         &token_id, &text);
-                                xfree(t_str.buf);
+                                DELETE(t_str.buf);
 
                                 return commit_text_and_free(token_id, text, loc);
                             }
@@ -4677,10 +4677,10 @@ extern int new_mf03lex(void)
                                 tiny_dyncharbuf_new(&t_str, strlen(digits.buf) + strlen(kind_str) + 1);
 
                                 tiny_dyncharbuf_add_str(&t_str, digits.buf);
-                                xfree(digits.buf);
+                                DELETE(digits.buf);
 
                                 tiny_dyncharbuf_add_str(&t_str, kind_str);
-                                xfree(kind_str);
+                                DELETE(kind_str);
                                 tiny_dyncharbuf_add(&t_str, '\0');
 
                                 return commit_text_and_free(DECIMAL_LITERAL, t_str.buf, loc);
@@ -4691,7 +4691,7 @@ extern int new_mf03lex(void)
                             get();
                             // This is a Holleritz constant
                             int length = atoi(digits.buf);
-                            xfree(digits.buf);
+                            DELETE(digits.buf);
 
                             if (length == 0)
                             {
@@ -4757,10 +4757,10 @@ extern int new_mf03lex(void)
                                     if (lexer_state.num_nonblock_labels == lexer_state.size_nonblock_labels_stack)
                                     {
                                         lexer_state.size_nonblock_labels_stack = 2*lexer_state.size_nonblock_labels_stack + 1;
-                                        lexer_state.nonblock_labels_stack = xrealloc(
+                                        lexer_state.nonblock_labels_stack = NEW_REALLOC(
+                                                int,
                                                 lexer_state.nonblock_labels_stack,
-                                                lexer_state.size_nonblock_labels_stack
-                                                * sizeof(*lexer_state.nonblock_labels_stack));
+                                                lexer_state.size_nonblock_labels_stack);
                                     }
                                     lexer_state.nonblock_labels_stack[lexer_state.num_nonblock_labels] = label;
                                     lexer_state.num_nonblock_labels++;
@@ -4847,7 +4847,7 @@ extern int new_mf03lex(void)
                 case EOF:
                     {
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
-                        xfree(lexer_state.sentinel);
+                        DELETE(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
                         error_printf("%s:%d:%d: error: unexpected end-of-file in directive\n",
                                 loc.filename,
@@ -4859,7 +4859,7 @@ extern int new_mf03lex(void)
                 case '\r':
                     {
                         lexer_state.substate = LEXER_SUBSTATE_NORMAL;
-                        xfree(lexer_state.sentinel);
+                        DELETE(lexer_state.sentinel);
                         lexer_state.sentinel = NULL;
                         if (!lexer_state.last_eos)
                         {
@@ -4957,11 +4957,11 @@ extern int new_mf03lex(void)
                                     tiny_dyncharbuf_add(&t_str, '\0');
 
                                     tiny_dyncharbuf_add_str(&str, t_str.buf);
-                                    xfree(t_str.buf);
+                                    DELETE(t_str.buf);
                                 }
                                 else
                                 {
-                                    xfree(t_str.buf);
+                                    DELETE(t_str.buf);
                                     break;
                                 }
                             }
@@ -5017,10 +5017,10 @@ extern int new_mf03lex(void)
                                             if (lexer_state.num_pragma_constructs == lexer_state.size_pragma_constructs_stack)
                                             {
                                                 lexer_state.size_pragma_constructs_stack = 2*lexer_state.size_pragma_constructs_stack + 1;
-                                                lexer_state.pragma_constructs_stack = xrealloc(
+                                                lexer_state.pragma_constructs_stack = NEW_REALLOC(
+                                                        char*,
                                                         lexer_state.pragma_constructs_stack,
-                                                        lexer_state.size_pragma_constructs_stack
-                                                        *sizeof(*lexer_state.pragma_constructs_stack));
+                                                        lexer_state.size_pragma_constructs_stack);
                                             }
                                             lexer_state.pragma_constructs_stack[lexer_state.num_pragma_constructs] = xstrdup(longest_match);
                                             lexer_state.num_pragma_constructs++;
@@ -5044,7 +5044,7 @@ extern int new_mf03lex(void)
                                                 }
                                                 else
                                                 {
-                                                    xfree(top);
+                                                    DELETE(top);
                                                     lexer_state.num_pragma_constructs--;
                                                     token_id = PRAGMA_CUSTOM_END_CONSTRUCT;
                                                 }
@@ -5076,7 +5076,7 @@ extern int new_mf03lex(void)
 
                             lexer_state.substate = LEXER_SUBSTATE_PRAGMA_FIRST_CLAUSE;
                             int n = commit_text_and_free(token_id, relevant_directive, loc);
-                            xfree(str.buf);
+                            DELETE(str.buf);
                             return n;
                             break;
                         }

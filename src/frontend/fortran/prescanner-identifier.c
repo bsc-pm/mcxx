@@ -72,6 +72,7 @@ enum prescanner_lex_tokens
 // Totally undesirable but makes things a lot easier
 #include <prescanner-scanner.h>
 
+typedef
 struct sentence_information_tag
 {
     char has_free_assign;
@@ -81,8 +82,9 @@ struct sentence_information_tag
     char* statement;
     // Original text of the statement
     char* original_text;
-};
+} sentence_information_t;
 
+typedef
 struct line_information_tag
 {
     int num_line;
@@ -96,7 +98,7 @@ struct line_information_tag
 
     // Only for comments or prepro lines
     char* comment_text;
-};
+} line_information_t;
 
 struct statements_information_tag
 {
@@ -253,16 +255,16 @@ language_level convert_line(prescanner_t* prescanner, language_level previous, c
         identify_and_convert_omp_directive(li);
     }
 
-    xfree(*line);
+    DELETE(*line);
 
     // Let's make enough room
-    *line = xcalloc(strlen(li->label) + 1 + original_size*2, sizeof(char));
+    *line = NEW_VEC0(char, strlen(li->label) + 1 + original_size*2);
 
     if (li->is_comment
             || li->is_prepro_line)
     {
         strcat(*line, li->comment_text);
-        xfree(li->comment_text);
+        DELETE(li->comment_text);
     }
     else
     {
@@ -276,10 +278,10 @@ language_level convert_line(prescanner_t* prescanner, language_level previous, c
         {
             if (i > 0) strcat(*line, "; ");
             strcat(*line, li->statement_list[i].statement);
-            xfree(li->statement_list[i].statement);
+            DELETE(li->statement_list[i].statement);
         }
 
-        xfree(li->statement_list);
+        DELETE(li->statement_list);
     }
 
     return next;
@@ -295,7 +297,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 {
     line_information_t* li;
 
-    li = (line_information_t*)xcalloc(1, sizeof(line_information_t));
+    li = NEW0(line_information_t);
 
     // First check if this is a comment
     char* t = c;
@@ -346,7 +348,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
     // Once read the label we can advance to detect free operators
     // Let's make room for 5 sentences
     li->room_for_statements = 5;
-    li->statement_list = (struct sentence_information_tag*) xcalloc(li->room_for_statements, sizeof(struct sentence_information_tag));
+    li->statement_list = NEW_VEC0(sentence_information_t, li->room_for_statements);
 
     // There are 0 *completed* sentences now
     li->num_of_statements = 0;
@@ -399,10 +401,10 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 
                 current_sentence++;
 
-                // We have to xrealloc
+                // We have to realloc
                 if (current_sentence >= li->room_for_statements)
                 {
-                    li->statement_list = xrealloc(li->statement_list, 2 * li->room_for_statements * sizeof(struct sentence_information_tag));
+                    li->statement_list = NEW_REALLOC(sentence_information_t, li->statement_list, 2 * li->room_for_statements);
 
                     // Clear new alloc
                     memset(&li->statement_list[li->room_for_statements], 0, sizeof(*li->statement_list)*li->room_for_statements);
@@ -495,7 +497,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 static void remove_all_spaces(char** line)
 {
     int allocated_size = strlen(*line) + 5;
-    char* newline = xcalloc(allocated_size, sizeof(char));
+    char* newline = NEW_VEC0(char, allocated_size);
 
     char in_string = 0, inlined_comment = 0, delim = 0;
     char *p, *q;
@@ -551,7 +553,7 @@ static void remove_all_spaces(char** line)
 
     *q = '\0';
 
-    xfree(*line);
+    DELETE(*line);
     *line = newline;
 }
 
@@ -559,7 +561,7 @@ static const char *remove_blanks_keeping_holleriths(const char* c)
 {
     const char *p = c;
 
-    char* result = xcalloc(sizeof(char), strlen(c) + 1);
+    char* result = NEW_VEC0(char, strlen(c) + 1);
     char *q = result;
 
     int length = -1;
@@ -837,7 +839,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                 // +2 because of a blank we add after the keyword and the NULL terminator
                 int n = strlen(keyword) + strlen(li->statement_list[statement_index].original_text) + 2;
 
-                char *c = xmalloc(n*sizeof(char));
+                char *c = NEW_VEC(char, n);
                 c[0] = '\0';
 
                 const char *p = NULL;
@@ -869,7 +871,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
                     p = remove_blanks_keeping_holleriths(p);
                 }
 
-                xfree(li->statement_list[statement_index].statement);
+                DELETE(li->statement_list[statement_index].statement);
 
                 // Mind the blank
                 snprintf(c, n, "%s %s", keyword, p);
@@ -937,14 +939,14 @@ static void add_blank(char** line, char* keyword)
 {
     char* new = NULL;
 
-    new = xcalloc(1 + strlen(*line) + 1, sizeof(char));
+    new = NEW_VEC0(char, 1 + strlen(*line) + 1);
 
     strncat(new, *line, strlen(keyword));
     // strcat(new, keyword);
     strcat(new, " ");
     strcat(new, ((*line) + strlen(keyword)));
 
-    xfree(*line);
+    DELETE(*line);
     *line = new;
 }
 
@@ -958,7 +960,7 @@ static void add_blank_function(char** line)
     int keyword, scanned_length = 0;
     int in_parenthesis = 0;
 
-    temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
+    temp = NEW_VEC0(char, strlen(*line)*2);
 
     prescanner_flush_buffer(YY_CURRENT_BUFFER);
     prescanner_delete_buffer(YY_CURRENT_BUFFER);
@@ -1010,7 +1012,7 @@ static void add_blank_function(char** line)
     strcat(temp, " ");
     strcat(temp, &(*line)[scanned_length]);
 
-    xfree(*line);
+    DELETE(*line);
     *line = temp;
 
     BEGIN(0);
@@ -1024,7 +1026,7 @@ static void add_blank_subroutine(char** line)
     char* temp;
     int  keyword, scanned_length = 0;
 
-    temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
+    temp = NEW_VEC0(char, strlen(*line)*2);
 
     prescanner_flush_buffer(YY_CURRENT_BUFFER);
     prescanner_delete_buffer(YY_CURRENT_BUFFER);
@@ -1064,7 +1066,7 @@ static void add_blank_subroutine(char** line)
     strcat(temp, " ");
     strcat(temp, &(*line)[scanned_length]);
 
-    xfree(*line);
+    DELETE(*line);
     *line = temp;
 
     BEGIN(0);
@@ -1087,7 +1089,7 @@ static void add_blank_end(char** line)
     char keyword_after_end = 0;
     int  keyword, scanned_length = 0;
 
-    temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
+    temp = NEW_VEC0(char, strlen(*line)*2);
 
     prescanner_flush_buffer(YY_CURRENT_BUFFER);
     prescanner_delete_buffer(YY_CURRENT_BUFFER);
@@ -1133,7 +1135,7 @@ static void add_blank_end(char** line)
 
     strcat(temp, &(*line)[scanned_length]);
 
-    xfree(*line);
+    DELETE(*line);
     *line = temp;
 
     BEGIN(0);
@@ -1149,7 +1151,7 @@ static void add_blank_module_procedure(char** line)
     char* temp;
     int scanned_length = 0;
 
-    temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
+    temp = NEW_VEC0(char, strlen(*line)*2);
 
     prescanner_flush_buffer(YY_CURRENT_BUFFER);
     prescanner_delete_buffer(YY_CURRENT_BUFFER);
@@ -1175,7 +1177,7 @@ static void add_blank_module_procedure(char** line)
     strcat(temp, " ");
     strcat(temp, &(*line)[scanned_length]);
 
-    xfree(*line);
+    DELETE(*line);
     *line = temp;
 
     BEGIN(0);
@@ -1229,7 +1231,7 @@ static void add_blank_if_statement(prescanner_t* prescanner, char** line, int nu
     {
         // The rest of the line must be identified properly
         // char* c = xstrdup(p);
-        char* c = xcalloc(6 + strlen(p) + 1, sizeof(char));
+        char* c = NEW_VEC0(char, 6 + strlen(p) + 1);
         strcat(c, "      ");
         strcat(c, p);
         DEBUG_CODE()
@@ -1244,13 +1246,13 @@ static void add_blank_if_statement(prescanner_t* prescanner, char** line, int nu
             fprintf(stderr, "After converting '%s'\n", c);
         }
 
-        char* temp = (char*)xcalloc(strlen(*line)*2, sizeof(char));
+        char* temp = NEW_VEC0(char, strlen(*line)*2);
         *p = '\0';
         strcat(temp, *line);
         strcat(temp, c);
 
-        xfree(c);
-        xfree(*line);
+        DELETE(c);
+        DELETE(*line);
         *line = temp;
         
     }
@@ -1263,7 +1265,7 @@ static void add_blank_labeled_do(char** line)
 {
     int i;
     char ending;
-    char* temp = xcalloc(strlen(*line)*2, sizeof(char));
+    char* temp = NEW_VEC0(char, strlen(*line)*2);
 
     // "DO "
     ending = (*line)[2];
@@ -1288,7 +1290,7 @@ static void add_blank_labeled_do(char** line)
     // The remaining characters of this statement
     strcat(temp, &(*line)[i]);
 
-    xfree(*line);
+    DELETE(*line);
     *line = temp;
 }
 
@@ -1300,7 +1302,7 @@ static void add_blank_label_assign_statement(char** line)
 {
     int i;
     char ending;
-    char* temp = xcalloc(strlen(*line)*2, sizeof(char));
+    char* temp = NEW_VEC0(char, strlen(*line)*2);
     // "ASSIGN"
     ending = (*line)[6];
     (*line)[6] = '\0';
@@ -1332,7 +1334,7 @@ static void add_blank_label_assign_statement(char** line)
 
     strcat(temp, &(*line)[i+2]);
 
-    xfree(*line);
+    DELETE(*line);
     *line = temp;
 }
 
@@ -1343,7 +1345,7 @@ static void add_blank_entry_statement(char** line, char* keyword)
     int code;
     char* temp;
 
-    temp = xcalloc(sizeof(temp), strlen(*line)*2);
+    temp = NEW_VEC0(char, strlen(*line)*2);
 
     if ((code = regcomp(&match_problematic, "^ENTRY([A-Z][0-9A-Z]*)RESULT[(][A-Z][0-9A-Z]*[)]$", REG_EXTENDED | REG_ICASE)) != 0)
     {
@@ -1369,7 +1371,7 @@ static void add_blank_entry_statement(char** line, char* keyword)
         strcat(temp, " ");
         strcat(temp, &((*line)[sub_matching[1].rm_eo]));
 
-        xfree(*line);
+        DELETE(*line);
         *line = temp;
     }
     else // generic handling is enough otherwise
@@ -1457,13 +1459,13 @@ static void add_blank_elseif_statement(char** line, char* keyword)
         // There is something left, probably the LABEL, add a blank after THEN
         const char* q = *line;
         int length = (p - q) + 1 + strlen(p) + 1;
-        char *new_str = xcalloc(length, sizeof(char));
+        char *new_str = NEW_VEC0(char, length);
 
         strncat(new_str, q, p - q);
         strcat(new_str, " ");
         strcat(new_str, p);
 
-        xfree(*line);
+        DELETE(*line);
         *line = new_str;
     }
     // Otherwise leave it untouched
@@ -1479,7 +1481,7 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 
     // Discard !$OMP
     char* c = xstrdup(&li->comment_text[6]);
-    char* result = xcalloc(strlen(c)*2, sizeof(char));
+    char* result = NEW_VEC0(char, strlen(c)*2);
 
     // Add "!$OMP " 
     strncat(result, li->comment_text, 6);
@@ -1502,7 +1504,7 @@ static void identify_and_convert_omp_directive(line_information_t* li)
     {
         // Cowardly refuse to do anything else when the directive is unknown
         BEGIN(0);
-        xfree(c);
+        DELETE(c);
         return;
     }
 
@@ -1578,10 +1580,10 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 
     BEGIN(0);
 
-    xfree(li->comment_text);
+    DELETE(li->comment_text);
     li->comment_text = result;
 
-    xfree(c);
+    DELETE(c);
 }
 
 /*

@@ -57,7 +57,7 @@ char ast_check(const_AST root)
 {
     int stack_capacity = 1024;
     int stack_length = 1;
-    const_AST *stack = xmalloc(stack_capacity * sizeof(*stack));
+    const_AST *stack = NEW_VEC(const_AST, stack_capacity);
 
     stack[0] = root;
 
@@ -66,7 +66,7 @@ char ast_check(const_AST root)
     if (stack_length == stack_capacity) \
     { \
         stack_capacity *= 2; \
-        stack = xrealloc(stack, stack_capacity * sizeof(*stack)); \
+        stack = NEW_REALLOC(const_AST, stack, stack_capacity); \
     } \
     stack_length++; \
     stack[stack_length - 1] = (child); \
@@ -113,7 +113,7 @@ char ast_check(const_AST root)
         }
     }
 
-    xfree(stack);
+    DELETE(stack);
 
     return ok;
 }
@@ -138,7 +138,7 @@ AST ast_copy(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = xcalloc(1, sizeof(*result));
+    AST result = NEW0(AST_node_t);
 
     ast_copy_one_node(result, (AST)a);
 
@@ -147,7 +147,7 @@ AST ast_copy(const_AST a)
             && a->num_ambig > 0)
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = xcalloc(a->num_ambig, sizeof(*(result->ambig)));
+        result->ambig = NEW_VEC(AST, a->num_ambig);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -158,7 +158,7 @@ AST ast_copy(const_AST a)
         result->bitmap_sons = a->bitmap_sons;
         int num_children = ast_count_bitmap(result->bitmap_sons);
 
-        result->children = xcalloc(num_children, sizeof(*(result->children)));
+        result->children = NEW_VEC(AST, num_children);
 
         for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {

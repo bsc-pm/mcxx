@@ -46,7 +46,7 @@
 /*
  * This file performs disambiguation. If a symbol table is passed along the
  * tree the disambiguation is context-sensitive otherwise it is entirely
- * context-xfree (i.e. a flaw in our grammar or the standard grammar)
+ * context-DELETE (i.e. a flaw in our grammar or the standard grammar)
  *
  */
 

@@ -193,7 +193,7 @@ namespace SymbolUtils
                     /* parameter nesting */ 0,
                     /* parameter position */ i);
         }
-        xfree(parameter_list); parameter_list = NULL;
+        DELETE(parameter_list); parameter_list = NULL;
 
         // Make it static
         symbol_entity_specs_set_is_static(new_function_sym, 1);

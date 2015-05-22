@@ -180,8 +180,8 @@ scope_entry_list_t* koenig_lookup(
         fprintf(stderr, "KOENIG: Argument dependent lookup ended\n");
     }
 
-    xfree(koenig_info.associated_scopes);
-    xfree(koenig_info.associated_classes);
+    DELETE(koenig_info.associated_scopes);
+    DELETE(koenig_info.associated_classes);
 
     return result;
 }

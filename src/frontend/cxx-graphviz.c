@@ -51,7 +51,7 @@ static rb_red_blk_tree* pointer_set = NULL;
 
 static char* quote_protect(const char *c)
 {
-    char *result = xcalloc(2*strlen(c), sizeof(char));
+    char *result = NEW_VEC0(char, 2*strlen(c));
 
     const char *p = c;
     char *q = result;
@@ -321,7 +321,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 char *quoted = quote_protect(ASTText(a));
                 fprintf(f, "\\nText: \\\"%s\\\"", quoted);
-                xfree(quoted);
+                DELETE(quoted);
             }
 
             type_t* t = nodecl_get_type(_nodecl_wrap(a));
@@ -329,7 +329,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 char *quoted = quote_protect(print_declarator(t));
                 fprintf(f, "\\nType: \\\"%s\\\"", quoted);
-                xfree(quoted);
+                DELETE(quoted);
             }
 
             fprintf(f, "\"]\n");

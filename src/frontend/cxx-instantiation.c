@@ -1050,9 +1050,9 @@ static void instantiate_dependent_friend_function(
     if (is_template_id)
     {
         // FIXME - Try to avoid this sort of dance
-        scope_entry_t** symbols = xcalloc(
-                    symbol_entity_specs_get_num_friend_candidates(friend),
-                    sizeof(*symbols));
+        scope_entry_t** symbols = NEW_VEC0(
+                scope_entry_t*,
+                symbol_entity_specs_get_num_friend_candidates(friend));
         int i;
         for (i = 0; i < symbol_entity_specs_get_num_friend_candidates(friend); i++)
         {
@@ -1063,7 +1063,7 @@ static void instantiate_dependent_friend_function(
             entry_list_from_symbol_array(
                     symbol_entity_specs_get_num_friend_candidates(friend),
                     symbols);
-        xfree(symbols);
+        DELETE(symbols);
 
         // Does candidates list contain a SK_DEPENDENT_ENTITY?
         if (candidates_list != NULL)
@@ -1337,7 +1337,7 @@ static void instantiate_dependent_friend_function(
                 {
                     something_has_changed = 1;
 
-                    scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+                    scope_entry_t* new_entry = NEW0(scope_entry_t);
                     memcpy(new_entry, current_temp_param->entry, sizeof(*current_temp_param->entry));
                     symbol_clear_indirect_types(new_entry);
                     symbol_entity_specs_set_template_parameter_nesting(new_entry, 1);
@@ -1428,7 +1428,7 @@ static void instantiate_dependent_friend_function(
         entry_list_free(candidates_list);
     }
 
-    scope_entry_t* new_friend = xcalloc(1, sizeof(*new_friend));
+    scope_entry_t* new_friend = NEW0(scope_entry_t);
     new_friend->kind = SK_FRIEND_FUNCTION;
     new_friend->decl_context = context_of_being_instantiated;
     symbol_entity_specs_set_alias_to(new_friend, new_function);
@@ -1675,19 +1675,20 @@ static void instantiate_class_common(
     // }
 }
 
+typedef
 struct instantiate_class_header_message_fun_data_tag
 {
     type_t* being_instantiated;
     scope_entry_t* being_instantiated_sym;
     const locus_t* locus;
-};
+} instantiate_class_header_message_fun_data_t;
 
 static const char* instantiate_class_header_message_fun(void* v)
 {
     const char* instantiation_header = NULL;
 
-    struct instantiate_class_header_message_fun_data_tag* p =
-        (struct instantiate_class_header_message_fun_data_tag*)v;
+    instantiate_class_header_message_fun_data_t* p =
+        (instantiate_class_header_message_fun_data_t*)v;
 
     uniquestr_sprintf(&instantiation_header,
             "%s: info: while instantiating class '%s'\n",
@@ -1718,7 +1719,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     header_message_fun_t instantiation_header;
     instantiation_header.message_fun = instantiate_class_header_message_fun;
     {
-        struct instantiate_class_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+        instantiate_class_header_message_fun_data_t* p
+            = NEW0(instantiate_class_header_message_fun_data_t);
         p->being_instantiated = being_instantiated;
         p->being_instantiated_sym = being_instantiated_sym;
         p->locus = locus;
@@ -2005,7 +2007,8 @@ static void instantiate_nontemplate_member_class_of_template_class(
     header_message_fun_t instantiation_header;
     instantiation_header.message_fun = instantiate_class_header_message_fun;
     {
-        struct instantiate_class_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+        instantiate_class_header_message_fun_data_t* p =
+            NEW0(instantiate_class_header_message_fun_data_t);
         p->being_instantiated = being_instantiated;
         p->being_instantiated_sym = being_instantiated_sym;
         p->locus = locus;
@@ -2231,9 +2234,9 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                     tmp_symbols_to_instantiate[i]->locus);
 
 
-            xfree(tmp_symbols_to_instantiate[i]);
+            DELETE(tmp_symbols_to_instantiate[i]);
         }
-        xfree(tmp_symbols_to_instantiate);
+        DELETE(tmp_symbols_to_instantiate);
     }
 
     if (!nodecl_is_null(nodecl_instantiation_units))
@@ -2447,7 +2450,7 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
 
     dhash_ptr_destroy(sym_hash);
 
-    xfree(list);
+    DELETE(list);
 }
 
 static char compare_instantiate_items(instantiation_item_t* current_item, instantiation_item_t* new_item)
@@ -2458,7 +2461,7 @@ static char compare_instantiate_items(instantiation_item_t* current_item, instan
 void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const locus_t* locus)
 {
-    instantiation_item_t* item = xcalloc(1, sizeof(*item));
+    instantiation_item_t* item = NEW0(instantiation_item_t);
     item->symbol = entry;
     item->locus = locus;
 
@@ -2472,7 +2475,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     // Crummy way to know if it was added
     if (old_num == num_symbols_to_instantiate)
     {
-        xfree(item);
+        DELETE(item);
     }
 }
 
@@ -2633,7 +2636,7 @@ static template_parameter_list_t* copy_template_parameters(template_parameter_li
     if (t == NULL)
         return NULL;
 
-    template_parameter_list_t* res = xcalloc(1, sizeof(*res));
+    template_parameter_list_t* res = NEW0(template_parameter_list_t);
     *res = *t;
 
     res->enclosing = copy_template_parameters(t->enclosing);
@@ -2641,17 +2644,18 @@ static template_parameter_list_t* copy_template_parameters(template_parameter_li
     return res;
 }
 
+typedef
 struct instantiate_function_header_message_fun_data_tag
 {
     scope_entry_t* entry;
     const locus_t* locus;
-};
+} instantiate_function_header_message_fun_data_t;
 
 static const char* instantiate_function_header_message_fun(void* v)
 {
     const char* instantiation_header = NULL;
-    struct instantiate_function_header_message_fun_data_tag* p =
-        (struct instantiate_function_header_message_fun_data_tag*)v;
+    instantiate_function_header_message_fun_data_t* p =
+        (instantiate_function_header_message_fun_data_t*)v;
 
     uniquestr_sprintf(&instantiation_header,
             "%s: info: while instantiating function '%s'\n",
@@ -2693,7 +2697,8 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
     header_message_fun_t instantiation_header;
     instantiation_header.message_fun = instantiate_function_header_message_fun;
     {
-        struct instantiate_function_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+        instantiate_function_header_message_fun_data_t* p =
+            NEW0(instantiate_function_header_message_fun_data_t);
         p->entry = entry;
         p->locus = locus;
         instantiation_header.data = p;
@@ -2872,7 +2877,7 @@ static int intptr_t_comp(const void *v1, const void *v2)
 
 instantiation_symbol_map_t* instantiation_symbol_map_push(instantiation_symbol_map_t* parent)
 {
-    instantiation_symbol_map_t* result = xcalloc(1, sizeof(*result));
+    instantiation_symbol_map_t* result = NEW0(instantiation_symbol_map_t);
 
     result->parent = parent;
     result->tree = rb_tree_create(intptr_t_comp, NULL, NULL);
@@ -2885,7 +2890,7 @@ instantiation_symbol_map_t* instantiation_symbol_map_pop(instantiation_symbol_ma
     instantiation_symbol_map_t* result = map->parent;
 
     rb_tree_destroy(map->tree);
-    xfree(map);
+    DELETE(map);
 
     return result;
 }

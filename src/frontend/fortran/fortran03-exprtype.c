@@ -367,7 +367,7 @@ static void check_ac_value_list(
         ac_value_length++;
     }
 
-    const_value_t** ac_constant_values = xcalloc(ac_value_length, sizeof(*ac_constant_values));
+    const_value_t** ac_constant_values = NEW_VEC0(const_value_t*, ac_value_length);
     int item_position = 0;
     for_each_element(ac_value_list, it)
     {
@@ -485,7 +485,7 @@ static void check_ac_value_list(
                     if (val_stride < 0)
                         stride_sign = -1;
 
-                    const_value_t** const_value_list = xcalloc(trip, sizeof(*const_value_list));
+                    const_value_t** const_value_list = NEW_VEC0(const_value_t*, trip);
                     const_value_t** const_value_list_it = const_value_list;
 
                     char all_constant = 1;
@@ -533,7 +533,7 @@ static void check_ac_value_list(
                         implied_do_cval = fortran_flatten_array(implied_do_cval);
                     }
 
-                    xfree(const_value_list);
+                    DELETE(const_value_list);
                 }
 
                 // Restore the variable used for the expansion
@@ -624,7 +624,7 @@ static void check_ac_value_list(
         *ac_value_const = NULL;
     }
 
-    xfree(ac_constant_values);
+    DELETE(ac_constant_values);
 }
 
 static void check_array_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -1572,7 +1572,7 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context, nodecl_
         internal_error("Invalid boolean literal", 0);
     }
 
-    xfree(literal);
+    DELETE(literal);
 
     *nodecl_output = nodecl_make_boolean_literal(
             logical_type, 
@@ -2306,7 +2306,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
 
    *nodecl_output = nodecl_make_floating_literal(t, value, ast_get_locus(expr));
 
-   xfree(floating_text);
+   DELETE(floating_text);
 }
 
 static char is_assumed_shape_or_pointer_array(scope_entry_t* entry)

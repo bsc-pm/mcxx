@@ -277,5 +277,5 @@ void * configfilerealloc (void * ptr, size_t bytes)
 }
 void   configfilefree (void * ptr)
 {
-    xfree(ptr);
+    DELETE(ptr);
 }

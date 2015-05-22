@@ -915,7 +915,7 @@ static void* get_ptr_of_oid(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid
 
 static void insert_map_ptr(sqlite3* handle UNUSED_PARAMETER, sqlite3_uint64 oid, void *ptr)
 {
-    sqlite3_int64* p = xcalloc(1, sizeof(*p));
+    sqlite3_int64* p = NEW0(sqlite3_int64);
     *p = oid;
 
     rb_tree_insert(_oid_map, p, ptr);
@@ -1604,7 +1604,7 @@ static int get_extra_gcc_attrs(void *datum,
 
     symbol_entity_specs_add_gcc_attributes(p->symbol, gcc_attr);
 
-    xfree(attr_value);
+    DELETE(attr_value);
 
     return 0;
 }
@@ -1645,7 +1645,7 @@ static int get_extra_function_parameter_info_only(
     p->pf->nesting = 0;
     p->pf->position = position;
 
-    xfree(attr_value);
+    DELETE(attr_value);
 
     return 0;
 }
@@ -1674,7 +1674,7 @@ static int get_extra_default_argument_info(void *datum,
 {
     extra_default_argument_info_t* p = (extra_default_argument_info_t*)datum;
 
-    default_argument_info_t* d = xcalloc(1, sizeof(*d));
+    default_argument_info_t* d = NEW0(default_argument_info_t);
     // We are not storing the context yet
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
     d->argument = _nodecl_wrap(load_ast(p->handle, safe_atoull(values[0])));
@@ -1685,22 +1685,23 @@ static int get_extra_default_argument_info(void *datum,
     return 0;
 }
 
-struct parameter_info_t
+typedef
+struct sql_parameter_info_tag
 {
     int ncols;
     char** values;
     char** names;
-};
+} sql_parameter_info_t;
 
-static void xfree_param_info(struct parameter_info_t *param_info, int num_rows)
+static void free_param_info(sql_parameter_info_t *param_info, int num_rows)
 {
     int i;
     for (i = 0; i < num_rows; i++)
     {
-        xfree(param_info[i].values);
-        xfree(param_info[i].names);
+        DELETE(param_info[i].values);
+        DELETE(param_info[i].names);
     }
-    xfree(param_info);
+    DELETE(param_info);
 }
 
 static char* safe_strdup(const char* c)
@@ -1719,11 +1720,11 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
     //
     // The whole records are kept in a temporary buffer and then the callback is called per each row
 
-    struct parameter_info_t *param_info = NULL;
+    sql_parameter_info_t *param_info = NULL;
     int num_rows = 0;
     int result_set_size = 4;
 
-    param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
+    param_info = NEW_REALLOC(sql_parameter_info_t, param_info, result_set_size);
 
     int result_query = sqlite3_step(prepared_stmt);
     while(result_query != SQLITE_DONE)
@@ -1736,7 +1737,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
                     if (num_rows > result_set_size)
                     {
                         result_set_size *= 2;
-                        param_info = xrealloc(param_info, result_set_size * sizeof(*param_info));
+                        param_info = NEW_REALLOC(sql_parameter_info_t, param_info, result_set_size);
                     }
 
                     int current_row = num_rows - 1;
@@ -1745,8 +1746,8 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
 
                     param_info[current_row].ncols = ncols;
 
-                    param_info[current_row].values = xcalloc(ncols, sizeof(*param_info[current_row].values));
-                    param_info[current_row].names = xcalloc(ncols, sizeof(*param_info[current_row].names));
+                    param_info[current_row].values = NEW_VEC0(char*, ncols);
+                    param_info[current_row].names = NEW_VEC0(char*, ncols);
                     int i;
                     for (i = 0; i < ncols; i++)
                     {
@@ -1763,7 +1764,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
             default:
                 {
                     *errmsg = sqlite3_errmsg(handle);
-                    xfree_param_info(param_info, num_rows);
+                    free_param_info(param_info, num_rows);
                     sqlite3_reset(prepared_stmt);
                     return result_query;
                 }
@@ -1780,7 +1781,7 @@ static int run_select_query_prepared(sqlite3* handle, sqlite3_stmt* prepared_stm
         fun(datum, param_info[i].ncols, param_info[i].values, param_info[i].names);
     }
 
-    xfree_param_info(param_info, num_rows);
+    free_param_info(param_info, num_rows);
 
     *errmsg = NULL;
     return SQLITE_OK;
@@ -2124,7 +2125,7 @@ static int get_symbol(void *datum,
 
     if (*result == NULL)
     {
-        (*result) = xcalloc(1, sizeof(**result));
+        (*result) = NEW0(scope_entry_t);
     }
 
     insert_map_ptr(handle, oid, *result);
@@ -2309,8 +2310,8 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_uint64 oid)
 
     for (i = 0; i < ncols; i++)
     {
-        xfree(values[i]);
-        xfree(names[i]);
+        DELETE(values[i]);
+        DELETE(names[i]);
     }
 
     return symbol_handle.symbol;
@@ -2661,7 +2662,7 @@ static int get_type(void *datum,
 
                 field = strtok_r(NULL, ",", &context);
             }
-            xfree(copy);
+            DELETE(copy);
             break;
         }
         case TKT_FUNCTION:
@@ -2686,7 +2687,7 @@ static int get_type(void *datum,
                     num_parameters++;
                     field = strtok_r(NULL, ",", &context);
                 }
-                xfree(copy);
+                DELETE(copy);
             }
 
             type_t* result = load_type(handle, ref);
@@ -3182,10 +3183,10 @@ static int get_module_extra_name(void *data,
     if (num_items == 0)
         return 0;
 
-    fortran_modules_data_t *module_data = xcalloc(1, sizeof(*module_data));
+    fortran_modules_data_t *module_data = NEW0(fortran_modules_data_t);
     module_data->name = uniquestr(values[1]);
     module_data->num_items = num_items;
-    module_data->items = xcalloc(num_items, sizeof(*(module_data->items)));
+    module_data->items = NEW_VEC0(tl_type_t, num_items);
 
     char* query = sqlite3_mprintf("SELECT kind, value FROM module_extra_data WHERE oid_name = %llu ORDER BY (order_);",
             safe_atoull(values[0]));
@@ -3205,7 +3206,7 @@ static int get_module_extra_name(void *data,
     fortran_modules_data_set_t* extra_info_attr = symbol_entity_specs_get_module_extra_info(p->module);
     if (extra_info_attr == NULL)
     {
-        extra_info_attr = xcalloc(1, sizeof(*extra_info_attr));
+        extra_info_attr = NEW0(fortran_modules_data_set_t);
         symbol_entity_specs_set_module_extra_info(p->module, extra_info_attr);
     }
 

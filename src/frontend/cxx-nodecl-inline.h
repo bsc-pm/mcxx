@@ -94,7 +94,7 @@ static inline nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
     nodecl_expr_info_t* p = ast_get_expr_info(expr);
     if (p == NULL)
     {
-        p = (nodecl_expr_info_t*)xmalloc(sizeof(*p));
+        p = NEW(nodecl_expr_info_t);
         p->is_value_dependent = 0;
         p->is_type_dependent_expression = 0;
         p->type_info = NULL;
@@ -315,7 +315,7 @@ static inline nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
         num_elements++;
     }
 
-    nodecl_t* output = (nodecl_t*)xmalloc(num_elements*sizeof(*output));
+    nodecl_t* output = NEW_VEC(nodecl_t, num_elements);
 
     num_elements = 0;
     for_each_element(list, it)
@@ -480,7 +480,7 @@ static inline void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_conte
     nodecl_expr_info_t* p = nodecl_expr_get_expression_info(n.tree);
 
     if (p->decl_context == NULL)
-        p->decl_context = (decl_context_t*)xmalloc(sizeof(*(p->decl_context)));
+        p->decl_context = NEW(decl_context_t);
 
     *(p->decl_context) = decl_context;
 }

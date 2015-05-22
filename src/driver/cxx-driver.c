@@ -748,12 +748,12 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.argc = argc;
 
     // Copy argv strings
-    compilation_process.argv = xcalloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.argv = NEW_VEC(const char*, compilation_process.argc);
     memcpy((void*)compilation_process.argv, argv, sizeof(const char*) * compilation_process.argc);
 
     // Original versions
     compilation_process.original_argc = argc;
-    compilation_process.original_argv = xcalloc(compilation_process.argc, sizeof(const char*));
+    compilation_process.original_argv = NEW_VEC(const char*, compilation_process.argc);
     memcpy((void*)compilation_process.original_argv, argv, sizeof(const char*) * compilation_process.argc);
 
     compilation_process.exec_basename = give_basename(argv[0]);
@@ -1302,7 +1302,7 @@ int parse_arguments(int argc, const char* argv[],
                         *value = '\0';
                         value++;
 
-                        external_var_t* new_external_var = xcalloc(1, sizeof(*new_external_var));
+                        external_var_t* new_external_var = NEW0(external_var_t);
 
                         new_external_var->name = uniquestr(name);
                         new_external_var->value = uniquestr(value);
@@ -1730,8 +1730,8 @@ int parse_arguments(int argc, const char* argv[],
         list_compilation_configs[i]->do_not_prettyprint = CURRENT_CONFIGURATION->do_not_prettyprint;
     }
 
-    xfree(list_translation_units);
-    xfree(list_compilation_configs);
+    DELETE(list_translation_units);
+    DELETE(list_compilation_configs);
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
     // then, this output is the overall compilation process output
@@ -2344,14 +2344,14 @@ static void enable_debug_flag(const char* flags)
         }
     }
 
-    xfree(flag_list);
+    DELETE(flag_list);
 }
 
 void add_to_linker_command_configuration(
         const char *str, translation_unit_t* tr_unit, compilation_configuration_t* configuration)
 {
     parameter_linker_command_t * ptr_param =
-        (parameter_linker_command_t *) xcalloc(1, sizeof(parameter_linker_command_t));
+        (parameter_linker_command_t *) NEW0(parameter_linker_command_t);
 
      ptr_param->argument = str;
 
@@ -2374,7 +2374,7 @@ void add_to_parameter_list(const char*** existing_options, const char **paramete
 {
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
 
-    (*existing_options) = xrealloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+    (*existing_options) = NEW_REALLOC(const char*, (*existing_options), num_existing_options + num_parameters + 1);
 
     int i;
     for (i = 0; i < num_parameters; i++)
@@ -2599,7 +2599,7 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->output_column_width = 132;
 
     // Add openmp as an implicitly enabled
-    struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
+    parameter_flags_t *new_parameter_flag = NEW0(parameter_flags_t);
 
     new_parameter_flag->name = uniquestr("openmp");
     new_parameter_flag->value = PFV_UNDEFINED;
@@ -3021,7 +3021,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         char is_fixed_form  = (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
                 // We prescan from fixed to free if 
                 //  - the file is fixed form OR we are forced to be fixed for (--fixed)
-                //  - AND we were NOT told to be xfree form (--free)
+                //  - AND we were NOT told to be DELETE form (--free)
                 && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FREE_FORM)
@@ -4168,7 +4168,7 @@ static void native_compilation(translation_unit_t* translation_unit,
             current_param = strtok(NULL, ",");
         }
 
-        xfree(tmp);
+        DELETE(tmp);
     }
 
     {
@@ -5032,11 +5032,11 @@ static void print_memory_report(void)
             c);
 
     print_human(c, mallinfo_report.uordblks);
-    fprintf(stderr, " - Total size of memory occupied by chunks handed out by xmalloc: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by chunks handed out by malloc: %s\n",
             c);
 
     print_human(c, mallinfo_report.fordblks);
-    fprintf(stderr, " - Total size of memory occupied by xfree (not in use) chunks: %s\n",
+    fprintf(stderr, " - Total size of memory occupied by DELETE (not in use) chunks: %s\n",
             c);
 
     print_human(c, mallinfo_report.keepcost);
@@ -5238,5 +5238,5 @@ static void register_disable_intrinsics(const char* intrinsic_name)
 
     regfree(&match_intrinsic);
 
-    xfree(tmp);
+    DELETE(tmp);
 }

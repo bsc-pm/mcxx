@@ -276,7 +276,7 @@ static const char* nodecl_to_source(nodecl_t n)
     fclose(string_stream);
 
     const char* result = uniquestr(buff);
-    xfree(buff);
+    DELETE(buff);
 
     return result;
 }

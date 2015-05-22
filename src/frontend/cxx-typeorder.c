@@ -400,7 +400,7 @@ static specialization_comparison_t compare_type_specialization(
     parameter = get_unqualified_type(parameter);
     argument = get_unqualified_type(argument);
 
-    deduction_set_t* deduction_set_current = xcalloc(1, sizeof(*deduction_set_current));
+    deduction_set_t* deduction_set_current = NEW0(deduction_set_t);
     deduction_result_t deduction_result =
         deduce_template_arguments_from_a_type(
                 parameter,
@@ -718,8 +718,8 @@ char is_more_specialized_template_function(
         fprintf(stderr, "TYPEORDER: We have to compare %d types\n", num_types);
     }
 
-    deduction_set_t* deduction_set = xcalloc(1, sizeof(*deduction_set));
-    deduction_set_t* inverse_deduction_set = xcalloc(1, sizeof(*deduction_set));
+    deduction_set_t* deduction_set = NEW0(deduction_set_t);
+    deduction_set_t* inverse_deduction_set = NEW0(deduction_set_t);
 
     specialization_comparison_t cmp_1[num_types];
     comparison_extra_t cmp_1_extra[num_types];
@@ -1077,7 +1077,7 @@ static char compare_template_classes(
             "fake_template_name",
             named_type_get_symbol(c1)->decl_context,
             locus);
-    scope_entry_t* fake_template_name_1 = xcalloc(1, sizeof(*fake_template_name_1));
+    scope_entry_t* fake_template_name_1 = NEW0(scope_entry_t);
     fake_template_name_1->symbol_name = "<<fake_template_function>>";
     fake_template_name_1->kind = SK_TEMPLATE;
     fake_template_name_1->decl_context = named_type_get_symbol(c1)->decl_context;
@@ -1089,7 +1089,7 @@ static char compare_template_classes(
             template_type_get_primary_type(fake_template_type_1)
             )->type_information;
 
-    scope_entry_t* fake_sym_1 = xcalloc(1, sizeof(*fake_sym_1));
+    scope_entry_t* fake_sym_1 = NEW0(scope_entry_t);
     fake_sym_1->symbol_name = "<<fake_template_function>>";
     fake_sym_1->kind = SK_FUNCTION;
     fake_sym_1->type_information = fake_type_1;
@@ -1114,7 +1114,7 @@ static char compare_template_classes(
             "fake_template_name",
             named_type_get_symbol(c2)->decl_context,
             locus);
-    scope_entry_t* fake_template_name_2 = xcalloc(1, sizeof(*fake_template_name_2));
+    scope_entry_t* fake_template_name_2 = NEW0(scope_entry_t);
     fake_template_name_2->symbol_name = "<<fake_template_function>>";
     fake_template_name_2->kind = SK_TEMPLATE;
     fake_template_name_2->decl_context = named_type_get_symbol(c2)->decl_context;
@@ -1126,7 +1126,7 @@ static char compare_template_classes(
             template_type_get_primary_type(fake_template_type_2)
             )->type_information;
 
-    scope_entry_t* fake_sym_2  = xcalloc(1, sizeof(*fake_sym_2));
+    scope_entry_t* fake_sym_2  = NEW0(scope_entry_t);
     fake_sym_2->symbol_name = "<<fake_template_function>>";
     fake_sym_2->kind = SK_FUNCTION;
     fake_sym_2->type_information = fake_type_2;
@@ -1148,11 +1148,11 @@ static char compare_template_classes(
             deduced_template_arguments
             );
 
-    xfree(fake_sym_2);
-    xfree(fake_sym_1);
+    DELETE(fake_sym_2);
+    DELETE(fake_sym_1);
 
-    xfree(fake_template_name_2);
-    xfree(fake_template_name_1);
+    DELETE(fake_template_name_2);
+    DELETE(fake_template_name_1);
 
     free_template_parameter_list(template_parameters1);
     free_template_parameter_list(template_parameters2);

@@ -66,14 +66,14 @@ static void fortran_flatten_array_rec(const_value_t* v, const_value_t*** scalar_
 const_value_t* fortran_flatten_array(const_value_t* v)
 {
     int N = fortran_flatten_array_count_elements(v);
-    const_value_t** flattened_items = xcalloc(N, sizeof(*flattened_items));
+    const_value_t** flattened_items = NEW_VEC0(const_value_t*, N);
 
     const_value_t** pos = flattened_items;
     fortran_flatten_array_rec(v, &pos);
 
     const_value_t* result = const_value_make_array(N, flattened_items);
 
-    xfree(flattened_items);
+    DELETE(flattened_items);
 
     return result;
 }
@@ -137,14 +137,14 @@ const_value_t* fortran_flatten_array_with_mask(const_value_t* v, const_value_t* 
     if (N < 0)
         return NULL;
 
-    const_value_t** flattened_items = xcalloc(N, sizeof(*flattened_items));
+    const_value_t** flattened_items = NEW_VEC0(const_value_t*, N);
 
     const_value_t** pos = flattened_items;
     fortran_flatten_array_mask_rec(v, mask, &pos);
 
     const_value_t* result = const_value_make_array(N, flattened_items);
 
-    xfree(flattened_items);
+    DELETE(flattened_items);
 
     return result;
 }
