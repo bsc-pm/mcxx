@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CFLAGS=--variable=enable_nonvoid_function_tasks:1
 </testinfo>
 */
 #pragma omp task
