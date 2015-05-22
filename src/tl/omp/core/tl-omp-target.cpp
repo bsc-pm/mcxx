@@ -232,7 +232,7 @@ namespace TL
                     // Restore the scope chain we broke in an INTERFACE block
                     decl_context_t decl_context = scope.get_decl_context();
                     TL::Symbol current_procedure = scope.get_related_symbol();
-                    decl_context.current_scope->contained_in = current_procedure.get_internal_symbol()->decl_context.current_scope;
+                    decl_context->current_scope->contained_in = current_procedure.get_internal_symbol()->decl_context->current_scope;
 
                     TL::Scope fixed_scope = TL::Scope(decl_context);
 

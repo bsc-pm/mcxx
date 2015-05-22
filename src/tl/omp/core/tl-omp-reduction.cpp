@@ -676,12 +676,12 @@ namespace TL { namespace OpenMP {
         // Create a fake function so the block scope behaves like others
         scope_entry_t* omp_udr_function = ::new_symbol(
                 sc.get_decl_context(), 
-                sc.get_decl_context().current_scope,
+                sc.get_decl_context()->current_scope,
                 UNIQUESTR_LITERAL(".omp_udr_function"));
         omp_udr_function->kind = SK_FUNCTION;
         omp_udr_function->related_decl_context = sc.get_decl_context();
 
-        _expr_scope.get_decl_context().current_scope->related_entry = omp_udr_function;
+        _expr_scope.get_decl_context()->current_scope->related_entry = omp_udr_function;
 
         // Sign in omp_{in,out,priv,orig}
         typedef std::pair<std::string, TL::Symbol Reduction::*> pair_t;
@@ -697,7 +697,7 @@ namespace TL { namespace OpenMP {
         {
             scope_entry_t* omp_sym = ::new_symbol(
                     _expr_scope.get_decl_context(), 
-                    _expr_scope.get_decl_context().current_scope,
+                    _expr_scope.get_decl_context()->current_scope,
                     uniquestr(it->first.c_str()));
 
             omp_sym->kind = SK_VARIABLE;
@@ -774,7 +774,7 @@ namespace TL { namespace OpenMP {
         {
             new_red = new Reduction(sc, name, t);
 
-            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(internal_name.c_str()));
+            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(internal_name.c_str()));
             new_red_sym->kind = SK_OTHER;
 
             OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
@@ -804,7 +804,7 @@ namespace TL { namespace OpenMP {
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
-                if (current->decl_context.current_scope->kind == CLASS_SCOPE)
+                if (current->decl_context->current_scope->kind == CLASS_SCOPE)
                     return true;
             }
         }

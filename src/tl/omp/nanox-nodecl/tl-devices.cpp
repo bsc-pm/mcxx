@@ -251,14 +251,12 @@ namespace TL { namespace Nanox {
         Scope sc = current_function.get_scope();
 
         decl_context_t decl_context = sc.get_decl_context();
-        decl_context_t function_context;
-
-        function_context = new_program_unit_context(decl_context);
+        decl_context_t function_context = new_program_unit_context(decl_context);
 
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
         // Pointer to the real unpack function
-        scope_entry_t* ptr_to_outline = ::new_symbol(function_context, function_context.current_scope,
+        scope_entry_t* ptr_to_outline = ::new_symbol(function_context, function_context->current_scope,
                 UNIQUESTR_LITERAL("outline_ptr"));
         ptr_to_outline->kind = SK_VARIABLE;
         ptr_to_outline->type_information = fortran_choose_int_type_from_kind(CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
@@ -299,7 +297,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_REDUCTION:
                 case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context->current_scope,
                                 uniquestr(name.c_str()));
                         private_sym->kind = SK_VARIABLE;
                         if ((*it)->get_field_type().is_pointer()
@@ -337,7 +335,7 @@ namespace TL { namespace Nanox {
         }
 
         // Now everything is set to register the function
-        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
+        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(function_name.c_str()));
         symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
         new_function_sym->kind = SK_FUNCTION;
@@ -359,8 +357,8 @@ namespace TL { namespace Nanox {
                     /* is_definition */ 0);
         }
 
-        function_context.function_scope->related_entry = new_function_sym;
-        function_context.block_scope->related_entry = new_function_sym;
+        function_context->function_scope->related_entry = new_function_sym;
+        function_context->block_scope->related_entry = new_function_sym;
 
         new_function_sym->related_decl_context = function_context;
 
@@ -575,7 +573,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context,
-                                function_context.current_scope,
+                                function_context->current_scope,
                                 uniquestr(name.c_str()));
 
                         private_sym->kind = SK_VARIABLE;
@@ -626,7 +624,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 case OutlineDataItem::SHARING_TASK_REDUCTION:
                     {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context->current_scope,
                                 uniquestr(name.c_str()));
 
                         private_sym->kind = SK_VARIABLE;
@@ -660,7 +658,7 @@ namespace TL { namespace Nanox {
                                 && (*it)->get_symbol().get_type().depends_on_nonconstant_values())
                         {
                             // Shape VLA
-                            vla_private_sym = ::new_symbol(function_context, function_context.current_scope,
+                            vla_private_sym = ::new_symbol(function_context, function_context->current_scope,
                                     uniquestr(("vla_p_" + name).c_str()));
 
                             vla_private_sym->kind = SK_VARIABLE;
@@ -776,7 +774,7 @@ namespace TL { namespace Nanox {
                     {
                         // Original reduced variable. Passed as we pass shared parameters
                         TL::Type param_type = (*it)->get_in_outline_type();
-                        scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
+                        scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context->current_scope,
                                 uniquestr((*it)->get_field_name().c_str()));
                         shared_reduction_sym->kind = SK_VARIABLE;
                         shared_reduction_sym->type_information = param_type.get_internal_type();
@@ -815,7 +813,7 @@ namespace TL { namespace Nanox {
                             internal_error("Code unreachable", 0);
                         }
 
-                        scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
+                        scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context->current_scope,
                                 uniquestr(("rdv_" + name).c_str()));
                         private_reduction_vector_sym->kind = SK_VARIABLE;
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
@@ -831,7 +829,7 @@ namespace TL { namespace Nanox {
                         }
 
                         // Local variable (rdp stands for reduction private)
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context->current_scope,
                                 uniquestr(("rdp_" + name).c_str()));
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
@@ -966,7 +964,7 @@ namespace TL { namespace Nanox {
 
                 scope_entry_t* private_sym = ::new_symbol(
                         function_context,
-                        function_context.current_scope,
+                        function_context->current_scope,
                         uniquestr(sym.get_name().c_str()));
 
                 private_sym->kind = SK_VARIABLE;
@@ -1120,15 +1118,15 @@ namespace TL { namespace Nanox {
         if (!current_function.get_type().is_template_specialized_type()
                 || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            decl_context_t new_decl_context = decl_context;
+            decl_context_t new_decl_context = decl_context_clone(decl_context);
             if (current_function.get_scope().get_template_parameters() != NULL
                 && current_function.get_scope().get_template_parameters()->is_explicit_specialization)
             {
-                new_decl_context.template_parameters = new_decl_context.template_parameters->enclosing;
+                new_decl_context->template_parameters = new_decl_context->template_parameters->enclosing;
             }
 
             new_function_sym = new_symbol(new_decl_context,
-                    new_decl_context.current_scope,
+                    new_decl_context->current_scope,
                     uniquestr(function_name.c_str()));
             symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
             new_function_sym->kind = SK_FUNCTION;
@@ -1138,12 +1136,12 @@ namespace TL { namespace Nanox {
         else
         {
             scope_entry_t* new_template_sym =
-                new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
+                new_symbol(decl_context, decl_context->current_scope, uniquestr(function_name.c_str()));
             new_template_sym->kind = SK_TEMPLATE;
             new_template_sym->locus = make_locus("", 0, 0);
 
             new_template_sym->type_information = get_new_template_type(
-                    decl_context.template_parameters,
+                    decl_context->template_parameters,
                     function_type,
                     uniquestr(function_name.c_str()),
                     decl_context, make_locus("", 0, 0));
@@ -1221,8 +1219,8 @@ namespace TL { namespace Nanox {
             symbol_entity_specs_set_is_module_procedure(new_function_sym, 1);
         }
 
-        function_context.function_scope->related_entry = new_function_sym;
-        function_context.block_scope->related_entry = new_function_sym;
+        function_context->function_scope->related_entry = new_function_sym;
+        function_context->block_scope->related_entry = new_function_sym;
 
         new_function_sym->related_decl_context = function_context;
         return new_function_sym;
@@ -1475,7 +1473,7 @@ namespace TL
 
             bool in_the_same_module(TL::Scope sc, TL::Symbol module)
             {
-                scope_t* current_scope = sc.get_decl_context().current_scope;
+                scope_t* current_scope = sc.get_decl_context()->current_scope;
 
                 while (current_scope != NULL)
                 {

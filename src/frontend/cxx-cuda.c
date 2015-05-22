@@ -107,7 +107,7 @@ void cuda_kernel_symbols_for_function_body(
         while (cuda_builtins[i].name != NULL)
         {
             scope_entry_t* cuda_sym = new_symbol(block_context, 
-                    block_context.current_scope, 
+                    block_context->current_scope, 
                     uniquestr(cuda_builtins[i].name));
 
             cuda_sym->locus = ast_get_locus(function_body);

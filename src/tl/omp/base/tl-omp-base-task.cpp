@@ -255,7 +255,7 @@ namespace TL { namespace OpenMP {
                 instantiation_symbol_map_push(/* parent */ NULL);
 
             TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
-            prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
+            prototype_scope.get_decl_context()->current_scope->related_entry = sym.get_internal_symbol();
 
             TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
             TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();

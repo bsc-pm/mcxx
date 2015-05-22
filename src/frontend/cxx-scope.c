@@ -305,9 +305,7 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_e
 // Creates an anew decl_context_t
 static decl_context_t new_decl_context(void)
 {
-    decl_context_t result;
-    memset(&result, 0, sizeof(result));
-
+    decl_context_t result = NEW0(decl_context_data_t);
     return result;
 }
 
@@ -320,12 +318,12 @@ decl_context_t new_global_context(void)
     global_scope_namespace->kind = SK_NAMESPACE;
 
     // Create global scope
-    result.namespace_scope = new_namespace_scope(NULL, global_scope_namespace);
+    result->namespace_scope = new_namespace_scope(NULL, global_scope_namespace);
 
     // Make it the global one
-    result.global_scope = result.namespace_scope;
+    result->global_scope = result->namespace_scope;
     // and the current one
-    result.current_scope = result.namespace_scope;
+    result->current_scope = result->namespace_scope;
 
     global_scope_namespace->related_decl_context = result;
     global_scope_namespace->decl_context = result;
@@ -333,22 +331,30 @@ decl_context_t new_global_context(void)
     return result;
 }
 
+decl_context_t decl_context_clone(decl_context_t t)
+{
+    decl_context_t result = NEW(decl_context_data_t);
+    *result = *t;
+
+    return result;
+}
+
 decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, 
         scope_entry_t* related_entry)
 {
-    ERROR_CONDITION((enclosing_decl_context.current_scope->kind != NAMESPACE_SCOPE),
+    ERROR_CONDITION((enclosing_decl_context->current_scope->kind != NAMESPACE_SCOPE),
             "Enclosing scope must be namespace scope", 0);
-    ERROR_CONDITION((enclosing_decl_context.current_scope != enclosing_decl_context.namespace_scope), 
+    ERROR_CONDITION((enclosing_decl_context->current_scope != enclosing_decl_context->namespace_scope), 
             "Enclosing namespace scope has a mismatch between its current scope and its namespace scope", 0);
 
     // Inherit current context
-    decl_context_t result = enclosing_decl_context;
+    decl_context_t result = decl_context_clone(enclosing_decl_context);
 
     // Create a new namespace scope contained in the previous one
-    result.namespace_scope = new_namespace_scope(enclosing_decl_context.namespace_scope, 
+    result->namespace_scope = new_namespace_scope(enclosing_decl_context->namespace_scope, 
             related_entry);
     // And make it the current one
-    result.current_scope = result.namespace_scope;
+    result->current_scope = result->namespace_scope;
 
     return result;
 }
@@ -356,12 +362,12 @@ decl_context_t new_namespace_context(decl_context_t enclosing_decl_context,
 decl_context_t new_prototype_context(decl_context_t enclosing_decl_context)
 {
     // Inherit current context
-    decl_context_t result = enclosing_decl_context;
+    decl_context_t result = decl_context_clone(enclosing_decl_context);
 
     // Create the prototype scope
-    result.prototype_scope = new_prototype_scope(enclosing_decl_context.current_scope);
+    result->prototype_scope = new_prototype_scope(enclosing_decl_context->current_scope);
     // and make it the current scope
-    result.current_scope = result.prototype_scope;
+    result->current_scope = result->prototype_scope;
 
     return result;
 }
@@ -369,24 +375,24 @@ decl_context_t new_prototype_context(decl_context_t enclosing_decl_context)
 
 decl_context_t new_block_context(decl_context_t enclosing_context)
 {
-    ERROR_CONDITION(enclosing_context.current_scope->kind != NAMESPACE_SCOPE
-            && enclosing_context.current_scope->kind != CLASS_SCOPE
-            && enclosing_context.current_scope->kind != BLOCK_SCOPE,
+    ERROR_CONDITION(enclosing_context->current_scope->kind != NAMESPACE_SCOPE
+            && enclosing_context->current_scope->kind != CLASS_SCOPE
+            && enclosing_context->current_scope->kind != BLOCK_SCOPE,
             "Enclosing scope is neither namespace nor class scope", 0);
 
     // Inherit block context
-    decl_context_t result = enclosing_context;
+    decl_context_t result = decl_context_clone(enclosing_context);
 
     // Create new block scope
-    result.block_scope = new_block_scope(enclosing_context.current_scope);
+    result->block_scope = new_block_scope(enclosing_context->current_scope);
 
     // And update the current scope
-    result.current_scope = result.block_scope;
+    result->current_scope = result->block_scope;
 
     // Update the related entry if any
-    if (enclosing_context.current_scope->kind == BLOCK_SCOPE)
+    if (enclosing_context->current_scope->kind == BLOCK_SCOPE)
     {
-        result.current_scope->related_entry = enclosing_context.current_scope->related_entry;
+        result->current_scope->related_entry = enclosing_context->current_scope->related_entry;
     }
 
     return result;
@@ -395,9 +401,9 @@ decl_context_t new_block_context(decl_context_t enclosing_context)
 decl_context_t new_function_context(decl_context_t enclosing_context)
 {
     // Inherit the scope
-    decl_context_t result = enclosing_context;
+    decl_context_t result = decl_context_clone(enclosing_context);
     // Create a new function scope for it
-    result.function_scope = new_function_scope();
+    result->function_scope = new_function_scope();
     // Note that we are not changing the current_scope, since nothing
     // works on it.
     return result;
@@ -406,22 +412,22 @@ decl_context_t new_function_context(decl_context_t enclosing_context)
 decl_context_t new_class_context(decl_context_t enclosing_context, 
         scope_entry_t* class_entry)
 {
-    ERROR_CONDITION(enclosing_context.current_scope->kind != NAMESPACE_SCOPE
-            && enclosing_context.current_scope->kind != CLASS_SCOPE
-            && enclosing_context.current_scope->kind != BLOCK_SCOPE, /* The last case yields a local class */
+    ERROR_CONDITION(enclosing_context->current_scope->kind != NAMESPACE_SCOPE
+            && enclosing_context->current_scope->kind != CLASS_SCOPE
+            && enclosing_context->current_scope->kind != BLOCK_SCOPE, /* The last case yields a local class */
             "Enclosing scope is neither namespace, class or local", 0
             );
 
     ERROR_CONDITION(class_entry->kind != SK_CLASS && class_entry->kind != SK_ENUM, "This is not a class or enum", 0);
 
     // Inherit the scope
-    decl_context_t result = enclosing_context;
+    decl_context_t result = decl_context_clone(enclosing_context);
 
     // Create new class scope
-    result.class_scope = new_class_scope(enclosing_context.current_scope, class_entry);
+    result->class_scope = new_class_scope(enclosing_context->current_scope, class_entry);
 
     // And make it the current one
-    result.current_scope = result.class_scope;
+    result->current_scope = result->class_scope;
 
     return result;
 }
@@ -814,9 +820,9 @@ char symbol_is_member_of_dependent_class(scope_entry_t* entry)
 
 char symbol_is_local_of_dependent_function(scope_entry_t* entry)
 {
-    return entry->decl_context.current_scope->kind == BLOCK_SCOPE
-        && entry->decl_context.current_scope->related_entry->kind == SK_FUNCTION
-        && (is_dependent_type(entry->decl_context.current_scope->related_entry->type_information)
+    return entry->decl_context->current_scope->kind == BLOCK_SCOPE
+        && entry->decl_context->current_scope->related_entry->kind == SK_FUNCTION
+        && (is_dependent_type(entry->decl_context->current_scope->related_entry->type_information)
                 || symbol_is_member_of_dependent_class(entry));
 }
 
@@ -828,7 +834,7 @@ scope_entry_t* get_function_or_class_where_symbol_depends(scope_entry_t* entry)
     }
     else if (symbol_is_local_of_dependent_function(entry))
     {
-        return entry->decl_context.current_scope->related_entry;
+        return entry->decl_context->current_scope->related_entry;
     }
     else
     {
@@ -855,10 +861,10 @@ static char class_is_immediate_lexical_scope(decl_context_t decl_context,
         class_symbol = named_type_get_symbol(symbol_entity_specs_get_class_type(class_symbol));
     }
 
-    if (decl_context.class_scope == NULL)
+    if (decl_context->class_scope == NULL)
         return 0;
 
-    scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+    scope_entry_t* class_in_scope = decl_context->class_scope->related_entry;
 
     if (class_in_scope->kind == SK_ENUM)
         return 0;
@@ -881,10 +887,10 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
         class_symbol = named_type_get_symbol(symbol_entity_specs_get_class_type(class_symbol));
     }
 
-    if (decl_context.class_scope == NULL)
+    if (decl_context->class_scope == NULL)
         return 0;
 
-    scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+    scope_entry_t* class_in_scope = decl_context->class_scope->related_entry;
 
     if (class_in_scope->kind == SK_ENUM)
         return 0;
@@ -1265,7 +1271,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
 
                 type_t* base_class_type = get_actual_class_type(base_class_entry->type_information);
                 decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
-                scope_t* base_class_scope = base_class_context.current_scope;
+                scope_t* base_class_scope = base_class_context->current_scope;
 
                 // Get the info from the base
                 class_scope_lookup_t current_base_info = *derived;
@@ -1290,7 +1296,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                 {
                     fprintf(stderr, "%s%s", 
                             (i > 0) ? "::" : "",
-                            class_type_get_inner_context(derived->path[i]).current_scope->related_entry->symbol_name);
+                            class_type_get_inner_context(derived->path[i])->current_scope->related_entry->symbol_name);
                 }
                 fprintf(stderr, "'\n");
             }
@@ -1348,7 +1354,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                         {
                             fprintf(stderr, "%s%s%s", 
                                     derived->is_virtual[k] ? "<v>" : "",
-                                    class_type_get_inner_context(derived->path[k]).current_scope->related_entry->symbol_name,
+                                    class_type_get_inner_context(derived->path[k])->current_scope->related_entry->symbol_name,
                                     ((k+1) < derived->path_length) ? "::" : "");
                         }
                         fprintf(stderr, "'\n");
@@ -1357,7 +1363,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                         {
                             fprintf(stderr, "%s%s%s", 
                                     current->is_virtual[k] ? "<v>" : "",
-                                    class_type_get_inner_context(current->path[k]).current_scope->related_entry->symbol_name,
+                                    class_type_get_inner_context(current->path[k])->current_scope->related_entry->symbol_name,
                                     ((k+1) < current->path_length) ? "::" : "");
                         }
                         fprintf(stderr, "'\n");
@@ -1379,7 +1385,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                             {
                                 fprintf(stderr, "%s%s%s", 
                                         derived->is_virtual[k] ? "<v>" : "",
-                                        class_type_get_inner_context(derived->path[k]).current_scope->related_entry->symbol_name,
+                                        class_type_get_inner_context(derived->path[k])->current_scope->related_entry->symbol_name,
                                         ((k+1) < derived->path_length) ? "::" : "");
                             }
                             fprintf(stderr, "'\n");
@@ -1388,7 +1394,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                             {
                                 fprintf(stderr, "%s%s%s", 
                                         current->is_virtual[k] ? "<v>" : "",
-                                        class_type_get_inner_context(current->path[k]).current_scope->related_entry->symbol_name,
+                                        class_type_get_inner_context(current->path[k])->current_scope->related_entry->symbol_name,
                                         ((k+1) < current->path_length) ? "::" : "");
                             }
                             fprintf(stderr, "'\n");
@@ -1414,8 +1420,8 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                                 DEBUG_CODE()
                                 {
                                     fprintf(stderr, "SCOPE: We reached same classes '%s' and '%s'\n",
-                                            class_type_get_inner_context(derived->path[path_candidate]).current_scope->related_entry->symbol_name,
-                                            class_type_get_inner_context(current->path[path_current]).current_scope->related_entry->symbol_name);
+                                            class_type_get_inner_context(derived->path[path_candidate])->current_scope->related_entry->symbol_name,
+                                            class_type_get_inner_context(current->path[path_current])->current_scope->related_entry->symbol_name);
 
                                 }
                                 if (derived->is_virtual[path_candidate]
@@ -1666,7 +1672,7 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
             for (i = 0; i < result.path_length; i++)
             {
                 fprintf(stderr, "%s%s", 
-                        class_or_enum_type_get_inner_context(result.path[i]).current_scope->related_entry->symbol_name,
+                        class_or_enum_type_get_inner_context(result.path[i])->current_scope->related_entry->symbol_name,
                         ((i+1) < result.path_length) ? "::" : "");
             }
             fprintf(stderr, "'\n");
@@ -1681,7 +1687,7 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
 
         for (i = 0; i < result.path_length; i++)
         {
-            scope_entry_t* class_symbol = class_or_enum_type_get_inner_context(result.path[i]).current_scope->related_entry;
+            scope_entry_t* class_symbol = class_or_enum_type_get_inner_context(result.path[i])->current_scope->related_entry;
             if (class_symbol == looked_up_symbol)
                 break;
         }
@@ -1750,7 +1756,7 @@ static char check_for_naming_ambiguity(scope_entry_list_t* entry_list, const loc
         else if ((entry->kind == SK_CLASS
                     || entry->kind == SK_ENUM)
                 && (hiding_name == NULL
-                    || (hiding_name->decl_context.current_scope == entry->decl_context.current_scope)))
+                    || (hiding_name->decl_context->current_scope == entry->decl_context->current_scope)))
         {
             hiding_name = entry;
         }
@@ -1841,7 +1847,7 @@ static scope_entry_list_t* unqualified_query_in_namespace(
         associated_namespace_t* associated_namespaces,
         const locus_t* locus)
 {
-    scope_t* current_scope = namespace->related_decl_context.current_scope;
+    scope_t* current_scope = namespace->related_decl_context->current_scope;
     scope_entry_list_t* grand_result 
         = query_name_in_scope(current_scope, name);
 
@@ -1851,12 +1857,12 @@ static scope_entry_list_t* unqualified_query_in_namespace(
         if (associated_namespaces[i].visited)
             continue;
 
-        scope_t* scope_of_nominated = associated_namespaces[i].nominated->decl_context.current_scope;
+        scope_t* scope_of_nominated = associated_namespaces[i].nominated->decl_context->current_scope;
 
         if (scope_is_enclosed_by(scope_of_nominated, current_scope)
                 && scope_is_enclosed_by(associated_namespaces[i].scope_of_using, current_scope))
         {
-            scope_t* associated_namespace = associated_namespaces[i].nominated->related_decl_context.current_scope;
+            scope_t* associated_namespace = associated_namespaces[i].nominated->related_decl_context->current_scope;
 
             scope_entry_list_t* result = query_name_in_scope(associated_namespace, name);
             associated_namespaces[i].visited = 1;
@@ -1921,7 +1927,7 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
         scope_entry_t** visited_namespaces)
 {
     ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
-    scope_t* namespace_scope = namespace->related_decl_context.current_scope;
+    scope_t* namespace_scope = namespace->related_decl_context->current_scope;
     scope_entry_list_t* grand_result = query_name_in_scope(namespace_scope, name);
 
     if (grand_result != NULL)
@@ -2058,7 +2064,7 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
 
             transitive_add_using_namespaces(decl_flags,
                     scope_of_using,
-                    current_scope->use_namespace[i]->related_decl_context.current_scope,
+                    current_scope->use_namespace[i]->related_decl_context->current_scope,
                     num_associated_namespaces, associated_namespaces);
         }
     }
@@ -2078,7 +2084,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     }
 
     // TEMPLATE_SCOPE is specially handled always
-    template_parameter_list_t* template_parameters = decl_context.template_parameters;
+    template_parameter_list_t* template_parameters = decl_context->template_parameters;
     while (template_parameters != NULL)
     {
         int i;
@@ -2110,7 +2116,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     associated_namespace_t* associated_namespaces = NULL;
     int num_associated_namespaces = 0;
 
-    scope_t* current_scope = decl_context.current_scope;
+    scope_t* current_scope = decl_context->current_scope;
 
     while (result == NULL
             && current_scope != NULL)
@@ -4966,7 +4972,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     result->num_parameters = primary_template_parameters->num_parameters;
 
     decl_context_t new_template_context = template_name_context;
-    new_template_context.template_parameters = result;
+    new_template_context->template_parameters = result;
 
     int non_variadic_parameters = primary_template_parameters->num_parameters;
     if (last_is_variadic)
@@ -5296,14 +5302,14 @@ static const char* get_fully_qualified_symbol_name_simple(
     decl_context_t symbol_decl_context = entry->decl_context;
     const char* result = current_qualif_name;
 
-    scope_t* current_scope = symbol_decl_context.current_scope;
+    scope_t* current_scope = symbol_decl_context->current_scope;
 
     if (current_scope->kind == NAMESPACE_SCOPE)
     {
         char last_is_anonymous = 0;
         while (current_scope != NULL)
         {
-            if (decl_context.namespace_scope == current_scope
+            if (decl_context->namespace_scope == current_scope
                     && current_scope->related_entry->symbol_name != NULL
                     && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") == 0)
             {
@@ -5920,7 +5926,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     template_parameter_value_t** value_levels[MCXX_MAX_TEMPLATE_NESTING_LEVELS] = { 0 };
     int num_items[MCXX_MAX_TEMPLATE_NESTING_LEVELS] = { 0 };
 
-    template_parameter_list_t *template_parameters = context.template_parameters;
+    template_parameter_list_t *template_parameters = context->template_parameters;
 
     int j = 0;
     {
@@ -6156,8 +6162,8 @@ static char is_inline_namespace_of_(scope_t* inner_namespace_scope, scope_t* out
 
 char is_inline_namespace_of(decl_context_t inner_namespace_ctx, decl_context_t outer_namespace_ctx)
 {
-    return is_inline_namespace_of_(inner_namespace_ctx.namespace_scope, 
-            outer_namespace_ctx.namespace_scope);
+    return is_inline_namespace_of_(inner_namespace_ctx->namespace_scope, 
+            outer_namespace_ctx->namespace_scope);
 }
 
 static const char* symbol_kind_table_str[] =
@@ -6223,7 +6229,7 @@ void scope_for_each_entity(scope_t* sc, void *data, void (*fun)(scope_entry_list
 
 int get_template_nesting_of_context(decl_context_t decl_context)
 {
-    template_parameter_list_t* template_parameters = decl_context.template_parameters;
+    template_parameter_list_t* template_parameters = decl_context->template_parameters;
     return get_template_nesting_of_template_parameters(template_parameters);
 }
 
@@ -6363,7 +6369,7 @@ static scope_entry_list_t* query_nodecl_simple_name(
 
     if (BITMAP_TEST(decl_flags, DF_LABEL))
     {
-        decl_context.current_scope = decl_context.function_scope;
+        decl_context->current_scope = decl_context->function_scope;
     }
 
     const locus_t* locus = nodecl_get_locus(nodecl_name);
@@ -6423,14 +6429,14 @@ static scope_entry_list_t* query_nodecl_simple_name_in_enum(
         nodecl_t nodecl_name,
         decl_flags_t decl_flags UNUSED_PARAMETER)
 {
-    if (decl_context.current_scope->kind != CLASS_SCOPE)
+    if (decl_context->current_scope->kind != CLASS_SCOPE)
     {
         internal_error("Code unreachable", 0);
     }
 
     const char* name = nodecl_get_text(nodecl_name);
 
-    scope_entry_list_t* entry_list = query_name_in_scope(decl_context.class_scope, name);
+    scope_entry_list_t* entry_list = query_name_in_scope(decl_context->class_scope, name);
 
     return entry_list;
 }
@@ -6442,7 +6448,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         field_path_t* field_path,
         decl_flags_t decl_flags)
 {
-    if (decl_context.current_scope->kind != CLASS_SCOPE)
+    if (decl_context->current_scope->kind != CLASS_SCOPE)
     {
         internal_error("Code unreachable", 0);
     }
@@ -6462,7 +6468,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
 
         // First: lookup inside the class
         scope_entry_list_t* entry_list = query_in_class(
-                decl_context.current_scope,
+                decl_context->current_scope,
                 uniquestr(name),
                 field_path,
                 decl_flags,
@@ -6484,7 +6490,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
             return NULL;
 
         scope_entry_t* entry = entry_list_head(entry_list);
-        scope_entry_t* current_class = decl_context.current_scope->related_entry;
+        scope_entry_t* current_class = decl_context->current_scope->related_entry;
         if (equivalent_types(get_user_defined_type(current_class), get_user_defined_type(entry)))
         {
             scope_entry_t* destructor = class_type_get_destructor(current_class->type_information);
@@ -6496,13 +6502,13 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         }
     }
     if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
-            && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+            && is_dependent_type(decl_context->current_scope->related_entry->type_information))
     {
-        if (class_is_immediate_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry))
+        if (class_is_immediate_lexical_scope(top_level_decl_context, decl_context->current_scope->related_entry))
         {
             // Do nothing if the class is in lexical scope
             diagnostic_context_t* dc = diagnostic_context_push_buffered();
-            scope_entry_list_t* first_attempt = query_in_class(decl_context.current_scope,
+            scope_entry_list_t* first_attempt = query_in_class(decl_context->current_scope,
                     name,
                     field_path,
                     decl_flags,
@@ -6526,14 +6532,14 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         new_sym->locus = locus;
         new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
         new_sym->type_information = build_dependent_typename_for_entry(
-                decl_context.current_scope->related_entry,
+                decl_context->current_scope->related_entry,
                 nodecl_name, 
                 locus);
 
         return entry_list_new(new_sym);
     }
 
-    return query_in_class(decl_context.current_scope,
+    return query_in_class(decl_context->current_scope,
             name,
             field_path,
             decl_flags,
@@ -6551,7 +6557,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_namespace(
     const locus_t* locus = nodecl_get_locus(nodecl_name);
     const char* name = nodecl_get_text(nodecl_name);
 
-    return qualified_query_in_namespace(decl_context.current_scope->related_entry, 
+    return qualified_query_in_namespace(decl_context->current_scope->related_entry, 
             name,
             decl_flags,
             locus);
@@ -6861,11 +6867,11 @@ scope_entry_list_t* query_nodecl_template_id(
 
 scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* conversion_type, const locus_t* locus)
 {
-    ERROR_CONDITION(decl_context.class_scope == NULL, "We need a class scope here", 0);
+    ERROR_CONDITION(decl_context->class_scope == NULL, "We need a class scope here", 0);
     decl_context_t class_context = decl_context;
-    class_context.current_scope = class_context.class_scope;
+    class_context->current_scope = class_context->class_scope;
 
-    scope_entry_list_t* entry_list = query_in_class(decl_context.class_scope, UNIQUESTR_LITERAL("$.operator"), NULL, DF_NONE, conversion_type, locus);
+    scope_entry_list_t* entry_list = query_in_class(decl_context->class_scope, UNIQUESTR_LITERAL("$.operator"), NULL, DF_NONE, conversion_type, locus);
 
     return entry_list;
 }
@@ -6878,7 +6884,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         decl_flags_t decl_flags UNUSED_PARAMETER)
 {
     // We need a class scope around that we will check first
-    if (decl_context.class_scope == NULL)
+    if (decl_context->class_scope == NULL)
     {
         error_printf("%s: error: conversion-id requires an enclosing class scope\n", 
                 nodecl_locus_to_str(nodecl_name));
@@ -6887,7 +6893,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
 
     decl_context_t class_context = decl_context;
     // Lookup in class scope if available
-    class_context.current_scope = class_context.class_scope;
+    class_context->current_scope = class_context->class_scope;
 
     nodecl_t nodecl_conversion_type = nodecl_get_child(nodecl_name, 1);
 
@@ -6965,7 +6971,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
             return NULL;
         }
 
-        if (class_context.class_scope == NULL)
+        if (class_context->class_scope == NULL)
         {
             error_printf("%s: error: 'operator %s' requires a class scope\n", 
                     nodecl_locus_to_str(nodecl_name),
@@ -7200,8 +7206,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                             || (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
                                 // Why are we checking this?
                                 && (class_type_is_complete_dependent(class_type)
-                                    || (current_symbol->decl_context.current_scope->kind == CLASS_SCOPE
-                                        && is_dependent_type(current_symbol->decl_context.current_scope->related_entry->type_information))
+                                    || (current_symbol->decl_context->current_scope->kind == CLASS_SCOPE
+                                        && is_dependent_type(current_symbol->decl_context->current_scope->related_entry->type_information))
                                    )))
                     {
                         scope_entry_t* dependent_symbol = create_new_dependent_entity(
@@ -7636,8 +7642,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t dec
     decl_context_t current_context = decl_context;
     if (is_global)
     {
-        current_context.current_scope = current_context.global_scope;
-        previous_symbol = current_context.global_scope->related_entry;
+        current_context->current_scope = current_context->global_scope;
+        previous_symbol = current_context->global_scope->related_entry;
         allow_namespaces = 1;
     }
 
@@ -7904,7 +7910,7 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
         return NULL;
 
     decl_context_t inner_class_context = class_type_get_inner_context(class_type);
-    if (inner_class_context.class_scope == NULL)
+    if (inner_class_context->class_scope == NULL)
     {
         // There is no way this can suceed at all
         return NULL;
@@ -8243,9 +8249,9 @@ scope_entry_list_t* class_context_lookup(decl_context_t decl_context,
         const char* name,
         const locus_t* locus)
 {
-    ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE, "This is not a class scope", 0);
+    ERROR_CONDITION(decl_context->current_scope->kind != CLASS_SCOPE, "This is not a class scope", 0);
 
-    return query_in_class(decl_context.current_scope, name, field_path, decl_flags, NULL, locus);
+    return query_in_class(decl_context->current_scope, name, field_path, decl_flags, NULL, locus);
 }
 
 scope_entry_list_t* query_dependent_entity_in_context(

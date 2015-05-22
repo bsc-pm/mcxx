@@ -421,10 +421,12 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
             const char* vla_name = NULL;
             uniquestr_sprintf(&vla_name, "mcc_vla_%d", get_vla_counter());
 
-            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, uniquestr(vla_name));
+            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(),
+                    new_decl_context.get_decl_context()->current_scope, uniquestr(vla_name));
             new_vla_dim->kind = SK_VARIABLE;
             new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
-            new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
+            new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value,
+                    new_decl_context.get_decl_context(), symbol_map.get_symbol_map());
             new_vla_dim->locus = nodecl_get_locus(array_size.get_internal_nodecl());
 
             param_sym_to_arg_sym[old_vla_dim] = new_vla_dim;
@@ -1292,7 +1294,7 @@ static void handle_save_expressions(decl_context_t function_context,
 
                 scope_entry_t* new_save_expression
                     = new_symbol(function_context,
-                            function_context.current_scope,
+                            function_context->current_scope,
                             orig_save_expression->symbol_name);
                 new_save_expression->kind = SK_VARIABLE;
                 new_save_expression->type_information = orig_save_expression->type_information;
@@ -1340,7 +1342,7 @@ static TL::Symbol new_function_symbol_adapter(
             it++)
     {
         scope_entry_t* new_parameter_symbol
-            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+            = new_symbol(function_context, function_context->current_scope, uniquestr(it->get_name().c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
@@ -1365,7 +1367,7 @@ static TL::Symbol new_function_symbol_adapter(
             it++)
     {
         scope_entry_t* new_parameter_symbol
-            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+            = new_symbol(function_context, function_context->current_scope, uniquestr(it->get_name().c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         TL::Type t = it->get_type();
         if (!t.is_lvalue_reference())
@@ -1392,14 +1394,14 @@ static TL::Symbol new_function_symbol_adapter(
     }
 
     // Now everything is set to register the function
-    scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+    scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context->current_scope, function_name.c_str());
     symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
 
     new_function_sym->kind = SK_FUNCTION;
     new_function_sym->locus = make_locus("", 0, 0);
 
-    function_context.function_scope->related_entry = new_function_sym;
-    function_context.block_scope->related_entry = new_function_sym;
+    function_context->function_scope->related_entry = new_function_sym;
+    function_context->block_scope->related_entry = new_function_sym;
 
     new_function_sym->related_decl_context = function_context;
 
@@ -1431,7 +1433,7 @@ static TL::Symbol new_function_symbol_adapter(
     new_function_sym->type_information = function_type;
 
     // Add the called symbol in the scope of the function
-    insert_entry(function_context.current_scope, called_function.get_internal_symbol());
+    insert_entry(function_context->current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
     Nodecl::Utils::Fortran::append_used_modules(

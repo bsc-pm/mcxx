@@ -1083,7 +1083,7 @@ static void check_array_ref_(
                 if (nodecl_is_null(nodecl_upper)
                         && (it == subscript_list) // This is the last subscript
                         && !symbol_is_invalid
-                        && symbol_is_parameter_of_function(symbol, decl_context.current_scope->related_entry)
+                        && symbol_is_parameter_of_function(symbol, decl_context->current_scope->related_entry)
                         && is_array_type(no_ref(symbol->type_information))
                         && !array_type_with_descriptor(no_ref(symbol->type_information)))
                 {
@@ -2680,7 +2680,7 @@ static scope_entry_list_t* get_specific_interface(scope_entry_t* symbol,
 
 static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    scope_t* sc = decl_context.current_scope;
+    scope_t* sc = decl_context->current_scope;
     while (sc != NULL)
     {
         if (sc->related_entry == entry)
@@ -4045,7 +4045,7 @@ static void check_symbol_of_called_name(AST sym,
                     entry_list_iterator_next(iter))
             {
                 scope_entry_t* symbol = entry_list_iterator_current(iter);
-                if (symbol->decl_context.current_scope == symbol->decl_context.global_scope)
+                if (symbol->decl_context->current_scope == symbol->decl_context->global_scope)
                 {
                     // This is a global name that matches the name of an intrinsic, hide the global name.
                     //
@@ -4091,12 +4091,12 @@ static void check_symbol_of_called_name(AST sym,
                     //
                     // We do not insert intrinsics from initializations just in case
                     // an INTRINSIC or EXTERNAL statement appears later
-                    insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                    insert_alias(decl_context->current_scope, entry, strtolower(ASTText(sym)));
                 }
                 else
                 {
-                    // if (decl_context.current_scope->related_entry != NULL
-                    //         && decl_context.current_scope->related_entry->kind == SK_MODULE)
+                    // if (decl_context->current_scope->related_entry != NULL
+                    //         && decl_context->current_scope->related_entry->kind == SK_MODULE)
                     // {
                     //         warn_printf("%s: warning: procedure reference to intrinsic '%s' has been stablished "
                     //                 "to unspecified at this module scoping unit\n", ast_location(sym), entry->symbol_name);
@@ -4121,7 +4121,7 @@ static void check_symbol_of_called_name(AST sym,
                 // We did not find the symbol. But this is okay since this is a CALL.
                 // CALL does not need a type, thus IMPLICIT plays no role here
                 // Just sign in the symbol and give it an unprototyped type (= implicit interface)
-                decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+                decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
                 entry = new_fortran_symbol(program_unit_context, ASTText(sym));
                 entry->kind = SK_FUNCTION;
                 entry->locus = ast_get_locus(sym);
@@ -4176,7 +4176,7 @@ static void check_symbol_of_called_name(AST sym,
 
                 scope_entry_t * intrinsic_sym = NULL;
 
-                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
                 {
                     intrinsic_sym = fortran_query_intrinsic_name_str(decl_context, entry->symbol_name);
                 }
@@ -4316,7 +4316,7 @@ static void check_symbol_name_as_a_variable(
             && is_implicit_none(decl_context))
     {
         if (symbol_is_parameter_of_function(entry, 
-                    decl_context.current_scope->related_entry)
+                    decl_context->current_scope->related_entry)
                 && fortran_checking_array_expression())
         {
             // Special case for this (incorrect but tolerated) case
@@ -5058,7 +5058,7 @@ void fortran_check_initialization(
         nodecl_t* nodecl_output)
 {
     char ok = 1;
-    if (symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry))
+    if (symbol_is_parameter_of_function(entry, entry->decl_context->current_scope->related_entry))
     {
         error_printf("%s: error: a dummy argument cannot have initializer\n", 
                 ast_location(expr));

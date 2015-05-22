@@ -60,8 +60,8 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::
 
     decl_context_t decl_context = this->get_current_scope().get_decl_context();
 
-    state.global_namespace = decl_context.global_scope->related_entry;
-    state.opened_namespace = decl_context.namespace_scope->related_entry;
+    state.global_namespace = decl_context->global_scope->related_entry;
+    state.opened_namespace = decl_context->namespace_scope->related_entry;
 
     state.emit_declarations = this->is_file_output() ? State::EMIT_ALL_DECLARATIONS : State::EMIT_NO_DECLARATIONS;
 
@@ -70,7 +70,7 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::
     walk(n);
 
     // Make sure the starting namespace is closed
-    codegen_move_namespace_from_to(state.opened_namespace, decl_context.namespace_scope->related_entry);
+    codegen_move_namespace_from_to(state.opened_namespace, decl_context->namespace_scope->related_entry);
 
     // Restore previous state
     file = old_out;
@@ -4662,7 +4662,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     {
         indent();
         decl_context_t decl_context = context.retrieve_context().get_decl_context();
-        move_to_namespace(decl_context.namespace_scope->related_entry);
+        move_to_namespace(decl_context->namespace_scope->related_entry);
 
         if (is_extern)
             *(file) << "extern ";
@@ -4746,7 +4746,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VlaWildcard& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::UnknownPragma& node)
 {
-    move_to_namespace(node.retrieve_context().get_decl_context().namespace_scope->related_entry);
+    move_to_namespace(node.retrieve_context().get_decl_context()->namespace_scope->related_entry);
 
     *(file) << "#pragma " << node.get_text() << "\n";
 }
@@ -7285,7 +7285,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
 
     if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
     {
-        if (this->get_current_scope().get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+        if (this->get_current_scope().get_decl_context()->current_scope != symbol.get_scope().get_decl_context()->current_scope)
             return;
     }
 
@@ -7498,7 +7498,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
     if (state.emit_declarations == State::EMIT_CURRENT_SCOPE_DECLARATIONS)
     {
-        if (this->get_current_scope().get_decl_context().current_scope != symbol.get_scope().get_decl_context().current_scope)
+        if (this->get_current_scope().get_decl_context()->current_scope != symbol.get_scope().get_decl_context()->current_scope)
             return;
     }
 
@@ -8214,8 +8214,8 @@ void CxxBase::entry_local_definition(
         void (CxxBase::*def_sym_fun)(TL::Symbol))
 {
     // FIXME - Improve this
-    if (this->get_current_scope().get_decl_context().current_scope
-            == entry.get_scope().get_decl_context().current_scope)
+    if (this->get_current_scope().get_decl_context()->current_scope
+            == entry.get_scope().get_decl_context()->current_scope)
     {
         if (node.is<Nodecl::ObjectInit>()
                 || node.is<Nodecl::CxxDecl>()
@@ -8546,7 +8546,7 @@ void CxxBase::codegen_fill_namespace_list_rec(
     else
     {
         codegen_fill_namespace_list_rec(
-                namespace_sym->decl_context.current_scope->related_entry,
+                namespace_sym->decl_context->current_scope->related_entry,
                 list,
                 position);
         ERROR_CONDITION(*position == MCXX_MAX_SCOPES_NESTING, "Too many scopes", 0);
@@ -8621,7 +8621,7 @@ void CxxBase::move_to_namespace_of_symbol(TL::Symbol symbol)
     }
 
     // Get the namespace where this symbol has been declared
-    scope_t* enclosing_namespace = symbol.get_internal_symbol()->decl_context.namespace_scope;
+    scope_t* enclosing_namespace = symbol.get_internal_symbol()->decl_context->namespace_scope;
     scope_entry_t* namespace_sym = enclosing_namespace->related_entry;
 
     // First close the namespaces

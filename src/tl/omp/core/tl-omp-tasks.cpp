@@ -1535,7 +1535,7 @@ namespace TL
                 static bool already_nagged = false;
                 decl_context_t decl_context = function_sym.get_scope().get_decl_context();
 
-                if (decl_context.current_scope == decl_context.global_scope)
+                if (decl_context->current_scope == decl_context->global_scope)
                 {
                     std::cerr
                         << construct.get_locus_str()

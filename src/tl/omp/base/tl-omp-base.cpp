@@ -3529,8 +3529,8 @@ namespace TL { namespace OpenMP {
         // new_loop_body_context because we will put it inside a new compound
         // statement
         TL::Scope new_loop_body_context = new_block_context(new_loop_context.get_decl_context());
-        scope_created_by_statement.get_decl_context().current_scope->contained_in = 
-            new_loop_body_context.get_decl_context().current_scope;
+        scope_created_by_statement.get_decl_context()->current_scope->contained_in = 
+            new_loop_body_context.get_decl_context()->current_scope;
 
         ss.str("");
         ss << "omp_block_" << (int)c;

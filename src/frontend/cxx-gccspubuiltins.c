@@ -372,7 +372,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
 
 #define DEF_BUILTIN(UNUSED1, UNUSED2, NAME, KIND, TYPE) \
 { \
-    scope_entry_t* new_spu_builtin = new_symbol(global_context, global_context.global_scope, "__builtin_" NAME);  \
+    scope_entry_t* new_spu_builtin = new_symbol(global_context, global_context->global_scope, "__builtin_" NAME);  \
     new_spu_builtin->kind = SK_FUNCTION; \
     if ((KIND) == B_OVERLOAD) \
     { \

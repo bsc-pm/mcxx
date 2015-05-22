@@ -35,7 +35,8 @@ struct scope_entry_tag;
 typedef struct scope_entry_tag scope_entry_t;
 
 struct decl_context_tag;
-typedef struct decl_context_tag decl_context_t;
+typedef struct decl_context_tag decl_context_data_t;
+typedef decl_context_data_t *decl_context_t;
 
 struct template_parameter_tag;
 typedef struct template_parameter_tag template_parameter_t;

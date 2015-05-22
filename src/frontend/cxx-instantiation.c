@@ -54,7 +54,7 @@ static scope_entry_t* add_duplicate_member_to_class(
         scope_entry_t* member_of_template)
 {
     scope_entry_t* new_member = new_symbol(context_of_being_instantiated,
-            context_of_being_instantiated.current_scope,
+            context_of_being_instantiated->current_scope,
             member_of_template->symbol_name);
 
     *new_member = *member_of_template;
@@ -110,10 +110,10 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
 
     template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(template_parameters);
-    updated_template_parameters->enclosing = context_of_being_instantiated.template_parameters;
+    updated_template_parameters->enclosing = context_of_being_instantiated->template_parameters;
 
-    decl_context_t new_context_for_template_parameters = context_of_being_instantiated;
-    new_context_for_template_parameters.template_parameters = updated_template_parameters;
+    decl_context_t new_context_for_template_parameters = decl_context_clone(context_of_being_instantiated);
+    new_context_for_template_parameters->template_parameters = updated_template_parameters;
 
     // Update the template parameters
     int i;
@@ -164,7 +164,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     }
 
     scope_entry_t* new_member = new_symbol(new_context_for_template_parameters,
-            new_context_for_template_parameters.current_scope,
+            new_context_for_template_parameters->current_scope,
             member_of_template->symbol_name);
 
     new_member->kind = SK_TEMPLATE;
@@ -441,7 +441,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             i);
 
                     scope_entry_t* new_enumerator = new_symbol(new_enumerator_context,
-                            new_enumerator_context.current_scope,
+                            new_enumerator_context->current_scope,
                             enumerator->symbol_name);
 
                     new_enumerator->kind = SK_ENUMERATOR;
@@ -475,7 +475,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                         CXX11_LANGUAGE()
                         {
-                            insert_entry(context_of_being_instantiated.current_scope,
+                            insert_entry(context_of_being_instantiated->current_scope,
                                     new_enumerator);
                         }
                     }
@@ -629,12 +629,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         template_parameter_list_t *template_params = duplicate_template_argument_list(
                                 template_specialized_type_get_template_parameters(member_of_template->type_information));
 
-                        template_params->enclosing = context_of_being_instantiated.template_parameters;
+                        template_params->enclosing = context_of_being_instantiated->template_parameters;
 
                         template_parameter_list_t *template_args = duplicate_template_argument_list(
                                 template_specialized_type_get_template_arguments(member_of_template->type_information));
 
-                        template_args->enclosing = context_of_being_instantiated.template_parameters;
+                        template_args->enclosing = context_of_being_instantiated->template_parameters;
 
                         int i;
                         for (i = 0; i < template_args->num_parameters; i++)
@@ -751,7 +751,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 symbol_entity_specs_get_related_symbols_num(member_of_template, num_ori_param);
 
                             scope_entry_t* new_param = new_symbol(new_decl_context,
-                                    new_decl_context.current_scope,
+                                    new_decl_context->current_scope,
                                     ori_param->symbol_name);
 
                             new_param->kind = ori_param->kind;
@@ -815,7 +815,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                             num_sub_parameter);
 
                                     scope_entry_t* new_sub_parameter = new_symbol(new_decl_context,
-                                            new_decl_context.current_scope,
+                                            new_decl_context->current_scope,
                                             c);
 
                                     new_sub_parameter->kind = SK_VARIABLE;
@@ -1043,7 +1043,7 @@ static void instantiate_dependent_friend_function(
 
     char is_template_id = nodecl_name_ends_in_template_id(friend->value);
     char is_templ_funct_decl =(is_template_specialized_type(friend->type_information) &&
-            friend->decl_context.template_parameters->parameters != context_of_being_instantiated.template_parameters->parameters);
+            friend->decl_context->template_parameters->parameters != context_of_being_instantiated->template_parameters->parameters);
     char is_qualified = (nodecl_get_kind(friend->value) == NODECL_CXX_DEP_NAME_NESTED
             || nodecl_get_kind(friend->value) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
 
@@ -1161,7 +1161,7 @@ static void instantiate_dependent_friend_function(
         }
 
         decl_context_t lookup_context = context_of_being_instantiated;
-        lookup_context.current_scope = lookup_context.namespace_scope;
+        lookup_context->current_scope = lookup_context->namespace_scope;
 
         scope_entry_list_t* candidates_list =
             query_nodecl_name_flags(lookup_context, friend->value, NULL, decl_flags);
@@ -1279,9 +1279,9 @@ static void instantiate_dependent_friend_function(
                 //  - The new friend symbol must be created in the innermost enclosing namespace scope
                 //  - This new friend has not template parameters
                 new_function = new_symbol(context_of_being_instantiated,
-                        context_of_being_instantiated.namespace_scope, friend->symbol_name);
-                new_function->decl_context.current_scope = context_of_being_instantiated.namespace_scope;
-                new_function->decl_context.template_parameters = NULL;
+                        context_of_being_instantiated->namespace_scope, friend->symbol_name);
+                new_function->decl_context->current_scope = context_of_being_instantiated->namespace_scope;
+                new_function->decl_context->template_parameters = NULL;
 
                 new_function->kind = SK_FUNCTION;
                 new_function->locus = locus;
@@ -1325,7 +1325,7 @@ static void instantiate_dependent_friend_function(
 
             char something_has_changed = 0;
             template_parameter_list_t* alineated_temp_params =
-                duplicate_template_argument_list(friend->decl_context.template_parameters);
+                duplicate_template_argument_list(friend->decl_context->template_parameters);
             int i;
             for (i = 0; i < alineated_temp_params->num_parameters; ++i)
             {
@@ -1348,7 +1348,7 @@ static void instantiate_dependent_friend_function(
             if (something_has_changed)
             {
                 decl_context_t new_context = context_of_being_instantiated;
-                new_context.template_parameters = alineated_temp_params;
+                new_context->template_parameters = alineated_temp_params;
                 type_t* alineated_type = update_type_for_instantiation(new_type,
                         new_context,
                         friend->locus,
@@ -1393,8 +1393,8 @@ static void instantiate_dependent_friend_function(
                 {
                     // We create a new SK_TEMPLATE symbol
                     scope_entry_t* new_template = new_symbol(context_of_being_instantiated,
-                            context_of_being_instantiated.namespace_scope, friend->symbol_name);
-                    new_template->decl_context.current_scope = context_of_being_instantiated.namespace_scope;
+                            context_of_being_instantiated->namespace_scope, friend->symbol_name);
+                    new_template->decl_context->current_scope = context_of_being_instantiated->namespace_scope;
 
                     new_template->kind = SK_TEMPLATE;
                     new_template->locus = locus;
@@ -1404,7 +1404,7 @@ static void instantiate_dependent_friend_function(
                     // only needs the last level of template parameters (the
                     // others should be independent)
                     alineated_temp_params->enclosing = NULL;
-                    lookup_context.template_parameters = alineated_temp_params;
+                    lookup_context->template_parameters = alineated_temp_params;
 
 
                     // We create the new_type of the new template symbol
@@ -1468,7 +1468,7 @@ static void instantiate_class_common(
     {
         // Inject the class name
         scope_entry_t* injected_symbol = new_symbol(inner_decl_context,
-                inner_decl_context.current_scope, being_instantiated_sym->symbol_name);
+                inner_decl_context->current_scope, being_instantiated_sym->symbol_name);
 
         *injected_symbol = *being_instantiated_sym;
         // the injected class name is logically in the class-scope
@@ -1734,22 +1734,22 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     // But the selected_template might be a nested one in a dependent context so we must update
     // the enclosing template arguments with those of the original class
-    ERROR_CONDITION(being_instantiated_sym->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
+    ERROR_CONDITION(being_instantiated_sym->decl_context->template_parameters == NULL, "Wrong nesting in template parameters", 0);
 
-    template_arguments->enclosing = being_instantiated_sym->decl_context.template_parameters->enclosing;
+    template_arguments->enclosing = being_instantiated_sym->decl_context->template_parameters->enclosing;
 
     // Our instantiation context is ready
-    instantiation_context.template_parameters = template_arguments;
+    instantiation_context->template_parameters = template_arguments;
 
     template_specialized_type_update_template_parameters(being_instantiated_sym->type_information,
-            instantiation_context.template_parameters);
+            instantiation_context->template_parameters);
 
     decl_context_t inner_decl_context = new_class_context(instantiation_context, 
             being_instantiated_sym);
-    if (inner_decl_context.template_parameters->num_parameters > 0)
+    if (inner_decl_context->template_parameters->num_parameters > 0)
     {
         // Only real template types can become explicit specializations
-        inner_decl_context.template_parameters->is_explicit_specialization = 1;
+        inner_decl_context->template_parameters->is_explicit_specialization = 1;
     }
 
     being_instantiated_sym->decl_context = instantiation_context;
@@ -2366,11 +2366,11 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                             && !nodecl_is_null(symbol_entity_specs_get_function_code(sym))))
                 {
                     decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
-                    templated_context.template_parameters = sym->decl_context.template_parameters;
+                    templated_context->template_parameters = sym->decl_context->template_parameters;
 
                     nodecl_t parent = nodecl_get_parent(list[i]);
                     nodecl_t new_decl = nodecl_null();
-                    
+
                     if (symbol_entity_specs_get_is_constexpr(sym)
                             && !nodecl_is_null(symbol_entity_specs_get_function_code(sym)))
                     {
@@ -2419,7 +2419,7 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
             {
                 mark_class_and_bases_as_user_declared(sym);
                 decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
-                templated_context.template_parameters = sym->decl_context.template_parameters;
+                templated_context->template_parameters = sym->decl_context->template_parameters;
 
                 nodecl_t parent = nodecl_get_parent(list[i]);
                 nodecl_t new_def = nodecl_make_cxx_def(
@@ -2740,9 +2740,9 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
                     gcc_attr,
                     compare_gcc_attribute);
         }
-        entry->decl_context.template_parameters = copy_template_parameters(entry->decl_context.template_parameters);
+        entry->decl_context->template_parameters = copy_template_parameters(entry->decl_context->template_parameters);
 
-        template_parameter_list_t* tpl = entry->decl_context.template_parameters;
+        template_parameter_list_t* tpl = entry->decl_context->template_parameters;
 
         if (is_template_specialized_type(entry->type_information))
         {

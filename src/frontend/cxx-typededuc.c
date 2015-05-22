@@ -3168,8 +3168,8 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     // template_parameters,
                     deduction_result);
 
-            decl_context_t updated_context = decl_context;
-            updated_context.template_parameters = updated_template_parameters;
+            decl_context_t updated_context = decl_context_clone(decl_context);
+            updated_context->template_parameters = updated_template_parameters;
 
             diagnostic_context_push_buffered();
             type_t* deduced_argument = update_type_with_pack_index(
@@ -3461,8 +3461,8 @@ deduction_result_t handle_explicit_template_arguments(
         fprintf(stderr, "TYPEDEDUC: Processing explicit template arguments\n");
     }
 
-    decl_context_t context_for_updating = decl_context;
-    context_for_updating.template_parameters = *explicit_template_arguments;
+    decl_context_t context_for_updating = decl_context_clone(decl_context);
+    context_for_updating->template_parameters = *explicit_template_arguments;
 
     int current_arg = 0, current_param = 0;
     while (current_arg < raw_explicit_template_arguments->num_parameters)
@@ -3897,8 +3897,8 @@ deduction_result_t finish_deduced_template_arguments(
             template_parameter_value_t* default_template_argument
                 = type_template_parameters->arguments[i];
 
-            decl_context_t context_for_updating = decl_context;
-            context_for_updating.template_parameters = deduced_template_arguments;
+            decl_context_t context_for_updating = decl_context_clone(decl_context);
+            context_for_updating->template_parameters = deduced_template_arguments;
             // Update the default argument
             diagnostic_context_push_buffered();
             template_parameter_value_t* value = update_template_parameter_value(default_template_argument,
@@ -4561,8 +4561,8 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
     }
 
     // Now update the type
-    decl_context_t updating_context = decl_context;
-    updating_context.template_parameters = deduced_template_arguments;
+    decl_context_t updating_context = decl_context_clone(decl_context);
+    updating_context->template_parameters = deduced_template_arguments;
 
     diagnostic_context_push_buffered();
     type_t* deduced_required_type = update_type(return_type,
@@ -4667,8 +4667,8 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
     }
 
     // Now verify the deduction
-    decl_context_t updating_context = decl_context;
-    updating_context.template_parameters = deduced_template_arguments;
+    decl_context_t updating_context = decl_context_clone(decl_context);
+    updating_context->template_parameters = deduced_template_arguments;
 
     diagnostic_context_push_buffered();
     type_t* deduced_type = update_type(potential_match,

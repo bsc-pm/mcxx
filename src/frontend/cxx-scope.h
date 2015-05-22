@@ -53,6 +53,7 @@ LIBMCXX_EXTERN decl_context_t new_class_context(decl_context_t enclosing_decl_co
 
 // Used only in TL
 LIBMCXX_EXTERN decl_context_t decl_context_empty();
+LIBMCXX_EXTERN decl_context_t decl_context_clone(decl_context_t t);
 
 // Functions to handle scopes
 LIBMCXX_EXTERN scope_entry_t* new_symbol(decl_context_t decl_context, 

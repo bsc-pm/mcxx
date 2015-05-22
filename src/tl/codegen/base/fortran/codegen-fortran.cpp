@@ -115,7 +115,7 @@ namespace Codegen
         {
             if (first == NULL
                     // Everyone may be enclosed in the global scope
-                    || first == CURRENT_COMPILED_FILE->global_decl_context.current_scope)
+                    || first == CURRENT_COMPILED_FILE->global_decl_context->current_scope)
                 return false;
             else if (first == second)
                 return true;
@@ -177,9 +177,9 @@ namespace Codegen
                 Nodecl::NodeclBase context = node.get_context_of_decl();
                 decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
 
-                if (decl_context.current_scope->related_entry != NULL)
+                if (decl_context->current_scope->related_entry != NULL)
                 {
-                    scope_entry_t * related_entry = decl_context.current_scope->related_entry;  
+                    scope_entry_t * related_entry = decl_context->current_scope->related_entry;  
                     if (related_entry->kind == SK_MODULE)
                     {
                         TL::Symbol modul_sym = TL::Symbol(related_entry);
@@ -499,9 +499,9 @@ namespace Codegen
 
             scope_entry_t* sym = entry.get_internal_symbol();
             while (!should_be_printed &&
-                    sym->related_decl_context.current_scope->contained_in != NULL)
+                    sym->related_decl_context->current_scope->contained_in != NULL)
             {
-                sym = sym->related_decl_context.current_scope->contained_in->related_entry;
+                sym = sym->related_decl_context->current_scope->contained_in->related_entry;
                 if (get_current_declaring_symbol()== TL::Symbol(sym))
                 {
                     should_be_printed = 1;
@@ -2753,9 +2753,9 @@ OPERATOR_TABLE
         // 'state.current_module' then we don't print anything
         Nodecl::NodeclBase context = node.get_context_of_decl();
         decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
-        if (decl_context.current_scope->related_entry != NULL)
+        if (decl_context->current_scope->related_entry != NULL)
         {
-            scope_entry_t * related_entry = decl_context.current_scope->related_entry;  
+            scope_entry_t * related_entry = decl_context->current_scope->related_entry;  
             if (related_entry->kind == SK_MODULE)
             {
                 TL::Symbol modul_sym = TL::Symbol(related_entry);
@@ -3325,14 +3325,11 @@ OPERATOR_TABLE
         // different when we are emitting a function (or pointer to function)
         // the interface of which is declared after another existing interface
         // name
-        decl_context_t entry_context = entry.get_scope().get_decl_context();
-
         TL::Symbol real_entry = entry;
-        if (entry.get_related_scope().get_decl_context().current_scope != NULL
-                && entry.get_related_scope().get_decl_context().current_scope->related_entry != NULL)
+        if (entry.get_related_scope().get_decl_context()->current_scope != NULL
+                && entry.get_related_scope().get_decl_context()->current_scope->related_entry != NULL)
         {
-            real_entry = entry.get_related_scope().get_decl_context().current_scope->related_entry;
-            entry_context = real_entry.get_scope().get_decl_context();
+            real_entry = entry.get_related_scope().get_decl_context()->current_scope->related_entry;
         }
 
 
@@ -3468,7 +3465,7 @@ OPERATOR_TABLE
                 // point has not been emitted yet
                 if ((!class_type.is_from_module()
                             || (get_codegen_status(class_type) == CODEGEN_STATUS_NONE))
-                        && TL::Symbol(class_context.current_scope->related_entry) != entry)
+                        && TL::Symbol(class_context->current_scope->related_entry) != entry)
                 {
                     imported_symbols.insert(class_type);
                 }
@@ -3609,15 +3606,15 @@ OPERATOR_TABLE
         decl_context_t entry_context = entry.get_scope().get_decl_context();
         decl_context_t sc_context = sc.get_decl_context();
 
-        if (entry_context.current_scope == sc_context.current_scope)
+        if (entry_context->current_scope == sc_context->current_scope)
             return true;
 
         // If both are BLOCK_CONTEXT check if entry_context is accessible from sc
-        if (sc_context.current_scope->kind == BLOCK_SCOPE
-                && entry_context.current_scope->kind == BLOCK_SCOPE)
+        if (sc_context->current_scope->kind == BLOCK_SCOPE
+                && entry_context->current_scope->kind == BLOCK_SCOPE)
         {
-            scope_t* sc_scope = sc_context.current_scope;
-            scope_t* entry_scope = entry_context.current_scope;
+            scope_t* sc_scope = sc_context->current_scope;
+            scope_t* entry_scope = entry_context->current_scope;
 
             while (sc_scope != NULL
                     && sc_scope->kind == BLOCK_SCOPE
@@ -3628,8 +3625,8 @@ OPERATOR_TABLE
                 // Maybe the symbol is not declared in the current scope but its name 
                 // is in one of the enclosing ones (due to an insertion)
                 decl_context_t current_context = CURRENT_COMPILED_FILE->global_decl_context;
-                current_context.current_scope = sc_scope;
-                current_context.block_scope = sc_scope;
+                current_context->current_scope = sc_scope;
+                current_context->block_scope = sc_scope;
 
                 scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_internal_symbol()->symbol_name, NULL);
 
@@ -3682,7 +3679,7 @@ OPERATOR_TABLE
         // Unless
         // a) the entity is in the global scope
         if (!ok_to_declare
-                && entry_context.current_scope == entry_context.global_scope)
+                && entry_context->current_scope == entry_context->global_scope)
         {
             ok_to_declare = true;
         }
@@ -3716,7 +3713,7 @@ OPERATOR_TABLE
         if (!ok_to_declare)
             return;
 
-        bool is_global = (entry_context.current_scope == entry_context.global_scope);
+        bool is_global = (entry_context->current_scope == entry_context->global_scope);
 
         bool is_global_variable = false;
 
@@ -3793,7 +3790,7 @@ OPERATOR_TABLE
                 attribute_list += ", OPTIONAL";
             if (entry.is_static())
             {
-                TL::Symbol sym = entry.get_scope().get_decl_context().current_scope->related_entry;
+                TL::Symbol sym = entry.get_scope().get_decl_context()->current_scope->related_entry;
                 // Avoid redundant SAVEs due to a global SAVE
                 if (!sym.is_valid()
                         || !sym.is_saved_program_unit())
@@ -3818,8 +3815,8 @@ OPERATOR_TABLE
                 if (enclosing_declaring_symbol.is_valid()
                         && enclosing_declaring_symbol.is_fortran_module()
                         && !entry.in_module().is_valid()
-                        && (entry.get_scope().get_decl_context().current_scope ==
-                            entry.get_scope().get_decl_context().global_scope))
+                        && (entry.get_scope().get_decl_context()->current_scope ==
+                            entry.get_scope().get_decl_context()->global_scope))
                 {
                     attribute_list += ", PRIVATE";
                 }
@@ -4297,8 +4294,8 @@ OPERATOR_TABLE
                 if (enclosing_declaring_symbol.is_valid()
                         && enclosing_declaring_symbol.is_fortran_module()
                         && !entry.in_module().is_valid()
-                        && (entry.get_scope().get_decl_context().current_scope ==
-                            entry.get_scope().get_decl_context().global_scope))
+                        && (entry.get_scope().get_decl_context()->current_scope ==
+                            entry.get_scope().get_decl_context()->global_scope))
                 {
                     // Global types should be made private to avoid undesired exports
                     // of names
@@ -4807,8 +4804,8 @@ OPERATOR_TABLE
             {
                 sc = statement_seq.retrieve_context();
                 // Sanity check
-                ERROR_CONDITION(entry.get_related_scope().get_decl_context().current_scope
-                        != sc.get_decl_context().current_scope,
+                ERROR_CONDITION(entry.get_related_scope().get_decl_context()->current_scope
+                        != sc.get_decl_context()->current_scope,
                         "Inconsistent scopes", 0);
             }
             declare_use_statements(internal_subprograms, sc, use_stmt_info);
@@ -4873,7 +4870,7 @@ OPERATOR_TABLE
 
         being_checked.insert(entry);
 
-        if (decl_context.current_scope == decl_context.global_scope)
+        if (decl_context->current_scope == decl_context->global_scope)
         {
             // We do not emit global stuff at the module level
         }
@@ -5474,8 +5471,8 @@ OPERATOR_TABLE
         if (!entry_is_in_scope(entry, sc)
                 // No it has not. But if it is found in an enclosing scope we will not emit it
                 && first_scope_is_contained_in_second(
-                    sc.get_related_symbol().get_scope().get_decl_context().current_scope,
-                    entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
+                    sc.get_related_symbol().get_scope().get_decl_context()->current_scope,
+                    entry.get_scope().get_related_symbol().get_scope().get_decl_context()->current_scope))
             return;
 
         // Do not bring variables in
@@ -6294,7 +6291,7 @@ OPERATOR_TABLE
         clear_renames();
 
         state = State();
-        push_declaring_entity(sc.get_decl_context().current_scope->related_entry);
+        push_declaring_entity(sc.get_decl_context()->current_scope->related_entry);
 
         std::stringstream ss_out;
         std::ostream* tmp_out = &ss_out;

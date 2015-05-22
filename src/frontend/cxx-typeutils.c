@@ -3425,8 +3425,8 @@ static type_t* template_type_get_specialized_type_(
     {
         if (equivalent_match == NULL)
         {
-            decl_context_t updated_context = primary_symbol->decl_context;
-            updated_context.template_parameters = template_arguments;
+            decl_context_t updated_context = decl_context_clone(primary_symbol->decl_context);
+            updated_context->template_parameters = template_arguments;
 
             specialized_type = update_type(primary_symbol->type_information,
                     updated_context,
@@ -3463,8 +3463,8 @@ static type_t* template_type_get_specialized_type_(
             return equivalent_match;
         }
 
-        decl_context_t updated_context = primary_symbol->decl_context;
-        updated_context.template_parameters = template_arguments;
+        decl_context_t updated_context = decl_context_clone(primary_symbol->decl_context);
+        updated_context->template_parameters = template_arguments;
 
         diagnostic_context_push_buffered();
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context,
@@ -3550,9 +3550,9 @@ static type_t* template_type_get_specialized_type_(
     specialized_symbol->symbol_name = primary_symbol->symbol_name;
     specialized_symbol->kind = primary_symbol->kind;
     specialized_symbol->type_information = specialized_type;
-    specialized_symbol->decl_context = primary_symbol->decl_context;
+    specialized_symbol->decl_context = decl_context_clone(primary_symbol->decl_context);
     // Fix the template arguments
-    specialized_symbol->decl_context.template_parameters = template_arguments;
+    specialized_symbol->decl_context->template_parameters = template_arguments;
 
     specialized_symbol->locus = locus;
 
@@ -3584,7 +3584,7 @@ static type_t* template_type_get_specialized_type_(
 
         // Update exception specifications
         decl_context_t updated_context = primary_symbol->decl_context;
-        updated_context.template_parameters = template_arguments;
+        updated_context->template_parameters = template_arguments;
 
         int i, num_exceptions = symbol_entity_specs_get_num_exceptions(primary_symbol);
         for (i = 0; i < num_exceptions; i++)
@@ -16479,8 +16479,8 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
     if (is_named_type(orig))
     {
         if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
-                && named_type_get_symbol(orig)->decl_context.current_scope != NULL
-                && named_type_get_symbol(orig)->decl_context.current_scope->kind == BLOCK_SCOPE)
+                && named_type_get_symbol(orig)->decl_context->current_scope != NULL
+                && named_type_get_symbol(orig)->decl_context->current_scope->kind == BLOCK_SCOPE)
         {
             // typedefs declared inside functions are always advanced
             result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);

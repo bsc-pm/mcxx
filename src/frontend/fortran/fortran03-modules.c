@@ -1837,15 +1837,15 @@ static int get_decl_context_oid_(void *datum,
 
 static sqlite3_uint64 insert_decl_context(sqlite3* handle, decl_context_t decl_context)
 {
-    sqlite3_uint64 namespace_scope = insert_scope(handle, decl_context.namespace_scope);
-    sqlite3_uint64 global_scope = insert_scope(handle, decl_context.global_scope);
-    sqlite3_uint64 block_scope = insert_scope(handle, decl_context.block_scope);
-    sqlite3_uint64 class_scope = insert_scope(handle, decl_context.class_scope);
-    sqlite3_uint64 function_scope = insert_scope(handle, decl_context.function_scope);
-    sqlite3_uint64 prototype_scope = insert_scope(handle, decl_context.prototype_scope);
-    sqlite3_uint64 current_scope = insert_scope(handle, decl_context.current_scope);
+    sqlite3_uint64 namespace_scope = insert_scope(handle, decl_context->namespace_scope);
+    sqlite3_uint64 global_scope = insert_scope(handle, decl_context->global_scope);
+    sqlite3_uint64 block_scope = insert_scope(handle, decl_context->block_scope);
+    sqlite3_uint64 class_scope = insert_scope(handle, decl_context->class_scope);
+    sqlite3_uint64 function_scope = insert_scope(handle, decl_context->function_scope);
+    sqlite3_uint64 prototype_scope = insert_scope(handle, decl_context->prototype_scope);
+    sqlite3_uint64 current_scope = insert_scope(handle, decl_context->current_scope);
 
-    sqlite3_bind_int  (_lookup_decl_context_stmt, 1, decl_context.decl_flags);
+    sqlite3_bind_int  (_lookup_decl_context_stmt, 1, decl_context->decl_flags);
     sqlite3_bind_int64(_lookup_decl_context_stmt, 2, namespace_scope);
     sqlite3_bind_int64(_lookup_decl_context_stmt, 3, global_scope);
     sqlite3_bind_int64(_lookup_decl_context_stmt, 4, block_scope);
@@ -1866,7 +1866,7 @@ static sqlite3_uint64 insert_decl_context(sqlite3* handle, decl_context_t decl_c
         return decl_context_oid;
     }
 
-    sqlite3_bind_int  (_insert_decl_context_stmt, 1, decl_context.decl_flags);
+    sqlite3_bind_int  (_insert_decl_context_stmt, 1, decl_context->decl_flags);
     sqlite3_bind_int64(_insert_decl_context_stmt, 2, namespace_scope);
     sqlite3_bind_int64(_insert_decl_context_stmt, 3, global_scope);
     sqlite3_bind_int64(_insert_decl_context_stmt, 4, block_scope);
@@ -2157,7 +2157,7 @@ static int get_symbol(void *datum,
     // Add it to its scope
     if ((*result)->symbol_name != NULL)
     {
-        insert_entry((*result)->decl_context.current_scope, (*result));
+        insert_entry((*result)->decl_context->current_scope, (*result));
     }
 
     (*result)->value = load_nodecl(handle, value_oid);
@@ -2179,7 +2179,7 @@ static int get_symbol(void *datum,
             scope_entry_t* field = entry_list_iterator_current(it);
 
             // Insert the component in the class context otherwise further lookups will fail
-            insert_entry(class_context.current_scope, field);
+            insert_entry(class_context->current_scope, field);
 
             // Update field context
             field->decl_context = class_context;
@@ -2387,14 +2387,14 @@ static int get_decl_context_(void *datum,
     decl_context_t* p = ((decl_context_t_info_t*)datum)->p_decl_context;
     sqlite3* handle = ((decl_context_t_info_t*)datum)->handle;
 
-    p->decl_flags = safe_atoull(values[0]);
-    p->namespace_scope = load_scope(handle, safe_atoull(values[1]));
-    p->global_scope = load_scope(handle, safe_atoull(values[2]));
-    p->block_scope = load_scope(handle, safe_atoull(values[3]));
-    p->class_scope = load_scope(handle, safe_atoull(values[4]));
-    p->function_scope = load_scope(handle, safe_atoull(values[5]));
-    p->prototype_scope = load_scope(handle, safe_atoull(values[6]));
-    p->current_scope = load_scope(handle, safe_atoull(values[7]));
+    (*p)->decl_flags = safe_atoull(values[0]);
+    (*p)->namespace_scope = load_scope(handle, safe_atoull(values[1]));
+    (*p)->global_scope = load_scope(handle, safe_atoull(values[2]));
+    (*p)->block_scope = load_scope(handle, safe_atoull(values[3]));
+    (*p)->class_scope = load_scope(handle, safe_atoull(values[4]));
+    (*p)->function_scope = load_scope(handle, safe_atoull(values[5]));
+    (*p)->prototype_scope = load_scope(handle, safe_atoull(values[6]));
+    (*p)->current_scope = load_scope(handle, safe_atoull(values[7]));
 
     return 0;
 }

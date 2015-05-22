@@ -94,17 +94,17 @@ void print_scope(decl_context_t decl_context)
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
-    scope_t* st = decl_context.current_scope;
+    scope_t* st = decl_context->current_scope;
     if (st == NULL)
         return;
 
     print_scope_full(st, global_indent);
 
-    if (decl_context.function_scope != NULL)
+    if (decl_context->function_scope != NULL)
     {
         PRINT_INDENTED_LINE(stderr, global_indent + 1, "[FUNCTION_SCOPE - %p]\n", 
-                decl_context.function_scope);
-        print_scope_full(decl_context.function_scope, global_indent + 2);
+                decl_context->function_scope);
+        print_scope_full(decl_context->function_scope, global_indent + 2);
     }
 }
 
@@ -211,7 +211,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
     if (entry->kind == SK_VARIABLE
             && symbol_is_parameter_of_function(entry,
-                entry->decl_context.current_scope->related_entry))
+                entry->decl_context->current_scope->related_entry))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter the function\n");
     }

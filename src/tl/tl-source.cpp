@@ -395,26 +395,26 @@ namespace TL
 
     static decl_context_t decl_context_namespace(decl_context_t d)
     {
-        d.current_scope = d.namespace_scope;
-        d.function_scope = NULL;
-        d.block_scope = NULL;
+        d->current_scope = d->namespace_scope;
+        d->function_scope = NULL;
+        d->block_scope = NULL;
 
         return d;
     }
 
     static decl_context_t decl_context_global(decl_context_t d)
     {
-        d.current_scope = d.global_scope;
-        d.namespace_scope = d.global_scope;
-        d.function_scope = NULL;
-        d.block_scope = NULL;
+        d->current_scope = d->global_scope;
+        d->namespace_scope = d->global_scope;
+        d->function_scope = NULL;
+        d->block_scope = NULL;
 
         return d;
     }
 
     static decl_context_t decl_context_program_unit(decl_context_t d)
     {
-        return d.current_scope->related_entry->decl_context;
+        return d->current_scope->related_entry->decl_context;
     }
 
     void Source::switch_language(source_language_t& lang)

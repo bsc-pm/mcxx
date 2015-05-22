@@ -1112,7 +1112,7 @@ DEF_FUNCTION_TYPE_0(0, BT_VOID)
   { \
       if (COND) \
       { \
-      scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, uniquestr(NAME)); \
+      scope_entry_t* new_builtin = new_symbol(global_context, global_context->global_scope, uniquestr(NAME)); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       symbol_entity_specs_set_is_builtin(new_builtin, 1); \
@@ -2606,7 +2606,7 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
         nodecl_free(nodecl_args[i]); \
     } \
     const char* alias_str = UNIQUESTR_LITERAL(generic_name "_" #bytes); \
-    insert_alias(global_context.current_scope, specific, alias_str); \
+    insert_alias(global_context->current_scope, specific, alias_str); \
     if (!CURRENT_CONFIGURATION->xl_compatibility) \
     { /* We use the specific name always, except under XL compatibility */ \
         specific->symbol_name = alias_str; \
@@ -3385,7 +3385,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
 
             // Craft a symbol here
             scope_entry_t* return_symbol = new_symbol(overloaded_function->decl_context, 
-                    overloaded_function->decl_context.current_scope,
+                    overloaded_function->decl_context->current_scope,
                     builtin_name);
             return_symbol->locus = overloaded_function->locus;
             return_symbol->symbol_name = overloaded_function->symbol_name;
@@ -3493,7 +3493,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
 
             // class-name
             {
-                scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name));
+                scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(name));
                 sym->locus = make_locus("(builtin-simd-type)", 0, 0);
                 sym->kind = SK_CLASS;
                 sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
@@ -3504,7 +3504,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
             // typedef-name
             CXX_LANGUAGE()
             {
-                scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(typedef_name));
+                scope_entry_t* sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(typedef_name));
                 sym->locus = make_locus("(builtin-simd-type)", 0, 0);
                 sym->kind = SK_TYPEDEF;
                 sym->type_information = *(vector_names[i].field);

@@ -798,16 +798,16 @@ char is_more_specialized_template_function(
                 template_specialized_type_get_template_parameters(
                     original_type_template_2),
                 deduction_set);
-    decl_context_t updated_context_1 = decl_context;
-    updated_context_1.template_parameters = updated_template_parameters_1;
+    decl_context_t updated_context_1 = decl_context_clone(decl_context);
+    updated_context_1->template_parameters = updated_template_parameters_1;
 
     template_parameter_list_t* updated_template_parameters_2 =
         build_template_parameter_list_from_deduction_set(
                 template_specialized_type_get_template_parameters(
                     original_type_template_1),
                 inverse_deduction_set);
-    decl_context_t updated_context_2 = decl_context;
-    updated_context_2.template_parameters = updated_template_parameters_2;
+    decl_context_t updated_context_2 = decl_context_clone(decl_context);
+    updated_context_2->template_parameters = updated_template_parameters_2;
 
     for (i = 0; i < num_types; i++)
     {

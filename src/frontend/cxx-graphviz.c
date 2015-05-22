@@ -191,16 +191,16 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
 
 
 #define DUMP_SCOPE(name) \
-    if (decl_context.name##_scope != NULL) \
+    if (decl_context->name##_scope != NULL) \
     { \
-        scope_t_dump_graphviz(f, decl_context.name##_scope); \
+        scope_t_dump_graphviz(f, decl_context->name##_scope); \
     }
     DUMP_ALL
 #undef DUMP_SCOPE
 
     int num = 0;
 #define DUMP_SCOPE(name) \
-    if (decl_context.name##_scope != NULL) \
+    if (decl_context->name##_scope != NULL) \
     { \
         if (num != 0) \
             fprintf(f, "| "); \
@@ -213,9 +213,9 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
 #undef DUMP_SCOPE
 
 #define DUMP_SCOPE(name) \
-    if (decl_context.name##_scope != NULL) \
+    if (decl_context->name##_scope != NULL) \
     { \
-        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [color=\"/dark28/1\"]\n", i, (size_t)decl_context.name##_scope); \
+        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [color=\"/dark28/1\"]\n", i, (size_t)decl_context->name##_scope); \
     }
     DUMP_ALL
 #undef DUMP_SCOPE

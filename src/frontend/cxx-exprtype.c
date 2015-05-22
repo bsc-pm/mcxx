@@ -722,15 +722,15 @@ void ensure_function_is_emitted(scope_entry_t* entry,
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
-        if (decl_context.current_scope->kind == NAMESPACE_SCOPE
-                || (decl_context.current_scope->kind == CLASS_SCOPE
-                    && !is_dependent_type(decl_context.current_scope->related_entry->type_information))
-                || (decl_context.current_scope->kind == BLOCK_SCOPE
+        if (decl_context->current_scope->kind == NAMESPACE_SCOPE
+                || (decl_context->current_scope->kind == CLASS_SCOPE
+                    && !is_dependent_type(decl_context->current_scope->related_entry->type_information))
+                || (decl_context->current_scope->kind == BLOCK_SCOPE
                     /* && decl_context->current_scope->related_entry != NULL */
-                    && decl_context.current_scope->related_entry != NULL
-                    && (!is_dependent_type(decl_context.current_scope->related_entry->type_information)
-                        && (!symbol_entity_specs_get_is_member(decl_context.current_scope->related_entry)
-                            || !is_dependent_type(symbol_entity_specs_get_class_type(decl_context.current_scope->related_entry))))))
+                    && decl_context->current_scope->related_entry != NULL
+                    && (!is_dependent_type(decl_context->current_scope->related_entry->type_information)
+                        && (!symbol_entity_specs_get_is_member(decl_context->current_scope->related_entry)
+                            || !is_dependent_type(symbol_entity_specs_get_class_type(decl_context->current_scope->related_entry))))))
         {
             if (function_may_be_instantiated(entry))
             {
@@ -2420,12 +2420,12 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
 {
     decl_context_t global_context = decl_context;
-    global_context.current_scope = global_context.global_scope;
+    global_context->current_scope = global_context->global_scope;
     scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".nullptr"), NULL);
 
     if (entry_list == NULL)
     {
-        scope_entry_t* nullptr_sym = new_symbol(global_context, global_context.current_scope, ".nullptr");
+        scope_entry_t* nullptr_sym = new_symbol(global_context, global_context->current_scope, ".nullptr");
 
         // Change the name of the symbol
         nullptr_sym->symbol_name = UNIQUESTR_LITERAL("nullptr");
@@ -2462,7 +2462,7 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
 
 static char this_can_be_used(decl_context_t decl_context)
 {
-    scope_entry_t* function = decl_context.current_scope->related_entry;
+    scope_entry_t* function = decl_context->current_scope->related_entry;
     if (function != NULL
             && ((function->kind == SK_FUNCTION
                     && symbol_entity_specs_get_is_static(function))
@@ -2480,7 +2480,7 @@ scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
         return NULL;
 
     scope_entry_t *this_symbol = NULL;
-    if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    if (decl_context->current_scope->kind == BLOCK_SCOPE)
     {
         // Lookup a symbol 'this' as usual
         scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
@@ -2499,9 +2499,9 @@ scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
     // the 'this' of the class, or if no that
     // - we are in block scope (nested in a class scope) but it does not have
     // 'this' and we are in a non executable context
-    if (decl_context.class_scope != NULL)
+    if (decl_context->class_scope != NULL)
     {
-        scope_entry_t* class_symbol = decl_context.class_scope->related_entry;
+        scope_entry_t* class_symbol = decl_context->class_scope->related_entry;
         ERROR_CONDITION(class_symbol == NULL, "Invalid symbol", 0);
 
         if (symbol_entity_specs_get_num_related_symbols(class_symbol) != 0
@@ -2539,8 +2539,8 @@ static void resolve_symbol_this_nodecl(decl_context_t decl_context,
         }
         else if (check_expr_flags.must_be_constant)
         {
-            if (decl_context.current_scope->kind == BLOCK_SCOPE
-                    && !symbol_entity_specs_get_is_constexpr(decl_context.current_scope->related_entry))
+            if (decl_context->current_scope->kind == BLOCK_SCOPE
+                    && !symbol_entity_specs_get_is_constexpr(decl_context->current_scope->related_entry))
             {
                 error_printf("%s: error: 'this' referenced inside a non-constexpr member function or constructor\n",
                         locus_to_str(locus));
@@ -7505,8 +7505,8 @@ static void cxx_compute_name_from_entry_list(
 
         if (!nodecl_expr_is_value_dependent(*nodecl_output))
         {
-            if ((entry->decl_context.current_scope->related_entry == NULL ||
-                        !symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry)))
+            if ((entry->decl_context->current_scope->related_entry == NULL ||
+                        !symbol_is_parameter_of_function(entry, entry->decl_context->current_scope->related_entry)))
             {
                 if (!is_volatile_qualified_type(no_ref(entry->type_information))
                         && (is_const_qualified_type(no_ref(entry->type_information))
@@ -8428,7 +8428,7 @@ static void check_unqualified_conversion_function_id(AST expression, decl_contex
     // The standard says that we should look up T both in class scope and the current scope. To my understanding
     // it tacitly implies the existence of a class scope.
 
-    if (decl_context.class_scope == NULL)
+    if (decl_context->class_scope == NULL)
     {
         error_printf("%s: error: a class-scope is required to name a conversion function\n", ast_location(expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
@@ -9516,7 +9516,7 @@ static void check_new_expression_impl(
     arguments[1] = get_size_t_type();
     num_arguments += num_placement_items;
 
-    decl_context_t op_new_context = decl_context;
+    decl_context_t op_new_context = decl_context_clone(decl_context);
 
     if (is_class_type(new_type)
             && !is_global)
@@ -9533,7 +9533,7 @@ static void check_new_expression_impl(
     else
     {
         // Use the global scope
-        op_new_context.current_scope = op_new_context.global_scope;
+        op_new_context->current_scope = op_new_context->global_scope;
     }
 
     static AST operation_new_tree = NULL;
@@ -11232,7 +11232,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                                 || type_contains_auto(type)))
                         // Or It's a local function
                         || (entry->kind == SK_FUNCTION
-                            &&  entry->decl_context.current_scope->kind == BLOCK_SCOPE))
+                            &&  entry->decl_context->current_scope->kind == BLOCK_SCOPE))
                 {
                     still_requires_koenig = 0;
                 }
@@ -12836,8 +12836,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             {
                 // At this point we should create a new symbol in the global scope
                 decl_context_t global_context = decl_context;
-                global_context.current_scope = decl_context.global_scope;
-                entry = new_symbol(global_context, global_context.current_scope, ASTText(advanced_called_expression));
+                global_context->current_scope = decl_context->global_scope;
+                entry = new_symbol(global_context, global_context->current_scope, ASTText(advanced_called_expression));
 
                 entry->kind = SK_FUNCTION;
                 entry->locus = ast_get_locus(advanced_called_expression);
@@ -13122,9 +13122,9 @@ static void compute_implicit_captures(nodecl_t node,
             && (entry->kind != SK_VARIABLE
                 || symbol_entity_specs_get_is_saved_expression(entry)
                 || symbol_entity_specs_get_is_member(entry)
-                || (entry->decl_context.current_scope->kind != BLOCK_SCOPE)
-                || (entry->decl_context.current_scope->kind == BLOCK_SCOPE
-                    && entry->decl_context.current_scope->related_entry == lambda_symbol)
+                || (entry->decl_context->current_scope->kind != BLOCK_SCOPE)
+                || (entry->decl_context->current_scope->kind == BLOCK_SCOPE
+                    && entry->decl_context->current_scope->related_entry == lambda_symbol)
                 || symbol_entity_specs_get_is_static(entry)
                 || symbol_entity_specs_get_is_extern(entry)))
         entry = NULL;
@@ -13204,7 +13204,7 @@ static void implement_nongeneric_lambda_expression(
     uniquestr_sprintf(&lambda_class_name_str, "__lambda_class_%d__", lambda_counter);
     lambda_counter++;
 
-    scope_entry_t* lambda_class = new_symbol(decl_context, decl_context.current_scope, lambda_class_name_str);
+    scope_entry_t* lambda_class = new_symbol(decl_context, decl_context->current_scope, lambda_class_name_str);
     lambda_class->locus = locus;
     lambda_class->kind = SK_CLASS;
     lambda_class->type_information = get_new_class_type(decl_context, TT_STRUCT);
@@ -13224,7 +13224,7 @@ static void implement_nongeneric_lambda_expression(
     uniquestr_sprintf(&constructor_name, "constructor %s", lambda_class_name_str);
     scope_entry_t* constructor = new_symbol(
             inner_class_context,
-            inner_class_context.current_scope,
+            inner_class_context->current_scope,
             constructor_name);
     constructor->locus = locus;
     constructor->kind = SK_FUNCTION;
@@ -13268,7 +13268,7 @@ static void implement_nongeneric_lambda_expression(
         constructor->type_information = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
         decl_context_t block_context = new_block_context(inner_class_context);
-        block_context.current_scope->related_entry = constructor;
+        block_context->current_scope->related_entry = constructor;
 
         nodecl_t constructor_function_code =
             nodecl_make_function_code(
@@ -13291,7 +13291,7 @@ static void implement_nongeneric_lambda_expression(
         // emit a conversion from the class to the pointer type of the function
         // first use a typedef otherwise this function cannot be declared
         type_t* pointer_to_function = get_pointer_type(lambda_function_type);
-        scope_entry_t* typedef_function = new_symbol(inner_class_context, inner_class_context.current_scope,
+        scope_entry_t* typedef_function = new_symbol(inner_class_context, inner_class_context->current_scope,
                  "__ptr_fun_type__");
         typedef_function->locus = locus;
         typedef_function->kind = SK_TYPEDEF;
@@ -13304,7 +13304,7 @@ static void implement_nongeneric_lambda_expression(
         class_type_add_member(lambda_class->type_information, typedef_function, /* is_definition */ 1);
 
         // now emit the conversion
-        conversion = new_symbol(inner_class_context, inner_class_context.current_scope,
+        conversion = new_symbol(inner_class_context, inner_class_context->current_scope,
                  "$.operator");
         conversion->kind = SK_FUNCTION;
         conversion->locus = locus;
@@ -13321,7 +13321,7 @@ static void implement_nongeneric_lambda_expression(
         class_type_add_member(lambda_class->type_information, conversion, /* is_definition */ 1);
 
         // now emit an ancillary static member function with the same prototype as the lambda type
-        ancillary = new_symbol(inner_class_context, inner_class_context.current_scope,
+        ancillary = new_symbol(inner_class_context, inner_class_context->current_scope,
                  "__ancillary__");
         ancillary->locus = locus;
         ancillary->kind = SK_FUNCTION;
@@ -13344,7 +13344,7 @@ static void implement_nongeneric_lambda_expression(
         memset(parameter_info, 0, sizeof(parameter_info));
 
         decl_context_t block_context = new_block_context(inner_class_context);
-        block_context.current_scope->related_entry = constructor;
+        block_context->current_scope->related_entry = constructor;
 
         nodecl_t member_initializers = nodecl_null();
 
@@ -13398,7 +13398,7 @@ static void implement_nongeneric_lambda_expression(
             // register parameter
             scope_entry_t* parameter = new_symbol(
                     block_context,
-                    block_context.current_scope,
+                    block_context->current_scope,
                     new_name);
             parameter->locus = locus;
             parameter->kind = SK_VARIABLE;
@@ -13413,7 +13413,7 @@ static void implement_nongeneric_lambda_expression(
             // register field
             scope_entry_t* field = new_symbol(
                 inner_class_context,
-                inner_class_context.current_scope,
+                inner_class_context->current_scope,
                 new_name);
             field->locus = locus;
             field->defined = 1;
@@ -13519,9 +13519,9 @@ static void implement_nongeneric_lambda_expression(
     }
 
     // create operator()
-    scope_entry_t* operator_call = new_symbol(inner_class_context, inner_class_context.current_scope, STR_OPERATOR_CALL);
+    scope_entry_t* operator_call = new_symbol(inner_class_context, inner_class_context->current_scope, STR_OPERATOR_CALL);
     decl_context_t block_context = new_block_context(inner_class_context);
-    block_context.current_scope->related_entry = operator_call;
+    block_context->current_scope->related_entry = operator_call;
 
     operator_call->locus = locus;
     operator_call->kind = SK_FUNCTION;
@@ -13538,7 +13538,7 @@ static void implement_nongeneric_lambda_expression(
     {
         scope_entry_t* orig_param = symbol_entity_specs_get_related_symbols_num(lambda_symbol, i);
 
-        scope_entry_t* parameter = new_symbol(block_context, block_context.current_scope, orig_param->symbol_name);
+        scope_entry_t* parameter = new_symbol(block_context, block_context->current_scope, orig_param->symbol_name);
         parameter->locus = locus;
         parameter->kind = SK_VARIABLE;
         parameter->type_information = orig_param->type_information;
@@ -13570,7 +13570,7 @@ static void implement_nongeneric_lambda_expression(
     if (!is_void_type(function_type_get_return_type(operator_call->type_information)))
     {
         scope_entry_t* result_sym = new_symbol(block_context,
-                block_context.current_scope,
+                block_context->current_scope,
                 ".result"); // This name is currently not user accessible
         result_sym->kind = SK_VARIABLE;
         symbol_entity_specs_set_is_result_var(result_sym, 1);
@@ -13626,14 +13626,14 @@ static void implement_nongeneric_lambda_expression(
 
         // create the ancillary
         block_context = new_block_context(inner_class_context);
-        block_context.current_scope->related_entry = ancillary;
+        block_context->current_scope->related_entry = ancillary;
 
         nodecl_t nodecl_argument_list = nodecl_null();
         for (i = 0; i < symbol_entity_specs_get_num_related_symbols(lambda_symbol); i++)
         {
             scope_entry_t* orig_param = symbol_entity_specs_get_related_symbols_num(lambda_symbol, i);
 
-            scope_entry_t* parameter = new_symbol(block_context, block_context.current_scope, orig_param->symbol_name);
+            scope_entry_t* parameter = new_symbol(block_context, block_context->current_scope, orig_param->symbol_name);
             parameter->locus = locus;
             parameter->kind = SK_VARIABLE;
             parameter->type_information = orig_param->type_information;
@@ -13651,7 +13651,7 @@ static void implement_nongeneric_lambda_expression(
         }
 
         // The ancillary creates an object of the closure type and invokes the operator()
-        scope_entry_t* obj = new_symbol(block_context, block_context.current_scope, "obj");
+        scope_entry_t* obj = new_symbol(block_context, block_context->current_scope, "obj");
         obj->locus = locus;
         obj->kind = SK_VARIABLE;
         obj->type_information = get_user_defined_type(lambda_class);
@@ -13722,7 +13722,7 @@ static void implement_nongeneric_lambda_expression(
 
         // Now create the conversor itself
         block_context = new_block_context(inner_class_context);
-        block_context.current_scope->related_entry = conversion;
+        block_context->current_scope->related_entry = conversion;
 
         register_symbol_this(block_context,
                 lambda_class,
@@ -13802,7 +13802,7 @@ static void implement_generic_lambda_expression(
     uniquestr_sprintf(&lambda_class_name_str, "__lambda_class_%d__", lambda_counter);
     lambda_counter++;
 
-    scope_entry_t* lambda_class = new_symbol(decl_context, decl_context.current_scope, lambda_class_name_str);
+    scope_entry_t* lambda_class = new_symbol(decl_context, decl_context->current_scope, lambda_class_name_str);
     lambda_class->locus = locus;
     lambda_class->kind = SK_CLASS;
     lambda_class->type_information = get_new_class_type(decl_context, TT_STRUCT);
@@ -13820,7 +13820,7 @@ static void implement_generic_lambda_expression(
     uniquestr_sprintf(&constructor_name, "constructor %s", lambda_class_name_str);
     scope_entry_t* constructor = new_symbol(
             inner_class_context,
-            inner_class_context.current_scope,
+            inner_class_context->current_scope,
             constructor_name);
     constructor->locus = locus;
     constructor->kind = SK_FUNCTION;
@@ -13908,7 +13908,7 @@ static void implement_generic_lambda_expression(
             function_type_get_ref_qualifier(lambda_function_type));
 
     decl_context_t invented_templated_context = inner_class_context;
-    invented_templated_context.template_parameters = invented_template_parameter_list;
+    invented_templated_context->template_parameters = invented_template_parameter_list;
 
     instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(NULL);
 
@@ -13919,7 +13919,7 @@ static void implement_generic_lambda_expression(
         constructor->type_information = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
         decl_context_t block_context = new_block_context(inner_class_context);
-        block_context.current_scope->related_entry = constructor;
+        block_context->current_scope->related_entry = constructor;
 
         nodecl_t constructor_function_code =
             nodecl_make_function_code(
@@ -13943,7 +13943,7 @@ static void implement_generic_lambda_expression(
         // first use a typedef otherwise this function cannot be declared
         type_t* pointer_to_function = get_pointer_type(invented_function_type);
         scope_entry_t* ptr_fun_template = new_symbol(inner_class_context,
-                inner_class_context.current_scope,
+                inner_class_context->current_scope,
                  "__ptr_fun_type__");
         ptr_fun_template->locus = locus;
         ptr_fun_template->kind = SK_TEMPLATE;
@@ -13966,7 +13966,7 @@ static void implement_generic_lambda_expression(
 
         // conversion template
         scope_entry_t* conversion_template = new_symbol(inner_class_context,
-                inner_class_context.current_scope,
+                inner_class_context->current_scope,
                 "$.operator");
         conversion_template->kind = SK_TEMPLATE;
         conversion_template->type_information = get_new_template_type(
@@ -13999,7 +13999,7 @@ static void implement_generic_lambda_expression(
         class_type_add_member(lambda_class->type_information, conversion, /* is_definition */ 1);
 
         // now emit an ancillary static member function with the same prototype as the lambda type
-        scope_entry_t* ancillary_template = new_symbol(inner_class_context, inner_class_context.current_scope,
+        scope_entry_t* ancillary_template = new_symbol(inner_class_context, inner_class_context->current_scope,
                  "__ancillary__");
         ancillary_template->kind = SK_TEMPLATE;
         ancillary_template->type_information = get_new_template_type(
@@ -14035,7 +14035,7 @@ static void implement_generic_lambda_expression(
         memset(parameter_info, 0, sizeof(parameter_info));
 
         decl_context_t block_context = new_block_context(inner_class_context);
-        block_context.current_scope->related_entry = constructor;
+        block_context->current_scope->related_entry = constructor;
 
         nodecl_t member_initializers = nodecl_null();
 
@@ -14087,7 +14087,7 @@ static void implement_generic_lambda_expression(
             // register parameter
             scope_entry_t* parameter = new_symbol(
                     block_context,
-                    block_context.current_scope,
+                    block_context->current_scope,
                     new_name);
             parameter->locus = locus;
             parameter->kind = SK_VARIABLE;
@@ -14102,7 +14102,7 @@ static void implement_generic_lambda_expression(
             // register field
             scope_entry_t* field = new_symbol(
                 inner_class_context,
-                inner_class_context.current_scope,
+                inner_class_context->current_scope,
                 new_name);
             field->locus = locus;
             field->defined = 1;
@@ -14209,7 +14209,7 @@ static void implement_generic_lambda_expression(
 
     // create operator()
     scope_entry_t* operator_call_template = new_symbol(invented_templated_context,
-            invented_templated_context.current_scope, STR_OPERATOR_CALL);
+            invented_templated_context->current_scope, STR_OPERATOR_CALL);
     operator_call_template->kind = SK_TEMPLATE;
 
     type_t* operator_call_invented_function_type = invented_function_type;
@@ -14230,7 +14230,7 @@ static void implement_generic_lambda_expression(
     scope_entry_t* operator_call = named_type_get_symbol(
             template_type_get_primary_type(operator_call_template->type_information));
     decl_context_t block_context = new_block_context(invented_templated_context);
-    block_context.current_scope->related_entry = operator_call;
+    block_context->current_scope->related_entry = operator_call;
 
     operator_call->locus = locus;
     operator_call->kind = SK_FUNCTION;
@@ -14246,7 +14246,7 @@ static void implement_generic_lambda_expression(
     {
         scope_entry_t* orig_param = symbol_entity_specs_get_related_symbols_num(lambda_symbol, i);
 
-        scope_entry_t* parameter = new_symbol(block_context, block_context.current_scope, orig_param->symbol_name);
+        scope_entry_t* parameter = new_symbol(block_context, block_context->current_scope, orig_param->symbol_name);
         parameter->locus = locus;
         parameter->kind = SK_VARIABLE;
         parameter->type_information = function_type_get_parameter_type_num(
@@ -14274,7 +14274,7 @@ static void implement_generic_lambda_expression(
     if (!is_void_type(function_type_get_return_type(operator_call->type_information)))
     {
         scope_entry_t* result_sym = new_symbol(block_context,
-                block_context.current_scope,
+                block_context->current_scope,
                 ".result"); // This name is currently not user accessible
         result_sym->kind = SK_VARIABLE;
         symbol_entity_specs_set_is_result_var(result_sym, 1);
@@ -14330,14 +14330,14 @@ static void implement_generic_lambda_expression(
 
         // create the ancillary
         block_context = new_block_context(invented_templated_context);
-        block_context.current_scope->related_entry = ancillary;
+        block_context->current_scope->related_entry = ancillary;
 
         nodecl_t nodecl_argument_list = nodecl_null();
         for (i = 0; i < symbol_entity_specs_get_num_related_symbols(lambda_symbol); i++)
         {
             scope_entry_t* orig_param = symbol_entity_specs_get_related_symbols_num(lambda_symbol, i);
 
-            scope_entry_t* parameter = new_symbol(block_context, block_context.current_scope, orig_param->symbol_name);
+            scope_entry_t* parameter = new_symbol(block_context, block_context->current_scope, orig_param->symbol_name);
             parameter->locus = locus;
             parameter->kind = SK_VARIABLE;
             parameter->type_information = function_type_get_parameter_type_num(
@@ -14357,7 +14357,7 @@ static void implement_generic_lambda_expression(
         }
 
         // The ancillary creates an object of the closure type and invokes the operator()
-        scope_entry_t* obj = new_symbol(block_context, block_context.current_scope, "obj");
+        scope_entry_t* obj = new_symbol(block_context, block_context->current_scope, "obj");
         obj->locus = locus;
         obj->kind = SK_VARIABLE;
         obj->type_information = get_user_defined_type(lambda_class);
@@ -14429,7 +14429,7 @@ static void implement_generic_lambda_expression(
 
         // Now create the conversor itself
         block_context = new_block_context(invented_templated_context);
-        block_context.current_scope->related_entry = conversion;
+        block_context->current_scope->related_entry = conversion;
 
         register_symbol_this(block_context,
                 lambda_class,
@@ -14670,7 +14670,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 
                                 if ((is_pack
                                             || entry->kind != SK_VARIABLE
-                                            || entry->decl_context.current_scope->kind != BLOCK_SCOPE
+                                            || entry->decl_context->current_scope->kind != BLOCK_SCOPE
                                             || symbol_entity_specs_get_is_static(entry)
                                             || symbol_entity_specs_get_is_extern(entry)
                                             )
@@ -14774,19 +14774,19 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     uniquestr_sprintf(&lambda_symbol_str, ".lambda_%d", lambda_counter);
     lambda_counter++;
 
-    scope_entry_t* lambda_symbol = new_symbol(decl_context, decl_context.current_scope, lambda_symbol_str);
+    scope_entry_t* lambda_symbol = new_symbol(decl_context, decl_context->current_scope, lambda_symbol_str);
     lambda_symbol->kind = SK_LAMBDA;
     lambda_symbol->locus = ast_get_locus(expression);
 
     type_t* function_type = get_auto_type();
 
     decl_context_t lambda_block_context = new_block_context(decl_context);
-    lambda_block_context.current_scope->related_entry = lambda_symbol;
+    lambda_block_context->current_scope->related_entry = lambda_symbol;
     lambda_symbol->related_decl_context = lambda_block_context;
 
     // Add a result symbol
     scope_entry_t* result_symbol = new_symbol(lambda_block_context,
-            lambda_block_context.current_scope,
+            lambda_block_context->current_scope,
             ".result"); // This name is currently not user accessible
     result_symbol->kind = SK_VARIABLE;
 
@@ -14931,8 +14931,8 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 
     // A lambda is dependent if the enclosing function is dependent
     scope_entry_t* enclosing_function = NULL;
-    if (decl_context.current_scope->kind == BLOCK_SCOPE
-            && ((enclosing_function = decl_context.current_scope->related_entry) != NULL)
+    if (decl_context->current_scope->kind == BLOCK_SCOPE
+            && ((enclosing_function = decl_context->current_scope->related_entry) != NULL)
             && (is_dependent_type(enclosing_function->type_information)
                 || (symbol_entity_specs_get_is_member(enclosing_function)
                     && is_dependent_type(symbol_entity_specs_get_class_type(enclosing_function)))))
@@ -14944,9 +14944,9 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     // Note that we might be in an nonstatic member initializer so we directly
     // check the class_scope (the current scope is a BLOCK_SCOPE in these
     // environments but there is no related entry)
-    else if (decl_context.class_scope != NULL)
+    else if (decl_context->class_scope != NULL)
     {
-        scope_entry_t* enclosing_class_symbol = decl_context.class_scope->related_entry;
+        scope_entry_t* enclosing_class_symbol = decl_context->class_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
 
         lambda_class_is_dependent = lambda_class_is_dependent || is_dependent_type(enclosing_class_type);
@@ -16793,7 +16793,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
     if (typeid_sym == NULL)
     {
         decl_context_t global_context = decl_context;
-        global_context.current_scope = global_context.global_scope;
+        global_context->current_scope = global_context->global_scope;
 
         scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
@@ -16843,7 +16843,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     scope_entry_t* result = NULL;
 
     decl_context_t global_context = decl_context;
-    global_context.current_scope = global_context.global_scope;
+    global_context->current_scope = global_context->global_scope;
 
     scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
@@ -21470,7 +21470,7 @@ static void check_gcc_label_addr(AST expression,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    if (decl_context.current_scope->kind != BLOCK_SCOPE)
+    if (decl_context->current_scope->kind != BLOCK_SCOPE)
     {
         error_printf("%s: error: not inside any function, so getting the address of a label is not possible\n",
                 ast_location(expression));
@@ -24227,7 +24227,7 @@ static void define_inherited_constructor(
         num_parameters--;
 
     decl_context_t block_context = new_block_context(new_inherited_constructor->decl_context);
-    block_context.current_scope->related_entry = new_inherited_constructor;
+    block_context->current_scope->related_entry = new_inherited_constructor;
 
     nodecl_t nodecl_arg_list = nodecl_null();
 
@@ -24243,7 +24243,7 @@ static void define_inherited_constructor(
         uniquestr_sprintf(&parameter_name, "parameter#%d", i);
 
         scope_entry_t* new_param_symbol = new_symbol(block_context,
-                block_context.current_scope,
+                block_context->current_scope,
                 parameter_name);
         new_param_symbol->kind = SK_VARIABLE;
         new_param_symbol->type_information =
@@ -25557,7 +25557,7 @@ static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_par
         return;
     ERROR_CONDITION(sym->kind != SK_NAMESPACE, "Invalid symbol", 0);
 
-    add_namespaces_rec(sym->decl_context.current_scope->related_entry, nodecl_extended_parts, locus);
+    add_namespaces_rec(sym->decl_context->current_scope->related_entry, nodecl_extended_parts, locus);
 
     if (strcmp(sym->symbol_name, "(unnamed)") == 0)
     {
@@ -25655,7 +25655,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
 
     if (can_qualify)
     {
-        add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts, locus);
+        add_namespaces_rec(dependent_entry->decl_context->namespace_scope->related_entry, &nodecl_extended_parts, locus);
 
         if (symbol_entity_specs_get_is_member(dependent_entry))
             add_classes_rec(symbol_entity_specs_get_class_type(dependent_entry), &nodecl_extended_parts, decl_context, locus);

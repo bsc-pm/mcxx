@@ -90,13 +90,13 @@ namespace TL
             {
                 if (_valid)
                     return true;
-                return _decl_context.current_scope != NULL;
+                return _decl_context->current_scope != NULL;
             }
 
             //! States if the current scope is either a class scope or a scope within a class scope
             bool inside_class_scope() const
             {
-                return (_decl_context.class_scope != NULL);
+                return (_decl_context->class_scope != NULL);
             }
 
             //! Returns the related class symbol
@@ -109,7 +109,7 @@ namespace TL
             //! States if the current scope is either a block scope or a scope within a block scope
             bool inside_block_scope() const
             {
-                return (_decl_context.block_scope != NULL);
+                return (_decl_context->block_scope != NULL);
             }
 
             //! States if the current scope is function scope
@@ -119,19 +119,19 @@ namespace TL
               */
             bool is_function_scope() const
             {
-                return _decl_context.current_scope->kind == FUNCTION_SCOPE;
+                return _decl_context->current_scope->kind == FUNCTION_SCOPE;
             }
 
             //! States if the current scope is block scope
             bool is_block_scope() const
             {
-                return _decl_context.current_scope->kind == BLOCK_SCOPE;
+                return _decl_context->current_scope->kind == BLOCK_SCOPE;
             }
 
             //! States if the current scope is class scope
             bool is_class_scope() const
             {
-                return _decl_context.current_scope->kind == CLASS_SCOPE;
+                return _decl_context->current_scope->kind == CLASS_SCOPE;
             }
 
             //! States if the current scope is namespace scope
@@ -140,7 +140,7 @@ namespace TL
               */
             bool is_namespace_scope() const
             {
-                return _decl_context.current_scope->kind == NAMESPACE_SCOPE;
+                return _decl_context->current_scope->kind == NAMESPACE_SCOPE;
             }
 
             //! States if the current scope is strictly enclosed into a potential encloser scope
@@ -156,7 +156,7 @@ namespace TL
               */
             bool is_prototype_scope() const
             {
-                return _decl_context.current_scope->kind == PROTOTYPE_SCOPE;
+                return _decl_context->current_scope->kind == PROTOTYPE_SCOPE;
             }
 
             //! States if the current scope is template scope

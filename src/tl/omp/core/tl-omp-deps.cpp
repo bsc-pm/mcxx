@@ -661,9 +661,9 @@ namespace TL { namespace OpenMP {
                         scope_entry_t* entry = entry_list_head(entry_list);
                         entry_list_free(entry_list);
                         if (entry->kind == SK_VARIABLE
-                                && entry->decl_context.current_scope != NULL
-                                && entry->decl_context.current_scope->kind == BLOCK_SCOPE
-                                && entry->decl_context.current_scope->related_entry == decl_context.current_scope->related_entry)
+                                && entry->decl_context->current_scope != NULL
+                                && entry->decl_context->current_scope->kind == BLOCK_SCOPE
+                                && entry->decl_context->current_scope->related_entry == decl_context->current_scope->related_entry)
                         {
                             warn_printf("%s: warning: iterator name '%s' in multidependence shadows a previous variable\n",
                                     ast_location(identifier),
@@ -675,7 +675,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 scope_entry_t* new_iterator = new_symbol(iterator_context,
-                        iterator_context.current_scope,
+                        iterator_context->current_scope,
                         iterator_name);
                 new_iterator->kind = SK_VARIABLE;
                 new_iterator->type_information = get_signed_int_type();

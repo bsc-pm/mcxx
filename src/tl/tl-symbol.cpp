@@ -436,10 +436,10 @@ namespace TL
 
     bool Symbol::is_parameter() const
     {
-        if (_symbol->decl_context.current_scope->related_entry == NULL)
+        if (_symbol->decl_context->current_scope->related_entry == NULL)
             return false;
 
-        return (symbol_is_parameter_of_function(_symbol, _symbol->decl_context.current_scope->related_entry));
+        return (symbol_is_parameter_of_function(_symbol, _symbol->decl_context->current_scope->related_entry));
     }
 
     bool Symbol::is_parameter_of_a_function() const
@@ -449,7 +449,7 @@ namespace TL
 
     int Symbol::get_parameter_position() const
     {
-        return (symbol_get_parameter_position_in_function(_symbol, _symbol->decl_context.current_scope->related_entry));
+        return (symbol_get_parameter_position_in_function(_symbol, _symbol->decl_context->current_scope->related_entry));
     }
 
     bool Symbol::is_parameter_of(Symbol function) const
@@ -655,14 +655,14 @@ namespace TL
 
     bool Symbol::has_namespace_scope() const
     {
-        return _symbol->decl_context.current_scope != NULL
-            && _symbol->decl_context.current_scope->kind == NAMESPACE_SCOPE;
+        return _symbol->decl_context->current_scope != NULL
+            && _symbol->decl_context->current_scope->kind == NAMESPACE_SCOPE;
     }
 
     bool Symbol::has_block_scope() const
     {
-        return _symbol->decl_context.current_scope != NULL
-            && _symbol->decl_context.current_scope->kind == BLOCK_SCOPE;
+        return _symbol->decl_context->current_scope != NULL
+            && _symbol->decl_context->current_scope->kind == BLOCK_SCOPE;
     }
 
     bool Symbol::has_local_scope() const
@@ -672,8 +672,8 @@ namespace TL
 
     bool Symbol::has_class_scope() const
     {
-        return _symbol->decl_context.current_scope != NULL
-            && _symbol->decl_context.current_scope->kind == CLASS_SCOPE;
+        return _symbol->decl_context->current_scope != NULL
+            && _symbol->decl_context->current_scope->kind == CLASS_SCOPE;
     }
 
     bool Symbol::has_template_scope() const
@@ -683,8 +683,8 @@ namespace TL
 
     bool Symbol::has_prototype_scope() const
     {
-        return _symbol->decl_context.current_scope != NULL
-            && _symbol->decl_context.current_scope->kind == PROTOTYPE_SCOPE;
+        return _symbol->decl_context->current_scope != NULL
+            && _symbol->decl_context->current_scope->kind == PROTOTYPE_SCOPE;
     }
 
     bool Symbol::is_using_symbol() const

@@ -1171,7 +1171,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                 const char* class_name = ASTText(id_expression);
 
                 // We want a class scope
-                if (decl_context.current_scope->kind != CLASS_SCOPE)
+                if (decl_context->current_scope->kind != CLASS_SCOPE)
                 {
                     return 0;
                 }
@@ -1211,7 +1211,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
             }
         case AST_CONVERSION_FUNCTION_ID :
             // That's fine only at class-scope
-            return decl_context.current_scope->kind == CLASS_SCOPE;
+            return decl_context->current_scope->kind == CLASS_SCOPE;
         default :
             // Do nothing for any other things
             break;
@@ -1552,7 +1552,7 @@ static char check_init_declarator(AST init_declarator,
 
             decl_flags_t decl_flags = DF_NONE;
 
-            if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+            if (BITMAP_TEST(decl_context->decl_flags, DF_CONSTRUCTOR))
             {
                 decl_flags |= DF_CONSTRUCTOR;
             }

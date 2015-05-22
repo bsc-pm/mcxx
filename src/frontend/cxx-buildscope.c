@@ -663,7 +663,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     // __builtin_va_list is a very special type in GCC
     scope_entry_t* builtin_va_list;
 
-    builtin_va_list = new_symbol(decl_context, decl_context.global_scope, uniquestr("__builtin_va_list"));
+    builtin_va_list = new_symbol(decl_context, decl_context->global_scope, uniquestr("__builtin_va_list"));
     builtin_va_list->kind = SK_TYPEDEF;
     builtin_va_list->defined = 1;
     builtin_va_list->type_information = get_gcc_builtin_va_list_type();
@@ -674,7 +674,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     {
         {
             // Namespace std preexists
-            scope_entry_t* namespace_std = new_symbol(decl_context, decl_context.global_scope, uniquestr("std"));
+            scope_entry_t* namespace_std = new_symbol(decl_context, decl_context->global_scope, uniquestr("std"));
             namespace_std->kind = SK_NAMESPACE;
             symbol_entity_specs_set_is_user_declared(namespace_std, 1);
 
@@ -685,7 +685,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         // There are two 'operator new' and two 'operator delete' at global scope
         {
             scope_entry_t* global_operator_new;
-            global_operator_new = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator new"));
+            global_operator_new = new_symbol(decl_context, decl_context->global_scope, uniquestr("operator new"));
             global_operator_new->kind = SK_FUNCTION;
             global_operator_new->do_not_print = 1;
 
@@ -704,7 +704,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         // Version for arrays
         {
             scope_entry_t* global_operator_new;
-            global_operator_new = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator new[]"));
+            global_operator_new = new_symbol(decl_context, decl_context->global_scope, uniquestr("operator new[]"));
             global_operator_new->kind = SK_FUNCTION;
             global_operator_new->do_not_print = 1;
 
@@ -722,7 +722,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
 
         {
             scope_entry_t* global_operator_delete;
-            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator delete"));
+            global_operator_delete = new_symbol(decl_context, decl_context->global_scope, uniquestr("operator delete"));
             global_operator_delete->kind = SK_FUNCTION;
             global_operator_delete->do_not_print = 1;
 
@@ -739,7 +739,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         }
         {
             scope_entry_t* global_operator_delete;
-            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator delete[]"));
+            global_operator_delete = new_symbol(decl_context, decl_context->global_scope, uniquestr("operator delete[]"));
             global_operator_delete->kind = SK_FUNCTION;
             global_operator_delete->do_not_print = 1;
 
@@ -772,13 +772,13 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
 
 #ifdef HAVE_INT128
     {
-        scope_entry_t* __int128_t_type = new_symbol(decl_context, decl_context.global_scope, uniquestr("__int128_t"));
+        scope_entry_t* __int128_t_type = new_symbol(decl_context, decl_context->global_scope, uniquestr("__int128_t"));
         __int128_t_type->kind = SK_TYPEDEF;
         __int128_t_type->type_information = get_signed_int128_type();
         __int128_t_type->locus = make_locus("(global scope)", 0, 0);
     }
     {
-        scope_entry_t* __uint128_t_type = new_symbol(decl_context, decl_context.global_scope, uniquestr("__uint128_t"));
+        scope_entry_t* __uint128_t_type = new_symbol(decl_context, decl_context->global_scope, uniquestr("__uint128_t"));
         __uint128_t_type->kind = SK_TYPEDEF;
         __uint128_t_type->type_information = get_unsigned_int128_type();
         __uint128_t_type->locus = make_locus("(global scope)", 0, 0);
@@ -796,7 +796,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     int i;
     for (i = 0; mercurium_basic_types[i].type_name != NULL; i++)
     {
-        scope_entry_t* typedef_sym = new_symbol(decl_context, decl_context.global_scope,
+        scope_entry_t* typedef_sym = new_symbol(decl_context, decl_context->global_scope,
                 mercurium_basic_types[i].type_name);
         typedef_sym->kind = SK_TYPEDEF;
         typedef_sym->type_information = mercurium_basic_types[i].related_type;
@@ -854,7 +854,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                     print_declarator(current_type))
         }
 
-        scope_entry_t* max_sym = new_symbol(decl_context, decl_context.global_scope, 
+        scope_entry_t* max_sym = new_symbol(decl_context, decl_context->global_scope, 
                 strappend(base_name, "_max"));
         max_sym->kind = SK_VARIABLE;
         max_sym->type_information = get_const_qualified_type(current_type);
@@ -862,7 +862,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         max_sym->value = const_value_to_nodecl(value_max);
         symbol_entity_specs_set_is_user_declared(max_sym, 1);
 
-        scope_entry_t* min_sym = new_symbol(decl_context, decl_context.global_scope, 
+        scope_entry_t* min_sym = new_symbol(decl_context, decl_context->global_scope, 
                 strappend(base_name, "_min"));
         min_sym->kind = SK_VARIABLE;
         min_sym->type_information = get_const_qualified_type(current_type);
@@ -1428,9 +1428,9 @@ static void check_nodecl_using_directive(nodecl_t nodecl_name,
     symbol_entity_specs_set_is_inline(entry, turn_into_inline);
 
     // Now add this namespace to the used namespaces of this scope
-    scope_t* namespace_scope = decl_context.current_scope;
+    scope_t* namespace_scope = decl_context->current_scope;
 
-    ERROR_CONDITION(entry->related_decl_context.current_scope->kind != NAMESPACE_SCOPE,
+    ERROR_CONDITION(entry->related_decl_context->current_scope->kind != NAMESPACE_SCOPE,
             "Error, related scope is not namespace scope", 0);
 
     P_LIST_ADD_ONCE(namespace_scope->use_namespace,
@@ -1616,7 +1616,7 @@ void introduce_using_entities_in_class(
         if (entry_list_contains(already_using, entry))
             continue;
 
-        scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
+        scope_entry_t* used_name = new_symbol(decl_context, decl_context->current_scope, symbol_name);
         used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
         used_name->locus = locus;
         symbol_entity_specs_set_alias_to(used_name, entry);
@@ -1625,7 +1625,7 @@ void introduce_using_entities_in_class(
         symbol_entity_specs_set_class_type(used_name, get_user_defined_type(current_class));
         symbol_entity_specs_set_access(used_name, current_access);
 
-        insert_entry(decl_context.current_scope, used_name);
+        insert_entry(decl_context->current_scope, used_name);
     }
     entry_list_iterator_free(it);
     entry_list_free(already_using);
@@ -1691,12 +1691,12 @@ static void introduce_using_entities(
         if (entry_list_contains(already_using, original_entry))
             continue;
 
-        scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
+        scope_entry_t* used_name = new_symbol(decl_context, decl_context->current_scope, symbol_name);
         used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
         used_name->locus = locus;
         symbol_entity_specs_set_alias_to(used_name, original_entry);
 
-        insert_entry(decl_context.current_scope, used_name);
+        insert_entry(decl_context->current_scope, used_name);
     }
     entry_list_iterator_free(it);
 
@@ -1725,9 +1725,9 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 
     scope_entry_t* current_class = NULL;
     char is_class_scope = 0;
-    if (decl_context.current_scope->kind == CLASS_SCOPE)
+    if (decl_context->current_scope->kind == CLASS_SCOPE)
     {
-        current_class = decl_context.current_scope->related_entry;
+        current_class = decl_context->current_scope->related_entry;
         is_class_scope = 1;
     }
 
@@ -1770,9 +1770,9 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context,
 {
     AST id_expression = ASTSon0(a);
 
-    if (decl_context.current_scope->kind != CLASS_SCOPE
-            && decl_context.current_scope->kind != NAMESPACE_SCOPE
-            && decl_context.current_scope->kind != BLOCK_SCOPE)
+    if (decl_context->current_scope->kind != CLASS_SCOPE
+            && decl_context->current_scope->kind != NAMESPACE_SCOPE
+            && decl_context->current_scope->kind != BLOCK_SCOPE)
     {
         error_printf("%s: error: using-declaration not in a class, namespace or block scope\n",
                 ast_location(a));
@@ -1847,7 +1847,7 @@ static void build_scope_common_template_alias_declaration(AST a,
         access_specifier_t access_specifier,
         char is_explicit_specialization)
 {
-    ERROR_CONDITION(decl_context.template_parameters == NULL,
+    ERROR_CONDITION(decl_context->template_parameters == NULL,
             "There must be template parameters", 0);
 
     if (IS_CXX03_LANGUAGE)
@@ -1899,10 +1899,10 @@ static void build_scope_common_template_alias_declaration(AST a,
     }
     else
     {
-        entry = new_symbol(decl_context, decl_context.current_scope, ASTText(identifier));
+        entry = new_symbol(decl_context, decl_context->current_scope, ASTText(identifier));
         entry->kind = SK_TEMPLATE;
         entry->type_information = get_new_template_alias_type(
-                decl_context.template_parameters,
+                decl_context->template_parameters,
                 aliased_type,
                 ASTText(identifier),
                 decl_context,
@@ -2256,7 +2256,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 {
                     if (current_gather_info.is_extern)
                     {
-                        if (decl_context.current_scope->kind != NAMESPACE_SCOPE)
+                        if (decl_context->current_scope->kind != NAMESPACE_SCOPE)
                         {
                             error_printf("%s: error: cannot initialize an 'extern' declaration\n", ast_location(a));
                         }
@@ -2287,7 +2287,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             if (entry->kind == SK_FUNCTION)
             {
-                if (current_decl_context.current_scope->kind == BLOCK_SCOPE
+                if (current_decl_context->current_scope->kind == BLOCK_SCOPE
                         && !symbol_entity_specs_get_is_nested_function(entry))
                 {
                     // Ensure that the symbol is marked as extern
@@ -2310,7 +2310,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry->kind == SK_VARIABLE
                     || entry->kind == SK_TYPEDEF)
             {
-                if (current_decl_context.current_scope->kind == BLOCK_SCOPE)
+                if (current_decl_context->current_scope->kind == BLOCK_SCOPE)
                 {
                     int i;
                     for (i = 0; i < current_gather_info.num_vla_dimension_symbols; i++)
@@ -2334,11 +2334,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry->kind == SK_VARIABLE)
             {
                 if (entry->defined
-                        && !BITMAP_TEST(current_decl_context.decl_flags, DF_ALLOW_REDEFINITION)
+                        && !BITMAP_TEST(current_decl_context->decl_flags, DF_ALLOW_REDEFINITION)
                         && !current_gather_info.is_extern
                         // In C, an entity may be redefined at file-scope
                         && !(IS_C_LANGUAGE
-                            && (entry->decl_context.current_scope == entry->decl_context.global_scope)
+                            && (entry->decl_context->current_scope == entry->decl_context->global_scope)
                             && (nodecl_is_null(entry->value)
                                 || initializer == NULL)))
                 {
@@ -2372,7 +2372,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 //   return sizeof(c); // OK == sizeof(int[10])
                 // }
                 if (symbol_entity_specs_get_is_extern(entry)
-                        && entry->decl_context.current_scope != entry->decl_context.global_scope
+                        && entry->decl_context->current_scope != entry->decl_context->global_scope
                         && is_array_type(entry->type_information)
                         && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
                 {
@@ -2466,7 +2466,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     if (!symbol_entity_specs_get_is_member(entry) // Not a member
                             || ( // Static member definition (outside of the class)
                                 symbol_entity_specs_get_is_static(entry)  
-                                && current_decl_context.current_scope->kind == NAMESPACE_SCOPE))
+                                && current_decl_context->current_scope->kind == NAMESPACE_SCOPE))
                     {
                         // Define the symbol
                         entry->defined = 1;
@@ -2484,16 +2484,16 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // (some cases only for C99)
                         || (IS_C_LANGUAGE
                             // - variably modified types in block scopes must be declared here
-                            && current_decl_context.current_scope->kind == BLOCK_SCOPE
+                            && current_decl_context->current_scope->kind == BLOCK_SCOPE
                             && is_variably_modified_type(entry->type_information))
                         || (IS_CXX_LANGUAGE
                             // - class variables in block scope
-                            && current_decl_context.current_scope->kind == BLOCK_SCOPE
+                            && current_decl_context->current_scope->kind == BLOCK_SCOPE
                             && (is_class_type(entry->type_information)
                                 // - array of class type variables
                                 || (is_array_type(entry->type_information) 
                                     && is_class_type(array_type_get_element_type(entry->type_information)))))
-                        || (current_decl_context.current_scope->kind == NAMESPACE_SCOPE
+                        || (current_decl_context->current_scope->kind == NAMESPACE_SCOPE
                             // - namespace-scope declarations of non-member
                             // entities that are non-extern since they are
                             // definitions (global definitions are here)
@@ -2524,7 +2524,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // (Only C) Explicitly declare external variables in the global scope
                         && ((entry->kind == SK_VARIABLE
                                 && symbol_entity_specs_get_is_extern(entry)
-                                && entry->decl_context.current_scope == entry->decl_context.global_scope)
+                                && entry->decl_context->current_scope == entry->decl_context->global_scope)
                             // (Only C) Explicitly declare functions that are aliases of other functions
                             || (entry->kind == SK_FUNCTION
                                 && symbol_has_gcc_attribute(entry, "alias", /* gcc_attr */ NULL)))))
@@ -3512,8 +3512,8 @@ static void register_dependent_friend_class(
 
 static char is_dependent_class_scope(decl_context_t decl_context)
 {
-    return (decl_context.class_scope != NULL 
-            && is_dependent_type(decl_context.class_scope->related_entry->type_information));  
+    return (decl_context->class_scope != NULL 
+            && is_dependent_type(decl_context->class_scope->related_entry->type_information));  
 }
 
 static void gather_type_spec_from_friend_elaborated_class_specifier_common(
@@ -3525,7 +3525,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
 {
     char is_dependent_context = is_dependent_class_scope(decl_context);
 
-    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    scope_entry_t* class_symbol = decl_context->current_scope->related_entry;
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
     *declared_name = NULL;
@@ -3625,7 +3625,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
             fake_template->decl_context = decl_context;
             fake_template->locus = ast_get_locus(id_expression);
             fake_template->type_information = get_new_template_type(
-                    decl_context.template_parameters,
+                    decl_context->template_parameters,
                     type_of_decl,
                     *declared_name,
                     decl_context,
@@ -3667,7 +3667,7 @@ static void gather_type_spec_from_friend_simple_type_specifier_common(
         decl_context_t decl_context,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    scope_entry_t* class_symbol = decl_context->current_scope->related_entry;
     ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
     if (ASTKind(a) == AST_SIMPLE_TYPE_SPEC)
@@ -3690,21 +3690,21 @@ static decl_context_t get_innermost_enclosing_nonclass_context(decl_context_t de
 {
     // This will be the innermost enclosing non-class scope
     decl_context_t context_of_new_declared_class = decl_context;
-    while (context_of_new_declared_class.current_scope->kind == CLASS_SCOPE)
+    while (context_of_new_declared_class->current_scope->kind == CLASS_SCOPE)
     {
-        context_of_new_declared_class.current_scope =
-            context_of_new_declared_class.current_scope->contained_in;
+        context_of_new_declared_class->current_scope =
+            context_of_new_declared_class->current_scope->contained_in;
     }
 
-    if (context_of_new_declared_class.current_scope->kind == NAMESPACE_SCOPE)
+    if (context_of_new_declared_class->current_scope->kind == NAMESPACE_SCOPE)
     {
         context_of_new_declared_class =
-            context_of_new_declared_class.current_scope->related_entry->related_decl_context;
+            context_of_new_declared_class->current_scope->related_entry->related_decl_context;
     }
-    else if (context_of_new_declared_class.current_scope->kind == BLOCK_SCOPE)
+    else if (context_of_new_declared_class->current_scope->kind == BLOCK_SCOPE)
     {
-        context_of_new_declared_class.class_scope = 
-            context_of_new_declared_class.current_scope->related_entry->related_decl_context.class_scope;
+        context_of_new_declared_class->class_scope =
+            context_of_new_declared_class->current_scope->related_entry->related_decl_context->class_scope;
     }
     else
     {
@@ -3725,7 +3725,7 @@ static scope_entry_t* new_friend_declared_class(
 
     scope_entry_t* new_class = NULL;
     new_class = new_symbol(context_of_new_declared_class,
-            context_of_new_declared_class.current_scope,
+            context_of_new_declared_class->current_scope,
             declared_name);
     new_class->kind = SK_CLASS;
     enum type_tag_t class_kind = class_type_get_class_kind(type_of_declaration);
@@ -3757,14 +3757,14 @@ static scope_entry_t* new_friend_declared_template_class(
 
     scope_entry_t* new_template = NULL;
     new_template = new_symbol(context_of_new_declared_class,
-            context_of_new_declared_class.current_scope,
+            context_of_new_declared_class->current_scope,
             declared_name);
     new_template->kind = SK_TEMPLATE;
 
     enum type_tag_t class_kind = class_type_get_class_kind(
             template_type_get_primary_type(type_of_declaration));
     new_template->type_information = get_new_template_type(
-            decl_context.template_parameters,
+            decl_context->template_parameters,
             get_new_class_type(decl_context, class_kind),
             declared_name, context_of_new_declared_class,
             locus);
@@ -3791,12 +3791,12 @@ static scope_entry_t* new_friend_declared_template_class(
 
 static char is_local_class_context(decl_context_t decl_context)
 {
-    while (decl_context.current_scope->kind == CLASS_SCOPE)
+    while (decl_context->current_scope->kind == CLASS_SCOPE)
     {
-        decl_context.current_scope = decl_context.current_scope->contained_in;
+        decl_context->current_scope = decl_context->current_scope->contained_in;
     }
 
-    return (decl_context.current_scope->kind == BLOCK_SCOPE);
+    return (decl_context->current_scope->kind == BLOCK_SCOPE);
 }
 
 void build_scope_friend_class_declaration(
@@ -3805,7 +3805,7 @@ void build_scope_friend_class_declaration(
         decl_context_t decl_context,
         const locus_t* locus)
 {
-    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    scope_entry_t* class_symbol = decl_context->current_scope->related_entry;
     ERROR_CONDITION(class_symbol == NULL
             || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
@@ -3950,7 +3950,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
         decl_context_t decl_context,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    scope_entry_t* class_symbol = decl_context->current_scope->related_entry;
     ERROR_CONDITION(class_symbol == NULL
             || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
@@ -4236,19 +4236,19 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     if (entry != NULL
             && entry->kind == SK_TEMPLATE)
     {
-        if (decl_context.template_parameters->num_parameters
+        if (decl_context->template_parameters->num_parameters
                 != template_type_get_template_parameters(entry->type_information)->num_parameters)
         {
             error_printf("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
                     ast_location(id_expression),
-                    decl_context.template_parameters->num_parameters,
+                    decl_context->template_parameters->num_parameters,
                     template_type_get_template_parameters(entry->type_information)->num_parameters);
             *type_info = get_error_type();
             return;
         }
 
         template_type_update_template_parameters(entry->type_information,
-                decl_context.template_parameters);
+                decl_context->template_parameters);
 
         // This is the class name
         type_t* primary_template_type = template_type_get_primary_type(entry->type_information);
@@ -4267,16 +4267,16 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 // Note that in a parameter declaration no type can be defined actually
                 if (class_gather_info.parameter_declaration)
                 {
-                    while (decl_context.current_scope->kind == BLOCK_SCOPE)
+                    while (decl_context->current_scope->kind == BLOCK_SCOPE)
                     {
-                        decl_context.current_scope = decl_context.current_scope->contained_in;
+                        decl_context->current_scope = decl_context->current_scope->contained_in;
                     }
                 }
                 // Look for the smallest enclosing non-function-prototype scope
-                while (decl_context.current_scope->kind == CLASS_SCOPE
-                        || decl_context.current_scope->kind == PROTOTYPE_SCOPE)
+                while (decl_context->current_scope->kind == CLASS_SCOPE
+                        || decl_context->current_scope->kind == PROTOTYPE_SCOPE)
                 {
-                    decl_context.current_scope = decl_context.current_scope->contained_in;
+                    decl_context->current_scope = decl_context->current_scope->contained_in;
                 }
             }
 
@@ -4304,7 +4304,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             }
 
             scope_entry_t* new_class = NULL;
-            new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
+            new_class = new_symbol(decl_context, decl_context->current_scope, class_name);
 
             new_class->locus = ast_get_locus(id_expression);
 
@@ -4315,7 +4315,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "BUILDSCOPE: Type not found, creating a stub in scope %p for '%s' %p\n",
-                            decl_context.current_scope,
+                            decl_context->current_scope,
                             class_name,
                             new_class);
                 }
@@ -4330,14 +4330,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             {
                 if (ASTKind(id_expression) != AST_TEMPLATE_ID)
                 {
-                    if (!check_class_template_parameters(ast_get_locus(a), decl_context.template_parameters))
+                    if (!check_class_template_parameters(ast_get_locus(a), decl_context->template_parameters))
                     {
                         *type_info = get_error_type();
                         return;
                     }
 
                     new_class->kind = SK_TEMPLATE;
-                    new_class->type_information = get_new_template_type(decl_context.template_parameters,
+                    new_class->type_information = get_new_template_type(decl_context->template_parameters,
                             get_new_class_type(decl_context, class_kind),
                             ASTText(id_expression), decl_context,
                             ast_get_locus(id_expression));
@@ -4345,13 +4345,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                     new_class->locus = ast_get_locus(a);
 
-                    if (decl_context.current_scope->kind == CLASS_SCOPE)
+                    if (decl_context->current_scope->kind == CLASS_SCOPE)
                     {
                         symbol_entity_specs_set_is_member(new_class, 1);
                         // FIXME!
                         // symbol_entity_specs_set_access(new_class, current_access);
                         symbol_entity_specs_set_class_type(new_class,
-                            get_user_defined_type(decl_context.current_scope->related_entry));
+                            get_user_defined_type(decl_context->current_scope->related_entry));
                     }
 
                     // Get the primary class
@@ -4386,9 +4386,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
         // If the class is being declared in class-scope it means
         // it is a nested class
-        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        if (decl_context->current_scope->kind == CLASS_SCOPE)
         {
-            scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+            scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
             type_t* enclosing_class_type = enclosing_class_symbol->type_information;
             class_type_add_member(enclosing_class_type, class_entry,
                     /* is_definition */ 0);
@@ -4407,10 +4407,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             c = c || is_dependent_type(enclosing_class_type);
             set_is_dependent_type(class_entry->type_information, c);
         }
-        else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+        else if (decl_context->current_scope->kind == BLOCK_SCOPE)
         {
             // This is a local class
-            scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
+            scope_entry_t* enclosing_function = decl_context->current_scope->related_entry;
 
             // A local class is dependent if enclosed in a template function or
             // a member function of a template class
@@ -4487,7 +4487,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         if (!class_gather_info.is_explicit_specialization
                 && !class_gather_info.is_explicit_instantiation
                 && is_template_specialized_type(class_entry->type_information)
-                && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                && (class_entry->decl_context->namespace_scope != decl_context->namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
         {
             error_printf("%s: error: specialization of '%s' in different namespace from definition\n",
@@ -4509,14 +4509,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             template_specialized_type_update_template_parameters(
                     class_entry->type_information,
-                    decl_context.template_parameters);
+                    decl_context->template_parameters);
 
             // Update the template_scope
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Updating template scope\n");
             }
-            class_entry->decl_context.template_parameters = decl_context.template_parameters;
+            class_entry->decl_context->template_parameters = decl_context->template_parameters;
         }
     }
 
@@ -4701,10 +4701,10 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             if (!gather_info->no_declarators)
             {
                 // If no declarators declare it in the first non-class enclosing namespace
-                new_decl_context.current_scope = decl_context.namespace_scope;
+                new_decl_context->current_scope = decl_context->namespace_scope;
             }
 
-            scope_entry_t* new_enum = new_symbol(new_decl_context, new_decl_context.current_scope, enum_name);
+            scope_entry_t* new_enum = new_symbol(new_decl_context, new_decl_context->current_scope, enum_name);
             new_enum->locus = ast_get_locus(id_expression);
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context, enum_is_scoped);
@@ -4713,9 +4713,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
             *type_info = get_user_defined_type(new_enum);
 
-            if (new_decl_context.current_scope->kind == CLASS_SCOPE)
+            if (new_decl_context->current_scope->kind == CLASS_SCOPE)
             {
-                scope_entry_t* class_symbol = new_decl_context.current_scope->related_entry;
+                scope_entry_t* class_symbol = new_decl_context->current_scope->related_entry;
                 type_t* class_type = class_symbol->type_information;
                 class_type_add_member(get_actual_class_type(class_type), new_enum,
                         /* is_definition */ 0);
@@ -4805,7 +4805,7 @@ static char dependent_entry_is_same_class_base_or_nested(scope_entry_t* dependen
 static char entry_of_dependent_typename_is_in_an_enclosing_class(type_t* dependent_typename,
         decl_context_t decl_context)
 {
-     if (decl_context.class_scope == NULL)
+     if (decl_context->class_scope == NULL)
          return 0;
 
      scope_entry_t* dependent_entry = NULL;
@@ -4816,7 +4816,7 @@ static char entry_of_dependent_typename_is_in_an_enclosing_class(type_t* depende
      if (dependent_entry->kind != SK_CLASS)
          return 0;
 
-     scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+     scope_entry_t* class_in_scope = decl_context->class_scope->related_entry;
 
      return dependent_entry_is_same_class_base_or_nested(dependent_entry, class_in_scope);
 }
@@ -5171,10 +5171,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "BUILDSCOPE: Registering enum '%s' in '%p'\n", enum_name_str, decl_context.current_scope);
+                fprintf(stderr, "BUILDSCOPE: Registering enum '%s' in '%p'\n", enum_name_str, decl_context->current_scope);
             }
 
-            new_enum = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
+            new_enum = new_symbol(decl_context, decl_context->current_scope, enum_name_str);
             new_enum->locus = ast_get_locus(enum_name);
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context, enum_is_scoped);
@@ -5191,7 +5191,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "enum mcc_enum_anon_%d", anonymous_enums);
-            new_enum = new_symbol(decl_context, decl_context.current_scope, symbol_name);
+            new_enum = new_symbol(decl_context, decl_context->current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
@@ -5210,9 +5210,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         symbol_entity_specs_set_is_user_declared(new_enum, 1);
     }
 
-    if (decl_context.current_scope->kind == CLASS_SCOPE)
+    if (decl_context->current_scope->kind == CLASS_SCOPE)
     {
-        scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+        scope_entry_t* class_symbol = decl_context->current_scope->related_entry;
         type_t* class_type = class_symbol->type_information;
         class_type_add_member(get_actual_class_type(class_type), new_enum,
                 /* is_definition */ 1);
@@ -5282,10 +5282,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         C_LANGUAGE()
         {
-            if (enumerators_context.current_scope->kind == CLASS_SCOPE)
+            if (enumerators_context->current_scope->kind == CLASS_SCOPE)
             {
                 // Switch to the enclosing NAMESPACE scope
-                enumerators_context.current_scope = enumerators_context.namespace_scope;
+                enumerators_context->current_scope = enumerators_context->namespace_scope;
             }
         }
 
@@ -5317,16 +5317,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             AST enumeration_expr = ASTSon1(enumeration);
 
             scope_entry_t* enumeration_item = new_symbol(enumerators_context,
-                    enumerators_context.current_scope, ASTText(enumeration_name));
+                    enumerators_context->current_scope, ASTText(enumeration_name));
             enumeration_item->locus = ast_get_locus(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
             enumeration_item->type_information = get_signed_int_type();
 
             CXX03_LANGUAGE()
             {
-                if (decl_context.current_scope->kind == CLASS_SCOPE)
+                if (decl_context->current_scope->kind == CLASS_SCOPE)
                 {
-                    scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                    scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
                     type_t* enclosing_class_type = enclosing_class_symbol->type_information;
                     class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item,
                             /* is_definition */ 1);
@@ -5345,11 +5345,11 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     // Insert entry in the enclosing scope
                     // (note that in C and C++2003 we are already registering
                     // them in the enclosing scope)
-                    insert_entry(decl_context.current_scope, enumeration_item);
+                    insert_entry(decl_context->current_scope, enumeration_item);
 
-                    if (decl_context.current_scope->kind == CLASS_SCOPE)
+                    if (decl_context->current_scope->kind == CLASS_SCOPE)
                     {
-                        scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                        scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
                         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
                         class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item,
                                 /* is_definition */ 1);
@@ -5707,9 +5707,9 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
 #if 0
             scope_entry_t* enclosing_class = NULL;
-            if (class_entry->decl_context.current_scope->kind == CLASS_SCOPE)
+            if (class_entry->decl_context->current_scope->kind == CLASS_SCOPE)
             {
-                enclosing_class = class_entry->decl_context.current_scope->related_entry;
+                enclosing_class = class_entry->decl_context->current_scope->related_entry;
             }
 
             if (result->kind != SK_DEPENDENT_ENTITY
@@ -5980,7 +5980,7 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
             //   };
             // }
             if (entry->kind == SK_CLASS
-                    && entry->decl_context.current_scope->kind == BLOCK_SCOPE)
+                    && entry->decl_context->current_scope->kind == BLOCK_SCOPE)
                 return NESTING_CHECK_OK;
 
             return NESTING_CHECK_NOT_A_TEMPLATE;
@@ -6013,7 +6013,7 @@ void check_nodecl_member_initializer_list(
 
     scope_entry_list_t* result_list = NULL;
     decl_context_t class_context = class_type_get_inner_context(class_sym->type_information);
-    class_context.template_parameters = decl_context.template_parameters;
+    class_context->template_parameters = decl_context->template_parameters;
 
     char is_delegating_constructor = 0;
 
@@ -6352,7 +6352,7 @@ static void build_scope_ctor_initializer_dependent(
 {
     if (ctor_initializer != NULL)
     {
-        ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
+        ERROR_CONDITION(decl_context->current_scope->kind != BLOCK_SCOPE,
                 "Block scope is not valid", 0);
 
         AST mem_initializer_list = ASTSon0(ctor_initializer);
@@ -6398,7 +6398,7 @@ static void build_scope_ctor_initializer(
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    decl_context.decl_flags = DF_NONE;
+    decl_context->decl_flags = DF_NONE;
 
     nodecl_t nodecl_cxx_member_init_list = nodecl_null();
     build_scope_ctor_initializer_dependent(
@@ -6684,7 +6684,7 @@ void register_symbol_this(decl_context_t decl_context,
     type_t* pointed_this = get_user_defined_type(class_symbol);
     type_t* this_type = get_pointer_type(pointed_this);
 
-    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
+    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context->current_scope, UNIQUESTR_LITERAL("this"));
 
     this_symbol->locus = locus;
 
@@ -7315,7 +7315,7 @@ static void declare_constructors_for_candidate_constructor(
     }
 
     decl_context_t class_context = class_type_get_inner_context(class_type);
-    scope_t* class_scope = class_context.current_scope;
+    scope_t* class_scope = class_context->current_scope;
 
     scope_entry_t* new_inherited_constructor = NULL;
     new_inherited_constructor = new_symbol(class_context, class_scope,
@@ -7323,7 +7323,7 @@ static void declare_constructors_for_candidate_constructor(
     if (is_template_specialized_type(inherited_constructor->type_information))
     {
         decl_context_t templated_class_context = class_context;
-        class_context.template_parameters =
+        class_context->template_parameters =
                 template_specialized_type_get_template_parameters(inherited_constructor->type_information);
         type_t* template_type = get_new_template_type(
                 template_specialized_type_get_template_parameters(inherited_constructor->type_information),
@@ -7778,7 +7778,7 @@ static void finish_class_type_cxx(type_t* class_type,
     char no_constructors = (constructors == NULL);
 
     decl_context_t class_context = class_type_get_inner_context(class_type);
-    scope_t* class_scope = class_context.current_scope;
+    scope_t* class_scope = class_context->current_scope;
 
     if (no_constructors)
     {
@@ -9238,7 +9238,7 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
 
             symbol_entity_specs_set_anonymous_accessor(member, nodecl_accessor);
         }
-        insert_entry(enclosing_context.current_scope, member);
+        insert_entry(enclosing_context->current_scope, member);
 
         // If the members happen to be one of those faked members to access an
         // anonymous union then recursively add its members to the current scope
@@ -9277,7 +9277,7 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     accessing_name = strappend("var_", accessing_name);
 
     scope_entry_t* accessor_symbol = new_symbol(class_symbol->decl_context,
-            class_symbol->decl_context.current_scope,
+            class_symbol->decl_context->current_scope,
             accessing_name);
 
     accessor_symbol->kind = SK_VARIABLE;
@@ -9324,9 +9324,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // In C flatten nested structures otherwise it becomes crazy (because
         // of C irregularities in this point) to handle them
-        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        if (decl_context->current_scope->kind == CLASS_SCOPE)
         {
-            decl_context = decl_context.current_scope->related_entry->decl_context;
+            decl_context = decl_context->current_scope->related_entry->decl_context;
         }
     }
 
@@ -9455,7 +9455,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     && ASTKind(class_id_expression) != AST_TEMPLATE_ID)
             {
                 scope_entry_t* template_sym = class_entry;
-                if (decl_context.template_parameters == NULL)
+                if (decl_context->template_parameters == NULL)
                 {
                     error_printf("%s: error: template parameters required for declaration of '%s'\n",
                             ast_location(class_id_expression),
@@ -9464,19 +9464,19 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     return;
                 }
 
-                if (decl_context.template_parameters->num_parameters
+                if (decl_context->template_parameters->num_parameters
                         != template_type_get_template_parameters(template_sym->type_information)->num_parameters)
                 {
                     error_printf("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
                             ast_location(class_id_expression),
-                            decl_context.template_parameters->num_parameters,
+                            decl_context->template_parameters->num_parameters,
                             template_type_get_template_parameters(template_sym->type_information)->num_parameters);
                     *type_info = get_error_type();
                     return;
                 }
 
                 template_type_update_template_parameters(template_sym->type_information,
-                        decl_context.template_parameters);
+                        decl_context->template_parameters);
 
                 // If it was friend-declared, it is not anymore
                 if (symbol_entity_specs_get_is_friend_declared(template_sym))
@@ -9488,7 +9488,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
 
-                if (is_template_explicit_specialization(decl_context.template_parameters))
+                if (is_template_explicit_specialization(decl_context->template_parameters))
                 {
                     // We are declaring a template class nested in at least one class
                     // explicit specialization
@@ -9503,7 +9503,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     // This is the only legitimate use of this function
                     set_as_template_specialized_type(
                             class_entry->type_information,
-                            class_entry->decl_context.template_parameters,
+                            class_entry->decl_context->template_parameters,
                             template_sym->type_information);
 
                     class_type = class_entry->type_information;
@@ -9526,7 +9526,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
             }
 
-            nesting_check_t nest_check = check_template_nesting_of_name(class_entry, decl_context.template_parameters);
+            nesting_check_t nest_check = check_template_nesting_of_name(class_entry, decl_context->template_parameters);
 
             if (nest_check != NESTING_CHECK_OK)
             {
@@ -9562,7 +9562,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "BUILDSCOPE: Class '%s' already declared as %p in scope %p (%s)\n", 
                         prettyprint_in_buffer(class_id_expression),
                         class_entry, 
-                        class_entry->decl_context.current_scope,
+                        class_entry->decl_context->current_scope,
                         locus_to_str(class_entry->locus));
             }
 
@@ -9582,7 +9582,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 // Check the enclosing namespace scope
                 // This is only valid if the scope of the entry is an inlined namespace of the current one
-                if ((class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                if ((class_entry->decl_context->namespace_scope != decl_context->namespace_scope)
                         // The primary type can be defined anywhere since it is not a specialization per se
                         && (named_type_get_symbol(
                                 template_type_get_primary_type(
@@ -9598,7 +9598,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 if (!gather_info->is_explicit_specialization)
                 {
                     template_specialized_type_update_template_parameters(class_entry->type_information,
-                            decl_context.template_parameters);
+                            decl_context->template_parameters);
                 }
             }
 
@@ -9607,12 +9607,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 fprintf(stderr, "BUILDSCOPE: Updating template scope\n");
             }
-            class_entry->decl_context.template_parameters = decl_context.template_parameters;
+            class_entry->decl_context->template_parameters = decl_context->template_parameters;
             inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
 
             // Remove empty template headers if they are produced by an explicit template specialization
-            while (inner_decl_context.template_parameters != NULL &&
-                    inner_decl_context.template_parameters->is_explicit_specialization)
+            while (inner_decl_context->template_parameters != NULL &&
+                    inner_decl_context->template_parameters->is_explicit_specialization)
             {
                 // We should ignore the innermost template header because it's a explicit
                 // specialization declaration (we don't need them)
@@ -9632,7 +9632,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 //
                 // void A<float>::f(int*) {} OK!
 
-                inner_decl_context.template_parameters = inner_decl_context.template_parameters->enclosing;
+                inner_decl_context->template_parameters = inner_decl_context->template_parameters->enclosing;
             }
 
             class_type_set_inner_context(class_type, inner_decl_context);
@@ -9650,13 +9650,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     class_name = strappend(class_kind_name, strappend(" ", class_name));
 
                     class_entry = new_symbol(decl_context, 
-                            decl_context.current_scope, class_name);
+                            decl_context->current_scope, class_name);
                 }
 
                 CXX_LANGUAGE()
                 {
                     class_entry = new_symbol(decl_context, 
-                            decl_context.current_scope, 
+                            decl_context->current_scope, 
                             ASTText(class_id_expression));
                 }
             }
@@ -9676,7 +9676,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Registering class '%s' (%p) in scope %p\n", 
-                        prettyprint_in_buffer(class_id_expression), class_entry, decl_context.current_scope);
+                        prettyprint_in_buffer(class_id_expression), class_entry, decl_context->current_scope);
             }
 
             // Create the class type for this newly created class
@@ -9691,14 +9691,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 if (ASTKind(class_id_expression) != AST_TEMPLATE_ID)
                 {
-                    if (!check_class_template_parameters(ast_get_locus(a), decl_context.template_parameters))
+                    if (!check_class_template_parameters(ast_get_locus(a), decl_context->template_parameters))
                     {
                         *type_info = get_error_type();
                         return;
                     }
 
                     class_entry->kind = SK_TEMPLATE;
-                    class_entry->type_information = get_new_template_type(decl_context.template_parameters,
+                    class_entry->type_information = get_new_template_type(decl_context->template_parameters,
                             get_new_class_type(decl_context, class_kind),
                             ASTText(class_id_expression), decl_context,
                             ast_get_locus(class_id_expression));
@@ -9707,13 +9707,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     class_entry->locus = ast_get_locus(class_id_expression);
 
                     // Set it as a member if needed
-                    if (decl_context.current_scope->kind == CLASS_SCOPE)
+                    if (decl_context->current_scope->kind == CLASS_SCOPE)
                     {
                         symbol_entity_specs_set_is_member(class_entry, 1);
                         // FIXME
                         // symbol_entity_specs_set_access(class_entry, current_access);
                         symbol_entity_specs_set_class_type(class_entry,
-                            get_user_defined_type(decl_context.current_scope->related_entry));
+                            get_user_defined_type(decl_context->current_scope->related_entry));
                     }
 
                     // Now update class_entry to be a real class
@@ -9762,7 +9762,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         C_LANGUAGE()
         {
             uniquestr_sprintf(&symbol_name, "%s mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
-            class_entry = new_symbol(decl_context, decl_context.current_scope, symbol_name);
+            class_entry = new_symbol(decl_context, decl_context->current_scope, symbol_name);
         }
         CXX_LANGUAGE()
         {
@@ -9788,7 +9788,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         symbol_entity_specs_set_is_anonymous_union(class_entry, gather_info->no_declarators);
     }
 
-    ERROR_CONDITION(inner_decl_context.current_scope == NULL,
+    ERROR_CONDITION(inner_decl_context->current_scope == NULL,
             "The inner context was incorrectly set", 0);
 
     gather_info->defined_type = class_entry;
@@ -9812,9 +9812,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     // If the class is being declared in class-scope it means
     // it is a nested class
-    if (decl_context.current_scope->kind == CLASS_SCOPE)
+    if (decl_context->current_scope->kind == CLASS_SCOPE)
     {
-        scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+        scope_entry_t* enclosing_class_symbol = decl_context->current_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
 
         class_type_add_member(enclosing_class_type, class_entry, /* is_definition */ 1);
@@ -9833,10 +9833,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         c = c || is_dependent_type(enclosing_class_type);
         set_is_dependent_type(class_entry->type_information, c);
     }
-    else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    else if (decl_context->current_scope->kind == BLOCK_SCOPE)
     {
         // This is a local class
-        scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
+        scope_entry_t* enclosing_function = decl_context->current_scope->related_entry;
         if (enclosing_function != NULL
                 && (is_dependent_type(enclosing_function->type_information)
                     || (symbol_entity_specs_get_is_member(enclosing_function)
@@ -9875,7 +9875,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         if (!symbol_entity_specs_get_is_unnamed(class_entry))
         {
             scope_entry_t* injected_symbol = new_symbol(inner_decl_context,
-                    inner_decl_context.current_scope,
+                    inner_decl_context->current_scope,
                     class_entry->symbol_name);
 
             *injected_symbol = *class_entry;
@@ -10039,7 +10039,7 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
 {
-    ERROR_CONDITION(inner_decl_context.current_scope->kind != CLASS_SCOPE,
+    ERROR_CONDITION(inner_decl_context->current_scope->kind != CLASS_SCOPE,
             "Error, current scope should be a class scope", 0);
 
     // First pass, sign up only prototypes and simple declarations and
@@ -10183,24 +10183,24 @@ static void build_scope_declarator_with_parameter_context(AST declarator,
 
             // Update the entity context, inheriting the template_scope
             entity_context = first_symbol->decl_context;
-            entity_context.template_parameters = decl_context.template_parameters;
+            entity_context->template_parameters = decl_context->template_parameters;
 
             if (prototype_context != NULL)
             {
-                prototype_context->current_scope->contained_in = first_symbol->decl_context.current_scope;
-                prototype_context->namespace_scope = first_symbol->decl_context.namespace_scope;
-                prototype_context->class_scope = first_symbol->decl_context.class_scope;
+                (*prototype_context)->current_scope->contained_in = first_symbol->decl_context->current_scope;
+                (*prototype_context)->namespace_scope = first_symbol->decl_context->namespace_scope;
+                (*prototype_context)->class_scope = first_symbol->decl_context->class_scope;
 
             }
         }
 
         // Register 'this' for declarator successful parsing of the declarator
-        if (prototype_context != NULL
-                && prototype_context->current_scope->kind == BLOCK_SCOPE
-                && entity_context.current_scope->kind == CLASS_SCOPE)
+        if (*prototype_context != NULL
+                && (*prototype_context)->current_scope->kind == BLOCK_SCOPE
+                && entity_context->current_scope->kind == CLASS_SCOPE)
         {
             register_symbol_this(*prototype_context,
-                    entity_context.current_scope->related_entry,
+                    entity_context->current_scope->related_entry,
                     ast_get_locus(declarator));
         }
 
@@ -10457,22 +10457,22 @@ static void set_array_type(type_t** declarator_type,
         if (!nodecl_expr_is_value_dependent(nodecl_expr)
                 && !nodecl_is_constant(nodecl_expr))
         {
-            if (decl_context.current_scope->kind == NAMESPACE_SCOPE
-                    || decl_context.current_scope->kind == CLASS_SCOPE)
+            if (decl_context->current_scope->kind == NAMESPACE_SCOPE
+                    || decl_context->current_scope->kind == CLASS_SCOPE)
             {
                 error_printf("%s: error: declaring a variable sized object in a scope not allowing them\n",
                         ast_location(constant_expr));
                 *declarator_type = get_error_type();
                 return;
             }
-            // // Maybe we should check for decl_context.block_scope != NULL
-            else if (decl_context.current_scope->kind == BLOCK_SCOPE
+            // // Maybe we should check for decl_context->block_scope != NULL
+            else if (decl_context->current_scope->kind == BLOCK_SCOPE
                     && !gather_info->is_cxx_new_declarator)
             {
                 const char* vla_name = NULL;
                 uniquestr_sprintf(&vla_name, "mcc_vla_%d", get_vla_counter());
 
-                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
+                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context->current_scope, vla_name);
 
                 new_vla_dim->kind = SK_VARIABLE;
                 new_vla_dim->locus = ast_get_locus(constant_expr);
@@ -10501,7 +10501,7 @@ static void set_array_type(type_t** declarator_type,
                 nodecl_expr = nodecl_make_symbol(new_vla_dim, new_vla_dim->locus);
                 nodecl_set_type(nodecl_expr, new_vla_dim->type_information);
             }
-            else if (decl_context.current_scope->kind == PROTOTYPE_SCOPE)
+            else if (decl_context->current_scope->kind == PROTOTYPE_SCOPE)
             {
                 // Do nothing, keep the expression as is, this is what we want, actually
             }
@@ -10671,7 +10671,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
                 decl_context_t param_decl_context = decl_context;
                 scope_entry_t* new_parameter = new_symbol(param_decl_context, 
-                        param_decl_context.current_scope,
+                        param_decl_context->current_scope,
                         ASTText(kr_id));
 
                 new_parameter->kind = SK_VARIABLE;
@@ -11503,8 +11503,8 @@ static void update_function_specifiers(scope_entry_t* entry,
 
     C_LANGUAGE()
     {
-        if (entry->decl_context.current_scope
-                == entry->decl_context.global_scope)
+        if (entry->decl_context->current_scope
+                == entry->decl_context->global_scope)
         {
             // If this function is global, and previously declared not static,
             // extern or inline and now is going to be inline, make it extern
@@ -11656,10 +11656,10 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                 {
                     char name_of_a_constructor =
                         is_function_type(declarator_type)
-                        && decl_context.current_scope->kind == CLASS_SCOPE
-                        && decl_context.current_scope->related_entry != NULL
-                        && decl_context.current_scope->related_entry->symbol_name != NULL
-                        && strcmp(decl_context.current_scope->related_entry->symbol_name,
+                        && decl_context->current_scope->kind == CLASS_SCOPE
+                        && decl_context->current_scope->related_entry != NULL
+                        && decl_context->current_scope->related_entry->symbol_name != NULL
+                        && strcmp(decl_context->current_scope->related_entry->symbol_name,
                                 ASTText(declarator_id)) == 0;
 
                     if (type_specifier == NULL)
@@ -11667,7 +11667,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                         if (name_of_a_constructor)
                         {
                             // this names a constructor
-                            decl_context.decl_flags |= DF_CONSTRUCTOR;
+                            decl_context->decl_flags |= DF_CONSTRUCTOR;
                         }
                         else
                         {
@@ -11746,10 +11746,10 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                     char name_of_a_constructor =
                         (ASTKind(template_name) == AST_SYMBOL)
                         && is_function_type(declarator_type)
-                        && decl_context.current_scope->kind == CLASS_SCOPE
-                        && decl_context.current_scope->related_entry != NULL
-                        && decl_context.current_scope->related_entry->symbol_name != NULL
-                        && strcmp(decl_context.current_scope->related_entry->symbol_name,
+                        && decl_context->current_scope->kind == CLASS_SCOPE
+                        && decl_context->current_scope->related_entry != NULL
+                        && decl_context->current_scope->related_entry->symbol_name != NULL
+                        && strcmp(decl_context->current_scope->related_entry->symbol_name,
                                 ASTText(template_name)) == 0;
 
                     if (type_specifier == NULL)
@@ -11765,7 +11765,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                             if (entry_list == NULL
                                     || entry_list_head(entry_list)->kind != SK_CLASS
                                     || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
-                                        != decl_context.current_scope->related_entry))
+                                        != decl_context->current_scope->related_entry))
                             {
                                 error_printf("%s: error: invalid constructor declaration '%s'\n",
                                         ast_location(declarator),
@@ -11774,7 +11774,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                             }
 
                             // this names a constructor
-                            decl_context.decl_flags |= DF_CONSTRUCTOR;
+                            decl_context->decl_flags |= DF_CONSTRUCTOR;
                             // now drop the template-id and work only with the name
                             declarator_id = template_name;
                         }
@@ -11959,7 +11959,7 @@ static scope_entry_t* build_scope_declarator_name(AST declarator,
                                     if (name_of_a_constructor)
                                     {
                                         // this names a constructor
-                                        decl_context.decl_flags |= DF_CONSTRUCTOR;
+                                        decl_context->decl_flags |= DF_CONSTRUCTOR;
                                     }
                                     else
                                     {
@@ -12156,13 +12156,13 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             unnamed_symbol->symbol_name = ASTText(declarator_id);
             symbol_entity_specs_set_is_unnamed(unnamed_symbol, 0);
 
-            insert_entry(unnamed_symbol->decl_context.current_scope, unnamed_symbol);
+            insert_entry(unnamed_symbol->decl_context->current_scope, unnamed_symbol);
 
             return unnamed_symbol;
         }
     }
 
-    scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
+    scope_entry_t* entry = new_symbol(decl_context, decl_context->current_scope, ASTText(declarator_id));
 
     DEBUG_CODE()
     {
@@ -12322,11 +12322,11 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Registering variable '%s' in %p\n", ASTText(declarator_id), decl_context.current_scope);
+            fprintf(stderr, "BUILDSCOPE: Registering variable '%s' in %p\n", ASTText(declarator_id), decl_context->current_scope);
         }
 
         scope_entry_t* entry = NULL;
-        entry = new_symbol(decl_context, decl_context.current_scope, ASTText(declarator_id));
+        entry = new_symbol(decl_context, decl_context->current_scope, ASTText(declarator_id));
 
         entry->locus = ast_get_locus(declarator_id);
         entry->kind = SK_VARIABLE;
@@ -12369,8 +12369,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         // No existing function was found
         const char* function_name = ASTText(declarator_id);
 
-        char declares_a_constructor = BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR);
-        decl_context.decl_flags &= ~DF_CONSTRUCTOR;
+        char declares_a_constructor = BITMAP_TEST(decl_context->decl_flags, DF_CONSTRUCTOR);
+        decl_context->decl_flags &= ~DF_CONSTRUCTOR;
         if (declares_a_constructor)
         {
             function_name = strprepend(function_name, "constructor ");
@@ -12384,14 +12384,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             if (!gather_info->is_friend)
             {
-                new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
+                new_entry = new_symbol(decl_context, decl_context->current_scope, function_name);
             }
             // If it is friend it must be signed in in the enclosing namespace
             // and the current_scope must be the namespace_scope
             else
             {
-                new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
-                new_entry->decl_context.current_scope = decl_context.namespace_scope;
+                new_entry = new_symbol(decl_context, decl_context->namespace_scope, function_name);
+                new_entry->decl_context->current_scope = decl_context->namespace_scope;
             }
 
             new_entry->type_information = declarator_type;
@@ -12422,7 +12422,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
         else /* gather_info->is_template */
         {
-            if (decl_context.template_parameters == NULL)
+            if (decl_context->template_parameters == NULL)
             {
                 error_printf("%s: error: explicit specialization '%s' does not match any template of '%s'\n",
                         ast_location(declarator_id),
@@ -12431,27 +12431,27 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 return NULL;
             }
 
-            ERROR_CONDITION(decl_context.template_parameters == NULL,
+            ERROR_CONDITION(decl_context->template_parameters == NULL,
                     "Error, there must be template parameters", 0);
 
             decl_context_t template_context = decl_context;
             if (!gather_info->is_friend)
             {
-                new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
+                new_entry = new_symbol(decl_context, decl_context->current_scope, function_name);
             }
             // If it is friend it must be signed in in the enclosing namespace
             // and the current_scope must be the namespace_scope
             else
             {
-                new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
-                new_entry->decl_context.current_scope = decl_context.namespace_scope;
+                new_entry = new_symbol(decl_context, decl_context->namespace_scope, function_name);
+                new_entry->decl_context->current_scope = decl_context->namespace_scope;
 
-                template_context.current_scope = decl_context.namespace_scope;
+                template_context->current_scope = decl_context->namespace_scope;
             }
 
             // If this function is template we have to create a template type
             // in the right context (It may be friend declared)
-            type_t* template_type = get_new_template_type(decl_context.template_parameters,
+            type_t* template_type = get_new_template_type(decl_context->template_parameters,
                     declarator_type,
                     function_name,
                     template_context,
@@ -12465,13 +12465,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             symbol_entity_specs_set_is_friend_declared(new_entry, 0);
 
-            if (decl_context.current_scope->kind == CLASS_SCOPE
+            if (decl_context->current_scope->kind == CLASS_SCOPE
                     && !symbol_entity_specs_get_is_friend_declared(new_entry))
             {
                 symbol_entity_specs_set_is_member(new_entry, 1);
 
                 symbol_entity_specs_set_class_type(new_entry,
-                    get_user_defined_type(decl_context.current_scope->related_entry));
+                    get_user_defined_type(decl_context->current_scope->related_entry));
             }
 
             template_type_set_related_symbol(template_type, new_entry);
@@ -12500,7 +12500,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     function_name, 
                     ast_location(declarator_id),
                     new_entry,
-                    new_entry->decl_context.current_scope,
+                    new_entry->decl_context->current_scope,
                     (new_entry->kind == SK_TEMPLATE)
                    );
         }
@@ -12543,7 +12543,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             if (!gather_info->is_static
                     && !gather_info->is_extern)
             {
-                if (decl_context.current_scope->kind != BLOCK_SCOPE)
+                if (decl_context->current_scope->kind != BLOCK_SCOPE)
                 {
                     error_printf("%s: error: invalid auto linkage specifier for functions in non block scope\n",
                             ast_location(declarator_id));
@@ -12561,7 +12561,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             }
         }
 
-        if (decl_context.current_scope->kind == BLOCK_SCOPE)
+        if (decl_context->current_scope->kind == BLOCK_SCOPE)
         {
             if (gather_info->is_static)
             {
@@ -12570,7 +12570,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             }
         }
 
-        if (decl_context.current_scope->kind != BLOCK_SCOPE)
+        if (decl_context->current_scope->kind != BLOCK_SCOPE)
         {
             symbol_entity_specs_set_linkage_spec(new_entry, linkage_current_get_name());
         }
@@ -12598,12 +12598,12 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         // If the declaration context is CLASS_SCOPE and the function definition is friend,
         // It is not a member class
-        if (decl_context.current_scope->kind == CLASS_SCOPE
+        if (decl_context->current_scope->kind == CLASS_SCOPE
             && !symbol_entity_specs_get_is_friend_declared(new_entry))
         {
             symbol_entity_specs_set_is_member(new_entry, 1);
             symbol_entity_specs_set_class_type(new_entry,
-                get_user_defined_type(decl_context.current_scope->related_entry));
+                get_user_defined_type(decl_context->current_scope->related_entry));
         }
 
         for (i = 0; i < gather_info->num_arguments_info; i++)
@@ -12638,7 +12638,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         if (do_delay_function)
         {
-            ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE,
+            ERROR_CONDITION(decl_context->current_scope->kind != CLASS_SCOPE,
                     "Invalid parse later default argument", 0);
             build_scope_delayed_add_function_declaration(new_entry, decl_context);
         }
@@ -12803,7 +12803,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         decl_flags |= DF_ONLY_CURRENT_SCOPE;
     }
 
-    lookup_context.current_scope = lookup_context.namespace_scope;
+    lookup_context->current_scope = lookup_context->namespace_scope;
 
     scope_entry_list_t* entry_list
         = query_id_expression_flags(lookup_context, declarator_id_without_template_id, NULL, decl_flags);
@@ -12949,10 +12949,10 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         symbol_entity_specs_set_is_friend_declared(func_templ, 1);
 
         func_templ->decl_context = decl_context;
-        func_templ->decl_context.current_scope = decl_context.namespace_scope;
+        func_templ->decl_context->current_scope = decl_context->namespace_scope;
 
         func_templ->type_information =
-            get_new_template_type(decl_context.template_parameters, declarator_type,
+            get_new_template_type(decl_context->template_parameters, declarator_type,
                     ASTText(declarator_id), decl_context, ast_get_locus(declarator_id));
 
         // Perhaps we may need to update some entity specs of the primary symbol
@@ -12975,7 +12975,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     new_entry->type_information = declarator_type;
 
     new_entry->decl_context = decl_context;
-    new_entry->decl_context.current_scope = decl_context.namespace_scope;
+    new_entry->decl_context->current_scope = decl_context->namespace_scope;
 
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
@@ -13105,7 +13105,7 @@ static char find_function_declaration(AST declarator_id,
     }
 
     decl_flags_t decl_flags = DF_NONE;
-    if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+    if (BITMAP_TEST(decl_context->decl_flags, DF_CONSTRUCTOR))
     {
         decl_flags |= DF_CONSTRUCTOR;
     }
@@ -13139,7 +13139,7 @@ static char find_function_declaration(AST declarator_id,
         // C++ Standard 7.3.1.2 Namespace member definitions
         if (ASTKind(declarator_id) != AST_QUALIFIED_ID)
         {
-            lookup_context.current_scope = lookup_context.namespace_scope;
+            lookup_context->current_scope = lookup_context->namespace_scope;
         }
 
         // The class or function is not a template class or template function
@@ -13256,7 +13256,7 @@ static char find_function_declaration(AST declarator_id,
         if (!gather_info->is_explicit_instantiation
                 && !(gather_info->is_friend && declarator_is_template_id))
         {
-            nesting_check_t nest_check = check_template_nesting_of_name(considered_symbol, decl_context.template_parameters);
+            nesting_check_t nest_check = check_template_nesting_of_name(considered_symbol, decl_context->template_parameters);
 
             if (nest_check == NESTING_CHECK_OK)
             {
@@ -13434,7 +13434,7 @@ static char find_function_declaration(AST declarator_id,
                 //
                 if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
                 {
-                    template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
+                    template_parameter_list_t* decl_template_parameters = decl_context->template_parameters;
 
                     // Now the types match, but it might happen that template parameters don't, like here
                     //
@@ -13968,12 +13968,12 @@ static void push_new_template_header_level(decl_context_t decl_context,
         decl_context_t *template_context,
         char is_explicit_specialization)
 {
-    (*template_context) = decl_context;
+    (*template_context) = decl_context_clone(decl_context);
     // A new level of template nesting
-    (*template_context).template_parameters = NEW0(template_parameter_list_t);
+    (*template_context)->template_parameters = NEW0(template_parameter_list_t);
 
-    (*template_context).template_parameters->is_explicit_specialization = is_explicit_specialization;
-    (*template_context).template_parameters->enclosing = decl_context.template_parameters;
+    (*template_context)->template_parameters->is_explicit_specialization = is_explicit_specialization;
+    (*template_context)->template_parameters->enclosing = decl_context->template_parameters;
 }
 
 void build_scope_template_header(AST template_parameter_list, 
@@ -13986,7 +13986,7 @@ void build_scope_template_header(AST template_parameter_list,
     int nesting = get_template_nesting_of_context(decl_context) + 1;
 
     build_scope_template_parameter_list(template_parameter_list, 
-            (*template_context).template_parameters, 
+            (*template_context)->template_parameters, 
             nesting,
             (*template_context), nodecl_output);
 }
@@ -14357,8 +14357,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             {
                 // Here the template scope is the one of the template declaration,
                 // not for the symbol
-                decl_context_t initializer_context = entry->decl_context;
-                initializer_context.template_parameters = new_decl_context.template_parameters;
+                decl_context_t initializer_context = decl_context_clone(entry->decl_context);
+                initializer_context->template_parameters = new_decl_context->template_parameters;
 
                 nodecl_t nodecl_expr = nodecl_null();
                 check_initialization(initializer,
@@ -14419,7 +14419,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             (entry->kind == SK_VARIABLE
              && entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
-        decl_context.template_parameters = entry->decl_context.template_parameters;
+        decl_context->template_parameters = entry->decl_context->template_parameters;
 
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
@@ -14527,11 +14527,12 @@ static void build_scope_template_template_parameter(AST a,
     // "identifier" is then a template-name
     //
     // Construct parameter information
-    decl_context_t template_params_context = template_context;
+    decl_context_t template_params_context = decl_context_clone(template_context);
 
-    template_params_context.template_parameters = NEW0(template_parameter_list_t);
+    template_params_context->template_parameters = NEW0(template_parameter_list_t);
 
-    build_scope_template_parameter_list(ASTSon0(a), template_params_context.template_parameters,
+    build_scope_template_parameter_list(ASTSon0(a),
+            template_params_context->template_parameters,
             /* nesting */ 1, template_params_context, nodecl_output);
 
 
@@ -14572,7 +14573,7 @@ static void build_scope_template_template_parameter(AST a,
     // This is a faked class type
     type_t* primary_type = get_new_class_type(template_context, TT_CLASS);
 
-    new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
+    new_entry->type_information = get_new_template_type(template_params_context->template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
             new_entry->locus);
     set_is_dependent_type(new_entry->type_information, 1);
@@ -14892,7 +14893,7 @@ static void build_scope_nontype_template_parameter(AST a,
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (decl_context.current_scope->kind != NAMESPACE_SCOPE)
+    if (decl_context->current_scope->kind != NAMESPACE_SCOPE)
     {
         error_printf("%s: error: namespace alias in a non namespace scope\n",
                 ast_location(a));
@@ -14930,7 +14931,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context, node
             return;
         }
 
-        if (alias_entry->related_decl_context.current_scope->related_entry == entry)
+        if (alias_entry->related_decl_context->current_scope->related_entry == entry)
         {
             // we don't need to create a new alias, reuse the current one
             create_new_alias = 0;
@@ -14940,7 +14941,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context, node
 
     if (create_new_alias)
     {
-        alias_entry = new_symbol(decl_context, decl_context.current_scope, alias_name);
+        alias_entry = new_symbol(decl_context, decl_context->current_scope, alias_name);
 
         alias_entry->locus = ast_get_locus(alias_ident);
         alias_entry->kind = SK_NAMESPACE;
@@ -14979,7 +14980,7 @@ static void build_scope_namespace_definition(AST a,
 
     if (namespace_name != NULL)
     {
-        ERROR_CONDITION((decl_context.current_scope->kind != NAMESPACE_SCOPE),
+        ERROR_CONDITION((decl_context->current_scope->kind != NAMESPACE_SCOPE),
                 "Incorrect scope, it should be a namespace scope", 0);
 
         // Register this namespace if it does not exist in this scope
@@ -15014,7 +15015,7 @@ static void build_scope_namespace_definition(AST a,
         }
         else
         {
-            entry = new_symbol(decl_context, decl_context.current_scope, ASTText(namespace_name));
+            entry = new_symbol(decl_context, decl_context->current_scope, ASTText(namespace_name));
             namespace_context = new_namespace_context(decl_context, entry);
 
             entry->locus = ast_get_locus(namespace_name);
@@ -15028,7 +15029,7 @@ static void build_scope_namespace_definition(AST a,
                 symbol_entity_specs_set_is_inline(entry, 1);
 
                 // An inline namespace is an associated namespace of the current namespace
-                scope_t* namespace_scope = decl_context.current_scope;
+                scope_t* namespace_scope = decl_context->current_scope;
 
                 P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces,
                         entry);
@@ -15078,7 +15079,7 @@ static void build_scope_namespace_definition(AST a,
         }
         else
         {
-            scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, unnamed_namespace);
+            scope_entry_t* entry = new_symbol(decl_context, decl_context->current_scope, unnamed_namespace);
             namespace_context = new_namespace_context(decl_context, entry);
 
             entry->locus = ast_get_locus(a);
@@ -15087,7 +15088,7 @@ static void build_scope_namespace_definition(AST a,
 
             // Link the scope of this newly created namespace
             // And associate it to the current namespace
-            scope_t* namespace_scope = decl_context.current_scope;
+            scope_t* namespace_scope = decl_context->current_scope;
 
             // Anonymous namespace is implemented as an associated namespace of the current scope
             P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces,
@@ -15377,13 +15378,13 @@ void set_parameters_as_related_symbols(scope_entry_t* entry,
         scope_entry_t* current_param = gather_info->arguments_info[i].entry;
         if (current_param != NULL)
         {
-            if (current_param->decl_context.current_scope->related_entry == NULL
-                    && current_param->decl_context.current_scope->kind == PROTOTYPE_SCOPE)
+            if (current_param->decl_context->current_scope->related_entry == NULL
+                    && current_param->decl_context->current_scope->kind == PROTOTYPE_SCOPE)
             {
                 // Make sure this prototype scope knows what function it refers
                 // (A prototype scope may not have related entry because there
                 // may be none. For instance in a nested function declarator)
-                current_param->decl_context.current_scope->related_entry = entry;
+                current_param->decl_context->current_scope->related_entry = entry;
             }
 
             // Remember this symbol as a parameter of entry
@@ -16156,9 +16157,9 @@ static scope_entry_t* build_scope_function_definition_declarator(
     }
 
     // Set the related entry
-    block_context->current_scope->related_entry = entry;
+    (*block_context)->current_scope->related_entry = entry;
 
-    if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    if (decl_context->current_scope->kind == BLOCK_SCOPE)
     {
         if (symbol_entity_specs_get_is_extern(entry))
         {
@@ -16252,7 +16253,7 @@ scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_contex
     //
     // Sign in __MERCURIUM_PRETTY_FUNCTION__
     scope_entry_t* mercurium_pretty_function = new_symbol(block_context,
-            block_context.current_scope,
+            block_context->current_scope,
             mercurium_pretty_function_str);
     mercurium_pretty_function->kind = SK_VARIABLE;
     mercurium_pretty_function->type_information =
@@ -16263,7 +16264,7 @@ scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_contex
     mercurium_pretty_function->locus = entry->locus;
 
     // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
-    insert_alias(block_context.current_scope, mercurium_pretty_function, pretty_function_str);
+    insert_alias(block_context->current_scope, mercurium_pretty_function, pretty_function_str);
 
     return mercurium_pretty_function;
 }
@@ -16432,7 +16433,7 @@ static void build_scope_function_definition_body(
         unsigned int j;
         for (j = 0; j < STATIC_ARRAY_LENGTH(func_names); j++)
         {
-            scope_entry_t* func_var = new_symbol(block_context, block_context.current_scope, func_names[j]);
+            scope_entry_t* func_var = new_symbol(block_context, block_context->current_scope, func_names[j]);
             func_var->kind = SK_VARIABLE;
             func_var->type_information = no_ref(nodecl_get_type(nodecl_expr));
             func_var->value = nodecl_expr;
@@ -16445,7 +16446,7 @@ static void build_scope_function_definition_body(
         {
             // Insert a dependent __PRETTY_FUNCTION__
             scope_entry_t* pretty_function = new_symbol(block_context,
-                    block_context.current_scope,
+                    block_context->current_scope,
                     pretty_function_str);
             pretty_function->kind = SK_VARIABLE;
             pretty_function->type_information = get_unknown_dependent_type();
@@ -16462,7 +16463,7 @@ static void build_scope_function_definition_body(
             && !is_void_type(function_type_get_return_type(entry->type_information)))
     {
         scope_entry_t* result_sym = new_symbol(block_context,
-                block_context.current_scope,
+                block_context->current_scope,
                 ".result"); // This name is currently not user accessible
         result_sym->kind = SK_VARIABLE;
         symbol_entity_specs_set_is_result_var(result_sym, 1);
@@ -17187,7 +17188,7 @@ void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declar
 
     if (hidden != NULL)
     {
-        remove_entry(class_context.current_scope, hidden);
+        remove_entry(class_context->current_scope, hidden);
     }
 }
 
@@ -17648,7 +17649,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             // Invent some name to sign it up because we will
                             // need it when computing the size of a class
-                            bitfield_symbol = new_symbol(decl_context, decl_context.current_scope, 
+                            bitfield_symbol = new_symbol(decl_context, decl_context->current_scope, 
                                     get_unique_name());
                             bitfield_symbol->kind = SK_VARIABLE;
                             bitfield_symbol->type_information = declarator_type;
@@ -18360,12 +18361,12 @@ static void call_destructors_of_classes(decl_context_t block_context,
 {
     call_to_destructor_data_t call_to_destructor_data = { 
         .nodecl_output = nodecl_output,
-        .scope = block_context.current_scope,
+        .scope = block_context->current_scope,
         .decl_context = block_context,
         .locus = locus,
     };
 
-    scope_for_each_entity(block_context.current_scope, &call_to_destructor_data, call_to_destructor);
+    scope_for_each_entity(block_context->current_scope, &call_to_destructor_data, call_to_destructor);
 }
 
 /*
@@ -19131,7 +19132,7 @@ static void build_scope_for_statement_range(AST a,
     }
 
     // Create __range
-    scope_entry_t* range_symbol = new_symbol(block_context, block_context.current_scope, ".__range");
+    scope_entry_t* range_symbol = new_symbol(block_context, block_context->current_scope, ".__range");
     range_symbol->symbol_name = UNIQUESTR_LITERAL("__range");
     range_symbol->kind = SK_VARIABLE;
     range_symbol->type_information = get_rvalue_reference_type(get_auto_type());
@@ -19374,7 +19375,7 @@ static void build_scope_for_statement_range(AST a,
     }
 
     // Create __begin and __end
-    scope_entry_t* begin_symbol = new_symbol(block_context, block_context.current_scope, ".__begin");
+    scope_entry_t* begin_symbol = new_symbol(block_context, block_context->current_scope, ".__begin");
     begin_symbol->symbol_name = UNIQUESTR_LITERAL("__begin");
     begin_symbol->kind = SK_VARIABLE;
     begin_symbol->type_information = get_auto_type();
@@ -19398,7 +19399,7 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
-    scope_entry_t* end_symbol = new_symbol(block_context, block_context.current_scope, ".__end");
+    scope_entry_t* end_symbol = new_symbol(block_context, block_context->current_scope, ".__end");
     end_symbol->symbol_name = UNIQUESTR_LITERAL("__end");
     end_symbol->kind = SK_VARIABLE;
     end_symbol->type_information = get_auto_type();
@@ -19553,7 +19554,7 @@ scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t dec
     scope_entry_t* sym_label = NULL;
     if (entry_list == NULL)
     {
-        sym_label = new_symbol(decl_context, decl_context.function_scope, label_text);
+        sym_label = new_symbol(decl_context, decl_context->function_scope, label_text);
         sym_label->kind = SK_LABEL;
         sym_label->locus = locus;
     }
@@ -19771,7 +19772,7 @@ static void build_scope_nodecl_return_statement(
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    scope_entry_t* function = decl_context.current_scope->related_entry;
+    scope_entry_t* function = decl_context->current_scope->related_entry;
     ERROR_CONDITION(function == NULL
             || (function->kind != SK_FUNCTION
                 && function->kind != SK_DEPENDENT_FRIEND_FUNCTION
@@ -19933,7 +19934,7 @@ static void build_scope_return_statement(AST a,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    scope_entry_t* function = decl_context.current_scope->related_entry;
+    scope_entry_t* function = decl_context->current_scope->related_entry;
     ERROR_CONDITION(function == NULL
             || (function->kind != SK_FUNCTION
                 && function->kind != SK_DEPENDENT_FRIEND_FUNCTION
@@ -21285,7 +21286,7 @@ static void instantiate_template_function_code(
     decl_context_t new_decl_context = new_block_context(v->new_decl_context);
     new_decl_context = new_function_context(new_decl_context);
     ERROR_CONDITION(v->new_function_instantiated == NULL, "Missing new function", 0);
-    new_decl_context.current_scope->related_entry = v->new_function_instantiated;
+    new_decl_context->current_scope->related_entry = v->new_function_instantiated;
 
     ERROR_CONDITION(v->orig_function_instantiated == NULL, "Missing orig function", 0);
 
@@ -21305,7 +21306,7 @@ static void instantiate_template_function_code(
         scope_entry_t* orig_parameter =
                 symbol_entity_specs_get_related_symbols_num(v->orig_function_instantiated, num_parameter);
         scope_entry_t* new_parameter = new_symbol(new_decl_context,
-                new_decl_context.current_scope,
+                new_decl_context->current_scope,
                 orig_parameter->symbol_name);
 
         new_parameter->kind = orig_parameter->kind;
@@ -21354,7 +21355,7 @@ static void instantiate_template_function_code(
                         num_sub_parameter);
 
                 scope_entry_t* new_sub_parameter = new_symbol(new_decl_context,
-                        new_decl_context.current_scope,
+                        new_decl_context->current_scope,
                         c);
 
                 new_sub_parameter->kind = SK_VARIABLE;
@@ -21434,7 +21435,7 @@ static void instantiate_template_function_code(
         scope_entry_t* orig_result_var =
                 symbol_entity_specs_get_result_var(v->orig_function_instantiated);
         scope_entry_t* new_result_var = new_symbol(new_decl_context,
-                new_decl_context.current_scope,
+                new_decl_context->current_scope,
                 orig_result_var->symbol_name);
 
         new_result_var->kind = SK_VARIABLE;
@@ -21471,7 +21472,7 @@ static void instantiate_template_function_code(
         this_type = get_cv_qualified_type(this_type, CV_CONST);
 
         scope_entry_t* this_symbol = new_symbol(new_decl_context,
-                new_decl_context.current_scope,
+                new_decl_context->current_scope,
                 "this");
 
         this_symbol->kind = SK_VARIABLE;
@@ -21606,7 +21607,7 @@ static void instantiate_return_statement(
     nodecl_t nodecl_return_expression = instantiate_expression(expression, v->new_decl_context,
             v->instantiation_symbol_map, /* pack_index */ -1);
 
-    scope_entry_t* function = v->new_decl_context.current_scope->related_entry;
+    scope_entry_t* function = v->new_decl_context->current_scope->related_entry;
     ERROR_CONDITION(function == NULL
             || (function->kind != SK_FUNCTION
                 && function->kind != SK_LAMBDA),
@@ -21633,7 +21634,7 @@ static scope_entry_t* instantiate_declaration_common(
     scope_entry_t* new_entry = instantiation_symbol_do_map(v->instantiation_symbol_map, orig_entry);
     if (new_entry == NULL)
     {
-        new_entry = new_symbol(v->new_decl_context, v->new_decl_context.current_scope, orig_entry->symbol_name);
+        new_entry = new_symbol(v->new_decl_context, v->new_decl_context->current_scope, orig_entry->symbol_name);
         new_entry->kind = orig_entry->kind;
         new_entry->locus = orig_entry->locus;
 

@@ -126,7 +126,7 @@ static void fortran_init_globals(decl_context_t decl_context)
     int i;
     for (i = 0; intrinsic_globals[i].symbol_name != NULL; i++)
     {
-        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope,
+        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context->global_scope,
                 uniquestr(intrinsic_globals[i].symbol_name));
         mercurium_intptr->kind = SK_VARIABLE;
         mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
@@ -197,7 +197,7 @@ static scope_entry_t* get_special_symbol(decl_context_t decl_context, const char
     ERROR_CONDITION(name == NULL || name[0] != '.', "Name '%s' is not special enough\n", name);
 
     decl_context_t global_context = decl_context;
-    global_context.current_scope = global_context.function_scope;
+    global_context->current_scope = global_context->function_scope;
 
     scope_entry_list_t* entry_list = query_in_scope_str_flags(global_context, name, NULL, DF_ONLY_CURRENT_SCOPE);
     if (entry_list == NULL)
@@ -218,9 +218,9 @@ static scope_entry_t* get_or_create_special_symbol(decl_context_t decl_context, 
     {
         // Sign it in function scope
         decl_context_t global_context = decl_context;
-        global_context.current_scope = global_context.function_scope;
+        global_context->current_scope = global_context->function_scope;
 
-        unknown_info = new_symbol(global_context, global_context.current_scope, name);
+        unknown_info = new_symbol(global_context, global_context->current_scope, name);
         unknown_info->kind = SK_OTHER;
     }
 
@@ -254,22 +254,22 @@ scope_entry_t* fortran_get_equivalence_symbol_info(decl_context_t decl_context)
 
 scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context)
 {
-    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL, "No related symbol in the current scope!", 0);
+    ERROR_CONDITION(decl_context->current_scope->related_entry == NULL, "No related symbol in the current scope!", 0);
 
-    if (symbol_entity_specs_get_used_modules(decl_context.current_scope->related_entry) == NULL)
+    if (symbol_entity_specs_get_used_modules(decl_context->current_scope->related_entry) == NULL)
     {
         decl_context_t function_context = decl_context;
-        function_context.current_scope = function_context.function_scope;
+        function_context->current_scope = function_context->function_scope;
 
         scope_entry_t* new_sym = new_symbol(
                 function_context,
-                function_context.current_scope,
+                function_context->current_scope,
                 UNIQUESTR_LITERAL(".used_modules"));
         new_sym->kind = SK_OTHER;
 
-        symbol_entity_specs_set_used_modules(decl_context.current_scope->related_entry, new_sym);
+        symbol_entity_specs_set_used_modules(decl_context->current_scope->related_entry, new_sym);
     }
-    return symbol_entity_specs_get_used_modules(decl_context.current_scope->related_entry);
+    return symbol_entity_specs_get_used_modules(decl_context->current_scope->related_entry);
 }
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
@@ -489,12 +489,12 @@ void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entr
     // This variable is defined in the subroutine body, and must be
     // removed from the two scopes
 
-    if (decl_context.current_scope != entry->decl_context.current_scope)
+    if (decl_context->current_scope != entry->decl_context->current_scope)
     {
-        if (decl_context.current_scope->contained_in != NULL &&
-                decl_context.current_scope->contained_in->related_entry != NULL)
+        if (decl_context->current_scope->contained_in != NULL &&
+                decl_context->current_scope->contained_in->related_entry != NULL)
         {
-            remove_unknown_kind_symbol(decl_context.current_scope->contained_in->related_entry->related_decl_context, entry);
+            remove_unknown_kind_symbol(decl_context->current_scope->contained_in->related_entry->related_decl_context, entry);
         }
     }
 
@@ -556,7 +556,7 @@ static void check_intent_declared_symbols(decl_context_t decl_context)
     {
         scope_entry_t* entry = symbol_entity_specs_get_related_symbols_num(intent_declared, i);
         if (!symbol_is_parameter_of_function(entry,
-                    decl_context.current_scope->related_entry))
+                    decl_context->current_scope->related_entry))
         {
             error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     locus_to_str(entry->locus),
@@ -590,11 +590,11 @@ static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_contex
     symbol_entity_specs_set_is_implicit_basic_type(result, 1);
     result->locus = ast_get_locus(location);
 
-    if (decl_context.current_scope->related_entry != NULL
-            && (decl_context.current_scope->related_entry->kind == SK_MODULE
-                || decl_context.current_scope->related_entry->kind == SK_BLOCKDATA))
+    if (decl_context->current_scope->related_entry != NULL
+            && (decl_context->current_scope->related_entry->kind == SK_MODULE
+                || decl_context->current_scope->related_entry->kind == SK_BLOCKDATA))
     {
-        scope_entry_t* module = decl_context.current_scope->related_entry;
+        scope_entry_t* module = decl_context->current_scope->related_entry;
         symbol_entity_specs_insert_related_symbols(module, result);
         symbol_entity_specs_set_in_module(result, module);
     }
@@ -990,7 +990,7 @@ static void solve_postponed_function_type_spec(decl_context_t decl_context)
     if (is_error_type(function_type_spec))
         return;
 
-    scope_entry_t* current_function = decl_context.current_scope->related_entry;
+    scope_entry_t* current_function = decl_context->current_scope->related_entry;
 
     // Update the type of the function name
     current_function->type_information = fortran_update_basic_type_with_type(current_function->type_information,
@@ -1073,7 +1073,7 @@ static void build_scope_main_program_unit(AST program_unit,
     remove_unknown_kind_symbol(decl_context, program_sym);
 
     program_sym->related_decl_context = program_unit_context;
-    program_unit_context.current_scope->related_entry = program_sym;
+    program_unit_context->current_scope->related_entry = program_sym;
 
     *program_unit_symbol = program_sym;
 
@@ -1173,7 +1173,7 @@ static void build_scope_function_program_unit(AST program_unit,
     if (inside_interface(program_unit))
     {
         // By default there is no host association with the enclosing program unit
-        program_unit_context.current_scope->contained_in = program_unit_context.global_scope;
+        program_unit_context->current_scope->contained_in = program_unit_context->global_scope;
     }
 
     *program_unit_symbol = new_entry;
@@ -1281,7 +1281,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     if (inside_interface(program_unit))
     {
         // By default there is no host association with the enclosing program unit
-        program_unit_context.current_scope->contained_in = program_unit_context.global_scope;
+        program_unit_context->current_scope->contained_in = program_unit_context->global_scope;
     }
 
     *program_unit_symbol = new_entry;
@@ -1369,7 +1369,7 @@ static void build_scope_module_program_unit(AST program_unit,
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
 
-    if (new_entry->decl_context.current_scope == decl_context.global_scope)
+    if (new_entry->decl_context->current_scope == decl_context->global_scope)
         symbol_entity_specs_set_is_global_hidden(new_entry, 1);
 
     if (module_nature != NULL)
@@ -1390,7 +1390,7 @@ static void build_scope_module_program_unit(AST program_unit,
     new_entry->related_decl_context = program_unit_context;
     new_entry->locus = ast_get_locus(module_stmt);
     new_entry->defined = 1;
-    program_unit_context.current_scope->related_entry = new_entry;
+    program_unit_context->current_scope->related_entry = new_entry;
 
     AST module_body = ASTSon1(program_unit);
 
@@ -1493,13 +1493,13 @@ static void build_scope_block_data_program_unit(AST program_unit,
     program_sym->kind = SK_BLOCKDATA;
     program_sym->locus = ast_get_locus(program_unit);
 
-    if (program_sym->decl_context.current_scope == decl_context.global_scope)
+    if (program_sym->decl_context->current_scope == decl_context->global_scope)
         symbol_entity_specs_set_is_global_hidden(program_sym, 1);
     
     remove_unknown_kind_symbol(decl_context, program_sym);
     
     program_sym->related_decl_context = program_unit_context;
-    program_unit_context.current_scope->related_entry = program_sym;
+    program_unit_context->current_scope->related_entry = program_sym;
 
     *program_unit_symbol = program_sym;
 
@@ -1526,7 +1526,7 @@ static void build_scope_block_data_program_unit(AST program_unit,
 static void build_global_program_unit(AST program_unit)
 {
     decl_context_t program_unit_context = CURRENT_COMPILED_FILE->global_decl_context;
-    program_unit_context.function_scope = program_unit_context.current_scope;
+    program_unit_context->function_scope = program_unit_context->current_scope;
 
     AST program_body = ASTSon0(program_unit);
 
@@ -1700,7 +1700,7 @@ static scope_entry_t* new_procedure_symbol(
 {
     scope_entry_t* entry = NULL;
 
-    if (decl_context.current_scope != decl_context.global_scope)
+    if (decl_context->current_scope != decl_context->global_scope)
     {
         scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, strtolower(ASTText(name)), NULL, DF_ONLY_CURRENT_SCOPE);
         if (entry_list != NULL)
@@ -1712,7 +1712,7 @@ static scope_entry_t* new_procedure_symbol(
 
     if (entry != NULL)
     {
-        if (entry->decl_context.current_scope != decl_context.current_scope)
+        if (entry->decl_context->current_scope != decl_context->current_scope)
         {
             // We found something declared in another scope, ignore it
             entry = NULL;
@@ -1730,7 +1730,7 @@ static scope_entry_t* new_procedure_symbol(
             if (entry->defined
                     // If not defined it can only be a parameter of the current procedure
                     // being given an interface
-                    || (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
+                    || (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry)
                         && !symbol_entity_specs_get_is_module_procedure(entry)
                         // Or a symbol we said something about it in the specification part of a module
                         && !(entry->kind == SK_UNDEFINED
@@ -1742,7 +1742,7 @@ static scope_entry_t* new_procedure_symbol(
                 return NULL;
             }
 
-            if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 entry->kind = SK_VARIABLE;
             }
@@ -1756,7 +1756,7 @@ static scope_entry_t* new_procedure_symbol(
         entry = new_fortran_symbol_not_unknown(decl_context, ASTText(name));
     }
 
-    program_unit_context.current_scope->related_entry = entry;
+    program_unit_context->current_scope->related_entry = entry;
 
     if (entry->kind == SK_UNDEFINED)
         entry->kind = SK_FUNCTION;
@@ -1765,7 +1765,7 @@ static scope_entry_t* new_procedure_symbol(
     symbol_entity_specs_set_is_implicit_basic_type(entry, 1);
     entry->defined = 1;
 
-    if (entry->decl_context.current_scope == decl_context.global_scope)
+    if (entry->decl_context->current_scope == decl_context->global_scope)
         symbol_entity_specs_set_is_global_hidden(entry, 1);
 
     remove_unknown_kind_symbol(decl_context, entry);
@@ -1941,7 +1941,7 @@ static scope_entry_t* new_procedure_symbol(
             {
                 // Insert the function-name (only if they are different to
                 // avoid more errors)
-                insert_entry(program_unit_context.current_scope, entry);
+                insert_entry(program_unit_context->current_scope, entry);
             }
         }
     }
@@ -1949,7 +1949,7 @@ static scope_entry_t* new_procedure_symbol(
     {
         // Since this function does not have an explicit result variable we will insert a result-name
         // with the same name as the function
-        result_sym = new_symbol(program_unit_context, program_unit_context.current_scope, entry->symbol_name);
+        result_sym = new_symbol(program_unit_context, program_unit_context->current_scope, entry->symbol_name);
         result_sym->kind = SK_VARIABLE;
         result_sym->locus = entry->locus;
         symbol_entity_specs_set_is_result_var(result_sym, 1);
@@ -1966,7 +1966,7 @@ static scope_entry_t* new_procedure_symbol(
     else if (!is_function)
     {
         // Insert the subroutine-name
-        insert_entry(program_unit_context.current_scope, entry);
+        insert_entry(program_unit_context->current_scope, entry);
     }
     else
     {
@@ -1991,7 +1991,7 @@ static scope_entry_t* new_procedure_symbol(
     type_t* function_type = get_new_function_type(return_type, parameter_info, num_dummy_arguments,
             REF_QUALIFIER_NONE);
     entry->type_information = function_type;
-    if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+    if (symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
     {
         entry->type_information = get_lvalue_reference_type(entry->type_information);
     }
@@ -1999,9 +1999,9 @@ static scope_entry_t* new_procedure_symbol(
     symbol_entity_specs_set_is_implicit_basic_type(entry, 0);
     entry->related_decl_context = program_unit_context;
 
-    if (program_unit_context.current_scope->contained_in != NULL)
+    if (program_unit_context->current_scope->contained_in != NULL)
     {
-        scope_entry_t* enclosing_symbol = program_unit_context.current_scope->contained_in->related_entry;
+        scope_entry_t* enclosing_symbol = program_unit_context->current_scope->contained_in->related_entry;
 
         if (enclosing_symbol != NULL)
         {
@@ -2063,7 +2063,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     {
         // Declare it as a sibling of the current function
         entry = new_symbol(principal_procedure->decl_context, 
-                principal_procedure->decl_context.current_scope,
+                principal_procedure->decl_context->current_scope,
                 strtolower(ASTText(name)));
     }
     entry->decl_context = decl_context;
@@ -2075,7 +2075,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     entry->defined = 1;
     remove_unknown_kind_symbol(decl_context, entry);
 
-    if (principal_procedure->decl_context.current_scope == principal_procedure->decl_context.global_scope)
+    if (principal_procedure->decl_context->current_scope == principal_procedure->decl_context->global_scope)
     {
         symbol_entity_specs_set_is_global_hidden(entry, 1);
     }
@@ -2212,7 +2212,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
             else
             {
                 // Insert the entry-name only if they are different
-                insert_entry(decl_context.current_scope, entry);
+                insert_entry(decl_context->current_scope, entry);
             }
 
         }
@@ -2242,7 +2242,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
     }
     else if (!is_function)
     {
-        insert_entry(decl_context.current_scope, entry);
+        insert_entry(decl_context->current_scope, entry);
     }
     else
     {
@@ -2512,7 +2512,7 @@ static scope_entry_t* build_scope_internal_subprogram(
         internal_subprograms_info->internal_subprograms = n_internal_subprograms;
         internal_subprograms_info->locus = ast_get_locus(program_body);
 
-        scope_entry_t* enclosing_sym = decl_context.current_scope->related_entry;
+        scope_entry_t* enclosing_sym = decl_context->current_scope->related_entry;
 
         // This is a module procedure
         if (enclosing_sym != NULL
@@ -3698,11 +3698,11 @@ static type_t* eval_array_spec(type_t* basic_type,
     char was_ref = is_lvalue_reference_type(basic_type);
 
     // We do not save dimensions in non function or dummy procedure scopes
-    if (decl_context.current_scope->related_entry->kind != SK_FUNCTION
-            && !(decl_context.current_scope->related_entry->kind == SK_VARIABLE
+    if (decl_context->current_scope->related_entry->kind != SK_FUNCTION
+            && !(decl_context->current_scope->related_entry->kind == SK_VARIABLE
                 && symbol_is_parameter_of_function(
-                    decl_context.current_scope->related_entry,
-                    decl_context.current_scope->related_entry->decl_context.current_scope->related_entry)))
+                    decl_context->current_scope->related_entry,
+                    decl_context->current_scope->related_entry->decl_context->current_scope->related_entry)))
     {
         nodecl_output = NULL;
     }
@@ -3873,7 +3873,7 @@ static type_t* eval_array_spec(type_t* basic_type,
                 uniquestr_sprintf(&vla_name, "mfc_vla_l_%d", vla_counter);
                 vla_counter++;
 
-                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
+                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context->current_scope, vla_name);
 
                 if (!equivalent_types(
                             get_unqualified_type(no_ref(nodecl_get_type(lower_bound))),
@@ -3915,7 +3915,7 @@ static type_t* eval_array_spec(type_t* basic_type,
                 uniquestr_sprintf(&vla_name, "mfc_vla_u_%d", vla_counter);
                 vla_counter++;
 
-                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context.current_scope, vla_name);
+                scope_entry_t* new_vla_dim = new_symbol(decl_context, decl_context->current_scope, vla_name);
 
                 if (!equivalent_types(
                             get_unqualified_type(no_ref(nodecl_get_type(upper_bound))),
@@ -4233,7 +4233,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
     }
     else
     {
-        scope_entry_t* current_sym = decl_context.current_scope->related_entry;
+        scope_entry_t* current_sym = decl_context->current_scope->related_entry;
 
         if (current_sym == NULL
                 || current_sym->kind != SK_MODULE)
@@ -4562,14 +4562,14 @@ scope_entry_t* query_common_name(decl_context_t decl_context,
         const char* common_name,
         const locus_t* locus)
 {
-    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+    decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
     scope_entry_t* result = fortran_query_name_str(decl_context, 
             get_common_name_str(common_name), locus);
 
     // Filter COMMON names from enclosing scopes
     if (result != NULL
-            && result->decl_context.current_scope != program_unit_context.current_scope)
+            && result->decl_context->current_scope != program_unit_context->current_scope)
         result = NULL;
 
     return result;
@@ -4774,7 +4774,7 @@ static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER,
 
 static scope_entry_t* new_common(decl_context_t decl_context, const char* common_name)
 {
-    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+    decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
     scope_entry_t* common_sym = new_fortran_symbol(program_unit_context, get_common_name_str(common_name));
     common_sym->kind = SK_COMMON;
@@ -5002,7 +5002,7 @@ scope_entry_t* fortran_query_label_str_(const char* label,
         char is_definition)
 {
     const char* label_text = strappend(".label_", label);
-    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+    decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
     scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, label_text, NULL, DF_ONLY_CURRENT_SCOPE);
 
@@ -5011,7 +5011,7 @@ scope_entry_t* fortran_query_label_str_(const char* label,
     {
 
         // Sign in the symbol in the program unit scope
-        new_label = new_symbol(program_unit_context, program_unit_context.current_scope, label_text);
+        new_label = new_symbol(program_unit_context, program_unit_context->current_scope, label_text);
         // Fix the symbol name (which for labels does not match the query name)
         new_label->symbol_name = label;
         new_label->kind = SK_LABEL;
@@ -5060,7 +5060,7 @@ scope_entry_t* fortran_query_construct_name_str(
         )
 {
     construct_name = strtolower(construct_name);
-    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+    decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
     scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, construct_name, NULL, DF_ONLY_CURRENT_SCOPE);
 
@@ -5071,7 +5071,7 @@ scope_entry_t* fortran_query_construct_name_str(
         if (is_definition)
         {
             // Sign in the symbol in the program unit scope
-            new_label = new_symbol(program_unit_context, program_unit_context.current_scope, construct_name);
+            new_label = new_symbol(program_unit_context, program_unit_context->current_scope, construct_name);
             new_label->kind = SK_LABEL;
             new_label->locus = locus;
             new_label->do_not_print = 1;
@@ -5470,7 +5470,7 @@ static char array_is_assumed_shape(scope_entry_t* entry, decl_context_t decl_con
     if (symbol_entity_specs_get_is_allocatable(entry))
         return 1;
 
-    if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+    if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         return 0;
 
     type_t* t = no_ref(entry->type_information);
@@ -5558,7 +5558,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
         else if (class_name->kind != SK_CLASS)
         {
-            if (class_name->decl_context.current_scope != class_name->decl_context.global_scope)
+            if (class_name->decl_context->current_scope != class_name->decl_context->global_scope)
             {
                 error_printf("%s: error: name '%s' is not a type name\n", 
                         ast_location(name),
@@ -5575,7 +5575,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         else if (class_name->defined)
         {
             // If it is declared in the same scope or it comes from a module, then this is wrong
-            if (decl_context.current_scope == class_name->decl_context.current_scope
+            if (decl_context->current_scope == class_name->decl_context->current_scope
                     || symbol_entity_specs_get_from_module(class_name) != NULL)
             {
                 error_printf("%s: error: derived type 'TYPE(%s)' already defined\n", 
@@ -5924,10 +5924,10 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     set_is_complete_type(class_name->type_information, 1);
     class_type_set_is_packed(class_name->type_information, is_sequence);
 
-    if (decl_context.current_scope->related_entry != NULL
-            && decl_context.current_scope->related_entry->kind == SK_MODULE)
+    if (decl_context->current_scope->related_entry != NULL
+            && decl_context->current_scope->related_entry->kind == SK_MODULE)
     {
-        scope_entry_t* module = decl_context.current_scope->related_entry;
+        scope_entry_t* module = decl_context->current_scope->related_entry;
 
         symbol_entity_specs_add_related_symbols(module, class_name);
 
@@ -6174,7 +6174,7 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
         AST suffix = ASTSon2(a);
 
         // An entry statement must be used in a subroutine or a function
-        scope_entry_t* related_sym = decl_context.current_scope->related_entry; 
+        scope_entry_t* related_sym = decl_context->current_scope->related_entry; 
         if (related_sym == NULL)
         {
             internal_error("%s: error: code unreachable\n", 
@@ -6197,7 +6197,7 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context, nodecl_t*
             if (symbol_entity_specs_get_is_module_procedure(related_sym))
             {
                 // Our principal procedure is a module procedure, this symbol will live as a sibling
-                insert_entry(symbol_entity_specs_get_in_module(related_sym)->related_decl_context.current_scope, entry);
+                insert_entry(symbol_entity_specs_get_in_module(related_sym)->related_decl_context->current_scope, entry);
             }
 
             // (1) And we piggyback the entry in the node so we avoid a query later
@@ -6347,7 +6347,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         }
         else if (entry->kind == SK_VARIABLE)
         {
-            if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 if (is_function_type(no_ref(entry->type_information)))
                 {
@@ -6368,7 +6368,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (entry->kind == SK_UNDEFINED)
         {
-            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 // We mark the symbol as a external function
                 entry->kind = SK_FUNCTION;
@@ -6734,12 +6734,12 @@ static void build_scope_import_stmt(AST a,
     if (import_name_list == NULL)
     {
         // Restore the scope chain we broke in an INTERFACE block
-        scope_entry_t* current_procedure = decl_context.current_scope->related_entry;
-        decl_context.current_scope->contained_in = current_procedure->decl_context.current_scope;
+        scope_entry_t* current_procedure = decl_context->current_scope->related_entry;
+        decl_context->current_scope->contained_in = current_procedure->decl_context->current_scope;
     }
     else
     {
-        decl_context_t enclosing_context = decl_context.current_scope->related_entry->decl_context;
+        decl_context_t enclosing_context = decl_context->current_scope->related_entry->decl_context;
 
         AST it;
         for_each_element(import_name_list, it)
@@ -6756,7 +6756,7 @@ static void build_scope_import_stmt(AST a,
                 continue;
             }
 
-            insert_entry(decl_context.current_scope, entry);
+            insert_entry(decl_context->current_scope, entry);
         }
     }
 }
@@ -6774,7 +6774,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, dummy_arg, ASTText(dummy_arg));
 
-        if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+        if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
             add_intent_declared_symbol(decl_context, entry);
         }
@@ -6817,7 +6817,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
     {
         AST procedure_name_list = ASTSon0(interface_specification);
         AST it2;
-        if (decl_context.current_scope->related_entry->kind == SK_MODULE)
+        if (decl_context->current_scope->related_entry->kind == SK_MODULE)
         {
             for_each_element(procedure_name_list, it2)
             {
@@ -6838,7 +6838,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
 
                     // If this symbol is from this module we allow non generic specifiers only
                     // but we need to remember if we saw some generic as well
-                    if (symbol_entity_specs_get_in_module(current) == decl_context.current_scope->related_entry
+                    if (symbol_entity_specs_get_in_module(current) == decl_context->current_scope->related_entry
                             && symbol_entity_specs_get_from_module(current) == NULL)
                     {
                         if (current->kind == SK_GENERIC_NAME)
@@ -7188,7 +7188,7 @@ static void build_scope_intrinsic_stmt(AST a,
 {
     AST intrinsic_list = ASTSon0(a);
 
-    scope_entry_t* current_program_unit = decl_context.current_scope->related_entry;
+    scope_entry_t* current_program_unit = decl_context->current_scope->related_entry;
 
     AST it;
     for_each_element(intrinsic_list, it)
@@ -7304,11 +7304,11 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         {
             new_namelist = new_fortran_symbol(decl_context, ASTText(name));
 
-            if (decl_context.current_scope->related_entry != NULL
-                    && decl_context.current_scope->related_entry->kind == SK_MODULE)
+            if (decl_context->current_scope->related_entry != NULL
+                    && decl_context->current_scope->related_entry->kind == SK_MODULE)
             {
                 // Make the new namelist a member of this module
-                scope_entry_t* module = decl_context.current_scope->related_entry;
+                scope_entry_t* module = decl_context->current_scope->related_entry;
 
                 symbol_entity_specs_add_related_symbols(module, new_namelist);
 
@@ -7407,7 +7407,7 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl
         AST name = ASTSon1(it);
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+        if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
             error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     ast_location(name),
@@ -7441,7 +7441,7 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
                     ASTText(name));
             continue;
         }
-        if (symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+        if (symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
             error_printf("%s: error: PARAMETER attribute is not valid for dummy arguments\n", 
                     ast_location(a));
@@ -7530,7 +7530,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context,
             // This nodecl is needed only for choose_int_type_from_kind
             nodecl_t nodecl_sym = nodecl_make_symbol(pointer_entry, ast_get_locus(a));
 
-            char needs_reference = symbol_is_parameter_of_function(pointer_entry, decl_context.current_scope->related_entry);
+            char needs_reference = symbol_is_parameter_of_function(pointer_entry, decl_context->current_scope->related_entry);
 
             pointer_entry->type_information = choose_int_type_from_kind(nodecl_sym, 
                     CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
@@ -7922,7 +7922,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
 
         if (attr_spec.is_optional)
         {
-            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(name));
@@ -7941,7 +7941,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
         {
             if (entry->kind == SK_UNDEFINED)
             {
-                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
                 {
                     entry->kind = SK_FUNCTION;
                 }
@@ -7961,7 +7961,7 @@ static void build_scope_procedure_decl_stmt(AST a, decl_context_t decl_context,
                         entry->symbol_name);
             }
             else if (entry->kind == SK_VARIABLE
-                    && symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
+                    && symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry)
                     && is_function_type(no_ref(entry->type_information)))
             {
                 error_printf("%s: error: entity '%s' already has EXTERNAL attribute\n",
@@ -8030,8 +8030,8 @@ static void build_scope_read_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
 static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (decl_context.current_scope->related_entry == NULL
-            || decl_context.current_scope->related_entry->kind != SK_FUNCTION)
+    if (decl_context->current_scope->related_entry == NULL
+            || decl_context->current_scope->related_entry->kind != SK_FUNCTION)
     {
         error_printf("%s: error: RETURN statement not valid in this context\n", ast_location(a));
         *nodecl_output = nodecl_make_list_1(
@@ -8040,7 +8040,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
         return;
     }
 
-    scope_entry_t* current_function = decl_context.current_scope->related_entry;
+    scope_entry_t* current_function = decl_context->current_scope->related_entry;
 
     AST int_expr = ASTSon1(a);
     if (int_expr != NULL)
@@ -8090,7 +8090,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 
     AST it;
 
-    scope_entry_t* program_unit = decl_context.current_scope->related_entry;
+    scope_entry_t* program_unit = decl_context->current_scope->related_entry;
 
     if (symbol_entity_specs_get_is_saved_program_unit(program_unit))
     {
@@ -8389,9 +8389,9 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         char could_be_an_intrinsic =
             (entry_intrinsic != NULL
              // Filter dummy arguments
-             && !symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry)
+             && !symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry)
              // Filter the program unit itself
-             && entry != decl_context.current_scope->related_entry
+             && entry != decl_context->current_scope->related_entry
              && entry->kind == SK_UNDEFINED);
 
         // If the entry could be the name of an intrinsic
@@ -8579,7 +8579,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         // FIXME - Should we do something with this attribute?
         if (current_attr_spec.is_value)
         {
-            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 error_printf("%s: error: VALUE attribute is only for dummy arguments\n",
                         ast_location(declaration));
@@ -8602,7 +8602,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (current_attr_spec.is_intent)
         {
-            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 add_intent_declared_symbol(decl_context, entry);
             }
@@ -8612,7 +8612,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
 
         if (current_attr_spec.is_optional)
         {
-            if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+            if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
             {
                 error_printf("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(declaration));
@@ -8655,8 +8655,8 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             }
             else
             {
-                remove_entry(entry->decl_context.current_scope, entry);
-                insert_alias(entry->decl_context.current_scope, intrinsic_name, intrinsic_name->symbol_name);
+                remove_entry(entry->decl_context->current_scope, entry);
+                insert_alias(entry->decl_context->current_scope, intrinsic_name, intrinsic_name->symbol_name);
                 // Do nothing else otherwise we will be overwriting intrinsics
                 continue;
             }
@@ -8682,7 +8682,7 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             if (!current_attr_spec.is_pointer
                     && !is_pointer_type(no_ref(entry->type_information)))
             {
-                if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+                if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
                 {
                     entry->kind = SK_FUNCTION;
                     symbol_entity_specs_set_is_extern(entry, 1);
@@ -9019,10 +9019,10 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
     symbol_entity_specs_set_from_module_name(current_symbol, named_entry_from_module->symbol_name);
 
     // Make it a member of this module
-    if (decl_context.current_scope->related_entry != NULL
-            && decl_context.current_scope->related_entry->kind == SK_MODULE)
+    if (decl_context->current_scope->related_entry != NULL
+            && decl_context->current_scope->related_entry->kind == SK_MODULE)
     {
-        scope_entry_t* module = decl_context.current_scope->related_entry;
+        scope_entry_t* module = decl_context->current_scope->related_entry;
 
         symbol_entity_specs_add_related_symbols(module, current_symbol);
 
@@ -9364,7 +9364,7 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (!symbol_is_parameter_of_function(entry, decl_context.current_scope->related_entry))
+        if (!symbol_is_parameter_of_function(entry, decl_context->current_scope->related_entry))
         {
             error_printf("%s: error: entity '%s' is not a dummy argument\n",
                     ast_location(name),
@@ -10743,9 +10743,9 @@ static void resolve_external_calls_rec(nodecl_t node,
         scope_entry_t* entry = fortran_data_ref_get_symbol(called);
 
         if (entry->kind == SK_FUNCTION
-                && (entry->decl_context.current_scope->related_entry == NULL
+                && (entry->decl_context->current_scope->related_entry == NULL
                     || !symbol_is_parameter_of_function(entry,
-                        entry->decl_context.current_scope->related_entry))
+                        entry->decl_context->current_scope->related_entry))
                 && !symbol_entity_specs_get_is_nested_function(entry)
                 && !symbol_entity_specs_get_is_module_procedure(entry)
                 && !symbol_entity_specs_get_is_builtin(entry)
@@ -10845,7 +10845,7 @@ static void resolve_external_calls_inside_file(nodecl_t nodecl_program_units)
             if (function->kind == SK_FUNCTION
                     && !symbol_entity_specs_get_is_nested_function(function)
                     && !symbol_entity_specs_get_is_module_procedure(function)
-                    && (function->decl_context.current_scope == function->decl_context.global_scope))
+                    && (function->decl_context->current_scope == function->decl_context->global_scope))
             {
                 DEBUG_CODE()
                 {

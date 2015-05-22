@@ -1223,11 +1223,11 @@ static scope_entry_t* get_intrinsic_symbol_(
         symbol_entity_specs_set_is_intrinsic_subroutine(new_entry, is_void_type(result_type));
         symbol_entity_specs_set_is_intrinsic_function(new_entry, !is_void_type(result_type));
 
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        if (decl_context->current_scope->related_entry != NULL
+                && decl_context->current_scope->related_entry->kind == SK_MODULE)
         {
-            new_entry->decl_context.current_scope->related_entry =
-                decl_context.current_scope->related_entry;
+            new_entry->decl_context->current_scope->related_entry =
+                decl_context->current_scope->related_entry;
         }
 
         rb_tree_insert(intrinsic_map, p, new_entry);
@@ -1356,7 +1356,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         } \
         if (!disabled) \
         { \
-        scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, uniquestr(#name)); \
+        scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context->current_scope, uniquestr(#name)); \
         new_intrinsic->locus = make_locus("(fortran-intrinsic)", 0, 0); \
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
@@ -1552,7 +1552,7 @@ static scope_entry_t* register_specific_intrinsic_name(
                     symbol_entity_specs_get_related_symbols_num(specific_entry, i));
         }
 
-        insert_entry(generic_entry->decl_context.current_scope, new_specific_entry);
+        insert_entry(generic_entry->decl_context->current_scope, new_specific_entry);
     }
 
     return specific_entry;
@@ -1580,7 +1580,7 @@ static scope_entry_t* register_custom_intrinsic(
             decl_context,
             0, 0, 0, 0);
 
-    insert_alias(decl_context.current_scope, entry, specific_name);
+    insert_alias(decl_context->current_scope, entry, specific_name);
 
     return entry;
 }
@@ -7027,7 +7027,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 
     const char* iso_c_binding_name = UNIQUESTR_LITERAL("iso_c_binding");
 
-    scope_entry_t* iso_c_binding = new_symbol(decl_context, decl_context.current_scope, iso_c_binding_name);
+    scope_entry_t* iso_c_binding = new_symbol(decl_context, decl_context->current_scope, iso_c_binding_name);
     iso_c_binding->kind = SK_MODULE;
     iso_c_binding->locus = locus;
     symbol_entity_specs_set_is_builtin(iso_c_binding, 1);
@@ -7044,7 +7044,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
                             fortran_choose_character_type_from_kind(1), 
                             one, one, decl_context);
 
-    module_context.current_scope->related_entry = iso_c_binding;
+    module_context->current_scope->related_entry = iso_c_binding;
 
     struct named_constants_t {
         const char* name;
@@ -7100,7 +7100,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     int i;
     for (i = 0; named_constants[i].name != NULL; i++)
     {
-        scope_entry_t* symbol = new_symbol(module_context, module_context.current_scope,
+        scope_entry_t* symbol = new_symbol(module_context, module_context->current_scope,
                 uniquestr(named_constants[i].name));
         symbol->locus = locus;
         symbol->kind = SK_VARIABLE;
@@ -7122,7 +7122,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     }
 
     {
-    scope_entry_t* c_ptr = new_symbol(module_context, module_context.current_scope, UNIQUESTR_LITERAL("c_ptr"));
+    scope_entry_t* c_ptr = new_symbol(module_context, module_context->current_scope, UNIQUESTR_LITERAL("c_ptr"));
     c_ptr->locus = locus;
     c_ptr->kind = SK_CLASS;
     c_ptr->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -7131,7 +7131,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     symbol_entity_specs_add_related_symbols(iso_c_binding,
             c_ptr);
 
-    scope_entry_t* c_null_ptr = new_symbol(module_context, module_context.current_scope,
+    scope_entry_t* c_null_ptr = new_symbol(module_context, module_context->current_scope,
             UNIQUESTR_LITERAL("c_null_ptr"));
     c_null_ptr->locus = locus;
     c_null_ptr->kind = SK_VARIABLE;
@@ -7143,7 +7143,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     }
 
     {
-    scope_entry_t* c_funptr = new_symbol(module_context, module_context.current_scope,
+    scope_entry_t* c_funptr = new_symbol(module_context, module_context->current_scope,
             UNIQUESTR_LITERAL("c_funptr"));
     c_funptr->locus = locus;
     c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -7153,7 +7153,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
     symbol_entity_specs_add_related_symbols(iso_c_binding, c_funptr);
 
-    scope_entry_t* c_null_funptr = new_symbol(module_context, module_context.current_scope,
+    scope_entry_t* c_null_funptr = new_symbol(module_context, module_context->current_scope,
             UNIQUESTR_LITERAL("c_null_funptr"));
     c_null_funptr->locus = locus;
     c_null_funptr->kind = SK_VARIABLE;
@@ -7173,7 +7173,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
 
     const char* ieee_exceptions_name = UNIQUESTR_LITERAL("ieee_exceptions");
 
-    scope_entry_t* ieee_exceptions = new_symbol(decl_context, decl_context.current_scope, ieee_exceptions_name);
+    scope_entry_t* ieee_exceptions = new_symbol(decl_context, decl_context->current_scope, ieee_exceptions_name);
     ieee_exceptions->locus = locus;
     ieee_exceptions->kind = SK_MODULE;
     symbol_entity_specs_set_is_builtin(ieee_exceptions, 1);
@@ -7182,7 +7182,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
 
     rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, ieee_exceptions_name, ieee_exceptions);
 
-    module_context.current_scope->related_entry = ieee_exceptions;
+    module_context->current_scope->related_entry = ieee_exceptions;
 
     int i;
     // Private types
@@ -7200,7 +7200,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     for (i = 0; private_types[i].name != NULL; i++)
     {
         scope_entry_t* new_type = NULL;
-        new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope,
+        new_type = *(private_types[i].p) = new_symbol(module_context, module_context->current_scope,
                 uniquestr(private_types[i].name));
         new_type->locus = locus;
         new_type->kind = SK_CLASS;
@@ -7248,7 +7248,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     for (i = 0; global_names[i].name != NULL; i++)
     {
         scope_entry_t* new_var = NULL;
-        new_var = new_symbol(module_context, module_context.current_scope, uniquestr(global_names[i].name));
+        new_var = new_symbol(module_context, module_context->current_scope, uniquestr(global_names[i].name));
         new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         symbol_entity_specs_set_in_module(new_var, ieee_exceptions);
@@ -7269,7 +7269,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 
     const char* ieee_arithmetic_name = UNIQUESTR_LITERAL("ieee_arithmetic");
 
-    scope_entry_t* ieee_arithmetic = new_symbol(decl_context, decl_context.current_scope, ieee_arithmetic_name);
+    scope_entry_t* ieee_arithmetic = new_symbol(decl_context, decl_context->current_scope, ieee_arithmetic_name);
     ieee_arithmetic->kind = SK_MODULE;
     symbol_entity_specs_set_is_builtin(ieee_arithmetic, 1);
     ieee_arithmetic->related_decl_context = module_context;
@@ -7277,7 +7277,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 
     rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, ieee_arithmetic_name, ieee_arithmetic);
 
-    module_context.current_scope->related_entry = ieee_arithmetic;
+    module_context->current_scope->related_entry = ieee_arithmetic;
 
     int i;
     // Private types
@@ -7295,7 +7295,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     for (i = 0; private_types[i].name != NULL; i++)
     {
         scope_entry_t* new_type = NULL;
-        new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope,
+        new_type = *(private_types[i].p) = new_symbol(module_context, module_context->current_scope,
                 uniquestr(private_types[i].name));
         new_type->locus = locus;
         new_type->kind = SK_CLASS;
@@ -7347,7 +7347,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     for (i = 0; global_names[i].name != NULL; i++)
     {
         scope_entry_t* new_var = NULL;
-        new_var = new_symbol(module_context, module_context.current_scope, uniquestr(global_names[i].name));
+        new_var = new_symbol(module_context, module_context->current_scope, uniquestr(global_names[i].name));
         new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         symbol_entity_specs_set_in_module(new_var, ieee_arithmetic);
@@ -7378,7 +7378,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     {
         scope_entry_t* new_operator_eq_class_type = NULL;
 
-        new_operator_eq_class_type = new_symbol(module_context, module_context.current_scope,
+        new_operator_eq_class_type = new_symbol(module_context, module_context->current_scope,
                 uniquestr(operator_eq_neq[i].operator_class_type));
         new_operator_eq_class_type->kind = SK_FUNCTION;
         new_operator_eq_class_type->locus = locus;
@@ -7396,7 +7396,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 
         // OPERATOR IEEE_ROUND_TYPE
         scope_entry_t* new_operator_eq_round_type = NULL;
-        new_operator_eq_round_type = new_symbol(module_context, module_context.current_scope,
+        new_operator_eq_round_type = new_symbol(module_context, module_context->current_scope,
                 uniquestr(operator_eq_neq[i].operator_round_type));
         new_operator_eq_round_type->kind = SK_FUNCTION;
         new_operator_eq_round_type->locus = locus;
@@ -7416,7 +7416,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         scope_entry_t* new_operator_eq = NULL;
 
         new_operator_eq = new_symbol(module_context,
-                module_context.current_scope,
+                module_context->current_scope,
                 uniquestr(operator_eq_neq[i].operator_generic));
         new_operator_eq->kind = SK_GENERIC_NAME;
         new_operator_eq->locus = locus;
@@ -7442,7 +7442,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
 
     const char* ieee_features_name = UNIQUESTR_LITERAL("ieee_features");
 
-    scope_entry_t* ieee_features = new_symbol(decl_context, decl_context.current_scope, ieee_features_name);
+    scope_entry_t* ieee_features = new_symbol(decl_context, decl_context->current_scope, ieee_features_name);
     ieee_features->locus = locus;
     ieee_features->kind = SK_MODULE;
     symbol_entity_specs_set_is_builtin(ieee_features, 1);
@@ -7451,7 +7451,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
 
     rb_tree_insert(CURRENT_COMPILED_FILE->module_file_cache, ieee_features_name, ieee_features);
 
-    module_context.current_scope->related_entry = ieee_features;
+    module_context->current_scope->related_entry = ieee_features;
 
     int i;
     // Private types
@@ -7468,7 +7468,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     for (i = 0; private_types[i].name != NULL; i++)
     {
         scope_entry_t* new_type = NULL;
-        new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope,
+        new_type = *(private_types[i].p) = new_symbol(module_context, module_context->current_scope,
                 uniquestr(private_types[i].name));
         new_type->locus = locus;
         new_type->kind = SK_CLASS;
@@ -7508,7 +7508,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     for (i = 0; global_names[i].name != NULL; i++)
     {
         scope_entry_t* new_var = NULL;
-        new_var = new_symbol(module_context, module_context.current_scope, uniquestr(global_names[i].name));
+        new_var = new_symbol(module_context, module_context->current_scope, uniquestr(global_names[i].name));
         new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         symbol_entity_specs_set_in_module(new_var, ieee_features);
@@ -8177,7 +8177,7 @@ static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
 {
-    scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context.current_scope,
+    scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context->current_scope,
             UNIQUESTR_LITERAL(".fortran_intrinsics"));
     fortran_intrinsics->kind = SK_NAMESPACE;
     fortran_intrinsics->related_decl_context = new_namespace_context(decl_context, fortran_intrinsics);
@@ -8186,7 +8186,7 @@ static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
 decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
 {
     decl_context_t global_context = decl_context;
-    global_context.current_scope = decl_context.global_scope;
+    global_context->current_scope = decl_context->global_scope;
 
     scope_entry_list_t* global_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".fortran_intrinsics"), NULL);
 
