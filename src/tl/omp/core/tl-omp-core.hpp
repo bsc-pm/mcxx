@@ -246,6 +246,7 @@ namespace TL
                 bool _ompss_mode;
                 bool _copy_deps_by_default;
                 bool _untied_tasks_by_default;
+                // This variable is used to enable the experimental support of input by value dependences
                 bool _enable_input_by_value_dependences;
             public:
                 Core();
