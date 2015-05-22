@@ -117,6 +117,12 @@ namespace TL { namespace OpenMP {
                 _disable_task_expr_optim_str,
                 "0");
 
+        register_parameter("enable_input_by_value_dependences",
+                "Enables input by value experimental dependences",
+                _enable_input_by_value_dependences,
+                "0").connect(std::bind(&Base::set_enable_input_by_value_dependences, this, std::placeholders::_1));
+
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -330,6 +336,13 @@ namespace TL { namespace OpenMP {
     {
          parse_boolean_option("untied_tasks", str, _untied_tasks_by_default, "Assuming true.");
         _core.set_untied_tasks_by_default(_untied_tasks_by_default);
+    }
+
+    void Base::set_enable_input_by_value_dependences(const std::string& str)
+    {
+        bool b;
+         parse_boolean_option("enable_input_by_value_dependences", str, b, "Assuming false.");
+        _core.set_enable_input_by_value_dependences(b);
     }
 
     bool Base::untied_tasks_by_default() const

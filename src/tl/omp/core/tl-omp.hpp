@@ -148,7 +148,7 @@ namespace OpenMP
     };
 
     //! Auxiliar class used in reduction clauses. Ties a TL::Symbol with an OpenMP::Reduction
-    class LIBTL_CLASS ReductionSymbol 
+    class LIBTL_CLASS ReductionSymbol
     {
         private:
             Symbol _symbol;
@@ -170,7 +170,7 @@ namespace OpenMP
             {
             }
 
-            Symbol get_symbol() const 
+            Symbol get_symbol() const
             {
                 return _symbol;
             }
@@ -693,14 +693,14 @@ namespace OpenMP
                 //! User definable function called in run
                 virtual void init(DTO& data_flow);
 
-                OpenMPPhase() 
+                OpenMPPhase()
                     : PragmaCustomCompilerPhase("omp"),
                     _disable_clause_warnings(false)
-                { 
+                {
                 }
 
                 //! Disables warnings due to unused clauses
-                /*! 
+                /*!
                  * Sometimes it is useful to traverse a subset of OpenMP and do not care
                  * about some unused clauses that might be in the constructs not traversed.
                  *
