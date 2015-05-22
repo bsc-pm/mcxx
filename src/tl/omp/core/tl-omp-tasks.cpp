@@ -1306,7 +1306,7 @@ namespace TL
             if (has_ellipsis)
             {
                 warn_printf("%s: warning: '#pragma omp task' cannot be applied to functions "
-                        "declarations with ellipsis, skipping",
+                        "declarations with ellipsis, skipping\n",
                         construct.get_locus_str().c_str());
                 return;
             }
