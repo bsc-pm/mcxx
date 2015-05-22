@@ -96,6 +96,8 @@ namespace TL
                 std::string _enable_input_by_value_dependences;
                 void set_enable_input_by_value_dependences(const std::string &enable_input_by_value);
 
+                std::string _enable_nonvoid_function_tasks;
+                void set_enable_nonvoid_function_tasks(const std::string &enable_nonvoid_function_tasks);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

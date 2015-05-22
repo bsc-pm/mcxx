@@ -122,6 +122,10 @@ namespace TL { namespace OpenMP {
                 _enable_input_by_value_dependences,
                 "0").connect(std::bind(&Base::set_enable_input_by_value_dependences, this, std::placeholders::_1));
 
+        register_parameter("enable_nonvoid_function_tasks",
+                "Enables experimental nonvoid function tasks (Only for C/C++)",
+                _enable_nonvoid_function_tasks,
+                "0").connect(std::bind(&Base::set_enable_nonvoid_function_tasks, this, std::placeholders::_1));
 
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
@@ -343,6 +347,13 @@ namespace TL { namespace OpenMP {
         bool b;
          parse_boolean_option("enable_input_by_value_dependences", str, b, "Assuming false.");
         _core.set_enable_input_by_value_dependences(b);
+    }
+
+    void Base::set_enable_nonvoid_function_tasks(const std::string& str)
+    {
+        bool b;
+         parse_boolean_option("enable_nonvoid_function_tasks", str, b, "Assuming false.");
+        _core.set_enable_nonvoid_function_tasks(b);
     }
 
     bool Base::untied_tasks_by_default() const

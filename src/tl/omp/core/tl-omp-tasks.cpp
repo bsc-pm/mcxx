@@ -1311,10 +1311,10 @@ namespace TL
                 return;
             }
 
-            if (IS_FORTRAN_LANGUAGE
-                    && !function_type.returns().is_void())
+            if (!function_type.returns().is_void()
+                    && (IS_FORTRAN_LANGUAGE || !_enable_nonvoid_function_tasks))
             {
-                warn_printf("%s: warning: non-void tasks are not currently supported in Fortran, skipping",
+                error_printf("%s: error: non-void tasks are not supported, skipping\n",
                         construct.get_locus_str().c_str());
                 return;
             }
