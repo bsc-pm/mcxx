@@ -341,7 +341,7 @@ namespace TL { namespace OpenMP {
     void Base::set_enable_input_by_value_dependences(const std::string& str)
     {
         bool b;
-         parse_boolean_option("enable_input_by_value_dependences", str, b, "Assuming true.");
+         parse_boolean_option("enable_input_by_value_dependences", str, b, "Assuming false.");
         _core.set_enable_input_by_value_dependences(b);
     }
 
