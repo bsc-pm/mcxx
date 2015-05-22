@@ -84,6 +84,10 @@ void c_free(void *ptr);
 #undef NEW_VEC
 #undef NEW_VEC0
 
+#undef DELETE
+
+#undef NEW_REALLOC
+
 #define NEW(t) ((t*)xmalloc(sizeof(t)))
 #define NEW0(t) ((t*)xcalloc(1, sizeof(t)))
 
