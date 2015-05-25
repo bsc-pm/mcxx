@@ -1900,7 +1900,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
                 int current_pack_index = j - i;
                 argument = function_type_get_parameter_type_num(function_argument, j);
                 deduction_set_t* deduction_for_current_pack
-                    = NEW(deduction_set_t);
+                    = NEW0(deduction_set_t);
                 deduction_result_t deduction_result_for_current_pack = DEDUCTION_OK;
 
                 type_t* unpacked_parameter = pack_type_get_packed_type(parameter);
@@ -2004,7 +2004,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
             }
 
             deduction_set_t* deduction_for_current_parameter
-                = NEW(deduction_set_t);
+                = NEW0(deduction_set_t);
             deduction_result_t deduction_result_for_current_parameter = DEDUCTION_OK;
 
             deduction_result_for_current_parameter =
@@ -2184,7 +2184,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
 
         // T
         // cv-list T
-        deduction_t* new_deduction = NEW(deduction_t);
+        deduction_t* new_deduction = NEW0(deduction_t);
         new_deduction->kind =
             (named_type_get_symbol(parameter)->kind == SK_TEMPLATE_TYPE_PARAMETER)
             ? TPK_TYPE
@@ -2263,7 +2263,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
                     named_type_get_symbol(argument)->type_information) == NULL,
                 "Invalid related template symbol", 0);
 
-        deduction_t* new_deduction = NEW(deduction_t);
+        deduction_t* new_deduction = NEW0(deduction_t);
         new_deduction->kind =
             (template_parameter->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             ? TPK_TEMPLATE
@@ -2695,7 +2695,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         type_t* parameter_pointee = pointer_type_get_pointee_type(parameter);
         type_t* argument_pointee = pointer_type_get_pointee_type(argument);
 
-        deduction_set_t* deduction_for_pointee = NEW(deduction_set_t);
+        deduction_set_t* deduction_for_pointee = NEW0(deduction_set_t);
 
         deduction_result_t deduction_result_for_pointee =
             deduce_template_arguments_from_a_type(
