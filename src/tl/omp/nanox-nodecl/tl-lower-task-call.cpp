@@ -43,8 +43,30 @@
 
 namespace TL { namespace Nanox {
 
-typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
-typedef std::map<TL::Symbol, TL::Symbol> param_sym_to_arg_sym_t;
+// This container is not intended to be complete
+template <typename Key, typename Value>
+struct preserve_insertion_order_map
+{
+    typedef std::vector<Key> vector_t;
+    vector_t v;
+
+    typedef std::map<Key, Value> map_t;
+    map_t m;
+
+    Value& operator[](const Key& k)
+    {
+        typename map_t::iterator it = m.find(k);
+
+        if (it == m.end())
+        {
+            v.push_back(k);
+        }
+        return m[k];
+    }
+};
+
+typedef preserve_insertion_order_map<TL::Symbol, Nodecl::NodeclBase > sym_to_argument_expr_t;
+typedef preserve_insertion_order_map<TL::Symbol, TL::Symbol > param_sym_to_arg_sym_t;
 
 static void fill_map_parameters_to_arguments(
         TL::Symbol function,
@@ -105,8 +127,8 @@ static Nodecl::NodeclBase rewrite_expression_in_outline(Nodecl::NodeclBase node,
             return rewrite_expression_in_outline(sym.get_value(), map);
         }
 
-        param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
-        if (it != map.end())
+        param_sym_to_arg_sym_t::map_t::const_iterator it = map.m.find(sym);
+        if (it != map.m.end())
         {
             TL::Symbol sym_2 = it->second;
             Nodecl::NodeclBase result = Nodecl::Symbol::make(
@@ -206,8 +228,8 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
             return rewrite_expression_in_dependency_c(sym.get_value().shallow_copy(), map);
         }
 
-        param_sym_to_arg_sym_t::const_iterator it = map.find(sym);
-        if (it != map.end())
+        param_sym_to_arg_sym_t::map_t::const_iterator it = map.m.find(sym);
+        if (it != map.m.end())
         {
             Nodecl::Symbol sym_ref = Nodecl::Symbol::make(it->second);
 
@@ -253,10 +275,10 @@ static Nodecl::NodeclBase rewrite_expression_in_terms_of_arguments(Nodecl::Nodec
     TL::Symbol sym = node.get_symbol();
     if (sym.is_valid())
     {
-        sym_to_argument_expr_t::const_iterator it_param = param_to_arg_expr.find(sym);
-        if (it_param != param_to_arg_expr.end())
+        sym_to_argument_expr_t::map_t::const_iterator it_param = param_to_arg_expr.m.find(sym);
+        if (it_param != param_to_arg_expr.m.end())
         {
-                Nodecl::NodeclBase expr = it_param->second;
+            Nodecl::NodeclBase expr = it_param->second;
                 node.replace(expr.shallow_copy());
         }
     }
@@ -591,8 +613,8 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
         {
             TL::Symbol sym = node.get_symbol();
 
-            sym_to_argument_expr_t::const_iterator it_param = _param_to_arg_expr.find(sym);
-            if (it_param != _param_to_arg_expr.end())
+            sym_to_argument_expr_t::map_t::const_iterator it_param = _param_to_arg_expr.m.find(sym);
+            if (it_param != _param_to_arg_expr.m.end())
             {
                 node.replace(it_param->second.shallow_copy());
             }
@@ -709,12 +731,12 @@ static void copy_target_info_from_params_to_args_c(
         // Create a new param_to_arg_expr map for every implementation
         TL::ObjectList<TL::Symbol> impl_parameters = implementor.get_function_parameters();
         sym_to_argument_expr_t impl_param_to_arg_expr;
-        for (sym_to_argument_expr_t::const_iterator it2 = param_to_arg_expr.begin();
-                it2 != param_to_arg_expr.end();
+        for (sym_to_argument_expr_t::vector_t::const_iterator it2 = param_to_arg_expr.v.begin();
+                it2 != param_to_arg_expr.v.end();
                 ++it2)
         {
-            TL::Symbol current_param = it2->first;
-            Nodecl::NodeclBase current_argum = it2->second;
+            TL::Symbol current_param = *it2;
+            Nodecl::NodeclBase current_argum = param_to_arg_expr.m.find(*it2)->second;
 
             ERROR_CONDITION(!current_param.is_parameter(), "Unreachable code", 0);
 
@@ -919,12 +941,12 @@ void LoweringVisitor::visit_task_call_c(
     Nodecl::Utils::SimpleSymbolMap param_to_args_map;
 
     // First register all symbols
-    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
-            it != param_to_arg_expr.end();
+    for (sym_to_argument_expr_t::vector_t::iterator it = param_to_arg_expr.v.begin();
+            it != param_to_arg_expr.v.end();
             it++)
     {
-        TL::Symbol parameter = it->first;
-        Nodecl::NodeclBase argument = it->second;
+        TL::Symbol parameter = *it;
+        Nodecl::NodeclBase argument = param_to_arg_expr.m.find(*it)->second;
 
         // We search by parameter position here
         ObjectList<OutlineDataItem*> found = data_items.find(
@@ -1071,16 +1093,17 @@ void LoweringVisitor::visit_task_call_c(
     // void f(int *a, int n);
     //
     // We will first see 'a' and then 'n' but the dependence on 'a' uses 'n', so we need the map fully populated
-    for (sym_to_argument_expr_t::iterator it = param_to_arg_expr.begin();
-            it != param_to_arg_expr.end();
+    for (sym_to_argument_expr_t::vector_t::iterator it = param_to_arg_expr.v.begin();
+            it != param_to_arg_expr.v.end();
             it++)
     {
         //The SHARING_SHARED_WITH_CAPTURE outline data items are skipped at this point
-        if (param_sym_to_arg_sym.find(it->first) == param_sym_to_arg_sym.end())
+        param_sym_to_arg_sym_t::map_t::iterator map_it = param_sym_to_arg_sym.m.find(*it);
+        if (map_it == param_sym_to_arg_sym.m.end())
             continue;
 
-        TL::Symbol &new_symbol = param_sym_to_arg_sym[it->first];
-        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(it->first);
+        TL::Symbol &new_symbol = map_it->second;
+        OutlineDataItem& parameter_outline_data_item = parameters_outline_info.get_entity_for_symbol(*it);
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
         copy_outline_data_item_c(argument_outline_data_item, parameter_outline_data_item, param_sym_to_arg_sym);
     }
