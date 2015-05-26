@@ -53,6 +53,10 @@ typedef void (*kmpc_micro)(kmp_int32* global_tid, kmp_int32* bound_tid, ...);
 void __kmpc_push_num_threads (ident_t *loc, kmp_int32 global_tid, kmp_int32 num_threads);
 void __kmpc_fork_call (ident_t *loc, kmp_int32 argc, kmpc_micro microtask,...);
 void __kmpc_push_num_teams (ident_t *loc, kmp_int32 global_tid, kmp_int32 num_teams, kmp_int32 num_threads);
+#ifdef INTEL_OMP_SIMD
+void __kmpc_push_estimated_reduction_info(ident_t *loc, kmp_int32 global_tid,
+        kmp_uint32 estimated_red_vars, size_t * estimated_red_sizes);
+#endif
 void __kmpc_fork_teams (ident_t *loc, kmp_int32 argc, kmpc_micro microtask,...);
 void __kmpc_serialized_parallel (ident_t *loc, kmp_int32 global_tid);
 void __kmpc_end_serialized_parallel (ident_t *loc, kmp_int32 global_tid);
