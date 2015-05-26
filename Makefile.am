@@ -3339,7 +3339,6 @@ intel_openmpdir=$(pkgdatadir)/intel-omp
 
 intel_openmp_DATA = \
 			  support/intel_omp/intel-omp.h \
-			  support/intel_omp/intel-omp-simd.h \
 			  support/intel_omp/intel-omp-atomics.h \
 			  $(END)
 
@@ -3350,7 +3349,6 @@ EXTRA_DIST += \
 			support/intel_omp/atomic-list.def \
 			support/intel_omp/intel-omp-atomics.h \
 			support/intel_omp/intel-omp.h \
-			support/intel_omp/intel-omp-simd.h \
 			$(END)
 
 ##########################################################################
