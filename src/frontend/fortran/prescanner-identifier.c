@@ -200,8 +200,6 @@ const char * statement_names[] =
 #undef STATEMENT_INFO
 };
 
-typedef struct line_information_tag line_information_t;
-
 static int i_isblank(int c);
 
 static line_information_t* get_information_from_line(prescanner_t* prescanner, char* c);
