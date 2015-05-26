@@ -42,7 +42,7 @@
 /*
  * Building a symbol table for C++ is such a hard thing that we need ways to debug it.
  */
-static void print_scope_full_context(decl_context_t decl_context, int global_indent);
+static void print_scope_full_context(const decl_context_t* decl_context, int global_indent);
 static void print_scope_full(scope_t* scope, int global_indent);
 static void print_scope_entry_list(const char* key, scope_entry_list_t* entry_list, int global_indent);
 static void print_scope_entry(const char* key, scope_entry_t* entry, int global_indent);
@@ -84,7 +84,7 @@ static int comp_vptr(const void* v1, const void *v2)
         return 0;
 }
 
-void print_scope(decl_context_t decl_context)
+void print_scope(const decl_context_t* decl_context)
 {
     memset(&print_context_data, 0, sizeof(print_context_data));
     print_context_data.symbol_set = rb_tree_create(comp_vptr, null_dtor, null_dtor);
@@ -92,7 +92,7 @@ void print_scope(decl_context_t decl_context)
 }
 
 
-static void print_scope_full_context(decl_context_t decl_context, int global_indent)
+static void print_scope_full_context(const decl_context_t* decl_context, int global_indent)
 {
     scope_t* st = decl_context->current_scope;
     if (st == NULL)

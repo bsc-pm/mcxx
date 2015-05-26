@@ -175,7 +175,7 @@ namespace Codegen
             void visit(const Nodecl::PragmaCustomDirective& node)
             {
                 Nodecl::NodeclBase context = node.get_context_of_decl();
-                decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
+                const decl_context_t* decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
 
                 if (decl_context->current_scope->related_entry != NULL)
                 {
@@ -378,7 +378,8 @@ namespace Codegen
                     it++)
             {
                 // Here we declare everything in the context of the enclosing program unit
-                declare_everything_needed(*it, entry.get_related_scope());
+                if (entry.get_related_scope().is_valid())
+                    declare_everything_needed(*it, entry.get_related_scope());
 
                 // We explicitly check dummy arguments because they might not be used
                 TL::Symbol internal_procedure = it->get_symbol();
@@ -399,18 +400,26 @@ namespace Codegen
             }
         }
 
-        // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
-        if (data_symbol.is_valid())
+        if (entry.get_related_scope().is_valid())
         {
-            walk(data_symbol.get_value());
+            TL::Symbol data_symbol =
+                // Could we improve the name of this function?
+                ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
+            if (data_symbol.is_valid())
+            {
+                walk(data_symbol.get_value());
+            }
         }
 
-        // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
-        if (equivalence_symbol.is_valid())
+        if (entry.get_related_scope().is_valid())
         {
-            walk(equivalence_symbol.get_value());
+            TL::Symbol equivalence_symbol =
+                // Could we improve the name of this function?
+                ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+            if (equivalence_symbol.is_valid())
+            {
+                walk(equivalence_symbol.get_value());
+            }
         }
 
         if (entry.is_saved_program_unit())
@@ -2752,7 +2761,7 @@ OPERATOR_TABLE
         // If the pragma is inside a module and the symbol of this module does not correspond with the
         // 'state.current_module' then we don't print anything
         Nodecl::NodeclBase context = node.get_context_of_decl();
-        decl_context_t decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
+        const decl_context_t* decl_context = nodecl_get_decl_context(context.get_internal_nodecl());
         if (decl_context->current_scope->related_entry != NULL)
         {
             scope_entry_t * related_entry = decl_context->current_scope->related_entry;  
@@ -3326,12 +3335,12 @@ OPERATOR_TABLE
         // the interface of which is declared after another existing interface
         // name
         TL::Symbol real_entry = entry;
-        if (entry.get_related_scope().get_decl_context()->current_scope != NULL
+        if (entry.get_related_scope().is_valid()
+                && entry.get_related_scope().get_decl_context()->current_scope != NULL
                 && entry.get_related_scope().get_decl_context()->current_scope->related_entry != NULL)
         {
             real_entry = entry.get_related_scope().get_decl_context()->current_scope->related_entry;
         }
-
 
         if (!state.in_interface)
         {
@@ -3453,7 +3462,7 @@ OPERATOR_TABLE
                 ERROR_CONDITION(!t.is_named_class(), "Invalid class", 0);
 
                 TL::Symbol class_type  = t.get_symbol();
-                decl_context_t class_context = class_type.get_scope().get_decl_context();
+                const decl_context_t* class_context = class_type.get_scope().get_decl_context();
 
                 // If the class type is defined in a module
                 if (class_type.is_in_module()
@@ -3603,8 +3612,8 @@ OPERATOR_TABLE
     bool FortranBase::entry_is_in_scope(TL::Symbol entry, TL::Scope sc)
     {
         // - The symbol is declared in the current scope
-        decl_context_t entry_context = entry.get_scope().get_decl_context();
-        decl_context_t sc_context = sc.get_decl_context();
+        const decl_context_t* entry_context = entry.get_scope().get_decl_context();
+        const decl_context_t* sc_context = sc.get_decl_context();
 
         if (entry_context->current_scope == sc_context->current_scope)
             return true;
@@ -3624,7 +3633,7 @@ OPERATOR_TABLE
 
                 // Maybe the symbol is not declared in the current scope but its name 
                 // is in one of the enclosing ones (due to an insertion)
-                decl_context_t current_context = CURRENT_COMPILED_FILE->global_decl_context;
+                decl_context_t* current_context = decl_context_clone(CURRENT_COMPILED_FILE->global_decl_context);
                 current_context->current_scope = sc_scope;
                 current_context->block_scope = sc_scope;
 
@@ -3645,7 +3654,7 @@ OPERATOR_TABLE
 
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
         scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_internal_symbol()->symbol_name, NULL);
 
         if (query != NULL
@@ -3669,7 +3678,7 @@ OPERATOR_TABLE
         if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
             return;
 
-        decl_context_t entry_context = entry.get_scope().get_decl_context();
+        const decl_context_t* entry_context = entry.get_scope().get_decl_context();
 
         // We only declare entities in the current scope that are not internal subprograms or module procedures
         bool ok_to_declare = entry_is_in_scope(entry, sc)
@@ -4860,7 +4869,7 @@ OPERATOR_TABLE
 
     void FortranBase::do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
     {
-         decl_context_t decl_context = entry.get_scope().get_decl_context();
+         const decl_context_t* decl_context = entry.get_scope().get_decl_context();
 
         static std::set<TL::Symbol> being_checked;
 

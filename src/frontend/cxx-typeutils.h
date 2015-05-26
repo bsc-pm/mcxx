@@ -106,11 +106,11 @@ LIBMCXX_EXTERN type_t* get_hollerith_type(void);
 LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char is_decltype);
 
 LIBMCXX_EXTERN nodecl_t typeof_expr_type_get_expression(type_t* t);
-LIBMCXX_EXTERN decl_context_t typeof_expr_type_get_expression_context(type_t* t);
+LIBMCXX_EXTERN const decl_context_t* typeof_expr_type_get_expression_context(type_t* t);
 
 LIBMCXX_EXTERN char typeof_expr_type_is_decltype(type_t* t);
 
@@ -139,14 +139,14 @@ LIBMCXX_EXTERN void dependent_typename_set_is_artificial(type_t* t, char is_arti
 LIBMCXX_EXTERN char dependent_typename_is_artificial(type_t* t);
 #endif
 
-LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped);
-LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
+LIBMCXX_EXTERN type_t* get_new_enum_type(const decl_context_t* decl_context, char is_scoped);
+LIBMCXX_EXTERN type_t* get_new_class_type(const decl_context_t* decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, const locus_t* locus);
+        const char* template_name, const decl_context_t* decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, const locus_t* locus);
+        const char* template_name, const decl_context_t* decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
@@ -157,24 +157,24 @@ LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explici
 LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
-        decl_context_t decl_context, const locus_t* locus);
+        const decl_context_t* decl_context, const locus_t* locus);
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
         scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* deduce_auto_initializer(
         nodecl_t nodecl_initializer,
         type_t* type_to_deduce,
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 LIBMCXX_EXTERN type_t* deduce_decltype_auto_initializer(
         nodecl_t nodecl_initializer,
         type_t* type_to_deduce,
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 LIBMCXX_EXTERN type_t* compute_type_of_decltype_nodecl(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -245,24 +245,24 @@ LIBMCXX_EXTERN type_t* get_rebindable_reference_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_array_type(type_t* element_type, 
         nodecl_t size_of_array, 
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 
 LIBMCXX_EXTERN type_t* get_array_type_bounds(type_t*, 
         nodecl_t lower_bound, 
         nodecl_t upper_bound, 
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 
 LIBMCXX_EXTERN type_t* get_array_type_bounds_with_descriptor(type_t*, 
         nodecl_t lower_bound, 
         nodecl_t upper_bound, 
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 
 LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*, 
         nodecl_t lower_bound, 
         nodecl_t upper_bound, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t region, 
-        decl_context_t decl_context_region);
+        const decl_context_t* decl_context_region);
 
 LIBMCXX_EXTERN type_t* get_array_type_unknown_size_dependent(
         type_t* element_type);
@@ -288,7 +288,7 @@ LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size_bits);
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Fixes dependent typenames in types so they can be compared without context */
-LIBMCXX_EXTERN type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN type_t* fix_dependent_typenames_in_context(type_t* t, const decl_context_t* decl_context, const locus_t* locus);
 
 /* Type comparison functions */
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
@@ -307,7 +307,7 @@ LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type,
         char is_expansion,
         access_specifier_t access_spec);
 
-LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
+LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, const decl_context_t* decl_context);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
@@ -321,8 +321,8 @@ LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_
 LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
         char is_definition);
 
-LIBMCXX_EXTERN void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
-LIBMCXX_EXTERN char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN void class_type_complete_if_needed(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_complete_if_possible(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
@@ -556,7 +556,7 @@ LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(t
 
 LIBMCXX_EXTERN type_t* array_type_get_element_type(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_array_size_expr(type_t* t);
-LIBMCXX_EXTERN decl_context_t array_type_get_array_size_expr_context(type_t* t);
+LIBMCXX_EXTERN const decl_context_t* array_type_get_array_size_expr_context(type_t* t);
 
 
 LIBMCXX_EXTERN char array_type_is_unknown_size(type_t* t);
@@ -574,7 +574,7 @@ LIBMCXX_EXTERN char array_type_is_string_literal(type_t* t);
 LIBMCXX_EXTERN char array_type_with_descriptor(type_t* t);
 
 LIBMCXX_EXTERN char array_type_has_region(type_t* t);
-LIBMCXX_EXTERN decl_context_t array_type_get_region_size_expr_context(type_t* t);
+LIBMCXX_EXTERN const decl_context_t* array_type_get_region_size_expr_context(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_region_size_expr(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_region_lower_bound(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_region_upper_bound(type_t* t);
@@ -614,7 +614,7 @@ LIBMCXX_EXTERN computed_function_type_t computed_function_type_get_computing_fun
 
 // Gives all the conversions related to a class
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, 
-        decl_context_t decl_context);
+        const decl_context_t* decl_context);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t);
@@ -623,10 +623,10 @@ LIBMCXX_EXTERN scope_entry_list_t* class_type_get_move_constructors(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_default_constructor(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* class_type_get_destructor(type_t* t);
-LIBMCXX_EXTERN decl_context_t class_type_get_context(type_t* t);
-LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
+LIBMCXX_EXTERN const decl_context_t* class_type_get_context(type_t* t);
+LIBMCXX_EXTERN const decl_context_t* class_type_get_inner_context(type_t* class_type);
 
-LIBMCXX_EXTERN decl_context_t class_or_enum_type_get_inner_context(type_t* class_or_enum_type);
+LIBMCXX_EXTERN const decl_context_t* class_or_enum_type_get_inner_context(type_t* class_or_enum_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
 
@@ -634,7 +634,7 @@ LIBMCXX_EXTERN scope_entry_list_t* class_type_get_friends(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_inherited_constructors(type_t* t);
 
-LIBMCXX_EXTERN decl_context_t enum_type_get_context(type_t* t);
+LIBMCXX_EXTERN const decl_context_t* enum_type_get_context(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* named_type_get_symbol(type_t* t);
 
@@ -644,12 +644,12 @@ LIBMCXX_EXTERN type_t* template_type_get_primary_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
         template_parameter_list_t* template_parameters,
         type_t* type_used_as_template,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus);
 
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
@@ -754,7 +754,7 @@ LIBMCXX_EXTERN void set_as_template_specialized_type(type_t* type_to_specialize,
 
 /* Naming types functions */
 LIBMCXX_EXTERN const char* get_declaration_string(type_t* type_info,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* symbol_name,
         const char* initializer,
         char semicolon,
@@ -764,7 +764,7 @@ LIBMCXX_EXTERN const char* get_declaration_string(type_t* type_info,
         char is_parameter);
 
 LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
         int num_parameter_names,
@@ -778,11 +778,11 @@ LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
 // This function is extern because it's used in cxx-scope.c
 LIBMCXX_EXTERN const char* get_simple_type_name_string_internal_common(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         void* data UNUSED_PARAMETER);
 
 // Like get_declarator_name_string_ex but only returns the declarator part, ignoring the type specifier
-LIBMCXX_EXTERN const char* get_declarator_name_string_ex(decl_context_t decl_context,
+LIBMCXX_EXTERN const char* get_declarator_name_string_ex(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -839,15 +839,15 @@ LIBMCXX_EXTERN void class_type_get_virtual_base_with_offset_num(type_t* t, int n
 
 LIBMCXX_EXTERN size_t get_type_t_size(void);
 
-LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
-LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
+LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, const decl_context_t* decl_context, const char* name);
+LIBMCXX_EXTERN const char* print_type_str(type_t* t, const decl_context_t* decl_context);
 
 LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map);
 
 LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(type_t* orig,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map);
@@ -886,25 +886,25 @@ LIBMCXX_EXTERN char is_generic_type(type_t*);
 LIBMCXX_EXTERN int generic_type_get_num(type_t*);
 
 LIBMCXX_EXTERN const char* print_gnu_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
 LIBMCXX_EXTERN const char* print_intel_sse_avx_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
 LIBMCXX_EXTERN const char* print_altivec_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
 LIBMCXX_EXTERN const char* print_opencl_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);

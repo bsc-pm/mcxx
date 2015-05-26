@@ -154,7 +154,7 @@ namespace TL
             new_target_info._name = _name;
             new_target_info._copy_deps = _copy_deps;
 
-            decl_context_t instantiation_context = context_of_being_instantiated.get_decl_context();
+            const decl_context_t* instantiation_context = context_of_being_instantiated.get_decl_context();
             for (TL::ObjectList<CopyItem>::const_iterator it = _copy_in.begin();
                     it != _copy_in.end();
                     it++)
@@ -489,7 +489,7 @@ namespace TL
         {
             FunctionTaskInfo new_function_task_info;
 
-            decl_context_t instantiation_context = context_of_being_instantiated.get_decl_context();
+            const decl_context_t* instantiation_context = context_of_being_instantiated.get_decl_context();
 
             // First, set the function symbol related to this function task info, locus and the untied attribute
             new_function_task_info._sym = specialized_function;
@@ -1533,7 +1533,7 @@ namespace TL
             FORTRAN_LANGUAGE()
             {
                 static bool already_nagged = false;
-                decl_context_t decl_context = function_sym.get_scope().get_decl_context();
+                const decl_context_t* decl_context = function_sym.get_scope().get_decl_context();
 
                 if (decl_context->current_scope == decl_context->global_scope)
                 {

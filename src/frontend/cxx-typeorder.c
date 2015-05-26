@@ -368,7 +368,7 @@ static specialization_comparison_t compare_type_specialization(
         type_t* argument,
         template_parameter_list_t* template_parameters UNUSED_PARAMETER,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -491,7 +491,7 @@ static void compute_single_deduction(int *i,
         type_t* original_type_template,
         type_t* transformed_type_template,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         char is_conversion,
@@ -646,7 +646,7 @@ char is_more_specialized_template_function(
         scope_entry_t* template_1,
         scope_entry_t* template_2,
         template_parameter_list_t* raw_explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         char is_overload, int num_actual_arguments,
@@ -798,7 +798,7 @@ char is_more_specialized_template_function(
                 template_specialized_type_get_template_parameters(
                     original_type_template_2),
                 deduction_set);
-    decl_context_t updated_context_1 = decl_context_clone(decl_context);
+    decl_context_t* updated_context_1 = decl_context_clone(decl_context);
     updated_context_1->template_parameters = updated_template_parameters_1;
 
     template_parameter_list_t* updated_template_parameters_2 =
@@ -806,7 +806,7 @@ char is_more_specialized_template_function(
                 template_specialized_type_get_template_parameters(
                     original_type_template_1),
                 inverse_deduction_set);
-    decl_context_t updated_context_2 = decl_context_clone(decl_context);
+    decl_context_t* updated_context_2 = decl_context_clone(decl_context);
     updated_context_2->template_parameters = updated_template_parameters_2;
 
     for (i = 0; i < num_types; i++)
@@ -1029,7 +1029,7 @@ char is_more_specialized_template_function(
 
 static char compare_template_classes(
         type_t* c1, type_t* c2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         /* flags */
         char is_requiring_exact_match,
@@ -1173,7 +1173,7 @@ static char compare_template_classes(
 // States if c1 is more specialized than c2
 char is_more_specialized_template_class(
         type_t* c1, type_t* c2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     return compare_template_classes(
@@ -1189,7 +1189,7 @@ char is_more_specialized_template_class(
 
 char class_template_specialization_matches(
         type_t* c1, type_t* c2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         /* out */
         template_parameter_list_t** deduced_template_arguments)
@@ -1208,7 +1208,7 @@ char class_template_specialization_matches(
 char is_more_specialized_template_function_in_overload(
         scope_entry_t* f1,
         scope_entry_t* f2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t* explicit_template_arguments,
         const locus_t* locus,
         // Flags
@@ -1235,7 +1235,7 @@ char is_more_specialized_template_function_in_overload(
 char is_more_specialized_template_function_in_function_address(
         scope_entry_t* f1,
         scope_entry_t* f2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t* explicit_template_arguments,
         const locus_t* locus,
         // Flags

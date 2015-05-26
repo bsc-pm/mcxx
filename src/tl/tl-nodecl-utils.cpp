@@ -813,7 +813,7 @@ namespace Nodecl
         TL::Symbol result;
         TL::Scope sc = n.retrieve_context();
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         if (decl_context->block_scope != NULL)
         {
@@ -1423,8 +1423,8 @@ namespace Nodecl
 
             std::string register_name, symbol_name;
 
-            decl_context_t decl_context = _sc.get_decl_context();
-            decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
+            const decl_context_t* decl_context = _sc.get_decl_context();
+            const decl_context_t* program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
             if (IS_FORTRAN_LANGUAGE
                     && is_numeric_label)

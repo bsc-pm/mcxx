@@ -58,7 +58,7 @@ union tl_type_data_tag
     scope_entry_t* _entry;
     struct type_tag* _type;
     nodecl_t _nodecl;
-    decl_context_t _decl_context;
+    const decl_context_t* _decl_context;
     void *_data;
 } tl_type_data_t;
 
@@ -73,7 +73,7 @@ enum tl_type_kind_tag
     TL_SYMBOL, // scope_entry_t*
     TL_TYPE,  // struct type_tag*
     TL_NODECL, // AST_t
-    TL_DECL_CONTEXT, // decl_context_t
+    TL_DECL_CONTEXT, // const decl_context_t*
     TL_OTHER, // void* to arbitrary data
 } tl_type_kind_t;
 
@@ -92,7 +92,7 @@ LIBMCXX_EXTERN tl_type_t tl_symbol(scope_entry_t* entry);
 LIBMCXX_EXTERN tl_type_t tl_type(struct type_tag* t);
 LIBMCXX_EXTERN tl_type_t tl_object(void *data);
 LIBMCXX_EXTERN tl_type_t tl_nodecl(nodecl_t n);
-LIBMCXX_EXTERN tl_type_t tl_decl_context(decl_context_t decl_context);
+LIBMCXX_EXTERN tl_type_t tl_decl_context(const decl_context_t* decl_context);
 
 MCXX_END_DECLS
 

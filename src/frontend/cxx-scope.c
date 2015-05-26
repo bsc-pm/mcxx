@@ -52,7 +52,7 @@
 
 
 // Lookup of a simple name within a given declaration context
-static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
+static scope_entry_list_t* name_lookup(const decl_context_t* decl_context, 
         const char* name, 
         field_path_t* field_path,
         decl_flags_t decl_flags,
@@ -302,17 +302,17 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_e
  * to properly create contexts
  */
 
-// Creates an anew decl_context_t
-static decl_context_t new_decl_context(void)
+// Creates an anew const decl_context_t*
+static decl_context_t* new_decl_context(void)
 {
-    decl_context_t result = NEW0(decl_context_data_t);
+    decl_context_t* result = NEW0(decl_context_t);
     return result;
 }
 
 // Creates a new global context
-decl_context_t new_global_context(void)
+decl_context_t* new_global_context(void)
 {
-    decl_context_t result = new_decl_context();
+    decl_context_t* result = new_decl_context();
 
     scope_entry_t* global_scope_namespace = NEW0(scope_entry_t);
     global_scope_namespace->kind = SK_NAMESPACE;
@@ -331,15 +331,15 @@ decl_context_t new_global_context(void)
     return result;
 }
 
-decl_context_t decl_context_clone(decl_context_t t)
+decl_context_t* decl_context_clone(const decl_context_t* t)
 {
-    decl_context_t result = NEW(decl_context_data_t);
+    decl_context_t* result = NEW(decl_context_t);
     *result = *t;
 
     return result;
 }
 
-decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, 
+decl_context_t* new_namespace_context(const decl_context_t* enclosing_decl_context, 
         scope_entry_t* related_entry)
 {
     ERROR_CONDITION((enclosing_decl_context->current_scope->kind != NAMESPACE_SCOPE),
@@ -348,7 +348,7 @@ decl_context_t new_namespace_context(decl_context_t enclosing_decl_context,
             "Enclosing namespace scope has a mismatch between its current scope and its namespace scope", 0);
 
     // Inherit current context
-    decl_context_t result = decl_context_clone(enclosing_decl_context);
+    decl_context_t* result = decl_context_clone(enclosing_decl_context);
 
     // Create a new namespace scope contained in the previous one
     result->namespace_scope = new_namespace_scope(enclosing_decl_context->namespace_scope, 
@@ -359,10 +359,10 @@ decl_context_t new_namespace_context(decl_context_t enclosing_decl_context,
     return result;
 }
 
-decl_context_t new_prototype_context(decl_context_t enclosing_decl_context)
+decl_context_t* new_prototype_context(const decl_context_t* enclosing_decl_context)
 {
     // Inherit current context
-    decl_context_t result = decl_context_clone(enclosing_decl_context);
+    decl_context_t* result = decl_context_clone(enclosing_decl_context);
 
     // Create the prototype scope
     result->prototype_scope = new_prototype_scope(enclosing_decl_context->current_scope);
@@ -373,7 +373,7 @@ decl_context_t new_prototype_context(decl_context_t enclosing_decl_context)
 }
 
 
-decl_context_t new_block_context(decl_context_t enclosing_context)
+decl_context_t* new_block_context(const decl_context_t* enclosing_context)
 {
     ERROR_CONDITION(enclosing_context->current_scope->kind != NAMESPACE_SCOPE
             && enclosing_context->current_scope->kind != CLASS_SCOPE
@@ -381,7 +381,7 @@ decl_context_t new_block_context(decl_context_t enclosing_context)
             "Enclosing scope is neither namespace nor class scope", 0);
 
     // Inherit block context
-    decl_context_t result = decl_context_clone(enclosing_context);
+    decl_context_t* result = decl_context_clone(enclosing_context);
 
     // Create new block scope
     result->block_scope = new_block_scope(enclosing_context->current_scope);
@@ -398,10 +398,10 @@ decl_context_t new_block_context(decl_context_t enclosing_context)
     return result;
 }
 
-decl_context_t new_function_context(decl_context_t enclosing_context)
+decl_context_t* new_function_context(const decl_context_t* enclosing_context)
 {
     // Inherit the scope
-    decl_context_t result = decl_context_clone(enclosing_context);
+    decl_context_t* result = decl_context_clone(enclosing_context);
     // Create a new function scope for it
     result->function_scope = new_function_scope();
     // Note that we are not changing the current_scope, since nothing
@@ -409,7 +409,7 @@ decl_context_t new_function_context(decl_context_t enclosing_context)
     return result;
 }
 
-decl_context_t new_class_context(decl_context_t enclosing_context, 
+decl_context_t* new_class_context(const decl_context_t* enclosing_context, 
         scope_entry_t* class_entry)
 {
     ERROR_CONDITION(enclosing_context->current_scope->kind != NAMESPACE_SCOPE
@@ -421,7 +421,7 @@ decl_context_t new_class_context(decl_context_t enclosing_context,
     ERROR_CONDITION(class_entry->kind != SK_CLASS && class_entry->kind != SK_ENUM, "This is not a class or enum", 0);
 
     // Inherit the scope
-    decl_context_t result = decl_context_clone(enclosing_context);
+    decl_context_t* result = decl_context_clone(enclosing_context);
 
     // Create new class scope
     result->class_scope = new_class_scope(enclosing_context->current_scope, class_entry);
@@ -463,7 +463,7 @@ static const char* scope_names[] =
     [CLASS_SCOPE] = "CLASS_SCOPE",
 };
 
-scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* name)
+scope_entry_t* new_symbol(const decl_context_t* decl_context, scope_t* sc, const char* name)
 {
     ERROR_CONDITION(name == NULL ||
             *name == '\0', "New symbol called with an empty or NULL string", 0);
@@ -711,9 +711,9 @@ static scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list
     return filter_symbol_using_predicate(entry_list, is_not_friend_declared, NULL);
 }
 
-static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
+scope_entry_list_t* query_id_expression_flags(const decl_context_t* decl_context,
         AST id_expression,
         field_path_t* field_path,
         decl_flags_t decl_flags)
@@ -734,7 +734,7 @@ scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
 /*
  * Query functions
  */
-scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 
+scope_entry_list_t* query_nested_name_flags(const decl_context_t* decl_context, 
         AST global_op, 
         AST nested_name, 
         AST unqualified_name,
@@ -754,7 +754,7 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     return result;
 }
 
-scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
+scope_entry_list_t* query_in_scope_flags(const decl_context_t* decl_context,
         AST unqualified_name,
         field_path_t *field_path,
         decl_flags_t decl_flags)
@@ -774,7 +774,7 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
     return result;
 }
 
-scope_entry_list_t* query_name_str_flags(decl_context_t decl_context,
+scope_entry_list_t* query_name_str_flags(const decl_context_t* decl_context,
         const char* unqualified_name,
         field_path_t* field_path,
         decl_flags_t decl_flags)
@@ -788,7 +788,7 @@ scope_entry_list_t* query_name_str_flags(decl_context_t decl_context,
     return result;
 }
 
-scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
+scope_entry_list_t* query_in_scope_str_flags(const decl_context_t* decl_context,
         const char* name, field_path_t* field_path,
         decl_flags_t decl_flags)
 {
@@ -852,7 +852,7 @@ scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol)
     return class_symbol;
 }
 
-static char class_is_immediate_lexical_scope(decl_context_t decl_context,
+static char class_is_immediate_lexical_scope(const decl_context_t* decl_context,
         scope_entry_t* class_symbol)
 {
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
@@ -878,7 +878,7 @@ static char class_is_immediate_lexical_scope(decl_context_t decl_context,
     return 0;
 }
 
-char class_is_in_lexical_scope(decl_context_t decl_context, 
+char class_is_in_lexical_scope(const decl_context_t* decl_context, 
         scope_entry_t* class_symbol)
 {
     ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
@@ -905,7 +905,7 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
         type_t* enclosing_class = class_type_get_enclosing_class_type(class_in_scope->type_information);
         if (enclosing_class != NULL)
         {
-            decl_context_t class_context = class_type_get_inner_context(enclosing_class);
+            const decl_context_t* class_context = class_type_get_inner_context(enclosing_class);
             return class_is_in_lexical_scope(class_context, class_symbol);
         }
     }
@@ -915,7 +915,7 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
 
 char compute_type_of_dependent_conversion_type_id(
         nodecl_t nodecl_name,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     // This is weird, the left hand side of this class-member access is
     // dependent, so technically we cannot check anything in its scope
@@ -956,7 +956,7 @@ char compute_type_of_dependent_conversion_type_id(
     {
         AST id_expression = ASTSon0(type_spec);
 
-        decl_context_t expression_context =
+        const decl_context_t* expression_context =
             nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
 
         nodecl_t nodecl_id_expression = nodecl_null();
@@ -993,7 +993,7 @@ char compute_type_of_dependent_conversion_type_id(
 }
 
 static scope_entry_t* create_new_dependent_entity(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_t* dependent_entry,
         int nested_name_index,
         int nested_name_size,
@@ -1133,7 +1133,7 @@ typedef
 struct same_type_conversion_info_tag
 {
     type_t* t;
-    decl_context_t decl_context;
+    const decl_context_t* decl_context;
 } same_type_conversion_t;
 
 static char same_type_conversion(scope_entry_t* entry, void *p)
@@ -1142,7 +1142,7 @@ static char same_type_conversion(scope_entry_t* entry, void *p)
     {
         struct same_type_conversion_info_tag* same_info = (struct same_type_conversion_info_tag*)p;
         type_t* t = same_info->t;
-        // decl_context_t decl_context = same_info->decl_context;
+        // const decl_context_t* decl_context = same_info->decl_context;
 
         type_t* conversion_type = function_type_get_return_type(entry->type_information);
         return equivalent_types(conversion_type, t);
@@ -1270,7 +1270,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                     continue;
 
                 type_t* base_class_type = get_actual_class_type(base_class_entry->type_information);
-                decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
+                const decl_context_t* base_class_context = class_type_get_inner_context(base_class_type);
                 scope_t* base_class_scope = base_class_context->current_scope;
 
                 // Get the info from the base
@@ -2070,7 +2070,7 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
     }
 }
 
-static scope_entry_list_t* name_lookup(decl_context_t decl_context,
+static scope_entry_list_t* name_lookup(const decl_context_t* decl_context,
         const char* name,
         field_path_t* field_path,
         decl_flags_t decl_flags,
@@ -2283,7 +2283,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
 static nodecl_t update_nodecl_template_argument_expression(
         nodecl_t nodecl,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
@@ -2333,7 +2333,7 @@ static nodecl_t update_nodecl_template_argument_expression(
 }
 
 static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
@@ -2375,14 +2375,14 @@ char template_argument_is_pack(template_parameter_value_t* value)
 }
 
 static type_t* update_type_aux_(type_t* orig_type, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 
 static template_parameter_value_t* update_template_parameter_value_aux(
         template_parameter_value_t* v,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char is_template_class,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
@@ -2474,7 +2474,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 
 template_parameter_value_t* update_template_parameter_value_of_template_class(
         template_parameter_value_t* v,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
@@ -2485,7 +2485,7 @@ template_parameter_value_t* update_template_parameter_value_of_template_class(
 
 template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
@@ -2495,7 +2495,7 @@ template_parameter_value_t* update_template_parameter_value(
 }
 
 template_parameter_list_t* update_template_argument_list(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
@@ -2525,7 +2525,7 @@ template_parameter_list_t* update_template_argument_list(
 
 static nodecl_t update_dependent_typename_dependent_parts(
         nodecl_t dependent_parts,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
@@ -2568,7 +2568,7 @@ static type_t* update_dependent_typename(
         type_t* orig_dependent_type,
         type_t* dependent_entry_type,
         nodecl_t dependent_parts,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
@@ -2664,7 +2664,7 @@ static type_t* update_dependent_typename(
 
 static int get_length_of_pack_expansion_common(int num_packs_to_expand,
         scope_entry_t** packs_to_expand,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus UNUSED_PARAMETER)
 {
     ERROR_CONDITION(num_packs_to_expand == 0, "This should not happen", 0);
@@ -2764,7 +2764,7 @@ static int get_length_of_pack_expansion_common(int num_packs_to_expand,
 }
 
 int get_length_of_pack_expansion_from_expression(nodecl_t expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     scope_entry_t** packs_to_expand = NULL;
@@ -2780,7 +2780,7 @@ int get_length_of_pack_expansion_from_expression(nodecl_t expr,
 }
 
 int get_length_of_pack_expansion_from_type(type_t* pack_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     scope_entry_t** packs_to_expand = NULL;
@@ -2878,7 +2878,7 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
 }
 
 static type_t* update_pack_type(type_t* pack_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus)
 {
@@ -2942,7 +2942,7 @@ static type_t* update_pack_type(type_t* pack_type,
 }
 
 static char add_mapping_for_return_type_symbol(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         instantiation_symbol_map_t* instantiation_symbol_map,
@@ -3024,7 +3024,7 @@ static char add_mapping_for_return_type_symbol(scope_entry_t* entry,
 }
 
 static char add_mappings_for_return_type_expr(nodecl_t node,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         instantiation_symbol_map_t* instantiation_symbol_map,
@@ -3074,7 +3074,7 @@ static char add_mappings_for_return_type_expr(nodecl_t node,
 }
 
 static char add_mappings_for_return_type(type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         instantiation_symbol_map_t* return_instantiation_symbol_map,
@@ -3170,13 +3170,13 @@ static char add_mappings_for_return_type(type_t* t,
 }
 
 static template_parameter_list_t* complete_template_parameters_of_template_class(
-        decl_context_t template_name_context,
+        const decl_context_t* template_name_context,
         type_t* template_type,
         template_parameter_list_t* template_parameters,
         const locus_t* locus);
 
 static type_t* update_type_aux_(type_t* orig_type, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // may be null
         instantiation_symbol_map_t* instantiation_symbol_map,
@@ -3995,7 +3995,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         nodecl_t array_size = array_type_get_array_size_expr(orig_type);
 
         // Context of the array
-        decl_context_t array_size_context = array_type_get_array_size_expr_context(orig_type);
+        const decl_context_t* array_size_context = array_type_get_array_size_expr_context(orig_type);
 
         if (!nodecl_is_null(array_size))
         {
@@ -4265,7 +4265,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 }
 
 type_t* update_type(type_t* orig_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -4293,7 +4293,7 @@ type_t* update_type(type_t* orig_type,
 }
 
 type_t* update_type_with_pack_index(type_t* orig_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index)
 {
@@ -4322,7 +4322,7 @@ type_t* update_type_with_pack_index(type_t* orig_type,
 }
 
 static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
-        decl_context_t context_of_being_instantiated,
+        const decl_context_t* context_of_being_instantiated,
         const locus_t* locus,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index UNUSED_PARAMETER)
@@ -4372,7 +4372,7 @@ static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
 }
 
 type_t* update_type_for_instantiation(type_t* orig_type,
-        decl_context_t context_of_being_instantiated,
+        const decl_context_t* context_of_being_instantiated,
         const locus_t* locus,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
@@ -4414,12 +4414,12 @@ struct template_argument_info_tag
 } template_argument_info_t;
 
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
-        decl_context_t template_parameters_context,
+        const decl_context_t* template_parameters_context,
         dhash_ptr_t* disambig_hash,
         int position);
 
 static char check_single_template_argument_from_syntax(AST template_parameter, 
-        decl_context_t template_parameters_context,
+        const decl_context_t* template_parameters_context,
         int position UNUSED_PARAMETER,
         void* info)
 {
@@ -4446,7 +4446,7 @@ static int choose_type_template_argument(
         AST previous,
         int current_idx UNUSED_PARAMETER,
         int previous_idx UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         void* info UNUSED_PARAMETER)
 {
     // Prioritize template-type arguments
@@ -4467,7 +4467,7 @@ static int choose_type_template_argument(
 }
 
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
-        decl_context_t template_parameters_context,
+        const decl_context_t* template_parameters_context,
         dhash_ptr_t* disambig_hash,
         int position)
 {
@@ -4640,7 +4640,7 @@ static char template_parameter_list_invalid_marker = 0;
 
 static void get_template_arguments_from_syntax_rec(
         AST template_parameters_list_tree,
-        decl_context_t template_parameters_context,
+        const decl_context_t* template_parameters_context,
         dhash_ptr_t* disambig_hash,
 
         // Out
@@ -4836,7 +4836,7 @@ static void destroy_cached_template_parameter_lists(const char* key UNUSED_PARAM
 
 template_parameter_list_t* get_template_arguments_from_syntax(
         AST template_parameters_list_tree,
-        decl_context_t template_parameters_context)
+        const decl_context_t* template_parameters_context)
 {
     template_parameter_list_t* result = NEW0(template_parameter_list_t);
     if (template_parameters_list_tree == NULL)
@@ -4887,7 +4887,7 @@ enum template_parameter_kind template_parameter_kind_get_base_kind(enum template
 }
 
 static template_parameter_list_t* complete_template_parameters_of_template_class(
-        decl_context_t template_name_context,
+        const decl_context_t* template_name_context,
         type_t* template_type,
         template_parameter_list_t* template_parameters,
         const locus_t* locus)
@@ -4971,7 +4971,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     result->parameters = primary_template_parameters->parameters;
     result->num_parameters = primary_template_parameters->num_parameters;
 
-    decl_context_t new_template_context = template_name_context;
+    decl_context_t* new_template_context = decl_context_clone(template_name_context);
     new_template_context->template_parameters = result;
 
     int non_variadic_parameters = primary_template_parameters->num_parameters;
@@ -5296,10 +5296,10 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 // in a nest of namespaces
 static const char* get_fully_qualified_symbol_name_simple(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* current_qualif_name)
 {
-    decl_context_t symbol_decl_context = entry->decl_context;
+    const decl_context_t* symbol_decl_context = entry->decl_context;
     const char* result = current_qualif_name;
 
     scope_t* current_scope = symbol_decl_context->current_scope;
@@ -5344,7 +5344,7 @@ static const char* template_arguments_to_str_ex(
         template_parameter_list_t* template_parameters,
         int first_argument_to_be_printed,
         char print_first_level_bracket,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         print_type_callback_t print_type_fun,
         void *print_type_data
         )
@@ -5526,7 +5526,7 @@ static const char* template_arguments_to_str_ex(
     return str;
 }
 
-static const char* print_type_str_internal(type_t* t, decl_context_t decl_context, void *data UNUSED_PARAMETER)
+static const char* print_type_str_internal(type_t* t, const decl_context_t* decl_context, void *data UNUSED_PARAMETER)
 {
     return print_type_str(t, decl_context);
 }
@@ -5535,7 +5535,7 @@ const char* template_arguments_to_str(
         template_parameter_list_t* template_parameters,
         int first_argument_to_be_printed,
         char print_first_level_bracket,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     return template_arguments_to_str_ex(template_parameters,
             first_argument_to_be_printed,
@@ -5547,7 +5547,7 @@ const char* template_arguments_to_str(
 }
 
 const char* get_template_arguments_str(scope_entry_t* entry, 
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(entry->type_information);
     return template_arguments_to_str(template_parameters,
@@ -5587,7 +5587,7 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
 
 static const char* get_fully_qualified_symbol_name_of_depedent_typename_internal_impl(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char *is_dependent, int *max_qualif_level,
         print_type_callback_t print_type_fun,
         void *print_type_data)
@@ -5660,7 +5660,7 @@ static const char* get_fully_qualified_symbol_name_of_depedent_typename_internal
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char* is_dependent, int* max_qualif_level,
         char no_templates,
         char only_classes,
@@ -5852,7 +5852,7 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 }
 
 const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+        const decl_context_t* decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level,
@@ -5863,7 +5863,7 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
 }
 
 const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry,
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+        const decl_context_t* decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level,
@@ -5874,7 +5874,7 @@ const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entr
 }
 
 const char* get_class_qualification_of_symbol(scope_entry_t* entry,
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+        const decl_context_t* decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level,
@@ -5885,7 +5885,7 @@ const char* get_class_qualification_of_symbol(scope_entry_t* entry,
 }
 
 const char* get_class_qualification_of_symbol_without_template(scope_entry_t* entry,
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+        const decl_context_t* decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level,
@@ -5895,7 +5895,7 @@ const char* get_class_qualification_of_symbol_without_template(scope_entry_t* en
             NULL);
 }
 
-const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
+const char* get_qualified_symbol_name(scope_entry_t* entry, const decl_context_t* decl_context)
 {
     int max_qualif_level = 0;
     char is_dependent = 0;
@@ -5903,14 +5903,13 @@ const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
     return get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_qualif_level);
 }
 
-decl_context_t decl_context_empty()
+decl_context_t* decl_context_empty()
 {
-    decl_context_t result;
-    memset(&result, 0, sizeof(result));
+    decl_context_t* result = NEW0(decl_context_t);
     return result;
 }
 
-scope_entry_t* lookup_of_template_parameter(decl_context_t context,
+scope_entry_t* lookup_of_template_parameter(const decl_context_t* context,
         int template_parameter_nesting, 
         int template_parameter_position)
 {
@@ -6160,7 +6159,7 @@ static char is_inline_namespace_of_(scope_t* inner_namespace_scope, scope_t* out
     }
 }
 
-char is_inline_namespace_of(decl_context_t inner_namespace_ctx, decl_context_t outer_namespace_ctx)
+char is_inline_namespace_of(const decl_context_t* inner_namespace_ctx, const decl_context_t* outer_namespace_ctx)
 {
     return is_inline_namespace_of_(inner_namespace_ctx->namespace_scope, 
             outer_namespace_ctx->namespace_scope);
@@ -6227,7 +6226,7 @@ void scope_for_each_entity(scope_t* sc, void *data, void (*fun)(scope_entry_list
     dhash_ptr_walk(sc->dhash, (dhash_ptr_walk_fn*)for_each_fun_adaptor, &fun_adaptor_data);
 }
 
-int get_template_nesting_of_context(decl_context_t decl_context)
+int get_template_nesting_of_context(const decl_context_t* decl_context)
 {
     template_parameter_list_t* template_parameters = decl_context->template_parameters;
     return get_template_nesting_of_template_parameters(template_parameters);
@@ -6355,21 +6354,24 @@ void print_template_parameter_list(template_parameter_list_t* template_parameter
     print_template_parameter_list_aux(template_parameters, &n);
 }
 
-scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
+scope_entry_list_t* query_nodecl_name_flags(const decl_context_t* decl_context,
         nodecl_t nodecl_name, field_path_t* field_path, decl_flags_t decl_flags);
 
 static scope_entry_list_t* query_nodecl_simple_name(
-        decl_context_t decl_context,
-        decl_context_t top_level_decl_context,
+        const decl_context_t* decl_context,
+        const decl_context_t* top_level_decl_context,
         nodecl_t nodecl_name,
         field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_SIMPLE, "Invalid nodecl", 0);
 
+    decl_context_t* decl_context_label = NULL;
     if (BITMAP_TEST(decl_flags, DF_LABEL))
     {
-        decl_context->current_scope = decl_context->function_scope;
+        decl_context_label = decl_context_clone(decl_context);
+        decl_context_label->current_scope = decl_context->function_scope;
+        decl_context = decl_context_label;
     }
 
     const locus_t* locus = nodecl_get_locus(nodecl_name);
@@ -6424,8 +6426,8 @@ static scope_entry_list_t* query_nodecl_simple_name(
 }
 
 static scope_entry_list_t* query_nodecl_simple_name_in_enum(
-        decl_context_t decl_context,
-        decl_context_t top_level_decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
+        const decl_context_t* top_level_decl_context UNUSED_PARAMETER,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags UNUSED_PARAMETER)
 {
@@ -6442,8 +6444,8 @@ static scope_entry_list_t* query_nodecl_simple_name_in_enum(
 }
 
 static scope_entry_list_t* query_nodecl_simple_name_in_class(
-        decl_context_t decl_context,
-        decl_context_t top_level_decl_context,
+        const decl_context_t* decl_context,
+        const decl_context_t* top_level_decl_context,
         nodecl_t nodecl_name,
         field_path_t* field_path,
         decl_flags_t decl_flags)
@@ -6548,8 +6550,8 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
 }
 
 static scope_entry_list_t* query_nodecl_simple_name_in_namespace(
-        decl_context_t decl_context,
-        decl_context_t top_level_decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
+        const decl_context_t* top_level_decl_context UNUSED_PARAMETER,
         nodecl_t nodecl_name,
         field_path_t* field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags)
@@ -6564,14 +6566,14 @@ static scope_entry_list_t* query_nodecl_simple_name_in_namespace(
 }
 
 scope_entry_list_t* query_nodecl_template_id(
-        decl_context_t decl_context, 
-        decl_context_t top_level_decl_context, 
+        const decl_context_t* decl_context, 
+        const decl_context_t* top_level_decl_context, 
         nodecl_t nodecl_name, 
         field_path_t* field_path,
         decl_flags_t decl_flags,
         scope_entry_list_t* (*query_fun_nodecl)(
-            decl_context_t current_context, 
-            decl_context_t top_level_decl_context, 
+            const decl_context_t* current_context, 
+            const decl_context_t* top_level_decl_context, 
             nodecl_t, 
             field_path_t*,
             decl_flags_t)
@@ -6865,11 +6867,9 @@ scope_entry_list_t* query_nodecl_template_id(
     }
 }
 
-scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* conversion_type, const locus_t* locus)
+scope_entry_list_t* query_conversion_function_info(const decl_context_t* decl_context, type_t* conversion_type, const locus_t* locus)
 {
     ERROR_CONDITION(decl_context->class_scope == NULL, "We need a class scope here", 0);
-    decl_context_t class_context = decl_context;
-    class_context->current_scope = class_context->class_scope;
 
     scope_entry_list_t* entry_list = query_in_class(decl_context->class_scope, UNIQUESTR_LITERAL("$.operator"), NULL, DF_NONE, conversion_type, locus);
 
@@ -6877,8 +6877,8 @@ scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, 
 }
 
 static scope_entry_list_t* query_nodecl_conversion_name(
-        decl_context_t decl_context,
-        decl_context_t top_level_decl_context,
+        const decl_context_t* decl_context,
+        const decl_context_t* top_level_decl_context,
         nodecl_t nodecl_name,
         field_path_t *field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags UNUSED_PARAMETER)
@@ -6891,7 +6891,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         return NULL;
     }
 
-    decl_context_t class_context = decl_context;
+    decl_context_t* class_context = decl_context_clone(decl_context);
     // Lookup in class scope if available
     class_context->current_scope = class_context->class_scope;
 
@@ -6919,7 +6919,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         {
             AST id_expression = ASTSon0(type_spec);
 
-            decl_context_t expression_context =
+            const decl_context_t* expression_context =
                 nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
 
             nodecl_t nodecl_id_expression = nodecl_null();
@@ -7000,15 +7000,15 @@ static scope_entry_list_t* query_nodecl_conversion_name(
 }
 
 static scope_entry_list_t* query_nodecl_qualified_name_internal(
-        decl_context_t decl_context,
-        decl_context_t current_context,
+        const decl_context_t* decl_context,
+        const decl_context_t* current_context,
         scope_entry_t* previous_symbol,
         char allow_namespaces,
         nodecl_t nodecl_name,
         field_path_t* field_path,
         decl_flags_t decl_flags,
         char is_global,
-        scope_entry_list_t* query_first_name(decl_context_t,
+        scope_entry_list_t* query_first_name(const decl_context_t*,
             nodecl_t,
             field_path_t*,
             decl_flags_t,
@@ -7394,7 +7394,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
     return result;
 }
 
-static scope_entry_list_t* query_nodecl_name_first(decl_context_t current_context,
+static scope_entry_list_t* query_nodecl_name_first(const decl_context_t* current_context,
         nodecl_t current_name,
         field_path_t* field_path,
         decl_flags_t decl_flags,
@@ -7422,7 +7422,7 @@ struct class_lookup_info_tag
 };
 
 static scope_entry_list_t* query_nodecl_name_first_in_class(
-        decl_context_t current_context,
+        const decl_context_t* current_context,
         nodecl_t current_name,
         field_path_t* field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags,
@@ -7618,12 +7618,12 @@ static scope_entry_list_t* query_nodecl_name_first_in_class(
     }
 }
 
-static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_qualified_name_common(const decl_context_t* decl_context,
         nodecl_t nodecl_name,
         field_path_t *field_path,
         decl_flags_t decl_flags,
         char allow_namespaces,
-        scope_entry_list_t* query_first_name(decl_context_t,
+        scope_entry_list_t* query_first_name(const decl_context_t*,
             nodecl_t,
             field_path_t*,
             decl_flags_t,
@@ -7639,12 +7639,16 @@ static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t dec
     scope_entry_t* previous_symbol = NULL;
     char is_global = (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
 
-    decl_context_t current_context = decl_context;
+    decl_context_t *global_context = NULL;
+    const decl_context_t* current_context = decl_context;
     if (is_global)
     {
-        current_context->current_scope = current_context->global_scope;
-        previous_symbol = current_context->global_scope->related_entry;
+        global_context = decl_context_clone(decl_context);
+        global_context->current_scope = global_context->global_scope;
+        previous_symbol = global_context->global_scope->related_entry;
         allow_namespaces = 1;
+
+        current_context = global_context;
     }
 
     return query_nodecl_qualified_name_internal(
@@ -7661,7 +7665,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t dec
             extra_data);
 }
 
-static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_qualified_name(const decl_context_t* decl_context,
         nodecl_t nodecl_name,
         field_path_t* field_path,
         decl_flags_t decl_flags)
@@ -7808,7 +7812,7 @@ static char check_symbol_is_base_or_member(
     return 1;
 }
 
-static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_qualified_name_in_class(const decl_context_t* decl_context,
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name,
         field_path_t* field_path,
@@ -7838,7 +7842,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
 }
 
 static scope_entry_list_t* query_nodecl_name_in_class_aux(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name, 
         field_path_t* field_path,
@@ -7892,7 +7896,7 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
 }
 
 scope_entry_list_t* query_nodecl_name_in_class_flags(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name,
         field_path_t* field_path,
@@ -7909,7 +7913,7 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
     if (is_incomplete_type(class_symbol->type_information))
         return NULL;
 
-    decl_context_t inner_class_context = class_type_get_inner_context(class_type);
+    const decl_context_t* inner_class_context = class_type_get_inner_context(class_type);
     if (inner_class_context->class_scope == NULL)
     {
         // There is no way this can suceed at all
@@ -7921,7 +7925,7 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
     return entry_list;
 }
 
-scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
+scope_entry_list_t* query_nodecl_name_flags(const decl_context_t* decl_context,
         nodecl_t nodecl_name,
         field_path_t* field_path,
         decl_flags_t decl_flags)
@@ -7958,7 +7962,7 @@ scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
     return NULL;
 }
 
-static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     switch (ASTKind(unqualified_id))
     {
@@ -8116,7 +8120,7 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
 }
 
 void compute_nodecl_name_from_nested_part(AST nested_part,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_nested = nodecl_null();
@@ -8154,7 +8158,7 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
 
 void compute_nodecl_name_from_nested_name(AST nested_part, 
         AST unqualified_part, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_nested = nodecl_null();
@@ -8181,7 +8185,7 @@ void compute_nodecl_name_from_nested_name(AST nested_part,
             ast_get_locus(unqualified_part));
 }
 
-void compute_nodecl_name_from_qualified_name(AST global_op, AST nested_name_spec, AST unqualified_id, decl_context_t decl_context,
+void compute_nodecl_name_from_qualified_name(AST global_op, AST nested_name_spec, AST unqualified_id, const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     if (global_op != NULL
@@ -8222,7 +8226,7 @@ void compute_nodecl_name_from_qualified_name(AST global_op, AST nested_name_spec
     }
 }
 
-void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context,
+void compute_nodecl_name_from_id_expression(AST id_expression, const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     switch (ASTKind(id_expression))
@@ -8243,7 +8247,7 @@ void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t de
     }
 }
 
-scope_entry_list_t* class_context_lookup(decl_context_t decl_context, 
+scope_entry_list_t* class_context_lookup(const decl_context_t* decl_context, 
         field_path_t* field_path,
         decl_flags_t decl_flags,
         const char* name,
@@ -8255,7 +8259,7 @@ scope_entry_list_t* class_context_lookup(decl_context_t decl_context,
 }
 
 scope_entry_list_t* query_dependent_entity_in_context(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_t* dependent_entity,
         int pack_index,
         field_path_t* field_path,

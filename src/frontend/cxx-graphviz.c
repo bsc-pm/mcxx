@@ -175,7 +175,7 @@ static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
     }
 }
 
-static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
+static int decl_context_t_dump_graphviz(FILE* f, const decl_context_t* decl_context)
 {
     static int i = 1;
 

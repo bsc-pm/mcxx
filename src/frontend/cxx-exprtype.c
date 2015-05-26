@@ -140,7 +140,7 @@ char builtin_needs_contextual_conversion(scope_entry_t* candidate,
 static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
-        decl_context_t decl_context, AST operator, 
+        const decl_context_t* decl_context, AST operator, 
         char (*property)(type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, const locus_t*),
         const locus_t* locus);
@@ -149,7 +149,7 @@ static
 void build_binary_builtin_operators(type_t* t1, 
         type_t* t2, 
         builtin_operators_set_t *result,
-        decl_context_t decl_context, AST operator, 
+        const decl_context_t* decl_context, AST operator, 
         char (*property)(type_t*, type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, type_t**, const locus_t*),
         const locus_t* locus);
@@ -159,7 +159,7 @@ void build_ternary_builtin_operators(type_t* t1,
         type_t* t2, 
         type_t* t3, 
         builtin_operators_set_t *result,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* operator_name, 
         char (*property)(type_t*, type_t*, type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, type_t**, type_t**, const locus_t*),
@@ -196,7 +196,7 @@ static type_t* actual_type_of_conversor(scope_entry_t* conv)
 static
 scope_entry_t* expand_template_given_arguments(scope_entry_t* template_sym,
         type_t** argument_types, int num_arguments, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         template_parameter_list_t* explicit_template_arguments)
 {
@@ -284,7 +284,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* template_sym,
 
 scope_entry_t* expand_template_function_given_template_arguments(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         template_parameter_list_t* explicit_template_arguments)
 {
@@ -298,7 +298,7 @@ scope_entry_t* expand_template_function_given_template_arguments(
 
 
 type_t* compute_type_for_type_id_tree(AST type_id,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         // Out
         type_t** out_simple_type,
         gather_decl_spec_t *out_gather_info)
@@ -343,7 +343,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* builtin_list,
         type_t** argument_types,
         int num_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         template_parameter_list_t *explicit_template_arguments
         )
@@ -432,7 +432,7 @@ static void print_field_path(field_path_t* field_path)
 
 static
 scope_entry_list_t* get_member_of_class_type_nodecl(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* class_type,
         nodecl_t nodecl_name,
         field_path_t* field_path)
@@ -453,7 +453,7 @@ scope_entry_list_t* get_member_of_class_type_nodecl(
 
 // Remove this function in a future
 static scope_entry_list_t* get_member_of_class_type(type_t* class_type,
-        AST id_expression, decl_context_t decl_context,
+        AST id_expression, const decl_context_t* decl_context,
         field_path_t* field_path)
 {
     nodecl_t nodecl_name = nodecl_null();
@@ -469,80 +469,80 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output);
 static void character_literal_type(AST expr, nodecl_t* nodecl_output);
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
-static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void pointer_literal_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 // Typechecking functions
-static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_array_subscript_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_explicit_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, char has_template_tag, nodecl_t* nodecl_output);
-static void check_typeid_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_typeid_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_qualified_id(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_symbol(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_array_subscript_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_function_call(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_explicit_type_conversion(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_explicit_typename_type_conversion(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_member_access(AST member_access, const decl_context_t* decl_context, char is_arrow, char has_template_tag, nodecl_t* nodecl_output);
+static void check_typeid_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_typeid_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_sizeof_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_sizeof_typeid(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_sizeof_pack(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 static void check_cast_expr(AST expression, 
         AST type_id, AST casted_expression_list, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const char* cast_kind,
         nodecl_t* nodecl_output);
-static void check_new_expression(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_new_type_id_expr(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_delete_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-// static void check_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type);
-static void check_binary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_unary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_throw_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
+static void check_new_expression(AST new_expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_new_type_id_expr(AST new_expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_delete_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+// static void check_initializer_list(AST initializer_list, const decl_context_t* decl_context, type_t* declared_type);
+static void check_binary_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_unary_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_throw_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_templated_member_access(AST templated_member_access, const decl_context_t* decl_context, 
         char is_arrow, nodecl_t* nodecl_output);
-static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_postdecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_preincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_predecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_conditional_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_comma_operand(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_unqualified_conversion_function_id(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_postincrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_postdecrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_preincrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_predecrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_conditional_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_comma_operand(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_pointer_to_member(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_pointer_to_pointer_to_member(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_unqualified_conversion_function_id(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_noexcept_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_noexcept_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_lambda_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_lambda_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_initializer_clause_pack_expansion(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_vla_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_vla_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_array_section_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_shaping_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_array_section_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_shaping_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_label_addr(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_real_or_imag_part(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_alignof_expr(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_alignof_typeid(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_postfix_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_builtin_va_arg(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_gcc_parenthesized_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_gcc_builtin_offsetof(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_builtin_choose_expr(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_builtin_types_compatible_p(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_label_addr(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_real_or_imag_part(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_alignof_expr(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_alignof_typeid(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_postfix_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_builtin_va_arg(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void check_gcc_parenthesized_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void compute_nodecl_braced_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void compute_nodecl_designated_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void compute_nodecl_braced_initializer(AST braced_initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void compute_nodecl_designated_initializer(AST braced_initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void compute_nodecl_gcc_initializer(AST braced_initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void resolve_symbol_this_nodecl(decl_context_t decl_context, const locus_t* locus, nodecl_t* nodecl_output);
+static void resolve_symbol_this_nodecl(const decl_context_t* decl_context, const locus_t* locus, nodecl_t* nodecl_output);
 
-static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void solve_literal_symbol(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 static void check_mcc_debug_array_subscript(AST a,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output);
 static void check_mcc_debug_constant_value_check(AST a,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output);
 
 // Returns if the function is ok
@@ -550,11 +550,11 @@ static void check_mcc_debug_constant_value_check(AST a,
 // Do not return within this function, set result to 0 or 1 and let it
 // reach the end, by default result == 0
 
-static void check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_expression_impl_(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static char c_check_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static char c_check_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+char check_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
@@ -570,7 +570,7 @@ char check_expression(AST expression, decl_context_t decl_context, nodecl_t* nod
     }
 }
 
-char check_expression_must_be_constant(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+char check_expression_must_be_constant(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Save the value of 'must_be_constant' of the last expression expression
     enum must_be_constant_t must_be_constant = check_expr_flags.must_be_constant;
@@ -587,7 +587,7 @@ char check_expression_must_be_constant(AST a, decl_context_t decl_context, nodec
     return output;
 }
 
-char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+char check_expression_non_executable(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Save the value of 'is_non_executable' of the last expression expression
     char was_non_executable = check_expr_flags.is_non_executable;
@@ -609,7 +609,7 @@ char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_
     return output;
 }
 
-char check_expression_non_executable_must_be_constant(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+char check_expression_non_executable_must_be_constant(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Save the value of 'is_non_executable' of the last expression expression
     char was_non_executable = check_expr_flags.is_non_executable;
@@ -645,7 +645,7 @@ nodecl_t cxx_nodecl_wrap_in_parentheses(nodecl_t n)
 }
 
 static char check_list_of_expressions_aux(AST expression_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
@@ -702,7 +702,7 @@ static char check_list_of_expressions_aux(AST expression_list,
 
 // Note that a list of expressions is NOT an expression
 char check_list_of_expressions(AST expression_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     return check_list_of_expressions_aux(expression_list,
@@ -713,7 +713,7 @@ char check_list_of_expressions(AST expression_list,
 
 
 void ensure_function_is_emitted(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (check_expr_flags.is_non_executable)
@@ -747,14 +747,14 @@ void ensure_function_is_emitted(scope_entry_t* entry,
     }
 }
 
-static char c_check_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static char c_check_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     check_expression_impl_(expression, decl_context, nodecl_output);
     char is_ok = !nodecl_is_err_expr(*nodecl_output);
     return is_ok;
 }
 
-static void check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_expression_impl_(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_output == NULL, "This cannot be NULL\n", 0);
     switch (ASTKind(expression))
@@ -2417,10 +2417,10 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
     *nodecl_output = nodecl_make_string_literal(result, value, ast_get_locus(expr));
 }
 
-static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
+static scope_entry_t* get_nullptr_symbol(const decl_context_t* decl_context)
 {
-    decl_context_t global_context = decl_context;
-    global_context->current_scope = global_context->global_scope;
+    const decl_context_t* global_context = decl_context->global_scope->related_entry->related_decl_context;
+
     scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".nullptr"), NULL);
 
     if (entry_list == NULL)
@@ -2442,7 +2442,7 @@ static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
     }
 }
 
-static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void pointer_literal_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     scope_entry_t* entry = get_nullptr_symbol(decl_context);
     ERROR_CONDITION(entry == NULL, "This should not happen, nullptr should always exist", 0);
@@ -2460,7 +2460,7 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
                 /* sign */ 0));
 }
 
-static char this_can_be_used(decl_context_t decl_context)
+static char this_can_be_used(const decl_context_t* decl_context)
 {
     scope_entry_t* function = decl_context->current_scope->related_entry;
     if (function != NULL
@@ -2474,7 +2474,7 @@ static char this_can_be_used(decl_context_t decl_context)
     return 1;
 }
 
-scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
+scope_entry_t* resolve_symbol_this(const decl_context_t* decl_context)
 {
     if (!this_can_be_used(decl_context))
         return NULL;
@@ -2516,7 +2516,7 @@ scope_entry_t* resolve_symbol_this(decl_context_t decl_context)
 }
 
 
-static void resolve_symbol_this_nodecl(decl_context_t decl_context,
+static void resolve_symbol_this_nodecl(const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -3049,7 +3049,7 @@ static char filter_only_nonmembers(scope_entry_t* e, void* p UNUSED_PARAMETER)
     return 0;
 }
 
-static void error_message_delete_call(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
+static void error_message_delete_call(const decl_context_t* decl_context, scope_entry_t* entry, const locus_t* locus)
 {
     error_printf("%s: error: call to deleted function '%s'\n",
             locus_to_str(locus),
@@ -3057,7 +3057,7 @@ static void error_message_delete_call(decl_context_t decl_context, scope_entry_t
                 get_qualified_symbol_name(entry, decl_context)));
 }
 
-char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
+char function_has_been_deleted(const decl_context_t* decl_context, scope_entry_t* entry, const locus_t* locus)
 {
     char c = symbol_entity_specs_get_is_deleted(entry);
     if (c)
@@ -3069,14 +3069,14 @@ char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry
 
 static void error_message_overload_failed(candidate_t* candidates, 
         const char* name,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         int num_arguments, type_t** arguments,
         type_t* this_type,
         const locus_t* locus);
 
 static void update_unresolved_overload_argument(type_t* arg_type,
         type_t* param_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
 
         nodecl_t* nodecl_output)
@@ -3108,7 +3108,7 @@ static void update_unresolved_overload_argument(type_t* arg_type,
 
 static void check_nodecl_function_argument_initialization_(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declared_type,
         enum initialization_kind initialization_kind,
         char disallow_narrowing,
@@ -3117,7 +3117,7 @@ static void check_nodecl_function_argument_initialization_(
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         nodecl_t *lhs, nodecl_t *rhs, 
         scope_entry_list_t* builtins,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** selected_operator)
 {
@@ -3268,7 +3268,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 static type_t* compute_user_defined_unary_operator_type(AST operator_name, 
         nodecl_t* op,
         scope_entry_list_t* builtins,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** selected_operator)
 
@@ -3550,7 +3550,7 @@ static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs, c
     return usual_arithmetic_conversions(*lhs, *rhs, locus);
 }
 
-static char is_valid_reference_to_nonstatic_member_function(nodecl_t n, decl_context_t decl_context)
+static char is_valid_reference_to_nonstatic_member_function(nodecl_t n, const decl_context_t* decl_context)
 {
     char result = (nodecl_get_kind(n) == NODECL_REFERENCE
             && ((nodecl_get_kind(nodecl_get_child(n, 0)) == NODECL_CXX_DEP_NAME_NESTED)
@@ -3567,7 +3567,7 @@ static char is_valid_reference_to_nonstatic_member_function(nodecl_t n, decl_con
 }
 
 static char update_simplified_unresolved_overloaded_type(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t *nodecl_output)
 {
@@ -3604,7 +3604,7 @@ void compute_bin_operator_generic(
         nodecl_t* lhs, nodecl_t* rhs, 
         // Operator name and context
         AST operator, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         // Functions
         char (*will_require_overload)(type_t*, type_t*),
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus),
@@ -3837,7 +3837,7 @@ type_t* compute_type_no_overload_bin_arithmetic(nodecl_t *lhs, nodecl_t *rhs, co
 }
 
 static
-void compute_bin_operator_add_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_add_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     // Now in C++ we have to rely on overloading for operators
@@ -3865,7 +3865,7 @@ void compute_bin_operator_add_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 static
 void compute_bin_operator_only_arithmetic_types(nodecl_t* lhs, nodecl_t* rhs, 
         AST operator, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus),
         const_value_t* (*const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus,
@@ -3886,7 +3886,7 @@ void compute_bin_operator_only_arithmetic_types(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static
-void compute_bin_operator_mul_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_mul_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -3905,7 +3905,7 @@ void compute_bin_operator_mul_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 }
 
 static
-void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     // No operation_tree for Fortran's **
@@ -3940,7 +3940,7 @@ char value_not_valid_for_divisor(const_value_t* v)
 }
 
 static
-void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4034,7 +4034,7 @@ type_t* compute_type_no_overload_bin_only_integer(nodecl_t *lhs, nodecl_t *rhs, 
 static 
 void compute_bin_operator_only_integer_types(nodecl_t* lhs, nodecl_t* rhs, 
         AST operator, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus),
         const_value_t* (*const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus,
@@ -4055,7 +4055,7 @@ void compute_bin_operator_only_integer_types(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static
-void compute_bin_operator_mod_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_mod_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4179,7 +4179,7 @@ static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs, const 
 }
 
 static 
-void compute_bin_operator_sub_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_sub_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operator = NULL;
@@ -4264,7 +4264,7 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
 static
 void compute_bin_operator_only_integral_lhs_type(nodecl_t* lhs, nodecl_t* rhs, 
         AST operator, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const_value_t* (const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus, nodecl_t* nodecl_output)
@@ -4283,7 +4283,7 @@ void compute_bin_operator_only_integral_lhs_type(nodecl_t* lhs, nodecl_t* rhs,
             nodecl_output);
 }
 
-void compute_bin_operator_bitwise_shl_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_bitwise_shl_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4336,7 +4336,7 @@ static nodecl_t nodecl_make_shr_assignment(nodecl_t lhs, nodecl_t rhs, type_t* t
             nodecl_make_bitwise_shr_assignment);
 }
 
-void compute_bin_operator_shr_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_shr_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4760,7 +4760,7 @@ type_t* compute_type_no_overload_relational_operator_eq_or_neq(nodecl_t *lhs, no
     return compute_type_no_overload_relational_operator_flags(lhs, rhs, locus, /* allow_pointer_to_member */ 1);
 }
 
-static void compute_bin_operator_relational(nodecl_t* lhs, nodecl_t* rhs, AST operator, decl_context_t decl_context,
+static void compute_bin_operator_relational(nodecl_t* lhs, nodecl_t* rhs, AST operator, const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const_value_t* (const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus,
@@ -4780,7 +4780,7 @@ static void compute_bin_operator_relational(nodecl_t* lhs, nodecl_t* rhs, AST op
             nodecl_output);
 }
 
-static void compute_bin_operator_relational_eq_or_neq(nodecl_t* lhs, nodecl_t* rhs, AST operator, decl_context_t decl_context,
+static void compute_bin_operator_relational_eq_or_neq(nodecl_t* lhs, nodecl_t* rhs, AST operator, const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const_value_t* (const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus,
@@ -4801,7 +4801,7 @@ static void compute_bin_operator_relational_eq_or_neq(nodecl_t* lhs, nodecl_t* r
 }
 
 static
-void compute_bin_operator_lower_equal_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_lower_equal_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4820,7 +4820,7 @@ void compute_bin_operator_lower_equal_type(nodecl_t* lhs, nodecl_t* rhs, decl_co
             nodecl_output);
 }
 
-void compute_bin_operator_lower_than_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+void compute_bin_operator_lower_than_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4839,7 +4839,7 @@ void compute_bin_operator_lower_than_type(nodecl_t* lhs, nodecl_t* rhs, decl_con
             nodecl_output);
 }
 
-static void compute_bin_operator_greater_equal_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_greater_equal_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4858,7 +4858,7 @@ static void compute_bin_operator_greater_equal_type(nodecl_t* lhs, nodecl_t* rhs
             nodecl_output);
 }
 
-static void compute_bin_operator_greater_than_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_greater_than_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4877,7 +4877,7 @@ static void compute_bin_operator_greater_than_type(nodecl_t* lhs, nodecl_t* rhs,
             nodecl_output);
 }
 
-static void compute_bin_operator_different_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_different_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4896,7 +4896,7 @@ static void compute_bin_operator_different_type(nodecl_t* lhs, nodecl_t* rhs, de
             nodecl_output);
 }
 
-static void compute_bin_operator_equal_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_equal_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -4989,7 +4989,7 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_logical_op_type(nodecl_t* lhs, nodecl_t* rhs, AST operator, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const_value_t* (const_value_bin_fun)(const_value_t*, const_value_t*),
         const locus_t* locus,
@@ -5009,7 +5009,7 @@ static void compute_bin_logical_op_type(nodecl_t* lhs, nodecl_t* rhs, AST operat
             nodecl_output);
 }
 
-static void compute_bin_operator_logical_or_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_logical_or_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -5027,7 +5027,7 @@ static void compute_bin_operator_logical_or_type(nodecl_t* lhs, nodecl_t* rhs, d
             nodecl_output);
 }
 
-static void compute_bin_operator_logical_and_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_logical_and_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -5045,7 +5045,7 @@ static void compute_bin_operator_logical_and_type(nodecl_t* lhs, nodecl_t* rhs, 
             nodecl_output);
 }
 
-static void compute_bin_operator_bitwise_and_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_bitwise_and_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 
 {
@@ -5065,7 +5065,7 @@ static void compute_bin_operator_bitwise_and_type(nodecl_t* lhs, nodecl_t* rhs, 
             nodecl_output);
 }
 
-static void compute_bin_operator_bitwise_or_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_bitwise_or_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -5084,7 +5084,7 @@ static void compute_bin_operator_bitwise_or_type(nodecl_t* lhs, nodecl_t* rhs, d
             nodecl_output);
 }
 
-static void compute_bin_operator_bitwise_xor_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+static void compute_bin_operator_bitwise_xor_type(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -5162,7 +5162,7 @@ static type_t* compute_type_no_overload_assig_only_integral_type(nodecl_t* lhs, 
 
 
 static void compute_bin_operator_assig_only_integral_type(nodecl_t* lhs, nodecl_t* rhs, AST operator,
-        decl_context_t decl_context, nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
+        const decl_context_t* decl_context, nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -5256,7 +5256,7 @@ static type_t* compute_type_no_overload_assig_arithmetic_or_pointer_type(nodecl_
 
 static void compute_bin_operator_assig_arithmetic_or_pointer_type(nodecl_t* lhs, nodecl_t* rhs, 
         AST operator,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const locus_t* locus,
         nodecl_t* nodecl_output)
@@ -5299,7 +5299,7 @@ void generate_nonop_assign_builtin(
         AST operator,
         type_t* lhs_type,
         type_t* rhs_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     parameter_info_t parameters[2] =
     {
@@ -5340,7 +5340,7 @@ void generate_nonop_assign_builtin(
 static
 void build_binary_nonop_assign_builtin(type_t* lhs_type, 
         builtin_operators_set_t *result,
-        AST operator, decl_context_t decl_context)
+        AST operator, const decl_context_t* decl_context)
 {
     memset(result, 0, sizeof(*result));
 
@@ -5404,7 +5404,7 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
 }
 
 static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, nodecl_t *rhs, 
-        AST operator, decl_context_t decl_context,
+        AST operator, const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 
@@ -5571,7 +5571,7 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
 }
 
 static void compute_bin_operator_assig_only_arithmetic_type(nodecl_t* lhs, nodecl_t* rhs, AST operator,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t*),
         const locus_t* locus,
         nodecl_t* nodecl_output)
@@ -5591,7 +5591,7 @@ static void compute_bin_operator_assig_only_arithmetic_type(nodecl_t* lhs, nodec
 }
 
 static void compute_bin_operator_mod_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -5610,7 +5610,7 @@ static void compute_bin_operator_mod_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_operator_bitwise_shl_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, const locus_t* locus, 
+        const decl_context_t* decl_context, const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -5626,7 +5626,7 @@ static void compute_bin_operator_bitwise_shl_assig_type(nodecl_t* lhs, nodecl_t*
 }
 
 static void compute_bin_operator_shr_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5643,7 +5643,7 @@ static void compute_bin_operator_shr_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_operator_bitwise_and_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 
@@ -5661,7 +5661,7 @@ static void compute_bin_operator_bitwise_and_assig_type(nodecl_t* lhs, nodecl_t*
 }
 
 static void compute_bin_operator_bitwise_or_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5678,7 +5678,7 @@ static void compute_bin_operator_bitwise_or_assig_type(nodecl_t* lhs, nodecl_t* 
 }
 
 static void compute_bin_operator_bitwise_xor_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5695,7 +5695,7 @@ static void compute_bin_operator_bitwise_xor_assig_type(nodecl_t* lhs, nodecl_t*
 }
 
 static void compute_bin_operator_mul_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5712,7 +5712,7 @@ static void compute_bin_operator_mul_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_operator_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5730,7 +5730,7 @@ static void compute_bin_operator_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_operator_div_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5747,7 +5747,7 @@ static void compute_bin_operator_div_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_operator_add_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5764,7 +5764,7 @@ static void compute_bin_operator_add_assig_type(nodecl_t* lhs, nodecl_t* rhs,
 }
 
 static void compute_bin_operator_sub_assig_type(nodecl_t* lhs, nodecl_t* rhs,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -5784,7 +5784,7 @@ static void compute_unary_operator_generic(
         nodecl_t* op, 
         // Operator name and context
         AST operator,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         // Functions
         char (*will_require_overload)(type_t*),
         nodecl_t (*nodecl_unary_fun)(nodecl_t, type_t*, const locus_t* locus),
@@ -6003,7 +6003,7 @@ type_t* compute_type_no_overload_derref(nodecl_t *nodecl_op, char *is_lvalue, co
 }
 
 static void compute_operator_derreference_type(
-        nodecl_t *op, decl_context_t decl_context, 
+        nodecl_t *op, const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t *nodecl_output)
 {
@@ -6105,7 +6105,7 @@ static type_t* compute_type_no_overload_plus(nodecl_t *op, char *is_lvalue, cons
 }
 
 static void compute_operator_plus_type(nodecl_t* op, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -6190,7 +6190,7 @@ static type_t* compute_type_no_overload_neg(nodecl_t *op, char *is_lvalue, const
     }
 }
 
-static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_context, 
+static void compute_operator_minus_type(nodecl_t* op, const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -6245,7 +6245,7 @@ static type_t* compute_type_no_overload_complement(nodecl_t *op, char *is_lvalue
 }
 
 static void compute_operator_complement_type(nodecl_t* op, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -6325,7 +6325,7 @@ static type_t* compute_type_no_overload_logical_not(nodecl_t *op, char *is_lvalu
 
 
 static void compute_operator_not_type(nodecl_t* op, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, 
         nodecl_t* nodecl_output)
 {
@@ -6403,7 +6403,7 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue,
     return get_error_type();
 }
 
-static char contains_wrongly_associated_template_name(AST a, decl_context_t decl_context)
+static char contains_wrongly_associated_template_name(AST a, const decl_context_t* decl_context)
 {
     if (ASTKind(a) == AST_BITWISE_SHL
             || ASTKind(a) == AST_SHR
@@ -6505,7 +6505,7 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
 }
 
 static void parse_lhs_lower_than(AST op,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     check_expression_impl_(op, decl_context, nodecl_output);
@@ -6521,7 +6521,7 @@ static void parse_lhs_lower_than(AST op,
 }
 
 static void parse_reference(AST op,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     CXX_LANGUAGE()
@@ -6578,7 +6578,7 @@ static void parse_reference(AST op,
 }
 
 static void compute_operator_reference_type(nodecl_t* op,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -6682,14 +6682,14 @@ static void compute_operator_reference_type(nodecl_t* op,
 
 struct bin_operator_funct_type_t
 {
-    void (*pre_lhs)(AST lhs, decl_context_t, nodecl_t*);
-    void (*pre_rhs)(nodecl_t lhs, AST rhs, decl_context_t, nodecl_t*);
-    void (*func)(nodecl_t* lhs, nodecl_t* rhs, decl_context_t, const locus_t*, nodecl_t*);
+    void (*pre_lhs)(AST lhs, const decl_context_t*, nodecl_t*);
+    void (*pre_rhs)(nodecl_t lhs, AST rhs, const decl_context_t*, nodecl_t*);
+    void (*func)(nodecl_t* lhs, nodecl_t* rhs, const decl_context_t*, const locus_t*, nodecl_t*);
 };
 
 static void check_expression_strict_operator(
         nodecl_t lhs UNUSED_PARAMETER,
-        AST rhs, decl_context_t decl_context, nodecl_t* output)
+        AST rhs, const decl_context_t* decl_context, nodecl_t* output)
 {
     check_expression_impl_(rhs, decl_context, output);
 }
@@ -6697,7 +6697,7 @@ static void check_expression_strict_operator(
 // e1 || e2
 static void check_expression_eval_rhs_if_lhs_is_zero(
         nodecl_t lhs,
-        AST rhs, decl_context_t decl_context, nodecl_t* output)
+        AST rhs, const decl_context_t* decl_context, nodecl_t* output)
 {
     if (nodecl_is_constant(lhs)
             && const_value_is_zero(nodecl_get_constant(lhs)))
@@ -6735,7 +6735,7 @@ static void check_expression_eval_rhs_if_lhs_is_zero(
 // e1 && e2
 static void check_expression_eval_rhs_if_lhs_is_nonzero(
         nodecl_t lhs,
-        AST rhs, decl_context_t decl_context, nodecl_t* output)
+        AST rhs, const decl_context_t* decl_context, nodecl_t* output)
 {
     if (nodecl_is_constant(lhs)
             && const_value_is_nonzero(nodecl_get_constant(lhs)))
@@ -6770,8 +6770,8 @@ static void check_expression_eval_rhs_if_lhs_is_nonzero(
 
 struct unary_operator_funct_type_t
 {
-    void (*pre)(AST op, decl_context_t, nodecl_t*);
-    void (*func)(nodecl_t* operand, decl_context_t, const locus_t*, nodecl_t*);
+    void (*pre)(AST op, const decl_context_t*, nodecl_t*);
+    void (*func)(nodecl_t* operand, const decl_context_t*, const locus_t*, nodecl_t*);
 };
 #undef OPERATOR_FUNCT_INIT
 #undef OPERATOR_FUNCT_INIT_PRE
@@ -7017,7 +7017,7 @@ static const char *get_operation_function_name(node_t operation_tree)
 
 static void check_unary_expression_(node_t node_kind,
         nodecl_t* op,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -7046,7 +7046,7 @@ static void check_unary_expression_(node_t node_kind,
 static void check_binary_expression_(node_t node_kind,
         nodecl_t* nodecl_lhs,
         nodecl_t* nodecl_rhs,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -7077,7 +7077,7 @@ static void check_binary_expression_(node_t node_kind,
 }
 
 
-static void check_binary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_binary_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
@@ -7108,7 +7108,7 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
             nodecl_output);
 }
 
-static void check_unary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_unary_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST op = ASTSon0(expression);
 
@@ -7143,7 +7143,7 @@ static void check_throw_expression_nodecl(nodecl_t nodecl_thrown, const locus_t*
     *nodecl_output = nodecl_make_throw(nodecl_thrown, get_throw_expr_type(), locus);
 }
 
-static void check_throw_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_throw_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_thrown = nodecl_null();
     if (ASTSon0(expression) != NULL)
@@ -7154,7 +7154,7 @@ static void check_throw_expression(AST expression, decl_context_t decl_context, 
     check_throw_expression_nodecl(nodecl_thrown, ast_get_locus(expression), nodecl_output);
 }
 
-static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void cxx_common_name_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 static void compute_symbol_type_from_entry_list(scope_entry_list_t* result, 
         nodecl_t* nodecl_output,
@@ -7218,7 +7218,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
     entry_list_free(result);
 }
 
-static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_symbol_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     if (IS_C_LANGUAGE)
     {
@@ -7248,7 +7248,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
     }
 }
 
-static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_symbol(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     compute_symbol_type(expr, decl_context, nodecl_output);
 }
@@ -7307,7 +7307,7 @@ static char any_is_member_function_of_a_dependent_class(scope_entry_list_t* cand
 static void cxx_compute_name_from_entry_list(
         nodecl_t nodecl_name,
         scope_entry_list_t* entry_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         field_path_t* field_path,
         nodecl_t* nodecl_output)
 {
@@ -7734,7 +7734,7 @@ char is_cxx_special_identifier(nodecl_t nodecl_name, nodecl_t* nodecl_output)
     return 0;
 }
 
-static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void cxx_common_name_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(expr, decl_context, &nodecl_name);
@@ -7765,7 +7765,7 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
     nodecl_free(nodecl_name);
 }
 
-static void solve_literal_symbol(AST expression, decl_context_t decl_context, 
+static void solve_literal_symbol(AST expression, const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     const char *tmp = ASTText(ASTSon0(expression));
@@ -7802,7 +7802,7 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
 }
 
 static void check_mcc_debug_array_subscript(AST a,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     AST expr = ast_get_child(a, 0);
@@ -7851,7 +7851,7 @@ static void check_mcc_debug_array_subscript(AST a,
 }
 
 static void check_mcc_debug_constant_value_check(AST a,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     check_expression_impl_(ASTSon0(a), decl_context, nodecl_output);
@@ -7935,7 +7935,7 @@ static const_value_t* compute_subconstant_of_array_subscript(
 static void check_nodecl_array_subscript_expression_c(
         nodecl_t nodecl_subscripted,
         nodecl_t nodecl_subscript,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_subscripted);
@@ -8133,7 +8133,7 @@ static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs, const lo
 static void check_nodecl_array_subscript_expression_cxx(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_subscripted);
@@ -8387,7 +8387,7 @@ static void check_nodecl_array_subscript_expression_cxx(
 static void check_nodecl_array_subscript_expression(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     if (IS_C_LANGUAGE)
@@ -8410,7 +8410,7 @@ static void check_nodecl_array_subscript_expression(
     }
 }
 
-static void check_array_subscript_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_array_subscript_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_subscripted = nodecl_null();
     check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_subscripted);
@@ -8421,7 +8421,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context, no
     check_nodecl_array_subscript_expression(nodecl_subscripted, nodecl_subscript, decl_context, nodecl_output);
 }
 
-static void check_unqualified_conversion_function_id(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_unqualified_conversion_function_id(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // This is the case of an "operator T" used alone (not in a class-member access like "a.operator T")
     //
@@ -8484,7 +8484,7 @@ static void check_unqualified_conversion_function_id(AST expression, decl_contex
 static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         char *is_ambiguous_conversion,
         type_t** converted_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -8762,7 +8762,7 @@ static type_t* composite_pointer(type_t* p1, type_t* p2, const locus_t* locus)
 static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         nodecl_t second_op,
         nodecl_t third_op,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(first_op);
@@ -8912,7 +8912,7 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
 static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         nodecl_t second_op,
         nodecl_t third_op,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(first_op);
@@ -9285,7 +9285,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
 static void check_conditional_expression_impl_nodecl(nodecl_t first_op, 
         nodecl_t second_op, 
         nodecl_t third_op, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     C_LANGUAGE()
@@ -9358,7 +9358,7 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
 
 static void check_conditional_expression_impl(AST expression UNUSED_PARAMETER, 
         AST first_op, AST second_op, AST third_op, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     /*
@@ -9392,7 +9392,7 @@ static void check_conditional_expression_impl(AST expression UNUSED_PARAMETER,
 }
 
 
-static void check_conditional_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_conditional_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST first_op = ASTSon0(expression);
     AST second_op = NULL, third_op = NULL;
@@ -9417,26 +9417,26 @@ static void check_conditional_expression(AST expression, decl_context_t decl_con
 }
 
 static void check_nodecl_initializer_clause(nodecl_t initializer_clause, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
         nodecl_t* nodecl_output);
 static void check_nodecl_equal_initializer(nodecl_t equal_initializer, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output);
 void check_nodecl_expr_initializer_in_argument(nodecl_t expr, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output);
 void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         char is_explicit_type_cast,
         enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         char is_explicit,
         char is_explicit_type_cast,
@@ -9448,7 +9448,7 @@ static void check_new_expression_impl(
         nodecl_t nodecl_initializer, 
         type_t* new_type, 
         char is_global,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -9516,7 +9516,7 @@ static void check_new_expression_impl(
     arguments[1] = get_size_t_type();
     num_arguments += num_placement_items;
 
-    decl_context_t op_new_context = decl_context_clone(decl_context);
+    decl_context_t* op_new_context = decl_context_clone(decl_context);
 
     if (is_class_type(new_type)
             && !is_global)
@@ -9528,7 +9528,7 @@ static void check_new_expression_impl(
             class_type_complete_if_needed(symbol, decl_context, locus);
         }
 
-        op_new_context = class_type_get_inner_context(new_type);
+        op_new_context = decl_context_clone(class_type_get_inner_context(new_type));
     }
     else
     {
@@ -9716,7 +9716,7 @@ static void check_new_expression_impl(
     *nodecl_output = nodecl_new;
 }
 
-static void check_new_expression(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_new_expression(AST new_expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(new_expr);
 
@@ -9788,7 +9788,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
             nodecl_output);
 }
 
-static void check_new_type_id_expr(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_new_type_id_expr(AST new_expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     check_new_expression(new_expr, decl_context, nodecl_output);
 }
@@ -9828,7 +9828,7 @@ UNUSED_PARAMETER static char is_deallocation_function(scope_entry_t* entry)
 }
 
 static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         char is_array_delete,
         nodecl_t* nodecl_output)
@@ -9890,7 +9890,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 }
 
 
-static void check_delete_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_delete_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     char is_array_delete = 0;
     if (ASTKind(expression) == AST_DELETE_ARRAY_EXPR)
@@ -10150,7 +10150,7 @@ do { \
 static char conversion_is_valid_static_cast(
         nodecl_t *nodecl_expression,
         type_t* dest_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     RECURSION_PROTECTOR
 #define RETURN(ret_) RECURSION_RETURN(ret_)
@@ -10319,7 +10319,7 @@ static char conversion_is_valid_static_cast(
 static char conversion_is_valid_reinterpret_cast(
         nodecl_t *nodecl_expression,
         type_t* dest_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     RECURSION_PROTECTOR
 #define RETURN(ret_) RECURSION_RETURN(ret_)
@@ -10441,7 +10441,7 @@ static char conversion_is_valid_reinterpret_cast(
 static char conversion_is_valid_dynamic_cast(
         nodecl_t *nodecl_expression,
         type_t* dest_type,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        const decl_context_t* decl_context UNUSED_PARAMETER)
 {
     RECURSION_PROTECTOR
 #define RETURN(ret_) RECURSION_RETURN(ret_)
@@ -10578,7 +10578,7 @@ static char same_level_pointer_to_member(type_t* t1, type_t* t2)
 static char conversion_is_valid_const_cast(
         nodecl_t *nodecl_expression,
         type_t* dest_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     RECURSION_PROTECTOR
 #define RETURN(ret_) RECURSION_RETURN(ret_)
@@ -10651,7 +10651,7 @@ static char conversion_is_valid_const_cast(
 
 static void check_nodecl_cast_expr(
         nodecl_t nodecl_casted_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declarator_type,
         const char* cast_kind,
         const locus_t* locus,
@@ -10744,7 +10744,7 @@ static void check_nodecl_cast_expr(
         typedef char (*conversion_is_valid_fun_t)(
                 nodecl_t *nodecl_expression,
                 type_t* dest_type,
-                decl_context_t decl_context);
+                const decl_context_t* decl_context);
 
         conversion_is_valid_fun_t conversion_funs[] = {
             conversion_is_valid_const_cast,
@@ -10975,7 +10975,7 @@ static void check_nodecl_cast_expr(
 static void check_nodecl_explicit_type_conversion(
         type_t* type_info,
         nodecl_t nodecl_explicit_initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output,
         const locus_t* locus)
 {
@@ -11066,7 +11066,7 @@ static void check_nodecl_explicit_type_conversion(
 }
 
 static void check_explicit_type_conversion_common(type_t* type_info,
-        AST expr, AST explicit_initializer, decl_context_t decl_context,
+        AST expr, AST explicit_initializer, const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_explicit_initializer = nodecl_null();
@@ -11078,7 +11078,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
             nodecl_output, ast_get_locus(expr));
 }
 
-static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_explicit_typename_type_conversion(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST id_expression = ASTSon0(expr);
 
@@ -11121,7 +11121,7 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
             decl_context, nodecl_output);
 }
 
-static void check_explicit_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_explicit_type_conversion(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // An explicit type conversion is of the form
     //
@@ -11155,7 +11155,7 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
             nodecl_output);
 }
 
-void check_function_arguments(AST arguments, decl_context_t decl_context, 
+void check_function_arguments(AST arguments, const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     check_list_of_expressions(arguments, decl_context, nodecl_output);
@@ -11163,7 +11163,7 @@ void check_function_arguments(AST arguments, decl_context_t decl_context,
 
 static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name, 
         nodecl_t nodecl_argument_list, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char *can_succeed)
 {
     *can_succeed = 1;
@@ -11402,7 +11402,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
 typedef
 struct check_arg_data_tag
 {
-    decl_context_t decl_context;
+    const decl_context_t* decl_context;
 } check_arg_data_t;
 
 
@@ -11467,7 +11467,7 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
 }
 
 static type_t* compute_default_argument_conversion_for_ellipsis(type_t* arg_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         char emit_diagnostic)
 {
@@ -11851,7 +11851,7 @@ static void handle_computed_function_type(
         nodecl_t *nodecl_called,
         type_t** called_type,
         nodecl_t nodecl_argument_list,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus)
 {
     nodecl_t nodecl_symbol = *nodecl_called;
@@ -11893,7 +11893,7 @@ static void handle_computed_function_type(
 
 static void check_nodecl_function_call_c(nodecl_t nodecl_called, 
         nodecl_t nodecl_argument_list, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     // Keep the original name, lest it was a dependent call after all
@@ -11967,7 +11967,7 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
 static void check_nodecl_function_call_cxx(
         nodecl_t nodecl_called,
         nodecl_t nodecl_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_called);
@@ -12748,7 +12748,7 @@ static void check_nodecl_function_call_cxx(
 void check_nodecl_function_call(
         nodecl_t nodecl_called, 
         nodecl_t nodecl_argument_list, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     if (IS_C_LANGUAGE)
@@ -12768,7 +12768,7 @@ void check_nodecl_function_call(
 
 // A function call is of the form
 //   e1 ( e2 )
-static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t *nodecl_output)
+static void check_function_call(AST expr, const decl_context_t* decl_context, nodecl_t *nodecl_output)
 {
     DEBUG_CODE()
     {
@@ -12835,7 +12835,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             if (result == NULL)
             {
                 // At this point we should create a new symbol in the global scope
-                decl_context_t global_context = decl_context;
+                decl_context_t* global_context = decl_context_clone(decl_context);
                 global_context->current_scope = decl_context->global_scope;
                 entry = new_symbol(global_context, global_context->current_scope, ASTText(advanced_called_expression));
 
@@ -12885,7 +12885,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
 }
 
 
-static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
+static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, const decl_context_t* decl_context,
         const char* cast_kind,
         nodecl_t* nodecl_output)
 {
@@ -12943,7 +12943,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
 static void check_nodecl_comma_operand(nodecl_t nodecl_lhs, 
         nodecl_t nodecl_rhs, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output,
         const locus_t* locus)
 {
@@ -13050,7 +13050,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
     }
 }
 
-static void check_comma_operand(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_comma_operand(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
@@ -13192,7 +13192,7 @@ static void compute_implicit_captures(nodecl_t node,
 static int lambda_counter = 0;
 
 static void implement_nongeneric_lambda_expression(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t captures,
         scope_entry_t* lambda_symbol, 
         type_t* lambda_function_type,
@@ -13212,7 +13212,7 @@ static void implement_nongeneric_lambda_expression(
 
     class_type_set_is_lambda(lambda_class->type_information, 1);
 
-    decl_context_t inner_class_context = new_class_context(lambda_class->decl_context, lambda_class);
+    const decl_context_t* inner_class_context = new_class_context(lambda_class->decl_context, lambda_class);
     class_type_set_inner_context(lambda_class->type_information, inner_class_context);
 
     int num_captures = 0;
@@ -13267,7 +13267,7 @@ static void implement_nongeneric_lambda_expression(
         symbol_entity_specs_set_is_trivial(constructor, 1);
         constructor->type_information = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
-        decl_context_t block_context = new_block_context(inner_class_context);
+        const decl_context_t* block_context = new_block_context(inner_class_context);
         block_context->current_scope->related_entry = constructor;
 
         nodecl_t constructor_function_code =
@@ -13343,7 +13343,7 @@ static void implement_nongeneric_lambda_expression(
         parameter_info_t parameter_info[num_captures + 1];
         memset(parameter_info, 0, sizeof(parameter_info));
 
-        decl_context_t block_context = new_block_context(inner_class_context);
+        const decl_context_t* block_context = new_block_context(inner_class_context);
         block_context->current_scope->related_entry = constructor;
 
         nodecl_t member_initializers = nodecl_null();
@@ -13520,7 +13520,7 @@ static void implement_nongeneric_lambda_expression(
 
     // create operator()
     scope_entry_t* operator_call = new_symbol(inner_class_context, inner_class_context->current_scope, STR_OPERATOR_CALL);
-    decl_context_t block_context = new_block_context(inner_class_context);
+    const decl_context_t* block_context = new_block_context(inner_class_context);
     block_context->current_scope->related_entry = operator_call;
 
     operator_call->locus = locus;
@@ -13790,7 +13790,7 @@ static void implement_nongeneric_lambda_expression(
 }
 
 static void implement_generic_lambda_expression(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t captures,
         scope_entry_t* lambda_symbol, 
         type_t* lambda_function_type,
@@ -13810,7 +13810,7 @@ static void implement_generic_lambda_expression(
 
     class_type_set_is_lambda(lambda_class->type_information, 1);
 
-    decl_context_t inner_class_context = new_class_context(lambda_class->decl_context, lambda_class);
+    const decl_context_t* inner_class_context = new_class_context(lambda_class->decl_context, lambda_class);
     class_type_set_inner_context(lambda_class->type_information, inner_class_context);
 
     int num_captures = 0;
@@ -13907,7 +13907,7 @@ static void implement_generic_lambda_expression(
             invented_function_param_info, num_parameters,
             function_type_get_ref_qualifier(lambda_function_type));
 
-    decl_context_t invented_templated_context = inner_class_context;
+    decl_context_t* invented_templated_context = decl_context_clone(inner_class_context);
     invented_templated_context->template_parameters = invented_template_parameter_list;
 
     instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(NULL);
@@ -13918,7 +13918,7 @@ static void implement_generic_lambda_expression(
         symbol_entity_specs_set_is_trivial(constructor, 1);
         constructor->type_information = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
-        decl_context_t block_context = new_block_context(inner_class_context);
+        const decl_context_t* block_context = new_block_context(inner_class_context);
         block_context->current_scope->related_entry = constructor;
 
         nodecl_t constructor_function_code =
@@ -14034,7 +14034,7 @@ static void implement_generic_lambda_expression(
         parameter_info_t parameter_info[num_captures + 1];
         memset(parameter_info, 0, sizeof(parameter_info));
 
-        decl_context_t block_context = new_block_context(inner_class_context);
+        const decl_context_t* block_context = new_block_context(inner_class_context);
         block_context->current_scope->related_entry = constructor;
 
         nodecl_t member_initializers = nodecl_null();
@@ -14229,7 +14229,7 @@ static void implement_generic_lambda_expression(
 
     scope_entry_t* operator_call = named_type_get_symbol(
             template_type_get_primary_type(operator_call_template->type_information));
-    decl_context_t block_context = new_block_context(invented_templated_context);
+    const decl_context_t* block_context = new_block_context(invented_templated_context);
     block_context->current_scope->related_entry = operator_call;
 
     operator_call->locus = locus;
@@ -14499,7 +14499,7 @@ static void implement_generic_lambda_expression(
 }
 
 static void implement_lambda_expression(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t captures,
         scope_entry_t* lambda_symbol,
         type_t* lambda_function_type,
@@ -14585,7 +14585,7 @@ static char nodecl_contains_error_nodes(nodecl_t n)
 
 // Note this function only implements C++11
 // C++14 lambdas are different and will require a rework of this function
-static void check_lambda_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_lambda_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     CXX03_LANGUAGE()
     {
@@ -14780,7 +14780,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 
     type_t* function_type = get_auto_type();
 
-    decl_context_t lambda_block_context = new_block_context(decl_context);
+    const decl_context_t* lambda_block_context = new_block_context(decl_context);
     lambda_block_context->current_scope->related_entry = lambda_symbol;
     lambda_symbol->related_decl_context = lambda_block_context;
 
@@ -15047,7 +15047,7 @@ static char there_are_template_packs(nodecl_t n)
 }
 
 static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -15067,7 +15067,7 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
     nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
 }
 
-static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_initializer_clause_pack_expansion(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST expanded_expr = ASTSon0(expression);
 
@@ -15196,7 +15196,7 @@ static void check_nodecl_noexcept(nodecl_t nodecl_expr, nodecl_t* nodecl_output)
     *nodecl_output = nodecl_make_boolean_literal(t, val, nodecl_get_locus(nodecl_expr));
 }
 
-static void check_noexcept_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_noexcept_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST noexcept_expr = ASTSon0(expression);
 
@@ -15206,13 +15206,13 @@ static void check_noexcept_expression(AST expression, decl_context_t decl_contex
     check_nodecl_noexcept(nodecl_noexcept, nodecl_output);
 }
 
-static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
+static void check_templated_member_access(AST templated_member_access, const decl_context_t* decl_context, 
         char is_arrow, nodecl_t* nodecl_output)
 {
     check_member_access(templated_member_access, decl_context, is_arrow, /*has template tag*/ 1, nodecl_output);
 }
 
-static char is_pseudo_destructor_id(decl_context_t decl_context,
+static char is_pseudo_destructor_id(const decl_context_t* decl_context,
         type_t* accessed_type,
         nodecl_t nodecl_member)
 {
@@ -15524,7 +15524,7 @@ static const_value_t* compute_subconstant_of_class_member_access(
 static void check_nodecl_member_access(
         nodecl_t nodecl_accessed, 
         nodecl_t nodecl_member,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         char is_arrow,
         char has_template_tag,
         const locus_t* locus,
@@ -16052,7 +16052,7 @@ static void check_nodecl_member_access(
     }
 }
 
-static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, char has_template_tag, nodecl_t* nodecl_output)
+static void check_member_access(AST member_access, const decl_context_t* decl_context, char is_arrow, char has_template_tag, nodecl_t* nodecl_output)
 {
     AST class_expr = ASTSon0(member_access);
     AST id_expression = ASTSon1(member_access);
@@ -16080,7 +16080,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             nodecl_output);
 }
 
-static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t *nodecl_output)
+static void check_qualified_id(AST expr, const decl_context_t* decl_context, nodecl_t *nodecl_output)
 {
     cxx_common_name_check(expr, decl_context, nodecl_output);
 
@@ -16104,7 +16104,7 @@ static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t *
 }
 
 // This checks that a template-id-expr is feasible in an expression
-void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+void check_template_id_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     cxx_common_name_check(expr, decl_context, nodecl_output);
 }
@@ -16112,7 +16112,7 @@ void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nod
 static void check_postoperator_user_defined(
         AST operator, 
         nodecl_t postoperated_expr, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_list_t* builtins,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
@@ -16246,7 +16246,7 @@ static void check_postoperator_user_defined(
 
 static void check_preoperator_user_defined(AST operator, 
         nodecl_t preoperated_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_list_t* builtins,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
@@ -16401,7 +16401,7 @@ static type_t* postoperator_result(type_t** lhs,
 
 static void check_nodecl_postoperator(AST operator, 
         nodecl_t postoperated_expr, 
-        decl_context_t decl_context, char is_decrement,
+        const decl_context_t* decl_context, char is_decrement,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
 {
@@ -16535,7 +16535,7 @@ static type_t* preoperator_result(type_t** lhs, const locus_t* locus UNUSED_PARA
 }
 
 static void check_nodecl_preoperator(AST operator, 
-        nodecl_t preoperated_expr, decl_context_t decl_context,
+        nodecl_t preoperated_expr, const decl_context_t* decl_context,
         char is_decrement, nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
 {
@@ -16643,7 +16643,7 @@ static void check_nodecl_preoperator(AST operator,
 
 static void check_nodecl_postincrement(
         nodecl_t nodecl_postincremented,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -16659,7 +16659,7 @@ static void check_nodecl_postincrement(
             nodecl_make_postincrement, nodecl_output);
 }
 
-static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_postincrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -16677,7 +16677,7 @@ static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t*
 }
 
 static void check_nodecl_postdecrement(nodecl_t nodecl_postdecremented,
-    decl_context_t decl_context, nodecl_t* nodecl_output)
+    const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -16692,7 +16692,7 @@ static void check_nodecl_postdecrement(nodecl_t nodecl_postdecremented,
             nodecl_make_postdecrement, nodecl_output);
 }
 
-static void check_postdecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_postdecrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -16710,7 +16710,7 @@ static void check_postdecrement(AST expr, decl_context_t decl_context, nodecl_t*
 }
 
 static void check_nodecl_preincrement(nodecl_t nodecl_preincremented,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -16728,7 +16728,7 @@ static void check_nodecl_preincrement(nodecl_t nodecl_preincremented,
             nodecl_output);
 }
 
-static void check_preincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_preincrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -16744,7 +16744,7 @@ static void check_preincrement(AST expr, decl_context_t decl_context, nodecl_t* 
 
 static void check_nodecl_predecrement(
         nodecl_t nodecl_predecremented,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -16762,7 +16762,7 @@ static void check_nodecl_predecrement(
             nodecl_output);
 }
 
-static void check_predecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_predecrement(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -16784,7 +16784,7 @@ static void check_predecrement(AST expr, decl_context_t decl_context, nodecl_t* 
     check_nodecl_predecrement(nodecl_predecremented, decl_context, nodecl_output);
 }
 
-static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus_t* locus)
+static scope_entry_t* get_typeid_symbol(const decl_context_t* decl_context, const locus_t* locus)
 {
     // Lookup for 'std::type_info'
     static scope_entry_t* typeid_sym = NULL;
@@ -16792,7 +16792,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
     // FIXME: This will last accross files
     if (typeid_sym == NULL)
     {
-        decl_context_t global_context = decl_context;
+        decl_context_t* global_context = decl_context_clone(decl_context);
         global_context->current_scope = global_context->global_scope;
 
         scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
@@ -16810,7 +16810,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
             return NULL;
         }
 
-        decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
+        const decl_context_t* std_context = entry_list_head(entry_list)->related_decl_context;
         entry_list_free(entry_list);
         entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
 
@@ -16835,14 +16835,14 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
     return typeid_sym;
 }
 
-scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, 
+scope_entry_t* get_std_initializer_list_template(const decl_context_t* decl_context, 
         const locus_t* locus, 
         char mandatory)
 {
     // Lookup for 'std::initializer_list'
     scope_entry_t* result = NULL;
 
-    decl_context_t global_context = decl_context;
+    decl_context_t* global_context = decl_context_clone(decl_context);
     global_context->current_scope = global_context->global_scope;
 
     scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
@@ -16862,7 +16862,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         return NULL;
     }
 
-    decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
+    const decl_context_t* std_context = entry_list_head(entry_list)->related_decl_context;
     entry_list_free(entry_list);
 
     entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("initializer_list"), NULL);
@@ -16889,7 +16889,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
 }
 
 static void check_nodecl_typeid_type(type_t* t, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -16913,7 +16913,7 @@ static void check_nodecl_typeid_type(type_t* t,
             typeid_type, locus);
 }
 
-static void check_typeid_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_typeid_type(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     type_t* type = compute_type_for_type_id_tree(ASTSon0(expr), decl_context,
             /* out_simple_type */ NULL, /* out_gather_info */ NULL);
@@ -16928,7 +16928,7 @@ static void check_typeid_type(AST expr, decl_context_t decl_context, nodecl_t* n
 }
 
 static void check_nodecl_typeid_expr(nodecl_t nodecl_typeid_expr, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -16954,7 +16954,7 @@ static void check_nodecl_typeid_expr(nodecl_t nodecl_typeid_expr,
             typeid_type, locus);
 }
 
-static void check_typeid_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_typeid_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_typeid_expr = nodecl_null();
     check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_typeid_expr);
@@ -16984,7 +16984,7 @@ static char update_stack_to_designator(type_t* declared_type,
         struct type_init_stack_t *type_stack,
         int* type_stack_idx,
         nodecl_t designator_list,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     int designator_list_length = 0;
     nodecl_t* designators = nodecl_unpack_list(designator_list, &designator_list_length);
@@ -17570,7 +17570,7 @@ char is_narrowing_conversion_type(type_t* orig_type,
 
 char check_narrowing_conversion(nodecl_t orig_expr,
         type_t* dest_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     type_t* source_type = nodecl_get_type(orig_expr);
     if (is_narrowing_conversion_type(
@@ -17771,7 +17771,7 @@ static const_value_t* generate_aggregate_constant(struct type_init_stack_t *type
 
 void check_nodecl_braced_initializer(
         nodecl_t braced_initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declared_type,
         char is_explicit_type_cast,
         enum initialization_kind initialization_kind,
@@ -18806,7 +18806,7 @@ struct designator_path_tag
 } designator_path_t;
 
 static void check_nodecl_designation_type(nodecl_t nodecl_designation,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type,
         type_t** designated_type,
         nodecl_t* nodecl_output,
@@ -18923,7 +18923,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
 
 void check_contextual_conversion(nodecl_t expression,
         type_t* dest_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     type_t* type_seq[1] = { nodecl_get_type(expression) };
@@ -18943,7 +18943,7 @@ void check_contextual_conversion(nodecl_t expression,
 }
 
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declared_type,
         char is_explicit,
         char is_explicit_type_cast UNUSED_PARAMETER,
@@ -19190,7 +19190,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 }
 
 static void compute_nodecl_initializer_clause(AST initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
@@ -19249,7 +19249,7 @@ static void compute_nodecl_initializer_clause(AST initializer,
 }
 
 void check_initializer_clause(AST initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declared_type,
         char is_decltype_auto,
         nodecl_t* nodecl_output)
@@ -19294,7 +19294,7 @@ static type_t* operator_bin_pointer_to_pm_result(type_t** lhs, type_t** rhs, con
 static void check_nodecl_pointer_to_pointer_member(
         nodecl_t nodecl_lhs, 
         nodecl_t nodecl_rhs, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -19463,7 +19463,7 @@ static void check_nodecl_pointer_to_pointer_member(
 }
 
 static void check_pointer_to_pointer_to_member(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     AST lhs = ASTSon0(expression);
@@ -19485,7 +19485,7 @@ static void check_pointer_to_pointer_to_member(AST expression,
 static void check_nodecl_pointer_to_member(
         nodecl_t nodecl_lhs, 
         nodecl_t nodecl_rhs, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -19567,7 +19567,7 @@ static void check_nodecl_pointer_to_member(
             locus);
 }
 
-static void check_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_pointer_to_member(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
@@ -19585,7 +19585,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context,
 
 
 static void compute_nodecl_equal_initializer(AST initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
@@ -19609,7 +19609,7 @@ static void compute_nodecl_equal_initializer(AST initializer,
     }
 }
 
-static void compute_nodecl_braced_initializer(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_braced_initializer(AST initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST initializer_list = ASTSon0(initializer);
 
@@ -19666,7 +19666,7 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
     DELETE(types);
 }
 
-static void compute_nodecl_designator_list(AST designator_list, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_designator_list(AST designator_list, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST it;
     for_each_element(designator_list, it)
@@ -19711,13 +19711,13 @@ static void compute_nodecl_designator_list(AST designator_list, decl_context_t d
     }
 }
 
-static void compute_nodecl_designation(AST designation, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_designation(AST designation, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST designator_list = ASTSon0(designation);
     compute_nodecl_designator_list(designator_list, decl_context, nodecl_output);
 }
 
-static void compute_nodecl_designated_initializer(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_designated_initializer(AST initializer, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST designation = ASTSon0(initializer);
     AST initializer_clause = ASTSon1(initializer);
@@ -19743,7 +19743,7 @@ static void compute_nodecl_designated_initializer(AST initializer, decl_context_
 }
 
 static void compute_nodecl_gcc_initializer(AST initializer, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     AST symbol = ASTSon0(initializer);
@@ -19775,7 +19775,7 @@ static void compute_nodecl_gcc_initializer(AST initializer,
 }
 
 static void compute_nodecl_direct_initializer(AST initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
@@ -19834,7 +19834,7 @@ static void compute_nodecl_direct_initializer(AST initializer,
 }
 
 void compute_nodecl_initialization(AST initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char preserve_top_level_parentheses,
         nodecl_t* nodecl_output)
 {
@@ -19885,7 +19885,7 @@ static void unary_record_conversion_to_result_for_initializer(type_t* result, no
 
 static void check_nodecl_function_argument_initialization_(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declared_type,
         enum initialization_kind initialization_kind,
         char disallow_narrowing,
@@ -19912,7 +19912,7 @@ static void check_nodecl_function_argument_initialization_(
 
 void check_nodecl_function_argument_initialization(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* declared_type,
         char disallow_narrowing,
         nodecl_t* nodecl_output)
@@ -19927,7 +19927,7 @@ void check_nodecl_function_argument_initialization(
 }
 
 void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
         enum initialization_kind initialization_kind,
@@ -20199,7 +20199,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 }
 
 void check_nodecl_equal_initializer(nodecl_t nodecl_initializer, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output)
 {
@@ -20225,7 +20225,7 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
 type_t* deduce_auto_initializer(
         nodecl_t nodecl_initializer,
         type_t* type_to_deduce,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(nodecl_is_null(nodecl_initializer), "Initializer cannot be NULL", 0);
     nodecl_t nodecl_expression_used_for_deduction = nodecl_initializer;
@@ -20299,7 +20299,7 @@ type_t* deduce_auto_initializer(
 type_t* deduce_decltype_auto_initializer(
         nodecl_t nodecl_initializer,
         type_t* type_to_deduce, // this should just be decltype(auto)
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(nodecl_is_null(nodecl_initializer), "Initializer cannot be NULL", 0);
     ERROR_CONDITION(!is_decltype_auto_type(type_to_deduce), "Invalid type", 0)
@@ -20346,7 +20346,7 @@ type_t* deduce_decltype_auto_initializer(
     return compute_type_of_decltype_nodecl(nodecl_expression_used_for_deduction, decl_context);
 }
 
-type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, decl_context_t decl_context)
+type_t* compute_type_of_decltype_nodecl(nodecl_t nodecl_expr, const decl_context_t* decl_context)
 {
     if (nodecl_is_err_expr(nodecl_expr))
     {
@@ -20428,7 +20428,7 @@ static char initializer_self_references(nodecl_t initializer, scope_entry_t* ent
 
 void check_nodecl_initialization(
         nodecl_t nodecl_initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
@@ -20526,7 +20526,7 @@ void check_nodecl_initialization(
 
 static void check_nodecl_initializer_clause(
         nodecl_t initializer_clause, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
         nodecl_t* nodecl_output)
@@ -20567,7 +20567,7 @@ static void check_nodecl_initializer_clause(
 
 
 char check_initialization(AST initializer,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         scope_entry_t* initialized_entry,
         type_t* declared_type,
         nodecl_t* nodecl_output,
@@ -20676,7 +20676,7 @@ AST advance_expression_nest_flags(AST expr, char advance_parentheses)
     }
 }
 
-static void accessible_types_through_conversion(type_t* t, type_t ***result, int *num_types, decl_context_t decl_context,
+static void accessible_types_through_conversion(type_t* t, type_t ***result, int *num_types, const decl_context_t* decl_context,
         const locus_t* locus)
 {
     ERROR_CONDITION(is_unresolved_overloaded_type(t), 
@@ -20741,7 +20741,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
 static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
-        decl_context_t decl_context, AST operator, 
+        const decl_context_t* decl_context, AST operator, 
         char (*property)(type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, const locus_t*),
         const locus_t* locus)
@@ -20823,7 +20823,7 @@ static
 void build_binary_builtin_operators(type_t* t1, 
         type_t* t2, 
         builtin_operators_set_t *result,
-        decl_context_t decl_context, AST operator, 
+        const decl_context_t* decl_context, AST operator, 
         char (*property)(type_t*, type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, type_t**, const locus_t*),
         const locus_t* locus)
@@ -20935,7 +20935,7 @@ void build_ternary_builtin_operators(type_t* t1,
         type_t* t3, 
         builtin_operators_set_t *result,
         // Note that since no ternary operator actually exists we use a faked name
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* operator_name, 
         char (*property)(type_t*, type_t*, type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, type_t**, type_t**, const locus_t*),
@@ -21070,7 +21070,7 @@ void build_ternary_builtin_operators(type_t* t1,
 
 static void check_sizeof_type(type_t* t, 
         nodecl_t nodecl_expr,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_sizeof(
@@ -21124,7 +21124,7 @@ static void check_sizeof_type(type_t* t,
     }
 }
 
-static void check_nodecl_sizeof_expr(nodecl_t nodecl_expr, decl_context_t decl_context,
+static void check_nodecl_sizeof_expr(nodecl_t nodecl_expr, const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_expr);
@@ -21151,7 +21151,7 @@ static void check_nodecl_sizeof_expr(nodecl_t nodecl_expr, decl_context_t decl_c
     check_sizeof_type(t, nodecl_expr, decl_context, locus, nodecl_output);
 }
 
-static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_sizeof_expr(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST sizeof_expression = ASTSon0(expr);
 
@@ -21161,7 +21161,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
     check_nodecl_sizeof_expr(nodecl_expr, decl_context, nodecl_output);
 }
 
-static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_sizeof_typeid(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(expr);
 
@@ -21226,7 +21226,7 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
             /* make sure is a size_t */ get_size_t_type());
 }
 
-static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_sizeof_pack(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST name = ASTSon0(expr);
 
@@ -21262,18 +21262,18 @@ static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* n
 }
 
 static void check_vla_expression(AST expression,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     *nodecl_output = nodecl_make_vla_wildcard(get_signed_int_type(), ast_get_locus(expression));
 }
 
 static void compute_nodecl_gcc_offset_designation(AST gcc_offset_designator,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output);
 
 static void check_gcc_offset_designation(nodecl_t nodecl_designator,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* accessed_type,
         nodecl_t* nodecl_output,
         const locus_t* locus)
@@ -21342,7 +21342,7 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
 }
 
 static void check_gcc_builtin_offsetof(AST expression,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(expression);
@@ -21367,7 +21367,7 @@ static void check_gcc_builtin_offsetof(AST expression,
             locus);
 }
 
-static void compute_nodecl_gcc_offset_designation(AST gcc_offset_designator, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void compute_nodecl_gcc_offset_designation(AST gcc_offset_designator, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST name = ASTSon0(gcc_offset_designator);
     AST designator_list = ASTSon1(gcc_offset_designator);
@@ -21391,7 +21391,7 @@ static void compute_nodecl_gcc_offset_designation(AST gcc_offset_designator, dec
 }
 
 static void check_gcc_builtin_choose_expr(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     AST selector_expr = ASTSon0(expression);
@@ -21430,7 +21430,7 @@ static void check_gcc_builtin_choose_expr(AST expression,
     }
 }
 
-static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_gcc_builtin_types_compatible_p(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // This builtin always returns an integer type
     AST first_type_tree = ASTSon0(expression);
@@ -21467,7 +21467,7 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
 }
 
 static void check_gcc_label_addr(AST expression, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     if (decl_context->current_scope->kind != BLOCK_SCOPE)
@@ -21489,7 +21489,7 @@ static void check_gcc_label_addr(AST expression,
 }
 
 static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         char is_real,
         const locus_t* locus,
         nodecl_t* nodecl_output)
@@ -21532,7 +21532,7 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
 }
 
 static void check_gcc_real_or_imag_part(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     char is_real = (ASTKind(expression) == AST_GCC_REAL_PART);
@@ -21554,7 +21554,7 @@ static void check_gcc_real_or_imag_part(AST expression,
 
 static void check_gcc_alignof_type(type_t* t,
         nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -21647,7 +21647,7 @@ static void check_gcc_alignof_type(type_t* t,
 
 static void check_nodecl_gcc_alignof_expr(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -21663,7 +21663,7 @@ static void check_nodecl_gcc_alignof_expr(
 }
 
 static void check_gcc_alignof_expr(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     AST alignof_expr = ASTSon0(expression);
@@ -21682,7 +21682,7 @@ static void check_gcc_alignof_expr(AST expression,
 }
 
 static void check_gcc_alignof_typeid(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     AST type_id = ASTSon0(expression);
@@ -21700,7 +21700,7 @@ static void check_gcc_alignof_typeid(AST expression,
 }
 
 static void check_gcc_postfix_expression(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(expression);
@@ -21763,7 +21763,7 @@ static void check_gcc_postfix_expression(AST expression,
 }
 
 static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -21819,7 +21819,7 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
             locus);
 }
 
-static void check_gcc_parenthesized_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_gcc_parenthesized_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST compound_statement = ASTSon0(expression);
     nodecl_t nodecl_stmt_seq = nodecl_null();
@@ -21839,7 +21839,7 @@ static void check_gcc_parenthesized_expression(AST expression, decl_context_t de
 }
 
 static void check_gcc_builtin_va_arg(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(expression);
@@ -21872,7 +21872,7 @@ static void check_gcc_builtin_va_arg(AST expression,
             t, locus);
 }
 
-static nodecl_t promote_node_to_ptrdiff_t(nodecl_t n, decl_context_t decl_context)
+static nodecl_t promote_node_to_ptrdiff_t(nodecl_t n, const decl_context_t* decl_context)
 {
     if (nodecl_is_null(n))
         return n;
@@ -21922,7 +21922,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         nodecl_t nodecl_lower,
         nodecl_t nodecl_upper,
         nodecl_t nodecl_stride,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         char is_array_section_size,
         const locus_t* locus,
         nodecl_t* nodecl_output)
@@ -22015,7 +22015,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         nodecl_t array_lower_bound = array_type_get_array_lower_bound(indexed_type);
         nodecl_t array_upper_bound = array_type_get_array_upper_bound(indexed_type);
-        decl_context_t array_decl_context = array_type_get_array_size_expr_context(indexed_type);
+        const decl_context_t* array_decl_context = array_type_get_array_size_expr_context(indexed_type);
 
         result_type = get_array_type_bounds_with_regions(
                 array_type_get_element_type(indexed_type),
@@ -22086,7 +22086,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
                 current_array_type, 
                 locus);
         
-        decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
+        const decl_context_t* array_decl_context = array_type_get_array_size_expr_context(current_array_type);
 
         result_type = get_array_type_bounds_with_regions(
                 result_type,
@@ -22122,7 +22122,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     }
 }
 
-static void check_array_section_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_array_section_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(expression);
 
@@ -22164,7 +22164,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
 
 static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         nodecl_t nodecl_shape_list,
-        decl_context_t decl_context UNUSED_PARAMETER, 
+        const decl_context_t* decl_context UNUSED_PARAMETER, 
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -22274,7 +22274,7 @@ static const char* prettyprint_shape(AST a)
 
 
 static void check_shaping_expression(AST expression, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(expression);
@@ -22368,7 +22368,7 @@ static void check_shaping_expression(AST expression,
 
 char check_list_of_initializer_clauses(
         AST initializer_clause_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_null();
@@ -22417,12 +22417,12 @@ char check_list_of_initializer_clauses(
 
 static void define_defaulted_special_member(
         scope_entry_t* special_member,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 char check_default_initialization_of_type(
         type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** constructor)
 {
@@ -22494,7 +22494,7 @@ char check_default_initialization_of_type(
 }
 
 char check_default_initialization(scope_entry_t* entry,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus,
         scope_entry_t** constructor)
 {
@@ -22518,7 +22518,7 @@ char check_default_initialization(scope_entry_t* entry,
 }
 
 char check_copy_constructor(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char has_const,
         const locus_t* locus,
         scope_entry_t** constructor)
@@ -22596,7 +22596,7 @@ char check_copy_constructor(scope_entry_t* entry,
 }
 
 char check_copy_assignment_operator(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char has_const,
         const locus_t* locus,
         scope_entry_t** constructor)
@@ -22700,7 +22700,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
 }
 
 char check_move_assignment_operator(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char has_const,
         const locus_t* locus,
         scope_entry_t** constructor)
@@ -22802,7 +22802,7 @@ char check_move_assignment_operator(scope_entry_t* entry,
     return 1;
 }
 
-char check_default_initialization_and_destruction_declarator(scope_entry_t* entry, decl_context_t decl_context,
+char check_default_initialization_and_destruction_declarator(scope_entry_t* entry, const decl_context_t* decl_context,
         const locus_t* locus)
 {
     scope_entry_t* constructor = NULL;
@@ -22900,7 +22900,7 @@ void diagnostic_candidates(scope_entry_list_t* candidates,
 
 static void error_message_overload_failed(candidate_t* candidates, 
         const char* name,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         int num_arguments,
         type_t** arguments,
         type_t* implicit_argument,
@@ -23118,7 +23118,7 @@ static map_of_parameters_with_their_arguments_t*
 constexpr_function_get_constants_of_arguments(
         nodecl_t converted_arg_list,
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         int *num_map_items)
 {
     int num_arguments = 0;
@@ -23189,7 +23189,7 @@ constexpr_function_get_constants_of_arguments(
                 && !symbol_entity_specs_get_is_constructor(entry))
         {
             // 'this'
-            decl_context_t body_context =  nodecl_retrieve_context(
+            const decl_context_t* body_context =  nodecl_retrieve_context(
                     nodecl_get_child(symbol_entity_specs_get_function_code(entry), 0)
                     );
             scope_entry_list_t* this_list =
@@ -23368,7 +23368,7 @@ static nodecl_t constexpr_replace_parameters_with_values(nodecl_t n,
 static const_value_t* evaluate_constexpr_constructor(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (function_may_be_instantiated(entry))
@@ -23646,7 +23646,7 @@ static const_value_t* evaluate_constexpr_constructor(
 static const_value_t* evaluate_constexpr_regular_function_call(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (function_may_be_instantiated(entry))
@@ -23755,7 +23755,7 @@ static const_value_t* evaluate_constexpr_regular_function_call(
 static const_value_t* evaluate_constexpr_function_call(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -23786,7 +23786,7 @@ static const_value_t* evaluate_constexpr_function_call(
 }
 
 static void define_defaulted_default_constructor(scope_entry_t* entry,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus)
 {
     if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
@@ -23800,7 +23800,7 @@ static void define_defaulted_default_constructor(scope_entry_t* entry,
             locus,
             &default_member_initializer);
 
-    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
 
     // Empty body with member initializers
     nodecl_t nodecl_function_code =
@@ -23817,8 +23817,8 @@ static void define_defaulted_default_constructor(scope_entry_t* entry,
 
 static void apply_function_to_data_layout_members(
         scope_entry_t* entry,
-        void (*fun)(scope_entry_t*, decl_context_t, const locus_t*, void *data),
-        decl_context_t decl_context,
+        void (*fun)(scope_entry_t*, const decl_context_t*, const locus_t*, void *data),
+        const decl_context_t* decl_context,
         const locus_t* locus,
         void *data)
 {
@@ -23865,7 +23865,7 @@ static void apply_function_to_data_layout_members(
 
 static void call_destructor_for_data_layout_member(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         void *data UNUSED_PARAMETER)
 {
@@ -23895,7 +23895,7 @@ static void call_destructor_for_data_layout_member(
 }
 
 static void define_defaulted_destructor(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     apply_function_to_data_layout_members(
@@ -23905,7 +23905,7 @@ static void define_defaulted_destructor(scope_entry_t* entry,
             locus,
             NULL);
 
-    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
 
     // Empty body
     nodecl_t nodecl_function_code =
@@ -23922,7 +23922,7 @@ static void define_defaulted_destructor(scope_entry_t* entry,
 
 void call_destructor_for_data_layout_members(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     apply_function_to_data_layout_members(
@@ -23937,11 +23937,11 @@ typedef
 struct special_member_info_tag
 {
     scope_entry_list_t* (*function_set)(type_t*);
-    const char* (*function_name)(type_t*, decl_context_t);
+    const char* (*function_name)(type_t*, const decl_context_t*);
 } special_member_info_t;
 
 static const char* get_constructor_name(type_t* class_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_named_class_type(class_type), "Invalid class", 0);
 
@@ -23954,7 +23954,7 @@ static const char* get_constructor_name(type_t* class_type,
 }
 
 static const char* copy_move_assignment_operator(type_t* class_type,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_named_class_type(class_type), "Invalid class", 0);
 
@@ -23967,7 +23967,7 @@ static const char* copy_move_assignment_operator(type_t* class_type,
 
 static void call_specific_overloadable_special_member_for_data_layout_member(
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         void *p)
 {
@@ -24040,7 +24040,7 @@ static void call_specific_overloadable_special_member_for_data_layout_member(
 }
 
 static void define_defaulted_copy_constructor(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
@@ -24057,7 +24057,7 @@ static void define_defaulted_copy_constructor(scope_entry_t* entry,
             locus,
             &special_member);
 
-    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
 
     // Empty body
     nodecl_t nodecl_function_code =
@@ -24073,7 +24073,7 @@ static void define_defaulted_copy_constructor(scope_entry_t* entry,
 }
 
 static void define_defaulted_copy_assignment_operator(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
@@ -24090,7 +24090,7 @@ static void define_defaulted_copy_assignment_operator(scope_entry_t* entry,
             locus,
             &special_member);
 
-    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
 
     // Empty body
     nodecl_t nodecl_function_code =
@@ -24106,7 +24106,7 @@ static void define_defaulted_copy_assignment_operator(scope_entry_t* entry,
 }
 
 static void define_defaulted_move_constructor(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
@@ -24123,7 +24123,7 @@ static void define_defaulted_move_constructor(scope_entry_t* entry,
             locus,
             &special_member);
 
-    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
 
     // Empty body
     nodecl_t nodecl_function_code =
@@ -24139,7 +24139,7 @@ static void define_defaulted_move_constructor(scope_entry_t* entry,
 }
 
 static void define_defaulted_move_assignment_operator(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
@@ -24156,7 +24156,7 @@ static void define_defaulted_move_assignment_operator(scope_entry_t* entry,
             locus,
             &special_member);
 
-    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
 
     // Empty body
     nodecl_t nodecl_function_code =
@@ -24173,7 +24173,7 @@ static void define_defaulted_move_assignment_operator(scope_entry_t* entry,
 
 static void define_defaulted_special_member(
         scope_entry_t* special_member,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     ERROR_CONDITION(!symbol_entity_specs_get_is_defaulted(special_member),
@@ -24226,7 +24226,7 @@ static void define_inherited_constructor(
     if (function_type_get_has_ellipsis(new_inherited_constructor->type_information))
         num_parameters--;
 
-    decl_context_t block_context = new_block_context(new_inherited_constructor->decl_context);
+    const decl_context_t* block_context = new_block_context(new_inherited_constructor->decl_context);
     block_context->current_scope->related_entry = new_inherited_constructor;
 
     nodecl_t nodecl_arg_list = nodecl_null();
@@ -24368,7 +24368,7 @@ nodecl_t cxx_nodecl_make_function_call(
         nodecl_t arg_list,
         nodecl_t function_form,
         type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     ERROR_CONDITION(!nodecl_is_null(arg_list)
@@ -24908,7 +24908,7 @@ nodecl_t cxx_nodecl_make_function_call(
 char check_nodecl_template_argument_can_be_converted_to_parameter_type(
         nodecl_t nodecl_argument,
         type_t* parameter_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_out)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_argument);
@@ -25165,7 +25165,7 @@ char check_nontype_template_argument_type(type_t* t)
 
 char check_nodecl_nontype_template_argument_expression(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     if (nodecl_expr_is_value_dependent(nodecl_expr)
@@ -25280,7 +25280,7 @@ char check_nodecl_nontype_template_argument_expression(
 }
 
 char check_nontype_template_argument_expression(AST expression,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
@@ -25311,7 +25311,7 @@ struct nodecl_instantiate_expr_visitor_tag
     nodecl_external_visitor_t _base_visitor;
 
     // Context info
-    decl_context_t decl_context;
+    const decl_context_t* decl_context;
 
     // Keep the resulting expression here
     nodecl_t nodecl_result;
@@ -25332,7 +25332,7 @@ static inline nodecl_visitor_fun_t instantiate_expr_visitor_fun(nodecl_instantia
 }
 
 // This function for debug only
-static const char* codegen_expression_to_str(nodecl_t expr, decl_context_t decl_context)
+static const char* codegen_expression_to_str(nodecl_t expr, const decl_context_t* decl_context)
 {
     if (nodecl_is_list(expr))
     {
@@ -25421,10 +25421,10 @@ static nodecl_t instantiate_expr_walk_non_executable(nodecl_instantiate_expr_vis
     return result;
 }
 
-static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, decl_context_t);
+static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, const decl_context_t*);
 
 nodecl_t instantiate_expression(
-        nodecl_t nodecl_expr, decl_context_t decl_context,
+        nodecl_t nodecl_expr, const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
@@ -25450,7 +25450,7 @@ nodecl_t instantiate_expression(
 }
 
 nodecl_t instantiate_expression_non_executable(
-        nodecl_t nodecl_expr, decl_context_t decl_context,
+        nodecl_t nodecl_expr, const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
@@ -25570,7 +25570,7 @@ static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_par
     }
 }
 
-static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, decl_context_t decl_context,
+static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, const decl_context_t* decl_context,
         const locus_t* locus)
 {
     scope_entry_t* class_sym = named_type_get_symbol(class_type);
@@ -25628,7 +25628,7 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
 static nodecl_t complete_nodecl_name_of_dependent_entity(
         scope_entry_t* dependent_entry,
         nodecl_t list_of_dependent_parts,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         char dependent_entry_already_updated,
         int pack_index,
@@ -26073,7 +26073,7 @@ static void instantiate_class_member_access(nodecl_instantiate_expr_visitor_t* v
 
 static nodecl_t update_dep_template_id(
         nodecl_t node,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
@@ -26097,7 +26097,7 @@ static nodecl_t update_dep_template_id(
 
 static nodecl_t update_common_dep_name_nested(
         nodecl_t node,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index,
         nodecl_t (*func)(nodecl_t, const locus_t*))
@@ -26138,7 +26138,7 @@ static nodecl_t update_common_dep_name_nested(
 }
 
 nodecl_t update_cxx_dep_qualified_name(nodecl_t cxx_dep_name,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
@@ -27275,7 +27275,7 @@ static void instantiate_new(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 }
 
 // Initialization
-static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, decl_context_t decl_context)
+static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, const decl_context_t* decl_context)
 {
     nodecl_init_walker((nodecl_external_visitor_t*)v, instantiate_expr_visitor_fun(instantiate_expr_not_implemented_yet));
 

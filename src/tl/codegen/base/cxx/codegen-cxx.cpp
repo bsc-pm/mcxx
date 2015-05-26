@@ -58,7 +58,7 @@ void CxxBase::codegen(const Nodecl::NodeclBase &n, const State &new_state, std::
     state.nontype_template_argument_needs_parentheses =
         old_state.nontype_template_argument_needs_parentheses;
 
-    decl_context_t decl_context = this->get_current_scope().get_decl_context();
+    const decl_context_t* decl_context = this->get_current_scope().get_decl_context();
 
     state.global_namespace = decl_context->global_scope->related_entry;
     state.opened_namespace = decl_context->namespace_scope->related_entry;
@@ -4661,7 +4661,7 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
     else if (sym.is_function())
     {
         indent();
-        decl_context_t decl_context = context.retrieve_context().get_decl_context();
+        const decl_context_t* decl_context = context.retrieve_context().get_decl_context();
         move_to_namespace(decl_context->namespace_scope->related_entry);
 
         if (is_extern)
@@ -9610,7 +9610,7 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     *file << ")";
 }
 
-const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
+const char* CxxBase::print_name_str(scope_entry_t* sym, const decl_context_t* decl_context, void *data)
 {
     // We obtain the current codegen from the data
     CxxBase* _this = (CxxBase*) data;
@@ -9707,7 +9707,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     return result;
 }
 
-const char* CxxBase::print_type_str(type_t* t, decl_context_t decl_context, void *data)
+const char* CxxBase::print_type_str(type_t* t, const decl_context_t* decl_context, void *data)
 {
     const char* result = NULL;
     if (t == NULL)

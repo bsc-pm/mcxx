@@ -1261,7 +1261,7 @@ void LoweringVisitor::visit_task_call_c(
 // with the same parameters as the original task. This new function will have a simple body
 // with a task that calls the original function
 
-static void handle_save_expressions(decl_context_t function_context,
+static void handle_save_expressions(const decl_context_t* function_context,
         TL::Type t,
         // Out
         Nodecl::Utils::SimpleSymbolMap& symbol_map,
@@ -1327,8 +1327,8 @@ static TL::Symbol new_function_symbol_adapter(
 {
     Scope sc = current_function.get_scope();
 
-    decl_context_t decl_context = sc.get_decl_context();
-    decl_context_t function_context;
+    const decl_context_t* decl_context = sc.get_decl_context();
+    const decl_context_t* function_context;
 
     function_context = new_program_unit_context(decl_context);
 

@@ -1654,7 +1654,7 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::NodeclBase stms = directive.get_statements();
 
-        decl_context_t new_context =
+        const decl_context_t* new_context =
             new_block_context(directive.retrieve_context().get_decl_context());
         Nodecl::NodeclBase ctx = Nodecl::List::make(
                 Nodecl::Context::make(

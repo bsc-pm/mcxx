@@ -515,7 +515,7 @@ type_t* fortran_rebuild_array_type(type_t* rank0_type, type_t* array_type)
     }
 }
 
-type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context)
+type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, const decl_context_t* decl_context)
 {
     scalar_type = no_ref(scalar_type);
 
@@ -535,7 +535,7 @@ type_t* fortran_get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t 
     }
 }
 
-type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, decl_context_t decl_context)
+type_t* fortran_get_n_ranked_type_with_descriptor(type_t* scalar_type, int rank, const decl_context_t* decl_context)
 {
     scalar_type = no_ref(scalar_type);
 

@@ -126,7 +126,7 @@ namespace TL
 
     Scope Scope::temporal_scope() const
     {
-        decl_context_t block_context = new_block_context(_decl_context);
+        const decl_context_t* block_context = new_block_context(_decl_context);
 
         return Scope(block_context);
     }

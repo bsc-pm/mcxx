@@ -36,7 +36,7 @@
 #include "cxx-exprtype.h"
 #include "uniquestr.h"
 
-void upc_sign_in_builtins(decl_context_t decl_context)
+void upc_sign_in_builtins(const decl_context_t* decl_context)
 {
     // THREADS
     scope_entry_t* upc_THREADS;

@@ -76,7 +76,7 @@ namespace TL
         else
         {
             const char* (*ptr_fun)(struct
-                    scope_entry_tag* entry, decl_context_t decl_context, char*
+                    scope_entry_tag* entry, const decl_context_t* decl_context, char*
                     is_dependent, int* max_qualif_level) = get_fully_qualified_symbol_name;
 
             if (without_template_id)
@@ -148,7 +148,7 @@ namespace TL
         else
         {
             const char* (*ptr_fun)(struct
-                    scope_entry_tag* entry, decl_context_t decl_context, char*
+                    scope_entry_tag* entry, const decl_context_t* decl_context, char*
                     is_dependent, int* max_qualif_level) = get_class_qualification_of_symbol;
 
             if (without_template_id)

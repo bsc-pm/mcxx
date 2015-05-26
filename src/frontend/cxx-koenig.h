@@ -40,7 +40,7 @@ MCXX_BEGIN_DECLS
 LIBMCXX_EXTERN scope_entry_list_t* koenig_lookup(
         int num_arguments,
         struct type_tag** argument_type_list,
-        decl_context_t normal_decl_context,
+        const decl_context_t* normal_decl_context,
         nodecl_t nodecl_simple_name,
         const locus_t* locus);
 

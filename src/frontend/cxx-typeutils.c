@@ -198,7 +198,7 @@ struct class_info_tag {
     type_t* enclosing_class_type;
 
     // The inner decl context created by this class
-    decl_context_t inner_decl_context;
+    const decl_context_t* inner_decl_context;
 
     // All members must be here
     scope_entry_list_t* members;
@@ -296,12 +296,12 @@ struct simple_type_tag {
     // related to them
     // (kind == STK_ENUM)
     // (kind == STK_CLASS)
-    decl_context_t type_decl_context;
+    const decl_context_t* type_decl_context;
 
     // For typeof and template dependent types
     // (kind == STK_TYPEOF)
     nodecl_t typeof_expr;
-    decl_context_t typeof_decl_context;
+    const decl_context_t* typeof_decl_context;
 
     // This is a STK_INDIRECT
     type_t* primary_specialization;
@@ -385,7 +385,7 @@ struct array_region_tag
     nodecl_t stride;
     
     // Scope of the array region expressions
-    decl_context_t region_decl_context;
+    const decl_context_t* region_decl_context;
 } array_region_t;
 
 // Array information
@@ -404,7 +404,7 @@ struct array_tag
     nodecl_t upper_bound;
 
     // Scope of the array size expressions
-    decl_context_t array_expr_decl_context;
+    const decl_context_t* array_expr_decl_context;
 
     // The type of the array elements
     type_t* element_type;
@@ -1192,7 +1192,7 @@ extern inline type_t* get_void_type(void)
     return _type;
 }
 
-extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context,
+extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, const decl_context_t* decl_context,
         char is_decltype)
 {
     type_t* type = get_simple_type();
@@ -1225,7 +1225,7 @@ extern inline nodecl_t typeof_expr_type_get_expression(type_t* t)
     return t->type->typeof_expr;
 }
 
-extern inline decl_context_t typeof_expr_type_get_expression_context(type_t* t)
+extern inline const decl_context_t* typeof_expr_type_get_expression_context(type_t* t)
 {
     ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
 
@@ -1773,7 +1773,7 @@ extern inline void dependent_typename_get_components(type_t* t,
     *dependent_parts = t->type->dependent_parts;
 }
 
-extern inline type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
+extern inline type_t* get_new_enum_type(const decl_context_t* decl_context, char is_scoped)
 {
     type_t* type_info = get_simple_type();
 
@@ -1789,7 +1789,7 @@ extern inline type_t* get_new_enum_type(decl_context_t decl_context, char is_sco
     return type_info;
 }
 
-extern inline type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind)
+extern inline type_t* get_new_class_type(const decl_context_t* decl_context, enum type_tag_t class_kind)
 {
     type_t* type_info = get_simple_type();
 
@@ -1982,7 +1982,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
 }
 
 extern inline type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* aliased_type,
-        const char* template_name, decl_context_t decl_context, const locus_t* locus)
+        const char* template_name, const decl_context_t* decl_context, const locus_t* locus)
 {
     type_t* type_info = get_simple_type();
     type_info->type->kind = STK_TEMPLATE_TYPE;
@@ -2048,7 +2048,7 @@ static type_t* _get_duplicated_function_type(type_t* function_type);
 static type_t* _get_duplicated_class_type(type_t* function_type);
 
 extern inline type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, const locus_t* locus)
+        const char* template_name, const decl_context_t* decl_context, const locus_t* locus)
 {
     // Simplify nontype template-arguments
     template_parameter_list = duplicate_template_argument_list(template_parameter_list);
@@ -2502,7 +2502,7 @@ static int compare_identical_template_argument_list_of_named_types(
 
 static type_t* template_type_get_identical_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        const decl_context_t* decl_context UNUSED_PARAMETER)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
@@ -3242,7 +3242,7 @@ static int compare_equivalent_template_argument_list_of_named_template_specializ
 
 static type_t* template_type_get_equivalent_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
@@ -3357,7 +3357,7 @@ static type_t* template_type_get_specialized_type_(
         type_t* template_type,
         template_parameter_list_t *template_arguments,
         type_t* type_used_as_template,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus)
 {
     template_arguments = duplicate_template_argument_list(template_arguments);
@@ -3425,7 +3425,7 @@ static type_t* template_type_get_specialized_type_(
     {
         if (equivalent_match == NULL)
         {
-            decl_context_t updated_context = decl_context_clone(primary_symbol->decl_context);
+            decl_context_t* updated_context = decl_context_clone(primary_symbol->decl_context);
             updated_context->template_parameters = template_arguments;
 
             specialized_type = update_type(primary_symbol->type_information,
@@ -3463,7 +3463,7 @@ static type_t* template_type_get_specialized_type_(
             return equivalent_match;
         }
 
-        decl_context_t updated_context = decl_context_clone(primary_symbol->decl_context);
+        decl_context_t* updated_context = decl_context_clone(primary_symbol->decl_context);
         updated_context->template_parameters = template_arguments;
 
         diagnostic_context_push_buffered();
@@ -3550,9 +3550,11 @@ static type_t* template_type_get_specialized_type_(
     specialized_symbol->symbol_name = primary_symbol->symbol_name;
     specialized_symbol->kind = primary_symbol->kind;
     specialized_symbol->type_information = specialized_type;
-    specialized_symbol->decl_context = decl_context_clone(primary_symbol->decl_context);
+
     // Fix the template arguments
-    specialized_symbol->decl_context->template_parameters = template_arguments;
+    decl_context_t* updated_decl_context = decl_context_clone(primary_symbol->decl_context);
+    updated_decl_context->template_parameters = template_arguments;
+    specialized_symbol->decl_context = updated_decl_context;
 
     specialized_symbol->locus = locus;
 
@@ -3583,7 +3585,7 @@ static type_t* template_type_get_specialized_type_(
         symbol_entity_specs_free_exceptions(specialized_symbol);
 
         // Update exception specifications
-        decl_context_t updated_context = primary_symbol->decl_context;
+        decl_context_t* updated_context = decl_context_clone(primary_symbol->decl_context);
         updated_context->template_parameters = template_arguments;
 
         int i, num_exceptions = symbol_entity_specs_get_num_exceptions(primary_symbol);
@@ -3942,7 +3944,7 @@ static type_t* template_type_get_specialized_type_(
 
 extern inline type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus)
 {
     return template_type_get_specialized_type_(t,
@@ -3955,7 +3957,7 @@ extern inline type_t* template_type_get_specialized_type(type_t* t,
 extern inline type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
         template_parameter_list_t* template_parameters,
         type_t* type_used_as_template,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus)
 {
     return template_type_get_specialized_type_(t,
@@ -4128,7 +4130,7 @@ static void init_qualification_hash(void)
 }
 
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, const decl_context_t** decl_context,
         array_region_t** array_region,
         char *with_descriptor,
         char *is_string_literal);
@@ -4137,7 +4139,7 @@ static type_t* _get_array_type(type_t* element_type,
         nodecl_t whole_size,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         array_region_t* array_region,
         char with_descriptor,
         char is_string_literal,
@@ -4152,7 +4154,7 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
         char is_string_literal = 0;
         array_region_t* array_region = NULL;
 
-        decl_context_t decl_context;
+        const decl_context_t* decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
         _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context,
@@ -4613,7 +4615,7 @@ static dhash_ptr_t* get_array_sized_hash(_size_t whole_size, _size_t lower_bound
 
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, const decl_context_t** decl_context,
         array_region_t** array_region,
         char *with_descriptor,
         char *is_string_literal)
@@ -4636,7 +4638,7 @@ static type_t* _get_array_type(
         nodecl_t whole_size,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         array_region_t* array_region,
         char with_descriptor,
         char is_string_literal,
@@ -4929,7 +4931,7 @@ static nodecl_t convert_node_to_ptrdiff_t(nodecl_t n)
     return n;
 }
 
-extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t decl_context)
+extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, const decl_context_t* decl_context)
 {
     whole_size = convert_node_to_ptrdiff_t(whole_size);
 
@@ -4979,7 +4981,7 @@ extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, 
 
 static type_t* get_array_type_for_literal_string(type_t* element_type,
         nodecl_t whole_size,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     whole_size = convert_node_to_ptrdiff_t(whole_size);
 
@@ -5073,7 +5075,7 @@ static nodecl_t compute_whole_size_given_bounds(
 static type_t* get_array_type_bounds_common(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char with_descriptor)
 {
     lower_bound = convert_node_to_ptrdiff_t(lower_bound);
@@ -5091,7 +5093,7 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
 extern inline type_t* get_array_type_bounds(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     return get_array_type_bounds_common(element_type, lower_bound, upper_bound, decl_context, /* with_descriptor */ 0);
 }
@@ -5099,7 +5101,7 @@ extern inline type_t* get_array_type_bounds(type_t* element_type,
 extern inline type_t* get_array_type_bounds_with_descriptor(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     return get_array_type_bounds_common(element_type, lower_bound, upper_bound, decl_context, /* with_descriptor */ 1);
 }
@@ -5107,9 +5109,9 @@ extern inline type_t* get_array_type_bounds_with_descriptor(type_t* element_type
 extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t region,
-        decl_context_t region_decl_context)
+        const decl_context_t* region_decl_context)
 {
     lower_bound = nodecl_shallow_copy(lower_bound);
     upper_bound = nodecl_shallow_copy(upper_bound);
@@ -6379,7 +6381,7 @@ static scope_entry_t* get_class_symbol(scope_entry_t* entry)
     return entry;
 }
 
-extern inline void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+extern inline void class_type_complete_if_needed(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus)
 {
     entry = get_class_symbol(entry);
 
@@ -6392,7 +6394,7 @@ extern inline void class_type_complete_if_needed(scope_entry_t* entry, decl_cont
         instantiate_nontemplate_member_class_if_needed(entry, decl_context, locus);
 }
 
-extern inline char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+extern inline char class_type_complete_if_possible(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus)
 {
     entry = get_class_symbol(entry);
 
@@ -6800,7 +6802,7 @@ extern inline void class_type_add_base_class(type_t* class_type, scope_entry_t* 
     P_LIST_ADD_ONCE(class_info->base_classes_list, class_info->num_bases, new_base_class);
 }
 
-void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context)
+void class_type_set_inner_context(type_t* class_type, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -6808,7 +6810,7 @@ void class_type_set_inner_context(type_t* class_type, decl_context_t decl_contex
     class_type->type->class_info->inner_decl_context = decl_context;
 }
 
-extern inline decl_context_t class_type_get_inner_context(type_t* class_type)
+extern inline const decl_context_t* class_type_get_inner_context(type_t* class_type)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -6816,7 +6818,7 @@ extern inline decl_context_t class_type_get_inner_context(type_t* class_type)
     return class_type->type->class_info->inner_decl_context;
 }
 
-extern inline decl_context_t class_or_enum_type_get_inner_context(type_t* class_or_enum_type)
+extern inline const decl_context_t* class_or_enum_type_get_inner_context(type_t* class_or_enum_type)
 {
     if (is_class_type(class_or_enum_type))
         return class_type_get_inner_context(class_or_enum_type);
@@ -6898,7 +6900,7 @@ extern inline void class_type_set_offset_direct_base(type_t* class_type, scope_e
     internal_error("Unreachable code", 0);
 }
 
-extern inline scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_context_t decl_context)
+extern inline scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -7592,7 +7594,7 @@ static type_t* advance_dependent_typename_aux(
 
     scope_entry_t* current_member = dependent_entry;
 
-    decl_context_t class_context;
+    const decl_context_t* class_context;
 
     nodecl_t nodecl_nested_parts = nodecl_get_child(dependent_parts, 0);
 
@@ -7959,7 +7961,7 @@ static type_t* advance_dependent_typename_aux(
     }
 }
 
-static type_t* advance_dependent_typename_if_in_context(type_t* t, decl_context_t decl_context)
+static type_t* advance_dependent_typename_if_in_context(type_t* t, const decl_context_t* decl_context)
 {
     // A dependent typename is a dependent entity followed by a sequence of
     // syntactic bits Advancing them means examining uninstantiated types,
@@ -8109,12 +8111,12 @@ static inline char type_contains_a_dependent_typename(type_t* t)
 }
 
 static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 static template_parameter_list_t* rebuild_template_arguments_advancing_dependent_typenames(
         template_parameter_list_t* tpl,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     template_parameter_list_t* fixed_tpl = duplicate_template_argument_list(tpl);
@@ -8138,7 +8140,7 @@ static template_parameter_list_t* rebuild_template_arguments_advancing_dependent
 }
 
 static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (t == NULL)
@@ -8335,7 +8337,7 @@ static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
     return result;
 }
 
-extern inline type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus)
+extern inline type_t* fix_dependent_typenames_in_context(type_t* t, const decl_context_t* decl_context, const locus_t* locus)
 {
     if (!type_contains_a_dependent_typename(t))
         return t;
@@ -9014,7 +9016,7 @@ extern inline int array_type_get_total_number_of_elements(type_t* t)
     return number_of_elements;
 }
 
-extern inline decl_context_t array_type_get_array_size_expr_context(type_t* t)
+extern inline const decl_context_t* array_type_get_array_size_expr_context(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     t = advance_over_typedefs(t);
@@ -9039,7 +9041,7 @@ extern inline char array_type_has_region(type_t* t)
     return t->array->region != NULL;    
 }
 
-extern inline decl_context_t array_type_get_region_size_expr_context(type_t* t)
+extern inline const decl_context_t* array_type_get_region_size_expr_context(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     t = advance_over_typedefs(t);
@@ -9336,7 +9338,7 @@ extern inline char is_rebindable_reference_type(type_t* t1)
             && t1->kind == TK_REBINDABLE_REFERENCE);
 }
 
-extern inline decl_context_t enum_type_get_context(type_t* t)
+extern inline const decl_context_t* enum_type_get_context(type_t* t)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enumerated type", 0);
     t = advance_over_typedefs(t);
@@ -9347,7 +9349,7 @@ extern inline decl_context_t enum_type_get_context(type_t* t)
     return t->type->type_decl_context;
 }
 
-extern inline decl_context_t class_type_get_context(type_t* t)
+extern inline const decl_context_t* class_type_get_context(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
@@ -9772,7 +9774,7 @@ extern inline char is_function_or_template_function_name_or_extern_variable(scop
                 && symbol_entity_specs_get_is_extern(entry)));
 }
 
-extern inline const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context,
+extern inline const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, const decl_context_t* decl_context,
         void* data UNUSED_PARAMETER)
 {
     char is_dependent = 0;
@@ -9822,12 +9824,12 @@ extern inline const char* get_simple_type_name_string_internal_common(scope_entr
     return result;
 }
 
-static const char* get_simple_type_name_string_internal_impl(decl_context_t decl_context,
+static const char* get_simple_type_name_string_internal_impl(const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context,
+static const char* get_simple_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
@@ -9835,7 +9837,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 // Vector flavors
 
 extern inline const char* print_gnu_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -9867,7 +9869,7 @@ extern inline const char* print_gnu_vector_type(
 }
 
 extern inline const char* print_intel_sse_avx_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -9956,7 +9958,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
 }
 
 extern inline const char* print_altivec_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -9985,7 +9987,7 @@ extern inline const char* print_altivec_vector_type(
 }
 
 extern inline const char* print_opencl_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -10124,7 +10126,7 @@ extern inline const char* vector_types_get_vector_flavor(void)
 }
 
 extern inline const char* print_mask_type_intel(
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t* t,
         print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
         void* print_symbol_data UNUSED_PARAMETER)
@@ -10157,7 +10159,7 @@ extern inline const char* print_mask_type_intel(
 }
 
 extern inline const char* print_mask_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -10167,7 +10169,7 @@ extern inline const char* print_mask_type(
 }
 
 // Returns a string with the name of this simple type
-static const char* get_simple_type_name_string_internal_impl(decl_context_t decl_context, 
+static const char* get_simple_type_name_string_internal_impl(const decl_context_t* decl_context, 
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data
@@ -10569,7 +10571,7 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
 }
 
 // Gives the simple type name of a full fledged type
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context,
+static const char* get_simple_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -10640,7 +10642,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     return result;
 }
 
-static const char* get_type_name_string_internal(decl_context_t decl_context,
+static const char* get_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -10651,7 +10653,7 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
-extern inline const char* get_declarator_name_string_ex(decl_context_t decl_context,
+extern inline const char* get_declarator_name_string_ex(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -10676,7 +10678,7 @@ extern inline const char* get_declarator_name_string_ex(decl_context_t decl_cont
 static type_t* get_foundation_type(type_t* t);
 
 extern inline const char* get_declaration_string_ex(type_t* type_info,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
         int num_parameter_names,
@@ -10739,7 +10741,7 @@ extern inline const char* get_declaration_string_ex(type_t* type_info,
 // initializer and a semicolon. For function types you can specify the names of
 // the arguments
 extern inline const char* get_declaration_string(type_t* type_info,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
         int num_parameter_names,
@@ -10761,7 +10763,7 @@ extern inline const char* get_declaration_string(type_t* type_info,
         );
 }
 
-static void get_type_name_string_internal_impl(decl_context_t decl_context,
+static void get_type_name_string_internal_impl(const decl_context_t* decl_context,
         type_t* type_info,
         const char** left,
         const char** right,
@@ -10773,7 +10775,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
-static const char* get_type_name_string_internal(decl_context_t decl_context,
+static const char* get_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -10946,7 +10948,7 @@ extern inline char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2)
 }
 
 // Constructs a proper declarator
-static void get_type_name_string_internal_impl(decl_context_t decl_context,
+static void get_type_name_string_internal_impl(const decl_context_t* decl_context,
         type_t* type_info,
         const char** left,
         const char** right,
@@ -11811,7 +11813,7 @@ static char is_unknown_dependent_type(type_t* t)
             && (t->unqualified_type == _dependent_type));
 }
 
-static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
+static const char* print_dimension_of_array(nodecl_t n, const decl_context_t* decl_context)
 {
     if (nodecl_is_null(n))
         return "?";
@@ -13285,7 +13287,7 @@ extern inline template_parameter_list_t* unresolved_overloaded_type_get_explicit
 extern inline scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
         scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     // Fallback case not using the target type
@@ -13400,7 +13402,7 @@ extern inline scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
     return NULL;
 }
 
-extern inline scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const locus_t* locus)
+extern inline scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, const decl_context_t* decl_context, const locus_t* locus)
 {
     return unresolved_overloaded_type_simplify_unpacked(
             unresolved_overloaded_type_get_overload_set(t),
@@ -15014,7 +15016,7 @@ extern inline char is_variably_modified_type(type_t* t)
     }
 }
 
-extern inline const char* print_type_str(type_t* t, decl_context_t decl_context)
+extern inline const char* print_type_str(type_t* t, const decl_context_t* decl_context)
 {
     if (t == NULL)
     {
@@ -15033,7 +15035,7 @@ extern inline const char* print_type_str(type_t* t, decl_context_t decl_context)
     }
 }
 
-extern inline const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name)
+extern inline const char* print_decl_type_str(type_t* t, const decl_context_t* decl_context, const char* name)
 {
     if (t == NULL)
     {
@@ -15215,7 +15217,7 @@ extern inline const char* type_to_source(type_t* t)
 }
 
 extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
-        decl_context_t new_decl_context, 
+        const decl_context_t* new_decl_context, 
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
@@ -15459,7 +15461,7 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
 }
 
 extern inline type_t* type_deep_copy(type_t* orig,
-        decl_context_t new_decl_context, 
+        const decl_context_t* new_decl_context, 
         symbol_map_t* symbol_map)
 {
     return type_deep_copy_compute_maps(

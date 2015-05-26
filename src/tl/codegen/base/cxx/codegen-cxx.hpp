@@ -560,8 +560,8 @@ namespace Codegen
 
             TL::Type coerce_parameter_types_of_function_type(TL::Symbol sym);
 
-            static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
-            static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
+            static const char* print_name_str(scope_entry_t* s, const decl_context_t* decl_context, void *data);
+            static const char* print_type_str(type_t* t, const decl_context_t* decl_context, void *data);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name);

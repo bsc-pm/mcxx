@@ -1135,7 +1135,7 @@ static scope_entry_t* get_intrinsic_symbol_(
         const char* name,
         type_t* result_type,
         int num_types, type_t** types,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char is_elemental,
         char is_pure,
         char is_transformational UNUSED_PARAMETER,
@@ -1300,11 +1300,11 @@ static scope_entry_t* get_intrinsic_symbol_(
 
 static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
-static void fortran_init_specific_names(decl_context_t decl_context);
+static void fortran_init_specific_names(const decl_context_t* decl_context);
 
-static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
-static void fortran_init_intrinsic_modules(decl_context_t decl_context);
-static void fortran_finish_intrinsic_modules(decl_context_t decl_context);
+static void fortran_create_scope_for_intrinsics(const decl_context_t* decl_context);
+static void fortran_init_intrinsic_modules(const decl_context_t* decl_context);
+static void fortran_finish_intrinsic_modules(const decl_context_t* decl_context);
 
 static int pstrcasecmp(const char** a, const char** b)
 {
@@ -1323,12 +1323,12 @@ static char intrinsic_has_been_disabled(const char* c)
     return 0;
 }
 
-void fortran_init_intrinsics(decl_context_t decl_context)
+void fortran_init_intrinsics(const decl_context_t* decl_context)
 {
     fortran_create_scope_for_intrinsics(decl_context);
     fortran_init_intrinsic_modules(decl_context);
 
-    decl_context_t fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
+    const decl_context_t* fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
 
     if (CURRENT_CONFIGURATION->num_disabled_intrinsics > 0)
     {
@@ -1341,7 +1341,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
 #define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
-        decl_context_t relevant_decl_context = fortran_intrinsic_context; \
+        const decl_context_t* relevant_decl_context = fortran_intrinsic_context; \
         scope_entry_t* module_sym = NULL; \
         char disabled = 0; \
         if (module_name != NULL) \
@@ -1443,7 +1443,7 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
 // Only called when registering specific names of generic intrinsics
 // i.e. ccos as a specific name of cos
 static scope_entry_t* register_specific_intrinsic_name(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char *generic_name,
         const char *specific_name,
         int num_args,
@@ -1562,7 +1562,7 @@ static scope_entry_t* register_specific_intrinsic_name(
 // Only called when we register intrinsic names that are not strictly generic
 // (so they do not have a generic symbol)
 static scope_entry_t* register_custom_intrinsic(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* specific_name,
         type_t* result_type,
         int num_types,
@@ -1601,7 +1601,7 @@ static scope_entry_t* register_custom_intrinsic(
 #define REGISTER_CUSTOM_INTRINSIC_3(_specific_name, result_type, type_0, type_1, type_2) \
     register_custom_intrinsic(decl_context, (_specific_name), result_type, 3, type_0, type_1, type_2)
 
-static void fortran_init_specific_names(decl_context_t decl_context)
+static void fortran_init_specific_names(const decl_context_t* decl_context)
 {
     type_t* default_char = get_array_type(fortran_get_default_character_type(), nodecl_null(), decl_context);
 
@@ -7019,10 +7019,10 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
     }
 }
 
-static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_context)
+static void fortran_init_intrinsic_module_iso_c_binding(const decl_context_t* decl_context)
 {
     // Initialize ISO_C_BINDING
-    decl_context_t module_context = new_program_unit_context(decl_context);
+    const decl_context_t* module_context = new_program_unit_context(decl_context);
     const locus_t* locus = make_locus("(iso_c_binding)", 0, 0);
 
     const char* iso_c_binding_name = UNIQUESTR_LITERAL("iso_c_binding");
@@ -7164,10 +7164,10 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     }
 }
 
-static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_context)
+static void fortran_init_intrinsic_module_ieee_exceptions(const decl_context_t* decl_context)
 {
     // Initialize IEEE_EXCEPTIONS
-    decl_context_t module_context = new_program_unit_context(decl_context);
+    const decl_context_t* module_context = new_program_unit_context(decl_context);
 
     const locus_t* locus = make_locus("(ieee_exceptions)", 0, 0);
 
@@ -7260,10 +7260,10 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     }
 }
 
-static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_context)
+static void fortran_init_intrinsic_module_ieee_arithmetic(const decl_context_t* decl_context)
 {
     // Initialize IEEE_ARITHMETIC
-    decl_context_t module_context = new_program_unit_context(decl_context);
+    const decl_context_t* module_context = new_program_unit_context(decl_context);
 
     const locus_t* locus = make_locus("(ieee_arithmetic)", 0, 0);
 
@@ -7433,10 +7433,10 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     }
 }
 
-static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_context)
+static void fortran_init_intrinsic_module_ieee_features(const decl_context_t* decl_context)
 {
     // Initialize IEEE_FEATURES
-    decl_context_t module_context = new_program_unit_context(decl_context);
+    const decl_context_t* module_context = new_program_unit_context(decl_context);
 
     const locus_t* locus = make_locus("(ieee_features)", 0, 0);
 
@@ -7520,7 +7520,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     }
 }
 
-static void fortran_init_intrinsic_module_ieee(decl_context_t decl_context)
+static void fortran_init_intrinsic_module_ieee(const decl_context_t* decl_context)
 {
     fortran_init_intrinsic_module_ieee_exceptions(decl_context);
     fortran_init_intrinsic_module_ieee_arithmetic(decl_context);
@@ -8145,13 +8145,13 @@ static scope_entry_t* compute_intrinsic_ieee_is_nan(scope_entry_t* symbol UNUSED
     return NULL;
 }
 
-static void fortran_init_intrinsic_modules(decl_context_t decl_context)
+static void fortran_init_intrinsic_modules(const decl_context_t* decl_context)
 {
     fortran_init_intrinsic_module_iso_c_binding(decl_context);
     fortran_init_intrinsic_module_ieee(decl_context);
 }
 
-static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_PARAMETER)
+static void fortran_finish_intrinsic_modules(const decl_context_t* decl_context UNUSED_PARAMETER)
 {
     // Finish modules
     //
@@ -8175,7 +8175,7 @@ static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_
     }
 }
 
-static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
+static void fortran_create_scope_for_intrinsics(const decl_context_t* decl_context)
 {
     scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context->current_scope,
             UNIQUESTR_LITERAL(".fortran_intrinsics"));
@@ -8183,9 +8183,9 @@ static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
     fortran_intrinsics->related_decl_context = new_namespace_context(decl_context, fortran_intrinsics);
 }
 
-decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
+const decl_context_t* fortran_get_context_of_intrinsics(const decl_context_t* decl_context)
 {
-    decl_context_t global_context = decl_context;
+    decl_context_t* global_context = decl_context_clone(decl_context);
     global_context->current_scope = decl_context->global_scope;
 
     scope_entry_list_t* global_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".fortran_intrinsics"), NULL);

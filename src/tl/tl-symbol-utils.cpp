@@ -35,7 +35,7 @@ namespace SymbolUtils
 {
     TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string name)
     {
-        decl_context_t decl_context = source.get_scope().get_decl_context();
+        const decl_context_t* decl_context = source.get_scope().get_decl_context();
 
         TL::Symbol dest = TL::Scope(decl_context).new_symbol(name);
         dest.get_internal_symbol()->kind = SK_FUNCTION;
@@ -82,7 +82,7 @@ namespace SymbolUtils
             current_function = current_function.get_scope().get_related_symbol();
         }
 
-        decl_context_t decl_context = current_function.get_scope().get_decl_context();
+        decl_context_t* decl_context = decl_context_clone(current_function.get_scope().get_decl_context());
 
         if (decl_context->template_parameters != NULL
                 && decl_context->template_parameters->is_explicit_specialization)
@@ -92,7 +92,7 @@ namespace SymbolUtils
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-        decl_context_t function_context;
+        const decl_context_t* function_context;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);
@@ -255,7 +255,7 @@ namespace SymbolUtils
             TL::ObjectList<std::string> parameter_names,
             TL::ObjectList<TL::Type> parameter_types)
     {
-        decl_context_t decl_context = sc.get_decl_context();
+        decl_context_t* decl_context = decl_context_clone(sc.get_decl_context());
 
         if (decl_context->template_parameters != NULL
                 && decl_context->template_parameters->is_explicit_specialization)
@@ -271,7 +271,7 @@ namespace SymbolUtils
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-        decl_context_t function_context ;
+        const decl_context_t* function_context ;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);

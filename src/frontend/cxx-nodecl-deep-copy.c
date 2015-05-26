@@ -36,7 +36,7 @@
 
 // Machine generated in cxx-nodecl-deep-copy-base.c
 extern nodecl_t nodecl_deep_copy_rec(nodecl_t n, 
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         // Inherited
         symbol_map_t* inherited,
         // Synthesized
@@ -58,17 +58,17 @@ struct nested_symbol_map_tag
     scope_entry_t** target_list;
 };
 
-static decl_context_t copy_block_scope(decl_context_t new_decl_context, 
-        decl_context_t orig_decl_context, 
+static decl_context_t* copy_block_scope(decl_context_t* new_decl_context, 
+        const decl_context_t* orig_decl_context, 
         nested_symbol_map_t* nested_symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map);
 
-static decl_context_t update_function_scope(decl_context_t new_decl_context,
-        decl_context_t orig_decl_context,
+static decl_context_t* update_function_scope(decl_context_t* new_decl_context,
+        const decl_context_t* orig_decl_context,
         nested_symbol_map_t* nested_symbol_map);
-static decl_context_t copy_function_scope(decl_context_t new_decl_context,
-        decl_context_t orig_decl_context,
+static decl_context_t* copy_function_scope(decl_context_t* new_decl_context,
+        const decl_context_t* orig_decl_context,
         nested_symbol_map_t* nested_symbol_map,
         nodecl_deep_copy_map_t *nodecl_deep_copy_map,
         symbol_deep_copy_map_t *symbol_deep_copy_map);
@@ -171,7 +171,7 @@ void nested_map_add(nested_symbol_map_t* nested_symbol_map, scope_entry_t* sourc
 }
 
 static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
-        decl_context_t new_decl_context,
+        decl_context_t* new_decl_context,
         symbol_map_t* enclosing_map,
         symbol_map_t** new_map,
 
@@ -181,7 +181,7 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
         char create_new_function_context
         )
 {
-    decl_context_t orig_decl_context = nodecl_get_decl_context(n);
+    const decl_context_t* orig_decl_context = nodecl_get_decl_context(n);
 
     if (orig_decl_context->current_scope->kind != BLOCK_SCOPE)
     {
@@ -251,7 +251,7 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
 }
 
 nodecl_t nodecl_deep_copy_context(nodecl_t n,
-        decl_context_t new_decl_context,
+        decl_context_t* new_decl_context,
         symbol_map_t* enclosing_map,
         symbol_map_t** new_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
@@ -268,7 +268,7 @@ typedef
 struct closure_hash_tag
 {
     scope_t* original_scope;
-    decl_context_t new_decl_context;
+    const decl_context_t* new_decl_context;
     nested_symbol_map_t* nested_symbol_map;
 
     nodecl_deep_copy_map_t* nodecl_deep_copy_map;
@@ -336,7 +336,7 @@ static void register_symbols(const char* name,
 
 static void fill_symbols(const char* name, scope_entry_list_t* entry_list, closure_hash_t* data);
 
-static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
+static void copy_scope(const decl_context_t* new_decl_context, scope_t* original_scope,
         nested_symbol_map_t* nested_symbol_map,
 
         nodecl_deep_copy_map_t *nodecl_deep_copy_map,
@@ -360,8 +360,8 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     DELETE(closure_info.filled_symbols);
 }
 
-static decl_context_t copy_function_scope(decl_context_t new_decl_context,
-        decl_context_t orig_decl_context,
+static decl_context_t* copy_function_scope(decl_context_t* new_decl_context,
+        const decl_context_t* orig_decl_context,
         nested_symbol_map_t* nested_symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
@@ -387,8 +387,8 @@ static decl_context_t copy_function_scope(decl_context_t new_decl_context,
     return new_decl_context;
 }
 
-static decl_context_t update_function_scope(decl_context_t new_decl_context,
-        decl_context_t orig_decl_context,
+static decl_context_t* update_function_scope(decl_context_t* new_decl_context,
+        const decl_context_t* orig_decl_context,
         nested_symbol_map_t* nested_symbol_map)
 {
     scope_t* function_scope = (scope_t*)nested_symbol_map->base_.map(&nested_symbol_map->base_, 
@@ -399,8 +399,8 @@ static decl_context_t update_function_scope(decl_context_t new_decl_context,
     return new_decl_context;
 }
 
-static decl_context_t copy_block_scope(decl_context_t new_decl_context, 
-        decl_context_t orig_decl_context, 
+static decl_context_t* copy_block_scope(decl_context_t* new_decl_context, 
+        const decl_context_t* orig_decl_context, 
         nested_symbol_map_t* nested_symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
@@ -459,7 +459,7 @@ static void fill_symbols(const char* name UNUSED_PARAMETER,
 }
 
 nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
-        decl_context_t new_decl_context,
+        decl_context_t* new_decl_context,
         symbol_map_t* symbol_map UNUSED_PARAMETER,
         symbol_map_t** synth_symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
@@ -503,7 +503,7 @@ nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
 }
 
 nodecl_t nodecl_deep_copy_compute_maps(nodecl_t n,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
@@ -522,7 +522,7 @@ nodecl_t nodecl_deep_copy_compute_maps(nodecl_t n,
     return result;
 }
 
-nodecl_t nodecl_deep_copy(nodecl_t n, decl_context_t new_decl_context, symbol_map_t* symbol_map)
+nodecl_t nodecl_deep_copy(nodecl_t n, const decl_context_t* new_decl_context, symbol_map_t* symbol_map)
 {
     return nodecl_deep_copy_compute_maps(n,
             new_decl_context,

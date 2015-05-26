@@ -265,7 +265,7 @@ char standard_conversion_is_better(standard_conversion_t scs1,
 
 static char is_better_function_despite_equal_ics(scope_entry_t* f,
         scope_entry_t* g,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         int num_arguments);
@@ -274,7 +274,7 @@ static char is_better_function_despite_equal_ics(scope_entry_t* f,
 static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_1,
         implicit_conversion_sequence_t ics_2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     // Note that an ICS has two SCS's so we lexicographically compare them
@@ -406,7 +406,7 @@ static char standard_conversion_between_types_for_overload(
             locus);
 }
 
-static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
+static void compute_ics_flags(type_t* orig, type_t* dest, const decl_context_t* decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
@@ -419,14 +419,14 @@ static char solve_list_initialization_of_class_type_(
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
         scope_entry_list_t** candidates,
         char *is_ambiguous);
 
-static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t decl_context, 
+static void compute_ics_braced_list(type_t* orig, type_t* dest, const decl_context_t* decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
@@ -689,7 +689,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 static scope_entry_t* get_specialized_conversion(
         scope_entry_t* conv_funct,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -764,7 +764,7 @@ static scope_entry_t* get_specialized_conversion(
 static char solve_initialization_of_nonclass_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -774,7 +774,7 @@ static char solve_initialization_of_nonclass_type_ics(
 static char solve_initialization_of_reference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -784,7 +784,7 @@ static char solve_initialization_of_reference_type_ics(
 static char solve_initialization_of_nonclass_nonreference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -796,14 +796,14 @@ static char solve_initialization_of_class_type_(
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
         scope_entry_list_t** candidates,
         char *is_ambiguous);
 
-static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
+static void compute_ics_flags(type_t* orig, type_t* dest, const decl_context_t* decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
@@ -1026,7 +1026,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 }
 
 static scope_entry_t* solve_overload_(candidate_t* candidate_set,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         type_t* dest,
         const locus_t* locus,
@@ -1036,7 +1036,7 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
 static char solve_initialization_of_direct_reference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1200,7 +1200,7 @@ static char solve_initialization_of_direct_reference_type_ics(
 static scope_entry_list_t* conversion_function_candidates_initialization_of_nonclass_nonreference_type(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         const locus_t* locus)
 {
@@ -1288,7 +1288,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_nonc
 static scope_entry_list_t* conversion_function_candidates_initialization_of_class_type(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         const locus_t* locus)
 {
@@ -1371,7 +1371,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_clas
 static char solve_initialization_of_nonclass_nonreference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1501,7 +1501,7 @@ static char solve_initialization_of_nonclass_nonreference_type_ics(
 static char solve_initialization_of_nonclass_nonreference_type(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1522,7 +1522,7 @@ static char solve_initialization_of_nonclass_nonreference_type(
 static char solve_initialization_of_reference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1743,7 +1743,7 @@ static char solve_initialization_of_reference_type_ics(
 static char solve_initialization_of_nonclass_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1811,7 +1811,7 @@ static char solve_initialization_of_nonclass_type_ics(
 char solve_initialization_of_nonclass_type(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -2471,7 +2471,7 @@ static char can_be_called_with_number_of_arguments_ovl(scope_entry_t* entry, int
 
 static overload_entry_list_t* compute_viable_functions(
         candidate_t* candidate_functions,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char no_user_defined_conversions,
         const locus_t* locus)
 {
@@ -2644,7 +2644,7 @@ static overload_entry_list_t* compute_viable_functions(
 static char is_better_function_despite_equal_ics(
         scope_entry_t* f,
         scope_entry_t* g,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         int num_arguments)
@@ -2726,7 +2726,7 @@ static
 char is_better_function(
         overload_entry_list_t* ovl_f,
         overload_entry_list_t* ovl_g,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         type_t* dest,
         const locus_t* locus)
@@ -2910,7 +2910,7 @@ char is_better_function(
  * num_arguments includes the implicit argument so it should never be zero, at least 1
  */
 static scope_entry_t* solve_overload_(candidate_t* candidate_set,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         type_t* dest,
         const locus_t* locus,
@@ -3181,7 +3181,7 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
 }
 
 scope_entry_t* solve_overload(candidate_t* candidate_set,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     char is_ambiguous = 0; // Unused
@@ -3198,7 +3198,7 @@ scope_entry_t* address_of_overloaded_function(
         scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_arguments,
         type_t* target_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -3526,7 +3526,7 @@ scope_entry_t* address_of_overloaded_function(
 
 static scope_entry_list_t* constructor_candidates_initialization_of_class_type(
         type_t* dest,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         enum initialization_kind initialization_kind,
         char init_constructors_only,
         const locus_t* locus)
@@ -3624,7 +3624,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char init_constructors_only,
         const locus_t* locus,
         // Output arguments
@@ -3707,7 +3707,7 @@ static char solve_initialization_of_class_type_(
         type_t** argument_types,
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
@@ -3769,7 +3769,7 @@ char solve_initialization_of_class_type(
         type_t** argument_types,
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
         scope_entry_list_t** candidates)
@@ -3793,7 +3793,7 @@ static char solve_list_initialization_of_class_type_(
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
@@ -3997,7 +3997,7 @@ char solve_list_initialization_of_class_type(
         type_t** argument_types, 
         int num_arguments,
         enum initialization_kind initialization_kind,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
         scope_entry_list_t** candidates)

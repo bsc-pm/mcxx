@@ -38,17 +38,17 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
-LIBMCXX_EXTERN char instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN void instantiate_template_class_if_needed(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus);
+LIBMCXX_EXTERN char instantiate_template_class_if_possible(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN void instantiate_nontemplate_member_class_if_needed(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 LIBMCXX_EXTERN char instantiate_nontemplate_member_class_if_possible(scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
-LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
+LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, const decl_context_t* context_of_being_instantiated);
 
 LIBMCXX_EXTERN void instantiation_init(void);
 

@@ -49,18 +49,18 @@
 #include <math.h>
 #include <errno.h>
 
-static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void fortran_check_expression_impl_(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_symbol_of_called_name(AST sym, decl_context_t decl_context, scope_entry_list_t** symbol_list, char is_call_stmt);
+static void check_symbol_of_called_name(AST sym, const decl_context_t* decl_context, scope_entry_list_t** symbol_list, char is_call_stmt);
 
-static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 
 static nodecl_t fortran_nodecl_adjust_function_argument(
         type_t* parameter_type,
         nodecl_t argument);
 
-char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+char fortran_check_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     fortran_check_expression_impl_(a, decl_context, nodecl_output);
 
@@ -103,7 +103,7 @@ static char fortran_checking_array_expression(void)
     return _checking_array_expression != 0;
 }
 
-char fortran_check_array_bounds_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+char fortran_check_array_bounds_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     fortran_push_checking_array_expression();
     fortran_check_expression_impl_(a, decl_context, nodecl_output);
@@ -112,7 +112,7 @@ char fortran_check_array_bounds_expression(AST a, decl_context_t decl_context, n
     return !nodecl_is_err_expr(*nodecl_output);
 }
 
-typedef void (*check_expression_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
+typedef void (*check_expression_function_t)(AST statement, const decl_context_t*, nodecl_t* nodecl_output);
 typedef struct check_expression_handler_tag
 {
     node_t ast_kind;
@@ -170,8 +170,8 @@ typedef struct check_expression_handler_tag
 #ifdef VERBOSE_DEBUG_EXPR
   // Prototypes
   #define STATEMENT_HANDLER(_kind, _handler) \
-      static void _handler(AST, decl_context_t); \
-      static void _handler##_(AST a, decl_context_t d) \
+      static void _handler(AST, const decl_context_t*); \
+      static void _handler##_(AST a, const decl_context_t* d) \
       { \
           DEBUG_CODE() \
           { \
@@ -185,7 +185,7 @@ typedef struct check_expression_handler_tag
       }
 #else
   #define STATEMENT_HANDLER(_kind, _handler) \
-      static void _handler(AST, decl_context_t, nodecl_t* nodecl_output); 
+      static void _handler(AST, const decl_context_t*, nodecl_t* nodecl_output); 
 #endif
 
 STATEMENT_HANDLER_TABLE
@@ -263,7 +263,7 @@ static nodecl_t fortran_const_value_to_nodecl(const_value_t* v)
     }
 }
 
-static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void fortran_check_expression_impl_(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
     ERROR_CONDITION(nodecl_output == NULL, "Nodecl cannot be NULL here", 0);
@@ -340,13 +340,13 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     // }
 }
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type, 
+static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context_t*, type_t* lhs_type, type_t* rhs_type, 
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 
-static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void common_binary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+static void common_unary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
-static void check_add_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_add_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
@@ -355,7 +355,7 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type);
 
 static void check_ac_value_list(
         AST ac_value_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output,
         type_t** current_type,
         const_value_t** ac_value_const)
@@ -627,7 +627,7 @@ static void check_ac_value_list(
     DELETE(ac_constant_values);
 }
 
-static void check_array_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_array_constructor(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST ac_spec = ASTSon0(expr);
     AST type_spec = ASTSon0(ac_spec);
@@ -738,7 +738,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     nodecl_set_constant(*nodecl_output, ac_value_const);
 }
 
-static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
+static void check_substring(AST expr, const decl_context_t* decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
     type_t* lhs_type = no_ref(nodecl_get_type(nodecl_subscripted));
 
@@ -981,7 +981,7 @@ scope_entry_t* fortran_data_ref_get_symbol(nodecl_t n)
 
 static void check_array_ref_(
         AST expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t nodecl_subscripted,
         nodecl_t whole_expression,
         nodecl_t* nodecl_output,
@@ -1346,7 +1346,7 @@ static void check_array_ref_(
     }
 }
 
-static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_array_ref(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_subscripted = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_subscripted);
@@ -1487,7 +1487,7 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
 }
 
 
-static void check_binary_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void check_binary_literal(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     compute_boz_literal(expr, "b", 2, nodecl_output);
 }
@@ -1503,7 +1503,7 @@ static char kind_is_integer_literal(const char* c)
     return 1;
 }
 
-static int compute_kind_from_literal(const char* p, AST expr, decl_context_t decl_context)
+static int compute_kind_from_literal(const char* p, AST expr, const decl_context_t* decl_context)
 {
     if (kind_is_integer_literal(p))
     {
@@ -1533,7 +1533,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
     }
 }
 
-static void check_boolean_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_boolean_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     const_value_t* const_value = NULL;
 
@@ -1580,7 +1580,7 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context, nodecl_
             ast_get_locus(expr));
 }
 
-static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_complex_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST real_part = ASTSon0(expr);
     AST imag_part = ASTSon1(expr);
@@ -1726,7 +1726,7 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
 }
 
 static void check_component_ref_(AST expr,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output,
         char do_complete_array_ranks,
         char require_lower_bound)
@@ -1758,7 +1758,7 @@ static void check_component_ref_(AST expr,
 
     ERROR_CONDITION(is_pointer_to_class_type(class_type), "Invalid type", 0);
 
-    decl_context_t class_context = class_type_get_inner_context(get_actual_class_type(class_type));
+    const decl_context_t* class_context = class_type_get_inner_context(get_actual_class_type(class_type));
 
     // Right hand side
     AST rhs = ASTSon1(expr);
@@ -1936,18 +1936,18 @@ static void check_component_ref_(AST expr,
     }
 }
 
-static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_component_ref(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     check_component_ref_(expr, decl_context, nodecl_output,
             /* do_complete_array_ranks */ 1, /* require_lower_bound */ 0);
 }
 
-static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_concat_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_decimal_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     const char* c = ASTText(expr);
 
@@ -1988,7 +1988,7 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
             ast_get_locus(expr));
 }
 
-static void check_derived_type_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_derived_type_constructor(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST derived_type_spec = ASTSon0(expr);
     AST component_spec_list = ASTSon1(expr);
@@ -2070,7 +2070,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             }
             else
             {
-                decl_context_t class_context = class_type_get_inner_context(get_actual_class_type(entry->type_information));
+                const decl_context_t* class_context = class_type_get_inner_context(get_actual_class_type(entry->type_information));
 
                 const char* field = ASTText(component_name);
                 member = query_name_in_class(class_context, field, ast_get_locus(component_name));
@@ -2199,17 +2199,17 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     entry_list_free(nonstatic_data_members);
 }
 
-static void check_different_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_different_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_div_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_div_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_equal_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
@@ -2230,7 +2230,7 @@ static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* node
         } \
     } while (0) 
 
-static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_floating_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
    char* floating_text = xstrdup(strtolower(ASTText(expr)));
 
@@ -2678,7 +2678,7 @@ static scope_entry_list_t* get_specific_interface(scope_entry_t* symbol,
             /* ignore_elementals */ 0);
 }
 
-static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t* entry)
+static char inside_context_of_symbol(const decl_context_t* decl_context, scope_entry_t* entry)
 {
     scope_t* sc = decl_context->current_scope;
     while (sc != NULL)
@@ -2693,7 +2693,7 @@ static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t*
 
 static void check_called_symbol_list(
         scope_entry_list_t* symbol_list,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         AST location,
         AST procedure_designator,
         int *num_actual_arguments,
@@ -3283,7 +3283,7 @@ static void check_called_symbol_list(
     *called_symbol = symbol;
 }
 
-static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_function_call(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     char is_call_stmt = (ASTText(expr) != NULL
             && (strcmp(ASTText(expr), "call") == 0));
@@ -3465,23 +3465,23 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
     }
 }
 
-static void check_greater_or_equal_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_greater_or_equal_than(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_greater_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_greater_than(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void check_hexadecimal_literal(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // We allow X and Z
     compute_boz_literal(expr, "xz", 16, nodecl_output);
 }
 
-static void check_hollerith_constant(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void check_hollerith_constant(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     const char* str = ast_get_text(expr);
     *nodecl_output = nodecl_make_fortran_hollerith(get_hollerith_type(),
@@ -3490,7 +3490,7 @@ static void check_hollerith_constant(AST expr, decl_context_t decl_context UNUSE
             ast_get_locus(expr));
 }
 
-static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER,
+static void check_image_ref(AST expr UNUSED_PARAMETER, const decl_context_t* decl_context UNUSED_PARAMETER,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     error_printf("%s: sorry: image references not supported\n",
@@ -3498,62 +3498,62 @@ static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_conte
     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
 }
 
-static void check_logical_and(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_logical_and(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_logical_equal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_logical_equal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_logical_different(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_logical_different(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_logical_or(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_logical_or(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_lower_or_equal_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_lower_or_equal_than(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_lower_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_lower_than(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_minus_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_minus_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_mult_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_mult_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_neg_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_neg_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_unary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_not_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_not_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_unary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_octal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void check_octal_literal(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     compute_boz_literal(expr, "o", 8, nodecl_output);
 }
 
-static void check_parenthesized_expression(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_parenthesized_expression(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
@@ -3575,19 +3575,19 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     }
 }
 
-static void check_plus_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_plus_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_unary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_power_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_power_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type, 
+static void common_binary_intrinsic_check(AST expr, const decl_context_t*, type_t* lhs_type, type_t* rhs_type, 
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
-static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void common_binary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lhs = ASTSon0(expr);
     AST rhs = ASTSon1(expr);
@@ -3609,16 +3609,16 @@ static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t*
     common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
 }
 
-static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type,
+static void common_binary_intrinsic_check(AST expr, const decl_context_t* decl_context, type_t* lhs_type, type_t* rhs_type,
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output)
 {
     compute_result_of_intrinsic_operator(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
 }
 
-static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type,
+static void common_unary_intrinsic_check(AST expr, const decl_context_t* decl_context, type_t* rhs_type,
         nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 
-static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output) 
+static void common_unary_check(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output) 
 {
     AST rhs = ASTSon0(expr);
     nodecl_t nodecl_expr = nodecl_null();
@@ -3636,13 +3636,13 @@ static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* 
 
 }
 
-static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type,
+static void common_unary_intrinsic_check(AST expr, const decl_context_t* decl_context, type_t* rhs_type,
         nodecl_t nodecl_rhs, nodecl_t* nodecl_output)
 {
     compute_result_of_intrinsic_operator(expr, decl_context, NULL, rhs_type, nodecl_null(), nodecl_rhs, nodecl_output);
 }
 
-static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_string_literal(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     const char* literal = ASTText(expr);
 
@@ -3743,7 +3743,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     nodecl_set_text(*nodecl_output, whole_literal);
 }
 
-static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_user_defined_unary_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // This is an AST_NAMED_PAIR_SPEC with no name. This way it is easier to
     // reuse common function call code
@@ -3837,7 +3837,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
     }
 }
 
-static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_user_defined_binary_op(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // This is an AST_NAMED_PAIR_SPEC with no name. This way it is easier to
     // reuse common function call code
@@ -3946,14 +3946,14 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     }
 }
 
-static void check_nodecl_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void check_nodecl_literal(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Make sure we copy it, otherwise under ambiguity
     // the same trees would be wrongly handled
     *nodecl_output = nodecl_shallow_copy(nodecl_make_from_ast_nodecl_literal(expr));
 }
 
-static void check_symbol_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void check_symbol_literal(AST expr, const decl_context_t* decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     const char *prefix = NULL;
     void *p = NULL;
@@ -4004,7 +4004,7 @@ static char is_name_of_funtion_call(AST expr)
 #endif
 
 static void check_symbol_of_called_name(AST sym,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         scope_entry_list_t** call_list, 
         char is_call_stmt)
 {
@@ -4121,7 +4121,7 @@ static void check_symbol_of_called_name(AST sym,
                 // We did not find the symbol. But this is okay since this is a CALL.
                 // CALL does not need a type, thus IMPLICIT plays no role here
                 // Just sign in the symbol and give it an unprototyped type (= implicit interface)
-                decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
+                const decl_context_t* program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
                 entry = new_fortran_symbol(program_unit_context, ASTText(sym));
                 entry->kind = SK_FUNCTION;
                 entry->locus = ast_get_locus(sym);
@@ -4295,7 +4295,7 @@ static void check_symbol_of_called_name(AST sym,
 static void check_symbol_name_as_a_variable(
         AST sym,
         scope_entry_t* entry,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(entry->kind != SK_VARIABLE, 
@@ -4414,7 +4414,7 @@ static void check_symbol_name_as_a_variable(
     }
 }
 
-static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_symbol_of_argument(AST sym, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Look the symbol up. This will ignore INTRINSIC names
     scope_entry_t* entry = fortran_query_name_str(decl_context, ASTText(sym),
@@ -4531,7 +4531,7 @@ static void check_symbol_of_argument(AST sym, decl_context_t decl_context, nodec
 }
 
 
-static void check_symbol_of_variable(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_symbol_of_variable(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     // Entry will never be an intrinsic function
     scope_entry_t* entry = fortran_get_variable_with_locus(decl_context, expr, ASTText(expr));
@@ -4633,7 +4633,7 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 static char is_defined_assignment(AST expr, AST lvalue, 
         AST rvalue UNUSED_PARAMETER,
         nodecl_t nodecl_lvalue, nodecl_t nodecl_rvalue, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         scope_entry_t** entry,
         scope_entry_t** generic_specifier_symbol)
 {
@@ -4678,7 +4678,7 @@ static char is_defined_assignment(AST expr, AST lvalue,
     return !is_error_type(result_type);
 }
 
-static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_assignment(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lvalue = ASTSon0(expr);
     AST rvalue = ASTSon1(expr);
@@ -5053,7 +5053,7 @@ void fortran_cast_initialization(
 void fortran_check_initialization(
         scope_entry_t* entry,
         AST expr, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         char is_pointer_initialization,
         nodecl_t* nodecl_output)
 {
@@ -5161,7 +5161,7 @@ static nodecl_t remove_dereference_from_data_ref(nodecl_t n)
 }
 
 
-static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_ptr_assignment(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST lvalue = ASTSon0(expr);
     AST rvalue = ASTSon1(expr);
@@ -5369,7 +5369,7 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
             ast_get_locus(expr));
 }
 
-static void disambiguate_expression(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void disambiguate_expression(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     int num_ambig = ast_get_num_ambiguities(expr);
 
@@ -5897,7 +5897,7 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
 static void conform_types(type_t* lhs_type, type_t* rhs_type, 
         type_t** conf_lhs_type, type_t** conf_rhs_type);
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t decl_context, 
+static type_t* compute_result_of_intrinsic_operator(AST expr, const decl_context_t* decl_context, 
         type_t* lhs_type, 
         type_t* rhs_type,
         nodecl_t nodecl_lhs,

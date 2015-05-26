@@ -283,7 +283,7 @@ namespace TL
     {
         type_t* result_type = this->_type_info;
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         type_t* array_to = get_array_type(result_type, array_expr.get_internal_nodecl(), decl_context);
 
@@ -294,7 +294,7 @@ namespace TL
     {
         type_t* result_type = this->_type_info;
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         type_t* array_to = get_array_type_bounds(result_type,
                 lower_bound.get_internal_nodecl(),
@@ -308,7 +308,7 @@ namespace TL
     {
         type_t* result_type = this->_type_info;
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         type_t* array_to = get_array_type_bounds_with_descriptor(result_type,
                 lower_bound.get_internal_nodecl(),
@@ -326,7 +326,7 @@ namespace TL
     {
         type_t* result_type = this->_type_info;
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         // Make the range of the region
         Nodecl::NodeclBase range = Nodecl::Range::make(
@@ -351,7 +351,7 @@ namespace TL
     {
         type_t* result_type = this->_type_info;
 
-        decl_context_t null_decl_context;
+        const decl_context_t* null_decl_context;
         memset(&null_decl_context, 0, sizeof(null_decl_context));
         type_t* array_to = get_array_type(result_type, nodecl_null(), null_decl_context);
 

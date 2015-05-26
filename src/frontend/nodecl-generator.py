@@ -1044,7 +1044,7 @@ def generate_routines_header(rule_map):
        if rhs_rule.needs_template_parameters:
            param_list_nodecl.append("template_parameter_list_t*");
        if rhs_rule.needs_decl_context:
-           param_list_nodecl.append("decl_context_t");
+           param_list_nodecl.append("const decl_context_t*");
        param_list_nodecl.append("const locus_t* location");
 
        print "nodecl_t nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
@@ -1107,7 +1107,7 @@ def generate_routines_impl(rule_map):
        if rhs_rule.needs_template_parameters:
            param_list_nodecl.append("template_parameter_list_t* template_parameters");
        if rhs_rule.needs_decl_context:
-           param_list_nodecl.append("decl_context_t decl_context");
+           param_list_nodecl.append("const decl_context_t* decl_context");
        param_list_nodecl.append("const locus_t* location");
        if not param_list_nodecl:
            raise Exception("Empty list!")
@@ -1365,7 +1365,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
             factory_arguments.append("template_parameters")
 
         if has_attr("decl_context"):
-            print "decl_context_t decl_context = nodecl_get_decl_context(n);";
+            print "const decl_context_t* decl_context = nodecl_get_decl_context(n);";
         if needs_attr("decl_context"):
             factory_arguments.append("decl_context")
 
@@ -1419,12 +1419,12 @@ def generate_c_deep_copy_def(rule_map):
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
 
     print """
-extern nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, 
+extern nodecl_t nodecl_deep_copy_context(nodecl_t n, const decl_context_t* new_decl_context, 
    symbol_map_t* symbol_map,
    symbol_map_t** synth_symbol_map,
    nodecl_deep_copy_map_t* nodecl_deep_copy_map,
    symbol_deep_copy_map_t* symbol_deep_copy_map);
-extern nodecl_t nodecl_deep_copy_function_code(nodecl_t n, decl_context_t new_decl_context, 
+extern nodecl_t nodecl_deep_copy_function_code(nodecl_t n, const decl_context_t* new_decl_context, 
    symbol_map_t* symbol_map,
    symbol_map_t** synth_symbol_map,
    nodecl_deep_copy_map_t* nodecl_deep_copy_map,
@@ -1435,7 +1435,7 @@ extern void nodecl_deep_copy_map_add(
    nodecl_t orig,
    nodecl_t copied);
 
-nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
+nodecl_t nodecl_deep_copy_rec(nodecl_t n, const decl_context_t* new_decl_context,
    symbol_map_t* symbol_map,
    symbol_map_t** synth_symbol_map,
    nodecl_deep_copy_map_t* nodecl_deep_copy_map,
@@ -1533,7 +1533,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
             factory_arguments.append("template_parameters")
 
         if has_attr("decl_context"):
-            print "decl_context_t decl_context = nodecl_get_decl_context(n);";
+            print "const decl_context_t* decl_context = nodecl_get_decl_context(n);";
         if needs_attr("decl_context"):
             factory_arguments.append("decl_context")
 

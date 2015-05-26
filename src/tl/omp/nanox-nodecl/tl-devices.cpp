@@ -250,8 +250,8 @@ namespace TL { namespace Nanox {
         // This is only for Fortran!
         Scope sc = current_function.get_scope();
 
-        decl_context_t decl_context = sc.get_decl_context();
-        decl_context_t function_context = new_program_unit_context(decl_context);
+        const decl_context_t* decl_context = sc.get_decl_context();
+        const decl_context_t* function_context = new_program_unit_context(decl_context);
 
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols;
 
@@ -526,9 +526,9 @@ namespace TL { namespace Nanox {
         bool is_function_task = info._called_task.is_valid();
 
         Scope sc = current_function.get_scope();
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
-        decl_context_t function_context;
+        const decl_context_t* function_context;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);
@@ -948,10 +948,10 @@ namespace TL { namespace Nanox {
 
         struct GatherUnmappedSavedExpressions
         {
-            decl_context_t &function_context;
+            const decl_context_t* &function_context;
             Nodecl::Utils::SimpleSymbolMap* &symbol_map;
 
-            GatherUnmappedSavedExpressions(decl_context_t &fc,
+            GatherUnmappedSavedExpressions(const decl_context_t* &fc,
                     Nodecl::Utils::SimpleSymbolMap*& sm)
                 : function_context(fc), symbol_map(sm) { }
 
@@ -1055,10 +1055,10 @@ namespace TL { namespace Nanox {
 
         struct UpdateTypesVLA
         {
-            decl_context_t &function_context;
+            const decl_context_t* &function_context;
             Nodecl::Utils::SimpleSymbolMap* &symbol_map;
 
-            UpdateTypesVLA(decl_context_t &fc,
+            UpdateTypesVLA(const decl_context_t* &fc,
                     Nodecl::Utils::SimpleSymbolMap*& sm)
                 : function_context(fc), symbol_map(sm) { }
 
@@ -1118,7 +1118,7 @@ namespace TL { namespace Nanox {
         if (!current_function.get_type().is_template_specialized_type()
                 || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            decl_context_t new_decl_context = decl_context_clone(decl_context);
+            decl_context_t* new_decl_context = decl_context_clone(decl_context);
             if (current_function.get_scope().get_template_parameters() != NULL
                 && current_function.get_scope().get_template_parameters()->is_explicit_specialization)
             {

@@ -78,9 +78,9 @@ namespace TL
             argument_types_array[i+1] = argument_types[i].get_internal_type();
         }
 
-        // Now we need a decl_context_t but we were not given any explicitly,
+        // Now we need a const decl_context_t* but we were not given any explicitly,
         // use the one of the first candidate
-        decl_context_t decl_context = candidate_functions[0].get_scope().get_decl_context();
+        const decl_context_t* decl_context = candidate_functions[0].get_scope().get_decl_context();
 
         // Unfold and mix!
         scope_entry_list_t* candidate_list = NULL;

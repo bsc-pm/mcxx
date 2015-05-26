@@ -45,7 +45,7 @@
 
 static type_t* determine_most_specialized_template_class(type_t* template_type, 
         type_t** matching_specializations, int num_specializations,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 type_t* solve_class_template(type_t* template_type,
@@ -216,7 +216,7 @@ type_t* solve_class_template(type_t* template_type,
 static type_t* determine_most_specialized_template_class(
         type_t* template_type UNUSED_PARAMETER, 
         type_t** matching_specializations, int num_specializations,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     int current_i = 0;

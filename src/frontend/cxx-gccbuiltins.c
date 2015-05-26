@@ -1980,7 +1980,7 @@ SIMPLIFY_GENERIC_FLOAT_TEST2(islessgreater)
 SIMPLIFY_GENERIC_FLOAT_TEST2(isunordered)
 
 
-static void gcc_sign_in_builtins_0(decl_context_t global_context)
+static void gcc_sign_in_builtins_0(const decl_context_t* global_context)
 {
 /* Category: math builtins.  */
 DEF_LIB_BUILTIN        (BUILT_IN_ACOS, "acos", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_acos)
@@ -3215,9 +3215,9 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 		  BT_FN_VOID_INT, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 }
 
-static void sign_in_sse_builtins(decl_context_t global_context);
+static void sign_in_sse_builtins(const decl_context_t* global_context);
 
-void gcc_sign_in_builtins(decl_context_t global_context)
+void gcc_sign_in_builtins(const decl_context_t* global_context)
 {
     gcc_sign_in_builtins_0(global_context);
 
@@ -3442,7 +3442,7 @@ GET_MXX_STRUCT_TYPE(128)
 GET_MXX_STRUCT_TYPE(256)
 GET_MXX_STRUCT_TYPE(512)
 
-static void sign_in_sse_builtins(decl_context_t decl_context)
+static void sign_in_sse_builtins(const decl_context_t* decl_context)
 {
     struct {
        const char* name;

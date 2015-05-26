@@ -181,7 +181,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             {
                 walk(statements);
 
-                decl_context_t decl_context = _scope.get_decl_context();
+                const decl_context_t* decl_context = _scope.get_decl_context();
                 for (TL::ObjectList<TL::Symbol>::iterator it2 = _extra_insert_sym.begin();
                         it2 != _extra_insert_sym.end();
                         it2++)

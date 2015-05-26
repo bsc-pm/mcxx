@@ -34,7 +34,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void upc_sign_in_builtins(decl_context_t decl_context);
+LIBMCXX_EXTERN void upc_sign_in_builtins(const decl_context_t* decl_context);
 
 #define UPC_FORALL_STATEMENT "upc.forall_statement"
 #define UPC_NOTIFY_STATEMENT "upc.notify_statement"

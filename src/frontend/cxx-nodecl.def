@@ -14,7 +14,7 @@
 #        text                      const char*
 #        const-value               const_value_t*
 #        template-parameters       template_parameter_list_t*
-#        context                   decl_context_t
+#        context                   const decl_context_t*
 #
 # The order that appears here is the order in which this extra information is
 # passed (regardless of the precise syntax of the rule, i.e. 'symbol' is always

@@ -112,7 +112,7 @@ static implicit_info_t* get_default_fortran_implicit(void)
     return result;
 }
 
-static void copy_on_write_implicit(decl_context_t decl_context)
+static void copy_on_write_implicit(const decl_context_t* decl_context)
 {
     if (decl_context->implicit_info->data->letter_set_is_shared)
     {
@@ -129,7 +129,7 @@ static void copy_on_write_implicit(decl_context_t decl_context)
     }
 }
 
-void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type)
+void set_implicit_info(const decl_context_t* decl_context, char from_letter, char to_letter, type_t* type)
 {
     from_letter = tolower(from_letter);
     to_letter = tolower(to_letter);
@@ -147,26 +147,26 @@ void set_implicit_info(decl_context_t decl_context, char from_letter, char to_le
     }
 }
 
-void set_implicit_none(decl_context_t decl_context)
+void set_implicit_none(const decl_context_t* decl_context)
 {
     copy_on_write_implicit(decl_context);
 
     decl_context->implicit_info->data->implicit_letter_set = NULL;
 }
 
-char is_implicit_none(decl_context_t decl_context)
+char is_implicit_none(const decl_context_t* decl_context)
 {
     return decl_context->implicit_info->data->implicit_letter_set == NULL;
 }
 
-char implicit_has_been_set(decl_context_t decl_context)
+char implicit_has_been_set(const decl_context_t* decl_context)
 {
     return !decl_context->implicit_info->data->letter_set_is_shared;
 }
 
-decl_context_t new_program_unit_context(decl_context_t decl_context)
+const decl_context_t* new_program_unit_context(const decl_context_t* decl_context)
 {
-    decl_context_t result = new_block_context(decl_context);
+    decl_context_t* result = new_block_context(decl_context);
     result = new_function_context(result);
     result->implicit_info = allocate_implicit_info_sharing_set(get_default_fortran_implicit());
     result->current_scope->related_entry = NULL;
@@ -174,9 +174,9 @@ decl_context_t new_program_unit_context(decl_context_t decl_context)
     return result;
 }
 
-decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
+const decl_context_t* new_internal_program_unit_context(const decl_context_t* decl_context)
 {
-    decl_context_t result = new_block_context(decl_context);
+    decl_context_t* result = new_block_context(decl_context);
     result = new_function_context(result);
     result->implicit_info = allocate_implicit_info_sharing_set(decl_context->implicit_info);
     result->current_scope->related_entry = NULL;
@@ -184,7 +184,7 @@ decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
     return result;
 }
 
-static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
+static scope_entry_t* new_implicit_symbol(const decl_context_t* decl_context, AST location, const char* name)
 {
     char first_letter = tolower(name[0]);
     // Special names for operators and other non regularly named stuff will not get here
@@ -197,7 +197,7 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locat
         ERROR_CONDITION(implicit_type == NULL, "this type can not be NULL", 0);
 
         //The implicits symbols will be stored in the current scope of the program unit
-        decl_context_t program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
+        const decl_context_t* program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
         scope_entry_t* sym = new_symbol(program_unit_context, program_unit_context->current_scope, strtolower(name));
         sym->kind = SK_UNDEFINED;
         sym->type_information = implicit_type;
@@ -214,7 +214,7 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locat
     return NULL;
 }
 
-type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* name)
+type_t* get_implicit_type_for_symbol(const decl_context_t* decl_context, const char* name)
 {
     type_t* implicit_type = NULL;
     char first_letter = tolower(name[0]);
@@ -236,7 +236,7 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
-scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST location, const char* name)
+scope_entry_t* fortran_get_variable_with_locus(const decl_context_t* decl_context, AST location, const char* name)
 {
     ERROR_CONDITION(location == NULL, "Locus is needed", 0);
 
@@ -271,20 +271,20 @@ scope_entry_t* fortran_get_variable_with_locus(decl_context_t decl_context, AST 
     return result;
 }
 
-decl_context_t fortran_new_block_context(decl_context_t decl_context)
+const decl_context_t* fortran_new_block_context(const decl_context_t* decl_context)
 {
-    decl_context_t result = new_block_context(decl_context);
+    const decl_context_t* result = new_block_context(decl_context);
     return result;
 }
 
-scope_entry_t* new_fortran_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
+scope_entry_t* new_fortran_implicit_symbol(const decl_context_t* decl_context, AST location, const char* name)
 {
     scope_entry_t* new_entry = new_implicit_symbol(decl_context, location, name);
     add_unknown_kind_symbol(decl_context, new_entry);
     return new_entry;
 }
 
-scope_entry_t* new_fortran_symbol_not_unknown(decl_context_t decl_context, const char* name)
+scope_entry_t* new_fortran_symbol_not_unknown(const decl_context_t* decl_context, const char* name)
 {
     DEBUG_CODE()
     {
@@ -297,7 +297,7 @@ scope_entry_t* new_fortran_symbol_not_unknown(decl_context_t decl_context, const
     return new_entry;
 }
 
-scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
+scope_entry_t* new_fortran_symbol(const decl_context_t* decl_context, const char* name)
 {
     scope_entry_t* new_entry = new_fortran_symbol_not_unknown(decl_context, name);
 
@@ -305,7 +305,7 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
     return new_entry;
 }
 
-scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name,
+scope_entry_t* query_name_in_class(const decl_context_t* class_context, const char* name,
         const locus_t* locus)
 {
     scope_entry_t* entry = NULL;
@@ -384,12 +384,12 @@ static void diagnostic_ambiguity(scope_entry_list_t* entry_list)
     entry_list_iterator_free(it);
 }
 
-scope_entry_t* fortran_query_name_str(decl_context_t decl_context, 
+scope_entry_t* fortran_query_name_str(const decl_context_t* decl_context, 
         const char* unqualified_name,
         const locus_t* locus)
 {
     scope_entry_t* result = NULL;
-    decl_context_t current_decl_context = decl_context;
+    decl_context_t* current_decl_context = decl_context_clone(decl_context);
     scope_t* current_scope = decl_context->current_scope;
 
     while (result == NULL 
@@ -455,9 +455,9 @@ static char symbol_is_generic_intrinsic_function_not_from_module(scope_entry_t* 
         && symbol_entity_specs_get_from_module(sym) == NULL;
 }
 
-scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, const char* unqualified_name)
+scope_entry_t* fortran_query_intrinsic_name_str(const decl_context_t* decl_context, const char* unqualified_name)
 {
-    decl_context_t global_context = fortran_get_context_of_intrinsics(decl_context);
+    const decl_context_t* global_context = fortran_get_context_of_intrinsics(decl_context);
 
     scope_entry_list_t* global_list = query_in_scope_str(global_context, strtolower(unqualified_name), NULL);
 
@@ -545,12 +545,12 @@ static char no_name_has_been_established_generic(scope_entry_list_t* entry_list)
 // the enclosing one
 //
 // See ticket #923
-scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_context,
+scope_entry_list_t* fortran_query_name_str_for_function(const decl_context_t* decl_context,
         const char* unqualified_name,
         const locus_t* locus)
 {
     scope_entry_list_t* result_list = NULL;
-    decl_context_t current_decl_context = decl_context;
+    decl_context_t* current_decl_context = decl_context_clone(decl_context);
     scope_t* current_scope = decl_context->current_scope;
 
     char keep_trying = 1;

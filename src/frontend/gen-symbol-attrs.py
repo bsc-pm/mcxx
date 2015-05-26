@@ -97,7 +97,7 @@ def print_type_and_name(_type, name):
     elif (_type == "symbol"):
         return [("scope_entry_t*", name, "", TypeKind.POINTER)]
     elif (_type == "scope"):
-        return [("decl_context_t", name, "", TypeKind.OTHER)]
+        return [("const decl_context_t*", name, "", TypeKind.OTHER)]
     elif (_type.startswith("typeof")):
         parts_of_type_name = get_up_to_matching_paren(_type[len("typeof"):])
         parts_of_type = parts_of_type_name.split(",");
@@ -669,7 +669,7 @@ def print_deep_copy_entity_specs(lines):
 
     print """
     void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source,
-             decl_context_t decl_context, symbol_map_t* symbol_map,
+             const decl_context_t* decl_context, symbol_map_t* symbol_map,
              nodecl_deep_copy_map_t* nodecl_deep_copy_map,
              symbol_deep_copy_map_t* symbol_deep_copy_map)
     {

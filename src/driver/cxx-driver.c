@@ -5051,7 +5051,7 @@ static void print_memory_report(void)
     fprintf(stderr, "Size of entity specifiers (bytes): %zd\n",
             sizeof(entity_specifiers_t));
     fprintf(stderr, "Size of a context (bytes): %zd\n",
-            sizeof(decl_context_t));
+            sizeof(const decl_context_t*));
     fprintf(stderr, "Size of a type (bytes): %zd\n",
             get_type_t_size());
 

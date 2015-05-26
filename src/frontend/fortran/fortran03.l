@@ -2855,7 +2855,8 @@ int mf03_prepare_string_for_scanning(const char* str)
     fortran_scanning_now->filename = uniquestr(filename);
 	
 	// Change the configuration for scanning strings:
-	if (!string_scanning_configuration){
+	if (!string_scanning_configuration)
+    {
 		string_scanning_configuration = NEW(compilation_configuration_t);
 		*string_scanning_configuration = *(compilation_process.current_compilation_configuration);
 	}

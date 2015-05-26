@@ -196,7 +196,7 @@ namespace Nodecl { namespace Utils { namespace C {
             {
                 walk(statements);
 
-                decl_context_t decl_context = _scope.get_decl_context();
+                const decl_context_t* decl_context = _scope.get_decl_context();
                 // New symbols
                 // First register them
                 TL::ObjectList<TL::Symbol> new_symbols;

@@ -57,7 +57,7 @@ static void compute_associated_scopes(
 scope_entry_list_t* koenig_lookup(
         int num_arguments,
         type_t** argument_type_list,
-        decl_context_t normal_decl_context,
+        const decl_context_t* normal_decl_context,
         nodecl_t nodecl_simple_name,
         const locus_t* locus)
 {
@@ -104,9 +104,8 @@ scope_entry_list_t* koenig_lookup(
         scope_t* current_scope = koenig_info.associated_scopes[i];
 
         // Query only the scope
-        // Wrap the scope (this is a design quirk of decl_context_t)
-        decl_context_t current_context;
-        memset(&current_context, 0, sizeof(current_context));
+        // Wrap the scope (this is a design quirk of const decl_context_t*)
+        decl_context_t* current_context = decl_context_empty();
         current_context->current_scope = current_scope;
         
         DEBUG_CODE()
@@ -348,7 +347,7 @@ static void compute_associated_scopes_rec(
      */
     if (is_enum_type(argument_type))
     {
-        decl_context_t type_decl_context = enum_type_get_context(argument_type);
+        const decl_context_t* type_decl_context = enum_type_get_context(argument_type);
         scope_t* outer_namespace = type_decl_context->namespace_scope;
 
         ERROR_CONDITION(outer_namespace == NULL, "The enclosing namespace scope is NULL!", 0);

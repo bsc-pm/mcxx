@@ -38,7 +38,7 @@
 #include "cxx-codegen.h"
 
 
-static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
+static type_t* cuda_get_named_type(const char* name, const decl_context_t* decl_context)
 {
     scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(name), NULL);
     ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
@@ -58,27 +58,27 @@ static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context
 
 static type_t* cuda_get_dim3_type(void)
 {
-    decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+    const decl_context_t* global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
     return cuda_get_named_type("dim3", global_decl_context);
 }
 
 static type_t* cuda_get_uint3_type(void)
 {
-    decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+    const decl_context_t* global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
     return cuda_get_named_type("uint3", global_decl_context);
 }
 
 static type_t* cuda_get_cudaStream_t_type(void)
 {
-    decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+    const decl_context_t* global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
     return cuda_get_named_type("cudaStream_t", global_decl_context);
 }
 
 void cuda_kernel_symbols_for_function_body(
         AST function_body,
         gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context UNUSED_PARAMETER,
-        decl_context_t block_context)
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const decl_context_t* block_context)
 {
     // FIXME - We should keep an attribute for this in the symbol otherwise
     // we force the user to specify __global__ and __device__ in the
@@ -123,7 +123,7 @@ void cuda_kernel_symbols_for_function_body(
 
 void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda_kernel_args, 
         nodecl_t nodecl_call_args, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         nodecl_t *nodecl_output)
 {
@@ -211,7 +211,7 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
             locus);
 }
 
-void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+void check_cuda_kernel_call(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     AST postfix_expr = ASTSon0(expression);
     AST cuda_kernel_args = ASTSon1(expression);

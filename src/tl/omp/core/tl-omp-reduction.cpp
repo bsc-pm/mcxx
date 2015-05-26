@@ -300,12 +300,12 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    static decl_context_t decl_context_map_id(decl_context_t d)
+    static const decl_context_t* decl_context_map_id(const decl_context_t* d)
     {
         return d;
     }
 
-    static void check_omp_initializer(AST a, decl_context_t decl_context,
+    static void check_omp_initializer(AST a, const decl_context_t* decl_context,
             nodecl_t* nodecl_output, bool& is_init_declarator)
     {
         // Due to some syntactic infelicities in the initializer clause we have to manually check
@@ -399,7 +399,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    static void compute_nodecl_udr(AST tree, decl_context_t decl_context, nodecl_t* nodecl_output)
+    static void compute_nodecl_udr(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output)
     {
         AST omp_dr_reduction_id = ASTSon0(tree);
         AST omp_dr_typename_list = ASTSon1(tree);
@@ -767,7 +767,7 @@ namespace TL { namespace OpenMP {
         t = get_canonical_type_for_reduction(t);
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
         scope_entry_list_t* entry_list = query_in_scope_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
@@ -862,7 +862,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<Reduction*> result;
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         scope_entry_list_t* entry_list = NULL;
 
@@ -966,7 +966,7 @@ namespace TL { namespace OpenMP {
         t = get_canonical_type_for_reduction(t);
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 

@@ -320,7 +320,7 @@ namespace TL { namespace OpenMP {
     }
 
     namespace {
-        decl_context_t decl_context_map_id(decl_context_t d)
+        const decl_context_t* decl_context_map_id(const decl_context_t* d)
         {
             return d;
         }
@@ -479,8 +479,8 @@ namespace TL { namespace OpenMP {
     namespace {
 
         void ompss_multidep_check_range(AST range,
-                decl_context_t decl_context,
-                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                const decl_context_t* decl_context,
+                void (*check_expression)(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output),
                 nodecl_t* nodecl_output)
         {
             switch (ASTKind(range))
@@ -632,9 +632,9 @@ namespace TL { namespace OpenMP {
 
         void ompss_multidep_expression(
                 AST a,
-                decl_context_t decl_context,
-                decl_context_t iterator_context,
-                void (*check_expression)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output),
+                const decl_context_t* decl_context,
+                const decl_context_t* iterator_context,
+                void (*check_expression)(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output),
                 nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
@@ -715,11 +715,11 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        void c_cxx_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        void c_cxx_ompss_dep_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                decl_context_t iterator_context = new_block_context(decl_context);
+                const decl_context_t* iterator_context = new_block_context(decl_context);
                 ompss_multidep_expression(a,
                         decl_context,
                         iterator_context,
@@ -732,11 +732,11 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        void fortran_ompss_dep_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+        void fortran_ompss_dep_expression(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
         {
             if (ASTKind(a) == AST_OMPSS_MULTI_DEPENDENCY)
             {
-                decl_context_t iterator_context = new_block_context(decl_context);
+                const decl_context_t* iterator_context = new_block_context(decl_context);
                 ompss_multidep_expression(a,
                         decl_context,
                         iterator_context,

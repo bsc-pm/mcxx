@@ -1146,7 +1146,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
         nodecl_t parameter,
         nodecl_t argument,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER,
         int pack_index,
         int pack_length,
@@ -1351,7 +1351,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
         template_parameter_list_t* orig_parameter_template_argument_list,
         template_parameter_list_t* orig_argument_template_argument_list,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -1820,7 +1820,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
         type_t* function_parameter,
         type_t* function_argument,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -2132,7 +2132,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         type_t* parameter,
         type_t* argument,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         int pack_index, // -1 if not expanding
@@ -2801,7 +2801,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
         template_parameter_list_t* explicit_template_argument_list,
         type_t* orig_parameter,
         type_t* orig_argument,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -3168,7 +3168,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     // template_parameters,
                     deduction_result);
 
-            decl_context_t updated_context = decl_context_clone(decl_context);
+            decl_context_t* updated_context = decl_context_clone(decl_context);
             updated_context->template_parameters = updated_template_parameters;
 
             diagnostic_context_push_buffered();
@@ -3442,7 +3442,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
 deduction_result_t handle_explicit_template_arguments(
         template_parameter_list_t* template_parameters,
         template_parameter_list_t* raw_explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t** explicit_template_arguments)
@@ -3461,7 +3461,7 @@ deduction_result_t handle_explicit_template_arguments(
         fprintf(stderr, "TYPEDEDUC: Processing explicit template arguments\n");
     }
 
-    decl_context_t context_for_updating = decl_context_clone(decl_context);
+    decl_context_t* context_for_updating = decl_context_clone(decl_context);
     context_for_updating->template_parameters = *explicit_template_arguments;
 
     int current_arg = 0, current_param = 0;
@@ -3640,7 +3640,7 @@ deduction_result_t handle_explicit_template_arguments(
 deduction_result_t finish_deduced_template_arguments(
         template_parameter_list_t* type_template_parameters,
         deduction_set_t* deduction_result,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         /* inout */ template_parameter_list_t* deduced_template_arguments)
 {
@@ -3897,7 +3897,7 @@ deduction_result_t finish_deduced_template_arguments(
             template_parameter_value_t* default_template_argument
                 = type_template_parameters->arguments[i];
 
-            decl_context_t context_for_updating = decl_context_clone(decl_context);
+            decl_context_t* context_for_updating = decl_context_clone(decl_context);
             context_for_updating->template_parameters = deduced_template_arguments;
             // Update the default argument
             diagnostic_context_push_buffered();
@@ -4038,7 +4038,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         deduction_set_t* deduction_result,
@@ -4332,7 +4332,7 @@ deduction_result_t deduce_template_arguments_from_function_call(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4383,7 +4383,7 @@ deduction_result_t deduce_template_arguments_from_address_of_a_function_template
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4461,7 +4461,7 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4561,7 +4561,7 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
     }
 
     // Now update the type
-    decl_context_t updating_context = decl_context_clone(decl_context);
+    decl_context_t* updating_context = decl_context_clone(decl_context);
     updating_context->template_parameters = deduced_template_arguments;
 
     diagnostic_context_push_buffered();
@@ -4602,7 +4602,7 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4667,7 +4667,7 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
     }
 
     // Now verify the deduction
-    decl_context_t updating_context = decl_context_clone(decl_context);
+    decl_context_t* updating_context = decl_context_clone(decl_context);
     updating_context->template_parameters = deduced_template_arguments;
 
     diagnostic_context_push_buffered();
@@ -4691,7 +4691,7 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
 char deduce_arguments_of_auto_initialization(
         type_t* destination_type,
         type_t* initializer_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t** deduced_template_arguments,
         char is_braced_array,
         const locus_t* locus)
