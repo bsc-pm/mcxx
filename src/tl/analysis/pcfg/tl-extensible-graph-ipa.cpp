@@ -72,7 +72,7 @@ namespace Analysis {
                     Type ret_value_type = ret_value.get_type();
                     
                     // Build a symbol to store the temporary value
-                    scope_entry_t* temp_sc_entry = (scope_entry_t*) xcalloc(1, sizeof(scope_entry_t));
+                    scope_entry_t* temp_sc_entry = NEW0(scope_entry_t);
                     temp_sc_entry->symbol_name = UNIQUESTR_LITERAL("__tmp_return_val__");
                     temp_sc_entry->kind = SK_VARIABLE;
                     temp_sc_entry->type_information = ret_value_type.get_internal_type();

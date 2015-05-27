@@ -38,7 +38,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void print_scope(decl_context_t decl_context);
+LIBMCXX_EXTERN void print_scope(const decl_context_t* decl_context);
 
 MCXX_END_DECLS
 

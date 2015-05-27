@@ -232,7 +232,7 @@ static int raw_string_delimiter_index = 0;
           raw_string_buffer_capacity = 4; \
         else \
           raw_string_buffer_capacity *= 2; \
-        raw_string_buffer = xrealloc(raw_string_buffer, sizeof(char)*raw_string_buffer_capacity); \
+        raw_string_buffer = NEW_REALLOC(char, raw_string_buffer, raw_string_buffer_capacity); \
     } \
     raw_string_buffer[raw_string_buffer_position] = (_x); \
     raw_string_buffer_position++; \
@@ -851,7 +851,7 @@ type {
     because we will reintroduce a #pragma */
 "_Pragma"[ \t]*"("[ \t]* {
         BEGIN(inline_pragma);
-        xfree(inline_pragma_str);
+        DELETE(inline_pragma_str);
         inline_pragma_str = NULL;
 }
 
@@ -1097,7 +1097,7 @@ type {
     {
         if (include_counter == 0)
         {
-            top_level_include_t *new_top_level_include = xcalloc(1, sizeof(*new_top_level_include));
+            top_level_include_t *new_top_level_include = NEW0(top_level_include_t);
 
             new_top_level_include->included_file = uniquestr(filename);
 
@@ -1462,7 +1462,7 @@ type {
     p += strlen("@-C-@");
 
     parse_token_text_str(p); 
-    xfree(t);
+    DELETE(t);
 
     update_location();
 
@@ -1477,7 +1477,7 @@ type {
     p += strlen("@-P-@");
 
     parse_token_text_str(p); 
-    xfree(t);
+    DELETE(t);
 
     update_location();
 
@@ -1623,7 +1623,7 @@ L?\"{schar}*\"      { parse_token_text(); update_location(); return STRING_LITER
                  RAW_STRING_APPEND_CHAR('\0');
                  parse_token_text_str(raw_string_buffer);
 
-                 xfree(raw_string_buffer);
+                 DELETE(raw_string_buffer);
                  raw_string_buffer = NULL;
 
                  update_location();
@@ -2194,7 +2194,7 @@ static void verbatim_buffer_append(const char* c)
         {
             // Enlarge verbatim buffer
             _verbatim_buffer_capacity += BUFF_SIZE;
-            _verbatim_buffer = xrealloc(_verbatim_buffer, sizeof(char) * _verbatim_buffer_capacity);
+            _verbatim_buffer = NEW_REALLOC(char, _verbatim_buffer, _verbatim_buffer_capacity);
             int i;
             for (i = _verbatim_buffer_length; i < _verbatim_buffer_capacity; i++)
             {
@@ -2214,7 +2214,7 @@ static void verbatim_buffer_append(const char* c)
 
 static void verbatim_buffer_free(void)
 {
-    xfree(_verbatim_buffer);
+    DELETE(_verbatim_buffer);
     _verbatim_buffer = NULL;
     _verbatim_buffer_length = 0;
     _verbatim_buffer_capacity = 0;
@@ -2263,8 +2263,8 @@ static int compute_length_match(const char* lexed_directive,
         }
     }
 
-    xfree(available);
-    xfree(lexed);
+    DELETE(available);
+    DELETE(lexed);
     }
 
     // Compute the length of the discards
@@ -2453,7 +2453,7 @@ void * mc99realloc (void * ptr, size_t bytes)
 }
 void   mc99free (void * ptr)
 {
-    xfree(ptr);
+    DELETE(ptr);
 }
 /*!endif*/
 
@@ -2468,6 +2468,6 @@ void * mcxxrealloc (void * ptr, size_t bytes)
 }
 void   mcxxfree (void * ptr)
 {
-    xfree(ptr);
+    DELETE(ptr);
 }
 /*!endif*/

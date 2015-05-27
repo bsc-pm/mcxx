@@ -2545,7 +2545,7 @@ static nodecl_t simplify_trim(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     const_value_t* trimmed_string = const_value_make_string(new_str, strlen(new_str));
 
-    xfree(new_str);
+    DELETE(new_str);
 
     return const_value_to_nodecl(trimmed_string);
 }
@@ -2618,7 +2618,7 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
         return nodecl_null();
 
     int val = values[0];
-    xfree(values);
+    DELETE(values);
 
     int kind = fortran_get_default_integer_type_kind();
     if (!nodecl_is_null(kind_arg))

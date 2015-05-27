@@ -153,7 +153,7 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
     {
         deduction_t* current_deduction = deduction_set->deduction_list[i];
 
-        template_parameter_value_t* argument = xcalloc(1, sizeof(*argument));
+        template_parameter_value_t* argument = NEW0(template_parameter_value_t);
 
         switch (current_deduction->kind)
         {
@@ -299,15 +299,15 @@ static void deduction_free(deduction_t* deduction)
         {
             nodecl_free(deduction->deduced_parameters[i]->value);
         }
-        xfree(deduction->deduced_parameters[i]);
+        DELETE(deduction->deduced_parameters[i]);
     }
 
-    xfree(deduction->deduced_parameters);
+    DELETE(deduction->deduced_parameters);
     deduction->deduced_parameters = 0;
 
     deduction->num_deduced_parameters = 0;
 
-    xfree(deduction);
+    DELETE(deduction);
 }
 
 static void deduction_set_clear(deduction_set_t* deduction_set)
@@ -318,7 +318,7 @@ static void deduction_set_clear(deduction_set_t* deduction_set)
         deduction_free(deduction_set->deduction_list[i]);
     }
 
-    xfree(deduction_set->deduction_list);
+    DELETE(deduction_set->deduction_list);
     deduction_set->deduction_list = 0;
 
     deduction_set->num_deductions = 0;
@@ -330,7 +330,7 @@ void deduction_set_free(deduction_set_t* deduction_set)
         return;
 
     deduction_set_clear(deduction_set);
-    xfree(deduction_set);
+    DELETE(deduction_set);
 }
 
 static char same_expression_value(
@@ -403,20 +403,21 @@ static deduction_result_t deduction_combine_aux(
         if (!found)
         {
             // Add deduction
-            deduction_t* new_deduction = xcalloc(1, sizeof(*new_deduction));
+            deduction_t* new_deduction = NEW0(deduction_t);
             new_deduction->kind = current->kind;
             new_deduction->parameter_position = current->parameter_position;
             new_deduction->parameter_nesting = current->parameter_nesting;
             new_deduction->parameter_name = current->parameter_name;
 
             new_deduction->num_deduced_parameters = current->num_deduced_parameters;
-            new_deduction->deduced_parameters = xcalloc(current->num_deduced_parameters,
-                    sizeof(*new_deduction->deduced_parameters));
+            new_deduction->deduced_parameters = NEW_VEC0(
+                    deduced_argument_t*,
+                    current->num_deduced_parameters);
             for (j = 0; j < current->num_deduced_parameters; j++)
             {
                 if (current->deduced_parameters[j] != NULL)
                 {
-                    deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+                    deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
                     *new_deduced_argument = *(current->deduced_parameters[j]);
                     new_deduced_argument->value = nodecl_shallow_copy(current->deduced_parameters[j]->value);
                     new_deduction->deduced_parameters[j] = new_deduced_argument;
@@ -472,7 +473,7 @@ static deduction_result_t deduction_combine_aux(
                 else if (previous->deduced_parameters[j] == NULL)
                 {
                     // Copy in the placeholder of previous
-                    deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+                    deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
 
                     *new_deduced_argument = *(current->deduced_parameters[j]);
                     new_deduced_argument->value = nodecl_shallow_copy(current->deduced_parameters[j]->value);
@@ -502,7 +503,8 @@ deduction_result_t deduction_combine_to_second(
 
 static template_parameter_list_t* flatten_template_arguments(template_parameter_list_t* argument_template_argument_list)
 {
-    template_parameter_list_t* flattened_template_arguments = xcalloc(1, sizeof(*flattened_template_arguments));
+    template_parameter_list_t* flattened_template_arguments =
+        NEW0(template_parameter_list_t);
     int i_arg = 0;
 
     // Expand all the arguments
@@ -519,7 +521,7 @@ static template_parameter_list_t* flatten_template_arguments(template_parameter_
                                 argument_template_argument_list->arguments[i_arg]->type);
                         for (k = 0; k < num_items; k++)
                         {
-                            template_parameter_value_t *new_value = xcalloc(1, sizeof(*new_value));
+                            template_parameter_value_t *new_value = NEW0(template_parameter_value_t);
                             new_value->kind = argument_template_argument_list->arguments[i_arg]->kind;
                             new_value->type =
                                 sequence_of_types_get_type_num(argument_template_argument_list->arguments[i_arg]->type, k);
@@ -531,7 +533,7 @@ static template_parameter_list_t* flatten_template_arguments(template_parameter_
                     }
                     else
                     {
-                        template_parameter_value_t *new_value = xcalloc(1, sizeof(*new_value));
+                        template_parameter_value_t *new_value = NEW0(template_parameter_value_t);
                         *new_value = *(argument_template_argument_list->arguments[i_arg]);
                         P_LIST_ADD(flattened_template_arguments->arguments,
                                 flattened_template_arguments->num_parameters,
@@ -549,7 +551,7 @@ static template_parameter_list_t* flatten_template_arguments(template_parameter_
                         int k;
                         for (k = 0; k < num_items; k++)
                         {
-                            template_parameter_value_t *new_value = xcalloc(1, sizeof(*new_value));
+                            template_parameter_value_t *new_value = NEW0(template_parameter_value_t);
                             new_value->kind = argument_template_argument_list->arguments[i_arg]->kind;
                             if (is_sequence_of_types(argument_template_argument_list->arguments[i_arg]->type))
                             {
@@ -567,11 +569,11 @@ static template_parameter_list_t* flatten_template_arguments(template_parameter_
                                     flattened_template_arguments->num_parameters,
                                     new_value);
                         }
-                        xfree(list);
+                        DELETE(list);
                     }
                     else
                     {
-                        template_parameter_value_t *new_value = xcalloc(1, sizeof(*new_value));
+                        template_parameter_value_t *new_value = NEW0(template_parameter_value_t);
                         *new_value = *(argument_template_argument_list->arguments[i_arg]);
                         new_value->value = nodecl_shallow_copy(argument_template_argument_list->arguments[i_arg]->value);
                         P_LIST_ADD(flattened_template_arguments->arguments,
@@ -780,9 +782,9 @@ static deduction_result_t deduce_empty_parameter_packs(
         scope_entry_t* current_pack = parameter_packs[i];
 
         deduction_set_t* deduction_current_parameter =
-            xcalloc(1, sizeof(*deduction_current_parameter));
+            NEW0(deduction_set_t);
 
-        deduction_t* new_deduction = xcalloc(1, sizeof(*new_deduction));
+        deduction_t* new_deduction = NEW0(deduction_t);
 
         switch (current_pack->kind)
         {
@@ -1144,7 +1146,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
         nodecl_t parameter,
         nodecl_t argument,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER,
         int pack_index,
         int pack_length,
@@ -1282,7 +1284,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
             return DEDUCTION_FAILURE;
         }
 
-        deduction_t* new_deduction = xcalloc(1, sizeof(*new_deduction));
+        deduction_t* new_deduction = NEW0(deduction_t);
         new_deduction->kind =
             (template_parameter->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
             ? TPK_NONTYPE
@@ -1300,14 +1302,13 @@ static deduction_result_t deduce_template_arguments_from_a_value(
         {
             ERROR_CONDITION(nodecl_is_list_or_null(argument), "This is not an acceptable value here", 0);
 
-            new_deduction->deduced_parameters = xcalloc(pack_length,
-                    sizeof(*new_deduction));
+            new_deduction->deduced_parameters = NEW_VEC0(deduced_argument_t*, pack_length);
             new_deduction->num_deduced_parameters = pack_length;
 
             ERROR_CONDITION(pack_length <= 0, "Invalid pack length", 0);
             ERROR_CONDITION(pack_index >= pack_length, "Invalid pack index", 0);
 
-            deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+            deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
             new_deduced_argument->value = argument;
             new_deduced_argument->type = parameter_type;
             new_deduction->deduced_parameters[pack_index] = new_deduced_argument;
@@ -1323,7 +1324,7 @@ static deduction_result_t deduce_template_arguments_from_a_value(
         }
         else
         {
-            deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+            deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
             new_deduced_argument->type = parameter_type;
             new_deduced_argument->value = argument;
 
@@ -1350,7 +1351,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
         template_parameter_list_t* orig_parameter_template_argument_list,
         template_parameter_list_t* orig_argument_template_argument_list,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -1414,7 +1415,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
             && (i < argument_template_argument_list->num_parameters);
             i++)
     {
-        deduction_set_t* deduction_for_template_arg = xcalloc(1, sizeof(*deduction_for_template_arg));
+        deduction_set_t* deduction_for_template_arg = NEW0(deduction_set_t);
 
         deduction_result_t result_for_template_arg = DEDUCTION_OK;
         if (parameter_template_argument_list->arguments[i]->kind == TPK_NONTYPE)
@@ -1453,7 +1454,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
                     //     }
                     // }
 
-                    deduction_set_t* deduction_for_pack_expansion = xcalloc(1, sizeof(*deduction_for_pack_expansion));
+                    deduction_set_t* deduction_for_pack_expansion = NEW0(deduction_set_t);
                     deduction_result_t deduction_result_pack_expansion =
                         deduce_template_arguments_from_a_value(
                                 nodecl_get_child(
@@ -1586,7 +1587,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
                 {
                     int current_pack_index = j - i;
 
-                    deduction_set_t* deduction_for_pack_expansion = xcalloc(1, sizeof(*deduction_for_pack_expansion));
+                    deduction_set_t* deduction_for_pack_expansion = NEW0(deduction_set_t);
                     deduction_result_t deduction_result_pack_expansion =
                         deduce_template_arguments_from_a_type(
                                 pack_type_get_packed_type(
@@ -1767,7 +1768,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
                         &num_parameter_packs);
             }
 
-            deduction_set_t* deduction_empty_packs = xcalloc(1, sizeof(*deduction_empty_packs));
+            deduction_set_t* deduction_empty_packs = NEW0(deduction_set_t);
             deduction_result_t deduction_result_empty_packs =
                 deduce_empty_parameter_packs(
                         parameter_packs,
@@ -1794,7 +1795,7 @@ static deduction_result_t deduce_template_arguments_from_a_template_argument_lis
                 return DEDUCTION_FAILURE;
             }
 
-            xfree(parameter_packs);
+            DELETE(parameter_packs);
         }
         else
         {
@@ -1819,7 +1820,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
         type_t* function_parameter,
         type_t* function_argument,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -1899,7 +1900,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
                 int current_pack_index = j - i;
                 argument = function_type_get_parameter_type_num(function_argument, j);
                 deduction_set_t* deduction_for_current_pack
-                    = xcalloc(1, sizeof(*deduction_for_current_pack));
+                    = NEW0(deduction_set_t);
                 deduction_result_t deduction_result_for_current_pack = DEDUCTION_OK;
 
                 type_t* unpacked_parameter = pack_type_get_packed_type(parameter);
@@ -2003,7 +2004,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
             }
 
             deduction_set_t* deduction_for_current_parameter
-                = xcalloc(1, sizeof(*deduction_for_current_parameter));
+                = NEW0(deduction_set_t);
             deduction_result_t deduction_result_for_current_parameter = DEDUCTION_OK;
 
             deduction_result_for_current_parameter =
@@ -2095,7 +2096,8 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
                 &parameter_packs,
                 &num_parameter_packs);
 
-        deduction_set_t* deduction_empty_packs = xcalloc(1, sizeof(*deduction_empty_packs));
+        deduction_set_t* deduction_empty_packs =
+            NEW0(deduction_set_t);
         deduction_result_t deduction_result_empty_packs =
             deduce_empty_parameter_packs(
                     parameter_packs,
@@ -2118,7 +2120,7 @@ static deduction_result_t deduce_template_arguments_from_a_function_parameter_li
             return DEDUCTION_FAILURE;
         }
 
-        xfree(parameter_packs);
+        DELETE(parameter_packs);
         i++;
     }
 
@@ -2130,7 +2132,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         type_t* parameter,
         type_t* argument,
         template_parameter_list_t* explicit_template_argument_list,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         int pack_index, // -1 if not expanding
@@ -2182,7 +2184,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
 
         // T
         // cv-list T
-        deduction_t* new_deduction = xcalloc(1, sizeof(*new_deduction));
+        deduction_t* new_deduction = NEW0(deduction_t);
         new_deduction->kind =
             (named_type_get_symbol(parameter)->kind == SK_TEMPLATE_TYPE_PARAMETER)
             ? TPK_TYPE
@@ -2203,11 +2205,12 @@ deduction_result_t deduce_template_arguments_from_a_type(
             ERROR_CONDITION(pack_length <= 0, "Invalid pack length", 0);
             ERROR_CONDITION(pack_index >= pack_length, "Invalid pack index", 0);
 
-            new_deduction->deduced_parameters = xcalloc(pack_length,
-                    sizeof(*new_deduction));
+            new_deduction->deduced_parameters = NEW_VEC0(
+                    deduced_argument_t*,
+                    pack_length);
             new_deduction->num_deduced_parameters = pack_length;
 
-            deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+            deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
             new_deduced_argument->type =
                 get_cv_qualified_type(argument, new_cv_qualifier);
             new_deduction->deduced_parameters[pack_index] = new_deduced_argument;
@@ -2223,7 +2226,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         }
         else
         {
-            deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+            deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
             new_deduced_argument->type = get_cv_qualified_type(argument, new_cv_qualifier);
             P_LIST_ADD(new_deduction->deduced_parameters,
                     new_deduction->num_deduced_parameters,
@@ -2260,7 +2263,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
                     named_type_get_symbol(argument)->type_information) == NULL,
                 "Invalid related template symbol", 0);
 
-        deduction_t* new_deduction = xcalloc(1, sizeof(*new_deduction));
+        deduction_t* new_deduction = NEW0(deduction_t);
         new_deduction->kind =
             (template_parameter->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             ? TPK_TEMPLATE
@@ -2277,15 +2280,14 @@ deduction_result_t deduce_template_arguments_from_a_type(
         {
             ERROR_CONDITION(is_sequence_of_types(argument), "This is not an acceptable type here", 0);
 
-            new_deduction->deduced_parameters = xcalloc(pack_length,
-                    sizeof(*new_deduction));
+            new_deduction->deduced_parameters = NEW_VEC0(deduced_argument_t*, pack_length);
             new_deduction->num_deduced_parameters = pack_length;
 
             if (pack_length > 0)
             {
                 ERROR_CONDITION(pack_index >= pack_length, "This should not happen", 0);
 
-                deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+                deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
                 new_deduced_argument->type = argument;
                 new_deduction->deduced_parameters[pack_index] = new_deduced_argument;
 
@@ -2311,7 +2313,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         }
         else
         {
-            deduced_argument_t* new_deduced_argument = xcalloc(1, sizeof(*new_deduced_argument));
+            deduced_argument_t* new_deduced_argument = NEW0(deduced_argument_t);
             new_deduced_argument->type = argument;
 
             P_LIST_ADD(new_deduction->deduced_parameters,
@@ -2393,7 +2395,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         if (!array_type_is_unknown_size(parameter)
                 /* && !array_type_is_unknown_size(argument) */)
         {
-            deduction_set_t* deduction_for_array_size = xcalloc(1, sizeof(*deduction_for_array_size));
+            deduction_set_t* deduction_for_array_size = NEW0(deduction_set_t);
             deduction_result_t deduction_result_for_array_size =
                 deduce_template_arguments_from_a_value(
                         array_type_get_array_size_expr(parameter),
@@ -2428,7 +2430,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         }
 
         // type[i]
-        deduction_set_t* deduction_for_element_type = xcalloc(1, sizeof(*deduction_for_element_type));
+        deduction_set_t* deduction_for_element_type = NEW0(deduction_set_t);
         deduction_result_t deduction_result_for_element_type =
             deduce_template_arguments_from_a_type(
                     array_type_get_element_type(parameter),
@@ -2487,7 +2489,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
                 // TT<i>
                 // TT<>
                 deduction_set_t* deduction_for_template_template
-                    = xcalloc(1, sizeof(*deduction_for_template_template));
+                    = NEW0(deduction_set_t);
 
                 deduce_template_arguments_from_a_type(
                         get_user_defined_type(
@@ -2523,7 +2525,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
                 template_specialized_type_get_template_arguments(template_argument);
 
             deduction_set_t* deduction_for_template_argument_list
-                = xcalloc(1, sizeof(*deduction_for_template_argument_list));
+                = NEW0(deduction_set_t);
             deduction_result_t deduction_result_for_template_argument_list =
                 deduce_template_arguments_from_a_template_argument_list(
                         parameter_template_argument_list,
@@ -2575,7 +2577,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
                     && argument_return_type != NULL)
             {
                 deduction_set_t* deduction_for_return_type =
-                    xcalloc(1, sizeof(*deduction_for_return_type));
+                    NEW0(deduction_set_t);
                 deduction_result_t deduction_result_for_return =
                     deduce_template_arguments_from_a_type(
                             parameter_return_type,
@@ -2608,7 +2610,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
             }
         }
 
-        deduction_set_t* deduction_for_parameter_types = xcalloc(1, sizeof(*deduction_for_parameter_types));
+        deduction_set_t* deduction_for_parameter_types = NEW0(deduction_set_t);
         deduction_result_t deduction_result_for_parameter_types =
             deduce_template_arguments_from_a_function_parameter_list(
                     parameter, // to be unpacked by the callee
@@ -2656,7 +2658,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         type_t* argument_class_type = pointer_to_member_type_get_class_type(argument);
 
         {
-            deduction_set_t* deduction_for_class_type = xcalloc(1, sizeof(*deduction_for_class_type));
+            deduction_set_t* deduction_for_class_type = NEW0(deduction_set_t);
 
             deduction_result_t deduction_result_for_class_type =
                 deduce_template_arguments_from_a_type(
@@ -2693,7 +2695,7 @@ deduction_result_t deduce_template_arguments_from_a_type(
         type_t* parameter_pointee = pointer_type_get_pointee_type(parameter);
         type_t* argument_pointee = pointer_type_get_pointee_type(argument);
 
-        deduction_set_t* deduction_for_pointee = xcalloc(1, sizeof(*deduction_for_pointee));
+        deduction_set_t* deduction_for_pointee = NEW0(deduction_set_t);
 
         deduction_result_t deduction_result_for_pointee =
             deduce_template_arguments_from_a_type(
@@ -2799,7 +2801,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
         template_parameter_list_t* explicit_template_argument_list,
         type_t* orig_parameter,
         type_t* orig_argument,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         int pack_index,
         int pack_length,
@@ -2847,7 +2849,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
             int i, N = braced_list_type_get_num_types(argument);
             for (i = 0; i < N; i++)
             {
-                deduction_set_t* deduction_for_list_item = xcalloc(1, sizeof(*deduction_for_list_item));
+                deduction_set_t* deduction_for_list_item = NEW0(deduction_set_t);
                 deduction_result_t deduction_result_for_list_item =
                     deduce_template_arguments_from_a_type(
                             // FIXME: this will crash when the type does not have the expected shape
@@ -3009,7 +3011,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
         // If deduction succeeds for more than one member of the overload set, the parameter is treated
         // as a non deduced context
         scope_entry_t* chosen_function = NULL;
-        deduction_set_t* deduction_overload_function = xcalloc(1, sizeof(*deduction_overload_function));
+        deduction_set_t* deduction_overload_function = NEW0(deduction_set_t);
         for (it = entry_list_iterator_begin(overload_set);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
@@ -3032,7 +3034,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                 function_type = get_lvalue_reference_type(function_type);
             }
 
-            deduction_set_t* deduction_trial = xcalloc(1, sizeof(*deduction_trial));
+            deduction_set_t* deduction_trial = NEW0(deduction_set_t);
             deduction_result_t deduction_result_trial =
                 deduce_template_arguments_function_call_single_argument(
                         template_parameters,
@@ -3166,8 +3168,8 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     // template_parameters,
                     deduction_result);
 
-            decl_context_t updated_context = decl_context;
-            updated_context.template_parameters = updated_template_parameters;
+            decl_context_t* updated_context = decl_context_clone(decl_context);
+            updated_context->template_parameters = updated_template_parameters;
 
             diagnostic_context_push_buffered();
             type_t* deduced_argument = update_type_with_pack_index(
@@ -3364,7 +3366,7 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
                     if (is_pointer_type(argument))
                         base_argument = get_pointer_type(base_argument);
 
-                    deduction_set_t* deduction_set_base = xcalloc(1, sizeof(*deduction_set_base));
+                    deduction_set_t* deduction_set_base = NEW0(deduction_set_t);
                     deduction_result_t deduction_result_base =
                         deduce_template_arguments_function_call_single_argument(
                                 template_parameters,
@@ -3440,17 +3442,16 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
 deduction_result_t handle_explicit_template_arguments(
         template_parameter_list_t* template_parameters,
         template_parameter_list_t* raw_explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t** explicit_template_arguments)
 {
     // Copy template parameters but clear the arguments
-    *explicit_template_arguments = xcalloc(1, sizeof(**explicit_template_arguments));
+    *explicit_template_arguments = NEW0(template_parameter_list_t);
     **explicit_template_arguments = *template_parameters;
-    (*explicit_template_arguments)->arguments = xcalloc(1, 
-           sizeof (*((*explicit_template_arguments)->arguments))
-           * ((*explicit_template_arguments)->num_parameters));
+    (*explicit_template_arguments)->arguments = NEW_VEC0(template_parameter_value_t*,
+            ((*explicit_template_arguments)->num_parameters));
 
     if (raw_explicit_template_arguments == NULL)
         return DEDUCTION_OK;
@@ -3460,8 +3461,8 @@ deduction_result_t handle_explicit_template_arguments(
         fprintf(stderr, "TYPEDEDUC: Processing explicit template arguments\n");
     }
 
-    decl_context_t context_for_updating = decl_context;
-    context_for_updating.template_parameters = *explicit_template_arguments;
+    decl_context_t* context_for_updating = decl_context_clone(decl_context);
+    context_for_updating->template_parameters = *explicit_template_arguments;
 
     int current_arg = 0, current_param = 0;
     while (current_arg < raw_explicit_template_arguments->num_parameters)
@@ -3483,7 +3484,7 @@ deduction_result_t handle_explicit_template_arguments(
         // found in the template-parameter list
         if (template_parameter_kind_is_pack(template_parameters->parameters[current_param]->kind))
         {
-            template_parameter_value_t* new_template_argument = xcalloc(1, sizeof(*new_template_argument));
+            template_parameter_value_t* new_template_argument = NEW0(template_parameter_value_t);
             new_template_argument->kind = template_parameter_kind_get_base_kind(
                     template_parameters->parameters[current_param]->kind);
             new_template_argument->type = get_sequence_of_types(0, NULL);
@@ -3583,7 +3584,7 @@ deduction_result_t handle_explicit_template_arguments(
                 return DEDUCTION_FAILURE;
             }
 
-            template_parameter_value_t* new_template_argument = xcalloc(1, sizeof(*new_template_argument));
+            template_parameter_value_t* new_template_argument = NEW0(template_parameter_value_t);
             new_template_argument->kind = template_parameters->parameters[current_param]->kind;
             new_template_argument->type = raw_explicit_template_arguments->arguments[current_arg]->type;
             if (new_template_argument->kind == TPK_NONTYPE)
@@ -3639,7 +3640,7 @@ deduction_result_t handle_explicit_template_arguments(
 deduction_result_t finish_deduced_template_arguments(
         template_parameter_list_t* type_template_parameters,
         deduction_set_t* deduction_result,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         /* inout */ template_parameter_list_t* deduced_template_arguments)
 {
@@ -3702,7 +3703,7 @@ deduction_result_t finish_deduced_template_arguments(
                         deduced_template_arguments->parameters[i]->entry->symbol_name);
             }
             // We have deduction for it, use that one
-            template_parameter_value_t* value = xcalloc(1, sizeof(*value));
+            template_parameter_value_t* value = NEW0(template_parameter_value_t);
             value->kind = template_parameter_kind_get_base_kind(deduction->kind);
             switch (deduction->kind)
             {
@@ -3819,7 +3820,7 @@ deduction_result_t finish_deduced_template_arguments(
                                 list[j] = nodecl_shallow_copy(explicit_list[j]);
                             }
                         }
-                        xfree(explicit_list);
+                        DELETE(explicit_list);
 
                         for (j = 0; j < deduction->num_deduced_parameters; j++)
                         {
@@ -3896,8 +3897,8 @@ deduction_result_t finish_deduced_template_arguments(
             template_parameter_value_t* default_template_argument
                 = type_template_parameters->arguments[i];
 
-            decl_context_t context_for_updating = decl_context;
-            context_for_updating.template_parameters = deduced_template_arguments;
+            decl_context_t* context_for_updating = decl_context_clone(decl_context);
+            context_for_updating->template_parameters = deduced_template_arguments;
             // Update the default argument
             diagnostic_context_push_buffered();
             template_parameter_value_t* value = update_template_parameter_value(default_template_argument,
@@ -3992,7 +3993,7 @@ deduction_result_t give_explicit_empty_value_to_stray_template_parameter_packs(
             continue;
 
         // """deduce""" an empty sequence for this pack that is not mentioned anywhere in the function
-        deduction_t* new_deduction = xcalloc(1, sizeof(*new_deduction));
+        deduction_t* new_deduction = NEW0(deduction_t);
         switch (current_pack->kind)
         {
             case SK_TEMPLATE_TEMPLATE_PARAMETER_PACK:
@@ -4024,7 +4025,7 @@ deduction_result_t give_explicit_empty_value_to_stray_template_parameter_packs(
                 new_deduction);
     }
 
-    xfree(parameter_packs);
+    DELETE(parameter_packs);
     return DEDUCTION_OK;
 }
 
@@ -4037,7 +4038,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         deduction_set_t* deduction_result,
@@ -4126,7 +4127,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
 
 
                     deduction_set_t *deduction_single_parameter
-                        = xcalloc(1, sizeof(*deduction_single_parameter));
+                        = NEW0(deduction_set_t);
 
                     deduction_result_t deduction_result_of_simple_parameter =
                         deduce_template_arguments_function_call_single_argument(
@@ -4191,7 +4192,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
             }
 
             deduction_set_t *deduction_single_parameter
-                = xcalloc(1, sizeof(*deduction_single_parameter));
+                = NEW0(deduction_set_t);
 
             deduction_result_t deduction_result_of_simple_parameter =
                 deduce_template_arguments_function_call_single_argument(
@@ -4254,7 +4255,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
                 &parameter_packs,
                 &num_parameter_packs);
 
-        deduction_set_t* deduction_empty_packs = xcalloc(1, sizeof(*deduction_empty_packs));
+        deduction_set_t* deduction_empty_packs = NEW0(deduction_set_t);
         deduction_result_t deduction_result_empty_packs =
             deduce_empty_parameter_packs(
                     parameter_packs,
@@ -4277,7 +4278,7 @@ static deduction_result_t deduce_template_arguments_from_call_function_aux(
             return DEDUCTION_FAILURE;
         }
 
-        xfree(parameter_packs);
+        DELETE(parameter_packs);
         current_arg++;
     }
 
@@ -4331,7 +4332,7 @@ deduction_result_t deduce_template_arguments_from_function_call(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4355,7 +4356,7 @@ deduction_result_t deduce_template_arguments_from_function_call(
         }
     }
 
-    deduction_set_t* deduction_set = xcalloc(1, sizeof(*deduction_set));
+    deduction_set_t* deduction_set = NEW0(deduction_set_t);
 
     deduction_result_t deduction_result = deduce_template_arguments_from_call_function_aux(
             call_argument_types,
@@ -4382,7 +4383,7 @@ deduction_result_t deduce_template_arguments_from_address_of_a_function_template
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4397,7 +4398,7 @@ deduction_result_t deduce_template_arguments_from_address_of_a_function_template
 
     *out_deduced_template_arguments = NULL;
 
-    deduction_set_t* deduction_set = xcalloc(1, sizeof(*deduction_set));
+    deduction_set_t* deduction_set = NEW0(deduction_set_t);
 
     template_parameter_list_t* explicit_template_arguments = NULL;
     deduction_result_t explicit_template_arguments_deduction =
@@ -4460,7 +4461,7 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4500,7 +4501,7 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
         return_type = get_unqualified_type(return_type);
     }
 
-    deduction_set_t* deduction_set = xcalloc(1, sizeof(*deduction_set));
+    deduction_set_t* deduction_set = NEW0(deduction_set_t);
 
     required_type = get_unqualified_type(required_type);
     required_type = no_ref(required_type);
@@ -4560,8 +4561,8 @@ deduction_result_t deduce_template_arguments_for_conversion_function(
     }
 
     // Now update the type
-    decl_context_t updating_context = decl_context;
-    updating_context.template_parameters = deduced_template_arguments;
+    decl_context_t* updating_context = decl_context_clone(decl_context);
+    updating_context->template_parameters = deduced_template_arguments;
 
     diagnostic_context_push_buffered();
     type_t* deduced_required_type = update_type(return_type,
@@ -4601,7 +4602,7 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
         template_parameter_list_t* template_parameters,         // those of the primary
         template_parameter_list_t* type_template_parameters,    // those of the template-type
         template_parameter_list_t* raw_explicit_template_arguments, // explicit by the user
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t **out_deduced_template_arguments)
@@ -4614,7 +4615,7 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
                 print_declarator(function_type_from_declaration));
     }
 
-    deduction_set_t* deduction_set = xcalloc(1, sizeof(*deduction_set));
+    deduction_set_t* deduction_set = NEW0(deduction_set_t);
 
     template_parameter_list_t* explicit_template_arguments = NULL;
     deduction_result_t explicit_template_arguments_deduction =
@@ -4666,8 +4667,8 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
     }
 
     // Now verify the deduction
-    decl_context_t updating_context = decl_context;
-    updating_context.template_parameters = deduced_template_arguments;
+    decl_context_t* updating_context = decl_context_clone(decl_context);
+    updating_context->template_parameters = deduced_template_arguments;
 
     diagnostic_context_push_buffered();
     type_t* deduced_type = update_type(potential_match,
@@ -4690,7 +4691,7 @@ deduction_result_t deduce_template_arguments_from_function_declaration(
 char deduce_arguments_of_auto_initialization(
         type_t* destination_type,
         type_t* initializer_type,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t** deduced_template_arguments,
         char is_braced_array,
         const locus_t* locus)
@@ -4703,7 +4704,7 @@ char deduce_arguments_of_auto_initialization(
                 print_declarator(initializer_type));
     }
     // Fake type template parameter
-    scope_entry_t* fake_template_parameter_symbol = xcalloc(1, sizeof(*fake_template_parameter_symbol));
+    scope_entry_t* fake_template_parameter_symbol = NEW0(scope_entry_t);
     fake_template_parameter_symbol->symbol_name = UNIQUESTR_LITERAL("FakeTypeTemplateParameter");
     fake_template_parameter_symbol->kind = SK_TEMPLATE_TYPE_PARAMETER;
     symbol_entity_specs_set_is_template_parameter(fake_template_parameter_symbol, 1);
@@ -4712,8 +4713,8 @@ char deduce_arguments_of_auto_initialization(
     symbol_entity_specs_set_template_parameter_position(fake_template_parameter_symbol, 0);
 
     // Fake template parameter list
-    template_parameter_list_t *fake_template_parameter_list = xcalloc(1, sizeof(*fake_template_parameter_list));
-    template_parameter_t* fake_template_parameter = xcalloc(1, sizeof(*fake_template_parameter));
+    template_parameter_list_t *fake_template_parameter_list = NEW0(template_parameter_list_t);
+    template_parameter_t* fake_template_parameter = NEW0(template_parameter_t);
     fake_template_parameter->kind = TPK_TYPE;
     fake_template_parameter->entry = fake_template_parameter_symbol;
 
@@ -4743,7 +4744,7 @@ char deduce_arguments_of_auto_initialization(
 
         template_parameter_list_t* fake_template_argument_list = duplicate_template_argument_list(
                 template_type_get_template_parameters(std_initializer_list_template->type_information));
-        template_parameter_value_t* fake_template_argument = xcalloc(1, sizeof(*fake_template_argument));
+        template_parameter_value_t* fake_template_argument = NEW0(template_parameter_value_t);
         fake_template_argument->kind = TPK_TYPE;
         fake_template_argument->type = get_user_defined_type(fake_template_parameter_symbol);
         fake_template_argument_list->arguments[0] = fake_template_argument;

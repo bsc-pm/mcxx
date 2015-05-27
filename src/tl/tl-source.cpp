@@ -388,33 +388,37 @@ namespace TL
         return ss.str();
     }
 
-    static decl_context_t decl_context_identity(decl_context_t d)
+    static const decl_context_t* decl_context_identity(const decl_context_t* d)
     {
         return d;
     }
 
-    static decl_context_t decl_context_namespace(decl_context_t d)
+    static const decl_context_t* decl_context_namespace(const decl_context_t* orig)
     {
-        d.current_scope = d.namespace_scope;
-        d.function_scope = NULL;
-        d.block_scope = NULL;
+        decl_context_t* d = decl_context_clone(orig);
+
+        d->current_scope = d->namespace_scope;
+        d->function_scope = NULL;
+        d->block_scope = NULL;
 
         return d;
     }
 
-    static decl_context_t decl_context_global(decl_context_t d)
+    static const decl_context_t* decl_context_global(const decl_context_t* orig)
     {
-        d.current_scope = d.global_scope;
-        d.namespace_scope = d.global_scope;
-        d.function_scope = NULL;
-        d.block_scope = NULL;
+        decl_context_t* d = decl_context_clone(orig);
+
+        d->current_scope = d->global_scope;
+        d->namespace_scope = d->global_scope;
+        d->function_scope = NULL;
+        d->block_scope = NULL;
 
         return d;
     }
 
-    static decl_context_t decl_context_program_unit(decl_context_t d)
+    static const decl_context_t* decl_context_program_unit(const decl_context_t* d)
     {
-        return d.current_scope->related_entry->decl_context;
+        return d->current_scope->related_entry->decl_context;
     }
 
     void Source::switch_language(source_language_t& lang)
@@ -496,7 +500,7 @@ namespace TL
                     format_source(extended_source).c_str());
         }
 
-        decl_context_t decl_context = decl_context_map_fun(ref_scope.get_scope().get_decl_context());
+        const decl_context_t* decl_context = decl_context_map_fun(ref_scope.get_scope().get_decl_context());
 
         nodecl_t nodecl_output = nodecl_null();
         compute_nodecl(a, decl_context, &nodecl_output);
@@ -673,12 +677,12 @@ namespace TL
         return Nodecl::NodeclBase::null();
     }
 
-    void Source::c_cxx_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+    void Source::c_cxx_check_expression_adapter(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
     {
         ::check_expression(a, decl_context, nodecl_output);
     }
 
-    void Source::fortran_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+    void Source::fortran_check_expression_adapter(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output)
     {
         if (ASTKind(a) == AST_COMMON_NAME)
         {
@@ -776,7 +780,7 @@ namespace TL
         return Nodecl::NodeclBase::null();
     }
 
-    static void compute_nodecl_parse_c_type(AST type_id, decl_context_t decl_context, nodecl_t* nodecl_output)
+    static void compute_nodecl_parse_c_type(AST type_id, const decl_context_t* decl_context, nodecl_t* nodecl_output)
     {
         nodecl_t nodecl_out_type = nodecl_null();
 

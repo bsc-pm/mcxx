@@ -34,16 +34,18 @@
 
 #include "mem.h"
 
-struct string_link
+typedef struct string_link_tag string_link_t;
+
+struct string_link_tag
 {
     unsigned int hash;
     const char *string;
-    struct string_link *next;
+    string_link_t *next;
 };
 
 enum { HASH_LENGTH = 76003 };
 
-static struct string_link *hash_table[HASH_LENGTH];
+static string_link_t *hash_table[HASH_LENGTH];
 static unsigned long long int bytes_used = 0;
 
 unsigned long long int char_trie_used_memory(void)
@@ -69,7 +71,7 @@ const char *uniquestr(const char *string)
 
     unsigned int hash = hash_string(string);
     unsigned int hash_index = hash % (sizeof(hash_table) / sizeof(hash_table[0]));
-    struct string_link *p, *p_prev = 0, *new_link;
+    string_link_t *p, *p_prev = 0, *new_link;
 
     for (p = hash_table[hash_index]; p; p_prev = p, p = p->next)
     {
@@ -86,9 +88,9 @@ const char *uniquestr(const char *string)
         }
     }
 
-    bytes_used += sizeof(struct string_link) + strlen(string) + 1;
+    bytes_used += sizeof(string_link_t) + strlen(string) + 1;
 
-    new_link = xmalloc(sizeof(struct string_link));
+    new_link = NEW(string_link_t);
     new_link->string = xstrdup(string); 
     new_link->hash = hash; 
     new_link->next = hash_table[hash_index];
@@ -106,7 +108,7 @@ void uniquestr_stats(void)
     int i, j;
     for (i = 0; i < HASH_LENGTH; i++)
     {
-        struct string_link *p = hash_table[i];
+        string_link_t *p = hash_table[i];
 
         j = 0;
         while (p != NULL)

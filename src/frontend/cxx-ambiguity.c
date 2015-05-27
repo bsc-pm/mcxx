@@ -46,12 +46,12 @@
 /*
  * This file performs disambiguation. If a symbol table is passed along the
  * tree the disambiguation is context-sensitive otherwise it is entirely
- * context-xfree (i.e. a flaw in our grammar or the standard grammar)
+ * context-DELETE (i.e. a flaw in our grammar or the standard grammar)
  *
  */
 
 // Generic routines
-void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+void solve_ambiguity_generic(AST a, const decl_context_t* decl_context, void *info,
         ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
         ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation,
         ambiguity_fallback_interpretation_fun_t* ambiguity_fallback_interpretation
@@ -175,7 +175,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
     ast_replace_with_ambiguity(a, valid_option);
 }
 
-static char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+static char try_to_solve_ambiguity_generic(AST a, const decl_context_t* decl_context, void *info,
         ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
         ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation
         )
@@ -244,19 +244,19 @@ static int select_node_type(AST a, node_t type);
 static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 
-static char check_declaration_statement(AST a, decl_context_t decl_context, gather_decl_spec_t* gather_info);
-static char check_expression_statement(AST a, decl_context_t decl_context);
+static char check_declaration_statement(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info);
+static char check_expression_statement(AST a, const decl_context_t* decl_context);
 
-static char check_typeless_declarator(AST declarator, decl_context_t decl_context);
+static char check_typeless_declarator(AST declarator, const decl_context_t* decl_context);
 
-static char check_init_declarator(AST init_declarator, decl_context_t decl_context, gather_decl_spec_t* gather_info);
+static char check_init_declarator(AST init_declarator, const decl_context_t* decl_context, gather_decl_spec_t* gather_info);
 
-static char check_function_definition_declarator(AST declarator, decl_context_t decl_context);
+static char check_function_definition_declarator(AST declarator, const decl_context_t* decl_context);
 
-static char check_declarator(AST declarator, decl_context_t decl_context);
-static char check_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context);
+static char check_declarator(AST declarator, const decl_context_t* decl_context);
+static char check_function_declarator_parameters(AST parameter_declaration_clause, const decl_context_t* decl_context);
 
-static char check_simple_or_member_declaration(AST a, decl_context_t decl_context, gather_decl_spec_t* gather_info);
+static char check_simple_or_member_declaration(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info);
 
 #define EXPECT_OPTIONS(a, n) \
 do \
@@ -306,7 +306,7 @@ int either_type(AST t1, AST t2, node_t n1, node_t n2)
  *
  * There is another ambiguity possible concerning the "unsigned ambiguity"
  */
-void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t decl_context)
+void solve_parameter_declaration_vs_type_parameter_class(AST a, const decl_context_t* decl_context)
 {
     EXPECT_OPTIONS(a, 2);
 
@@ -322,7 +322,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
     }
 }
 
-static char check_function_header(AST a, decl_context_t decl_context,
+static char check_function_header(AST a, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER,
         void* p UNUSED_PARAMETER)
 {
@@ -330,7 +330,7 @@ static char check_function_header(AST a, decl_context_t decl_context,
     return check_declarator(declarator, decl_context);
 }
 
-void solve_ambiguous_function_header(AST a, decl_context_t decl_context)
+void solve_ambiguous_function_header(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context, NULL,
             check_function_header,
@@ -338,7 +338,7 @@ void solve_ambiguous_function_header(AST a, decl_context_t decl_context)
             NULL);
 }
 
-static char solve_ambiguous_declaration_check_interpretation(AST declaration, decl_context_t decl_context,
+static char solve_ambiguous_declaration_check_interpretation(AST declaration, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER,
         void* p)
 {
@@ -370,7 +370,7 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
 }
 
 static char simple_declaration_is_elaborated_class_specifier_and_one_declarator_named_class_virtspec(
-        AST a, decl_context_t decl_context)
+        AST a, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(ASTKind(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
     AST decl_specifier_seq = ASTSon0(a);
@@ -435,7 +435,7 @@ static int solve_ambiguous_declaration_choose_interpretation(
         AST previous,
         int current_idx UNUSED_PARAMETER,
         int previous_idx UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         void* info UNUSED_PARAMETER)
 {
     if (simple_declaration_is_class_specifier_without_declarators(current)
@@ -453,7 +453,7 @@ static int solve_ambiguous_declaration_choose_interpretation(
     return 0;
 }
 
-void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
+void solve_ambiguous_declaration(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context,
             NULL,
@@ -464,7 +464,7 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 
 static char solve_ambiguous_member_declaration_check_interpretation(
         AST declaration,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         int option,
         void* p)
 {
@@ -475,7 +475,7 @@ static char solve_ambiguous_member_declaration_check_interpretation(
             p);
 }
 
-void solve_ambiguous_member_declaration(AST a, decl_context_t decl_context)
+void solve_ambiguous_member_declaration(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context,
             NULL,
@@ -485,7 +485,7 @@ void solve_ambiguous_member_declaration(AST a, decl_context_t decl_context)
 }
 
 // Checks for old-styled functions
-static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_context)
+static char check_kr_parameter_list(AST parameters_kr, const decl_context_t* decl_context)
 {
     if (!IS_C_LANGUAGE)
     {
@@ -527,7 +527,7 @@ static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_conte
 /*
  * Ambiguity within a declarator.
  */
-void solve_ambiguous_declarator(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+void solve_ambiguous_declarator(AST a, const decl_context_t* decl_context UNUSED_PARAMETER)
 {
     CXX_LANGUAGE()
     {
@@ -553,7 +553,7 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context UNUSED_PARAME
     internal_error("Don't know how to handle this ambiguity", 0);
 }
 
-static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t decl_context,
+static char solve_ambiguous_statement_check_interpretation(AST a, const decl_context_t* decl_context,
         int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current_check = 0;
@@ -601,7 +601,7 @@ static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t
 
 static int solve_ambiguous_statement_choose_interpretation(AST current_interpretation, AST previous_interpretation, 
         int current_idx UNUSED_PARAMETER, int previous_idx UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         void * p UNUSED_PARAMETER)
 {
     // Prioritize the AST_DECLARATION_STATEMENT
@@ -613,14 +613,14 @@ static int solve_ambiguous_statement_choose_interpretation(AST current_interpret
 }
 
 #if 0
-static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER,
+static char solve_ambiguous_statement_fallback(AST a, const decl_context_t* decl_context UNUSED_PARAMETER,
         int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     return (ASTKind(a) == AST_EXPRESSION_STATEMENT);
 }
 #endif
 
-void solve_ambiguous_statement(AST a, decl_context_t decl_context)
+void solve_ambiguous_statement(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context, NULL,
             solve_ambiguous_statement_check_interpretation, 
@@ -629,7 +629,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 }
 
 static char check_simple_type_spec(AST type_spec, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         type_t** computed_type,
         char allow_class_templates)
 {
@@ -701,9 +701,9 @@ static char check_simple_type_spec(AST type_spec,
     return ok;
 }
 
-static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, char allow_class_templates);
+static char check_type_specifier_aux(AST type_id, const decl_context_t* decl_context, char allow_class_templates);
 
-static char solve_ambiguity_type_specifier_check_interpretation(AST a, decl_context_t decl_context,
+static char solve_ambiguity_type_specifier_check_interpretation(AST a, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER,
         void *p)
 {
@@ -711,7 +711,7 @@ static char solve_ambiguity_type_specifier_check_interpretation(AST a, decl_cont
     return check_type_specifier_aux(a, decl_context, *allow_class_templates);
 }
 
-static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, char allow_class_templates)
+static char check_type_specifier_aux(AST type_id, const decl_context_t* decl_context, char allow_class_templates)
 {
     C_LANGUAGE()
     {
@@ -777,19 +777,19 @@ static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, c
     }
 }
 
-static char check_type_specifier(AST type_id, decl_context_t decl_context)
+static char check_type_specifier(AST type_id, const decl_context_t* decl_context)
 {
     return check_type_specifier_aux(type_id, decl_context, /* allow_class_templates */ 0);
 }
 
-static char check_type_specifier_or_class_template_name(AST type_id, decl_context_t decl_context)
+static char check_type_specifier_or_class_template_name(AST type_id, const decl_context_t* decl_context)
 {
     return check_type_specifier_aux(type_id, decl_context, /* allow_class_templates */ 1);
 }
 
-static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context, gather_decl_spec_t* gather_info);
+static char try_to_solve_ambiguous_init_declarator(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info);
 
-static char solve_typeless_init_declarator_check_interpretation(AST opt_declarator, decl_context_t decl_context,
+static char solve_typeless_init_declarator_check_interpretation(AST opt_declarator, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER,
         void* p UNUSED_PARAMETER)
 {
@@ -798,7 +798,7 @@ static char solve_typeless_init_declarator_check_interpretation(AST opt_declarat
     return check_typeless_declarator(declarator, decl_context);
 }
 
-static char check_simple_or_member_declaration(AST a, decl_context_t decl_context, gather_decl_spec_t* gather_info)
+static char check_simple_or_member_declaration(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info)
 {
     AST decl_specifier_seq = ASTSon0(a);
 
@@ -1032,7 +1032,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
     return 1;
 }
 
-static char solve_ambiguous_declaration_statement_check_interpretation(AST a, decl_context_t decl_context,
+static char solve_ambiguous_declaration_statement_check_interpretation(AST a, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     switch (ASTKind(a))
@@ -1049,7 +1049,7 @@ static char solve_ambiguous_declaration_statement_check_interpretation(AST a, de
 }
 
 static char check_declaration_statement(AST declaration_statement,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         gather_decl_spec_t* gather_info)
 {
     AST a = ASTSon0(declaration_statement);
@@ -1070,7 +1070,7 @@ static char check_declaration_statement(AST declaration_statement,
     return 1;
 }
 
-static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_context, int nfuncs)
+static char check_typeless_declarator_rec(AST declarator, const decl_context_t* decl_context, int nfuncs)
 {
     switch (ASTKind(declarator))
     {
@@ -1171,7 +1171,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                 const char* class_name = ASTText(id_expression);
 
                 // We want a class scope
-                if (decl_context.current_scope->kind != CLASS_SCOPE)
+                if (decl_context->current_scope->kind != CLASS_SCOPE)
                 {
                     return 0;
                 }
@@ -1211,7 +1211,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
             }
         case AST_CONVERSION_FUNCTION_ID :
             // That's fine only at class-scope
-            return decl_context.current_scope->kind == CLASS_SCOPE;
+            return decl_context->current_scope->kind == CLASS_SCOPE;
         default :
             // Do nothing for any other things
             break;
@@ -1220,12 +1220,12 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
     return 0;
 }
 
-static char check_typeless_declarator(AST declarator, decl_context_t decl_context)
+static char check_typeless_declarator(AST declarator, const decl_context_t* decl_context)
 {
     return check_typeless_declarator_rec(declarator, decl_context, 0);
 }
 
-static char check_expression_statement(AST a, decl_context_t decl_context)
+static char check_expression_statement(AST a, const decl_context_t* decl_context)
 {
     AST expression = ASTSon0(a);
 
@@ -1235,7 +1235,7 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
     return result;
 }
 
-char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context,
+char solve_ambiguous_list_of_expressions(AST ambiguous_list, const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(ASTKind(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
@@ -1310,7 +1310,7 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
     }
 }
 
-char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_context_t decl_context,
+char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, const decl_context_t* decl_context,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(ASTKind(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
@@ -1385,7 +1385,7 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
     }
 }
 
-static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context,
+static char solve_ambiguous_nested_part_check_interpretation(AST a, const decl_context_t* decl_context,
         int position UNUSED_PARAMETER, void* info UNUSED_PARAMETER)
 {
     ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "invalid kind\n", 0);
@@ -1394,7 +1394,7 @@ static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context
     return !nodecl_is_err_expr(nodecl_nested_part);
 }
 
-void solve_ambiguous_nested_part(AST a, decl_context_t decl_context)
+void solve_ambiguous_nested_part(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context, /* info */ NULL,
             solve_ambiguous_nested_part_check_interpretation,
@@ -1403,7 +1403,7 @@ void solve_ambiguous_nested_part(AST a, decl_context_t decl_context)
 }
 
 static char solve_ambiguous_init_declarator_check_interpretation(AST a,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         int option UNUSED_PARAMETER,
         void* info)
 {
@@ -1415,7 +1415,7 @@ static int solve_ambiguous_init_declarator_choose_interpretation(
         AST previous_interpretation,
         int current_idx UNUSED_PARAMETER,
         int previous_idx UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         void *p UNUSED_PARAMETER)
 {
     AST previous_choice_declarator = ASTSon0(previous_interpretation);
@@ -1429,7 +1429,7 @@ static int solve_ambiguous_init_declarator_choose_interpretation(
             AST_DECLARATOR_ID_EXPR);
 }
 
-void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context,
+void solve_ambiguous_init_declarator(AST a, const decl_context_t* decl_context,
         gather_decl_spec_t *gather_info)
 {
     solve_ambiguity_generic(a, decl_context, /* info */ gather_info,
@@ -1439,7 +1439,7 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context,
 }
 
 // Like solve_ambiguous_init_declarator but does not fail
-static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context, gather_decl_spec_t* gather_info)
+static char try_to_solve_ambiguous_init_declarator(AST a, const decl_context_t* decl_context, gather_decl_spec_t* gather_info)
 {
     int correct_choice = -1;
     int i;
@@ -1524,7 +1524,7 @@ static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_co
 }
 
 static char check_init_declarator(AST init_declarator,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         gather_decl_spec_t* gather_info)
 {
     AST declarator = ASTSon0(init_declarator);
@@ -1537,7 +1537,7 @@ static char check_init_declarator(AST init_declarator,
 
     if (initializer != NULL)
     {
-        decl_context_t initializer_context = decl_context;
+        const decl_context_t* initializer_context = decl_context;
 
         AST declarator_name = get_declarator_name(declarator, decl_context);
 
@@ -1552,7 +1552,7 @@ static char check_init_declarator(AST init_declarator,
 
             decl_flags_t decl_flags = DF_NONE;
 
-            if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+            if (BITMAP_TEST(decl_context->decl_flags, DF_CONSTRUCTOR))
             {
                 decl_flags |= DF_CONSTRUCTOR;
             }
@@ -1598,7 +1598,7 @@ static char check_init_declarator(AST init_declarator,
     return result;
 }
 
-static char check_declarator_rec(AST declarator, decl_context_t decl_context, char enclosing_is_array, char enclosing_is_function)
+static char check_declarator_rec(AST declarator, const decl_context_t* decl_context, char enclosing_is_array, char enclosing_is_function)
 {
     if (declarator == NULL)
         return 1;
@@ -1671,22 +1671,22 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
     return 0;
 }
 
-static char check_declarator(AST declarator, decl_context_t decl_context)
+static char check_declarator(AST declarator, const decl_context_t* decl_context)
 {
     return check_declarator_rec(declarator, decl_context, /* enclosing_is_array */ 0, /* enclosing_is_function */ 0);
 }
 
-static char is_abstract_declarator(AST a, decl_context_t decl_context)
+static char is_abstract_declarator(AST a, const decl_context_t* decl_context)
 {
     return get_declarator_id_expression(a, decl_context) == NULL;
 }
 
-static char is_non_abstract_declarator(AST a, decl_context_t decl_context)
+static char is_non_abstract_declarator(AST a, const decl_context_t* decl_context)
 {
     return !is_abstract_declarator(a, decl_context);
 }
 
-static char solve_ambiguous_function_declarator_parameter_check_intepretation(AST a, decl_context_t decl_context,
+static char solve_ambiguous_function_declarator_parameter_check_intepretation(AST a, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER, void* p UNUSED_PARAMETER)
 {
     AST decl_specifier_seq = ASTSon0(a);
@@ -1710,7 +1710,7 @@ static int solve_ambiguous_function_declarator_parameter_choose_intepretation(
         AST previous_interpretation,
         int current_idx UNUSED_PARAMETER,
         int previous_idx UNUSED_PARAMETER,
-        decl_context_t decl_context, void* p UNUSED_PARAMETER)
+        const decl_context_t* decl_context, void* p UNUSED_PARAMETER)
 {
     if (ASTSon1(current_interpretation) != NULL
             && is_abstract_declarator(ASTSon1(current_interpretation), decl_context)
@@ -1744,7 +1744,7 @@ static int solve_ambiguous_function_declarator_parameter_choose_intepretation(
     }
 }
 
-static char check_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context)
+static char check_function_declarator_parameters(AST parameter_declaration_clause, const decl_context_t* decl_context)
 {
     AST list = parameter_declaration_clause;
     AST iter;
@@ -1812,7 +1812,7 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 }
 
 static char solve_ambiguous_parameter_declaration_check_interpretation(AST parameter_decl, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         int position UNUSED_PARAMETER,
         void* p UNUSED_PARAMETER)
 {
@@ -1857,7 +1857,7 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
         AST previous_interpretation, 
         int current_idx UNUSED_PARAMETER,
         int previous_idx UNUSED_PARAMETER,
-        decl_context_t decl_context, void *p UNUSED_PARAMETER)
+        const decl_context_t* decl_context, void *p UNUSED_PARAMETER)
 {
     AST previous_parameter_decl = previous_interpretation;
     AST current_parameter_decl = current_interpretation;
@@ -1920,7 +1920,7 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
     return 0;
 }
 
-void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context)
+void solve_ambiguous_parameter_decl(AST parameter_declaration, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(parameter_declaration, decl_context, NULL,
             solve_ambiguous_parameter_declaration_check_interpretation,
@@ -1928,7 +1928,7 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
             NULL);
 }
 
-static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init_statement, decl_context_t decl_context,
+static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init_statement, const decl_context_t* decl_context,
         int option UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current = 0;
@@ -1959,14 +1959,14 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
 }
 
 #if 0
-static char solve_ambiguous_for_init_statement_fallback(AST a, decl_context_t decl_context,
+static char solve_ambiguous_for_init_statement_fallback(AST a, const decl_context_t* decl_context,
         int position, void *p)
 {
     return solve_ambiguous_statement_fallback(a, decl_context, position, p);
 }
 #endif
 
-void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
+void solve_ambiguous_for_init_statement(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context, NULL,
             solve_ambiguous_for_init_statement_check_interpretation,
@@ -1974,7 +1974,7 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
             /* solve_ambiguous_for_init_statement_fallback */ NULL);
 }
 
-static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifier, decl_context_t decl_context,
+static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifier, const decl_context_t* decl_context,
         int position UNUSED_PARAMETER, void* p UNUSED_PARAMETER)
 {
     char current_typeof = 0;
@@ -1995,7 +1995,7 @@ static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifi
     return current_typeof;
 }
 
-void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
+void solve_ambiguous_type_specifier(AST ambig_type, const decl_context_t* decl_context)
 {
     // The unique ambiguity that should happen here is the one below
     //
@@ -2082,14 +2082,14 @@ static AST look_for_node_type_within_ambig(AST a, node_t type, int n)
     return result;
 }
 
-void solve_ambiguous_exception_decl(AST exception_decl, decl_context_t decl_context)
+void solve_ambiguous_exception_decl(AST exception_decl, const decl_context_t* decl_context)
 {
     // They share the same layout
     solve_ambiguous_parameter_decl(exception_decl, decl_context);
 }
 
 
-char check_type_id_tree(AST type_id, decl_context_t decl_context)
+char check_type_id_tree(AST type_id, const decl_context_t* decl_context)
 {
     AST type_specifier_seq = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
@@ -2102,7 +2102,7 @@ char check_type_id_tree(AST type_id, decl_context_t decl_context)
                 || (check_declarator(abstract_declarator, decl_context)));
 }
 
-char check_type_id_tree_or_class_template_name(AST type_id, decl_context_t decl_context)
+char check_type_id_tree_or_class_template_name(AST type_id, const decl_context_t* decl_context)
 {
     AST type_specifier_seq = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
@@ -2121,7 +2121,7 @@ struct nodecl_expr_ambiguities_tag
     nodecl_t* nodecls;
 };
 
-static char solve_ambiguous_expression_check_intepretation(AST ambig_expression, decl_context_t decl_context,
+static char solve_ambiguous_expression_check_intepretation(AST ambig_expression, const decl_context_t* decl_context,
         int position, void* p)
 {
     struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
@@ -2141,7 +2141,7 @@ static int solve_ambiguous_expression_choose_interpretation(
         AST previous_choice, 
         int current_idx,
         int previous_idx,
-        decl_context_t decl_context UNUSED_PARAMETER, 
+        const decl_context_t* decl_context UNUSED_PARAMETER, 
         void* p)
 {
     struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
@@ -2239,7 +2239,7 @@ static int solve_ambiguous_expression_choose_interpretation(
 
 #if 0
 static char solve_ambiguous_expression_fallback(AST current_interpretation,
-        decl_context_t decl_context UNUSED_PARAMETER, int position, void *p)
+        const decl_context_t* decl_context UNUSED_PARAMETER, int position, void *p)
 {
     struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
     // Prioritize function calls
@@ -2252,7 +2252,7 @@ static char solve_ambiguous_expression_fallback(AST current_interpretation,
 }
 #endif
 
-void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+void solve_ambiguous_expression(AST ambig_expression, const decl_context_t* decl_context, nodecl_t* nodecl_output)
 {
     int n = ast_get_num_ambiguities(ambig_expression);
 
@@ -2279,7 +2279,7 @@ void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     *nodecl_output = nodecl_expr_ambiguities.nodecls[nodecl_expr_ambiguities.chosen];
 }
 
-static char check_function_definition_declarator(AST declarator, decl_context_t decl_context)
+static char check_function_definition_declarator(AST declarator, const decl_context_t* decl_context)
 {
     return check_declarator(declarator, decl_context);
 }
@@ -2297,7 +2297,7 @@ static AST get_expression_of_condition(AST current_condition)
     }
 }
 
-static char solve_ambiguous_condition_interpretation(AST current_condition, decl_context_t decl_context,
+static char solve_ambiguous_condition_interpretation(AST current_condition, const decl_context_t* decl_context,
         int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current_check = 0;
@@ -2333,7 +2333,7 @@ static int solve_ambiguous_condition_choose_interpretation(AST current_condition
         AST previous_condition,
         int current_idx,
         int previous_idx,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         void *p UNUSED_PARAMETER)
 {
     return solve_ambiguous_expression_choose_interpretation(
@@ -2344,7 +2344,7 @@ static int solve_ambiguous_condition_choose_interpretation(AST current_condition
             decl_context, NULL);
 }
 
-void solve_ambiguous_condition(AST a, decl_context_t decl_context)
+void solve_ambiguous_condition(AST a, const decl_context_t* decl_context)
 {
     solve_ambiguity_generic(a, decl_context, NULL,
                 solve_ambiguous_condition_interpretation,
@@ -2353,7 +2353,7 @@ void solve_ambiguous_condition(AST a, decl_context_t decl_context)
 }
 
 // Look for a template parameter pack
-static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
+static char contains_template_parameter_pack(AST a, const decl_context_t* decl_context)
 {
     if (a == NULL)
         return 0;
@@ -2404,7 +2404,7 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
 
 static char solve_ambiguous_parameter_clause_check_interpretation(
         AST parameter_clause UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         int position UNUSED_PARAMETER,
         void *info UNUSED_PARAMETER)
 {
@@ -2451,7 +2451,7 @@ static char solve_ambiguous_parameter_clause_check_interpretation(
     return result;
 }
 
-void solve_ambiguous_parameter_clause(AST parameter_clause, decl_context_t decl_context)
+void solve_ambiguous_parameter_clause(AST parameter_clause, const decl_context_t* decl_context)
 {
     // Ambiguity at this level arises in C++ because of this
     //

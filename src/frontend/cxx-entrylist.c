@@ -49,13 +49,12 @@ struct scope_entry_list_tag
 
 static scope_entry_list_node_t* entry_list_node_allocate(void)
 {
-    return xcalloc(1, sizeof(scope_entry_list_node_t));
+    return NEW0(scope_entry_list_node_t);
 }
 
 static scope_entry_list_t* entry_list_allocate(void)
 {
-    scope_entry_list_t* new_entry_list =
-        xcalloc(1, sizeof(scope_entry_list_t));
+    scope_entry_list_t* new_entry_list = NEW0(scope_entry_list_t);
 
     new_entry_list->next = entry_list_node_allocate();
 
@@ -317,7 +316,7 @@ scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list)
     if (list == NULL)
         return NULL;
 
-    scope_entry_list_t* result = xcalloc(1, sizeof(*result));
+    scope_entry_list_t* result = NEW0(scope_entry_list_t);
 
     result->num_items_list = list->num_items_list;
     scope_entry_list_node_t* it = list->next;
@@ -325,7 +324,7 @@ scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list)
 
     while (it != NULL)
     {
-        *current = xcalloc(1, sizeof(**current));
+        *current = NEW0(scope_entry_list_node_t);
         int i;
         for (i = 0; i < NUM_IMMEDIATE; i++)
         {
@@ -344,7 +343,7 @@ static void entry_list_node_free(scope_entry_list_node_t* list)
 
     entry_list_node_free(list->next);
     memset(list, 0, sizeof(*list));
-    xfree(list);
+    DELETE(list);
 }
 
 void entry_list_free(scope_entry_list_t* list)
@@ -354,7 +353,7 @@ void entry_list_free(scope_entry_list_t* list)
 
     entry_list_node_free(list->next);
     memset(list, 0, sizeof(*list));
-    xfree(list);
+    DELETE(list);
 }
 
 // -
@@ -384,7 +383,7 @@ struct scope_entry_list_iterator_tag
 
 static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
 {
-    return xcalloc(1, sizeof(scope_entry_list_iterator_t));
+    return NEW0(scope_entry_list_iterator_t);
 }
 
 scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list)
@@ -425,7 +424,7 @@ void entry_list_iterator_free(scope_entry_list_iterator_t* it)
     if (it != NULL)
     {
         memset(it, 0, sizeof(*it));
-        xfree(it);
+        DELETE(it);
     }
 }
 
@@ -446,7 +445,7 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
         const scope_entry_list_t* list2)
 {
     int size1 = (list1 != NULL ? entry_list_size(list1) : 0);
-    scope_entry_t** elems1 = xcalloc(size1 + 1, sizeof(*elems1));
+    scope_entry_t** elems1 = NEW_VEC0(scope_entry_t*, size1 + 1);
     scope_entry_t** p = elems1;
 
     scope_entry_list_iterator_t* it = NULL;
@@ -461,7 +460,7 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
     entry_list_iterator_free(it);
 
     int size2 = (list2 != NULL ? entry_list_size(list2) : 0);
-    scope_entry_t** elems2 = xcalloc(size2 + 1, sizeof(*elems2));
+    scope_entry_t** elems2 = NEW_VEC0(scope_entry_t*, size2 + 1);
 
     scope_entry_t** q = elems2;
 
@@ -525,8 +524,8 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
         q++;
     }
 
-    xfree(elems2);
-    xfree(elems1);
+    DELETE(elems2);
+    DELETE(elems1);
 
     return result;
 }
@@ -605,7 +604,7 @@ scope_entry_list_t* entry_list_remove(scope_entry_list_t* entry_list, scope_entr
 void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array, int* num_items)
 {
     int size = entry_list_size(list);
-    *array = xcalloc(size, sizeof(scope_entry_t*));
+    *array = NEW_VEC0(scope_entry_t*, size);
 
     *num_items = 0;
     scope_entry_list_iterator_t* it = NULL;

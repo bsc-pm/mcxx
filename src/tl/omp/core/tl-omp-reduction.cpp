@@ -300,12 +300,12 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    static decl_context_t decl_context_map_id(decl_context_t d)
+    static const decl_context_t* decl_context_map_id(const decl_context_t* d)
     {
         return d;
     }
 
-    static void check_omp_initializer(AST a, decl_context_t decl_context,
+    static void check_omp_initializer(AST a, const decl_context_t* decl_context,
             nodecl_t* nodecl_output, bool& is_init_declarator)
     {
         // Due to some syntactic infelicities in the initializer clause we have to manually check
@@ -399,7 +399,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    static void compute_nodecl_udr(AST tree, decl_context_t decl_context, nodecl_t* nodecl_output)
+    static void compute_nodecl_udr(AST tree, const decl_context_t* decl_context, nodecl_t* nodecl_output)
     {
         AST omp_dr_reduction_id = ASTSon0(tree);
         AST omp_dr_typename_list = ASTSon1(tree);
@@ -676,12 +676,12 @@ namespace TL { namespace OpenMP {
         // Create a fake function so the block scope behaves like others
         scope_entry_t* omp_udr_function = ::new_symbol(
                 sc.get_decl_context(), 
-                sc.get_decl_context().current_scope,
+                sc.get_decl_context()->current_scope,
                 UNIQUESTR_LITERAL(".omp_udr_function"));
         omp_udr_function->kind = SK_FUNCTION;
         omp_udr_function->related_decl_context = sc.get_decl_context();
 
-        _expr_scope.get_decl_context().current_scope->related_entry = omp_udr_function;
+        _expr_scope.get_decl_context()->current_scope->related_entry = omp_udr_function;
 
         // Sign in omp_{in,out,priv,orig}
         typedef std::pair<std::string, TL::Symbol Reduction::*> pair_t;
@@ -697,7 +697,7 @@ namespace TL { namespace OpenMP {
         {
             scope_entry_t* omp_sym = ::new_symbol(
                     _expr_scope.get_decl_context(), 
-                    _expr_scope.get_decl_context().current_scope,
+                    _expr_scope.get_decl_context()->current_scope,
                     uniquestr(it->first.c_str()));
 
             omp_sym->kind = SK_VARIABLE;
@@ -767,14 +767,14 @@ namespace TL { namespace OpenMP {
         t = get_canonical_type_for_reduction(t);
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
         scope_entry_list_t* entry_list = query_in_scope_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {
             new_red = new Reduction(sc, name, t);
 
-            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(internal_name.c_str()));
+            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(internal_name.c_str()));
             new_red_sym->kind = SK_OTHER;
 
             OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
@@ -804,7 +804,7 @@ namespace TL { namespace OpenMP {
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
-                if (current->decl_context.current_scope->kind == CLASS_SCOPE)
+                if (current->decl_context->current_scope->kind == CLASS_SCOPE)
                     return true;
             }
         }
@@ -862,7 +862,7 @@ namespace TL { namespace OpenMP {
 
         ObjectList<Reduction*> result;
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         scope_entry_list_t* entry_list = NULL;
 
@@ -966,7 +966,7 @@ namespace TL { namespace OpenMP {
         t = get_canonical_type_for_reduction(t);
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
         scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 

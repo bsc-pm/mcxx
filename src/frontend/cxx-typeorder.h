@@ -41,7 +41,7 @@ LIBMCXX_EXTERN char is_more_specialized_template_function(
         scope_entry_t* template_1,
         scope_entry_t* template_2,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // flags
         char is_overload, int num_actual_arguments,
@@ -54,12 +54,12 @@ LIBMCXX_EXTERN char is_more_specialized_template_function(
 
 LIBMCXX_EXTERN char is_more_specialized_template_class(
         type_t* c1, type_t* c2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 LIBMCXX_EXTERN char class_template_specialization_matches(
         type_t* c1, type_t* c2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus,
         // out
         template_parameter_list_t** deduced_template_arguments);
@@ -67,7 +67,7 @@ LIBMCXX_EXTERN char class_template_specialization_matches(
 LIBMCXX_EXTERN char is_more_specialized_template_function_in_overload(
         scope_entry_t* f1,
         scope_entry_t* f2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t* explicit_template_arguments,
         const locus_t* locus,
         // Flags
@@ -77,7 +77,7 @@ LIBMCXX_EXTERN char is_more_specialized_template_function_in_overload(
 LIBMCXX_EXTERN char is_more_specialized_template_function_in_function_address(
         scope_entry_t* f1,
         scope_entry_t* f2,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         template_parameter_list_t* explicit_template_arguments,
         const locus_t* locus,
         // Flags

@@ -76,7 +76,7 @@ namespace Analysis {
             // Create the scope where the C lib functions will be registered
             Symbol sym(Scope::get_global_scope().new_symbol("__CLIB_USAGE__"));
             sym.get_internal_symbol()->kind = SK_NAMESPACE;
-            decl_context_t ctx = new_namespace_context(Scope::get_global_scope().get_decl_context(), sym.get_internal_symbol());
+            const decl_context_t* ctx = new_namespace_context(Scope::get_global_scope().get_decl_context(), sym.get_internal_symbol());
             sym.get_internal_symbol()->related_decl_context = ctx;
             _c_lib_sc = Scope(ctx);
 

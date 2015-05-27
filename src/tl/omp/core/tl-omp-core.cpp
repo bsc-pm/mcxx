@@ -777,7 +777,7 @@ namespace TL
                     bool filter_symbol(TL::Symbol sym)
                     {
                         return (sym.is_variable()
-                                && sym.get_scope().get_decl_context().current_scope == _sc
+                                && sym.get_scope().get_decl_context()->current_scope == _sc
                                 && !sym.is_fortran_parameter()
                                 && !_result.contains(sym));
                     }
@@ -837,7 +837,7 @@ namespace TL
 
                 SymbolsUsedInNestedFunctions(Symbol current_function,
                         SavedExpressions& saved_expressions)
-                    : _scope(current_function.get_related_scope().get_decl_context().current_scope),
+                    : _scope(current_function.get_related_scope().get_decl_context()->current_scope),
                       _symbols_of_scope_visitor(_scope, symbols), _visited_function(),
                       _saved_expressions(saved_expressions),
                       symbols()

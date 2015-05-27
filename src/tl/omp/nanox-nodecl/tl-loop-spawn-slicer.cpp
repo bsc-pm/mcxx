@@ -189,7 +189,7 @@ namespace TL { namespace Nanox {
         // See tl-lower-for.cpp
         slicer_descriptor.get_internal_symbol()->decl_context =
             fill_outline_arguments_tree.retrieve_context().get_decl_context();
-        ::insert_entry(fill_outline_arguments_tree.retrieve_context().get_decl_context().current_scope,
+        ::insert_entry(fill_outline_arguments_tree.retrieve_context().get_decl_context()->current_scope,
                 slicer_descriptor.get_internal_symbol());
 
         Source fill_slicer_descriptor_src, extra_cxx_declarations;

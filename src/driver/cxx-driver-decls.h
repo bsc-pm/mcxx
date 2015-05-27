@@ -116,7 +116,7 @@ typedef struct translation_unit_tag
 
     struct AST_tag* parsed_tree;
     nodecl_t nodecl;
-    decl_context_t global_decl_context;
+    const decl_context_t* global_decl_context;
 
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
@@ -338,7 +338,7 @@ typedef struct parameter_linker_command_tag
 } parameter_linker_command_t;
 
 
-typedef const char* (*print_vector_type_fun)(decl_context_t, type_t*, print_symbol_callback_t, void*);
+typedef const char* (*print_vector_type_fun)(const decl_context_t*, type_t*, print_symbol_callback_t, void*);
 
 typedef struct compilation_configuration_tag
 {

@@ -175,10 +175,10 @@ namespace Utils
             const TL::Symbol& tl_symbol) 
     {
         scope_t* enclosing_scope = enclosing_node.retrieve_context().
-            get_decl_context().current_scope;
+            get_decl_context()->current_scope;
  
         scope_t* symbol_scope = tl_symbol.get_scope().
-            get_decl_context().current_scope;
+            get_decl_context()->current_scope;
         
         if (symbol_scope == NULL)
             return false;

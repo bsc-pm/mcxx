@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_CFLAGS="--variable=enable_input_by_value_dependences:1 --variable=enable_nonvoid_function_tasks:1"
 </testinfo>
 */
 #include<assert.h>
@@ -46,7 +47,7 @@ int* task_producer(int n)
 }
 
 
-#pragma omp task in(buf, [n]buf)
+#pragma omp task in(buf)
 void task_consumer(int n, int buf[n])
 {
     for (int i = 0; i < n; ++i)

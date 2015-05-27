@@ -1456,7 +1456,7 @@ namespace TL
         }
 
         // The returned pointer came from C code, so 'free' it
-        xfree((void*)c);
+        DELETE((void*)c);
 
         return result;
     }

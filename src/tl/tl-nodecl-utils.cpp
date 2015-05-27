@@ -813,15 +813,15 @@ namespace Nodecl
         TL::Symbol result;
         TL::Scope sc = n.retrieve_context();
 
-        decl_context_t decl_context = sc.get_decl_context();
+        const decl_context_t* decl_context = sc.get_decl_context();
 
-        if (decl_context.block_scope != NULL)
+        if (decl_context->block_scope != NULL)
         {
-            result = decl_context.block_scope->related_entry;
+            result = decl_context->block_scope->related_entry;
         }
-        else if (decl_context.function_scope != NULL)
+        else if (decl_context->function_scope != NULL)
         {
-            result = decl_context.function_scope->related_entry;
+            result = decl_context->function_scope->related_entry;
         }
 
         return result;
@@ -1423,8 +1423,8 @@ namespace Nodecl
 
             std::string register_name, symbol_name;
 
-            decl_context_t decl_context = _sc.get_decl_context();
-            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+            const decl_context_t* decl_context = _sc.get_decl_context();
+            const decl_context_t* program_unit_context = decl_context->current_scope->related_entry->related_decl_context;
 
             if (IS_FORTRAN_LANGUAGE
                     && is_numeric_label)
@@ -1495,12 +1495,12 @@ namespace Nodecl
             if (IS_FORTRAN_LANGUAGE)
             {
                 // Labels in Fortran live in the program unit context
-                new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope,
+                new_label = ::new_symbol(program_unit_context, program_unit_context->current_scope,
                         uniquestr(register_name.c_str()));
             }
             else
             {
-                new_label = ::new_symbol(decl_context, decl_context.function_scope, uniquestr(register_name.c_str()));
+                new_label = ::new_symbol(decl_context, decl_context->function_scope, uniquestr(register_name.c_str()));
             }
             new_label->symbol_name = uniquestr(symbol_name.c_str());
             new_label->kind = SK_LABEL;

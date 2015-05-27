@@ -26,13 +26,18 @@ MODULE M
 
             CALL SMP_TASK(V, N)
             !$OMP TASKWAIT
-            IF (ANY(V /= 3)) STOP -1
+            IF (ANY(V /= 3) .and. ANY(V /= 2)) THEN
+                PRINT *, V
+                STOP -1
+            END IF
 
             ! As we are using 'implements', we don't know what version will be used
             CALL SMP2_TASK(V, N)
             !$OMP TASKWAIT
-            IF (ANY(V /= 3) .and. ANY(V /= 2)) STOP -2
-
+            IF (ANY(V /= 2)) THEN
+                PRINT *, V
+                STOP -2
+            END IF
 
         END SUBROUTINE S
 

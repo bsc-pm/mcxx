@@ -93,7 +93,7 @@ namespace TL
 
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            xfree((void*)c);
+            DELETE((void*)c);
         return result;
     }
 
@@ -110,7 +110,7 @@ namespace TL
         const char* c = prettyprint_in_buffer(this->_ast);
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            xfree((void*)c);
+            DELETE((void*)c);
         return result;
     }
 
@@ -1128,7 +1128,7 @@ namespace TL
                 auxiliar_handler_prettprint, const_cast<Functor<callback_result, AST_t>*>(&functor));
 
         std::string result(c);
-        xfree((void*)c);
+        DELETE((void*)c);
         return result;
     } 
 

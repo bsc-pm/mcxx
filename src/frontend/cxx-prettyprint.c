@@ -2687,7 +2687,7 @@ extern const char* prettyprint_in_buffer_common(AST a,
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
 
-    result = xmalloc(bytes_file * sizeof(char));
+    result = NEW_VEC(char, bytes_file);
     fread(result, bytes_file, sizeof(char), temporal_file);
     fclose(temporal_file);
 #endif
@@ -2700,7 +2700,7 @@ extern const char* prettyprint_in_buffer_common(AST a,
     }
 
     const char* unique_result = uniquestr(result);
-    xfree(result);
+    DELETE(result);
 
     return unique_result;
 }
@@ -2709,7 +2709,7 @@ extern int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
 {
     int result;
     int size = 512;
-    char* c = xmalloc(size * sizeof(char));
+    char* c = NEW_VEC(char, size);
     va_list va;
 
     va_copy(va, args);
@@ -2720,7 +2720,7 @@ extern int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
     {
         va_copy(va, args);
         size *= 2;
-        c = xrealloc(c, size * sizeof(char));
+        c = NEW_REALLOC(char, c, size);
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }
@@ -2743,7 +2743,7 @@ extern int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
         }
     }
 
-    xfree(c);
+    DELETE(c);
 
     return result;
 }

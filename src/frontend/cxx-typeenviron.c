@@ -767,8 +767,7 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
     // Cases: previous_offset == NULL means we are at the beginning
     // current_offset == NULL means we are the largest offset
 
-    offset_info_t* new_offset_info = xcalloc(1, 
-            sizeof(*new_offset_info));
+    offset_info_t* new_offset_info = NEW0(offset_info_t);
     new_offset_info->offset = offset;
 
     scope_entry_list_t* new_entry_list = entry_list_new(entry);

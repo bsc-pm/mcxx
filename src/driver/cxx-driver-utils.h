@@ -61,7 +61,7 @@ typedef struct
     const char* name;
     char is_dir;
     char is_temporary;
-}* temporal_file_t;
+} temporal_file_value_t, *temporal_file_t;
 
 // Gives you a new temporal file that will be removed when
 // finishing the program

@@ -32,93 +32,86 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef
-enum _mcxx_ref_colour_tag
+enum mcxx_ref_colour_tag
 {
     _MCXX_BLACK  = 0, // In use or free
     _MCXX_GRAY   = 1, // Possible member of cycle
     _MCXX_WHITE  = 2, // Member of garbage cycle
     _MCXX_PURPLE = 3, // Possible root of cycle
-} _mcxx_ref_colour_t;
+} mcxx_ref_colour_t;
 
-typedef void (*_mcxx_children_fun)(void *, void (*)(void*));
+typedef void (*mcxx_walk_fun_t)(void *, void (*)(void*));
+typedef void (*mcxx_internal_dealloc_fun_t)(void *);
 
-
-// We can keep up to 536,870,912 (2^29) references per object which should be enough
-// for almost every application. This way MCXX_REFCOUNT_OBJECT payload is just 8 bytes
-// in 32-bit and 12 in 64-bit
+typedef
+struct mcxx_refcount_descriptor_tag
+{
+    mcxx_internal_dealloc_fun_t dealloc;
+    mcxx_walk_fun_t walk;
+} mcxx_refcount_descriptor_t;
 
 #define MCXX_REFCOUNT_OBJECT \
-    _mcxx_children_fun _mcxx_children; \
-    int _mcxx_refcount:29; \
-    char _mcxx_buffered:1; \
-    _mcxx_ref_colour_t _mcxx_colour:2 \
+    mcxx_refcount_descriptor_t *desc;\
+    int count; \
+    bool buffered:1; \
+    mcxx_ref_colour_t colour:2 \
+
+// #define ALIGN_REFCOUNT_OBJECT __attribute__((aligned(16))) 
 
 typedef
-struct _mcxx_base_refcount_tag
+struct mcxx_base_refcount_tag
 {
     MCXX_REFCOUNT_OBJECT;
-} *_p_mcxx_base_refcount_t, _mcxx_base_refcount_t;
+} mcxx_base_refcount_t, *p_mcxx_base_refcount_t;
 
-#define LIBUTILS_EXTERN
+#define LIBUTILS_EXTERN extern
 
-LIBUTILS_EXTERN void *_mcxx_calloc(size_t nmemb, size_t size);
+LIBUTILS_EXTERN void mcxx_increment(void *p);
+LIBUTILS_EXTERN void mcxx_decrement(void *p);
 
-LIBUTILS_EXTERN void _mcxx_increment(void *p);
-LIBUTILS_EXTERN void _mcxx_decrement(void *p);
+LIBUTILS_EXTERN void mcxx_collectcycles(void);
 
-LIBUTILS_EXTERN void _mcxx_collectcycles(void);
-LIBUTILS_EXTERN _mcxx_children_fun *_mcxx_children(void *p);
+// helper macros (do not use)
+#define DESCRIPTOR_NAME(base_type) base_type##_descriptor_var
 
-#define MCXX_CHILDREN(x) (*_mcxx_children(x))
+#define REFCOUNTED_TYPE(base_type) ref_counted_##base_type
 
-#define MCXX_REF(x) ({ _mcxx_increment(x); x; })
-#define MCXX_UNREF(x) _mcxx_decrement(x)
+#define REF_CALLOC_ADAPTER(x) xcalloc(1, x)
 
-#define MCXX_NEW(_type_name) \
-    ({ void* p = _mcxx_calloc(1, sizeof(_type_name)); \
-      ((_p_mcxx_base_refcount_t)p)->_mcxx_children = _type_name##_children; \
-     _mcxx_increment(p); \
-     (_type_name*)p; })
+#define REF_NEW_GENERIC(t, alloc_fun) ({ \
+        REFCOUNTED_TYPE(t) *p = alloc_fun(sizeof(*p)); \
+        p->ref_count_.buffered = 0; \
+        p->ref_count_.count = 0; \
+        p->ref_count_.desc = &DESCRIPTOR_NAME(t); \
+        mcxx_increment(&p->data); \
+        &(p->data); \
+        })
 
-// Sets 'x' to point 'y'
-#define MCXX_UPDATE_TO(x, y) \
-    do { \
-        if ((x) != NULL) \
-        { \
-            MCXX_UNREF(x); \
-        } \
-        (x) = MCXX_REF(y); \
-    } while (0)
+// Put this in headers
+#define DECLARE_REFCOUNTED_TYPE(base_type) \
+    extern mcxx_refcount_descriptor_t DESCRIPTOR_NAME(base_type); \
+    \
+    typedef struct { \
+        mcxx_base_refcount_t ref_count_; \
+        base_type data; \
+    } REFCOUNTED_TYPE(base_type)
 
-// Fixed arrays
+// Put this in the implementation file
+#define DEFINE_REFCOUNTED_TYPE(base_type, dealloc, walk_fun) \
+    mcxx_refcount_descriptor_t DESCRIPTOR_NAME(base_type) = { (mcxx_internal_dealloc_fun_t)dealloc, (mcxx_walk_fun_t)walk_fun }
 
-typedef
-struct mcxx_refcount_array_tag
-{
-    MCXX_REFCOUNT_OBJECT;
-    unsigned int num_items;
-    void *data[];
-} mcxx_refcount_array_t;
+// Create a new ref counted object
+#define REF_NEW(t) REF_NEW_GENERIC(t, xmalloc)
+#define REF_NEW0(t) REF_NEW_GENERIC(t, REF_CALLOC_ADAPTER)
 
-void mcxx_refcount_array_t_children(void*, void(*)(void*));
+// Increase/decrease the reference and return the passed pointer value
+#define REF(p) ({ __typeof__((p)) q = (p); mcxx_increment(q); q; })
+#define UNREF(p) ({ __typeof__((p)) q = (p); mcxx_decrement(q); q; })
 
-#define MCXX_NEW_VEC(_type_name, _num_items) \
-    ({ mcxx_refcount_array_t* p = calloc(1, sizeof(mcxx_refcount_array_t) + (_num_items * sizeof(void*))); \
-      ((_p_mcxx_base_refcount_t)p)->_mcxx_children = mcxx_refcount_array_t_children; \
-     _mcxx_increment(p); \
-     fprintf(stderr, "NEW -> %p\n", p); \
-       p->num_items = _num_items; \
-       int _; \
-       for (_ = 0; _ < p->num_items; _++) \
-       { p->data[_] = MCXX_NEW(_type_name); } \
-       (_type_name**)(p->data); })
-
-#define MCXX_UNREF_VEC(x) \
-      ({ void * p = ((char*)x) - offsetof(mcxx_refcount_array_t, data); \
-     fprintf(stderr, "DELETE -> %p\n", p); \
-       MCXX_UNREF(p); })
-
+// Convenience macro that simplifies setting refcounted pointers
+#define REF_SET(a, b) ({ void *tmp = (a); (a) = REF(b); UNREF(tmp); (a); })
 
 #endif // MCXX_REFCOUNT_H

@@ -62,7 +62,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
-        decl_context_t class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
+        const decl_context_t* class_context = new_class_context(sc.get_decl_context(), new_class_symbol.get_internal_symbol());
         TL::Scope class_scope(class_context);
 
         class_type_set_inner_context(new_class_type, class_context);

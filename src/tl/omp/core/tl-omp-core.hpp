@@ -246,6 +246,12 @@ namespace TL
                 bool _ompss_mode;
                 bool _copy_deps_by_default;
                 bool _untied_tasks_by_default;
+
+                // This variable is used to enable the experimental support of input by value dependences
+                bool _enable_input_by_value_dependences;
+
+                // This variable is used to enable the experimental support of nonvoid function tasks
+                bool _enable_nonvoid_function_tasks;
             public:
                 Core();
 
@@ -267,6 +273,10 @@ namespace TL
                 void set_allow_shared_without_copies(bool b) { _allow_shared_without_copies = b; }
 
                 void set_allow_array_reductions(bool b) { _allow_array_reductions = b; }
+
+                void set_enable_input_by_value_dependences(bool b) { _enable_input_by_value_dependences = b; }
+
+                void set_enable_nonvoid_function_tasks(bool b) { _enable_nonvoid_function_tasks = b; }
 
                 void set_ompss_mode(bool b) { _ompss_mode = b; }
                 bool in_ompss_mode() const

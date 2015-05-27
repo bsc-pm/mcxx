@@ -35,7 +35,7 @@ namespace SymbolUtils
 {
     TL::Symbol new_function_symbol_for_deep_copy(TL::Symbol source, std::string name)
     {
-        decl_context_t decl_context = source.get_scope().get_decl_context();
+        const decl_context_t* decl_context = source.get_scope().get_decl_context();
 
         TL::Symbol dest = TL::Scope(decl_context).new_symbol(name);
         dest.get_internal_symbol()->kind = SK_FUNCTION;
@@ -82,17 +82,17 @@ namespace SymbolUtils
             current_function = current_function.get_scope().get_related_symbol();
         }
 
-        decl_context_t decl_context = current_function.get_scope().get_decl_context();
+        decl_context_t* decl_context = decl_context_clone(current_function.get_scope().get_decl_context());
 
-        if (decl_context.template_parameters != NULL
-                && decl_context.template_parameters->is_explicit_specialization)
+        if (decl_context->template_parameters != NULL
+                && decl_context->template_parameters->is_explicit_specialization)
         {
-            decl_context.template_parameters = decl_context.template_parameters->enclosing;
+            decl_context->template_parameters = decl_context->template_parameters->enclosing;
         }
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-        decl_context_t function_context;
+        const decl_context_t* function_context;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);
@@ -114,7 +114,7 @@ namespace SymbolUtils
                 it != parameter_names.end();
                 it++, it_ptypes++, type_it++)
         {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
+            scope_entry_t* param = new_symbol(function_context, function_context->current_scope, uniquestr(it->c_str()));
             symbol_entity_specs_set_is_user_declared(param, 1);
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
@@ -147,7 +147,7 @@ namespace SymbolUtils
         if (!current_function.get_type().is_template_specialized_type()
                 || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
+            new_function_sym = new_symbol(decl_context, decl_context->current_scope, uniquestr(name.c_str()));
             symbol_entity_specs_set_is_user_declared(new_function_sym, 1);
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
@@ -156,12 +156,12 @@ namespace SymbolUtils
         else
         {
             scope_entry_t* new_template_sym = new_symbol(
-                    decl_context, decl_context.current_scope, uniquestr(name.c_str()));
+                    decl_context, decl_context->current_scope, uniquestr(name.c_str()));
             new_template_sym->kind = SK_TEMPLATE;
             new_template_sym->locus = make_locus("", 0, 0);
 
             new_template_sym->type_information = get_new_template_type(
-                    decl_context.template_parameters,
+                    decl_context->template_parameters,
                     function_type,
                     uniquestr(name.c_str()),
                     decl_context, make_locus("", 0, 0));
@@ -180,8 +180,8 @@ namespace SymbolUtils
                         new_template_sym->type_information));
         }
 
-        function_context.function_scope->related_entry = new_function_sym;
-        function_context.block_scope->related_entry = new_function_sym;
+        function_context->function_scope->related_entry = new_function_sym;
+        function_context->block_scope->related_entry = new_function_sym;
 
         new_function_sym->related_decl_context = function_context;
 
@@ -193,7 +193,7 @@ namespace SymbolUtils
                     /* parameter nesting */ 0,
                     /* parameter position */ i);
         }
-        xfree(parameter_list); parameter_list = NULL;
+        DELETE(parameter_list); parameter_list = NULL;
 
         // Make it static
         symbol_entity_specs_set_is_static(new_function_sym, 1);
@@ -235,7 +235,7 @@ namespace SymbolUtils
             {
                 result_name = new_function_sym->symbol_name;
             }
-            scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, uniquestr(result_name));
+            scope_entry_t* result_sym = new_symbol(function_context, function_context->current_scope, uniquestr(result_name));
             result_sym->kind = SK_VARIABLE;
             result_sym->type_information = function_type_get_return_type(new_function_sym->type_information);
             symbol_entity_specs_set_is_result_var(result_sym, 1);
@@ -255,15 +255,15 @@ namespace SymbolUtils
             TL::ObjectList<std::string> parameter_names,
             TL::ObjectList<TL::Type> parameter_types)
     {
-        decl_context_t decl_context = sc.get_decl_context();
+        decl_context_t* decl_context = decl_context_clone(sc.get_decl_context());
 
-        if (decl_context.template_parameters != NULL
-                && decl_context.template_parameters->is_explicit_specialization)
+        if (decl_context->template_parameters != NULL
+                && decl_context->template_parameters->is_explicit_specialization)
         {
-            decl_context.template_parameters = decl_context.template_parameters->enclosing;
+            decl_context->template_parameters = decl_context->template_parameters->enclosing;
         }
 
-        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
+        scope_entry_t* entry = new_symbol(decl_context, decl_context->current_scope, uniquestr(name.c_str()));
         symbol_entity_specs_set_is_user_declared(entry, 1);
 
         entry->kind = SK_FUNCTION;
@@ -271,7 +271,7 @@ namespace SymbolUtils
 
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
-        decl_context_t function_context ;
+        const decl_context_t* function_context ;
         if (IS_FORTRAN_LANGUAGE)
         {
             function_context = new_program_unit_context(decl_context);
@@ -281,8 +281,8 @@ namespace SymbolUtils
             function_context = new_function_context(decl_context);
             function_context = new_block_context(function_context);
         }
-        function_context.function_scope->related_entry = entry;
-        function_context.block_scope->related_entry = entry;
+        function_context->function_scope->related_entry = entry;
+        function_context->block_scope->related_entry = entry;
 
         entry->related_decl_context = function_context;
 
@@ -294,7 +294,7 @@ namespace SymbolUtils
                 it != parameter_names.end();
                 it++, it_ptypes++, type_it++)
         {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
+            scope_entry_t* param = new_symbol(function_context, function_context->current_scope, uniquestr(it->c_str()));
             symbol_entity_specs_set_is_user_declared(param, 1);
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
@@ -322,7 +322,8 @@ namespace SymbolUtils
         if (has_return)
         {
             // Return symbol
-            scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, uniquestr(return_symbol_name.c_str()));
+            scope_entry_t* return_sym =
+                new_symbol(function_context, function_context->current_scope, uniquestr(return_symbol_name.c_str()));
             symbol_entity_specs_set_is_user_declared(return_sym, 1);
             return_sym->kind = SK_VARIABLE;
             return_sym->locus = make_locus("", 0, 0);

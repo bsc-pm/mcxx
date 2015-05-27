@@ -158,7 +158,7 @@ namespace TL { namespace Nanox {
 
                 // We need this to avoid the original symbol be replaced
                 // incorrectly
-                scope_entry_t* shared_symbol_proxy = (scope_entry_t*)xcalloc(1, sizeof(*shared_symbol_proxy));
+                scope_entry_t* shared_symbol_proxy = NEW0(scope_entry_t);
                 shared_symbol_proxy->symbol_name = UNIQUESTR_LITERAL("<<reduction-variable>>"); // Crude way to ensure it is replaced
                 shared_symbol_proxy->kind = shared_symbol->kind;
                 symbol_entity_specs_copy_from(shared_symbol_proxy, shared_symbol);

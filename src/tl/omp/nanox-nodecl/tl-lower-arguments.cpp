@@ -192,7 +192,7 @@ namespace TL { namespace Nanox {
 
         symbol_entity_specs_set_is_user_declared(new_class_symbol.get_internal_symbol(), 1);
 
-        decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
+        const decl_context_t* class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
                 new_class_symbol.get_internal_symbol());
 
         TL::Scope class_scope(class_context);

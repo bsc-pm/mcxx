@@ -220,8 +220,8 @@ namespace TL
 
             static SourceLanguage source_language;
 
-            typedef void (*compute_nodecl_fun_t)(AST, decl_context_t, nodecl_t*);
-            typedef decl_context_t (*decl_context_map_fun_t)(decl_context_t);
+            typedef void (*compute_nodecl_fun_t)(AST, const decl_context_t*, nodecl_t*);
+            typedef const decl_context_t* (*decl_context_map_fun_t)(const decl_context_t*);
 
         private:
             chunk_list_ref_t _chunk_list;
@@ -389,8 +389,8 @@ namespace TL
             Source& operator=(const Source& src);
 
             // Adapters for expressions
-            static void c_cxx_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
-            static void fortran_check_expression_adapter(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+            static void c_cxx_check_expression_adapter(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+            static void fortran_check_expression_adapter(AST a, const decl_context_t* decl_context, nodecl_t* nodecl_output);
     };
 
     //! Creates an inner comment in the code

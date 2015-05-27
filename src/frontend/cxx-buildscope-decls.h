@@ -49,7 +49,7 @@ struct arguments_info_tag
 {
     scope_entry_t* entry;
     nodecl_t argument;
-    decl_context_t context;
+    const decl_context_t* context;
 } arguments_info_t;
 
 typedef 

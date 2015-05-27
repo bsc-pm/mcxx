@@ -36,15 +36,8 @@
 // See below for public interface of uniqstr
 // -- Private implementation of uniqstr
 //
-static unsigned long long int _bytes_used_char_trie = 0;
 
-unsigned long long int char_trie_used_memory(void)
-{
-    return _bytes_used_char_trie;
-}
-
-typedef 
-struct char_trie_tag char_trie_t;
+typedef struct char_trie_tag char_trie_t;
 
 typedef struct char_trie_element_tag
 {
@@ -150,8 +143,9 @@ static char_trie_element_t *lookup_element(const char_trie_t* char_trie, unsigne
 static const char* create_elements(char_trie_t* char_trie, const char* orig_str, const char* str, int length)
 {
     char_trie->num_elements++;
-    char_trie->elements = xrealloc(char_trie->elements, 
-            char_trie->num_elements * sizeof(*(char_trie->elements)));
+    char_trie->elements = NEW_REALLOC(char_trie_element_t,
+            char_trie->elements, 
+            char_trie->num_elements);
 
     // Locate place where the element would go
     int lower = 0;
@@ -205,7 +199,7 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
     else
     {
         char_trie->elements[lower].elem = *str;
-        char_trie->elements[lower].next = xcalloc(1, sizeof(char_trie_t));
+        char_trie->elements[lower].next = NEW0(char_trie_t);
         _bytes_used_char_trie += sizeof(char_trie_t);
 
         const char* result =

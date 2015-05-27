@@ -198,7 +198,7 @@ struct class_info_tag {
     type_t* enclosing_class_type;
 
     // The inner decl context created by this class
-    decl_context_t inner_decl_context;
+    const decl_context_t* inner_decl_context;
 
     // All members must be here
     scope_entry_list_t* members;
@@ -296,12 +296,12 @@ struct simple_type_tag {
     // related to them
     // (kind == STK_ENUM)
     // (kind == STK_CLASS)
-    decl_context_t type_decl_context;
+    const decl_context_t* type_decl_context;
 
     // For typeof and template dependent types
     // (kind == STK_TYPEOF)
     nodecl_t typeof_expr;
-    decl_context_t typeof_decl_context;
+    const decl_context_t* typeof_decl_context;
 
     // This is a STK_INDIRECT
     type_t* primary_specialization;
@@ -385,7 +385,7 @@ struct array_region_tag
     nodecl_t stride;
     
     // Scope of the array region expressions
-    decl_context_t region_decl_context;
+    const decl_context_t* region_decl_context;
 } array_region_t;
 
 // Array information
@@ -404,7 +404,7 @@ struct array_tag
     nodecl_t upper_bound;
 
     // Scope of the array size expressions
-    decl_context_t array_expr_decl_context;
+    const decl_context_t* array_expr_decl_context;
 
     // The type of the array elements
     type_t* element_type;
@@ -553,7 +553,7 @@ struct type_tag
 
 static common_type_info_t* new_common_type_info(void)
 {
-    common_type_info_t* result = xcalloc(1, sizeof(*result));
+    common_type_info_t* result = NEW0(common_type_info_t);
     return result;
 }
 
@@ -562,10 +562,10 @@ static common_type_info_t* copy_common_type_info(common_type_info_t* t)
     common_type_info_t* result = new_common_type_info();
     *result = *t;
 
-    result->gcc_attributes = xcalloc(result->num_gcc_attributes, sizeof(*result->gcc_attributes));
+    result->gcc_attributes = NEW_VEC(gcc_attribute_t, result->num_gcc_attributes);
     memcpy(result->gcc_attributes, t->gcc_attributes, result->num_gcc_attributes * sizeof(*result->gcc_attributes));
 
-    result->ms_attributes = xcalloc(result->num_ms_attributes, sizeof(*result->ms_attributes));
+    result->ms_attributes = NEW_VEC(gcc_attribute_t, result->num_ms_attributes);
     memcpy(result->ms_attributes, t->ms_attributes, result->num_ms_attributes * sizeof(*result->ms_attributes));
 
     return result;
@@ -573,7 +573,7 @@ static common_type_info_t* copy_common_type_info(common_type_info_t* t)
 
 static type_t* copy_type_for_class_alias(type_t* t)
 {
-    type_t* result = xcalloc(1, sizeof(*result));
+    type_t* result = NEW0(type_t);
     *result = *t;
 
     result->_advanced_type = NULL;
@@ -588,7 +588,7 @@ static type_t* copy_type_for_variant(type_t* t)
     ERROR_CONDITION(t->cv_qualifier != CV_NONE,
             "Invalid type to copy for variant: it must be unqualified", 0);
 
-    type_t* result = xcalloc(1, sizeof(*result));
+    type_t* result = NEW0(type_t);
     *result = *t;
 
     result->unqualified_type = result;
@@ -615,7 +615,7 @@ extern inline type_t* variant_type_get_nonvariant(type_t* t)
 
 static type_t* new_empty_type_without_info(void)
 {
-    type_t* result = xcalloc(1, sizeof(*result));
+    type_t* result = NEW0(type_t);
     return result;
 }
 
@@ -661,7 +661,7 @@ static type_t* get_simple_type(void)
 {
     type_t* result = new_empty_type();
     result->kind = TK_DIRECT;
-    result->type = xcalloc(1, sizeof(*result->type));
+    result->type = NEW0(simple_type_t);
     result->unqualified_type = result;
     return result;
 }
@@ -1192,7 +1192,7 @@ extern inline type_t* get_void_type(void)
     return _type;
 }
 
-extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context,
+extern inline type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, const decl_context_t* decl_context,
         char is_decltype)
 {
     type_t* type = get_simple_type();
@@ -1225,7 +1225,7 @@ extern inline nodecl_t typeof_expr_type_get_expression(type_t* t)
     return t->type->typeof_expr;
 }
 
-extern inline decl_context_t typeof_expr_type_get_expression_context(type_t* t)
+extern inline const decl_context_t* typeof_expr_type_get_expression_context(type_t* t)
 {
     ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
 
@@ -1446,14 +1446,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
     {
         if (nodecl_get_kind(list1[i]) < nodecl_get_kind(list2[i]))
         {
-            xfree(list1);
-            xfree(list2);
+            DELETE(list1);
+            DELETE(list2);
             return -1;
         }
         else if (nodecl_get_kind(list1[i]) > nodecl_get_kind(list2[i]))
         {
-            xfree(list1);
-            xfree(list2);
+            DELETE(list1);
+            DELETE(list2);
             return 1;
         }
         else
@@ -1465,14 +1465,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                         int cmp = strcmp(nodecl_get_text(list1[i]), nodecl_get_text(list2[i]));
                         if (cmp < 0)
                         {
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             return -1;
                         }
                         else if (cmp > 0)
                         {
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             return 1;
                         }
 
@@ -1483,14 +1483,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                         int cmp = strcmp(nodecl_get_text(list1[i]), nodecl_get_text(list2[i]));
                         if (cmp < 0)
                         {
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             return -1;
                         }
                         else if (cmp > 0)
                         {
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             return 1;
                         }
 
@@ -1505,14 +1505,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                         {
                             if (tpl1->num_parameters < tpl2->num_parameters)
                             {
-                                xfree(list1);
-                                xfree(list2);
+                                DELETE(list1);
+                                DELETE(list2);
                                 return -1;
                             }
                             else if (tpl1->num_parameters > tpl2->num_parameters)
                             {
-                                xfree(list1);
-                                xfree(list2);
+                                DELETE(list1);
+                                DELETE(list2);
                                 return 1;
                             }
 
@@ -1521,14 +1521,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                             {
                                 if (tpl1->arguments[k] < tpl2->arguments[k])
                                 {
-                                    xfree(list1);
-                                    xfree(list2);
+                                    DELETE(list1);
+                                    DELETE(list2);
                                     return -1;
                                 }
                                 else if (tpl1->arguments[k] > tpl2->arguments[k])
                                 {
-                                    xfree(list1);
-                                    xfree(list2);
+                                    DELETE(list1);
+                                    DELETE(list2);
                                     return 1;
                                 }
                             }
@@ -1543,14 +1543,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
 
                         if (nodecl_get_kind(name1) < nodecl_get_kind(name2))
                         {
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             return -1;
                         }
                         else if (nodecl_get_kind(name1) > nodecl_get_kind(name2))
                         {
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             return 1;
                         }
 
@@ -1561,14 +1561,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                                     cmp = strcmp(nodecl_get_text(name1), nodecl_get_text(name2));
                                     if (cmp < 0)
                                     {
-                                        xfree(list1);
-                                        xfree(list2);
+                                        DELETE(list1);
+                                        DELETE(list2);
                                         return -1;
                                     }
                                     else if (cmp > 0)
                                     {
-                                        xfree(list1);
-                                        xfree(list2);
+                                        DELETE(list1);
+                                        DELETE(list2);
                                         return 1;
                                     }
                                 }
@@ -1588,14 +1588,14 @@ static int compare_dependent_parts(const void *v1, const void *v2)
                         {
                             if (conversion1 < conversion2)
                             {
-                                xfree(list1);
-                                xfree(list2);
+                                DELETE(list1);
+                                DELETE(list2);
                                 return -1;
                             }
                             else if (conversion1 > conversion2)
                             {
-                                xfree(list1);
-                                xfree(list2);
+                                DELETE(list1);
+                                DELETE(list2);
                                 return 1;
                             }
                             // We know they were different, we should not reach here!
@@ -1610,8 +1610,8 @@ static int compare_dependent_parts(const void *v1, const void *v2)
         }
     }
 
-    xfree(list1);
-    xfree(list2);
+    DELETE(list1);
+    DELETE(list2);
 
     return 0;
 }
@@ -1773,11 +1773,11 @@ extern inline void dependent_typename_get_components(type_t* t,
     *dependent_parts = t->type->dependent_parts;
 }
 
-extern inline type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
+extern inline type_t* get_new_enum_type(const decl_context_t* decl_context, char is_scoped)
 {
     type_t* type_info = get_simple_type();
 
-    type_info->type->enum_info = (enum_info_t*) xcalloc(1, sizeof(*type_info->type->enum_info));
+    type_info->type->enum_info = NEW0(enum_info_t);
     type_info->type->kind = STK_ENUM;
     type_info->type->type_decl_context = decl_context;
 
@@ -1789,11 +1789,11 @@ extern inline type_t* get_new_enum_type(decl_context_t decl_context, char is_sco
     return type_info;
 }
 
-extern inline type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind)
+extern inline type_t* get_new_class_type(const decl_context_t* decl_context, enum type_tag_t class_kind)
 {
     type_t* type_info = get_simple_type();
 
-    type_info->type->class_info = xcalloc(1, sizeof(*type_info->type->class_info));
+    type_info->type->class_info = NEW0(class_info_t);
     type_info->type->class_info->class_kind = class_kind;
     type_info->type->kind = STK_CLASS;
     type_info->type->type_decl_context = decl_context;
@@ -1906,7 +1906,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     for (i = 0; i < template_parameter_list->num_parameters; i++)
     {
         template_parameter_t* param = result->parameters[i];
-        template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
+        template_parameter_value_t* new_value = NEW0(template_parameter_value_t);
 
         switch (param->kind)
         {
@@ -1982,14 +1982,14 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
 }
 
 extern inline type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* aliased_type,
-        const char* template_name, decl_context_t decl_context, const locus_t* locus)
+        const char* template_name, const decl_context_t* decl_context, const locus_t* locus)
 {
     type_t* type_info = get_simple_type();
     type_info->type->kind = STK_TEMPLATE_TYPE;
     type_info->template_parameters = template_parameter_list;
 
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = xcalloc(1, sizeof(*primary_symbol));
+    primary_symbol = NEW0(scope_entry_t);
     primary_symbol->symbol_name = template_name;
     primary_symbol->kind = SK_TEMPLATE_ALIAS;
 
@@ -2048,7 +2048,7 @@ static type_t* _get_duplicated_function_type(type_t* function_type);
 static type_t* _get_duplicated_class_type(type_t* function_type);
 
 extern inline type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, const locus_t* locus)
+        const char* template_name, const decl_context_t* decl_context, const locus_t* locus)
 {
     // Simplify nontype template-arguments
     template_parameter_list = duplicate_template_argument_list(template_parameter_list);
@@ -2060,7 +2060,7 @@ extern inline type_t* get_new_template_type(template_parameter_list_t* template_
 
     // Primary "specialization"
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = xcalloc(1, sizeof(*primary_symbol));
+    primary_symbol = NEW0(scope_entry_t);
     primary_symbol->symbol_name = template_name;
     if (is_unnamed_class_type(primary_type))
     {
@@ -2126,8 +2126,8 @@ extern inline void free_temporary_template_type(type_t* t)
 
     if (primary_specialization->type_information->kind == TK_FUNCTION)
     {
-        xfree(primary_specialization->type_information->function->parameter_list);
-        xfree(primary_specialization->type_information->function);
+        DELETE(primary_specialization->type_information->function->parameter_list);
+        DELETE(primary_specialization->type_information->function);
     }
     else if (primary_specialization->type_information->kind == TK_DIRECT
             && primary_specialization->type_information->type->kind == STK_CLASS)
@@ -2141,19 +2141,19 @@ extern inline void free_temporary_template_type(type_t* t)
 
 
     free_template_parameter_list(primary_specialization->type_information->template_arguments);
-    xfree(primary_specialization->type_information->info);
-    xfree(primary_specialization->type_information);
-    xfree(primary_specialization);
+    DELETE(primary_specialization->type_information->info);
+    DELETE(primary_specialization->type_information);
+    DELETE(primary_specialization);
 
     free_template_parameter_list(t->template_parameters);
 
-    xfree(primary_specialization_type->info);
-    xfree(primary_specialization_type->type);
-    xfree(primary_specialization_type);
+    DELETE(primary_specialization_type->info);
+    DELETE(primary_specialization_type->type);
+    DELETE(primary_specialization_type);
 
-    xfree(t->info);
-    xfree(t->type);
-    xfree(t);
+    DELETE(t->info);
+    DELETE(t->type);
+    DELETE(t);
 }
 
 extern inline void set_as_template_specialized_type(type_t* type_to_specialize, 
@@ -2340,7 +2340,7 @@ extern inline char has_dependent_template_parameters(template_parameter_list_t* 
                             if (nodecl_expr_is_value_dependent(list[i]))
                                 return 1;
                         }
-                        xfree(list);
+                        DELETE(list);
                     }
                     break;
                 }
@@ -2502,7 +2502,7 @@ static int compare_identical_template_argument_list_of_named_types(
 
 static type_t* template_type_get_identical_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        const decl_context_t* decl_context UNUSED_PARAMETER)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
@@ -2955,14 +2955,14 @@ static int template_arg_value_type_equivalent_compare_aux(type_t* t1, type_t* t2
 
                             if (num_items1 < num_items2)
                             {
-                                xfree(list1);
-                                xfree(list2);
+                                DELETE(list1);
+                                DELETE(list2);
                                 return -1;
                             }
                             else if (num_items1 > num_items2)
                             {
-                                xfree(list1);
-                                xfree(list2);
+                                DELETE(list1);
+                                DELETE(list2);
                                 return 1;
                             }
 
@@ -2974,14 +2974,14 @@ static int template_arg_value_type_equivalent_compare_aux(type_t* t1, type_t* t2
 
                                 if (nodecl_get_kind(item1) < nodecl_get_kind(item2))
                                 {
-                                    xfree(list1);
-                                    xfree(list2);
+                                    DELETE(list1);
+                                    DELETE(list2);
                                     return -1;
                                 }
                                 else if (nodecl_get_kind(item1) > nodecl_get_kind(item2))
                                 {
-                                    xfree(list1);
-                                    xfree(list2);
+                                    DELETE(list1);
+                                    DELETE(list2);
                                     return 1;
                                 }
 
@@ -3010,8 +3010,8 @@ static int template_arg_value_type_equivalent_compare_aux(type_t* t1, type_t* t2
                                 int cmp = strcmp(name_1, name_2);
                                 if (cmp != 0)
                                 {
-                                    xfree(list1);
-                                    xfree(list2);
+                                    DELETE(list1);
+                                    DELETE(list2);
                                     return cmp < 0 ? -1 : 1;
                                 }
 
@@ -3022,15 +3022,15 @@ static int template_arg_value_type_equivalent_compare_aux(type_t* t1, type_t* t2
                                             template_parameter_list_2);
                                     if (cmp != 0)
                                     {
-                                        xfree(list1);
-                                        xfree(list2);
+                                        DELETE(list1);
+                                        DELETE(list2);
                                         return cmp;
                                     }
                                 }
                             }
 
-                            xfree(list1);
-                            xfree(list2);
+                            DELETE(list1);
+                            DELETE(list2);
                             break;
                         }
                     case STK_TYPEOF:
@@ -3242,7 +3242,7 @@ static int compare_equivalent_template_argument_list_of_named_template_specializ
 
 static type_t* template_type_get_equivalent_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
@@ -3357,7 +3357,7 @@ static type_t* template_type_get_specialized_type_(
         type_t* template_type,
         template_parameter_list_t *template_arguments,
         type_t* type_used_as_template,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus)
 {
     template_arguments = duplicate_template_argument_list(template_arguments);
@@ -3425,8 +3425,8 @@ static type_t* template_type_get_specialized_type_(
     {
         if (equivalent_match == NULL)
         {
-            decl_context_t updated_context = primary_symbol->decl_context;
-            updated_context.template_parameters = template_arguments;
+            decl_context_t* updated_context = decl_context_clone(primary_symbol->decl_context);
+            updated_context->template_parameters = template_arguments;
 
             specialized_type = update_type(primary_symbol->type_information,
                     updated_context,
@@ -3463,8 +3463,8 @@ static type_t* template_type_get_specialized_type_(
             return equivalent_match;
         }
 
-        decl_context_t updated_context = primary_symbol->decl_context;
-        updated_context.template_parameters = template_arguments;
+        decl_context_t* updated_context = decl_context_clone(primary_symbol->decl_context);
+        updated_context->template_parameters = template_arguments;
 
         diagnostic_context_push_buffered();
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context,
@@ -3545,14 +3545,16 @@ static type_t* template_type_get_specialized_type_(
     }
 
     // Create a fake symbol with the just created specialized type
-    scope_entry_t* specialized_symbol = xcalloc(1, sizeof(*specialized_symbol));
+    scope_entry_t* specialized_symbol = NEW0(scope_entry_t);
 
     specialized_symbol->symbol_name = primary_symbol->symbol_name;
     specialized_symbol->kind = primary_symbol->kind;
     specialized_symbol->type_information = specialized_type;
-    specialized_symbol->decl_context = primary_symbol->decl_context;
+
     // Fix the template arguments
-    specialized_symbol->decl_context.template_parameters = template_arguments;
+    decl_context_t* updated_decl_context = decl_context_clone(primary_symbol->decl_context);
+    updated_decl_context->template_parameters = template_arguments;
+    specialized_symbol->decl_context = updated_decl_context;
 
     specialized_symbol->locus = locus;
 
@@ -3583,8 +3585,8 @@ static type_t* template_type_get_specialized_type_(
         symbol_entity_specs_free_exceptions(specialized_symbol);
 
         // Update exception specifications
-        decl_context_t updated_context = primary_symbol->decl_context;
-        updated_context.template_parameters = template_arguments;
+        decl_context_t* updated_context = decl_context_clone(primary_symbol->decl_context);
+        updated_context->template_parameters = template_arguments;
 
         int i, num_exceptions = symbol_entity_specs_get_num_exceptions(primary_symbol);
         for (i = 0; i < num_exceptions; i++)
@@ -3942,7 +3944,7 @@ static type_t* template_type_get_specialized_type_(
 
 extern inline type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus)
 {
     return template_type_get_specialized_type_(t,
@@ -3955,7 +3957,7 @@ extern inline type_t* template_type_get_specialized_type(type_t* t,
 extern inline type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
         template_parameter_list_t* template_parameters,
         type_t* type_used_as_template,
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const locus_t* locus)
 {
     return template_type_get_specialized_type_(t,
@@ -4128,7 +4130,7 @@ static void init_qualification_hash(void)
 }
 
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, const decl_context_t** decl_context,
         array_region_t** array_region,
         char *with_descriptor,
         char *is_string_literal);
@@ -4137,7 +4139,7 @@ static type_t* _get_array_type(type_t* element_type,
         nodecl_t whole_size,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         array_region_t* array_region,
         char with_descriptor,
         char is_string_literal,
@@ -4152,7 +4154,7 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
         char is_string_literal = 0;
         array_region_t* array_region = NULL;
 
-        decl_context_t decl_context;
+        const decl_context_t* decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
         _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context,
@@ -4249,7 +4251,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     if (qualified_type == NULL)
     {
         qualified_type = new_empty_type();
-        xfree(qualified_type->info);
+        DELETE(qualified_type->info);
         *qualified_type = *original;
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
@@ -4302,7 +4304,7 @@ extern inline type_t* get_pointer_type(type_t* t)
         pointed_type = new_empty_type();
         pointed_type->kind = TK_POINTER;
         pointed_type->unqualified_type = pointed_type;
-        pointed_type->pointer = xcalloc(1, sizeof(*pointed_type->pointer));
+        pointed_type->pointer = NEW0(pointer_info_t);
         pointed_type->pointer->pointee = t;
 
         if (is_array_type(t)
@@ -4390,7 +4392,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
         referenced_type = new_empty_type();
         referenced_type->kind = reference_kind;
         referenced_type->unqualified_type = referenced_type;
-        referenced_type->pointer = xcalloc(1, sizeof(*referenced_type->pointer));
+        referenced_type->pointer = NEW0(pointer_info_t);
         referenced_type->pointer->pointee = t;
 
         referenced_type->info->is_dependent = is_dependent_type(t);
@@ -4444,7 +4446,7 @@ extern inline type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
         pointer_to_member = new_empty_type();
         pointer_to_member->kind = TK_POINTER_TO_MEMBER;
         pointer_to_member->unqualified_type = pointer_to_member;
-        pointer_to_member->pointer = xcalloc(1, sizeof(*pointer_to_member->pointer));
+        pointer_to_member->pointer = NEW0(pointer_info_t);
         pointer_to_member->pointer->pointee = t;
         pointer_to_member->pointer->pointee_class_type = class_type;
 
@@ -4595,7 +4597,7 @@ static dhash_ptr_t* get_array_sized_hash(_size_t whole_size, _size_t lower_bound
     if (sized_hash == NULL)
     {
         _array_sized_hash_size++;
-        _array_sized_hash = xrealloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
+        _array_sized_hash = NEW_REALLOC(array_sized_hash_t, _array_sized_hash, _array_sized_hash_size);
 
         dhash_ptr_t* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
                 whole_size, lower_bound, upper_bound, with_descriptor, is_string_literal);
@@ -4613,7 +4615,7 @@ static dhash_ptr_t* get_array_sized_hash(_size_t whole_size, _size_t lower_bound
 
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, const decl_context_t** decl_context,
         array_region_t** array_region,
         char *with_descriptor,
         char *is_string_literal)
@@ -4636,7 +4638,7 @@ static type_t* _get_array_type(
         nodecl_t whole_size,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         array_region_t* array_region,
         char with_descriptor,
         char is_string_literal,
@@ -4743,7 +4745,7 @@ static type_t* _get_array_type(
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
-            result->array = xcalloc(1, sizeof(*(result->array)));
+            result->array = NEW0(array_info_t);
             result->array->element_type = element_type;
             result->array->whole_size = nodecl_null();
 
@@ -4811,7 +4813,7 @@ static type_t* _get_array_type(
                 result = new_empty_type();
                 result->kind = TK_ARRAY;
                 result->unqualified_type = result;
-                result->array = xcalloc(1, sizeof(*(result->array)));
+                result->array = NEW0(array_info_t);
                 result->array->element_type = element_type;
 
                 result->array->with_descriptor = with_descriptor;
@@ -4847,7 +4849,7 @@ static type_t* _get_array_type(
             result = new_empty_type();
             result->kind = TK_ARRAY;
             result->unqualified_type = result;
-            result->array = xcalloc(1, sizeof(*(result->array)));
+            result->array = NEW0(array_info_t);
             result->array->element_type = element_type;
             result->array->whole_size = whole_size;
             result->array->lower_bound = lower_bound;
@@ -4929,7 +4931,7 @@ static nodecl_t convert_node_to_ptrdiff_t(nodecl_t n)
     return n;
 }
 
-extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t decl_context)
+extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, const decl_context_t* decl_context)
 {
     whole_size = convert_node_to_ptrdiff_t(whole_size);
 
@@ -4979,7 +4981,7 @@ extern inline type_t* get_array_type(type_t* element_type, nodecl_t whole_size, 
 
 static type_t* get_array_type_for_literal_string(type_t* element_type,
         nodecl_t whole_size,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     whole_size = convert_node_to_ptrdiff_t(whole_size);
 
@@ -5073,7 +5075,7 @@ static nodecl_t compute_whole_size_given_bounds(
 static type_t* get_array_type_bounds_common(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         char with_descriptor)
 {
     lower_bound = convert_node_to_ptrdiff_t(lower_bound);
@@ -5091,7 +5093,7 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
 extern inline type_t* get_array_type_bounds(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     return get_array_type_bounds_common(element_type, lower_bound, upper_bound, decl_context, /* with_descriptor */ 0);
 }
@@ -5099,7 +5101,7 @@ extern inline type_t* get_array_type_bounds(type_t* element_type,
 extern inline type_t* get_array_type_bounds_with_descriptor(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     return get_array_type_bounds_common(element_type, lower_bound, upper_bound, decl_context, /* with_descriptor */ 1);
 }
@@ -5107,9 +5109,9 @@ extern inline type_t* get_array_type_bounds_with_descriptor(type_t* element_type
 extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
         nodecl_t lower_bound,
         nodecl_t upper_bound,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t region,
-        decl_context_t region_decl_context)
+        const decl_context_t* region_decl_context)
 {
     lower_bound = nodecl_shallow_copy(lower_bound);
     upper_bound = nodecl_shallow_copy(upper_bound);
@@ -5129,7 +5131,7 @@ extern inline type_t* get_array_type_bounds_with_regions(type_t* element_type,
 
     nodecl_t region_whole_size = compute_whole_size_given_bounds(region_lower_bound, region_upper_bound);
 
-    array_region_t* array_region = xcalloc(1, sizeof(*array_region));
+    array_region_t* array_region = NEW0(array_region_t);
     array_region->lower_bound = region_lower_bound;
     array_region->upper_bound = region_upper_bound;
     array_region->stride = region_stride;
@@ -5172,7 +5174,7 @@ static dhash_ptr_t* get_vector_sized_hash(unsigned int vector_size)
     {
         dhash_ptr_t* new_hash = dhash_ptr_new(5);
 
-        unsigned int *k = xcalloc(sizeof(*k), 1);
+        unsigned int *k = NEW(unsigned int);
         *k = vector_size;
         rb_tree_insert(_vector_size_hash, k, new_hash);
 
@@ -5269,18 +5271,18 @@ static type_t* _get_new_function_type(type_t* t,
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = xcalloc(1, sizeof(*(result->function)));
+    result->function = NEW0(function_info_t);
     result->function->ref_qualifier = ref_qualifier;
     result->function->is_trailing = is_trailing;
     result->function->return_type = t;
 
-    result->function->parameter_list = xcalloc(num_parameters, sizeof(*( result->function->parameter_list )));
+    result->function->parameter_list = NEW_VEC0(parameter_info_t*, num_parameters);
     result->function->num_parameters = num_parameters;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = xcalloc(1, sizeof(*new_parameter));
+        parameter_info_t* new_parameter = NEW0(parameter_info_t);
 
         *new_parameter = parameter_info[i];
 
@@ -5302,7 +5304,7 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
 
-    type_t* result = xcalloc(1, sizeof(*result));
+    type_t* result = NEW0(type_t);
     *result = *class_type;
 
     result->unqualified_type = result;
@@ -5310,13 +5312,13 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
     result->_advanced_type = NULL;
 
     // These are the parts relevant for duplication
-    result->info = xcalloc(1, sizeof(*result->info));
+    result->info = NEW0(common_type_info_t);
     *result->info = *class_type->info;
 
-    result->type = xcalloc(1, sizeof(*result->type));
+    result->type = NEW0(simple_type_t);
     *result->type = *class_type->type;
 
-    result->type->class_info = xcalloc(1, sizeof(*result->type->class_info));
+    result->type->class_info = NEW0(class_info_t);
     *result->type->class_info = *class_type->type->class_info;
 
     return result;
@@ -5465,14 +5467,14 @@ extern inline type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = xcalloc(1, sizeof(*(result->function)));
+    result->function = NEW0(function_info_t);
     result->function->return_type = t;
     result->function->lacks_prototype = 1;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = xcalloc(1, sizeof(*new_parameter));
+        parameter_info_t* new_parameter = NEW0(parameter_info_t);
 
         new_parameter->type_info = get_signed_int_type();
 
@@ -5988,7 +5990,7 @@ extern inline member_declaration_info_t* class_type_get_member_declarations(type
     }
 
     int num_decls = t->type->class_info->num_member_declarations;
-    member_declaration_info_t* result = xcalloc(num_decls, sizeof(*mdi));
+    member_declaration_info_t* result = NEW_VEC(member_declaration_info_t, num_decls);
     memcpy(result, mdi, sizeof(*result) * num_decls);
 
     *num_declarations = num_decls;
@@ -6379,7 +6381,7 @@ static scope_entry_t* get_class_symbol(scope_entry_t* entry)
     return entry;
 }
 
-extern inline void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+extern inline void class_type_complete_if_needed(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus)
 {
     entry = get_class_symbol(entry);
 
@@ -6392,7 +6394,7 @@ extern inline void class_type_complete_if_needed(scope_entry_t* entry, decl_cont
         instantiate_nontemplate_member_class_if_needed(entry, decl_context, locus);
 }
 
-extern inline char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+extern inline char class_type_complete_if_possible(scope_entry_t* entry, const decl_context_t* decl_context, const locus_t* locus)
 {
     entry = get_class_symbol(entry);
 
@@ -6787,7 +6789,7 @@ extern inline void class_type_add_base_class(type_t* class_type, scope_entry_t* 
     if (symbol_entity_specs_get_is_injected_class_name(base_class))
         base_class = named_type_get_symbol(symbol_entity_specs_get_class_type(base_class));
 
-    base_class_info_t* new_base_class = xcalloc(1, sizeof(*new_base_class));
+    base_class_info_t* new_base_class = NEW0(base_class_info_t);
     new_base_class->class_symbol = base_class;
     /* redundant */ new_base_class->class_type = base_class->type_information;
     new_base_class->is_virtual = is_virtual;
@@ -6800,7 +6802,7 @@ extern inline void class_type_add_base_class(type_t* class_type, scope_entry_t* 
     P_LIST_ADD_ONCE(class_info->base_classes_list, class_info->num_bases, new_base_class);
 }
 
-void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context)
+void class_type_set_inner_context(type_t* class_type, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -6808,7 +6810,7 @@ void class_type_set_inner_context(type_t* class_type, decl_context_t decl_contex
     class_type->type->class_info->inner_decl_context = decl_context;
 }
 
-extern inline decl_context_t class_type_get_inner_context(type_t* class_type)
+extern inline const decl_context_t* class_type_get_inner_context(type_t* class_type)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -6816,7 +6818,7 @@ extern inline decl_context_t class_type_get_inner_context(type_t* class_type)
     return class_type->type->class_info->inner_decl_context;
 }
 
-extern inline decl_context_t class_or_enum_type_get_inner_context(type_t* class_or_enum_type)
+extern inline const decl_context_t* class_or_enum_type_get_inner_context(type_t* class_or_enum_type)
 {
     if (is_class_type(class_or_enum_type))
         return class_type_get_inner_context(class_or_enum_type);
@@ -6898,7 +6900,7 @@ extern inline void class_type_set_offset_direct_base(type_t* class_type, scope_e
     internal_error("Unreachable code", 0);
 }
 
-extern inline scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_context_t decl_context)
+extern inline scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -7592,7 +7594,7 @@ static type_t* advance_dependent_typename_aux(
 
     scope_entry_t* current_member = dependent_entry;
 
-    decl_context_t class_context;
+    const decl_context_t* class_context;
 
     nodecl_t nodecl_nested_parts = nodecl_get_child(dependent_parts, 0);
 
@@ -7801,7 +7803,7 @@ static type_t* advance_dependent_typename_aux(
                     current_member, 
                     0, num_items,
                     dep_parts);
-            xfree(dep_parts);
+            DELETE(dep_parts);
             return result;
         }
 
@@ -7816,7 +7818,7 @@ static type_t* advance_dependent_typename_aux(
                     current_member, 
                     0, num_items,
                     dep_parts);
-            xfree(dep_parts);
+            DELETE(dep_parts);
             return result;
         }
 
@@ -7852,7 +7854,7 @@ static type_t* advance_dependent_typename_aux(
                         current_member, 
                         0, num_items,
                         dep_parts);
-                xfree(dep_parts);
+                DELETE(dep_parts);
                 return result;
             }
 
@@ -7877,7 +7879,7 @@ static type_t* advance_dependent_typename_aux(
                         current_member, 
                         0, num_items,
                         dep_parts);
-                xfree(dep_parts);
+                DELETE(dep_parts);
                 return result;
             }
 
@@ -7896,7 +7898,7 @@ static type_t* advance_dependent_typename_aux(
                         current_member, 
                         0, num_items,
                         dep_parts);
-                xfree(dep_parts);
+                DELETE(dep_parts);
                 return result;
             }
 
@@ -7924,7 +7926,7 @@ static type_t* advance_dependent_typename_aux(
                         current_member, 
                         0, num_items,
                         dep_parts);
-                xfree(dep_parts);
+                DELETE(dep_parts);
                 return result;
             }
 
@@ -7941,7 +7943,7 @@ static type_t* advance_dependent_typename_aux(
                     current_member, 
                     0, num_items,
                     dep_parts);
-            xfree(dep_parts);
+            DELETE(dep_parts);
             return result;
         }
 
@@ -7950,7 +7952,7 @@ static type_t* advance_dependent_typename_aux(
                 current_member, 
                 1, num_items,
                 dep_parts);
-        xfree(dep_parts);
+        DELETE(dep_parts);
         return result;
     }
     else
@@ -7959,7 +7961,7 @@ static type_t* advance_dependent_typename_aux(
     }
 }
 
-static type_t* advance_dependent_typename_if_in_context(type_t* t, decl_context_t decl_context)
+static type_t* advance_dependent_typename_if_in_context(type_t* t, const decl_context_t* decl_context)
 {
     // A dependent typename is a dependent entity followed by a sequence of
     // syntactic bits Advancing them means examining uninstantiated types,
@@ -8109,12 +8111,12 @@ static inline char type_contains_a_dependent_typename(type_t* t)
 }
 
 static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus);
 
 static template_parameter_list_t* rebuild_template_arguments_advancing_dependent_typenames(
         template_parameter_list_t* tpl,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     template_parameter_list_t* fixed_tpl = duplicate_template_argument_list(tpl);
@@ -8122,7 +8124,7 @@ static template_parameter_list_t* rebuild_template_arguments_advancing_dependent
     int i;
     for (i = 0; i < fixed_tpl->num_parameters; i++)
     {
-        template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
+        template_parameter_value_t* new_value = NEW0(template_parameter_value_t);
         *new_value = *fixed_tpl->arguments[i];
         new_value->value = nodecl_shallow_copy(fixed_tpl->arguments[i]->value);
 
@@ -8138,7 +8140,7 @@ static template_parameter_list_t* rebuild_template_arguments_advancing_dependent
 }
 
 static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     if (t == NULL)
@@ -8199,7 +8201,7 @@ static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
                 }
             }
 
-            xfree(dependent_parts_list);
+            DELETE(dependent_parts_list);
 
             result = get_dependent_typename_type_from_parts(dependent_entry,
                     nodecl_make_cxx_dep_name_nested(nodecl_new_parts, locus));
@@ -8335,7 +8337,7 @@ static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
     return result;
 }
 
-extern inline type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus)
+extern inline type_t* fix_dependent_typenames_in_context(type_t* t, const decl_context_t* decl_context, const locus_t* locus)
 {
     if (!type_contains_a_dependent_typename(t))
         return t;
@@ -8460,8 +8462,8 @@ static char syntactic_comparison_of_dependent_parts(
         {
             fprintf(stderr, "TYPEUTILS: One of the nested names is longer than the other\n");
         }
-        xfree(list1);
-        xfree(list2);
+        DELETE(list1);
+        DELETE(list2);
         return 0;
     }
 
@@ -8473,13 +8475,13 @@ static char syntactic_comparison_of_dependent_parts(
 
         if (!syntactic_comparison_of_one_dependent_part(item1, item2))
         {
-            xfree(list1);
-            xfree(list2);
+            DELETE(list1);
+            DELETE(list2);
             return 0;
         }
     }
-    xfree(list1);
-    xfree(list2);
+    DELETE(list1);
+    DELETE(list2);
 
     DEBUG_CODE()
     {
@@ -9014,7 +9016,7 @@ extern inline int array_type_get_total_number_of_elements(type_t* t)
     return number_of_elements;
 }
 
-extern inline decl_context_t array_type_get_array_size_expr_context(type_t* t)
+extern inline const decl_context_t* array_type_get_array_size_expr_context(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     t = advance_over_typedefs(t);
@@ -9039,7 +9041,7 @@ extern inline char array_type_has_region(type_t* t)
     return t->array->region != NULL;    
 }
 
-extern inline decl_context_t array_type_get_region_size_expr_context(type_t* t)
+extern inline const decl_context_t* array_type_get_region_size_expr_context(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     t = advance_over_typedefs(t);
@@ -9336,7 +9338,7 @@ extern inline char is_rebindable_reference_type(type_t* t1)
             && t1->kind == TK_REBINDABLE_REFERENCE);
 }
 
-extern inline decl_context_t enum_type_get_context(type_t* t)
+extern inline const decl_context_t* enum_type_get_context(type_t* t)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enumerated type", 0);
     t = advance_over_typedefs(t);
@@ -9347,7 +9349,7 @@ extern inline decl_context_t enum_type_get_context(type_t* t)
     return t->type->type_decl_context;
 }
 
-extern inline decl_context_t class_type_get_context(type_t* t)
+extern inline const decl_context_t* class_type_get_context(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
@@ -9712,7 +9714,7 @@ static const char* get_gcc_attributes_string(type_t* type_info)
                 // FIXME - We may need a better context
                 expr_list_str = strappend(expr_list_str, codegen_to_str(n[j], CURRENT_COMPILED_FILE->global_decl_context));
             }
-            xfree(n);
+            DELETE(n);
 
             uniquestr_sprintf(&result, "__attribute__((%s(%s))) ",
                     type_info->info->gcc_attributes[i].attribute_name,
@@ -9772,7 +9774,7 @@ extern inline char is_function_or_template_function_name_or_extern_variable(scop
                 && symbol_entity_specs_get_is_extern(entry)));
 }
 
-extern inline const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, decl_context_t decl_context,
+extern inline const char* get_simple_type_name_string_internal_common(scope_entry_t* entry, const decl_context_t* decl_context,
         void* data UNUSED_PARAMETER)
 {
     char is_dependent = 0;
@@ -9822,12 +9824,12 @@ extern inline const char* get_simple_type_name_string_internal_common(scope_entr
     return result;
 }
 
-static const char* get_simple_type_name_string_internal_impl(decl_context_t decl_context,
+static const char* get_simple_type_name_string_internal_impl(const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context,
+static const char* get_simple_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
@@ -9835,7 +9837,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 // Vector flavors
 
 extern inline const char* print_gnu_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -9867,7 +9869,7 @@ extern inline const char* print_gnu_vector_type(
 }
 
 extern inline const char* print_intel_sse_avx_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -9956,7 +9958,7 @@ extern inline const char* print_intel_sse_avx_vector_type(
 }
 
 extern inline const char* print_altivec_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -9985,7 +9987,7 @@ extern inline const char* print_altivec_vector_type(
 }
 
 extern inline const char* print_opencl_vector_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -10124,7 +10126,7 @@ extern inline const char* vector_types_get_vector_flavor(void)
 }
 
 extern inline const char* print_mask_type_intel(
-        decl_context_t decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         type_t* t,
         print_symbol_callback_t print_symbol_fun UNUSED_PARAMETER,
         void* print_symbol_data UNUSED_PARAMETER)
@@ -10157,7 +10159,7 @@ extern inline const char* print_mask_type_intel(
 }
 
 extern inline const char* print_mask_type(
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -10167,7 +10169,7 @@ extern inline const char* print_mask_type(
 }
 
 // Returns a string with the name of this simple type
-static const char* get_simple_type_name_string_internal_impl(decl_context_t decl_context, 
+static const char* get_simple_type_name_string_internal_impl(const decl_context_t* decl_context, 
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data
@@ -10542,7 +10544,7 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                             break;
                     }
 
-                    xfree(list);
+                    DELETE(list);
                 }
 
                 break;
@@ -10569,7 +10571,7 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
 }
 
 // Gives the simple type name of a full fledged type
-static const char* get_simple_type_name_string_internal(decl_context_t decl_context,
+static const char* get_simple_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data)
@@ -10640,7 +10642,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     return result;
 }
 
-static const char* get_type_name_string_internal(decl_context_t decl_context,
+static const char* get_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -10651,7 +10653,7 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
-extern inline const char* get_declarator_name_string_ex(decl_context_t decl_context,
+extern inline const char* get_declarator_name_string_ex(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -10676,7 +10678,7 @@ extern inline const char* get_declarator_name_string_ex(decl_context_t decl_cont
 static type_t* get_foundation_type(type_t* t);
 
 extern inline const char* get_declaration_string_ex(type_t* type_info,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
         int num_parameter_names,
@@ -10739,7 +10741,7 @@ extern inline const char* get_declaration_string_ex(type_t* type_info,
 // initializer and a semicolon. For function types you can specify the names of
 // the arguments
 extern inline const char* get_declaration_string(type_t* type_info,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
         int num_parameter_names,
@@ -10761,7 +10763,7 @@ extern inline const char* get_declaration_string(type_t* type_info,
         );
 }
 
-static void get_type_name_string_internal_impl(decl_context_t decl_context,
+static void get_type_name_string_internal_impl(const decl_context_t* decl_context,
         type_t* type_info,
         const char** left,
         const char** right,
@@ -10773,7 +10775,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
-static const char* get_type_name_string_internal(decl_context_t decl_context,
+static const char* get_type_name_string_internal(const decl_context_t* decl_context,
         type_t* type_info,
         const char* symbol_name,
         int num_parameter_names,
@@ -10946,7 +10948,7 @@ extern inline char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2)
 }
 
 // Constructs a proper declarator
-static void get_type_name_string_internal_impl(decl_context_t decl_context,
+static void get_type_name_string_internal_impl(const decl_context_t* decl_context,
         type_t* type_info,
         const char** left,
         const char** right,
@@ -11363,7 +11365,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     const char* result = UNIQUESTR_LITERAL("");
 
     const int MAX_LENGTH = 1023;
-    char* user_defined_str = xcalloc(MAX_LENGTH + 1, sizeof(char));
+    char* user_defined_str = NEW_VEC0(char, MAX_LENGTH);
 
     switch (user_defined_type->kind)
     {
@@ -11511,7 +11513,7 @@ static const char* get_template_parameters_list_str(template_parameter_list_t* t
                                     CURRENT_COMPILED_FILE->global_decl_context));
                         }
 
-                        xfree(list);
+                        DELETE(list);
                     }
                     else
                     {
@@ -11758,7 +11760,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                             result = strappend(result, get_template_parameters_list_str(template_parameters));
                         }
                     }
-                    xfree(list);
+                    DELETE(list);
                 }
 
                 result = strappend(result, ">");
@@ -11811,7 +11813,7 @@ static char is_unknown_dependent_type(type_t* t)
             && (t->unqualified_type == _dependent_type));
 }
 
-static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
+static const char* print_dimension_of_array(nodecl_t n, const decl_context_t* decl_context)
 {
     if (nodecl_is_null(n))
         return "?";
@@ -12883,7 +12885,7 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
         {
             // The following is valid in C
             //
-            // int* c = xmalloc(sizeof(int)); 
+            // int* c = malloc(sizeof(int)); 
             //
             DEBUG_CODE()
             {
@@ -13285,7 +13287,7 @@ extern inline template_parameter_list_t* unresolved_overloaded_type_get_explicit
 extern inline scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
         scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_arguments,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         const locus_t* locus)
 {
     // Fallback case not using the target type
@@ -13351,7 +13353,7 @@ extern inline scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
                 return NULL;
             }
 
-            deduction_set_t* deduction_set_empty = xcalloc(1, sizeof(*deduction_set_empty));
+            deduction_set_t* deduction_set_empty = NEW0(deduction_set_t);
             deduction_result = finish_deduced_template_arguments(
                     template_type_get_template_parameters(tested_fun->type_information),
                     deduction_set_empty,
@@ -13400,7 +13402,7 @@ extern inline scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
     return NULL;
 }
 
-extern inline scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const locus_t* locus)
+extern inline scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, const decl_context_t* decl_context, const locus_t* locus)
 {
     return unresolved_overloaded_type_simplify_unpacked(
             unresolved_overloaded_type_get_overload_set(t),
@@ -13498,11 +13500,9 @@ extern inline type_t* get_error_type(void)
 {
     if (_error_type == NULL)
     {
-        _error_type = xcalloc(1, sizeof(*_error_type));
+        _error_type = new_empty_type();
         _error_type->kind = TK_ERROR;
         _error_type->unqualified_type = _error_type;
-        _error_type->info = 
-            xcalloc(1, sizeof(*_error_type->info));
     }
     return _error_type;
 }
@@ -13589,7 +13589,7 @@ extern inline type_t* get_braced_list_type(int num_types, type_t** type_list)
             _empty_braces_type = new_empty_type();
             _empty_braces_type->kind = TK_BRACED_LIST;
             _empty_braces_type->unqualified_type = _empty_braces_type;
-            _empty_braces_type->braced_type = xcalloc(1, sizeof(*_empty_braces_type->braced_type));
+            _empty_braces_type->braced_type = NEW0(braced_list_info_t);
         }
 
         return _empty_braces_type;
@@ -13618,10 +13618,10 @@ extern inline type_t* get_braced_list_type(int num_types, type_t** type_list)
 
         result->unqualified_type = result;
 
-        result->braced_type = xcalloc(1, sizeof(*result->braced_type));
+        result->braced_type = NEW0(braced_list_info_t);
 
         result->braced_type->num_types = num_types;
-        result->braced_type->types = xcalloc(num_types, sizeof(*result->braced_type->types));
+        result->braced_type->types = NEW_VEC(type_t*, num_types);
         memcpy(result->braced_type->types, type_list,
                 num_types* sizeof(*result->braced_type->types));
 
@@ -14929,8 +14929,7 @@ extern inline void class_type_set_offset_virtual_base(type_t* t, scope_entry_t* 
     }
 
     // Add the virtual base
-    virtual_base_class_info_t* virtual_base_info = xcalloc(
-            1, sizeof(*virtual_base_info));
+    virtual_base_class_info_t* virtual_base_info = NEW0(virtual_base_class_info_t);
 
     virtual_base_info->virtual_base = virtual_base;
     virtual_base_info->virtual_base_offset = offset;
@@ -15017,7 +15016,7 @@ extern inline char is_variably_modified_type(type_t* t)
     }
 }
 
-extern inline const char* print_type_str(type_t* t, decl_context_t decl_context)
+extern inline const char* print_type_str(type_t* t, const decl_context_t* decl_context)
 {
     if (t == NULL)
     {
@@ -15036,7 +15035,7 @@ extern inline const char* print_type_str(type_t* t, decl_context_t decl_context)
     }
 }
 
-extern inline const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name)
+extern inline const char* print_decl_type_str(type_t* t, const decl_context_t* decl_context, const char* name)
 {
     if (t == NULL)
     {
@@ -15218,7 +15217,7 @@ extern inline const char* type_to_source(type_t* t)
 }
 
 extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
-        decl_context_t new_decl_context, 
+        const decl_context_t* new_decl_context, 
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map)
@@ -15462,7 +15461,7 @@ extern inline type_t* type_deep_copy_compute_maps(type_t* orig,
 }
 
 extern inline type_t* type_deep_copy(type_t* orig,
-        decl_context_t new_decl_context, 
+        const decl_context_t* new_decl_context, 
         symbol_map_t* symbol_map)
 {
     return type_deep_copy_compute_maps(
@@ -15578,7 +15577,7 @@ extern inline type_t* get_mask_type(unsigned int mask_size_bits)
         result->type->kind = STK_MASK;
         result->type->vector_size = mask_size_bits;
 
-        int *k = xcalloc(sizeof(int), 1);
+        int *k = NEW(int);
         *k = mask_size_bits;
 
         rb_tree_insert(_mask_hash, k, result);
@@ -15673,7 +15672,7 @@ extern inline type_t* get_pack_type(type_t* t)
         pack_type = new_empty_type();
         pack_type->kind = TK_PACK;
         pack_type->unqualified_type = pack_type;
-        pack_type->pack_type = xcalloc(1, sizeof(*pack_type->pack_type));
+        pack_type->pack_type = NEW0(pack_type_info_t);
         pack_type->pack_type->packed = t;
 
         pack_type->info->is_dependent = is_dependent_type(t);
@@ -15713,7 +15712,7 @@ extern inline type_t* get_sequence_of_types(int num_types, type_t** types)
             _empty_sequence = new_empty_type();
             _empty_sequence->kind = TK_SEQUENCE;
             _empty_sequence->unqualified_type = _empty_sequence;
-            _empty_sequence->sequence_type = xcalloc(1, sizeof(*_empty_sequence->sequence_type));
+            _empty_sequence->sequence_type = NEW0(sequence_type_info_t);
         }
 
         return _empty_sequence;
@@ -15741,9 +15740,9 @@ extern inline type_t* get_sequence_of_types(int num_types, type_t** types)
         result = new_empty_type();
         result->unqualified_type = result;
         result->kind = TK_SEQUENCE;
-        result->sequence_type = xcalloc(1, sizeof(*result->sequence_type));
+        result->sequence_type = NEW0(sequence_type_info_t);
         result->sequence_type->num_types = num_types;
-        result->sequence_type->types = xcalloc(num_types, sizeof(*result->sequence_type->types));
+        result->sequence_type->types = NEW_VEC(type_t*, num_types);
         memcpy(result->sequence_type->types, types,
                 sizeof(*result->sequence_type->types) * num_types);
 
@@ -15790,7 +15789,7 @@ extern inline type_t* get_sequence_of_types_flattened(int num_types, type_t** ty
 
     type_t* result = get_sequence_of_types(flattened_num_types, flattened_type_seq);
 
-    xfree(flattened_type_seq);
+    DELETE(flattened_type_seq);
 
     return result;
 }
@@ -16193,7 +16192,7 @@ extern inline void get_packs_in_type(type_t* pack_type,
             }
         }
 
-        xfree(dep_parts);
+        DELETE(dep_parts);
     }
     else if (is_sequence_of_types(pack_type))
     {
@@ -16237,13 +16236,11 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
             // Duplicate paths
             class_path[i].length = base_class_path->length;
 
-            class_path[i].class_type = xcalloc(base_class_path->length,
-                    sizeof(*(class_path[i].class_type)));
+            class_path[i].class_type = NEW_VEC(type_t*, base_class_path->length);
             memcpy(class_path[i].class_type, base_class_path->class_type,
                     sizeof(*(class_path[i].class_type)) * base_class_path->length);
 
-            class_path[i].is_virtual = xcalloc(base_class_path->length,
-                    sizeof(*(class_path[i].is_virtual)));
+            class_path[i].is_virtual = NEW_VEC(char, base_class_path->length);
             memcpy(class_path[i].is_virtual, base_class_path->is_virtual,
                     sizeof(*(class_path[i].is_virtual)) * base_class_path->length);
         }
@@ -16374,8 +16371,8 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
     // Cleanup
     for (i = 0; i < num_bases; i++)
     {
-        xfree(class_path[i].class_type);
-        xfree(class_path[i].is_virtual);
+        DELETE(class_path[i].class_type);
+        DELETE(class_path[i].is_virtual);
     }
 }
 
@@ -16484,8 +16481,8 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
     if (is_named_type(orig))
     {
         if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
-                && named_type_get_symbol(orig)->decl_context.current_scope != NULL
-                && named_type_get_symbol(orig)->decl_context.current_scope->kind == BLOCK_SCOPE)
+                && named_type_get_symbol(orig)->decl_context->current_scope != NULL
+                && named_type_get_symbol(orig)->decl_context->current_scope->kind == BLOCK_SCOPE)
         {
             // typedefs declared inside functions are always advanced
             result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);

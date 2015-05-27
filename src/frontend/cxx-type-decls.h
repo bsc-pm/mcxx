@@ -149,7 +149,7 @@ struct standard_conversion_tag
 
 LIBMCXX_EXTERN const standard_conversion_t no_scs_conversion;
 
-typedef const char* (*print_type_callback_t)(type_t*, decl_context_t, void*);
+typedef const char* (*print_type_callback_t)(type_t*, const decl_context_t*, void*);
 
 MCXX_END_DECLS
 

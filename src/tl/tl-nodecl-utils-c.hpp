@@ -80,7 +80,7 @@ namespace Nodecl { namespace Utils { namespace C {
 
             bool in_scope_of_reference_function(TL::Symbol sym)
             {
-                return (TL::Symbol(sym.get_scope().get_decl_context().current_scope->related_entry) == _reference_function);
+                return (TL::Symbol(sym.get_scope().get_decl_context()->current_scope->related_entry) == _reference_function);
             }
 
         public:
@@ -196,7 +196,7 @@ namespace Nodecl { namespace Utils { namespace C {
             {
                 walk(statements);
 
-                decl_context_t decl_context = _scope.get_decl_context();
+                const decl_context_t* decl_context = _scope.get_decl_context();
                 // New symbols
                 // First register them
                 TL::ObjectList<TL::Symbol> new_symbols;
@@ -204,7 +204,7 @@ namespace Nodecl { namespace Utils { namespace C {
                         it2 != _extra_new_sym.end();
                         it2++)
                 {
-                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context.current_scope, uniquestr(it2->get_name().c_str()));
+                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context->current_scope, uniquestr(it2->get_name().c_str()));
                     new_symbols.append(new_sym);
 
                     new_sym->kind = it2->get_internal_symbol()->kind;

@@ -46,7 +46,7 @@
 
 static void gather_ms_declspec_item(AST a,
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(ASTKind(a) != AST_MS_DECLSPEC_ITEM, "Invalid node", 0);
 
@@ -114,7 +114,7 @@ static void gather_ms_declspec_item(AST a,
 
 void gather_ms_declspec(AST a,
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(ASTKind(a) != AST_MS_DECLSPEC, "Invalid node", 0);
     AST list = ASTSon0(a), it = NULL;
@@ -127,7 +127,7 @@ void gather_ms_declspec(AST a,
 
 void gather_ms_declspec_list(AST a,
         gather_decl_spec_t* gather_info,
-        decl_context_t decl_context)
+        const decl_context_t* decl_context)
 {
     ERROR_CONDITION(ASTKind(a) != AST_NODE_LIST, "Node must be a list", 0);
 
@@ -172,6 +172,6 @@ void keep_ms_declspecs_in_symbol(
 
 void apply_ms_attribute_to_type(AST a UNUSED_PARAMETER,
         type_t** type UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        const decl_context_t* decl_context UNUSED_PARAMETER)
 {
 }

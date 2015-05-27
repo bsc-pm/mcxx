@@ -41,7 +41,7 @@ LIBMF03_EXTERN void fortran_initialize_translation_unit_scope(translation_unit_t
 
 LIBMF03_EXTERN nodecl_t build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
 
-LIBMF03_EXTERN void fortran_build_scope_statement(AST statement, decl_context_t decl_context, nodecl_t* nodecl_output);
+LIBMF03_EXTERN void fortran_build_scope_statement(AST statement, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 LIBMF03_EXTERN type_t* choose_int_type_from_kind(nodecl_t expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_float_type_from_kind(nodecl_t expr, int kind_size);
@@ -49,38 +49,38 @@ LIBMF03_EXTERN type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_siz
 LIBMF03_EXTERN type_t* choose_character_type_from_kind(nodecl_t expr, int kind_size);
 
 LIBMF03_EXTERN type_t* fortran_gather_type_from_declaration_type_spec(AST a,
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         AST* length);
 
 LIBMF03_EXTERN void build_scope_program_unit_seq(AST program_unit_seq, 
-        decl_context_t decl_context,
+        const decl_context_t* decl_context,
         nodecl_t* nodecl_output);
 
 LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);
 
-LIBMF03_EXTERN scope_entry_t* fortran_get_data_symbol_info(decl_context_t decl_context_t);
-LIBMF03_EXTERN scope_entry_t* fortran_get_equivalence_symbol_info(decl_context_t decl_context);
+LIBMF03_EXTERN scope_entry_t* fortran_get_data_symbol_info(const decl_context_t* decl_context);
+LIBMF03_EXTERN scope_entry_t* fortran_get_equivalence_symbol_info(const decl_context_t* decl_context);
 
-LIBMF03_EXTERN scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context);
+LIBMF03_EXTERN scope_entry_t* get_or_create_used_modules_symbol_info(const decl_context_t* decl_context);
 
 LIBMF03_EXTERN scope_entry_t* fortran_query_label(AST label, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         char is_definition);
 
-LIBMF03_EXTERN void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry);
-LIBMF03_EXTERN void remove_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry);
+LIBMF03_EXTERN void add_untyped_symbol(const decl_context_t* decl_context, scope_entry_t* entry);
+LIBMF03_EXTERN void remove_untyped_symbol(const decl_context_t* decl_context, scope_entry_t* entry);
 
-LIBMF03_EXTERN void add_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
-LIBMF03_EXTERN void remove_unknown_kind_symbol(decl_context_t decl_context, scope_entry_t* entry);
+LIBMF03_EXTERN void add_unknown_kind_symbol(const decl_context_t* decl_context, scope_entry_t* entry);
+LIBMF03_EXTERN void remove_unknown_kind_symbol(const decl_context_t* decl_context, scope_entry_t* entry);
 
-LIBMF03_EXTERN scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name,
+LIBMF03_EXTERN scope_entry_t* query_common_name(const decl_context_t* decl_context, const char* common_name,
         const locus_t* locus);
 
 LIBMF03_EXTERN scope_entry_t* fortran_load_module(const char* module_name_str, char must_be_intrinsic_module,
         const locus_t* locus);
 
 LIBMF03_EXTERN scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
-        decl_context_t decl_context, 
+        const decl_context_t* decl_context, 
         const char* local_name, 
         scope_entry_t* module_symbol,
         const locus_t* locus);

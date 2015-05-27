@@ -39,10 +39,10 @@ struct symbol_map_tag
     void (*dtor)(symbol_map_t*);
 };
 
-nodecl_t nodecl_deep_copy(nodecl_t, decl_context_t, symbol_map_t*);
+nodecl_t nodecl_deep_copy(nodecl_t, const decl_context_t*, symbol_map_t*);
 
 nodecl_t nodecl_deep_copy_compute_maps(nodecl_t n,
-        decl_context_t new_decl_context,
+        const decl_context_t* new_decl_context,
         symbol_map_t* symbol_map,
         nodecl_deep_copy_map_t* nodecl_deep_copy_map,
         symbol_deep_copy_map_t* symbol_deep_copy_map);

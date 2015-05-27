@@ -82,7 +82,6 @@ namespace TL
                 void set_untied_tasks_by_default(const std::string& str);
                 bool untied_tasks_by_default() const;
 
-
                 std::string _allow_shared_without_copies_str;
                 void set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str);
 
@@ -93,6 +92,12 @@ namespace TL
                 void set_allow_array_reductions(const std::string& allow_array_reductions);
 
                 std::string _disable_task_expr_optim_str;
+
+                std::string _enable_input_by_value_dependences;
+                void set_enable_input_by_value_dependences(const std::string &enable_input_by_value);
+
+                std::string _enable_nonvoid_function_tasks;
+                void set_enable_nonvoid_function_tasks(const std::string &enable_nonvoid_function_tasks);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

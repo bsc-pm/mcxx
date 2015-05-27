@@ -51,7 +51,7 @@ static rb_red_blk_tree* pointer_set = NULL;
 
 static char* quote_protect(const char *c)
 {
-    char *result = xcalloc(2*strlen(c), sizeof(char));
+    char *result = NEW_VEC0(char, 2*strlen(c));
 
     const char *p = c;
     char *q = result;
@@ -175,7 +175,7 @@ static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
     }
 }
 
-static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
+static int decl_context_t_dump_graphviz(FILE* f, const decl_context_t* decl_context)
 {
     static int i = 1;
 
@@ -191,16 +191,16 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
 
 
 #define DUMP_SCOPE(name) \
-    if (decl_context.name##_scope != NULL) \
+    if (decl_context->name##_scope != NULL) \
     { \
-        scope_t_dump_graphviz(f, decl_context.name##_scope); \
+        scope_t_dump_graphviz(f, decl_context->name##_scope); \
     }
     DUMP_ALL
 #undef DUMP_SCOPE
 
     int num = 0;
 #define DUMP_SCOPE(name) \
-    if (decl_context.name##_scope != NULL) \
+    if (decl_context->name##_scope != NULL) \
     { \
         if (num != 0) \
             fprintf(f, "| "); \
@@ -213,9 +213,9 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
 #undef DUMP_SCOPE
 
 #define DUMP_SCOPE(name) \
-    if (decl_context.name##_scope != NULL) \
+    if (decl_context->name##_scope != NULL) \
     { \
-        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [color=\"/dark28/1\"]\n", i, (size_t)decl_context.name##_scope); \
+        fprintf(f, "decl_context_%d:" #name " -> scope_%zd [color=\"/dark28/1\"]\n", i, (size_t)decl_context->name##_scope); \
     }
     DUMP_ALL
 #undef DUMP_SCOPE
@@ -321,7 +321,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 char *quoted = quote_protect(ASTText(a));
                 fprintf(f, "\\nText: \\\"%s\\\"", quoted);
-                xfree(quoted);
+                DELETE(quoted);
             }
 
             type_t* t = nodecl_get_type(_nodecl_wrap(a));
@@ -329,7 +329,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 char *quoted = quote_protect(print_declarator(t));
                 fprintf(f, "\\nType: \\\"%s\\\"", quoted);
-                xfree(quoted);
+                DELETE(quoted);
             }
 
             fprintf(f, "\"]\n");

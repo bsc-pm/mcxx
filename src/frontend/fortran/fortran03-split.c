@@ -188,7 +188,7 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 #endif
 		}
 		
-		xfree(line);
+		DELETE(line);
 	}
 }
 
@@ -299,7 +299,7 @@ static char* read_whole_line(FILE* input)
 	int buffer_size = 1024;
 	int was_eof;
 	int length_read;
-	char* temporal_buffer = xcalloc(buffer_size, sizeof(char));
+	char* temporal_buffer = NEW_VEC0(char, buffer_size);
 	// We read buffer_size-1 characters
 	if (fgets(temporal_buffer, buffer_size, input) == NULL)
     {
@@ -311,7 +311,7 @@ static char* read_whole_line(FILE* input)
 
 	if (temporal_buffer[0] == '\0')
 	{
-		xfree(temporal_buffer);
+		DELETE(temporal_buffer);
 		return NULL;
 	}
 
@@ -320,7 +320,7 @@ static char* read_whole_line(FILE* input)
 
 	while ((temporal_buffer[length_read - 1] != '\n') && !was_eof)
 	{
-		temporal_buffer = xrealloc(temporal_buffer, 2*sizeof(char)*buffer_size);
+		temporal_buffer = NEW_REALLOC(char, temporal_buffer, 2*buffer_size);
 		if (fgets(&temporal_buffer[length_read], buffer_size, input) == NULL)
         {
             if (ferror(input))
