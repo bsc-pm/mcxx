@@ -7481,7 +7481,10 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         {
             move_to_namespace_of_symbol(symbol);
             indent();
-            *(file) << "namespace " << symbol.get_name() << " { }\n";
+            *(file)
+                << (symbol.is_inline() ? "inline " : "")
+                << "namespace "
+                << symbol.get_name() << " { }\n";
         }
 
     }
@@ -8625,7 +8628,10 @@ void CxxBase::codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to)
         }
 
         indent();
-        *(file) << "namespace " << real_name << gcc_attributes << " {\n";
+        *(file)
+            << (symbol_entity_specs_get_is_inline(namespace_nesting_to[i]) ? "inline " : "")
+            << "namespace "
+            << real_name << gcc_attributes << " {\n";
         if ((i + 1) < num_from)
         {
             *(file) << " ";
