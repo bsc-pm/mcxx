@@ -7931,6 +7931,34 @@ static const_value_t* compute_subconstant_of_array_subscript(
     return cval;
 }
 
+static const_value_t* compute_subconstant_of_vector_subscript(
+        type_t* subscripted_type UNUSED_PARAMETER,
+        nodecl_t subscripted,
+        nodecl_t subscript)
+{
+    if (!is_vector_type(no_ref(subscripted_type)))
+        return NULL;
+
+    if (!nodecl_is_constant(subscripted))
+        return NULL;
+
+    if (!nodecl_is_constant(subscript))
+        return NULL;
+
+    const_value_t* cval = nodecl_get_constant(subscripted);
+    ERROR_CONDITION(!const_value_is_vector(cval),
+            "Invalid constant value '%s'", const_value_to_str(cval));
+
+    int idx = const_value_cast_to_signed_int(nodecl_get_constant(subscript));
+
+    if (idx < 0 
+            || idx >= const_value_get_num_elements(cval))
+        return NULL;
+
+    cval = const_value_get_element_num(cval, idx);
+
+    return cval;
+}
 
 static void check_nodecl_array_subscript_expression_c(
         nodecl_t nodecl_subscripted,
@@ -8067,10 +8095,28 @@ static void check_nodecl_array_subscript_expression_c(
                 nodecl_subscript_list,
                 lvalue_ref(t), locus);
     }
+    else if (is_vector_type(no_ref(subscripted_type)))
+    {
+        type_t* t = lvalue_ref(vector_type_get_element_type(no_ref(subscripted_type)));
+
+        nodecl_t nodecl_indexed = nodecl_shallow_copy(nodecl_subscripted);
+        nodecl_t nodecl_index = nodecl_shallow_copy(nodecl_subscript);
+
+        *nodecl_output = nodecl_make_vector_subscript(
+                nodecl_indexed,
+                nodecl_index,
+                lvalue_ref(t), locus);
+
+        const_value_t* const_value = compute_subconstant_of_vector_subscript(
+                subscripted_type,
+                nodecl_indexed,
+                nodecl_subscript);
+        nodecl_set_constant(*nodecl_output, const_value);
+    }
     else
     {
         error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is "
-                "neither an array-type or pointer-type\n",
+                "neither an array-type, pointer-type or vector-type\n",
                 nodecl_locus_to_str(nodecl_subscripted),
                 codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
                 codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
@@ -8090,12 +8136,19 @@ static char pointer_type_and_integral_or_unscoped_enum_type(type_t* t1, type_t* 
         && (is_integral_type(no_ref(t2)) || is_unscoped_enum_type(no_ref(t2)));
 }
 
+static char is_vector_type_and_integral_or_unscoped_enum_type(type_t* t1, type_t* t2)
+{
+    return (is_vector_type(no_ref(t1)))
+        && (is_integral_type(no_ref(t2)) || is_unscoped_enum_type(no_ref(t2)));
+}
+
 static char array_subcript_types_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     // T& operator[](T*, ptrdiff_t)
     // T& operator[](ptrdiff_t, T*)
     return pointer_type_and_integral_or_unscoped_enum_type(lhs, rhs)
-        || pointer_type_and_integral_or_unscoped_enum_type(rhs, lhs);
+        || pointer_type_and_integral_or_unscoped_enum_type(rhs, lhs)
+        || is_vector_type_and_integral_or_unscoped_enum_type(lhs, rhs);
 }
 
 static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
@@ -8123,6 +8176,14 @@ static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs, const lo
         *rhs = get_unqualified_type(*rhs);
 
         return lvalue_ref(pointer_type_get_pointee_type(*rhs));
+    }
+    else if (is_vector_type_and_integral_or_unscoped_enum_type(*lhs, *rhs))
+    {
+        *rhs = get_ptrdiff_t_type();
+
+        *lhs = get_unqualified_type(no_ref(*lhs));
+
+        return lvalue_ref(vector_type_get_element_type(*lhs));
     }
     else
     {
@@ -8296,6 +8357,10 @@ static void check_nodecl_array_subscript_expression_cxx(
             lhs = rhs;
             rhs = tmp;
         }
+        else if (is_vector_type(param0))
+        {
+            // do nothing
+        }
         else
         {
             internal_error("Code unreachable", 0);
@@ -8351,7 +8416,23 @@ static void check_nodecl_array_subscript_expression_cxx(
             nodecl_set_constant(*nodecl_output, const_value);
 
         }
-        else
+        else if (is_vector_type(no_ref(subscripted_type)))
+        {
+            nodecl_t nodecl_indexed = nodecl_shallow_copy(
+                    nodecl_subscripted);
+
+            *nodecl_output = nodecl_make_vector_subscript(
+                    lhs,
+                    rhs,
+                    result, locus);
+
+            const_value_t* const_value = compute_subconstant_of_vector_subscript(
+                    subscripted_type,
+                    nodecl_indexed,
+                    rhs);
+            nodecl_set_constant(*nodecl_output, const_value);
+        }
+        else 
         {
             nodecl_t nodecl_indexed = nodecl_shallow_copy(
                     nodecl_subscripted);

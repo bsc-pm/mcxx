@@ -512,6 +512,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
     }
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorSubscript& node)
+{
+    emit_line_marker(node);
+    Nodecl::NodeclBase subscripted = node.get_subscripted();
+    Nodecl::NodeclBase subscript = node.get_subscript();
+
+    if (operand_has_lower_priority(node, subscripted))
+    {
+        *(file) << "(";
+    }
+    walk(subscripted);
+    if (operand_has_lower_priority(node, subscripted))
+    {
+        *(file) << ")";
+    }
+
+    *(file) << "[";
+    walk(subscript);
+    *(file) << "]";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 {
     emit_line_marker(node);
@@ -8876,6 +8897,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_CXX_POSTFIX_INITIALIZER:
         case NODECL_CXX_EXPLICIT_TYPE_CAST:
         case NODECL_CXX_DEP_FUNCTION_CALL:
+
+        case NODECL_VECTOR_SUBSCRIPT:
             {
                 return -2;
             }
