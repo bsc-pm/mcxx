@@ -29,6 +29,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_ignore=yes
+test_ignore_reason="convoluted friend declarations"
 </testinfo>
 */
 template < typename T1, typename T2>
