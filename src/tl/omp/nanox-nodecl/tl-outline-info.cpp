@@ -1665,6 +1665,9 @@ namespace TL { namespace Nanox {
                 set_file(function_symbol,
                         _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
 
+                set_name(function_symbol,
+                        _function_task_set->get_function_task(function_symbol).get_target_info().get_name());
+
                 set_ndrange(function_symbol,
                         _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
 
