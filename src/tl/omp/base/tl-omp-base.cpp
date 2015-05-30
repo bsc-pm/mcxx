@@ -3175,7 +3175,6 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3185,7 +3184,6 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::ShMem::make(
                         Nodecl::List::make(shmem_exprs),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3195,7 +3193,6 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Onto::make(
                         Nodecl::List::make(onto_exprs),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3205,7 +3202,6 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::File::make(
                         Nodecl::Text::make(file),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 
@@ -3215,7 +3211,6 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::Name::make(
                         Nodecl::Text::make(name),
-                        Nodecl::Symbol::make(called_symbol, locus),
                         locus));
         }
 

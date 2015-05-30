@@ -1284,30 +1284,31 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::NDRange& ndrange)
             {
-                _outline_info.set_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_ndrange(_outline_info.get_funct_symbol(),
                         ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::ShMem& shmem)
             {
-                _outline_info.set_shmem(shmem.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_shmem(_outline_info.get_funct_symbol(),
                         shmem.get_shmem_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Onto& onto)
             {
-                _outline_info.set_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                _outline_info.set_onto(_outline_info.get_funct_symbol(),
                         onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::File& file)
             {
-                _outline_info.set_file(file.get_function_name().as<Nodecl::Symbol>().get_symbol(), file.get_filename().get_text());
+                _outline_info.set_file(_outline_info.get_funct_symbol(),
+                    file.get_filename().get_text());
             }
 
             void visit(const Nodecl::OpenMP::Name& name)
             {
-                _outline_info.set_name(name.get_function_name().as<Nodecl::Symbol>().get_symbol(), name.get_name().get_text());
+                _outline_info.set_name(_outline_info.get_funct_symbol(), name.get_name().get_text());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& firstprivate)
