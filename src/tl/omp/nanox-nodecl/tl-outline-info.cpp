@@ -1277,7 +1277,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Implements& implements)
             {
-                _outline_info.add_implementation(
+                _outline_info.handle_implements_clause(
                         implements.get_function_name().as<Nodecl::Symbol>().get_symbol(),
                         implements.get_device().as<Nodecl::Text>().get_text());
             }
@@ -1308,7 +1308,8 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Name& name)
             {
-                _outline_info.set_name(_outline_info.get_funct_symbol(), name.get_name().get_text());
+                _outline_info.set_name(_outline_info.get_funct_symbol(),
+                    name.get_name().get_text());
             }
 
             void visit(const Nodecl::OpenMP::Firstprivate& firstprivate)
@@ -1569,7 +1570,7 @@ namespace TL { namespace Nanox {
        return _implementation_table[function_symbol].get_device_names();
     }
 
-    void OutlineInfo::set_file(TL::Symbol function_symbol,std::string file)
+    void OutlineInfo::set_file(TL::Symbol function_symbol, const std::string& file)
     {
         ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                 "Function symbol '%s' not found in outline info implementation table",
@@ -1587,7 +1588,7 @@ namespace TL { namespace Nanox {
         return _implementation_table[function_symbol].get_file();
     }
 
-    void OutlineInfo::set_name(TL::Symbol function_symbol,std::string name)
+    void OutlineInfo::set_name(TL::Symbol function_symbol,const std::string& name)
     {
         ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
                 "Function symbol '%s' not found in outline info implementation table",
@@ -1650,38 +1651,66 @@ namespace TL { namespace Nanox {
         _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
     }
 
-    void OutlineInfo::add_implementation(TL::Symbol function_symbol, std::string device_name)
+    void OutlineInfo::add_new_implementation(
+            TL::Symbol function_symbol,
+            const std::string& device_name,
+            const std::string& file_args,
+            const std::string& name_args,
+            const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+            const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
+            const TL::ObjectList<Nodecl::NodeclBase>& onto_args)
     {
-        //if no impl present, we add it, otherwise just add a device
+        // If the current function symbol is not registered as an
+        // implementation we add it to the implementation table
+        // Otherwise, we add the device name to the device list
+        //
+        // It's not usual that the function symbol is already registered, it
+        // only happens when we have multiple devices for the same task
+        // (i.e. #pragma omp target device(smp, cuda))
         if(_implementation_table.count(function_symbol) == 0)
         {
             TargetInformation ti;
             ti.add_device_name(device_name);
             ti.set_outline_name(get_outline_name(function_symbol));
             _implementation_table.insert(std::make_pair(function_symbol, ti));
-
-            if (_function_task_set != NULL)
-            {
-                set_file(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
-
-                set_name(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_name());
-
-                set_ndrange(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
-
-                set_shmem(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_shmem());
-
-                set_onto(function_symbol,
-                        _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
-            }
         }
         else
         {
             add_device_name(device_name,function_symbol);
         }
+
+        set_file(function_symbol, file_args);
+
+        set_name(function_symbol, name_args);
+
+        set_ndrange(function_symbol, ndrange_args);
+
+        set_shmem(function_symbol, shmem_args);
+
+        set_onto(function_symbol, onto_args);
+    }
+
+    void OutlineInfo::handle_implements_clause(TL::Symbol implementor_symbol, std::string device_name)
+    {
+        ERROR_CONDITION(_function_task_set == NULL, "Unreachable code", 0);
+
+        TL::OpenMP::TargetInfo& target_info =
+            _function_task_set->get_function_task(implementor_symbol).get_target_info();
+
+        // We have to create a new implementation of this task using the
+        // implementor symbol. Apart from that, we have to fill the Target
+        // Information of this new implementation. Since we don't have the
+        // TargetInformation of the implementor symbol in the tree, we have to
+        // use the information computed by Core phase
+        add_new_implementation(
+                implementor_symbol,
+                device_name,
+                target_info.get_file(),
+                target_info.get_name(),
+                target_info.get_ndrange(),
+                target_info.get_shmem(),
+                target_info.get_onto());
+
     }
 
     std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
@@ -1712,7 +1741,7 @@ namespace TL { namespace Nanox {
             {
                 ss << function_symbol.in_module().get_name() << "_";
             }
-			
+
 			ss << function_symbol.get_filename() << "_" << (int)task_counter;
 
             unsigned int hash_int = simple_hash_str(ss.str().c_str());

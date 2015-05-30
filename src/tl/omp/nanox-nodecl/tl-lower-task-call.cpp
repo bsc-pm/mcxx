@@ -767,17 +767,20 @@ static void copy_target_info_from_params_to_args_c(
                     new_block_context_sc,
                     initializations_src);
 
-        ObjectList<std::string> devices= target_info.get_device_names();
+        ObjectList<std::string> devices = target_info.get_device_names();
         for (ObjectList<std::string>::iterator it2 = devices.begin();
                 it2 != devices.end();
                 ++it2)
         {
             std::string device_name = *it2;
-            arguments_outline_info.add_implementation(implementor, device_name);
-            arguments_outline_info.set_ndrange(implementor, new_ndrange_args);
-            arguments_outline_info.set_shmem(implementor, new_shmem_args);
-            arguments_outline_info.set_onto(implementor, target_info.get_onto());
-            arguments_outline_info.set_file(implementor, target_info.get_file());
+            arguments_outline_info.add_new_implementation(
+                implementor,
+                device_name,
+                target_info.get_file(),
+                target_info.get_name(),
+                new_ndrange_args,
+                new_shmem_args,
+                target_info.get_onto());
         }
     }
 }
