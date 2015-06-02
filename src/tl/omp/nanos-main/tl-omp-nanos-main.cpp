@@ -91,11 +91,14 @@ namespace TL {
                 || emit_main_instrumentation;
 
             Source initial_main_code_src;
+            Nodecl::FunctionCode function_code = main_function.get_function_code().as<Nodecl::FunctionCode>();
 
             if (emit_nanos_main_call)
             {
                 initial_main_code_src
-                    << "ompss_nanox_main();";
+                    << "ompss_nanox_main_begin((void*)main,"
+                    << "\"" << function_code.get_filename() << "\","
+                    << function_code.get_line() << ");";
             }
 
             if (emit_main_instrumentation)
@@ -112,7 +115,6 @@ namespace TL {
             Source::source_language = SourceLanguage::Current;
 
             // Now prepend the code
-            Nodecl::FunctionCode function_code = main_function.get_function_code().as<Nodecl::FunctionCode>();
             Nodecl::Context context = function_code.get_statements().as<Nodecl::Context>();
             Nodecl::List stmts = context.get_in_context().as<Nodecl::List>();
 
