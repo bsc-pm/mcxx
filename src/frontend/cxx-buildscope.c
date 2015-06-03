@@ -1811,7 +1811,7 @@ static void build_scope_static_assert(AST a, const decl_context_t* decl_context)
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression_must_be_constant(constant_expr, decl_context, &nodecl_expr))
     {
-        error_printf("%s: error: static_assert expression is invalid\n",
+        error_printf("%s: error: static assertion expression is invalid\n",
                 ast_location(a));
     }
 
@@ -1819,7 +1819,7 @@ static void build_scope_static_assert(AST a, const decl_context_t* decl_context)
     {
         if (!nodecl_is_constant(nodecl_expr))
         {
-            error_printf("%s: error: static_assert expression is not constant\n",
+            error_printf("%s: error: static assertion expression is not constant\n",
                     ast_location(a));
         }
         else
@@ -1828,7 +1828,7 @@ static void build_scope_static_assert(AST a, const decl_context_t* decl_context)
 
             if (const_value_is_zero(val))
             {
-                error_printf("%s: error: static_assert failed: %s\n",
+                error_printf("%s: error: static assertion failed: %s\n",
                         ast_location(a),
                         prettyprint_in_buffer(message));
             }

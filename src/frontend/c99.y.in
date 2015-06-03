@@ -233,6 +233,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> block_declaration
 %type<ast> non_empty_block_declaration
 %type<ast> common_block_declaration
+%type<ast> static_assert_declaration
 %type<ast> nested_block_declaration
 %type<ast> nested_function_definition
 %type<ast> builtin_types
@@ -437,6 +438,17 @@ block_declaration : simple_declaration
 | common_block_declaration
 {
     $$ = $1;
+}
+| static_assert_declaration
+{
+    $$ = $1;
+}
+;
+
+// C11
+static_assert_declaration : STATIC_ASSERT '(' constant_expression ',' string_literal ')' ';'
+{
+    $$ = ASTMake2(AST_STATIC_ASSERT, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
