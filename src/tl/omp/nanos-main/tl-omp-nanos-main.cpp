@@ -104,7 +104,7 @@ namespace TL {
             if (emit_main_instrumentation)
             {
                 initial_main_code_src
-                    << "atexit(ompss_nanox_main_end);";
+                    << "nanos_atexit((void*)ompss_nanox_main_end);";
             }
 
             if (IS_FORTRAN_LANGUAGE)
