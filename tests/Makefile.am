@@ -54,6 +54,7 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-run
 	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
+	chmod +x */mercurium-c11
 	chmod +x */mercurium-cxx11
 	chmod +x */mercurium-cxx14
 
@@ -92,6 +93,7 @@ FORTRAN_DIRS=\
 CORE_DIRS=\
 		$(BETS_DIRS)/01_parser.dg \
 		$(BETS_DIRS)/02_typecalc_c.dg \
+		$(BETS_DIRS)/02_typecalc_c11.dg \
 		$(BETS_DIRS)/02_typecalc_cxx.dg \
 		$(BETS_DIRS)/02_typecalc_cxx11.dg \
 		$(BETS_DIRS)/02_typecalc_cxx14.dg \
