@@ -509,6 +509,9 @@ typedef struct compilation_configuration_tag
     // If this is not null, this should be a constant expression
     const char *upc_threads;
 
+    // Enable C11
+    char enable_c11;
+
     // Enable C++11
     char enable_cxx11;
 

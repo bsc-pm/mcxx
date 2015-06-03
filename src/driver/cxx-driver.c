@@ -2088,6 +2088,11 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         CURRENT_CONFIGURATION->enable_cxx11 = 1;
                         CURRENT_CONFIGURATION->enable_cxx14 = 1;
                     }
+                    else if (strcmp(&argument[5], "c11") == 0
+                            || strcmp(&argument[5], "gnu11") == 0)
+                    {
+                        CURRENT_CONFIGURATION->enable_c11 = 1;
+                    }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
                 else if (strcmp(argument, "-static-libgcc") == 0) { }
