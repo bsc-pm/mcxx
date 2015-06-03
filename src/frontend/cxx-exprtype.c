@@ -512,6 +512,8 @@ static void check_noexcept_expression(AST expression, const decl_context_t* decl
 
 static void check_lambda_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
+static void check_generic_selection(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
+
 static void check_initializer_clause_pack_expansion(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
 
 static void check_vla_expression(AST expression, const decl_context_t* decl_context, nodecl_t* nodecl_output);
@@ -1090,6 +1092,12 @@ static void check_expression_impl_(AST expression, const decl_context_t* decl_co
         case AST_LAMBDA_EXPRESSION:
             {
                 check_lambda_expression(expression, decl_context, nodecl_output);
+                break;
+            }
+            // C11
+        case AST_GENERIC_SELECTION:
+            {
+                check_generic_selection(expression, decl_context, nodecl_output);
                 break;
             }
             // GCC Extension
@@ -15050,6 +15058,138 @@ static void check_lambda_expression(AST expression, const decl_context_t* decl_c
             captures, lambda_symbol, function_type,
             ast_get_locus(expression),
             nodecl_output);
+}
+
+static void check_generic_selection(AST expression,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_default_case = nodecl_null();
+    nodecl_t nodecl_chosen_case = nodecl_null();
+
+    AST generic_expr = ASTSon0(expression);
+    AST generic_assoc_list = ASTSon1(expression);
+
+    nodecl_t nodecl_selection_expr = nodecl_null();
+    check_expression_non_executable(generic_expr, decl_context, &nodecl_selection_expr);
+
+    if (nodecl_is_err_expr(nodecl_selection_expr))
+    {
+        *nodecl_output = nodecl_selection_expr;
+        return;
+    }
+
+    type_t* selection_type = nodecl_get_type(nodecl_selection_expr);
+    // lvalue-conversions like gcc does
+    selection_type = no_ref(selection_type);
+    if (is_array_type(selection_type))
+    {
+        selection_type = get_pointer_type(array_type_get_element_type(selection_type));
+    }
+    else if (is_function_type(selection_type))
+    {
+        selection_type = get_pointer_type(selection_type);
+    }
+    ERROR_CONDITION(selection_type == NULL, "Invalid type", 0);
+
+    AST list = generic_assoc_list, it;
+    for_each_element(list, it)
+    {
+        AST generic_association = ASTSon1(it);
+
+        switch (ASTKind(generic_association))
+        {
+            case AST_GENERIC_ASSOCIATION_DEFAULT:
+                {
+                    if (!nodecl_is_null(nodecl_default_case))
+                    {
+                        error_printf("%s: error: more than one default case in generic selection\n",
+                                ast_location(generic_association));
+                    }
+
+                    check_expression_impl_(ASTSon0(generic_association), decl_context, &nodecl_default_case);
+
+                    if (nodecl_is_err_expr(nodecl_default_case))
+                    {
+                        *nodecl_output = nodecl_default_case;
+                        return;
+                    }
+                    break;
+                }
+            case AST_GENERIC_ASSOCIATION:
+                {
+                    AST type_id = ASTSon0(generic_association);
+
+                    type_t* declarator_type = compute_type_for_type_id_tree(type_id, decl_context,
+                            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+                    if (is_error_type(declarator_type))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(ast_get_locus(type_id));
+                        return;
+                    }
+
+                    nodecl_t nodecl_current_case = nodecl_null();
+                    check_expression_impl_(ASTSon1(generic_association), decl_context, &nodecl_current_case);
+
+                    if (nodecl_is_err_expr(nodecl_current_case))
+                    {
+                        *nodecl_output = nodecl_current_case;
+                        return;
+                    }
+
+                    // This may be not exact. At the moment the notion of
+                    // compatibility is not properly implemented for C
+                    // (standard_conversion_between_types is too lax in C and
+                    // allows too many conversions)
+                    if (equivalent_types(
+                                get_unqualified_type(no_ref(selection_type)),
+                                get_unqualified_type(no_ref(declarator_type))))
+                    {
+                        if (!nodecl_is_null(nodecl_chosen_case))
+                        {
+                            error_printf("%s: error: more than one case matches the generic selection\n",
+                                ast_location(generic_association));
+                        }
+
+                        nodecl_chosen_case = nodecl_current_case;
+                    }
+                    else
+                    {
+                        nodecl_free(nodecl_current_case);
+                    }
+
+                    break;
+                }
+            default:
+                {
+                    internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTKind(generic_association)));
+                }
+        }
+    }
+
+    if (nodecl_is_null(nodecl_chosen_case))
+    {
+        if (!nodecl_is_null(nodecl_default_case))
+        {
+            nodecl_chosen_case = nodecl_default_case;
+        }
+        else
+        {
+            error_printf("%s: error: no matching case in generic selection for selection expression of type '%s'\n",
+                    ast_location(expression),
+                    print_type_str(selection_type, decl_context));
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+            return;
+        }
+    }
+    else
+    {
+        nodecl_free(nodecl_default_case);
+    }
+
+    ERROR_CONDITION(nodecl_is_null(nodecl_chosen_case), "Invalid tree at this point", 0);
+
+    *nodecl_output = nodecl_chosen_case;
 }
 
 // Used in cxx-typeutils.c

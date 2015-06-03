@@ -323,6 +323,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> parameter_or_kr_list
 %type<ast> postfix_expression
 %type<ast> primary_expression
+%type<ast> generic_selection
+%type<ast> generic_assoc_list
+%type<ast> generic_association
 %type<ast> ptr_operator
 %type<ast> relational_expression
 %type<ast> selection_statement
@@ -2057,6 +2060,11 @@ primary_expression : literal
 {
 	$$ = $1;
 }
+// C11
+| generic_selection
+{
+    $$ = $1;
+}
 // GNU Extensions
 /*
      ( compound-statement )
@@ -2086,6 +2094,33 @@ primary_expression : literal
 | BUILTIN_TYPES_COMPATIBLE_P '(' type_id ',' type_id ')'
 {
     $$ = ASTMake2(AST_GCC_BUILTIN_TYPES_COMPATIBLE_P, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
+;
+
+generic_selection : TOKEN_GENERIC '(' assignment_expression ',' generic_assoc_list ')'
+{
+    $$ = ASTMake2(AST_GENERIC_SELECTION, $3, $5, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+}
+;
+
+generic_assoc_list : generic_association
+{
+    $$ = ASTListLeaf($1);
+}
+| generic_assoc_list ',' generic_association
+{
+    $$ = ASTList($1, $3);
+}
+;
+
+generic_association : type_id ':' assignment_expression
+{
+    $$ = ASTMake2(AST_GENERIC_ASSOCIATION, $1, $3, ast_get_locus($1), NULL);
+}
+| DEFAULT ':' assignment_expression
+{
+    $$ = ASTMake1(AST_GENERIC_ASSOCIATION_DEFAULT, $3,
+        make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
 }
 ;
 
