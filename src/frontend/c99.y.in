@@ -237,6 +237,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nested_function_definition
 %type<ast> builtin_types
 %type<ast> typeof_type_specifier
+%type<ast> atomic_type_specifier
 %type<ast> cast_expression
 %type<ast> class_head
 %type<ast> class_key
@@ -905,6 +906,10 @@ type_specifier_alone : declarating_type_specifier
 {
     $$ = $1;
 }
+| atomic_type_specifier
+{
+    $$ = $1;
+}
 ;
 
 declarating_type_specifier : class_specifier
@@ -955,6 +960,10 @@ simple_type_specifier : type_name
 {
     $$ = $1;
 }
+| atomic_type_specifier
+{
+    $$ = $1;
+}
 ;
 
 // GNU Extension. Somebody decided that this had to be different in gcc and g++
@@ -967,6 +976,11 @@ typeof_type_specifier : TYPEOF '(' expression ')' %merge<ambiguityHandler>
 	$$ = ASTMake1(AST_GCC_TYPEOF, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
+
+atomic_type_specifier : TOKEN_ATOMIC '(' type_id ')'
+{
+    $$ = ASTMake1(AST_ATOMIC_TYPE_SPECIFIER, $3, make_locus(@1.first_filename, @1.first_line, @1.first_column), NULL);
+};
 
 // Simplified rule
 type_name : identifier_token
@@ -1303,6 +1317,11 @@ cv_qualifier : TOKEN_CONST
 | RESTRICT
 {
 	$$ = ASTLeaf(AST_GCC_RESTRICT_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
+// C11
+| TOKEN_ATOMIC
+{
+    $$ = ASTLeaf(AST_ATOMIC_TYPE_QUALIFIER, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
 ;
 
