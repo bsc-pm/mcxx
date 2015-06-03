@@ -861,6 +861,11 @@ LIBMCXX_EXTERN type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribut
 LIBMCXX_EXTERN void variant_type_get_gcc_attributes(type_t* t, int* num_attrs, gcc_attribute_t** attrs);
 LIBMCXX_EXTERN void variant_type_get_ms_attributes(type_t* t, int* num_attrs, gcc_attribute_t** attrs);
 
+// C11 atomics
+LIBMCXX_EXTERN type_t* get_variant_type_atomic(type_t* t);
+LIBMCXX_EXTERN char variant_type_is_atomic(type_t* t);
+LIBMCXX_EXTERN char is_atomic_type(type_t* t);
+
 // Vector flavor (NULL-ended array of vector flavors)
 LIBMCXX_EXTERN const char* vector_flavors[];
 LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
@@ -869,7 +874,6 @@ LIBMCXX_EXTERN const char* vector_types_get_vector_flavor(void);
 // TL::Source stuff
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
 LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(scope_entry_t* entry, void* p UNUSED_PARAMETER);
-
 
 // C++ auto
 LIBMCXX_EXTERN type_t* get_auto_type(void);

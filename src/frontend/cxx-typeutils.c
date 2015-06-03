@@ -440,6 +440,7 @@ struct common_type_info_tag
     _Bool is_incomplete:1;
     _Bool is_interoperable:1;
     _Bool is_zero_type:1;
+    _Bool is_atomic_type:1;
 
     // Other attributes that do not have specific representation
     int num_gcc_attributes;
@@ -10179,6 +10180,12 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
     ERROR_CONDITION(simple_type == NULL, "This cannot be null", 0);
 
     const char* result = "";
+
+    if (t->info->is_atomic_type)
+    {
+        result = strappend(result, "_Atomic ");
+    }
+
     switch ((int)simple_type->kind)
     {
         case STK_INDIRECT :
@@ -10224,11 +10231,11 @@ static const char* get_simple_type_name_string_internal_impl(const decl_context_
             {
                 if (simple_type->is_unsigned)
                 {
-                    result = "unsigned ";
+                    result = strappend(result, "unsigned ");
                 }
                 else if (simple_type->is_signed)
                 {
-                    result = "signed ";
+                    result = strappend(result, "signed ");
                 }
 
                 if (simple_type->is_long == 1)
@@ -11546,6 +11553,11 @@ static const char* get_builtin_type_name(type_t* type_info)
     simple_type_t* simple_type_info = type_info->type;
     ERROR_CONDITION(simple_type_info == NULL, "This cannot be null", 0);
     const char* result = UNIQUESTR_LITERAL("");
+
+    if (type_info->info->is_atomic_type)
+    {
+        result = strappend(result, "_Atomic ");
+    }
 
     if (simple_type_info->is_long == 1)
     {
@@ -16203,6 +16215,46 @@ extern inline void get_packs_in_type(type_t* pack_type,
             get_packs_in_type(sequence_of_types_get_type_num(pack_type, i), packs_to_expand, num_packs_to_expand);
         }
     }
+}
+
+static dhash_ptr_t *_atomic_types_hash = NULL;
+
+extern inline type_t* get_variant_type_atomic(type_t* t)
+{
+    if (_atomic_types_hash == NULL)
+    {
+        _atomic_types_hash = dhash_ptr_new(5);
+    }
+
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+    // We do not use get_unqualified_type because it preserves restrict
+    t = get_cv_qualified_type(t, CV_NONE);
+
+    type_t* result = dhash_ptr_query(_atomic_types_hash, (const char*)t);
+
+    if (result == NULL)
+    {
+        result = copy_type_for_variant(t);
+        result->info->is_atomic_type = 1;
+
+        dhash_ptr_insert(_atomic_types_hash, (const char*)t, result);
+    }
+
+    return get_cv_qualified_type(result, cv_qualif);
+}
+
+extern inline char variant_type_is_atomic(type_t* t)
+{
+    if (t == NULL)
+        return 0;
+
+    t = advance_over_typedefs(t);
+    return (t->info->is_atomic_type);
+}
+
+extern inline char is_atomic_type(type_t* t)
+{
+    return variant_type_is_atomic(t);
 }
 
 typedef

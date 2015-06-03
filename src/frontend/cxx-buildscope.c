@@ -2924,6 +2924,17 @@ void build_scope_decl_specifier_seq(AST a,
             // Add restrict
             *type_info = get_restrict_qualified_type(*type_info);
         }
+
+        if (gather_info->is_atomic)
+        {
+            if (!is_integer_type(*type_info))
+            {
+                error_printf("%s: error: only integer types can be atomic\n", ast_location(a));
+                *type_info = get_error_type();
+                return;
+            }
+            *type_info = get_variant_type_atomic(*type_info);
+        }
     }
     else
     {
@@ -3011,6 +3022,10 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             break;
         case AST_CONSTEXPR_SPEC:
             gather_info->is_constexpr = 1;
+            break;
+            // C11
+        case AST_ATOMIC_TYPE_QUALIFIER:
+            gather_info->is_atomic = 1;
             break;
             // GCC Extensions
         case AST_GCC_RESTRICT_SPEC :
@@ -3213,6 +3228,37 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             break;
         case AST_VOID_TYPE :
             *simple_type_info = get_void_type();
+            break;
+            // C11
+        case AST_ATOMIC_TYPE_SPECIFIER:
+            {
+                AST type_id = ASTSon0(a);
+                AST type_specifier_seq = ASTSon0(type_id);
+                AST abstract_decl = ASTSon1(type_id);
+
+                type_t *type_info = NULL;
+
+                gather_decl_spec_t typeof_gather_info;
+                memset(&typeof_gather_info, 0, sizeof(typeof_gather_info));
+
+                // First declarator is NULL because types cannot be defined in 'typeof' expressions
+                build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info,
+                        &type_info, decl_context, nodecl_output);
+
+                if (is_error_type(type_info))
+                {
+                    *simple_type_info = get_error_type();
+                    return;
+                }
+
+                type_t* declarator_type = type_info;
+                compute_declarator_type(abstract_decl,
+                        &typeof_gather_info, type_info, &declarator_type,
+                        decl_context, nodecl_output);
+
+                gather_info->is_atomic = 1;
+                *simple_type_info = declarator_type;
+            }
             break;
             // C++11
         case AST_AUTO_TYPE:

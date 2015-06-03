@@ -93,6 +93,7 @@ struct gather_decl_spec_tag {
     bool is_hides_member:1;
     bool is_override:1;
     bool is_constexpr:1;
+    bool is_atomic:1;
 
     // GCC extension
     bool is_transparent_union:1;
