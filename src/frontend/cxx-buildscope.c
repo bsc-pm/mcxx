@@ -3014,6 +3014,13 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_INLINE_SPEC :
             gather_info->is_inline = 1;
             break;
+            // C11
+        case AST_NORETURN_SPEC :
+            gather_info->is_noreturn = 1;
+            // We cannot do anything with it yet
+            warn_printf("%s: warning: ignoring _Noreturn function specifier\n",
+                    ast_location(a));
+            break;
         case AST_VIRTUAL_SPEC :
             gather_info->is_virtual = 1;
             break;

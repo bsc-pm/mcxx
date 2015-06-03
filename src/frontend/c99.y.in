@@ -882,6 +882,10 @@ function_specifier : INLINE
 {
 	$$ = ASTLeaf(AST_INLINE_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
 }
+| TOKEN_NORETURN
+{
+	$$ = ASTLeaf(AST_NORETURN_SPEC, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
+}
 ;
 
 type_specifier : declarating_type_specifier
