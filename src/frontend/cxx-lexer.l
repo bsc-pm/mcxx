@@ -1335,6 +1335,13 @@ type {
 "__inline__"        { parse_token_text(); update_location(); return INLINE; } 
 "__volatile"        { parse_token_text(); update_location(); return TOKEN_VOLATILE; } 
 "__volatile__"        { parse_token_text(); update_location(); return TOKEN_VOLATILE; } 
+ /*!if C99*/
+"_Atomic" { parse_token_text(); update_location(); if (IS_C11_LANGUAGE) return TOKEN_ATOMIC; else return IDENTIFIER; }
+"_Generic" { parse_token_text(); update_location(); if (IS_C11_LANGUAGE) return TOKEN_GENERIC; else return IDENTIFIER; }
+"_Noreturn" { parse_token_text(); update_location(); if (IS_C11_LANGUAGE) return TOKEN_NORETURN; else return IDENTIFIER; }
+"_Static_assert" { parse_token_text(); update_location(); if (IS_C11_LANGUAGE) return STATIC_ASSERT; else return IDENTIFIER; }
+"_Thread_local" { parse_token_text(); update_location(); if (IS_C11_LANGUAGE) return TOKEN_THREAD_LOCAL; else return IDENTIFIER; }
+ /*!endif*/
 "__asm" { parse_token_text(); update_location(); return ASM; }
 "__asm__" { parse_token_text(); update_location(); return ASM; }
  /* XL Compiler extensions */

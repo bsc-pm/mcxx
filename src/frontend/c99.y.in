@@ -158,6 +158,13 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> MCC_REFERENCE "<C-reference-specifier>"
 %token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
 
+// C11
+%token<token_atrib> TOKEN_ATOMIC "_Atomic"
+%token<token_atrib> TOKEN_GENERIC "_Generic"
+%token<token_atrib> TOKEN_NORETURN "_Noreturn"
+%token<token_atrib> STATIC_ASSERT "_Static_assert"
+%token<token_atrib> TOKEN_THREAD_LOCAL "_Thread_local"
+
 // Lexical symbols
 %token<token_atrib> '!'
 %token<token_atrib> '%'
