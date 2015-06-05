@@ -1103,7 +1103,9 @@ static inline int fixed_form_get(token_location_t* loc)
                     // continue to the next line (redundant)
                     continue;
                 }
-                else if (is_blank(lexer_state.current_file->current_pos[0]))
+                else if (is_blank(lexer_state.current_file->current_pos[0])
+                        // It may happen that this line is completely empty
+                        || is_newline(lexer_state.current_file->current_pos[0]))
                 {
                     // Make sure that we do not find a comment (except in the 6th column)
                     const char* const keep2 = lexer_state.current_file->current_pos;
@@ -1126,8 +1128,10 @@ static inline int fixed_form_get(token_location_t* loc)
                     }
 
                     if (!past_eof()
-                            && lexer_state.current_file->current_pos[0] == '!'
-                            && lexer_state.current_file->current_location.column != 6)
+                            && ((lexer_state.current_file->current_pos[0] == '!'
+                                    && lexer_state.current_file->current_location.column != 6)
+                                // It may happen that this line is just a bunch of whitespace
+                                || (is_newline(lexer_state.current_file->current_pos[0]))))
                     {
                         // Now advance till end of line
                         while (!past_eof()
