@@ -2351,12 +2351,22 @@ static char is_include_line(void)
     lexer_state.current_file->current_location.column = 1;
 
     // Now get the filename
+    // We first attempt the current working directory
+    const char* current_dir = ".";
     const char* include_filename = find_file_in_directories(
-            CURRENT_CONFIGURATION->num_include_dirs,
-            CURRENT_CONFIGURATION->include_dirs,
+            1,
+            &current_dir,
             include_filename_buf.buf,
             /* origin */ loc.filename);
-    DELETE(include_filename_buf.buf);
+    // otherwise use -Idir options
+    if (include_filename == NULL)
+    {
+        include_filename = find_file_in_directories(
+                CURRENT_CONFIGURATION->num_include_dirs,
+                CURRENT_CONFIGURATION->include_dirs,
+                include_filename_buf.buf,
+                /* origin */ loc.filename);
+    }
 
     if (include_filename == NULL)
     {
@@ -2364,8 +2374,9 @@ static char is_include_line(void)
                 loc.filename,
                 loc.line,
                 loc.column,
-                include_filename);
+                include_filename_buf.buf);
     }
+    DELETE(include_filename_buf.buf);
 
     int fd = open(include_filename, O_RDONLY);
     if (fd < 0)
