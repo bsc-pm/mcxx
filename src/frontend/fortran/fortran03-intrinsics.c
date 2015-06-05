@@ -1580,6 +1580,23 @@ static scope_entry_t* register_custom_intrinsic(
             decl_context,
             0, 0, 0, 0);
 
+    int i;
+    for (i = 0; i < 3 && types[i] != NULL; i++)
+    {
+        scope_entry_t* new_keyword_sym = NEW0(scope_entry_t);
+        new_keyword_sym->kind = SK_VARIABLE;
+        uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
+        new_keyword_sym->decl_context = entry->decl_context;
+        new_keyword_sym->type_information = types[i];
+
+        symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                /* nesting */ 0,
+                /* position */ symbol_entity_specs_get_num_related_symbols(entry));
+
+        symbol_entity_specs_add_related_symbols(entry,
+                new_keyword_sym);
+    }
+
     insert_alias(decl_context->current_scope, entry, specific_name);
 
     return entry;
@@ -7394,6 +7411,26 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(const decl_context_t* 
         symbol_entity_specs_set_in_module(new_operator_eq_class_type, ieee_arithmetic);
         symbol_entity_specs_set_access(new_operator_eq_class_type, AS_PRIVATE);
 
+        // Keywords
+        int j;
+        for (j = 0; j < 2; j++)
+        {
+            scope_entry_t* new_keyword_sym = NEW0(scope_entry_t);
+            new_keyword_sym->kind = SK_VARIABLE;
+            uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (j+1));
+            new_keyword_sym->decl_context = new_operator_eq_class_type->decl_context;
+            new_keyword_sym->type_information = lvalue_ref(ieee_class_type);
+
+            new_keyword_sym->do_not_print = 1;
+
+            symbol_set_as_parameter_of_function(new_keyword_sym, 
+                    new_operator_eq_class_type,
+                    /* nesting */ 0,
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_operator_eq_class_type));
+
+            symbol_entity_specs_add_related_symbols(new_operator_eq_class_type, new_keyword_sym);
+        }
+
         // OPERATOR IEEE_ROUND_TYPE
         scope_entry_t* new_operator_eq_round_type = NULL;
         new_operator_eq_round_type = new_symbol(module_context, module_context->current_scope,
@@ -7411,6 +7448,24 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(const decl_context_t* 
                     eq_round_type_parameter_info, 2, REF_QUALIFIER_NONE);
         symbol_entity_specs_set_in_module(new_operator_eq_round_type, ieee_arithmetic);
         symbol_entity_specs_set_access(new_operator_eq_round_type, AS_PRIVATE);
+
+        for (j = 0; j < 2; j++)
+        {
+            scope_entry_t* new_keyword_sym = NEW0(scope_entry_t);
+            new_keyword_sym->kind = SK_VARIABLE;
+            uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (j+1));
+            new_keyword_sym->decl_context = new_operator_eq_round_type->decl_context;
+            new_keyword_sym->type_information = lvalue_ref(ieee_round_type);
+
+            new_keyword_sym->do_not_print = 1;
+
+            symbol_set_as_parameter_of_function(new_keyword_sym, 
+                    new_operator_eq_round_type,
+                    /* nesting */ 0,
+                    /* position */ symbol_entity_specs_get_num_related_symbols(new_operator_eq_round_type));
+
+            symbol_entity_specs_add_related_symbols(new_operator_eq_round_type, new_keyword_sym);
+        }
 
         // OPERATOR Generic
         scope_entry_t* new_operator_eq = NULL;

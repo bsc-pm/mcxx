@@ -2579,28 +2579,23 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             for (i = 0; (i < symbol_entity_specs_get_num_related_symbols(specific_symbol)) && ok; i++)
             {
                 scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(specific_symbol, i);
+                ERROR_CONDITION(!symbol_is_parameter_of_function(related_sym, specific_symbol),
+                        "Related symbol must be a parameter of the function", 0 );
 
-                if (symbol_is_parameter_of_function(related_sym, specific_symbol))
+                if (argument_types[i].type == NULL)
                 {
-                    if (argument_types[i].type == NULL)
+                    if (symbol_entity_specs_get_is_optional(related_sym)
+                            && !symbol_entity_specs_get_is_stmt_function(specific_symbol))
                     {
-                        if (symbol_entity_specs_get_is_optional(related_sym)
-                                && !symbol_entity_specs_get_is_stmt_function(specific_symbol))
-                        {
-                            argument_types[i].type = related_sym->type_information;
-                            argument_types[i].not_present = 1;
-                            current_num_arguments++;
-                        }
-                        else
-                        {
-                            ok = 0;
-                            break;
-                        }
+                        argument_types[i].type = related_sym->type_information;
+                        argument_types[i].not_present = 1;
+                        current_num_arguments++;
                     }
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
+                    else
+                    {
+                        ok = 0;
+                        break;
+                    }
                 }
             }
         }
@@ -2616,6 +2611,10 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             // Now check that every type matches, otherwise error
             for (i = 0; (i < current_num_arguments) && ok; i++)
             {
+                scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(specific_symbol, i);
+                ERROR_CONDITION(!symbol_is_parameter_of_function(related_sym, specific_symbol),
+                        "Related symbol must be a parameter of the function", 0 );
+
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(specific_symbol->type_information, i));
                 type_t* real_type = no_ref(argument_types[i].type);
 
@@ -2623,6 +2622,49 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                 if (symbol_entity_specs_get_is_elemental(specific_symbol)) 
                 {
                     real_type = fortran_get_rank0_type(real_type);
+                }
+
+                if (is_pointer_type(formal_type)
+                        && !argument_types[i].not_present)
+                {
+                    // If the actual argument is a pointer type and the dummy argument is a derreference,
+                    // get the pointer type being derreferenced
+                    if (nodecl_get_kind(argument_types[i].argument) == NODECL_DEREFERENCE)
+                    {
+                        real_type = no_ref(
+                                nodecl_get_type(
+                                    nodecl_get_child(
+                                        argument_types[i].argument, 0)));
+
+                        ERROR_CONDITION(!is_pointer_type(real_type), "This should be a pointer type!", 0);
+                    }
+                    else
+                    {
+                        ok = 0;
+                        break;
+                    }
+                }
+
+                if (symbol_entity_specs_get_is_allocatable(related_sym))
+                {
+                    scope_entry_t* current_arg_sym = NULL; 
+                    if (nodecl_get_kind(argument_types[i].argument) == NODECL_SYMBOL)
+                    {
+                        current_arg_sym = nodecl_get_symbol(argument_types[i].argument);
+                    }
+                    else if (nodecl_get_kind(argument_types[i].argument) == NODECL_CLASS_MEMBER_ACCESS)
+                    {
+                        current_arg_sym = nodecl_get_symbol(
+                                nodecl_get_child(argument_types[i].argument, 1)
+                                );
+                    }
+
+                    if (current_arg_sym == NULL
+                            || !symbol_entity_specs_get_is_allocatable(current_arg_sym))
+                    {
+                        ok = 0;
+                        break;
+                    }
                 }
 
                 if (!check_argument_association(
@@ -2984,9 +3026,8 @@ static void check_called_symbol_list(
                 for (j = 0; j < symbol_entity_specs_get_num_related_symbols(symbol); j++)
                 {
                     scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, j);
-
-                    if (!symbol_is_parameter_of_function(related_sym, symbol))
-                        continue;
+                    ERROR_CONDITION(!symbol_is_parameter_of_function(related_sym, symbol),
+                            "Related symbol must be a parameter of the function", 0 );
 
                     if (strcasecmp(related_sym->symbol_name, nodecl_get_text(nodecl_actual_arguments[i])) == 0)
                     {
@@ -3021,32 +3062,27 @@ static void check_called_symbol_list(
         for (i = 0; i < symbol_entity_specs_get_num_related_symbols(symbol); i++)
         {
             scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, i);
+            ERROR_CONDITION(!symbol_is_parameter_of_function(related_sym, symbol),
+                    "Related symbol must be a parameter of the function", 0 );
 
-            if (symbol_is_parameter_of_function(related_sym, symbol))
+            if (argument_info_items[i].type == NULL)
             {
-                if (argument_info_items[i].type == NULL)
+                if (symbol_entity_specs_get_is_optional(related_sym)
+                        && !symbol_entity_specs_get_is_stmt_function(symbol))
                 {
-                    if (symbol_entity_specs_get_is_optional(related_sym)
-                            && !symbol_entity_specs_get_is_stmt_function(symbol))
-                    {
-                        argument_info_items[i].type = related_sym->type_information;
-                        argument_info_items[i].not_present = 1;
-                        num_completed_arguments++;
-                    }
-                    else
-                    {
-                        error_printf("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
-                                ast_location(location),
-                                related_sym->symbol_name,
-                                symbol->symbol_name);
-                        *result_type = get_error_type();
-                        return;
-                    }
+                    argument_info_items[i].type = related_sym->type_information;
+                    argument_info_items[i].not_present = 1;
+                    num_completed_arguments++;
                 }
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
+                else
+                {
+                    error_printf("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
+                            ast_location(location),
+                            related_sym->symbol_name,
+                            symbol->symbol_name);
+                    *result_type = get_error_type();
+                    return;
+                }
             }
         }
 
@@ -3104,6 +3140,10 @@ static void check_called_symbol_list(
 
             for (i = 0; i < num_completed_arguments; i++)
             {
+                scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, i);
+                ERROR_CONDITION(!symbol_is_parameter_of_function(related_sym, symbol),
+                        "Related symbol must be a parameter of the function", 0 );
+
                 type_t* formal_type = no_ref(function_type_get_parameter_type_num(function_type, i));
                 type_t* real_type = no_ref(fixed_argument_info_items[i].type);
 
@@ -3120,6 +3160,38 @@ static void check_called_symbol_list(
                                         fixed_argument_info_items[i].argument, 0)));
 
                         ERROR_CONDITION(!is_pointer_type(real_type), "This should be a pointer type!", 0);
+                    }
+                    else
+                    {
+                        error_printf("%s: error: cannot associate non-POINTER actual argument to POINTER dummy argument\n",
+                                nodecl_locus_to_str(fixed_argument_info_items[i].argument));
+                        // This is not a derreferenced pointer?
+                        argument_type_mismatch = 1;
+                        continue;
+                    }
+                }
+
+                if (symbol_entity_specs_get_is_allocatable(related_sym))
+                {
+                    scope_entry_t* current_arg_sym = NULL; 
+                    if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_SYMBOL)
+                    {
+                        current_arg_sym = nodecl_get_symbol(fixed_argument_info_items[i].argument);
+                    }
+                    else if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_CLASS_MEMBER_ACCESS)
+                    {
+                        current_arg_sym = nodecl_get_symbol(
+                                nodecl_get_child(fixed_argument_info_items[i].argument, 1)
+                                );
+                    }
+
+                    if (current_arg_sym == NULL
+                            || !symbol_entity_specs_get_is_allocatable(current_arg_sym))
+                    {
+                        error_printf("%s: error: cannot associate non-ALLOCATABLE actual argument to ALLOCATABLE dummy argument\n",
+                                nodecl_locus_to_str(fixed_argument_info_items[i].argument));
+                        argument_type_mismatch = 1;
+                        break;
                     }
                 }
 
@@ -3232,9 +3304,8 @@ static void check_called_symbol_list(
             for (j = 0; j < symbol_entity_specs_get_num_related_symbols(symbol); j++)
             {
                 scope_entry_t* related_sym = symbol_entity_specs_get_related_symbols_num(symbol, j);
-
-                if (!symbol_is_parameter_of_function(related_sym, symbol))
-                    continue;
+                ERROR_CONDITION(!symbol_is_parameter_of_function(related_sym, symbol),
+                        "Related symbol must be a parameter of the function", 0 );
 
                 if (strcasecmp(related_sym->symbol_name, keyword_name) == 0)
                 {
