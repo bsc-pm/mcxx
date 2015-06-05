@@ -1,5 +1,7 @@
 ! <testinfo>
-! test_generator=config/mercurium-fortran
+! # We mark this test as an extension since gfortran <4.8
+! # fails to accept it because it uses a Fortran 2008 feature
+! test_generator=config/mercurium-extensions
 ! </testinfo>
 PROGRAM MAIN
    INTERFACE FOO
