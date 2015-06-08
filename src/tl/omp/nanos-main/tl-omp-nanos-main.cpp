@@ -83,8 +83,9 @@ namespace TL {
                     || main_function.get_function_code().is_null())
                 return;
 
+            bool new_ompss_main_api = Nanos::Version::interface_is_at_least("master", 5030);
             bool emit_main_instrumentation = _instrumentation_enabled
-                    && Nanos::Version::interface_is_at_least("master", 5030);
+                    && new_ompss_main_api;
 
             bool emit_nanos_main_call = (_nanos_main_enabled
                     && Nanos::Version::interface_is_at_least("master", 5026))
@@ -99,20 +100,30 @@ namespace TL {
 
             if (emit_nanos_main_call)
             {
-                if (!IS_FORTRAN_LANGUAGE)
+                if (new_ompss_main_api)
                 {
-                    initial_main_code_src
-                        << "ompss_nanox_main_begin((void*)main,"
-                        << "\"" << function_code.get_filename() << "\","
-                        << function_code.get_line() << ");";
+                    if (!IS_FORTRAN_LANGUAGE)
+                    {
+                        initial_main_code_src
+                            << "ompss_nanox_main_begin((void*)main,"
+                            << "\"" << function_code.get_filename() << "\","
+                            << function_code.get_line() << ");";
+                    }
+                    else
+                    {
+                        initial_main_code_src
+                            << "int nanos_main_proxy_address = 0;"
+                            << "ompss_nanox_main_begin(&nanos_main_proxy_address,"
+                            << "\"" << function_code.get_filename() << "\","
+                            << function_code.get_line() << ");";
+                    }
                 }
                 else
                 {
+                    // Older version, used only for Cluster and Offload so far
                     initial_main_code_src
-                        << "int nanos_main_proxy_address = 0;"
-                        << "ompss_nanox_main_begin(&nanos_main_proxy_address,"
-                        << "\"" << function_code.get_filename() << "\","
-                        << function_code.get_line() << ");";
+                        << "ompss_nanox_main();"
+                        ;
                 }
             }
 
