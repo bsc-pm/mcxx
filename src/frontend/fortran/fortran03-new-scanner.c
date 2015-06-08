@@ -852,6 +852,10 @@ static char finish_character(char result)
                                 }
                                 DELETE(sentinel.buf);
                             }
+                            else
+                            {
+                                lexer_state.in_comment = 1;
+                            }
                         }
                     }
                     else
