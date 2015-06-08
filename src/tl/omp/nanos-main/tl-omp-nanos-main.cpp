@@ -90,15 +90,30 @@ namespace TL {
                     && Nanos::Version::interface_is_at_least("master", 5026))
                 || emit_main_instrumentation;
 
+            if (!emit_main_instrumentation
+                    && !emit_nanos_main_call)
+                return;
+
             Source initial_main_code_src;
             Nodecl::FunctionCode function_code = main_function.get_function_code().as<Nodecl::FunctionCode>();
 
             if (emit_nanos_main_call)
             {
-                initial_main_code_src
-                    << "ompss_nanox_main_begin((void*)main,"
-                    << "\"" << function_code.get_filename() << "\","
-                    << function_code.get_line() << ");";
+                if (!IS_FORTRAN_LANGUAGE)
+                {
+                    initial_main_code_src
+                        << "ompss_nanox_main_begin((void*)main,"
+                        << "\"" << function_code.get_filename() << "\","
+                        << function_code.get_line() << ");";
+                }
+                else
+                {
+                    initial_main_code_src
+                        << "int nanos_main_proxy_address = 0;"
+                        << "ompss_nanox_main_begin(&nanos_main_proxy_address,"
+                        << "\"" << function_code.get_filename() << "\","
+                        << function_code.get_line() << ");";
+                }
             }
 
             if (emit_main_instrumentation)
