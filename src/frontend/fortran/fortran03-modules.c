@@ -685,6 +685,7 @@ static sqlite3_uint64 run_insert_statement(sqlite3* handle, sqlite3_stmt* stmt)
     PREPARED_STATEMENT(_select_string_stmt) \
     PREPARED_STATEMENT(_select_scope_stmt) \
     PREPARED_STATEMENT(_select_decl_context_stmt) \
+    PREPARED_STATEMENT(_get_current_scope_of_decl_context_stmt) \
     PREPARED_STATEMENT(_select_ast_stmt) \
     PREPARED_STATEMENT(_select_type_stmt) \
     PREPARED_STATEMENT(_select_const_value_stmt) \
@@ -817,6 +818,8 @@ static void prepare_statements(sqlite3* handle)
             "SELECT oid, kind, contained_in, related_entry FROM scope WHERE oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_decl_context_stmt, "SELECT oid, " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = $OID;");
+
+    DO_PREPARE_STATEMENT(_get_current_scope_of_decl_context_stmt, "SELECT current_scope FROM decl_context WHERE oid = $OID;");
 
     DO_PREPARE_STATEMENT(_select_ast_stmt, "SELECT a.oid, str0.string AS kind, str1.string AS file, a.line, str2.string AS text, a.ast0, a.ast1, a.ast2, a.ast3, "
             "a.type, a.symbol, a.is_lvalue, a.is_const_val, a.const_val, a.is_value_dependent "
@@ -1976,6 +1979,8 @@ typedef struct
 } symbol_handle_t;
 
 static nodecl_t load_nodecl(sqlite3* handle, sqlite3_uint64 oid);
+static scope_t* load_scope(sqlite3* handle, sqlite3_uint64 oid);
+static sqlite3_uint64 get_current_scope_oid_of_decl_context_oid(sqlite3* handle, sqlite3_uint64 decl_context_oid);
 
 static int get_symbol(void *datum, 
         int ncols,
@@ -2131,11 +2136,18 @@ static int get_symbol(void *datum,
     (*result)->related_decl_context = load_decl_context(handle, related_decl_context_oid);
 
     // Add it to its scope if it has name
-    if ((*result)->symbol_name != NULL
-            // the root namespace has an empty name
-            && (*result)->symbol_name[0] != '\0')
+    if ((*result)->symbol_name != NULL)
     {
-        insert_entry((*result)->decl_context->current_scope, (*result));
+        // Now by accessing (*result)->decl_context->current_scope we would
+        // expose a cycle: (*result)->decl_context may have not been fully
+        // loaded yet at this point, so what we have to do is to get the oid of
+        // the current scope and get it, this will give us the correct scope
+        scope_t* current_scope =
+            load_scope(handle,
+                    get_current_scope_oid_of_decl_context_oid(handle, decl_context_oid)
+                    );
+
+        insert_entry(current_scope, (*result));
     }
 
     (*result)->value = load_nodecl(handle, value_oid);
@@ -2303,8 +2315,6 @@ struct scope_info_tag
     scope_t* scope;
 } scope_info_t;
 
-static scope_t* load_scope(sqlite3* handle, sqlite3_uint64 oid);
-
 static int get_scope_(void *datum, 
         int ncols UNUSED_PARAMETER, 
         char **values, 
@@ -2356,6 +2366,37 @@ struct decl_context_info_tag
     const decl_context_t* decl_context;
 } decl_context_t_info_t;
 
+
+static int get_current_scope_oid_of_decl_context_oid_(void *datum, 
+        int ncols UNUSED_PARAMETER, 
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    sqlite3_uint64* oid = (sqlite3_uint64*)datum;
+
+    *oid = safe_atoull(values[0]);
+
+    return 0;
+}
+
+static sqlite3_uint64 get_current_scope_oid_of_decl_context_oid(sqlite3* handle, sqlite3_uint64 decl_context_oid)
+{
+    if (decl_context_oid == 0)
+        return 0;
+
+    sqlite3_uint64 result_oid = 0;
+
+    const char *errmsg = NULL;
+    sqlite3_bind_int64(_get_current_scope_of_decl_context_stmt, 1, decl_context_oid);
+    if (run_select_query_prepared(handle, _get_current_scope_of_decl_context_stmt,
+                get_current_scope_oid_of_decl_context_oid_,
+                &result_oid, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error while running query: %s\n", errmsg);
+    }
+
+    return result_oid;
+}
 
 static int get_decl_context_(void *datum, 
         int ncols UNUSED_PARAMETER, 
