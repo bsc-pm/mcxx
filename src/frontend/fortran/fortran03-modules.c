@@ -2156,7 +2156,14 @@ static int get_symbol(void *datum,
     // Classes require a bit more of work
     if ((*result)->kind == SK_CLASS)
     {
-        const decl_context_t* class_context = new_class_context((*result)->decl_context, *result);
+        // Avoid cycle (see explanation above)
+        decl_context_t* fixed_decl_context = decl_context_clone((*result)->decl_context);
+        fixed_decl_context->current_scope =
+            load_scope(handle,
+                    get_current_scope_oid_of_decl_context_oid(handle, decl_context_oid)
+                    );
+
+        const decl_context_t* class_context = new_class_context(fixed_decl_context, *result);
         type_t* class_type = get_actual_class_type((*result)->type_information);
         class_type_set_inner_context(class_type, class_context);
 
