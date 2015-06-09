@@ -6799,41 +6799,6 @@ void register_symbol_this_in_class_scope(scope_entry_t* class_entry)
     symbol_entity_specs_add_related_symbols(class_entry, this_symbol);
 }
 
-static void make_empty_body_for_default_function(
-        scope_entry_t* entry,
-        const decl_context_t* decl_context,
-        const locus_t* locus)
-{
-    // Create an empty body for the defaulted function
-    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
-    ptr_nodecl_make_func_code = is_dependent_function(entry)
-        ? &nodecl_make_template_function_code : &nodecl_make_function_code;
-
-    const decl_context_t* block_context = new_block_context(decl_context);
-
-    register_symbol_this(block_context,
-            named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
-            locus);
-    update_symbol_this(entry, block_context);
-    register_mercurium_pretty_print(entry, block_context);
-
-    nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
-            nodecl_make_context(
-                nodecl_make_list_1(
-                    // Empty body
-                    nodecl_make_compound_statement(
-                        nodecl_null(),
-                        nodecl_null(),
-                        locus)),
-                block_context,
-                locus),
-            nodecl_null(),
-            entry,
-            locus);
-
-    symbol_entity_specs_set_function_code(entry, nodecl_function_def);
-}
-
 static void default_constructor_determine_if_constexpr(
         scope_entry_t* default_constructor,
         scope_entry_list_t* nonstatic_data_members,
@@ -6927,9 +6892,11 @@ static void default_constructor_determine_if_constexpr(
     symbol_entity_specs_set_is_instantiable(default_constructor, 0);
     symbol_entity_specs_set_emission_template(default_constructor, NULL);
 
+#if 0
     make_empty_body_for_default_function(default_constructor,
             default_constructor->decl_context,
             locus);
+#endif
 }
 
 
@@ -13932,7 +13899,9 @@ static void set_defaulted_inside_class_specifier(
         symbol_entity_specs_set_is_defaulted(entry, 1);
         symbol_entity_specs_set_is_defined_inside_class_specifier(entry, 1);
 
+#if 0
         make_empty_body_for_default_function(entry, decl_context, locus);
+#endif
     }
 }
 

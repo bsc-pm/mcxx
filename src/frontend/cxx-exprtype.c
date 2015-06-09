@@ -10004,6 +10004,12 @@ static void check_delete_expression(AST expression, const decl_context_t* decl_c
             nodecl_output);
 }
 
+static const_value_t* compute_subconstant_of_class_member_access(
+        const_value_t* const_value,
+        type_t* class_type,
+        scope_entry_t* given_base_object,
+        scope_entry_t* subobject);
+
 static const_value_t* cxx_nodecl_make_value_conversion(
         type_t* dest_type,
         type_t* orig_type,
@@ -10027,23 +10033,40 @@ static const_value_t* cxx_nodecl_make_value_conversion(
             locus);
 
     // Try again with enum types
-    if (!there_is_a_scs
-            && (is_enum_type(no_ref(orig_type))
-            || is_enum_type(no_ref(dest_type))))
+    if (!there_is_a_scs)
     {
-        type_t* underlying_orig_type = get_unqualified_type(no_ref(orig_type));
-        if (is_enum_type(underlying_orig_type))
-            underlying_orig_type = enum_type_get_underlying_type(underlying_orig_type);
+        if (is_enum_type(no_ref(orig_type))
+                || is_enum_type(no_ref(dest_type)))
+        {
+            type_t* underlying_orig_type = get_unqualified_type(no_ref(orig_type));
+            if (is_enum_type(underlying_orig_type))
+                underlying_orig_type = enum_type_get_underlying_type(underlying_orig_type);
 
-        type_t* underlying_dest_type = get_unqualified_type(no_ref(dest_type));
-        if (is_enum_type(underlying_dest_type))
-            underlying_dest_type = enum_type_get_underlying_type(underlying_dest_type);
+            type_t* underlying_dest_type = get_unqualified_type(no_ref(dest_type));
+            if (is_enum_type(underlying_dest_type))
+                underlying_dest_type = enum_type_get_underlying_type(underlying_dest_type);
 
-        there_is_a_scs = standard_conversion_between_types(
-                &scs,
-                underlying_orig_type,
-                underlying_dest_type,
-                locus);
+            there_is_a_scs = standard_conversion_between_types(
+                    &scs,
+                    underlying_orig_type,
+                    underlying_dest_type,
+                    locus);
+        }
+        else if (is_class_type(no_ref(orig_type))
+                && is_class_type(no_ref(dest_type))
+                && class_type_is_base_instantiating(no_ref(dest_type), no_ref(orig_type), locus)
+                && !class_type_is_ambiguous_base_of_derived_class(no_ref(dest_type), no_ref(orig_type)))
+        {
+            // We are slicing a value. This is not a SCS but we want to compute
+            // the conversion anyway
+            val = compute_subconstant_of_class_member_access(
+                    val,
+                    no_ref(orig_type),
+                    /* given_base_object */ NULL,
+                    /* subobject */ named_type_get_symbol(no_ref(dest_type)));
+
+            return val;
+        }
     }
 
     if (!there_is_a_scs)
@@ -15577,57 +15600,101 @@ static char is_pseudo_destructor_id(const decl_context_t* decl_context,
     return 1;
 }
 
-static char compute_path_to_subobject(
+static char compute_index_list_to_subobject_constant(
         scope_entry_t* derived_class_type,
-        scope_entry_t* base_class_type,
+        scope_entry_t* subobject,
         int** path_to_subobject,
         int *num_items
         )
 {
-    if (equivalent_types(derived_class_type->type_information,
-                base_class_type->type_information))
+    if (subobject->kind == SK_CLASS)
     {
-        // Note that the last one is not added
+        if (equivalent_types(derived_class_type->type_information,
+                    subobject->type_information))
+        {
+            // Note that the last one is not added
+            return 1;
+        }
+        else
+        {
+            int num_bases = class_type_get_num_bases(derived_class_type->type_information);
+            int i;
+
+            char found_a_path = 0;
+
+            for (i = 0; i < num_bases; i++)
+            {
+                char is_virtual = 0;
+                char is_dependent = 0;
+                char is_expansion = 0;
+                access_specifier_t access_spec = AS_UNKNOWN;
+                scope_entry_t* current_base = class_type_get_base_num(derived_class_type->type_information, i,
+                        &is_virtual, &is_dependent, &is_expansion, &access_spec);
+
+                if (is_virtual || is_dependent)
+                    continue;
+
+                char got_path =
+                    compute_index_list_to_subobject_constant(
+                            current_base,
+                            subobject,
+                            path_to_subobject,
+                            num_items);
+
+                ERROR_CONDITION(got_path && found_a_path, "More than one path found. "
+                        "This should not happen for unambiguous bases!\n", 0);
+
+                if (got_path)
+                {
+                    found_a_path = got_path;
+
+                    P_LIST_ADD(*path_to_subobject, *num_items, i);
+                }
+            }
+
+            return found_a_path;
+        }
+    }
+    else if (subobject->kind == SK_VARIABLE)
+    {
+        char got_path = compute_index_list_to_subobject_constant(
+                derived_class_type,
+                named_type_get_symbol(symbol_entity_specs_get_class_type(subobject)),
+                path_to_subobject,
+                num_items
+                );
+
+        if (!got_path)
+            return got_path;
+
+        // Ok, now compute the index in the const_value
+        scope_entry_list_t* subobjects_list = class_type_get_nonstatic_data_members(symbol_entity_specs_get_class_type(subobject));
+
+        int member_index = -1;
+        scope_entry_list_iterator_t* it = NULL;
+        int i = 0;
+        for (it = entry_list_iterator_begin(subobjects_list);
+                !entry_list_iterator_end(it) && (member_index < 0);
+                entry_list_iterator_next(it), i++)
+        {
+            if (entry_list_iterator_current(it) == subobject)
+                member_index = i;
+        }
+
+        if (member_index < 0)
+            return 0;
+
+        // Inside a structured const-value, first come the bases and then the data-members
+        // so offset it with the number of bases
+        member_index += class_type_get_num_bases(symbol_entity_specs_get_class_type(subobject));
+
+        P_LIST_ADD(*path_to_subobject, *num_items, member_index);
+
         return 1;
     }
     else
     {
-        int num_bases = class_type_get_num_bases(derived_class_type->type_information);
-        int i;
-
-        char found_a_path = 0;
-
-        for (i = 0; i < num_bases; i++)
-        {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            char is_expansion = 0;
-            access_specifier_t access_spec = AS_UNKNOWN;
-            scope_entry_t* current_base = class_type_get_base_num(derived_class_type->type_information, i,
-                    &is_virtual, &is_dependent, &is_expansion, &access_spec);
-
-            if (is_virtual || is_dependent)
-                continue;
-
-            char got_path =
-                compute_path_to_subobject(
-                        current_base,
-                        base_class_type,
-                        path_to_subobject,
-                        num_items);
-
-            ERROR_CONDITION(got_path && found_a_path, "More than one path found. "
-                    "This should not happen for unambiguous bases!\n", 0);
-
-            if (got_path)
-            {
-                found_a_path = got_path;
-
-                P_LIST_ADD(*path_to_subobject, *num_items, i);
-            }
-        }
-
-        return found_a_path;
+        internal_error("Invalid subobject kind %s\n", symbol_kind_to_str(subobject->kind));
     }
 }
 
@@ -15643,6 +15710,9 @@ static const_value_t* compute_subconstant_of_class_member_access(
     if (!const_value_is_structured(const_value))
         return NULL;
 
+    if (const_value_is_unknown(const_value))
+        return NULL;
+
     ERROR_CONDITION(given_base_object != NULL
             && given_base_object->kind != SK_CLASS, "Invalid base", 0);
     ERROR_CONDITION(subobject->kind != SK_VARIABLE
@@ -15654,39 +15724,35 @@ static const_value_t* compute_subconstant_of_class_member_access(
         const_value_t* intermediate_value = compute_subconstant_of_class_member_access(
                 const_value,
                 class_type,
-                NULL,
-                given_base_object);
+                /* given_base_object */ NULL,
+                /* subobject */ given_base_object);
         return compute_subconstant_of_class_member_access(
                 intermediate_value,
                 get_user_defined_type(given_base_object),
-                NULL,
+                /* given_base_object */ NULL,
                 subobject);
     }
 
-    // From here given_base_object == NULL so we do not have to care about it
-
-    const_value_t* result = NULL;
+    ERROR_CONDITION(given_base_object != NULL, "This should be NULL here", 0);
 
     int length_path = 0;
     int *path_info = NULL;
 
-    char got_path = compute_path_to_subobject(
+    char got_path = compute_index_list_to_subobject_constant(
             named_type_get_symbol(class_type),
-            named_type_get_symbol(symbol_entity_specs_get_class_type(subobject)),
+            subobject,
             &path_info,
             &length_path);
 
     ERROR_CONDITION(!got_path, "No path was constructed", 0);
 
-    result = const_value;
-
-    if (const_value_is_unknown(result))
-        return NULL;
+    const_value_t* result = const_value;
 
     int i;
     for (i = 0; i < length_path && result != NULL; i++)
     {
-        if (path_info[i] < const_value_get_num_elements(result))
+        if (const_value_is_structured(result)
+                && path_info[i] < const_value_get_num_elements(result))
         {
             result = const_value_get_element_num(result, path_info[i]);
         }
@@ -15697,46 +15763,6 @@ static const_value_t* compute_subconstant_of_class_member_access(
     }
 
     DELETE(path_info);
-
-    if (result == NULL
-            || const_value_is_unknown(result))
-        return NULL;
-
-    // Now lookup the data member/direct base
-    scope_entry_list_t* subobjects_list = NULL;
-    if (subobject->kind == SK_VARIABLE)
-        subobjects_list = class_type_get_nonstatic_data_members(symbol_entity_specs_get_class_type(subobject));
-    else if (subobject->kind == SK_CLASS)
-        // Note that this function skips virtual bases
-        subobjects_list = class_type_get_direct_base_classes(subobject->type_information);
-    else
-        internal_error("Code unreachable", 0);
-
-    i = 0;
-    int member_index = -1;
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(subobjects_list);
-            !entry_list_iterator_end(it) && (member_index < 0);
-            entry_list_iterator_next(it), i++)
-    {
-        if (entry_list_iterator_current(it) == subobject)
-            member_index = i;
-    }
-
-    entry_list_free(subobjects_list);
-
-    // Data members go after bases
-    if (subobject->kind == SK_VARIABLE)
-        member_index += class_type_get_num_bases(symbol_entity_specs_get_class_type(subobject));
-
-    if (member_index < 0
-            || member_index >= const_value_get_num_elements(result))
-        return NULL;
-
-    result = const_value_get_element_num(result, member_index);
-
-    if (const_value_is_unknown(result))
-        result = NULL;
 
     return result;
 }
@@ -16063,7 +16089,7 @@ static void check_nodecl_member_access(
             const_value_t* subconstant_value = compute_subconstant_of_class_member_access(
                     current_const_value,
                     current_const_value_type,
-                    /* subobject */ NULL,
+                    /* given_base_object */ NULL,
                     orig_entry);
             nodecl_set_constant(*nodecl_output, subconstant_value);
         }
@@ -16180,8 +16206,8 @@ static void check_nodecl_member_access(
                 const_value_t* subconstant_value = compute_subconstant_of_class_member_access(
                         current_const_value,
                         current_const_value_type,
-                        field_path.length == 1 ? field_path.path[0] : NULL,
-                        orig_entry);
+                        /* given_base_object */ field_path.length == 1 ? field_path.path[0] : NULL,
+                        /* subobject-requested */ orig_entry);
                 nodecl_set_constant(*nodecl_output, subconstant_value);
             }
         }
@@ -23699,7 +23725,7 @@ static const_value_t* evaluate_constexpr_constructor(
     int num_all_members = 0;
     scope_entry_t** all_members = NULL;
     {
-        scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(class_type);
+        scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes_canonical(class_type);
         scope_entry_list_t* data_members_list = class_type_get_nonstatic_data_members(class_type);
 
         scope_entry_list_t* all_members_list = entry_list_concat(direct_base_classes, data_members_list);
@@ -23726,6 +23752,18 @@ static const_value_t* evaluate_constexpr_constructor(
         int j;
         for (j = 0; j < num_all_members; j++)
         {
+#if 0
+            if ((current_member->kind == SK_VARIABLE
+                        && all_members[j] == current_member)
+                    || (current_member->kind == SK_CLASS
+                        && all_members[j]->kind == SK_CLASS
+                        && equivalent_types(current_member->type_information,
+                            all_members[j]->type_information)))
+            {
+                member_pos = j;
+                break;
+            }
+#endif
             if (all_members[j] == current_member)
             {
                 member_pos = j;
@@ -24045,8 +24083,8 @@ static void apply_function_to_data_layout_members(
 {
     ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
 
-    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(entry->type_information);
-    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(entry->type_information);
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes_canonical(entry->type_information);
+    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes_canonical(entry->type_information);
     scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
 
     scope_entry_list_iterator_t* it = NULL;
@@ -24141,6 +24179,7 @@ static void define_defaulted_destructor(scope_entry_t* entry,
     symbol_entity_specs_set_function_code(entry, nodecl_function_code);
 }
 
+// used in cxx-buildscope.c.
 void call_destructor_for_data_layout_members(
         scope_entry_t* entry,
         const decl_context_t* decl_context,
@@ -24154,13 +24193,35 @@ void call_destructor_for_data_layout_members(
             NULL);
 }
 
+// This is used for copy/move constructors/assignment-operators
+// (default constructors go different because they exploit the default
+// initialization of everything)
+typedef
+struct special_member_info_variable_init_tag
+{
+    scope_entry_t* symbol;
+    nodecl_t initializer;
+} special_member_info_variable_init_t;
+
 typedef
 struct special_member_info_tag
 {
-    scope_entry_list_t* (*function_set)(type_t*);
-    const char* (*function_name)(type_t*, const decl_context_t*);
+    scope_entry_t* parameter;
+
+    int num_members;
+    special_member_info_variable_init_t *members;
 } special_member_info_t;
 
+static void free_special_member_info(special_member_info_t* special_member_info)
+{
+    int i;
+    for (i = 0; i < special_member_info->num_members; i++)
+    {
+        nodecl_free(special_member_info->members[i].initializer);
+    }
+}
+
+#if 0
 static const char* get_constructor_name(type_t* class_type,
         const decl_context_t* decl_context)
 {
@@ -24174,7 +24235,7 @@ static const char* get_constructor_name(type_t* class_type,
     return constructor_name;
 }
 
-static const char* copy_move_assignment_operator(type_t* class_type,
+static const char* get_name_of_assignment_operator(type_t* class_type,
         const decl_context_t* decl_context)
 {
     ERROR_CONDITION(!is_named_class_type(class_type), "Invalid class", 0);
@@ -24185,107 +24246,727 @@ static const char* copy_move_assignment_operator(type_t* class_type,
 
     return constructor_name;
 }
+#endif
 
-static void call_specific_overloadable_special_member_for_data_layout_member(
+static nodecl_t compute_member_initializer_for_array_member_rec(
+        nodecl_t nodecl_init,
+        const decl_context_t* decl_context,
+        int current_dim,
+        int num_dims,
+        const int *dim_sizes,
+        const locus_t* locus)
+{
+    nodecl_t nodecl_current_list = nodecl_null();
+
+    int i;
+    type_t* type_seq[ dim_sizes[current_dim] ];
+    for (i = 0; i < dim_sizes[current_dim]; i++)
+    {
+        nodecl_t nodecl_current_access = nodecl_null();
+        check_nodecl_array_subscript_expression_cxx(
+                nodecl_shallow_copy(nodecl_init),
+                const_value_to_nodecl(
+                    const_value_get_signed_int(i)),
+                decl_context,
+                &nodecl_current_access);
+
+        if (nodecl_is_err_expr(nodecl_current_access))
+        {
+            nodecl_free(nodecl_current_access);
+            nodecl_free(nodecl_current_list);
+            return nodecl_null();
+        }
+
+        if (current_dim < (num_dims - 1))
+        {
+            nodecl_current_access =
+                compute_member_initializer_for_array_member_rec(
+                        nodecl_current_access,
+                        decl_context,
+                        current_dim + 1,
+                        num_dims,
+                        dim_sizes,
+                        locus);
+
+            if (nodecl_is_err_expr(nodecl_current_access))
+            {
+                nodecl_free(nodecl_current_access);
+                nodecl_free(nodecl_current_list);
+                return nodecl_null();
+            }
+        }
+
+        type_seq[i] = nodecl_get_type(nodecl_current_access);
+
+        nodecl_current_list = nodecl_append_to_list(
+                nodecl_current_list,
+                nodecl_current_access);
+    }
+
+    return nodecl_make_cxx_braced_initializer(
+            nodecl_current_list,
+            get_braced_list_type(dim_sizes[current_dim], type_seq),
+            locus);
+}
+
+static nodecl_t compute_member_initializer_for_array_member(
+        scope_entry_t* entry,
+        const decl_context_t *decl_context,
+        nodecl_t nodecl_init,
+        const locus_t* locus)
+{
+    type_t* array_type = entry->type_information;
+    ERROR_CONDITION(!is_array_type(array_type), "Invalid type", 0);
+
+    type_t* t = array_type;
+    int num_dims = 0;
+
+    while (is_array_type(t))
+    {
+        num_dims++;
+        t = array_type_get_element_type(t);
+    }
+
+    int dim_sizes[num_dims];
+
+    int i = 0;
+    t = array_type;
+    while (is_array_type(t))
+    {
+        nodecl_t array_size = array_type_get_array_size_expr(t);
+        if (nodecl_is_null(array_size)
+                || !nodecl_is_constant(array_size))
+            return nodecl_null();
+
+        dim_sizes[i] = const_value_cast_to_signed_int(
+                nodecl_get_constant(array_size)
+                );
+
+        if (dim_sizes[i] <= 0)
+            return nodecl_null();
+
+        t = array_type_get_element_type(t);
+        i++;
+    }
+
+    return compute_member_initializer_for_array_member_rec(
+            nodecl_init,
+            decl_context,
+            0,
+            num_dims,
+            dim_sizes,
+            locus);
+}
+
+static void call_constructor_for_data_member_or_base_class(
         scope_entry_t* entry,
         const decl_context_t* decl_context,
         const locus_t* locus,
         void *p)
 {
-    special_member_info_t *special_member_info =  (special_member_info_t*)p;
+    special_member_info_t *special_member_info = (special_member_info_t*)p;
 
-    if (!is_class_type_or_array_thereof(entry->type_information))
-        return;
+    special_member_info_variable_init_t var_init;
+    var_init.symbol = entry;
 
-    type_t* class_type = entry->type_information;
-    if (is_array_type(class_type))
-        class_type = array_type_get_element_type(class_type);
-
-    scope_entry_list_t* copy_constructors = (special_member_info->function_set)(class_type);
-
-    type_t* arg_type = lvalue_ref(class_type);
-
-    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(copy_constructors,
-            NULL, &arg_type, /* num_arguments */ 1,
-            decl_context,
-            locus, /* explicit_template_arguments */ NULL);
-    entry_list_free(copy_constructors);
-
-    candidate_t* candidate_set = NULL;
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(overload_set);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    if (entry->kind == SK_CLASS)
     {
-        candidate_set = candidate_set_add(candidate_set,
-                entry_list_iterator_current(it),
-                1, &arg_type);
-    }
-    entry_list_iterator_free(it);
-
-    // Now we have all the constructors, perform an overload resolution on them
-    scope_entry_t* overload_resolution = solve_overload(
-            candidate_set, decl_context, locus);
-
-    if (overload_resolution != NULL)
-    {
-        candidate_set_free(&candidate_set);
-
-        nodecl_t arg = nodecl_make_symbol(entry, locus);
-        nodecl_set_type(arg, arg_type);
-
-        nodecl_t nodecl_call_to_destructor =
-            cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(overload_resolution, locus),
-                    /* called name */ nodecl_null(),
-                    nodecl_make_list_1(arg),
-                    /* function_form */ nodecl_null(),
-                    get_void_type(),
-                    decl_context,
+        // Direct initialization
+        // FIXME - This exploits the conversion of derived to base class, which
+        // is a bit wicked at this point
+        type_t* symbol_ref_type = lvalue_ref(special_member_info->parameter->type_information);
+        nodecl_t nodecl_param_ref =
+            nodecl_make_symbol(
+                    special_member_info->parameter,
                     locus);
-        nodecl_free(nodecl_call_to_destructor);
-    }
-    else
-    {
-        const char* constructor_name =
-            (special_member_info->function_name)(class_type, decl_context);
+        nodecl_set_type(nodecl_param_ref, symbol_ref_type);
 
-        error_message_overload_failed(candidate_set,
-                constructor_name,
-                decl_context,
-                1, &arg_type,
-                /* implicit_argument */ NULL,
+        nodecl_t nodecl_init = nodecl_param_ref;
+        nodecl_init = nodecl_make_cxx_parenthesized_initializer(
+                nodecl_make_list_1(nodecl_init),
+                get_sequence_of_types(1, &symbol_ref_type),
                 locus);
-        candidate_set_free(&candidate_set);
+
+        check_nodecl_initialization(
+                nodecl_init,
+                decl_context,
+                entry,
+                get_unqualified_type(get_user_defined_type(entry)),
+                &nodecl_init,
+                /* is_auto_type */ 0,
+                /* is_decltype_auto */ 0);
+
+        var_init.initializer = nodecl_init;
     }
+    else if (entry->kind == SK_VARIABLE)
+    {
+        nodecl_t nodecl_param_ref =
+            nodecl_make_symbol(
+                    special_member_info->parameter,
+                    locus);
+        nodecl_set_type(nodecl_param_ref,
+                lvalue_ref(special_member_info->parameter->type_information));
+
+        nodecl_t nodecl_member_literal = nodecl_make_cxx_dep_name_simple(entry->symbol_name, locus);
+        nodecl_t nodecl_init = nodecl_null();
+
+        check_nodecl_member_access(
+                nodecl_param_ref,
+                nodecl_member_literal,
+                decl_context,
+                /* is_arrow */ 0,
+                /* has_template_tag */ 0,
+                locus,
+                &nodecl_init);
+
+        if (!nodecl_is_err_expr(nodecl_init))
+        {
+            if (is_array_type(entry->type_information))
+            {
+                nodecl_init = compute_member_initializer_for_array_member(
+                        entry,
+                        decl_context,
+                        nodecl_init,
+                        locus);
+            }
+            else
+            {
+                if (is_rvalue_reference_type(entry->type_information))
+                {
+                    // static_cast<T&&>(...)
+                    check_nodecl_cast_expr(
+                            nodecl_init,
+                            decl_context,
+                            entry->type_information,
+                            "static_cast",
+                            locus,
+                            &nodecl_init);
+                }
+
+                if (!nodecl_is_err_expr(nodecl_init))
+                {
+                    // direct initialization
+                    type_t* t = nodecl_get_type(nodecl_init);
+                    nodecl_init = nodecl_make_cxx_parenthesized_initializer(
+                            nodecl_make_list_1(nodecl_init),
+                            get_sequence_of_types(1, &t),
+                            locus);
+
+                    check_nodecl_initialization(
+                            nodecl_init,
+                            decl_context,
+                            entry,
+                            get_unqualified_type(entry->type_information),
+                            &nodecl_init,
+                            /* is_auto_type */ 0,
+                            /* is_decltype_auto */ 0);
+
+                }
+            }
+        }
+        var_init.initializer = nodecl_init;
+    }
+
+    P_LIST_ADD(special_member_info->members,
+            special_member_info->num_members,
+            var_init);
 }
 
-static void define_defaulted_copy_constructor(scope_entry_t* entry,
+static nodecl_t compute_assignment_for_nonarray_member(
+        type_t* type,
+        nodecl_t nodecl_lhs,
+        nodecl_t nodecl_rhs,
         const decl_context_t* decl_context,
         const locus_t* locus)
 {
-    if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
-        return;
+    nodecl_t nodecl_assig = nodecl_null();
+    if (is_class_type(type))
+    {
+        scope_entry_list_t* all_assignment_operators =
+            class_type_get_copy_assignment_operators(type);
+        all_assignment_operators = entry_list_concat(
+                all_assignment_operators,
+                class_type_get_move_assignment_operators(type));
+
+        static AST operation_tree = NULL;
+        if (operation_tree == NULL)
+        {
+            operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                    ASTLeaf(AST_ASSIGNMENT_OPERATOR, make_locus("", 0, 0), NULL),
+                    make_locus("", 0, 0), NULL);
+        }
+
+        nodecl_t nodecl_op_name =
+            nodecl_make_cxx_dep_name_simple(get_operator_function_name(operation_tree),
+                    locus);
+
+        nodecl_t nodecl_called =
+            nodecl_make_class_member_access(
+                    nodecl_lhs,
+                    // this symbol is not used when we see that this class-member access
+                    // already involves an overload
+                    nodecl_make_symbol(entry_list_head(all_assignment_operators), locus),
+                    nodecl_op_name,
+                    get_unresolved_overloaded_type(all_assignment_operators, NULL),
+                    locus);
+
+        check_nodecl_function_call_cxx(
+                nodecl_called,
+                nodecl_make_list_1(nodecl_rhs),
+                decl_context,
+                &nodecl_assig);
+    }
+    else
+    {
+        check_binary_expression_(
+                AST_ASSIGNMENT,
+                &nodecl_lhs,
+                &nodecl_rhs,
+                decl_context,
+                locus,
+                &nodecl_assig);
+    }
+
+    if (nodecl_is_err_expr(nodecl_assig))
+        return nodecl_null();
+
+    nodecl_assig = nodecl_make_expression_statement(
+            nodecl_assig,
+            locus);
+
+    return nodecl_assig;
+}
+
+static void compute_assignment_for_array_member_rec(
+        type_t* current_type,
+        nodecl_t nodecl_lhs,
+        nodecl_t nodecl_rhs,
+        const decl_context_t* decl_context,
+        int current_dim,
+        int num_dims,
+        const int * dim_sizes,
+        const locus_t* locus,
+        nodecl_t* nodecl_out)
+{
+    int i;
+    for (i = 0; i < dim_sizes[current_dim]; i++)
+    {
+        nodecl_t nodecl_current_lhs = nodecl_null();
+        check_nodecl_array_subscript_expression_cxx(
+                nodecl_shallow_copy(nodecl_lhs),
+                const_value_to_nodecl(
+                    const_value_get_signed_int(i)),
+                decl_context,
+                &nodecl_current_lhs);
+
+        if (nodecl_is_err_expr(nodecl_current_lhs))
+            break;
+
+        nodecl_t nodecl_current_rhs = nodecl_null();
+        check_nodecl_array_subscript_expression_cxx(
+                nodecl_shallow_copy(nodecl_rhs),
+                const_value_to_nodecl(
+                    const_value_get_signed_int(i)),
+                decl_context,
+                &nodecl_current_rhs);
+
+        if (nodecl_is_err_expr(nodecl_current_rhs))
+            break;
+
+        if (current_dim == num_dims - 1)
+        {
+            nodecl_t nodecl_current_assig = compute_assignment_for_nonarray_member(
+                    array_type_get_element_type(current_type),
+                    nodecl_current_lhs,
+                    nodecl_current_rhs,
+                    decl_context,
+                    locus);
+
+            if (nodecl_is_err_expr(nodecl_current_assig))
+                break;
+
+            *nodecl_out = 
+                nodecl_append_to_list(*nodecl_out,
+                        nodecl_current_assig);
+        }
+        else
+        {
+            compute_assignment_for_array_member_rec(
+                    array_type_get_element_type(current_type),
+                    nodecl_current_lhs,
+                    nodecl_current_rhs,
+                    decl_context,
+                    current_dim + 1,
+                    num_dims,
+                    dim_sizes,
+                    locus,
+                    nodecl_out);
+        }
+    }
+}
+
+
+
+static nodecl_t compute_assignment_for_array_member(
+        type_t* array_type,
+        nodecl_t nodecl_lhs,
+        nodecl_t nodecl_rhs,
+        const decl_context_t *decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(!is_array_type(array_type), "Invalid type", 0);
+
+    type_t* t = array_type;
+    int num_dims = 0;
+
+    while (is_array_type(t))
+    {
+
+        num_dims++;
+        t = array_type_get_element_type(t);
+    }
+
+    int dim_sizes[num_dims];
+
+    int i = 0;
+    t = array_type;
+    while (is_array_type(t))
+    {
+        nodecl_t array_size = array_type_get_array_size_expr(t);
+        if (nodecl_is_null(array_size)
+                || !nodecl_is_constant(array_size))
+            return nodecl_null();
+
+        dim_sizes[i] = const_value_cast_to_signed_int(
+                nodecl_get_constant(array_size)
+                );
+
+        if (dim_sizes[i] <= 0)
+            return nodecl_null();
+
+        t = array_type_get_element_type(t);
+        i++;
+    }
+
+    nodecl_t nodecl_out = nodecl_null();
+    compute_assignment_for_array_member_rec(
+            array_type,
+            nodecl_lhs,
+            nodecl_rhs,
+            decl_context,
+            0,
+            num_dims,
+            dim_sizes,
+            locus,
+            &nodecl_out);
+
+    return nodecl_out;
+}
+
+static void call_assignment_operator_for_data_member_or_base_class(
+        scope_entry_t* entry,
+        const decl_context_t* decl_context,
+        const locus_t* locus,
+        void *p)
+{
+    special_member_info_t *special_member_info = (special_member_info_t*)p;
+
+    special_member_info_variable_init_t var_init;
+    var_init.symbol = entry;
+
+    if (entry->kind == SK_CLASS)
+    {
+        // FIXME: Here we are (ab)using the standard conversion from
+        // derived-to-base conversion which is a bit wicked at this point
+        nodecl_t nodecl_rhs =
+            nodecl_make_symbol(
+                    special_member_info->parameter,
+                    locus);
+        nodecl_set_type(nodecl_rhs,
+                lvalue_ref(special_member_info->parameter->type_information));
+
+        nodecl_t nodecl_this = nodecl_null();
+        resolve_symbol_this_nodecl(decl_context, locus, &nodecl_this);
+
+        if (nodecl_is_err_expr(nodecl_this))
+        {
+            var_init.initializer = nodecl_this;
+        }
+        else
+        {
+            // *this
+            nodecl_t nodecl_lhs = nodecl_make_dereference(
+                    nodecl_this,
+                    get_lvalue_reference_type(
+                        pointer_type_get_pointee_type(
+                            no_ref(nodecl_get_type(nodecl_this)))),
+                    locus);
+
+            nodecl_t nodecl_assig = compute_assignment_for_nonarray_member(
+                    entry->type_information,
+                    nodecl_lhs,
+                    nodecl_rhs,
+                    decl_context,
+                    locus);
+            var_init.initializer = nodecl_assig;
+        }
+    }
+    else if (entry->kind == SK_VARIABLE)
+    {
+        nodecl_t nodecl_param_ref =
+            nodecl_make_symbol(
+                    special_member_info->parameter,
+                    locus);
+        nodecl_set_type(nodecl_param_ref,
+                lvalue_ref(special_member_info->parameter->type_information));
+
+        nodecl_t nodecl_member_literal = nodecl_make_cxx_dep_name_simple(entry->symbol_name, locus);
+        nodecl_t nodecl_rhs = nodecl_null();
+
+        check_nodecl_member_access(
+                nodecl_param_ref,
+                nodecl_shallow_copy(nodecl_member_literal),
+                decl_context,
+                /* is_arrow */ 0,
+                /* has_template_tag */ 0,
+                locus,
+                &nodecl_rhs);
+
+        if (nodecl_is_err_expr(nodecl_rhs))
+        {
+            var_init.initializer = nodecl_rhs;
+        }
+        else
+        {
+            nodecl_t nodecl_this = nodecl_null();
+            resolve_symbol_this_nodecl(decl_context, locus, &nodecl_this);
+
+            if (nodecl_is_err_expr(nodecl_this))
+            {
+                var_init.initializer = nodecl_this;
+            }
+            else
+            {
+                nodecl_this = nodecl_make_dereference(
+                        nodecl_this,
+                        get_lvalue_reference_type(
+                            pointer_type_get_pointee_type(
+                                no_ref(nodecl_get_type(nodecl_this)))),
+                        locus);
+
+                nodecl_t nodecl_lhs = nodecl_null();
+                check_nodecl_member_access(
+                        nodecl_this,
+                        nodecl_shallow_copy(nodecl_member_literal),
+                        decl_context,
+                        /* is_arrow */ 0,
+                        /* has_template_tag */ 0,
+                        locus,
+                        &nodecl_lhs);
+
+                if (nodecl_is_err_expr(nodecl_lhs))
+                {
+                    var_init.initializer = nodecl_lhs;
+                }
+                else
+                {
+                    nodecl_t nodecl_assig = nodecl_null();
+                    if (is_array_type(entry->type_information))
+                    {
+                        nodecl_assig = compute_assignment_for_array_member(
+                                entry->type_information,
+                                nodecl_lhs,
+                                nodecl_rhs,
+                                decl_context,
+                                locus);
+                    }
+                    else
+                    {
+                        nodecl_assig = compute_assignment_for_nonarray_member(
+                                entry->type_information,
+                                nodecl_lhs,
+                                nodecl_rhs,
+                                decl_context,
+                                locus);
+                    }
+                    var_init.initializer = nodecl_assig;
+                }
+            }
+        }
+
+        nodecl_free(nodecl_member_literal);
+    }
+
+    P_LIST_ADD(special_member_info->members,
+            special_member_info->num_members,
+            var_init);
+}
+
+static char build_member_init_list(
+        special_member_info_t* special_member_info,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_member_init_list = nodecl_null();
+
+    int i;
+    for (i = 0; i < special_member_info->num_members; i++)
+    {
+        special_member_info_variable_init_t init_var = special_member_info->members[i];
+
+        ERROR_CONDITION(init_var.symbol == NULL
+                || nodecl_is_null(init_var.initializer),
+                "Invalid information at this point", 0);
+
+        if (nodecl_is_err_expr(init_var.initializer))
+        {
+            // give up at this point
+            nodecl_free(nodecl_member_init_list);
+            return 0;
+        }
+
+        nodecl_member_init_list = nodecl_append_to_list(
+                nodecl_member_init_list,
+                nodecl_make_member_init(
+                    nodecl_shallow_copy(init_var.initializer),
+                    init_var.symbol, locus));
+    }
+
+    *nodecl_output = nodecl_member_init_list;
+
+    return 1;
+}
+
+static void define_defaulted_copy_or_move_constructor(scope_entry_t* entry,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const locus_t* locus)
+{
+    const decl_context_t* block_context = new_block_context(entry->decl_context);
+
+    scope_entry_t* param_symbol = NULL;
+    if (symbol_entity_specs_get_num_related_symbols(entry) > 0)
+    {
+        param_symbol = symbol_entity_specs_get_related_symbols_num(entry, 0);
+    }
+    else
+    {
+        // Create a parameter here
+        param_symbol = new_symbol(block_context, block_context->current_scope, "mcc_arg_0");
+        param_symbol->kind = SK_VARIABLE;
+        param_symbol->locus = locus;
+        param_symbol->type_information = function_type_get_parameter_type_num(
+                entry->type_information,
+                0);
+        symbol_set_as_parameter_of_function(param_symbol, entry, /* nesting */ 0, 0);
+
+        symbol_entity_specs_add_related_symbols(entry, param_symbol);
+    }
+    ERROR_CONDITION(param_symbol == NULL, "Invalid symbol", 0);
 
     special_member_info_t special_member = {
-        class_type_get_copy_constructors,
-        get_constructor_name,
+        param_symbol,
+        0, NULL
     };
+
     apply_function_to_data_layout_members(
             named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
-            call_specific_overloadable_special_member_for_data_layout_member,
-            decl_context,
+            call_constructor_for_data_member_or_base_class,
+            block_context,
             locus,
             &special_member);
 
-    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
+    nodecl_t nodecl_member_init_list = nodecl_null();
+    char ok = build_member_init_list(&special_member, locus, &nodecl_member_init_list);
+    free_special_member_info(&special_member);
+
+    if (!ok)
+        nodecl_member_init_list = nodecl_null();
 
     // Empty body
     nodecl_t nodecl_function_code =
         nodecl_make_function_code(
                 nodecl_make_context(
                     nodecl_null(),
-                    new_decl_context,
+                    block_context,
+                    locus),
+                nodecl_member_init_list,
+                entry,
+                locus);
+    symbol_entity_specs_set_function_code(entry, nodecl_function_code);
+}
+
+static void define_defaulted_copy_constructor(scope_entry_t* entry,
+        const decl_context_t* decl_context,
+        const locus_t* locus)
+{
+    define_defaulted_copy_or_move_constructor(entry,
+            decl_context,
+            locus);
+}
+
+static void define_defaulted_move_constructor(scope_entry_t* entry,
+        const decl_context_t* decl_context,
+        const locus_t* locus)
+{
+    define_defaulted_copy_or_move_constructor(entry,
+            decl_context,
+            locus);
+}
+
+static void define_defaulted_copy_or_move_assignment_operator(scope_entry_t* entry,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const locus_t* locus)
+{
+    const decl_context_t* block_context = new_block_context(entry->decl_context);
+
+    scope_entry_t* param_symbol = NULL;
+    if (symbol_entity_specs_get_num_related_symbols(entry) > 0)
+    {
+        param_symbol = symbol_entity_specs_get_related_symbols_num(entry, 0);
+    }
+    else
+    {
+        // Create a parameter here
+        param_symbol = new_symbol(block_context, block_context->current_scope, "mcc_arg_0");
+        param_symbol->kind = SK_VARIABLE;
+        param_symbol->locus = locus;
+        param_symbol->type_information = function_type_get_parameter_type_num(
+                entry->type_information,
+                0);
+        symbol_set_as_parameter_of_function(param_symbol, entry, /* nesting */ 0, 0);
+
+        symbol_entity_specs_add_related_symbols(entry, param_symbol);
+    }
+    ERROR_CONDITION(param_symbol == NULL, "Invalid symbol", 0);
+
+    special_member_info_t special_member_info = {
+        param_symbol,
+        0, NULL
+    };
+
+    register_symbol_this(block_context,
+            named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
+            locus);
+    update_symbol_this(entry, block_context);
+    register_mercurium_pretty_print(entry, block_context);
+
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
+            call_assignment_operator_for_data_member_or_base_class,
+            block_context,
+            locus,
+            &special_member_info);
+
+    // Not used but we should emit copy assignments as the body
+    // of this function
+    free_special_member_info(&special_member_info);
+
+    // Empty body
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    block_context,
                     locus),
                 nodecl_null(),
                 entry,
@@ -24297,99 +24978,43 @@ static void define_defaulted_copy_assignment_operator(scope_entry_t* entry,
         const decl_context_t* decl_context,
         const locus_t* locus)
 {
-    if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
-        return;
-
-    special_member_info_t special_member = {
-        class_type_get_copy_assignment_operators,
-        copy_move_assignment_operator,
-    };
-    apply_function_to_data_layout_members(
-            named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
-            call_specific_overloadable_special_member_for_data_layout_member,
+    define_defaulted_copy_or_move_assignment_operator(entry,
             decl_context,
-            locus,
-            &special_member);
-
-    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
-
-    // Empty body
-    nodecl_t nodecl_function_code =
-        nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_null(),
-                    new_decl_context,
-                    locus),
-                nodecl_null(),
-                entry,
-                locus);
-    symbol_entity_specs_set_function_code(entry, nodecl_function_code);
-}
-
-static void define_defaulted_move_constructor(scope_entry_t* entry,
-        const decl_context_t* decl_context,
-        const locus_t* locus)
-{
-    if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
-        return;
-
-    special_member_info_t special_member = {
-        class_type_get_move_constructors,
-        get_constructor_name,
-    };
-    apply_function_to_data_layout_members(
-            named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
-            call_specific_overloadable_special_member_for_data_layout_member,
-            decl_context,
-            locus,
-            &special_member);
-
-    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
-
-    // Empty body
-    nodecl_t nodecl_function_code =
-        nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_null(),
-                    new_decl_context,
-                    locus),
-                nodecl_null(),
-                entry,
-                locus);
-    symbol_entity_specs_set_function_code(entry, nodecl_function_code);
+            locus);
 }
 
 static void define_defaulted_move_assignment_operator(scope_entry_t* entry,
-        const decl_context_t* decl_context,
+        const decl_context_t* decl_context UNUSED_PARAMETER,
         const locus_t* locus)
 {
-    if (!nodecl_is_null(symbol_entity_specs_get_function_code(entry)))
-        return;
-
-    special_member_info_t special_member = {
-        class_type_get_move_assignment_operators,
-        copy_move_assignment_operator,
-    };
-    apply_function_to_data_layout_members(
-            named_type_get_symbol(symbol_entity_specs_get_class_type(entry)),
-            call_specific_overloadable_special_member_for_data_layout_member,
+    define_defaulted_copy_or_move_assignment_operator(entry,
             decl_context,
-            locus,
-            &special_member);
+            locus);
+}
 
-    const decl_context_t* new_decl_context = new_block_context(entry->decl_context);
+typedef
+struct default_definition_header_message_fun_data_tag
+{
+    scope_entry_t* defaulted_function;
+    const locus_t* locus;
+} default_definition_header_message_fun_data_t;
 
-    // Empty body
-    nodecl_t nodecl_function_code =
-        nodecl_make_function_code(
-                nodecl_make_context(
-                    nodecl_null(),
-                    new_decl_context,
-                    locus),
-                nodecl_null(),
-                entry,
-                locus);
-    symbol_entity_specs_set_function_code(entry, nodecl_function_code);
+static const char* default_definition_header_message_fun(void* v)
+{
+    default_definition_header_message_fun_data_t* p =
+        (default_definition_header_message_fun_data_t*)v;
+
+    const locus_t* locus = p->locus;
+    scope_entry_t* defaulted_function = p->defaulted_function;
+
+    const char* defaulted_function_message;
+    uniquestr_sprintf(&defaulted_function_message,
+            "%s: info: during default definition of defaulted special member '%s'\n",
+            locus_to_str(locus),
+            print_decl_type_str(defaulted_function->type_information, defaulted_function->decl_context,
+                get_qualified_symbol_name(defaulted_function, defaulted_function->decl_context)));
+
+    return defaulted_function_message;
 }
 
 static void define_defaulted_special_member(
@@ -24401,6 +25026,22 @@ static void define_defaulted_special_member(
             "This special member is not defaulted", 0);
     ERROR_CONDITION(symbol_entity_specs_get_is_deleted(special_member),
             "Attempt to define a deleted special member", 0);
+
+    // If already defined, do nothing
+    if (!nodecl_is_null(symbol_entity_specs_get_function_code(special_member)))
+        return;
+
+    header_message_fun_t default_definitions_header;
+    default_definitions_header.message_fun = default_definition_header_message_fun;
+    {
+        default_definition_header_message_fun_data_t *p = NEW(default_definition_header_message_fun_data_t);
+        p->defaulted_function = special_member;
+        p->locus = locus;
+
+        default_definitions_header.data = p;
+    }
+
+    diagnostic_context_push_instantiation(default_definitions_header);
 
     if (symbol_entity_specs_get_is_default_constructor(special_member))
     {
@@ -24433,6 +25074,8 @@ static void define_defaulted_special_member(
 
     symbol_entity_specs_set_is_instantiable(special_member, 0);
     symbol_entity_specs_set_emission_template(special_member, NULL);
+
+    diagnostic_context_pop_and_commit();
 }
 
 
@@ -24660,8 +25303,9 @@ nodecl_t cxx_nodecl_make_function_call(
         }
         else if ((symbol_entity_specs_get_is_default_constructor(called_symbol)
                     || symbol_entity_specs_get_is_copy_constructor(called_symbol)
-                    || symbol_entity_specs_get_is_copy_constructor(called_symbol)
-                    || symbol_entity_specs_get_is_copy_constructor(called_symbol)
+                    || symbol_entity_specs_get_is_move_constructor(called_symbol)
+                    || symbol_entity_specs_get_is_copy_assignment_operator(called_symbol)
+                    || symbol_entity_specs_get_is_move_assignment_operator(called_symbol)
                     || symbol_entity_specs_get_is_destructor(called_symbol))
                 && symbol_entity_specs_get_is_defaulted(called_symbol))
         {
@@ -27301,7 +27945,7 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
     else
     {
         v->nodecl_result = cxx_nodecl_make_conversion(nodecl_expr, 
-                nodecl_get_type(node), 
+                nodecl_get_type(node),
                 nodecl_get_locus(node));
     }
 }

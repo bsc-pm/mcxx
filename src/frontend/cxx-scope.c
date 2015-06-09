@@ -384,7 +384,7 @@ decl_context_t* new_block_context(const decl_context_t* enclosing_context)
     decl_context_t* result = decl_context_clone(enclosing_context);
 
     // Create new block scope
-    result->block_scope = new_block_scope(enclosing_context->current_scope);
+    result->block_scope = new_block_scope(result->current_scope);
 
     // And update the current scope
     result->current_scope = result->block_scope;
