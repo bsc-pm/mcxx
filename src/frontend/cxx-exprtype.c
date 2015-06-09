@@ -24430,6 +24430,9 @@ static void define_defaulted_special_member(
     {
         internal_error("Code unreachable", 0);
     }
+
+    symbol_entity_specs_set_is_instantiable(special_member, 0);
+    symbol_entity_specs_set_emission_template(special_member, NULL);
 }
 
 

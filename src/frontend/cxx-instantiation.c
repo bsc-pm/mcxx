@@ -842,6 +842,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     symbol_entity_specs_set_function_code(new_member, nodecl_null());
                     symbol_entity_specs_set_is_instantiable(new_member, 1);
                     symbol_entity_specs_set_emission_template(new_member, member_of_template);
+                    symbol_entity_specs_set_function_code(new_member, nodecl_null());
 
                     if (!nodecl_is_null(symbol_entity_specs_get_noexception(new_member)))
                     {
