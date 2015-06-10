@@ -427,19 +427,6 @@ extern inline void set_is_inside_pack_expansion(char b)
     _is_inside_pack_expansion = b;
 }
 
-static char is_transitively_member_of(scope_entry_t* current, scope_entry_t* entry)
-{
-    if (symbol_entity_specs_get_is_member(current))
-    {
-        return (named_type_get_symbol(symbol_entity_specs_get_class_type(current)) == entry)
-            || is_transitively_member_of(
-                    named_type_get_symbol(symbol_entity_specs_get_class_type(current)),
-                    entry);
-    }
-
-    return 0;
-}
-
 void push_instantiated_entity(scope_entry_t* entry)
 {
     // if (!CURRENT_CONFIGURATION->explicit_instantiation)
@@ -448,26 +435,6 @@ void push_instantiated_entity(scope_entry_t* entry)
     ERROR_CONDITION(entry->kind != SK_CLASS
             && entry->kind != SK_FUNCTION,
             "Invalid symbol", 0);
-
-    if (CURRENT_CONFIGURATION->explicit_instantiation
-            && entry->kind == SK_CLASS)
-    {
-        // If this is a class and the list of instantiated entities includes
-        // a class member of itself, mark that class as defined inside class
-        scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(_instantiated_entries);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* current = entry_list_iterator_current(it);
-
-            if (current->kind == SK_CLASS
-                    && is_transitively_member_of(current, entry))
-            {
-                symbol_entity_specs_set_is_defined_inside_class_specifier(current, 1);
-            }
-        }
-    }
 
     _instantiated_entries = entry_list_add_once(
             _instantiated_entries,

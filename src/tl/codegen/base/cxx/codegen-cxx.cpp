@@ -7335,14 +7335,15 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         return;
     }
 
-    if (symbol.is_member())
-    {
-        TL::Symbol class_entry = symbol.get_class_type().get_symbol();
-        if (!symbol_or_its_bases_are_nested_in_defined_classes(class_entry))
-        {
-            define_symbol_if_nonnested(class_entry);
-        }
-    }
+    // We only emit members of classes currently being emitted
+    if (symbol.is_member()
+            && (state.classes_being_defined.empty()
+                || state.classes_being_defined.back() != symbol.get_class_type().get_symbol())
+            // but some declarations of members happen at non-class scope, and these have
+            // to be emitted always
+            && (scope == NULL
+                || !scope->is_namespace_scope()))
+        return;
 
     // Do nothing if already defined
     if (get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED

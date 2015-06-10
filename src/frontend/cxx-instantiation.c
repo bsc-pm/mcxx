@@ -1662,22 +1662,7 @@ static void instantiate_class_common(
                 print_declarator(being_instantiated));
     }
 
-    if (CURRENT_CONFIGURATION->explicit_instantiation
-            && symbol_entity_specs_get_is_member(being_instantiated_sym)
-            && symbol_entity_specs_get_is_defined_inside_class_specifier(being_instantiated_sym))
-    {
-        symbol_entity_specs_set_is_defined_inside_class_specifier(being_instantiated_sym, 0);
-    }
-
     push_instantiated_entity(being_instantiated_sym);
-
-    // if (symbol_entity_specs_get_is_member(being_instantiated_sym))
-    // {
-    //     scope_entry_t* enclosing_class = named_type_get_symbol(symbol_entity_specs_get_class_type(being_instantiated_sym));
-    //     class_type_add_member(enclosing_class->type_information,
-    //             being_instantiated_sym,
-    //             /* is_definition */ 1);
-    // }
 }
 
 typedef
@@ -2423,7 +2408,15 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
             if  (sym->kind == SK_CLASS)
             {
                 mark_class_and_bases_as_user_declared(sym);
-                decl_context_t* templated_context = decl_context_clone(CURRENT_COMPILED_FILE->global_decl_context);
+                decl_context_t* templated_context = NULL;
+                if (symbol_entity_specs_get_is_defined_inside_class_specifier(sym))
+                {
+                    templated_context = decl_context_clone(sym->decl_context);
+                }
+                else
+                {
+                    templated_context = decl_context_clone(CURRENT_COMPILED_FILE->global_decl_context);
+                }
                 templated_context->template_parameters = sym->decl_context->template_parameters;
 
                 nodecl_t parent = nodecl_get_parent(list[i]);
