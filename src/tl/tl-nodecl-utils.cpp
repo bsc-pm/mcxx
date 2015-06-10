@@ -881,27 +881,40 @@ namespace Nodecl
             }
         }
 
-        void update_locus(nodecl_t n, const locus_t* l)
+        void update_locus(nodecl_t n, const locus_t* locus)
         {
             if (nodecl_is_null(n))
                 return;
 
-            std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
-
-            const locus_t* n_locus = nodecl_get_locus(n);
-
-            // Only update if this comes from internal_source
-            if (n_locus == NULL
-                    || locus_get_filename(n_locus) == NULL
-                    || (std::string(locus_get_filename(n_locus))
-                        .substr(0, internal_source.size()) == internal_source))
+            if (!nodecl_is_list(n))
             {
-                nodecl_set_locus(n, l);
+                std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+
+                const locus_t* n_locus = nodecl_get_locus(n);
+
+                // Only update if this comes from internal_source
+                if (n_locus == NULL
+                        || locus_get_filename(n_locus) == NULL
+                        || (std::string(locus_get_filename(n_locus))
+                            .substr(0, internal_source.size()) == internal_source))
+                {
+                    nodecl_set_locus(n, locus);
+                }
+
+                for (int i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+                {
+                    update_locus(nodecl_get_child(n, i), locus);
+                }
             }
-
-            for (int i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            else
             {
-                update_locus(nodecl_get_child(n, i), l);
+                int num_items;
+                nodecl_t* l = nodecl_unpack_list(n, &num_items);
+                for (int i = 0; i < num_items; i++)
+                {
+                    update_locus(l[i], locus);
+                }
+                DELETE(l);
             }
         }
     }
