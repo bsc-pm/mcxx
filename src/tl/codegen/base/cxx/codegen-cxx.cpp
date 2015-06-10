@@ -4539,19 +4539,25 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxImplicitInstantiation& node)
     TL::Symbol sym = node.get_symbol();
     if (sym.is_class())
     {
-       *file << "class template";
+        *file << "class template";
+        *file << " '";
+        *file << this->get_qualified_name(node.get_symbol());
+        *file << "'";
     }
     else if (sym.is_function())
     {
        *file << "template function";
+        *file << " '";
+        *file << this->get_declaration(
+                node.get_symbol().get_type(),
+                node.get_symbol().get_scope(),
+                this->get_qualified_name(node.get_symbol()));
+        *file << "'";
     }
     else
     {
         *file << "<<unexpected-symbol-kind>>";
     }
-    *file << " '";
-    *file << this->get_qualified_name(node.get_symbol());
-    *file << "'";
     *file << end_inline_comment() << "\n";
 }
 
