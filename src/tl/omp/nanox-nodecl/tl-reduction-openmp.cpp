@@ -31,6 +31,7 @@
 #include "tl-outline-info.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-nanos.hpp"
+#include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
 #include "fortran03-typeutils.h"
 
@@ -108,6 +109,8 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
+        TL::Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
         reduction_map_t::iterator it = _basic_reduction_map_openmp.find(red);
         if (it != _basic_reduction_map_openmp.end())
         {
@@ -121,39 +124,60 @@ namespace TL { namespace Nanox {
             fun_name = ss.str();
         }
 
-        Nodecl::NodeclBase function_body;
-        Source src;
-        src << "void " << fun_name << "(" 
-            << as_type(red->get_type()) << "* omp_out, "
-            << as_type(red->get_type()) << "* omp_in, "
-            << "int num_scalars )"
+        TL::ObjectList<std::string> parameter_names;
+        TL::ObjectList<TL::Type> parameter_types;
+
+        parameter_names.push_back("omp_out");
+        parameter_types.push_back(red->get_type().get_pointer_to());
+
+        parameter_names.push_back("omp_in");
+        parameter_types.push_back(red->get_type().get_pointer_to());
+
+        parameter_names.push_back("num_scalars");
+        parameter_types.push_back(TL::Type::get_int_type());
+
+        TL::Symbol reduction_function = 
+            SymbolUtils::new_function_symbol(
+                    current_function,
+                    fun_name,
+                    TL::Type::get_void_type(),
+                    parameter_names,
+                    parameter_types);
+
+        Nodecl::NodeclBase function_code, empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+                reduction_function,
+                function_code,
+                empty_stmt);
+
+        Nodecl::NodeclBase reduction_loop_body;
+
+        Source reduction_loop_src;
+        reduction_loop_src
+            << "int i;"
+            << "for (i = 0; i < num_scalars; i++)"
             << "{"
-            <<    "int i;"
-            <<    "for (i = 0; i < num_scalars; i++)"
-            <<    "{"
-            <<    statement_placeholder(function_body)
-            <<    "}"
+            << statement_placeholder(reduction_loop_body)
             << "}"
-            ;
+        ;
 
         FORTRAN_LANGUAGE()
         {
             Source::source_language = SourceLanguage::C;
         }
-        Nodecl::NodeclBase function_code = src.parse_global(construct.retrieve_context().get_global_scope());
+        Nodecl::NodeclBase reduction_function_code = reduction_loop_src.parse_statement(empty_stmt);
         FORTRAN_LANGUAGE()
         {
             Source::source_language = SourceLanguage::Current;
         }
 
-        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
+        empty_stmt.replace(reduction_function_code);
+
+        TL::Scope inside_function = ReferenceScope(reduction_loop_body).get_scope();
         TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
         ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
         TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
         ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
-
-        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
 
         TL::Symbol index = inside_function.get_symbol_from_name("i");
         ERROR_CONDITION(!index.is_valid(), "Symbol %s not found", "i");
@@ -170,14 +194,14 @@ namespace TL { namespace Nanox {
                 index);
         expander_visitor.walk(expanded_combiner);
 
-        function_body.replace(
+        reduction_loop_body.replace(
                 Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
 
-        _basic_reduction_map_openmp[red] = function_sym;
+        _basic_reduction_map_openmp[red] = reduction_function;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
-        return function_sym;
+        return reduction_function;
     }
 
     struct VectorReductionExpandVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -251,6 +275,8 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_vector_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
+        TL::Symbol current_function = Nodecl::Utils::get_enclosing_function(construct);
+
         reduction_map_t::iterator it = _vector_reduction_map_openmp.find(red);
         if (it != _vector_reduction_map_openmp.end())
         {
@@ -264,30 +290,50 @@ namespace TL { namespace Nanox {
             fun_name = ss.str();
         }
 
-        Nodecl::NodeclBase function_body;
-        Source src;
-        src << "void " << fun_name << "("
-            <<    "int team_size,"
-            <<    "void *v_original,"
-            <<    "void *v_privates)"
+        TL::ObjectList<std::string> parameter_names;
+        TL::ObjectList<TL::Type> parameter_types;
+
+        parameter_names.push_back("team_size");
+        parameter_types.push_back(TL::Type::get_int_type());
+
+        parameter_names.push_back("v_original");
+        parameter_types.push_back(TL::Type::get_void_type().get_pointer_to());
+
+        parameter_names.push_back("v_privates");
+        parameter_types.push_back(TL::Type::get_void_type().get_pointer_to());
+
+        TL::Symbol reduction_function = 
+            SymbolUtils::new_function_symbol(
+                    current_function,
+                    fun_name,
+                    TL::Type::get_void_type(),
+                    parameter_names,
+                    parameter_types);
+
+        Nodecl::NodeclBase function_code, empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+                reduction_function,
+                function_code,
+                empty_stmt);
+
+        Nodecl::NodeclBase reduction_loop_body;
+        Source function_body_src;
+        function_body_src
+            << as_type(red->get_type().get_pointer_to())
+            <<   " original = (" << as_type(red->get_type().get_pointer_to()) << ")v_original;"
+            << as_type(red->get_type().get_pointer_to())
+            <<   " privates = (" << as_type(red->get_type().get_pointer_to()) << ")v_privates;"
+            << "int i;"
+            << "for (i = 0; i < team_size; i++)"
             << "{"
-            <<    as_type(red->get_type().get_pointer_to())
-            <<      " original = (" << as_type(red->get_type().get_pointer_to()) << ")v_original;"
-            <<    as_type(red->get_type().get_pointer_to())
-            <<      " privates = (" << as_type(red->get_type().get_pointer_to()) << ")v_privates;"
-            <<    "int i;"
-            <<    "for (i = 0; i < team_size; i++)"
-            <<    "{"
-            <<           statement_placeholder(function_body)
-            <<    "}"
+            <<        statement_placeholder(reduction_loop_body)
             << "}"
             ;
 
-        Nodecl::NodeclBase function_code = src.parse_global(construct.retrieve_context().get_global_scope());
+        Nodecl::NodeclBase reduction_function_code = function_body_src.parse_statement(empty_stmt);
+        empty_stmt.replace(reduction_function_code);
 
-        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
-
-        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
+        TL::Scope inside_function = ReferenceScope(reduction_loop_body).get_scope();
 
         TL::Symbol index = inside_function.get_symbol_from_name("i");
         ERROR_CONDITION(!index.is_valid(), "Symbol %s not found", "i");
@@ -308,14 +354,14 @@ namespace TL { namespace Nanox {
                 index);
         expander_visitor.walk(expanded_combiner);
 
-        function_body.replace(
+        reduction_loop_body.replace(
                 Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
 
-        _vector_reduction_map_openmp[red] = function_sym;
+        _vector_reduction_map_openmp[red] = reduction_function;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
-        return function_sym;
+        return reduction_function;
     }
 
     TL::Symbol LoweringVisitor::create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
