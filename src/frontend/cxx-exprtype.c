@@ -7798,6 +7798,17 @@ static void solve_literal_symbol(AST expression, const decl_context_t* decl_cont
         nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(entry->symbol_name,
                 ast_get_locus(expression));
 
+        // Add the template arguments
+        if (entry->kind == SK_FUNCTION
+                && is_template_specialized_type(entry->type_information))
+        {
+            nodecl_name = nodecl_make_cxx_dep_template_id(
+                    nodecl_name,
+                    /* template_tag */ "",
+                    template_specialized_type_get_template_arguments(entry->type_information),
+                    ast_get_locus(expression));
+        }
+
         cxx_compute_name_from_entry_list(nodecl_name, entry_list, decl_context, NULL, nodecl_output);
 
         entry_list_free(entry_list);
