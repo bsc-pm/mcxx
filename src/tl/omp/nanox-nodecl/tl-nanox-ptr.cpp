@@ -126,8 +126,7 @@ namespace TL { namespace Nanox {
             TL::Symbol result = SymbolUtils::new_function_symbol(
                     CURRENT_COMPILED_FILE->global_decl_context,
                     ss.str(),
-                    /* has_return */ true,
-                    /* return_name */ "nanox_pointer_phony",
+                    /* result_name */ "nanox_pointer_phony",
                     return_type,
                     parameter_names,
                     parameter_types);
@@ -261,7 +260,6 @@ namespace TL { namespace Nanox {
             TL::Symbol result = SymbolUtils::new_function_symbol(
                     CURRENT_COMPILED_FILE->global_decl_context,
                     ss.str(),
-                    /* has_return */ false,
                     /* return_name */ "",
                     TL::Type::get_void_type(),
                     parameter_names,
