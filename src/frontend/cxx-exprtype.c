@@ -7781,7 +7781,7 @@ static void solve_literal_symbol(AST expression, const decl_context_t* decl_cont
     const char * prefix = NULL;
     void *p = NULL;
     unpack_pointer(tmp, &prefix, &p);
-    
+
     ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "symbol") != 0,
             "Failure during unpack of symbol", 0);
 
@@ -15774,6 +15774,14 @@ static const_value_t* compute_subconstant_of_class_member_access(
     }
 
     DELETE(path_info);
+
+    // Do not propagate unknown values resulting from uninitialized field
+    // unions
+    if (result != NULL
+            && const_value_is_unknown(result))
+    {
+        result = NULL;
+    }
 
     return result;
 }
