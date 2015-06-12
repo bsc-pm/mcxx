@@ -966,6 +966,7 @@ AC_ARG_ENABLE([nanox-cuda-device],
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
         cuda_enabled="yes"
+        cuda_valid="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
@@ -994,7 +995,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$cuda_enabled = xyes ; then
+if test x$cuda_enabled = xyes -a x$cuda_valid = xno ; then
     if test -d "$CUDADIR" ;
     then
         AC_CHECK_PROG([NVCC], [nvcc], [nvcc], [], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
@@ -1102,6 +1103,7 @@ AC_ARG_ENABLE([nanox-opencl-device],
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
         opencl_enabled="yes"
+        opencl_valid="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
@@ -1119,7 +1121,7 @@ AC_ARG_ENABLE([nanox-opencl-device],
 )
 
 
-if test x$opencl_enabled = xyes;
+if test x$opencl_enabled = xyes -a x$opencl_valid = xno;
 then
    DISABLE_OPENCL=""
    AC_MSG_CHECKING([if nanox has opencl header installed])
