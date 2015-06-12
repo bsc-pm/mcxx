@@ -129,12 +129,22 @@ dnl ----- SQLITE - Required only for fortran ---
 
 PKG_PROG_PKG_CONFIG
 
+if test -z "$PKG_CONFIG";
+then
+    AC_MSG_ERROR([Could not find pkg-config.
+ * You may not have pkg-config installed
+    - In Ubuntu/Debian: apt-get install pkg-config
+    - In RHEL/Fedora: yum install pkgconfig
+    - In SuSE: zypper install pkg-config
+    - Install from sources at http://www.freedesktop.org/wiki/Software/pkg-config/
+ * If it is installed but not in the PATH then you may want to set the PKG_CONFIG variable])
+fi
 
 PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
                   [],
 AC_MSG_ERROR([Fortran support requires development files of sqlite3.
- * In Ubuntu/Debian: apt-get install libsqlite3-dev.
- * In RHEL/Fedora: yum install sqlite-devel.
+ * In Ubuntu/Debian: apt-get install libsqlite3-dev
+ * In RHEL/Fedora: yum install sqlite-devel
  * In SuSE: zypper install sqlite3-devel
  * Install from sources at http://www.sqlite.org:
    - Use sqlite-autoconf-xxx.tar.gz
