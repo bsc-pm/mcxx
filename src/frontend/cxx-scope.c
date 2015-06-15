@@ -1791,26 +1791,32 @@ static char check_for_naming_ambiguity(scope_entry_list_t* entry_list, const loc
 
 static scope_entry_list_t* entry_list_merge_aliases(scope_entry_list_t* list1, scope_entry_list_t* list2)
 {
+    scope_entry_list_t* real_list = NULL;
     scope_entry_list_t* result = NULL;
 
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(list1);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
-        result = entry_list_add_once(result, entry);
-    }
-    entry_list_iterator_free(it);
+    scope_entry_list_t* lists[] = { list1, list2 };
 
-    for (it = entry_list_iterator_begin(list2);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    int i;
+    for (i = 0; i < 2; i++)
     {
-        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
-        result = entry_list_add_once(result, entry);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(lists[i]);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* current_entry = entry_list_iterator_current(it);
+            scope_entry_t* real_sym = entry_advance_aliases(current_entry);
+
+            if (!entry_list_contains(real_list, real_sym))
+            {
+                result = entry_list_add(result, current_entry);
+            }
+            real_list = entry_list_add_once(real_list, real_sym);
+        }
+        entry_list_iterator_free(it);
     }
-    entry_list_iterator_free(it);
+
+    entry_list_free(real_list);
 
     return result;
 }
