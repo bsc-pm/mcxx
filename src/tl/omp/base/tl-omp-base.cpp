@@ -2886,12 +2886,13 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                error_printf("%s: error: invalid object specification '%s' in '#pragma omp register'\n",
+                error_printf("%s: error: object specification '%s' in '#pragma omp register' "
+                        "must be a variable-name or a shaping of a variable-name\n",
                         directive.get_locus_str().c_str(),
                         it->prettyprint().c_str());
             }
         }
-        
+
         if (valid_expr_list.empty())
             return;
 
