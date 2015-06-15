@@ -6597,7 +6597,7 @@ static void compute_operator_reference_type(nodecl_t* op,
                 ASTLeaf(AST_BITWISE_AND_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    // If parse_reference passes us a qualified name we now this is a pointer
+    // If parse_reference passes us a qualified name we know this is a pointer
     // to member reference
     if (nodecl_get_kind(*op) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
             || nodecl_get_kind(*op) == NODECL_CXX_DEP_NAME_NESTED)
