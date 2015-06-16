@@ -2645,7 +2645,8 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
                     }
                 }
 
-                if (symbol_entity_specs_get_is_allocatable(related_sym))
+                if (symbol_entity_specs_get_is_allocatable(related_sym)
+                        && !argument_types[i].not_present)
                 {
                     scope_entry_t* current_arg_sym = NULL; 
                     if (nodecl_get_kind(argument_types[i].argument) == NODECL_SYMBOL)
@@ -3171,7 +3172,8 @@ static void check_called_symbol_list(
                     }
                 }
 
-                if (symbol_entity_specs_get_is_allocatable(related_sym))
+                if (symbol_entity_specs_get_is_allocatable(related_sym)
+                        && !fixed_argument_info_items[i].not_present)
                 {
                     scope_entry_t* current_arg_sym = NULL; 
                     if (nodecl_get_kind(fixed_argument_info_items[i].argument) == NODECL_SYMBOL)
