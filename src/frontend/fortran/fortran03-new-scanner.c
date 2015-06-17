@@ -3207,9 +3207,71 @@ static inline void preanalyze_statement(char expect_label)
                     }
                     else
                     {
-                        // If we were in the executable part (or top level!) we
-                        // will assume that we are seing INTEGER FUNCTION F so
-                        // the keyword does not identify that statement
+                        p = peek(peek_idx);
+                        if (is_letter(p))
+                        {
+                            // If we were in the executable part (or top
+                            // level!) we will could be seing INTEGER FUNCTION
+                            // F so the keyword does not identify that
+                            // statement (instead FUNCTION would)
+                            //
+                            // But we will ensure that the next is permissible in this
+                            // case, otherwise
+                            //
+                            // INTEGER*1VALUES(4)
+                            //
+                            // will be tokenized as INTEGER*1 VALUE S(4) which is nonsense
+
+                            tiny_dyncharbuf_t next_keyword;
+                            tiny_dyncharbuf_new(&next_keyword, 16);
+
+                            int peek_idx2 = peek_idx;
+                            p = peek(peek_idx2);
+
+                            char next_kw_is_ok = 0;
+                            while (is_letter(p)
+                                    && !next_kw_is_ok)
+                            {
+                                tiny_dyncharbuf_add(&next_keyword, p);
+
+                                struct fortran_keyword_tag *t =
+                                    fortran_keywords_lookup(next_keyword.buf, next_keyword.num);
+                                if (t != NULL)
+                                {
+                                    switch (t->token_id)
+                                    {
+                                        case TOKEN_FUNCTION:
+                                        case TOKEN_PURE:
+                                        case TOKEN_ELEMENTAL:
+                                        case TOKEN_IMPURE:
+                                        case TOKEN_RECURSIVE:
+                                            // This seems OK at this point
+                                            next_kw_is_ok = 1;
+                                            break;
+                                        default:
+                                            // Wait and see
+                                            break;
+                                    }
+                                }
+
+                                peek_idx2++;
+                                p = peek(peek_idx2);
+                            }
+
+                            DELETE(next_keyword.buf);
+
+                            if (!next_kw_is_ok)
+                            {
+                                // Not followed by an acceptable keyword, the
+                                // current keyword identifies this statement
+                                done_with_keywords = 1;
+                            }
+                        }
+                        else
+                        {
+                            // Not followed by a letter, this keyword identifies this statement
+                            done_with_keywords = 1;
+                        }
                     }
                     break;
                 }
