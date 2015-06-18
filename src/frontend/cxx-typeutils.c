@@ -2376,7 +2376,7 @@ extern inline char is_template_explicit_specialization(template_parameter_list_t
     return is_explicit_specialization;
 }
 
-static char template_arg_value_type_identical_compare(nodecl_t n1, nodecl_t n2)
+static int template_arg_value_type_identical_compare(nodecl_t n1, nodecl_t n2)
 {
     if (nodecl_is_null(n1) && nodecl_is_null(n2))
         return 0;
@@ -2772,7 +2772,7 @@ static int template_arg_value_type_equivalent_compare(type_t* t1, type_t* t2)
     return cmp;
 }
 
-static char compare_equivalent_template_argument_list(
+static int compare_equivalent_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
         template_parameter_list_t* template_parameter_list_2);
 
@@ -3211,7 +3211,7 @@ static int template_arg_equivalent_compare(
         return template_arg_value_compare(targ_1, targ_2);
 }
 
-static char compare_equivalent_template_argument_list(
+static int compare_equivalent_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
         template_parameter_list_t* template_parameter_list_2)
 {
