@@ -375,7 +375,7 @@ namespace TL { namespace Nanox {
         std::string fun_name;
         {
             std::stringstream ss;
-            ss << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            ss << "nanos_red_w_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
             fun_name = ss.str();
         }
 
