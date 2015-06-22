@@ -557,10 +557,10 @@ namespace TL { namespace OpenMP {
         if (_target_context.empty())
         {
             // Create an implicit target for this one
-            _target_context.push(TargetContext());
+            _target_context.push(OmpSs::TargetContext());
             _target_context.top().is_implicit = true;
 
-            common_target_handler_pre(pragma_line,
+            ompss_common_target_handler_pre(pragma_line,
                     _target_context.top(),
                     parsing_scope,
                     /* is_pragma_task */ true);
@@ -574,7 +574,7 @@ namespace TL { namespace OpenMP {
         TL::OmpSs::TargetInfo target_info;
         {
             target_info.set_target_symbol(function_sym);
-            TargetContext& target_context = _target_context.top();
+            OmpSs::TargetContext& target_context = _target_context.top();
 
             TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_in = update_clauses(target_context.copy_in, function_sym);
             TL::ObjectList<Nodecl::NodeclBase> target_ctx_copy_out = update_clauses(target_context.copy_out, function_sym);
@@ -785,17 +785,17 @@ namespace TL { namespace OpenMP {
         if (_target_context.empty())
         {
             // Create an implicit target for this one
-            _target_context.push(TargetContext());
+            _target_context.push(OmpSs::TargetContext());
             _target_context.top().is_implicit = true;
 
-            common_target_handler_pre(pragma_line,
+            ompss_common_target_handler_pre(pragma_line,
                     _target_context.top(),
                     scope,
                     /* is_pragma_task */ true);
         }
 
         // Target info applies after
-        get_target_info(pragma_line, data_sharing_environment);
+        ompss_get_target_info(pragma_line, data_sharing_environment);
 
         get_data_implicit_attributes_task(construct, data_sharing_environment, default_data_attr, there_is_default_clause);
         get_data_extra_symbols(data_sharing_environment, extra_symbols);

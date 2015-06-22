@@ -27,48 +27,46 @@
 
 
 
-#ifndef TL_OMP_TARGET_HPP
-#define TL_OMP_TARGET_HPP
+#ifndef TL_OMPSS_TARGET_HPP
+#define TL_OMPSS_TARGET_HPP
 
 #include "tl-objectlist.hpp"
 #include "tl-symbol.hpp"
 
-namespace TL
-{
-    namespace OpenMP
+namespace TL { namespace OmpSs {
+
+    struct TargetContext
     {
-        struct TargetContext
+        ObjectList<std::string> device_list;
+
+        ObjectList<Nodecl::NodeclBase> copy_in;
+        ObjectList<Nodecl::NodeclBase> copy_out;
+        ObjectList<Nodecl::NodeclBase> copy_inout;
+
+        ObjectList<Nodecl::NodeclBase> ndrange;
+        ObjectList<Nodecl::NodeclBase> shmem; // shared memory
+        ObjectList<Nodecl::NodeclBase> onto;
+
+        bool is_implicit;
+        bool has_implements;
+        Symbol implements;
+
+        // The name of the file where the kernels are defined
+        std::string file;
+
+        // The real name of the kernel
+        std::string name;
+
+        bool copy_deps;
+
+        TargetContext()
+            : device_list(), copy_in(), copy_out(), copy_inout(),
+            ndrange(), shmem(), onto(), is_implicit(),
+            has_implements(), implements(), file(), name(), copy_deps()
         {
-            ObjectList<std::string> device_list;
+        }
+    };
 
-            ObjectList<Nodecl::NodeclBase> copy_in;
-            ObjectList<Nodecl::NodeclBase> copy_out;
-            ObjectList<Nodecl::NodeclBase> copy_inout;
+} }
 
-            ObjectList<Nodecl::NodeclBase> ndrange;
-            ObjectList<Nodecl::NodeclBase> shmem; // shared memory
-            ObjectList<Nodecl::NodeclBase> onto;
-
-            bool is_implicit;
-            bool has_implements;
-            Symbol implements;
-
-            // The name of the file where the kernels are defined
-            std::string file;
-
-            // The real name of the kernel
-            std::string name;
-
-            bool copy_deps;
-
-            TargetContext()
-                : device_list(), copy_in(), copy_out(), copy_inout(),
-                ndrange(), shmem(), onto(), is_implicit(),
-                has_implements(), implements(), file(), name(), copy_deps()
-            {
-            }
-        };
-    }
-}
-
-#endif // TL_OMP_TARGET_HPP
+#endif // TL_OMPSS_TARGET_HPP

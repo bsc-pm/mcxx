@@ -1353,7 +1353,7 @@ namespace TL { namespace OpenMP {
     {
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
-        get_target_info(pragma_line, data_sharing_environment);
+        ompss_get_target_info(pragma_line, data_sharing_environment);
         get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing_environment, extra_symbols);
 
         bool there_is_default_clause = false;
@@ -2387,13 +2387,28 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(single)
         INVALID_DECLARATION_HANDLER(workshare)
+        INVALID_DECLARATION_HANDLER(ordered)
+        INVALID_DECLARATION_HANDLER(master)
+        INVALID_DECLARATION_HANDLER(target_data)
+        INVALID_DECLARATION_HANDLER(teams)
+        INVALID_DECLARATION_HANDLER(distribute)
+        INVALID_DECLARATION_HANDLER(distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(distribute_parallel_do)
+        INVALID_DECLARATION_HANDLER(target_teams)
+        INVALID_DECLARATION_HANDLER(teams_distribute)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute)
+        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_do)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
+        INVALID_DECLARATION_HANDLER(atomic)
+        INVALID_DECLARATION_HANDLER(critical)
+        INVALID_DECLARATION_HANDLER(simd_fortran)
 
-#define EMPTY_HANDLERS_CONSTRUCT(_name) \
+#define EMPTY_HANDLERS_STATEMENT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
         void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
-        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
-        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
 
 #define EMPTY_HANDLERS_DECLARATION(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
@@ -2403,11 +2418,16 @@ namespace TL { namespace OpenMP {
         void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
         void Core::_name##_handler_post(TL::PragmaCustomDirective) { }
 
-        EMPTY_HANDLERS_CONSTRUCT(atomic)
-        EMPTY_HANDLERS_CONSTRUCT(critical)
-        EMPTY_HANDLERS_CONSTRUCT(master)
-        EMPTY_HANDLERS_CONSTRUCT(ordered)
-        EMPTY_HANDLERS_CONSTRUCT(simd_fortran)
+#define UNIMPLEMENTED_HANDLER_STATEMENT(_name) \
+        void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
+            error_printf("%s: error: OpenMP construct not implemented\n", ctr.get_locus_str().c_str());\
+        } \
+        void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
+
+        EMPTY_HANDLERS_STATEMENT(atomic)
+        EMPTY_HANDLERS_STATEMENT(critical)
+        EMPTY_HANDLERS_STATEMENT(master)
+        EMPTY_HANDLERS_STATEMENT(simd_fortran)
 
         EMPTY_HANDLERS_DECLARATION(simd)
 
@@ -2415,6 +2435,8 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_DIRECTIVE(flush)
         EMPTY_HANDLERS_DIRECTIVE(register)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
+
+        UNIMPLEMENTED_HANDLER_STATEMENT(ordered)
 
         Nodecl::NodeclBase get_statement_from_pragma(
                 const TL::PragmaCustomStatement& construct)

@@ -27,7 +27,7 @@
 
 
 
-#include "tl-omp-target.hpp"
+#include "tl-ompss-target.hpp"
 #include "tl-omp-core.hpp"
 #include "cxx-diagnostic.h"
 
@@ -35,8 +35,8 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line,
-                TargetContext& target_ctx,
+        void Core::ompss_common_target_handler_pre(TL::PragmaCustomLine pragma_line,
+                OmpSs::TargetContext& target_ctx,
                 TL::Scope scope,
                 bool is_pragma_task)
         {
@@ -262,18 +262,12 @@ namespace TL
         }
 
         // #pragma omp target on top of a #pragma omp task outline
-        void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
+        void Core::ompss_target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
-            if (!this->in_ompss_mode())
-            {
-                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
-                return;
-            }
-
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
-            TargetContext target_ctx;
+            OmpSs::TargetContext target_ctx;
 
-            common_target_handler_pre(pragma_line, target_ctx,
+            ompss_common_target_handler_pre(pragma_line, target_ctx,
                     ctr.get_context_of_parameters().retrieve_context(),
                     /* is_pragma_task */ false);
 
@@ -284,10 +278,10 @@ namespace TL
                 if (!function_sym.is_function())
                 {
                     warn_printf("%s: warning: '#pragma omp target' with an 'implements' clause must "
-                        "precede a single function declaration or a function definition\n",
-                        ctr.get_locus_str().c_str());
+                            "precede a single function declaration or a function definition\n",
+                            ctr.get_locus_str().c_str());
                     warn_printf("%s: warning: skipping the whole '#pragma omp target'\n",
-                        ctr.get_locus_str().c_str());
+                            ctr.get_locus_str().c_str());
                     return;
                 }
 
@@ -333,7 +327,7 @@ namespace TL
             _target_context.push(target_ctx);
         }
 
-        void Core::target_handler_post(TL::PragmaCustomDeclaration)
+        void Core::ompss_target_handler_post(TL::PragmaCustomDeclaration)
         {
             // It might be empty due to early exits in the preorder routine
             if (!_target_context.empty())
@@ -342,15 +336,60 @@ namespace TL
             }
         }
 
-        // #pragma omp target on top of a #pragma omp task inline
-        void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
+
+        void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
             if (!this->in_ompss_mode())
             {
                 warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
-                return;
             }
+            else
+            {
+                ompss_target_handler_pre(ctr);
+            }
+        }
 
+        void Core::target_handler_post(TL::PragmaCustomDeclaration ctr)
+        {
+            if (this->in_ompss_mode())
+            {
+                // Do nothing
+            }
+            else
+            {
+                ompss_target_handler_post(ctr);
+            }
+        }
+
+
+        // #pragma omp target on top of a #pragma omp task inline
+        void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
+        {
+            if (this->in_ompss_mode())
+            {
+                ompss_target_handler_pre(ctr);
+            }
+            else
+            {
+                omp_target_handler_pre(ctr);
+            }
+        }
+
+        void Core::target_handler_post(TL::PragmaCustomStatement ctr)
+        {
+            if (this->in_ompss_mode())
+            {
+                ompss_target_handler_post(ctr);
+            }
+            else
+            {
+                omp_target_handler_post(ctr);
+            }
+        }
+
+
+        void Core::ompss_target_handler_pre(TL::PragmaCustomStatement ctr)
+        {
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
             if (!nested_pragma.is_null()
                     && nested_pragma.is<Nodecl::List>())
@@ -371,7 +410,7 @@ namespace TL
             }
 
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
-            TargetContext target_ctx;
+            OmpSs::TargetContext target_ctx;
 
             if (target_ctx.has_implements)
             {
@@ -382,7 +421,7 @@ namespace TL
                 return;
             }
 
-            common_target_handler_pre(pragma_line,
+            ompss_common_target_handler_pre(pragma_line,
                     target_ctx,
                     ctr.retrieve_context(),
                     /* is_pragma_task */ false);
@@ -390,7 +429,7 @@ namespace TL
             _target_context.push(target_ctx);
         }
 
-        void Core::target_handler_post(TL::PragmaCustomStatement)
+        void Core::ompss_target_handler_post(TL::PragmaCustomStatement)
         {
             // It might be empty due to early exits in the preorder routine
             if (!_target_context.empty())
@@ -515,7 +554,8 @@ namespace TL
 
         // This function is invoked only for inline tasks (and some other
         // constructs though target info is unused for them)
-        void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing_environment)
+        void Core::ompss_get_target_info(TL::PragmaCustomLine construct,
+                DataSharingEnvironment& data_sharing_environment)
         {
             if (_target_context.empty())
                 return;
@@ -525,7 +565,7 @@ namespace TL
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
             ERROR_CONDITION(!enclosing_function.is_valid(), "This symbol is not valid", 0);
             target_info.set_target_symbol(enclosing_function);
-            TargetContext& target_ctx = _target_context.top();
+            OmpSs::TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_in,

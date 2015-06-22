@@ -1781,10 +1781,9 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp.cpp \
    src/tl/omp/core/tl-omp-deps.hpp \
    src/tl/omp/core/tl-omp-deps.cpp \
+   src/tl/omp/core/tl-omp-devices.cpp \
    src/tl/omp/core/tl-omp-tasks.hpp \
    src/tl/omp/core/tl-omp-tasks.cpp \
-   src/tl/omp/core/tl-omp-target.hpp \
-   src/tl/omp/core/tl-omp-target.cpp \
    src/tl/omp/core/tl-omp-collapse.cpp \
    src/tl/omp/core/tl-omp-reduction.hpp \
    src/tl/omp/core/tl-omp-reduction.cpp \
@@ -1792,6 +1791,8 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-ompss.hpp \
    src/tl/omp/core/tl-ompss.cpp \
    src/tl/omp/core/tl-ompss-core.cpp \
+   src/tl/omp/core/tl-ompss-target.hpp \
+   src/tl/omp/core/tl-ompss-target.cpp \
    $(END)
 
 ##########################################################################

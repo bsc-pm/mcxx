@@ -281,13 +281,29 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(atomic)
         INVALID_DECLARATION_HANDLER(master)
+        INVALID_DECLARATION_HANDLER(target_data)
+        INVALID_DECLARATION_HANDLER(teams)
+        INVALID_DECLARATION_HANDLER(distribute)
+        INVALID_DECLARATION_HANDLER(distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(distribute_parallel_do)
+        INVALID_DECLARATION_HANDLER(target_teams)
+        INVALID_DECLARATION_HANDLER(teams_distribute)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute)
+        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(teams_distribute_parallel_do)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_for)
+        INVALID_DECLARATION_HANDLER(target_teams_distribute_parallel_do)
         INVALID_DECLARATION_HANDLER(taskloop)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
         void Base::_name##_handler_post(TL::PragmaCustomStatement) { } \
         void Base::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
-        void Base::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
+        void Base::_name##_handler_post(TL::PragmaCustomDeclaration) { }
+
+#define EMPTY_HANDLERS_STATEMENT(_name) \
+        void Base::_name##_handler_pre(TL::PragmaCustomStatement) { } \
+        void Base::_name##_handler_post(TL::PragmaCustomStatement) { }
 
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomDirective) { } \
@@ -296,6 +312,20 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_CONSTRUCT(ordered)
 
         EMPTY_HANDLERS_DIRECTIVE(section)
+
+        EMPTY_HANDLERS_STATEMENT(target_data)
+        EMPTY_HANDLERS_DIRECTIVE(target_update)
+        EMPTY_HANDLERS_STATEMENT(teams)
+        EMPTY_HANDLERS_STATEMENT(distribute)
+        EMPTY_HANDLERS_STATEMENT(distribute_parallel_for)
+        EMPTY_HANDLERS_STATEMENT(distribute_parallel_do)
+        EMPTY_HANDLERS_STATEMENT(target_teams)
+        EMPTY_HANDLERS_STATEMENT(teams_distribute)
+        EMPTY_HANDLERS_STATEMENT(target_teams_distribute)
+        EMPTY_HANDLERS_STATEMENT(teams_distribute_parallel_for)
+        EMPTY_HANDLERS_STATEMENT(teams_distribute_parallel_do)
+        EMPTY_HANDLERS_STATEMENT(target_teams_distribute_parallel_for)
+        EMPTY_HANDLERS_STATEMENT(target_teams_distribute_parallel_do)
 
     void Base::set_simd(const std::string &simd_enabled_str)
     {

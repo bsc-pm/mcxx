@@ -39,7 +39,7 @@
 #include "tl-pragmasupport.hpp"
 #include "tl-omp-tasks.hpp"
 
-#include "tl-omp-target.hpp"
+#include "tl-ompss-target.hpp"
 
 #include "tl-lexer.hpp"
 namespace TL
@@ -89,14 +89,24 @@ namespace TL
                 static bool _already_informed_new_ompss_copy_deps;
 
                 std::shared_ptr<OpenMP::Info> _openmp_info;
+                void omp_target_handler_pre(TL::PragmaCustomStatement ctr);
+                void omp_target_handler_post(TL::PragmaCustomStatement ctr);
+
                 std::shared_ptr<OmpSs::FunctionTaskSet> _function_task_set;
+                std::stack<OmpSs::TargetContext> _target_context;
 
-                std::stack<TargetContext> _target_context;
+                void ompss_target_handler_pre(TL::PragmaCustomStatement ctr);
+                void ompss_target_handler_post(TL::PragmaCustomStatement ctr);
 
-                void common_target_handler_pre(TL::PragmaCustomLine pragma_line,
-                        TargetContext& target_ctx,
+                void ompss_target_handler_pre(TL::PragmaCustomDeclaration ctr);
+                void ompss_target_handler_post(TL::PragmaCustomDeclaration ctr);
+
+                void ompss_common_target_handler_pre(TL::PragmaCustomLine pragma_line,
+                        OmpSs::TargetContext& target_ctx,
                         TL::Scope scope,
                         bool is_pragma_task);
+                void ompss_get_target_info(TL::PragmaCustomLine pragma_line,
+                        DataSharingEnvironment& data_sharing_environment);
 
                 void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
@@ -142,9 +152,6 @@ namespace TL
                         TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing_environment,
                         ObjectList<TL::Symbol>& nonlocal_symbols);
-
-                void get_target_info(TL::PragmaCustomLine pragma_line,
-                        DataSharingEnvironment& data_sharing_environment);
 
                 void get_dependences_info(
                         PragmaCustomLine construct,
