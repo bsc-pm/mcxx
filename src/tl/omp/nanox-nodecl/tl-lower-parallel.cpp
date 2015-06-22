@@ -71,7 +71,7 @@ namespace TL { namespace Nanox {
         OutlineInfo outline_info(*_lowering, environment,function_symbol);
 
         Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
-            .find_first<Nodecl::OpenMP::TaskLabel>();
+            .find_first<Nodecl::OmpSs::TaskLabel>();
 
         // Handle the special object 'this'
         if (IS_CXX_LANGUAGE

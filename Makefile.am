@@ -1789,6 +1789,9 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
    src/tl/omp/core/tl-omp-reduction.hpp \
    src/tl/omp/core/tl-omp-reduction.cpp \
    src/tl/omp/core/tl-omp-reduction-builtin.cpp \
+   src/tl/omp/core/tl-ompss.hpp \
+   src/tl/omp/core/tl-ompss.cpp \
+   src/tl/omp/core/tl-ompss-core.cpp \
    $(END)
 
 ##########################################################################
@@ -1829,8 +1832,8 @@ src_tl_omp_base_libtlomp_base_la_SOURCES = \
    src/tl/omp/base/tl-omp-base-utils.cpp \
    src/tl/omp/base/tl-omp-base.hpp \
    src/tl/omp/base/tl-omp-base.cpp \
-   src/tl/omp/base/tl-omp-base-task.hpp \
-   src/tl/omp/base/tl-omp-base-task.cpp \
+   src/tl/omp/base/tl-ompss-base-task.hpp \
+   src/tl/omp/base/tl-ompss-base-task.cpp \
    $(END)
 
 ##########################################################################

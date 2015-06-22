@@ -43,7 +43,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     public:
         LoweringVisitor(
                 Lowering* lowering,
-                std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set,
+                std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set,
                 std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& final_stmts_map);
 
         ~LoweringVisitor();
@@ -60,14 +60,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Sections& construct);
         virtual void visit(const Nodecl::OpenMP::Single& construct);
         virtual void visit(const Nodecl::OpenMP::Workshare& construct);
-        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
+        virtual void visit(const Nodecl::OmpSs::TargetDeclaration& construct);
         virtual void visit(const Nodecl::OpenMP::Task& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
+        virtual void visit(const Nodecl::OmpSs::TaskCall& construct);
+        virtual void visit(const Nodecl::OmpSs::TaskExpression& task_expr);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
         virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
-        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
-        virtual void visit(const Nodecl::OpenMP::Register& construct);
+        virtual void visit(const Nodecl::OmpSs::WaitOnDependences& construct);
+        virtual void visit(const Nodecl::OmpSs::Register& construct);
 
 
         // This typedef should be public because It's used by some local functions
@@ -76,7 +76,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
 
         Lowering* _lowering;
-        std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+        std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
@@ -427,17 +427,17 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void visit_task_call(
-                const Nodecl::OpenMP::TaskCall& construct,
+                const Nodecl::OmpSs::TaskCall& construct,
                 bool inside_task_expression,
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void visit_task_call_c(
-                const Nodecl::OpenMP::TaskCall& construct,
+                const Nodecl::OmpSs::TaskCall& construct,
                 bool inside_task_expression,
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void visit_task_call_fortran(
-                const Nodecl::OpenMP::TaskCall& construct,
+                const Nodecl::OmpSs::TaskCall& construct,
                 bool inside_task_expression,
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
@@ -469,7 +469,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         Nodecl::NodeclBase fill_adapter_function(
-                const Nodecl::OpenMP::TaskCall& construct,
+                const Nodecl::OmpSs::TaskCall& construct,
                 TL::Symbol adapter_function,
                 TL::Symbol called_function,
                 Nodecl::Utils::SimpleSymbolMap* &symbol_map,

@@ -488,7 +488,7 @@ namespace TL
                 // that represents the implements clause we are not including
                 // the target information of the implementor.
                 // FMI check the implementation of handle_implements_clause
-                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
@@ -503,7 +503,8 @@ namespace TL
                 OutlineInfo(Nanox::Lowering& lowering,
                         Nodecl::NodeclBase environment,
                         TL::Symbol funct_symbol = Symbol::invalid(),
-                        std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set = std::shared_ptr<OpenMP::FunctionTaskSet>());
+                        std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set
+                            = std::shared_ptr<TL::OmpSs::FunctionTaskSet>());
 
                 ~OutlineInfo();
 

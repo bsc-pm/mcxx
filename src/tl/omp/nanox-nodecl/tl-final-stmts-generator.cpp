@@ -60,13 +60,13 @@ namespace TL { namespace Nanox {
                     walk(task.get_statements());
                 }
 
-                void visit(const Nodecl::OpenMP::TaskCall& task_call)
+                void visit(const Nodecl::OmpSs::TaskCall& task_call)
                 {
                     ++_num_task_related_pragmas;
                     walk(task_call.get_call());
                 }
 
-                void visit(const Nodecl::OpenMP::TaskExpression& task_expr)
+                void visit(const Nodecl::OmpSs::TaskExpression& task_expr)
                 {
                     ++_num_task_related_pragmas;
                     walk(task_expr.get_sequential_code());
@@ -148,13 +148,13 @@ namespace TL { namespace Nanox {
                     walk(task);
                 }
 
-                void visit(const Nodecl::OpenMP::TaskCall& task_call)
+                void visit(const Nodecl::OmpSs::TaskCall& task_call)
                 {
                     task_call.replace(task_call.get_call());
                     walk(task_call);
                 }
 
-                void visit(const Nodecl::OpenMP::TaskExpression& task_expr)
+                void visit(const Nodecl::OmpSs::TaskExpression& task_expr)
                 {
                     Nodecl::NodeclBase seq_code = task_expr.get_sequential_code();
                     ERROR_CONDITION(!seq_code.is<Nodecl::ExpressionStatement>(), "Unreachable code\n", 0);
@@ -279,7 +279,7 @@ namespace TL { namespace Nanox {
         _final_stmts_map.insert(std::make_pair(task, final_stmts));
     }
 
-    void FinalStmtsGenerator::visit(const Nodecl::OpenMP::TaskCall& task_call)
+    void FinalStmtsGenerator::visit(const Nodecl::OmpSs::TaskCall& task_call)
     {
         // Note that we need to walk over the function call
         // because its arguments may be TaskExpressions
@@ -290,7 +290,7 @@ namespace TL { namespace Nanox {
         _final_stmts_map.insert(std::make_pair(task_call, final_stmts));
     }
 
-    void FinalStmtsGenerator::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
+    void FinalStmtsGenerator::visit(const Nodecl::OmpSs::TaskExpression& task_expr)
     {
         walk(task_expr.get_sequential_code());
 

@@ -2111,32 +2111,32 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Commutative& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::Commutative& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Concurrent& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::Concurrent& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::CopyIn& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::CopyInout& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::CopyOut& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
@@ -2186,7 +2186,7 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInValue& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::DepInValue& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
@@ -2550,7 +2550,7 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SharedAndAlloca& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::SharedAndAlloca& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
@@ -2717,7 +2717,7 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::Target& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
@@ -2764,7 +2764,7 @@ next_it:    ;
         return ObjectList<Node*>( 1, task_creation );
 }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::TaskCall& n )
     {
         Node* task_creation = new Node( _utils->_nid, __OmpTaskCreation, _utils->_outer_nodes.top() );
 
@@ -2804,13 +2804,13 @@ next_it:    ;
         return ObjectList<Node*>( 1, task_creation );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskExpression& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::TaskExpression& n )
     {
         walk( n.get_task_calls( ) );
         return walk( n.get_join_task( ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskLabel& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::TaskLabel& n )
     {
         _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
@@ -2850,7 +2850,7 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OmpSs::WaitOnDependences& n )
     {
         Node* taskwait_node = new Node( _utils->_nid, __OmpWaitonDeps, _utils->_outer_nodes.top( ), n);
         // Connect with the last nodes created

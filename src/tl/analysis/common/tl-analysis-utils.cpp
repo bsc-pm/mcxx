@@ -641,7 +641,7 @@ next_it:        ++itr1, ++it1, ++it2;
             _functions.append( n );
         }
 
-    void TopLevelVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
+    void TopLevelVisitor::visit( const Nodecl::OmpSs::TaskCall& n )
     {
         if( _filename == n.get_filename( ) )
             _functions.append( n );

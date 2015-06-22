@@ -47,8 +47,8 @@ namespace TL { namespace Nanox {
             FinalStmtsGenerator();
 
             void visit(const Nodecl::OpenMP::Task& task);
-            void visit(const Nodecl::OpenMP::TaskCall& task_call);
-            void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
+            void visit(const Nodecl::OmpSs::TaskCall& task_call);
+            void visit(const Nodecl::OmpSs::TaskExpression& task_expr);
 
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_final_stmts();
 

@@ -301,18 +301,18 @@ namespace TL
                 else
                 {
                     // The symbol mentioned in the 'implements' clause is a function task
-                    FunctionTaskInfo& function_task_info =
+                    OmpSs::FunctionTaskInfo& function_task_info =
                         _function_task_set->get_function_task(target_ctx.implements);
 
-                    TargetInfo &target_info = function_task_info.get_target_info();
-                    TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
+                    OmpSs::TargetInfo &target_info = function_task_info.get_target_info();
+                    OmpSs::TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
 
                     for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                             it != target_ctx.device_list.end();
                             it++)
                     {
                         const char* current_device_lowercase = strtolower(it->c_str());
-                        TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
+                        OmpSs::TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
                         // If the current device hasn't an entry in the map
                         if (it2 == implementation_table.end()
                                 // Or it has but the current symbol is not in the list
@@ -402,11 +402,11 @@ namespace TL
         static void add_copy_items(PragmaCustomLine construct, 
                 DataSharingEnvironment& data_sharing_environment,
                 const ObjectList<Nodecl::NodeclBase>& list,
-                CopyDirection copy_direction,
-                TargetInfo& target_info,
+                TL::OmpSs::CopyDirection copy_direction,
+                TL::OmpSs::TargetInfo& target_info,
                 bool in_ompss_mode)
         {
-            TL::ObjectList<CopyItem> items;
+            TL::ObjectList<TL::OmpSs::CopyItem> items;
 
             for (ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
                     it != list.end();
@@ -485,23 +485,23 @@ namespace TL
                     }
                 }
 
-                CopyItem copy_item(expr, copy_direction);
+                TL::OmpSs::CopyItem copy_item(expr, copy_direction);
                 items.append(copy_item);
             }
 
             switch (copy_direction)
             {
-                case COPY_DIR_IN:
+                case TL::OmpSs::COPY_DIR_IN:
                     {
                         target_info.append_to_copy_in(items);
                         break;
                     }
-                case COPY_DIR_OUT:
+                case TL::OmpSs::COPY_DIR_OUT:
                     {
                         target_info.append_to_copy_out(items);
                         break;
                     }
-                case COPY_DIR_INOUT:
+                case TL::OmpSs::COPY_DIR_INOUT:
                     {
                         target_info.append_to_copy_inout(items);
                         break;
@@ -520,7 +520,7 @@ namespace TL
             if (_target_context.empty())
                 return;
 
-            TargetInfo target_info;
+            TL::OmpSs::TargetInfo target_info;
 
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
             ERROR_CONDITION(!enclosing_function.is_valid(), "This symbol is not valid", 0);
@@ -529,19 +529,19 @@ namespace TL
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_in,
-                    COPY_DIR_IN,
+                    TL::OmpSs::COPY_DIR_IN,
                     target_info,
                     in_ompss_mode());
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_out,
-                    COPY_DIR_OUT,
+                    TL::OmpSs::COPY_DIR_OUT,
                     target_info,
                     in_ompss_mode());
 
             add_copy_items(construct, data_sharing_environment,
                     target_ctx.copy_inout,
-                    COPY_DIR_INOUT,
+                    TL::OmpSs::COPY_DIR_INOUT,
                     target_info,
                     in_ompss_mode());
 
@@ -571,7 +571,7 @@ namespace TL
                     switch (it->get_kind())
                     {
                         case DEP_DIR_IN:
-                        case DEP_DIR_IN_PRIVATE:
+                        case DEP_OMPSS_DIR_IN_PRIVATE:
                             {
                                 p = &dep_list_in;
                                 break;
@@ -582,8 +582,9 @@ namespace TL
                                 break;
                             }
                         case DEP_DIR_INOUT:
-                        case DEP_CONCURRENT:
-                        case DEP_COMMUTATIVE:
+                            // OmpSs
+                        case DEP_OMPSS_CONCURRENT:
+                        case DEP_OMPSS_COMMUTATIVE:
                             {
                                 p = &dep_list_inout;
                                 break;
@@ -599,19 +600,19 @@ namespace TL
 
                 add_copy_items(construct, data_sharing_environment,
                         dep_list_in,
-                        COPY_DIR_IN,
+                        TL::OmpSs::COPY_DIR_IN,
                         target_info,
                         in_ompss_mode());
 
                 add_copy_items(construct, data_sharing_environment,
                         dep_list_out,
-                        COPY_DIR_OUT,
+                        TL::OmpSs::COPY_DIR_OUT,
                         target_info,
                         in_ompss_mode());
 
                 add_copy_items(construct, data_sharing_environment,
                         dep_list_inout,
-                        COPY_DIR_INOUT,
+                        TL::OmpSs::COPY_DIR_INOUT,
                         target_info,
                         in_ompss_mode());
             }
@@ -623,13 +624,13 @@ namespace TL
                         || !target_ctx.copy_inout.empty())
                     && !_allow_shared_without_copies)
             {
-                ObjectList<CopyItem> all_copies;
+                ObjectList<TL::OmpSs::CopyItem> all_copies;
                 all_copies.append(target_info.get_copy_in());
                 all_copies.append(target_info.get_copy_out());
                 all_copies.append(target_info.get_copy_inout());
 
                 ObjectList<Symbol> all_copied_syms = all_copies
-                    .map(&CopyItem::get_copy_expression)
+                    .map(&TL::OmpSs::CopyItem::get_copy_expression)
                     .map(&DataReference::get_base_symbol);
 
                 // In devices with disjoint memory, it may be wrong to use a

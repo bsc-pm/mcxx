@@ -28,6 +28,7 @@
 
 #include "tl-omp-base.hpp"
 #include "tl-omp-core.hpp"
+
 namespace TL { namespace OpenMP {
 
     std::string Base::dependence_direction_to_str(DependencyDirection kind)
@@ -40,28 +41,30 @@ namespace TL { namespace OpenMP {
                 return "out";
             case OpenMP::DEP_DIR_INOUT:
                 return "inout";
-            case OpenMP::DEP_DIR_IN_PRIVATE:
+                // OmpSs
+            case OpenMP::DEP_OMPSS_DIR_IN_PRIVATE:
                 return "in (private)";
-            case OpenMP::DEP_DIR_IN_VALUE:
+            case OpenMP::DEP_OMPSS_DIR_IN_VALUE:
                 return "in (value)";
-            case OpenMP::DEP_CONCURRENT:
+            case OpenMP::DEP_OMPSS_CONCURRENT:
                 return "concurrent";
-            case OpenMP::DEP_COMMUTATIVE:
+            case OpenMP::DEP_OMPSS_COMMUTATIVE:
                 return "commutative";
             default: ;
         }
         return "unknown dependency???";
     }
 
-    std::string Base::copy_direction_to_str(CopyDirection kind)
+    // This belongs to OmpSs but it now a bit unwieldy to move
+    std::string Base::copy_direction_to_str(TL::OmpSs::CopyDirection kind)
     {
         switch (kind)
         {
-            case OpenMP::COPY_DIR_IN:
+            case OmpSs::COPY_DIR_IN:
                 return "copied in";
-            case OpenMP::COPY_DIR_OUT:
+            case OmpSs::COPY_DIR_OUT:
                 return "copied out";
-            case OpenMP::COPY_DIR_INOUT:
+            case OmpSs::COPY_DIR_INOUT:
                 return "copied inout";
             default: ;
         }

@@ -294,7 +294,7 @@ namespace TL { namespace OpenMP {
                 default_data_attr, "in", extra_symbols);
 
         PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing_environment, DEP_DIR_IN_PRIVATE,
+        get_dependences_ompss_info_clause(input_private_clause, construct, data_sharing_environment, DEP_OMPSS_DIR_IN_PRIVATE,
                 default_data_attr, "inprivate", extra_symbols);
 
         PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
@@ -306,11 +306,11 @@ namespace TL { namespace OpenMP {
                 default_data_attr, "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing_environment, DEP_CONCURRENT,
+        get_dependences_ompss_info_clause(concurrent_clause, construct, data_sharing_environment, DEP_OMPSS_CONCURRENT,
                 default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing_environment, DEP_COMMUTATIVE,
+        get_dependences_ompss_info_clause(commutative_clause, construct, data_sharing_environment, DEP_OMPSS_COMMUTATIVE,
                 default_data_attr, "commutative", extra_symbols);
 
         // OpenMP standard clauses
@@ -817,15 +817,15 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_UNDEFINED:
                 return "<<undefined-dependence>>";
             case DEP_DIR_IN:
-            case DEP_DIR_IN_VALUE:
+            case DEP_OMPSS_DIR_IN_VALUE:
                 return "in";
             case DEP_DIR_OUT:
                 return "out";
             case DEP_DIR_INOUT:
                 return "inout";
-            case DEP_CONCURRENT:
+            case DEP_OMPSS_CONCURRENT:
                 return "concurrent";
-            case DEP_COMMUTATIVE:
+            case DEP_OMPSS_COMMUTATIVE:
                 return "commutative";
             default:
                 return "<<unknown-dependence-kind?>>";

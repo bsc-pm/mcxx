@@ -246,7 +246,7 @@ namespace TL { namespace Nanox {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
         Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
-            .find_first<Nodecl::OpenMP::TaskLabel>();
+            .find_first<Nodecl::OmpSs::TaskLabel>();
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)

@@ -29,29 +29,53 @@
 #ifndef TL_OMP_DEPS_HPP
 #define TL_OMP_DEPS_HPP
 
+#include "tl-common.hpp"
+
+#include "tl-object.hpp"
+#include "tl-datareference.hpp"
+
+#include <string>
+
 #define BITMAP(x) (1<<x)
 
 namespace TL { namespace OpenMP {
 
-enum DependencyDirection
-{
-    DEP_DIR_UNDEFINED = 0,
-    // Input dependence
-    DEP_DIR_IN = BITMAP(1),
-    // Input dependence in a parameter passed by value
-    DEP_DIR_IN_VALUE = BITMAP(2),
-    // Input dependence with firstprivate storage
-    DEP_DIR_IN_PRIVATE = BITMAP(3),
-    // Output dependence
-    DEP_DIR_OUT = BITMAP(4),
-    // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
-    // Concurrent dependences
-    DEP_CONCURRENT = BITMAP(5),
-    DEP_COMMUTATIVE = BITMAP(6),
-};
+    enum DependencyDirection
+    {
+        DEP_DIR_UNDEFINED = 0,
+        // Input dependence
+        DEP_DIR_IN = BITMAP(1),
+        // Input dependence in a parameter passed by value
+        // Output dependence
+        DEP_DIR_OUT = BITMAP(4),
+        // Inout dependence
+        DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
 
-std::string get_dependency_direction_name(DependencyDirection d);
+        // OmpSs
+        DEP_OMPSS_DIR_IN_VALUE = BITMAP(2),
+        //   Input dependence with firstprivate storage
+        DEP_OMPSS_DIR_IN_PRIVATE = BITMAP(3),
+        //   Concurrent dependences
+        DEP_OMPSS_CONCURRENT = BITMAP(5),
+        DEP_OMPSS_COMMUTATIVE = BITMAP(6),
+    };
+    std::string get_dependency_direction_name(DependencyDirection d);
+
+    class LIBTL_CLASS DependencyItem : public TL::Object
+    {
+        private:
+            DataReference _dep_expr;
+            DependencyDirection _kind;
+        public:
+            DependencyItem() { }
+            DependencyItem(DataReference dep_expr, DependencyDirection kind);
+
+            DependencyDirection get_kind() const;
+            DataReference get_dependency_expression() const;
+
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mw);
+    };
 
 } }
 

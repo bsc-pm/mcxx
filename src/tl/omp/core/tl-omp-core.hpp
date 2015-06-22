@@ -89,7 +89,7 @@ namespace TL
                 static bool _already_informed_new_ompss_copy_deps;
 
                 std::shared_ptr<OpenMP::Info> _openmp_info;
-                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<OmpSs::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
@@ -217,7 +217,7 @@ namespace TL
                         DataSharingEnvironment& data_sharing_environment,
                         ObjectList<Symbol>& extra_symbols);
 
-				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
+                OmpSs::RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
                 void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 

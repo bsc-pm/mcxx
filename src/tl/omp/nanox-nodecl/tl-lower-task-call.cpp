@@ -833,7 +833,7 @@ static void create_new_param_to_args_map_for_every_implementation(
 }
 
 void LoweringVisitor::visit_task_call_c(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
@@ -1470,7 +1470,7 @@ static TL::Symbol new_function_symbol_adapter(
 }
 
 Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         TL::Symbol adapter_function,
         TL::Symbol called_function,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map,
@@ -1676,7 +1676,7 @@ struct FreeVariablesVisitor : public Nodecl::ExhaustiveVisitor<void>
 };
 
 void LoweringVisitor::visit_task_call_fortran(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
@@ -1838,7 +1838,7 @@ void LoweringVisitor::visit_task_call_fortran(
 
 
 void LoweringVisitor::visit_task_call(
-        const Nodecl::OpenMP::TaskCall& construct,
+        const Nodecl::OmpSs::TaskCall& construct,
         bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
@@ -1857,7 +1857,7 @@ void LoweringVisitor::visit_task_call(
     }
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::TaskCall& construct)
 {
     visit_task_call(construct,
             /* inside_task_expression */  false,

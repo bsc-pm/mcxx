@@ -501,7 +501,6 @@ intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment
 
 parallel-statements : parallel-execution
                     | synchronization
-                    | data-coordination
 
 parallel-execution : task-construct
                    | taskyield-construct
@@ -517,147 +516,179 @@ parallel-execution : task-construct
                    | simd-constructs
 
 # single
-single-construct : NODECL_OPEN_M_P*SINGLE([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+single-construct : NODECL_OPEN_M_P*SINGLE([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # master
 master-construct : NODECL_OPEN_M_P*MASTER([statements]statement-seq-opt)
 
 # critical
-critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
+critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # inline task
-task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
-
-# function task
-# Note: do not rely on the information in site_environment
-task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression, [site_environment]exec-environment-seq-opt)
-
-# task expression
-task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement)
-
-target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
-
-expression : task-call
-            | task-expression
-
-top-level: target-declaration
-
-exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
-                 | NODECL_OPEN_M_P*FINAL([condition]expression)
-                 | NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
-                 | NODECL_OPEN_M_P*LASTPRIVATE([symbols]name-seq)
-                 | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([symbols]name-seq)
-                 | NODECL_OPEN_M_P*SHARED([symbols]name-seq)
-                 | NODECL_OPEN_M_P*THREADPRIVATE([symbols]name-seq)
-                 | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
-                 | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
-                 | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
-                 | NODECL_OPEN_M_P*TASK_REDUCTION([reductions]reduction-item-seq)
-                 | NODECL_OPEN_M_P*ALLOCA([exprs] expression-seq)
-                 | NODECL_OPEN_M_P*SHARED_AND_ALLOCA([exprs]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_IN_VALUE([in_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_IN_PRIVATE([in_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
-                 | NODECL_OPEN_M_P*CONCURRENT([inout_deps]expression-seq)
-                 | NODECL_OPEN_M_P*COMMUTATIVE([inout_deps]expression-seq)
-                 | NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
-                 | NODECL_OPEN_M_P*TARGET([devices] text-seq, [items] target-item-seq-opt)
-# Used for parallel + {sections,for}
-                 | NODECL_OPEN_M_P*COMBINED_WORKSHARING()
-                 | NODECL_OPEN_M_P*PRIORITY([priority]expression)
-                 | NODECL_OPEN_M_P*UNTIED()
-                 | NODECL_OPEN_M_P*CRITICAL_NAME() text
-                 | NODECL_OPEN_M_P*BARRIER_AT_END()
-                 | NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
-                 | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
-                 | NODECL_OPEN_M_P*TASK_LABEL() text
-                 | NODECL_OPEN_M_P*NO_FLUSH()
-                 | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
-# Used for simd
-                 | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
-                 | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
-                 | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
-                 | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [min_group_loads] expression, [max_group_registers] expression, [max_groups] expression)
-                 | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
-                 | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
-                 | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
-                 | NODECL_OPEN_M_P*PREFETCH([distances] expression-seq, [strategy] vector-flags)
-                 | NODECL_OPEN_M_P*NO_PREFETCH()
-                 | NODECL_OPEN_M_P*MASK()
-                 | NODECL_OPEN_M_P*NO_MASK()
-                 | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]reduction-item-seq)
-                 | NODECL_OPEN_M_P*NUM_TASKS([num_tasks]expression)
-                 | NODECL_OPEN_M_P*GRAIN_SIZE([grain_size]expression)
-
-target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
-                 | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
-                 | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
-                 | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq)
-                 | NODECL_OPEN_M_P*SH_MEM([shmem_expressions]expression-seq)
-                 | NODECL_OPEN_M_P*FILE([filename]text)
-                 | NODECL_OPEN_M_P*NAME([name]text)
-                 | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq)
-                 | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
-
-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)
+task-construct : NODECL_OPEN_M_P*TASK([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # parallel
-parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
+parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]omp-exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
-              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
+omp-for-construct : NODECL_OPEN_M_P*FOR([environment]omp-exec-environment-seq-opt, [loop]statement)
 
-taskloop-construct : NODECL_OPEN_M_P*TASK_LOOP([environment]exec-environment-seq-opt, [loop]statement)
+taskloop-construct : NODECL_OPEN_M_P*TASK_LOOP([environment]omp-exec-environment-seq-opt, [loop]statement)
 
 # workshare (Fortran only)
-workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)
+workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]omp-exec-environment-seq-opt, [statements]statement-seq)
 
 # atomic
-atomic-construct : NODECL_OPEN_M_P*ATOMIC([environment]exec-environment-seq-opt, [statements]statement-seq)
+atomic-construct : NODECL_OPEN_M_P*ATOMIC([environment]omp-exec-environment-seq-opt, [statements]statement-seq)
 
 # sections
-sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]exec-environment-seq-opt, [sections]section-construct-seq)
+sections-construct : NODECL_OPEN_M_P*SECTIONS([environment]omp-exec-environment-seq-opt, [sections]section-construct-seq)
 
 section-construct : NODECL_OPEN_M_P*SECTION([statements]statement-seq)
 
-synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environment-seq-opt)
-# First level of async
-                | NODECL_OPEN_M_P*TASKWAIT_SHALLOW([environment]exec-environment-seq-opt)
+synchronization : NODECL_OPEN_M_P*TASKWAIT_SHALLOW([environment]omp-exec-environment-seq-opt)
 # All levels of async
                 | NODECL_OPEN_M_P*TASKWAIT_DEEP()
                 | NODECL_OPEN_M_P*FLUSH_MEMORY([expressions] expression-seq-opt)
 # Full barrier
-                | NODECL_OPEN_M_P*BARRIER_FULL([environment]exec-environment-seq-opt)
+                | NODECL_OPEN_M_P*BARRIER_FULL([environment]omp-exec-environment-seq-opt)
 # First half of a barrier (signaling phase)
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
-data-coordination : NODECL_OPEN_M_P*REGISTER([registered_set]expression-seq)
-
 taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
+
+omp-exec-environment : omp-data-sharings-info
+                 | omp-construct-info
+                 | omp-sync-info
+                 | omp-memory-info
+                 | omp-loop-info
+                 | omp-taskloop-info
+                 | omp-deps-info
+                 | omp-execution-control
+                 | omp-critical-info
+                 | omp-simd-info
+
+omp-data-sharings-info : NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
+                       | NODECL_OPEN_M_P*LASTPRIVATE([symbols]name-seq)
+                       | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([symbols]name-seq)
+                       | NODECL_OPEN_M_P*SHARED([symbols]name-seq)
+                       | NODECL_OPEN_M_P*THREADPRIVATE([symbols]name-seq)
+                       | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
+                       | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
+                       | NODECL_OPEN_M_P*REDUCTION([reductions]omp-reduction-item-seq)
+                       | NODECL_OPEN_M_P*TASK_REDUCTION([reductions]omp-reduction-item-seq)
+
+omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)
+
+omp-construct-info : NODECL_OPEN_M_P*COMBINED_WORKSHARING()
+                   | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
+
+omp-sync-info : NODECL_OPEN_M_P*BARRIER_AT_END()
+
+omp-memory-info : NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
+                | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
+                | NODECL_OPEN_M_P*NO_FLUSH()
+
+omp-loop-info : NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
+
+omp-taskloop-info : NODECL_OPEN_M_P*NUM_TASKS([num_tasks]expression)
+                  | NODECL_OPEN_M_P*GRAIN_SIZE([grain_size]expression)
+
+omp-deps-info :  NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
+
+omp-execution-control : NODECL_OPEN_M_P*IF([condition]expression)
+                      | NODECL_OPEN_M_P*FINAL([condition]expression)
+                      | NODECL_OPEN_M_P*PRIORITY([priority]expression)
+                      | NODECL_OPEN_M_P*UNTIED()
+
+omp-critical-info: NODECL_OPEN_M_P*CRITICAL_NAME() text
+
+omp-simd-info: NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
+             | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
+             | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
+             | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
+             | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
+             | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [min_group_loads] expression, [max_group_registers] expression, [max_groups] expression)
+             | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
+             | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
+             | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
+             | NODECL_OPEN_M_P*PREFETCH([distances] expression-seq, [strategy] vector-flags)
+             | NODECL_OPEN_M_P*NO_PREFETCH()
+             | NODECL_OPEN_M_P*MASK()
+             | NODECL_OPEN_M_P*NO_MASK()
+             | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]omp-reduction-item-seq)
+
 
 # extension used for multidependences/multicopies
 expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
 
 ##############################
-# SIMD                       #
+# OpenMP SIMD                #
 ##############################
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
                 | simd-parallel-construct
 
-simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] exec-environment-seq-opt)
-simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] exec-environment-seq-opt)
-simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] exec-environment-seq-opt)
-parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] exec-environment-seq-opt)
-simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] exec-environment-seq-opt)
+simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] omp-exec-environment-seq-opt)
+simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] omp-exec-environment-seq-opt)
+simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] omp-exec-environment-seq-opt)
+parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] omp-exec-environment-seq-opt)
+simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] omp-exec-environment-seq-opt)
+
+omp-for-construct : NODECL_OPEN_M_P*FOR_APPENDIX([environment]omp-exec-environment-seq-opt, [loop]statement, [prependix]statement-seq-opt, [appendix]statement-seq-opt)
+
+##############################
+# OmpSs specific nodes       #
+##############################
+
+expression : task-call
+           | task-expression
+
+omp-deps-info: NODECL_OMP_SS*DEP_IN_VALUE([in_deps]expression-seq)
+             | NODECL_OMP_SS*DEP_IN_PRIVATE([in_deps]expression-seq)
+
+# function task
+# Note: do not rely on the information in site_environment
+task-call : NODECL_OMP_SS*TASK_CALL([environment]omp-exec-environment-seq-opt, [call]expression, [site_environment]omp-exec-environment-seq-opt)
+
+# task expression
+task-expression : NODECL_OMP_SS*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement)
+
+# target
+top-level: target-declaration
+
+target-declaration : NODECL_OMP_SS*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
+
+synchronization : NODECL_OMP_SS*WAIT_ON_DEPENDENCES([environment]omp-exec-environment-seq-opt)
+
+parallel-statements: data-coordination
+
+# register
+data-coordination : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
+
+omp-exec-environment: NODECL_OMP_SS*ALLOCA([exprs] expression-seq)
+                | NODECL_OMP_SS*CONCURRENT([inout_deps]expression-seq)
+                | NODECL_OMP_SS*COMMUTATIVE([inout_deps]expression-seq)
+                | NODECL_OMP_SS*SHARED_AND_ALLOCA([exprs]expression-seq)
+
+omp-exec-environment : ompss-device-info
+
+ompss-device-info : NODECL_OMP_SS*COPY_IN([input_copies]expression-seq)
+            | NODECL_OMP_SS*COPY_OUT([output_copies]expression-seq)
+            | NODECL_OMP_SS*COPY_INOUT([inout_copies]expression-seq)
+            | NODECL_OMP_SS*N_D_RANGE([ndrange_expressions]expression-seq)
+            | NODECL_OMP_SS*SH_MEM([shmem_expressions]expression-seq)
+            | NODECL_OMP_SS*FILE([filename]text)
+            | NODECL_OMP_SS*NAME([name]text)
+            | NODECL_OMP_SS*ONTO([onto_expressions]expression-seq)
+            | NODECL_OMP_SS*IMPLEMENTS([device]text, [function_name]name)
+            | NODECL_OMP_SS*TARGET([devices] text-seq, [items] ompss-device-info-seq-opt)
+            | NODECL_OMP_SS*TASK_LABEL() text
 
 ##############################
 # CUDA                       #

@@ -29,7 +29,7 @@
 #endif
 
 #include "tl-omp-base.hpp"
-#include "tl-omp-base-task.hpp"
+#include "tl-ompss-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 
 #include "config.h"
@@ -196,12 +196,13 @@ namespace TL { namespace OpenMP {
 
         this->PragmaCustomCompilerPhase::run(dto);
 
-        std::shared_ptr<FunctionTaskSet> function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
+        std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set =
+            std::static_pointer_cast<TL::OmpSs::FunctionTaskSet>(dto["openmp_task_info"]);
 
         Nodecl::NodeclBase translation_unit = *std::static_pointer_cast<Nodecl::NodeclBase>(dto["nodecl"]);
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
-        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
+        OmpSs::TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
                 /* ignore_template_functions */ CURRENT_CONFIGURATION->explicit_instantiation);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
@@ -215,7 +216,7 @@ namespace TL { namespace OpenMP {
         const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map =
             transform_nonvoid_task_calls.get_enclosing_stmt_to_return_variables_map();
 
-        FunctionCallVisitor function_call_visitor(
+        OmpSs::FunctionCallVisitor function_call_visitor(
                 function_task_set,
                 funct_call_to_enclosing_stmt_map,
                 enclosing_stmt_to_original_stmt_map,
@@ -634,7 +635,7 @@ namespace TL { namespace OpenMP {
             }
 
             directive.replace(
-                    Nodecl::OpenMP::WaitOnDependences::make(
+                    Nodecl::OmpSs::WaitOnDependences::make(
                         environment,
                         directive.get_locus())
                     );
@@ -788,7 +789,7 @@ namespace TL { namespace OpenMP {
                     ;
                 }
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
             }
@@ -944,7 +945,7 @@ namespace TL { namespace OpenMP {
                     && str_list.size() == 1)
             {
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
 
@@ -1312,7 +1313,7 @@ namespace TL { namespace OpenMP {
                     && str_list.size() == 1)
             {
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
 
@@ -1617,7 +1618,7 @@ namespace TL { namespace OpenMP {
                     ;
                 }
                 execution_environment.append(
-                        Nodecl::OpenMP::TaskLabel::make(
+                        Nodecl::OmpSs::TaskLabel::make(
                             str_list[0],
                             directive.get_locus()));
             }
@@ -1844,7 +1845,7 @@ namespace TL { namespace OpenMP {
             Symbol sym = decl.get_symbol();
             symbols.append(Nodecl::Symbol::make(sym, locus));
 
-            result = Nodecl::OpenMP::TargetDeclaration::make(
+            result = Nodecl::OmpSs::TargetDeclaration::make(
                     Nodecl::List::make(devices),
                     Nodecl::List::make(symbols),
                     locus);
@@ -2898,8 +2899,8 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List list_expr = Nodecl::List::make(valid_expr_list);
 
-        Nodecl::OpenMP::Register new_register_directive = 
-            Nodecl::OpenMP::Register::make(
+        Nodecl::OmpSs::Register new_register_directive = 
+            Nodecl::OmpSs::Register::make(
                     list_expr,
                     directive.get_locus());
 
@@ -3121,7 +3122,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Base::make_execution_environment_target_information(
-            TargetInfo &target_info,
+            TL::OmpSs::TargetInfo &target_info,
             TL::Symbol called_symbol,
             const locus_t* locus,
             // out
@@ -3136,9 +3137,9 @@ namespace TL { namespace OpenMP {
             devices.append(Nodecl::Text::make(*it, locus));
         }
 
-        ObjectList<CopyItem> copy_in = target_info.get_copy_in();
-        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
-        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
+        ObjectList<TL::OmpSs::CopyItem> copy_in = target_info.get_copy_in();
+        ObjectList<TL::OmpSs::CopyItem> copy_out = target_info.get_copy_out();
+        ObjectList<TL::OmpSs::CopyItem> copy_inout = target_info.get_copy_inout();
         if (emit_omp_report())
         {
             if (!copy_in.empty()
@@ -3151,21 +3152,21 @@ namespace TL { namespace OpenMP {
                     ;
             }
         }
-        make_copy_list<Nodecl::OpenMP::CopyIn>(
+        make_copy_list<Nodecl::OmpSs::CopyIn>(
                 copy_in,
-                OpenMP::COPY_DIR_IN,
+                TL::OmpSs::COPY_DIR_IN,
                 locus,
                 target_items);
 
-        make_copy_list<Nodecl::OpenMP::CopyOut>(
+        make_copy_list<Nodecl::OmpSs::CopyOut>(
                 copy_out,
-                OpenMP::COPY_DIR_OUT,
+                TL::OmpSs::COPY_DIR_OUT,
                 locus,
                 target_items);
 
-        make_copy_list<Nodecl::OpenMP::CopyInout>(
+        make_copy_list<Nodecl::OmpSs::CopyInout>(
                 copy_inout,
-                OpenMP::COPY_DIR_INOUT,
+                TL::OmpSs::COPY_DIR_INOUT,
                 locus,
                 target_items);
 
@@ -3174,7 +3175,7 @@ namespace TL { namespace OpenMP {
         if (!ndrange_exprs.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::NDRange::make(
+                    Nodecl::OmpSs::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
                         locus));
         }
@@ -3183,7 +3184,7 @@ namespace TL { namespace OpenMP {
         if (!shmem_exprs.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::ShMem::make(
+                    Nodecl::OmpSs::ShMem::make(
                         Nodecl::List::make(shmem_exprs),
                         locus));
         }
@@ -3192,7 +3193,7 @@ namespace TL { namespace OpenMP {
         if (!onto_exprs.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::Onto::make(
+                    Nodecl::OmpSs::Onto::make(
                         Nodecl::List::make(onto_exprs),
                         locus));
         }
@@ -3201,7 +3202,7 @@ namespace TL { namespace OpenMP {
         if (!file.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::File::make(
+                    Nodecl::OmpSs::File::make(
                         Nodecl::Text::make(file),
                         locus));
         }
@@ -3210,13 +3211,13 @@ namespace TL { namespace OpenMP {
         if (!name.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::Name::make(
+                    Nodecl::OmpSs::Name::make(
                         Nodecl::Text::make(name),
                         locus));
         }
 
-        TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
-        for (TargetInfo::implementation_table_t::iterator it = implementation_table.begin();
+        TL::OmpSs::TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
+        for (TL::OmpSs::TargetInfo::implementation_table_t::iterator it = implementation_table.begin();
                 it != implementation_table.end(); ++it)
         {
             std::string device_name = it->first;
@@ -3227,7 +3228,7 @@ namespace TL { namespace OpenMP {
             {
                 TL::Symbol implementor = *it2;
                 target_items.append(
-                        Nodecl::OpenMP::Implements::make(
+                        Nodecl::OmpSs::Implements::make(
                             Nodecl::Text::make(device_name),
                             Nodecl::Symbol::make(implementor, locus),
                             locus));
@@ -3235,7 +3236,7 @@ namespace TL { namespace OpenMP {
         }
 
         result_list.append(
-                Nodecl::OpenMP::Target::make(
+                Nodecl::OmpSs::Target::make(
                     Nodecl::List::make(devices),
                     Nodecl::List::make(target_items),
                     locus));
@@ -3294,7 +3295,7 @@ namespace TL { namespace OpenMP {
                         locus));
         }
 
-        TargetInfo& target_info = data_sharing_env.get_target_info();
+        TL::OmpSs::TargetInfo& target_info = data_sharing_env.get_target_info();
         make_execution_environment_target_information(
                 target_info,
                 target_info.get_target_symbol(),
@@ -3450,9 +3451,9 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+        make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
                 dependences,
-                OpenMP::DEP_DIR_IN_PRIVATE,
+                OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
@@ -3467,20 +3468,20 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::Concurrent>(
-                dependences, OpenMP::DEP_CONCURRENT,
+        make_dependency_list<Nodecl::OmpSs::Concurrent>(
+                dependences, OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::Commutative>(
-                dependences, OpenMP::DEP_COMMUTATIVE,
+        make_dependency_list<Nodecl::OmpSs::Commutative>(
+                dependences, OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,
                 result_list);
 
         if (!ignore_target_info)
         {
             // Build the tree which contains the target information
-            TargetInfo& target_info = data_sharing_env.get_target_info();
+            TL::OmpSs::TargetInfo& target_info = data_sharing_env.get_target_info();
             make_execution_environment_target_information(
                     target_info,
                     target_info.get_target_symbol(),
@@ -3730,12 +3731,12 @@ namespace TL { namespace OpenMP {
             common_dependency_handler(n);
         }
 
-        virtual void visit(const Nodecl::OpenMP::Concurrent& n)
+        virtual void visit(const Nodecl::OmpSs::Concurrent& n)
         {
             common_dependency_handler(n);
         }
 
-        virtual void visit(const Nodecl::OpenMP::Commutative& n)
+        virtual void visit(const Nodecl::OmpSs::Commutative& n)
         {
             common_dependency_handler(n);
         }

@@ -31,7 +31,7 @@
 
 namespace TL { namespace Nanox {
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
+void LoweringVisitor::visit(const Nodecl::OmpSs::TaskExpression& task_expr)
 {
     Nodecl::NodeclBase join_task = task_expr.get_join_task();
     Nodecl::List task_calls = task_expr.get_task_calls().as<Nodecl::List>();
@@ -84,10 +84,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
                 &placeholder_task_expr_transformation);
     }
     else if (join_task.is<Nodecl::ExpressionStatement>() &&
-            join_task.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OpenMP::TaskCall>())
+            join_task.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OmpSs::TaskCall>())
     {
         visit_task_call(
-                join_task.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::OpenMP::TaskCall>(),
+                join_task.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::OmpSs::TaskCall>(),
                 /* inside_task_expression */ true,
                 &placeholder_task_expr_transformation);
     }
@@ -97,14 +97,14 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
     }
 
 
-    // Note: don't walk over the OpenMP::TaskCall because It's visitor sets to
+    // Note: don't walk over the OmpSs::TaskCall because It's visitor sets to
     // false the 'inside_task_expression' boolean
     for (Nodecl::List::iterator it = task_calls.begin();
             it != task_calls.end();
             ++it)
     {
         Nodecl::ExpressionStatement current_expr_stmt = it->as<Nodecl::ExpressionStatement>();
-        Nodecl::OpenMP::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
+        Nodecl::OmpSs::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OmpSs::TaskCall>();
 
         visit_task_call(current_task_call,
                 /* inside_task_expression */ true,

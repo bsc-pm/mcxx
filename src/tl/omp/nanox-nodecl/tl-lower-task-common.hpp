@@ -75,7 +75,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
             this->final_condition = final_condition_.get_condition();
         }
 
-        void visit(const Nodecl::OpenMP::TaskLabel& task_label_)
+        void visit(const Nodecl::OmpSs::TaskLabel& task_label_)
         {
             this->task_label = task_label_;
         }

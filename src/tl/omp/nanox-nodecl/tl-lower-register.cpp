@@ -30,7 +30,7 @@
 
 namespace TL {  namespace Nanox {
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::Register& construct)
+void LoweringVisitor::visit(const Nodecl::OmpSs::Register& construct)
 {
     if (!Nanos::Version::interface_is_at_least("copies_api", 1004))
     {

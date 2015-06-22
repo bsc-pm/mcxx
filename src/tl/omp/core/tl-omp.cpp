@@ -207,12 +207,12 @@ namespace TL
             _simd_reduction_symbols.append(reduction_symbol);
         }
 
-		void DataSharingEnvironment::set_real_time_info(const RealTimeInfo & rt_info)
+		void DataSharingEnvironment::set_real_time_info(const OmpSs::RealTimeInfo & rt_info)
 		{
 			_real_time_info = rt_info;
 		}
 
-		RealTimeInfo DataSharingEnvironment::get_real_time_info() 
+        OmpSs::RealTimeInfo DataSharingEnvironment::get_real_time_info() 
 		{
 			return _real_time_info;
 		}
@@ -227,12 +227,12 @@ namespace TL
             symbols = _simd_reduction_symbols;
         }
 
-        TargetInfo& DataSharingEnvironment::get_target_info()
+        TL::OmpSs::TargetInfo& DataSharingEnvironment::get_target_info()
         {
             return _target_info;
         }
 
-        void DataSharingEnvironment::set_target_info(const TargetInfo & target_info)
+        void DataSharingEnvironment::set_target_info(const TL::OmpSs::TargetInfo & target_info)
         {
             _target_info = target_info;
         }
@@ -306,7 +306,7 @@ namespace TL
 
             if (dto.get_keys().contains("openmp_task_info"))
             {
-                function_task_set = std::static_pointer_cast<FunctionTaskSet>(dto["openmp_task_info"]);
+                function_task_set = std::static_pointer_cast<OmpSs::FunctionTaskSet>(dto["openmp_task_info"]);
             }
 
             // Let the user register its slots
@@ -410,246 +410,6 @@ namespace TL
         {
             mr.read(_dep_expr);
             mr.read(_kind);
-        }
-
-        CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
-            : _copy_expr(copy_expr), _kind(direction)
-        {
-        }
-
-        CopyDirection CopyItem::get_kind() const
-        {
-            return _kind;
-        }
-
-        DataReference CopyItem::get_copy_expression() const
-        {
-            return _copy_expr;
-        }
-
-		RealTimeInfo::RealTimeInfo() :
-		_time_deadline(NULL), _time_release(NULL)
-        {
-		}
-
-		RealTimeInfo::~RealTimeInfo()
-		{
-            if(_time_release  != NULL) delete _time_release;
-            if(_time_deadline != NULL) delete _time_deadline;
-		}
-
-        RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy) :
-		_time_deadline(NULL), _time_release(NULL),
-        _map_error_behavior(rt_copy._map_error_behavior)
-        {
-            if(rt_copy.has_release_time())
-            {
-                _time_release = new Nodecl::NodeclBase(rt_copy.get_time_release());
-            }
-            if(rt_copy.has_deadline_time())
-            {
-                _time_deadline = new Nodecl::NodeclBase(rt_copy.get_time_deadline());
-            }
-        }
-
-        RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy,
-                Nodecl::Utils::SimpleSymbolMap& translation_map) :
-            _time_deadline(NULL),
-            _time_release(NULL),
-            _map_error_behavior(rt_copy._map_error_behavior)
-        {
-            if (rt_copy.has_release_time())
-            {
-                _time_release = new Nodecl::NodeclBase(
-                        Nodecl::Utils::deep_copy(*(rt_copy._time_release), rt_copy._time_release->retrieve_context(), translation_map));
-            }
-
-            if (rt_copy.has_deadline_time())
-            {
-                _time_deadline = new Nodecl::NodeclBase(
-                        Nodecl::Utils::deep_copy(*(rt_copy._time_deadline), rt_copy._time_deadline->retrieve_context(), translation_map));
-            }
-        }
-
-       RealTimeInfo & RealTimeInfo::operator=(const RealTimeInfo & rt_copy)
-       {
-           if(this != &rt_copy)
-           {
-               //delete old RealTime information
-               if(_time_release  != NULL) delete _time_release;
-               if(_time_deadline != NULL) delete _time_deadline;
-
-               //copy new realtime information
-               _time_release  = (rt_copy.has_release_time()  ? new Nodecl::NodeclBase(rt_copy.get_time_release()) : NULL);
-               _time_deadline = (rt_copy.has_deadline_time() ? new Nodecl::NodeclBase(rt_copy.get_time_deadline()) : NULL);
-               _map_error_behavior = rt_copy.get_map_error_behavior();
-           }
-           return *this;
-       }
-
-        Nodecl::NodeclBase RealTimeInfo::get_time_deadline() const
-        {
-            return (*_time_deadline);
-        }
-
-        Nodecl::NodeclBase RealTimeInfo::get_time_release() const
-        {
-            return (*_time_release);
-        }
-
-        RealTimeInfo::map_error_behavior_t RealTimeInfo::get_map_error_behavior() const
-        {
-            return _map_error_behavior;
-        }
-
-        bool RealTimeInfo::has_deadline_time() const
-        {
-            return (_time_deadline != NULL);
-        }
-
-        bool RealTimeInfo::has_release_time() const
-        {
-            return (_time_release != NULL);
-        }
-
-        void RealTimeInfo::set_time_deadline(Nodecl::NodeclBase expr)
-        {
-            if(_time_deadline != NULL)
-            {
-                delete _time_deadline;
-            }
-            _time_deadline = new Nodecl::NodeclBase(expr);
-        }
-
-        void RealTimeInfo::set_time_release(Nodecl::NodeclBase expr)
-        {
-            if(_time_release != NULL)
-            {
-                delete _time_release;
-            }
-            _time_release = new Nodecl::NodeclBase(expr);
-        }
-
-        static bool is_omp_error_event(std::string event)
-        {
-            #define ENUM_OMP_ERROR_EVENT(x) \
-                if(event == #x) return true;
-                ENUM_OMP_ERROR_EVENT_LIST
-            #undef ENUM_OMP_ERROR_EVENT
-            return false;
-        }
-
-        static bool is_omp_error_action(std::string action)
-        {
-            #define ENUM_OMP_ERROR_ACTION(x,y) \
-                if(action == #x) return true;
-                ENUM_OMP_ERROR_ACTION_LIST
-            #undef ENUM_OMP_ERROR_ACTION
-            return false;
-        }
-
-        static RealTimeInfo::omp_error_event_t get_omp_error_event(std::string event)
-        {
-            #define ENUM_OMP_ERROR_EVENT(x) \
-                if(event == #x) return RealTimeInfo::x;
-                ENUM_OMP_ERROR_EVENT_LIST
-            #undef ENUM_OMP_ERROR_EVENT
-
-            // This should never happen because we only call to this function
-            // if the 'event' string is a valid omp_error_event_t
-            internal_error("'%s' is not a valid event", event.c_str());
-            return RealTimeInfo::OMP_ANY_EVENT;
-        }
-
-        static RealTimeInfo::omp_error_action_t get_omp_error_action(std::string action)
-        {
-            #define ENUM_OMP_ERROR_ACTION(x,y) \
-                if(action == #x) return RealTimeInfo::y;
-                ENUM_OMP_ERROR_ACTION_LIST
-            #undef ENUM_OMP_ERROR_ACTION
-
-            // This should never happen because we only call to this function
-            // if the 'action' string is a valid omp_error_action_t
-            internal_error("'%s' is not a valid action", action.c_str());
-            return RealTimeInfo::OMP_NO_ACTION;
-       }
-
-        static std::string get_omp_error_action_str(RealTimeInfo::omp_error_action_t action)
-        {
-            #define ENUM_OMP_ERROR_ACTION(x,y) \
-                if(action == RealTimeInfo::y) return #y;
-                ENUM_OMP_ERROR_ACTION_LIST
-            #undef ENUM_OMP_ERROR_ACTION
-            return "";
-        }
-
-        std::string RealTimeInfo::get_action_error(RealTimeInfo::omp_error_event_t event)
-        {
-            RealTimeInfo::map_error_behavior_t::iterator it = _map_error_behavior.find(event);
-            if(it != _map_error_behavior.end())
-            {
-                return get_omp_error_action_str((*it).second);
-            }
-            return "";
-        }
-
-        void RealTimeInfo::add_error_behavior(std::string event, std::string action)
-        {
-            if(is_omp_error_event(event))
-            {
-                if(is_omp_error_action(action))
-                {
-                   std::pair<map_error_behavior_t::iterator, bool> ret =
-                        _map_error_behavior.insert(
-                            std::pair<omp_error_event_t, omp_error_action_t> (
-                                get_omp_error_event(event),
-                                get_omp_error_action(action)));
-
-                   if(!ret.second)
-                   {
-                       std::cerr << " warning: '" << event
-                                 << "' is already associated with an action, skipping."
-                                 << std::endl;
-                   }
-                }
-                else
-                {
-                    std::cerr << " warning: '" << action
-                              << "' is not a valid error action, skipping."
-                              << std::endl;
-                }
-            }
-            else
-            {
-                std::cerr << " warning: '" << event
-                          << "' is not a valid error event, skipping."
-                          << std::endl;
-            }
-        }
-
-        void RealTimeInfo::add_error_behavior(std::string action)
-        {
-            if(is_omp_error_action(action))
-            {
-                //If the event is not specified it will be OMP_ANY_EVENT
-                std::pair<map_error_behavior_t::iterator, bool> ret =
-                    _map_error_behavior.insert(
-                            std::pair<omp_error_event_t, omp_error_action_t> (
-                                RealTimeInfo::OMP_ANY_EVENT,
-                                get_omp_error_action(action)));
-                if(!ret.second)
-                {
-                    std::cerr << " warning: 'OMP_ANY_EVENT'"
-                              << " is already associated with an action, skipping."
-                              << std::endl;
-                }
-            }
-            else
-            {
-                std::cerr << " warning: '" << action
-                          << "' is not a valid error action, skipping."
-                          << std::endl;
-            }
         }
     }
 }

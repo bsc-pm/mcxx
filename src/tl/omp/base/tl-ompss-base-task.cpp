@@ -24,19 +24,20 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-ompss-base-task.hpp"
+
 #include "cxx-diagnostic.h"
 #include "cxx-exprtype.h"
 #include "cxx-instantiation.h"
 
 #include "fortran03-buildscope.h"
 
-#include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-analysis-interface.hpp"
 
-namespace TL { namespace OpenMP {
+namespace TL { namespace OmpSs {
 
     class InstantiateExecEnvironment : public Nodecl::NodeclVisitor<void>
     {
@@ -162,7 +163,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    FunctionCallVisitor::FunctionCallVisitor(std::shared_ptr<FunctionTaskSet> function_task_set,
+    FunctionCallVisitor::FunctionCallVisitor(std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
@@ -233,7 +234,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        FunctionTaskInfo task_info;
+        TL::OmpSs::FunctionTaskInfo task_info;
         bool valid_task_info = false;
         if (_function_task_set->is_function_task(sym))
         {
@@ -293,7 +294,7 @@ namespace TL { namespace OpenMP {
 
             sym.set_related_symbols(spec_related_symbols);
 
-            FunctionTaskInfo template_task_info = _function_task_set->get_function_task(primary_sym);
+            TL::OmpSs::FunctionTaskInfo template_task_info = _function_task_set->get_function_task(primary_sym);
 
             task_info = template_task_info.instantiate_function_task_info(sym, prototype_scope, instantiation_symbol_map);
             valid_task_info = true;
@@ -321,7 +322,7 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
 
-        Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
+        Nodecl::OmpSs::TaskCall task_call = Nodecl::OmpSs::TaskCall::make(
                 exec_env,
                 // We need to copy the call because we need to preserve
                 // the original place of the call
@@ -365,10 +366,10 @@ namespace TL { namespace OpenMP {
                     ast_print_node_type(enclosing_stmt.get_kind()));
 
             Nodecl::NodeclBase join_task;
-            if (enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OpenMP::TaskCall>())
+            if (enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OmpSs::TaskCall>())
             {
-                Nodecl::OpenMP::TaskCall task_call =
-                    enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::OpenMP::TaskCall>();
+                Nodecl::OmpSs::TaskCall task_call =
+                    enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::OmpSs::TaskCall>();
 
                 Nodecl::FunctionCall function_call = task_call.get_call().as<Nodecl::FunctionCall>();
                 internal_error("%s: unsupported case: the function task '%s' cannot have return tasks as arguments yet\n",
@@ -383,7 +384,7 @@ namespace TL { namespace OpenMP {
 
             // This code will be executed if the current task is in a final context
             Nodecl::NodeclBase task_expr = Nodecl::ExpressionStatement::make(
-                    Nodecl::OpenMP::TaskExpression::make(
+                    Nodecl::OmpSs::TaskExpression::make(
                         join_task,
                         Nodecl::List::make(task_calls),
                         sequential_code,
@@ -398,13 +399,13 @@ namespace TL { namespace OpenMP {
     Nodecl::NodeclBase FunctionCallVisitor::make_exec_environment(
             const Nodecl::FunctionCall &call,
             TL::Symbol function_sym,
-            FunctionTaskInfo& function_task_info)
+            TL::OmpSs::FunctionTaskInfo& function_task_info)
     {
         const locus_t* locus = call.get_locus();
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
-        TL::ObjectList<FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
+        TL::ObjectList<TL::OmpSs::FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
 
         // This makes the report confusing, disable it
         bool old_omp_report = _base->emit_omp_report();
@@ -416,15 +417,15 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+        _base->make_dependency_list<Nodecl::OmpSs::DepInPrivate>(
                 task_dependences,
-                OpenMP::DEP_DIR_IN_PRIVATE,
+                OpenMP::DEP_OMPSS_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OpenMP::DepInValue>(
+        _base->make_dependency_list<Nodecl::OmpSs::DepInValue>(
                 task_dependences,
-                OpenMP::DEP_DIR_IN_VALUE,
+                OpenMP::DEP_OMPSS_DIR_IN_VALUE,
                 locus,
                 result_list);
         _base->make_dependency_list<Nodecl::OpenMP::DepOut>(
@@ -439,15 +440,15 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OpenMP::Concurrent>(
+        _base->make_dependency_list<Nodecl::OmpSs::Concurrent>(
                 task_dependences,
-                OpenMP::DEP_CONCURRENT,
+                OpenMP::DEP_OMPSS_CONCURRENT,
                 locus,
                 result_list);
 
-        _base->make_dependency_list<Nodecl::OpenMP::Commutative>(
+        _base->make_dependency_list<Nodecl::OmpSs::Commutative>(
                 task_dependences,
-                OpenMP::DEP_COMMUTATIVE,
+                OpenMP::DEP_OMPSS_COMMUTATIVE,
                 locus,
                 result_list);
 
@@ -455,7 +456,7 @@ namespace TL { namespace OpenMP {
         std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
         TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
-        for (TL::ObjectList<FunctionTaskDependency>::iterator it = task_dependences.begin();
+        for (TL::ObjectList<TL::OmpSs::FunctionTaskDependency>::iterator it = task_dependences.begin();
                 it != task_dependences.end();
                 it++)
         {
@@ -595,7 +596,7 @@ namespace TL { namespace OpenMP {
         if (!function_task_info.get_task_label().is_null())
         {
             result_list.append(
-                    Nodecl::OpenMP::TaskLabel::make(
+                    Nodecl::OmpSs::TaskLabel::make(
                         function_task_info.get_task_label().get_text()));
         }
 
@@ -717,37 +718,37 @@ namespace TL { namespace OpenMP {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OpenMP::DepInPrivate& dep_in)
+        void visit(const Nodecl::OmpSs::DepInPrivate& dep_in)
         {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OpenMP::DepInValue& dep_in)
+        void visit(const Nodecl::OmpSs::DepInValue& dep_in)
         {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OpenMP::Concurrent& dep_inout)
+        void visit(const Nodecl::OmpSs::Concurrent& dep_inout)
         {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OpenMP::Commutative& dep_inout)
+        void visit(const Nodecl::OmpSs::Commutative& dep_inout)
         {
             there_are_dependences = true;
         }
 
-        void visit(const Nodecl::OpenMP::CopyIn& copy_in)
+        void visit(const Nodecl::OmpSs::CopyIn& copy_in)
         {
             there_are_copies = true;
         }
 
-        void visit(const Nodecl::OpenMP::CopyOut& copy_out)
+        void visit(const Nodecl::OmpSs::CopyOut& copy_out)
         {
             there_are_copies = true;
         }
 
-        void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
+        void visit(const Nodecl::OmpSs::CopyInout& copy_inout)
         {
             there_are_copies = true;
         }
@@ -765,7 +766,7 @@ namespace TL { namespace OpenMP {
         {
         }
 
-        void report_dep(Nodecl::NodeclBase items, DependencyDirection kind)
+        void report_dep(Nodecl::NodeclBase items, TL::OpenMP::DependencyDirection kind)
         {
             Nodecl::List list = items.as<Nodecl::List>();
             for (Nodecl::List::iterator it = list.begin();
@@ -785,7 +786,7 @@ namespace TL { namespace OpenMP {
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
                 ss
-                    << " " << Base::dependence_direction_to_str(kind) << "\n"
+                    << " " << OpenMP::Base::dependence_direction_to_str(kind) << "\n"
                     ;
 
                 *_omp_report_file
@@ -808,24 +809,24 @@ namespace TL { namespace OpenMP {
             report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_DIR_INOUT);
         }
 
-        void visit(const Nodecl::OpenMP::DepInPrivate& dep_in)
+        void visit(const Nodecl::OmpSs::DepInPrivate& dep_in)
         {
-            report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN_PRIVATE);
+            report_dep(dep_in.get_in_deps(), OpenMP::DEP_OMPSS_DIR_IN_PRIVATE);
         }
 
-        void visit(const Nodecl::OpenMP::DepInValue& dep_in)
+        void visit(const Nodecl::OmpSs::DepInValue& dep_in)
         {
-            report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN_VALUE);
+            report_dep(dep_in.get_in_deps(), OpenMP::DEP_OMPSS_DIR_IN_VALUE);
         }
 
-        void visit(const Nodecl::OpenMP::Concurrent& dep_inout)
+        void visit(const Nodecl::OmpSs::Concurrent& dep_inout)
         {
-            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_CONCURRENT);
+            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_OMPSS_CONCURRENT);
         }
 
-        void visit(const Nodecl::OpenMP::Commutative& dep_inout)
+        void visit(const Nodecl::OmpSs::Commutative& dep_inout)
         {
-            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_COMMUTATIVE);
+            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_OMPSS_COMMUTATIVE);
         }
     };
 
@@ -839,7 +840,7 @@ namespace TL { namespace OpenMP {
         {
         }
 
-        void report_copy(Nodecl::NodeclBase items, CopyDirection kind)
+        void report_copy(Nodecl::NodeclBase items, TL::OmpSs::CopyDirection kind)
         {
             Nodecl::List list = items.as<Nodecl::List>();
             for (Nodecl::List::iterator it = list.begin();
@@ -860,7 +861,7 @@ namespace TL { namespace OpenMP {
                     std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
                 ss
-                    << " " << Base::copy_direction_to_str(kind) << "\n"
+                    << " " << OpenMP::Base::copy_direction_to_str(kind) << "\n"
                     ;
 
                 *_omp_report_file
@@ -868,19 +869,19 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        void visit(const Nodecl::OpenMP::CopyIn& copy_in)
+        void visit(const Nodecl::OmpSs::CopyIn& copy_in)
         {
-            report_copy(copy_in.get_input_copies(), OpenMP::COPY_DIR_IN);
+            report_copy(copy_in.get_input_copies(), TL::OmpSs::COPY_DIR_IN);
         }
 
-        void visit(const Nodecl::OpenMP::CopyOut& copy_out)
+        void visit(const Nodecl::OmpSs::CopyOut& copy_out)
         {
-            report_copy(copy_out.get_output_copies(), OpenMP::COPY_DIR_OUT);
+            report_copy(copy_out.get_output_copies(), TL::OmpSs::COPY_DIR_OUT);
         }
 
-        void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
+        void visit(const Nodecl::OmpSs::CopyInout& copy_inout)
         {
-            report_copy(copy_inout.get_inout_copies(), OpenMP::COPY_DIR_INOUT);
+            report_copy(copy_inout.get_inout_copies(), TL::OmpSs::COPY_DIR_INOUT);
         }
     };
 
@@ -894,7 +895,7 @@ namespace TL { namespace OpenMP {
         {
         }
 
-        void visit(const Nodecl::OpenMP::Target& node)
+        void visit(const Nodecl::OmpSs::Target& node)
         {
 
             Nodecl::List l = node.get_devices().as<Nodecl::List>();
@@ -929,7 +930,7 @@ namespace TL { namespace OpenMP {
         }
 
 
-        void visit(const Nodecl::OpenMP::NDRange& node)
+        void visit(const Nodecl::OmpSs::NDRange& node)
         {
             *_omp_report_file
                 << OpenMP::Report::indent
@@ -950,7 +951,7 @@ namespace TL { namespace OpenMP {
             *_omp_report_file << ")\n";
         }
 
-        void visit(const Nodecl::OpenMP::ShMem& node)
+        void visit(const Nodecl::OmpSs::ShMem& node)
         {
             *_omp_report_file << locus_to_str(_locus) << ": The task call specifies the following SHMEM(";
 
@@ -969,7 +970,7 @@ namespace TL { namespace OpenMP {
             *_omp_report_file << ")\n";
         }
 
-        void visit(const Nodecl::OpenMP::Implements& node)
+        void visit(const Nodecl::OmpSs::Implements& node)
         {
             TL::Symbol implementation_symbol = node.get_function_name().get_symbol();
 
@@ -1029,7 +1030,8 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
-    static bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, std::shared_ptr<OpenMP::FunctionTaskSet> function_task_set)
+    static bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr,
+            std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
@@ -1166,7 +1168,7 @@ namespace TL { namespace OpenMP {
         if (!shared_and_alloca_exprs.empty())
         {
             exec_environment.append(
-                    Nodecl::OpenMP::SharedAndAlloca::make(
+                    Nodecl::OmpSs::SharedAndAlloca::make(
                         Nodecl::List::make(shared_and_alloca_exprs),
                         locus));
         }
@@ -1174,7 +1176,7 @@ namespace TL { namespace OpenMP {
         if (!alloca_exprs.empty())
         {
             exec_environment.append(
-                    Nodecl::OpenMP::Alloca::make(
+                    Nodecl::OmpSs::Alloca::make(
                         Nodecl::List::make(alloca_exprs),
                         locus));
         }
@@ -1190,7 +1192,7 @@ namespace TL { namespace OpenMP {
         if (!concurrent_deps.empty())
         {
             exec_environment.append(
-                    Nodecl::OpenMP::Concurrent::make(
+                    Nodecl::OmpSs::Concurrent::make(
                         Nodecl::List::make(concurrent_deps),
                         locus));
         }
@@ -1206,7 +1208,7 @@ namespace TL { namespace OpenMP {
         if (!copy_in.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::CopyIn::make(
+                    Nodecl::OmpSs::CopyIn::make(
                         Nodecl::List::make(copy_in),
                         locus));
         }
@@ -1214,7 +1216,7 @@ namespace TL { namespace OpenMP {
         if (!copy_out.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::CopyOut::make(
+                    Nodecl::OmpSs::CopyOut::make(
                         Nodecl::List::make(copy_out),
                         locus));
         }
@@ -1223,13 +1225,13 @@ namespace TL { namespace OpenMP {
         if (!copy_inout.empty())
         {
             target_items.append(
-                    Nodecl::OpenMP::CopyInout::make(
+                    Nodecl::OmpSs::CopyInout::make(
                         Nodecl::List::make(copy_inout),
                         locus));
         }
 
         // The inline tasks are always SMP tasks
-        exec_environment.append(Nodecl::OpenMP::Target::make(
+        exec_environment.append(Nodecl::OmpSs::Target::make(
                     Nodecl::List::make(Nodecl::Text::make("smp", locus)),
                     Nodecl::List::make(target_items),
                     locus));
@@ -1269,7 +1271,7 @@ namespace TL { namespace OpenMP {
     }
 
     TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(
-            std::shared_ptr<FunctionTaskSet> function_task_set,
+            std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set,
             bool task_expr_optim_disabled,
             bool ignore_template_functions)
         :
@@ -1408,7 +1410,7 @@ namespace TL { namespace OpenMP {
                     && !function_called.is_static())
             {
                 // Make sure we use the scope we used to parse the dependences
-                FunctionTaskInfo function_called_task_info =
+                TL::OmpSs::FunctionTaskInfo function_called_task_info =
                     _function_task_set->get_function_task(function_called);
 
                 Scope sc = function_called_task_info.get_parsing_scope();
@@ -1463,7 +1465,7 @@ namespace TL { namespace OpenMP {
             new_function_body.replace(new_function_stmts);
 
             // Finally, we should add the new void function task into the task set
-            FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
+            TL::OmpSs::FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
 
             add_new_task_to_the_function_task_set(
                     function_called,
@@ -1598,7 +1600,7 @@ namespace TL { namespace OpenMP {
         {
             TL::Symbol function_called = it->first;
 
-            FunctionTaskInfo function_task_info = _function_task_set->get_function_task(function_called);
+            TL::OmpSs::FunctionTaskInfo function_task_info = _function_task_set->get_function_task(function_called);
             _function_task_set->remove_function_task(function_called);
         }
     }
@@ -1630,10 +1632,10 @@ namespace TL { namespace OpenMP {
         {
             private:
                 int _num_involved_tasks;
-                std::shared_ptr<FunctionTaskSet> _function_task_set;
+                std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
             public:
-                TaskFinder(std::shared_ptr<FunctionTaskSet> function_task_set) :
+                TaskFinder(std::shared_ptr<TL::OmpSs::FunctionTaskSet> function_task_set) :
                     _num_involved_tasks(0),
                     _function_task_set(function_task_set) { }
 
@@ -1780,7 +1782,7 @@ namespace TL { namespace OpenMP {
     void TransformNonVoidFunctionCalls::add_new_task_to_the_function_task_set(
             TL::Symbol ori_funct,
             TL::Symbol new_funct,
-            const FunctionTaskInfo& ori_funct_task_info,
+            const TL::OmpSs::FunctionTaskInfo& ori_funct_task_info,
             Nodecl::NodeclBase func_call,
             bool has_return_argument,
             TL::OpenMP::DependencyDirection dep_dir_ret_arg)
@@ -1802,7 +1804,7 @@ namespace TL { namespace OpenMP {
         }
         translation_map.add_map(ori_funct, new_funct);
 
-        FunctionTaskInfo new_funct_task_info(ori_funct_task_info, translation_map, new_funct);
+        TL::OmpSs::FunctionTaskInfo new_funct_task_info(ori_funct_task_info, translation_map, new_funct);
         new_funct_task_info.set_locus(func_call.get_locus());
 
         if (has_return_argument)
@@ -1820,12 +1822,12 @@ namespace TL { namespace OpenMP {
                         return_argument_nodecl.get_type().no_ref().points_to().get_lvalue_reference_to(),
                         return_argument.get_locus()));
 
-            FunctionTaskDependency result_dependence(data_ref_dep, dep_dir_ret_arg);
+            TL::OmpSs::FunctionTaskDependency result_dependence(data_ref_dep, dep_dir_ret_arg);
             new_funct_task_info.add_function_task_dependency(result_dependence);
 
-            TargetInfo& target_info = new_funct_task_info.get_target_info();
-            TL::ObjectList<CopyItem> new_copies;
-            new_copies.append(CopyItem(data_ref_dep, TL::OpenMP::COPY_DIR_OUT));
+            TL::OmpSs::TargetInfo& target_info = new_funct_task_info.get_target_info();
+            TL::ObjectList<TL::OmpSs::CopyItem> new_copies;
+            new_copies.append(TL::OmpSs::CopyItem(data_ref_dep, TL::OmpSs::COPY_DIR_OUT));
             target_info.append_to_copy_out(new_copies);
         }
 
@@ -2021,7 +2023,7 @@ namespace TL { namespace OpenMP {
                 && !function_called.is_static())
         {
             // Make sure we use the scope we used to parse the dependences
-            FunctionTaskInfo function_called_task_info =
+            TL::OmpSs::FunctionTaskInfo function_called_task_info =
                 _function_task_set->get_function_task(function_called);
 
             Scope sc = function_called_task_info.get_parsing_scope();
@@ -2094,7 +2096,7 @@ namespace TL { namespace OpenMP {
         new_function_body.replace(new_stmts);
 
         // Finally, we should add the new void function task into the task set
-        FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
+        TL::OmpSs::FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
 
         add_new_task_to_the_function_task_set(
                 function_called,
@@ -2102,8 +2104,7 @@ namespace TL { namespace OpenMP {
                 function_called_task_info,
                 func_call,
                 has_return_argument,
-                TL::OpenMP::DEP_CONCURRENT);
-
+                TL::OpenMP::DEP_OMPSS_CONCURRENT);
 
         // Create the new called entity
         Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(

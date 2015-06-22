@@ -107,7 +107,7 @@ namespace TL { namespace Nanox {
 
         LoweringVisitor lowering_visitor(
                 this,
-                std::static_pointer_cast<OpenMP::FunctionTaskSet>(dto["openmp_task_info"]),
+                std::static_pointer_cast<TL::OmpSs::FunctionTaskSet>(dto["openmp_task_info"]),
                 final_generator.get_final_stmts());
         lowering_visitor.walk(n);
 

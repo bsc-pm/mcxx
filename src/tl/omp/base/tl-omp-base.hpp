@@ -54,7 +54,7 @@ namespace TL
             private:
                 OpenMP::Core _core;
 
-                std::shared_ptr<OpenMP::FunctionTaskSet> _function_task_set;
+                std::shared_ptr<TL::OmpSs::FunctionTaskSet> _function_task_set;
 
                 std::string _openmp_dry_run;
 
@@ -187,12 +187,12 @@ namespace TL
                 template <typename T, typename List>
                     void make_copy_list(
                             List& dependences,
-                            CopyDirection kind,
+                            TL::OmpSs::CopyDirection kind,
                             const locus_t* locus,
                             ObjectList<Nodecl::NodeclBase>& result_list);
 
                 void make_execution_environment_target_information(
-                        TargetInfo &target_info,
+                        TL::OmpSs::TargetInfo &target_info,
                         TL::Symbol sym,
                         const locus_t* locus,
                         // out
@@ -204,7 +204,7 @@ namespace TL
                     return _omp_report_file;
                 }
 
-                static std::string copy_direction_to_str(CopyDirection kind);
+                static std::string copy_direction_to_str(TL::OmpSs::CopyDirection kind);
                 static std::string dependence_direction_to_str(DependencyDirection kind);
 
                 void set_omp_report(bool b)
