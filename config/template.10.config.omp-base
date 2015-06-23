@@ -72,9 +72,9 @@ linker_name = @GCC@
 {ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
 {ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
 
-{openmp} compiler_phase = libtlnanox-lowering.so
-{openmp} compiler_phase = libtlnanox-smp.so
-{openmp} compiler_phase = libtlnanox-nanosmain.so
+{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-lowering.so
+{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-smp.so
+{openmp,!do-not-lower-omp} compiler_phase = libtlnanox-nanosmain.so
 
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
