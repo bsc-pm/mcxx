@@ -148,6 +148,17 @@ namespace TL
             return _is_parallel;
         }
 
+        DataEnvironment& DataEnvironment::set_is_teams(bool b)
+        {
+            _is_teams = b;
+            return *this;
+        }
+
+        bool DataEnvironment::get_is_teams()
+        {
+            return _is_teams;
+        }
+
         std::string string_of_data_sharing(DataSharingAttribute data_attr)
         {
             std::string result;

@@ -230,6 +230,11 @@ namespace TL
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
+                void common_teams_handler(
+                        TL::PragmaCustomStatement ctr,
+                        DataEnvironment& data_environment,
+                        ObjectList<Symbol>& extra_symbols);
+
                 OmpSs::RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
                 void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);

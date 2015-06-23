@@ -299,13 +299,41 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
-    void Core::target_update_handler_pre(TL::PragmaCustomDirective ctr) { }
-    void Core::target_update_handler_post(TL::PragmaCustomDirective ctr) { }
-
-    void Core::teams_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+    void Core::target_update_handler_pre(TL::PragmaCustomDirective ctr)
+    {
+        DataEnvironment& data_environment = _openmp_info->get_new_data_environment(ctr);
+        _openmp_info->push_current_data_environment(data_environment);
     }
-    void Core::teams_handler_post(TL::PragmaCustomStatement ctr) { }
+
+    void Core::target_update_handler_post(TL::PragmaCustomDirective ctr)
+    {
+        _openmp_info->pop_current_data_environment();
+    }
+
+    void Core::common_teams_handler(
+            TL::PragmaCustomStatement construct,
+            DataEnvironment& data_environment,
+            ObjectList<Symbol>& extra_symbols)
+    {
+        data_environment.set_is_teams(true);
+
+        common_construct_handler(construct, data_environment, extra_symbols);
+    }
+
+    void Core::teams_handler_pre(TL::PragmaCustomStatement ctr)
+    {
+        DataEnvironment& data_environment = _openmp_info->get_new_data_environment(ctr);
+        _openmp_info->push_current_data_environment(data_environment);
+
+        TL::ObjectList<Symbol> extra_symbols;
+        common_teams_handler(ctr, data_environment, extra_symbols);
+        get_data_extra_symbols(data_environment, extra_symbols);
+    }
+
+    void Core::teams_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        _openmp_info->pop_current_data_environment();
+    }
 
     void Core::distribute_handler_pre(TL::PragmaCustomStatement ctr) {
         error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());

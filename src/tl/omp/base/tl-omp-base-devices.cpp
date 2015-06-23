@@ -52,6 +52,10 @@ namespace TL { namespace OpenMP {
             {
                 // Our default device is 0
                 device_id_expr = const_value_to_nodecl(const_value_get_signed_int(0));
+                if (device.is_defined())
+                {
+                    error_printf("%s: error: empty 'device' clause\n", locus_to_str(locus));
+                }
             }
             else 
             {
@@ -97,10 +101,12 @@ namespace TL { namespace OpenMP {
             {
                 if (expr_list.size() > 1)
                 {
-                    error_printf("%s: error: too many expression in 'if' clause\n",
+                    error_printf("%s: error: too many expressions in 'if' clause\n",
                             expr_list[1].get_locus_str().c_str());
                 }
-                result = expr_list[0];
+                result = Nodecl::OpenMP::If::make(
+                        expr_list[0],
+                        expr_list[0].get_locus());
             }
 
             return result;
@@ -214,8 +220,7 @@ namespace TL { namespace OpenMP {
         device_data_environment.append(device_id);
         if (!if_clause.is_null())
         {
-            device_data_environment.append(
-                    Nodecl::OpenMP::If::make(if_clause, if_clause.get_locus()));
+            device_data_environment.append(if_clause);
         }
 
         Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
@@ -257,8 +262,7 @@ namespace TL { namespace OpenMP {
         device_data_environment.append(device_id);
         if (!if_clause.is_null())
         {
-            device_data_environment.append(
-                    Nodecl::OpenMP::If::make(if_clause, if_clause.get_locus()));
+            device_data_environment.append(if_clause);
         }
 
         Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
@@ -388,5 +392,79 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::TargetUpdate::make(
                     command_environment,
                     ctr.get_locus());
+
+        ctr.replace(target_update);
     }
+    
+    namespace {
+
+        Nodecl::NodeclBase handle_num_teams(TL::PragmaCustomLine pragma_line)
+        {
+            TL::PragmaCustomClause num_teams = pragma_line.get_clause("num_teams");
+
+            if (!num_teams.is_defined())
+                return Nodecl::NodeclBase::null();
+
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = num_teams.get_arguments_as_expressions();
+
+            if (expr_list.empty())
+            {
+                error_printf("%s: error: empty 'num_teams' clause\n",
+                        pragma_line.get_locus_str().c_str());
+                return Nodecl::NodeclBase::null();
+            }
+            else
+            {
+                if (expr_list.size() > 1)
+                {
+                    error_printf("%s: error: too many expressions in 'num_teams' clause\n",
+                            pragma_line.get_locus_str().c_str());
+                }
+                return Nodecl::OpenMP::NumTeams::make(
+                        expr_list[0],
+                        expr_list[0].get_locus());
+            }
+        }
+
+    }
+
+    void Base::teams_handler_pre(TL::PragmaCustomStatement ctr) { }
+    void Base::teams_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(ctr);
+
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
+
+        if (this->emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << ctr.get_locus_str() << ": " << "TEAMS construct\n"
+                << ctr.get_locus_str() << ": " << "---------------\n"
+                ;
+            // TODO
+        }
+
+        Nodecl::List execution_env;
+        Nodecl::List data_sharings = make_execution_environment(
+                data_environment,
+                pragma_line,
+                /* ignore_target_info */ true,
+                /* is_inline_task */ true);
+
+        execution_env.append(data_sharings);
+
+        Nodecl::NodeclBase num_teams = handle_num_teams(pragma_line);
+        if (!num_teams.is_null())
+        {
+            execution_env.append(num_teams);
+        }
+
+        Nodecl::OpenMP::Teams teams = Nodecl::OpenMP::Teams::make(
+                execution_env,
+                ctr.get_statements(),
+                ctr.get_locus());
+    }
+
 } }

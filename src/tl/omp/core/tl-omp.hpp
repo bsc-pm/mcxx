@@ -247,6 +247,7 @@ namespace OpenMP
             TL::OmpSs::TargetInfo _target_info;
 
             bool _is_parallel;
+            bool _is_teams;
 
             DataSharingAttributeInfo get_data_sharing_internal(Symbol sym);
             DataSharingAttributeInfo get_data_sharing_info(Symbol sym, bool check_enclosing);
@@ -354,6 +355,10 @@ namespace OpenMP
             //! Sets whether this environment comes from a parallel construct
             DataEnvironment& set_is_parallel(bool b);
             bool get_is_parallel();
+
+            //! Sets whether this environment comes from a teams construct
+            DataEnvironment& set_is_teams(bool b);
+            bool get_is_teams();
 
             //! Adds dependence to the data environment
             void add_dependence(const DependencyItem &dependency_item);
