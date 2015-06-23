@@ -1835,57 +1835,50 @@ namespace TL { namespace OpenMP {
         Nodecl::Utils::remove_from_enclosing_list(decl);
     }
 
-    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)   { }
-    void Base::target_handler_pre(TL::PragmaCustomDeclaration decl) { }
+    void Base::target_handler_pre(TL::PragmaCustomStatement stmt)
+    {
+        if (!this->in_ompss_mode())
+        {
+            omp_target_handler_pre(stmt);
+        }
+        else
+        {
+            ompss_target_handler_pre(stmt);
+        }
+    }
+    void Base::target_handler_pre(TL::PragmaCustomDeclaration decl)
+    {
+        if (!this->in_ompss_mode())
+        {
+            omp_target_handler_pre(decl);
+        }
+        else
+        {
+            ompss_target_handler_pre(decl);
+        }
+    }
 
     void Base::target_handler_post(TL::PragmaCustomStatement stmt)
     {
-        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
-        pragma_line.diagnostic_unused_clauses();
-        stmt.replace(stmt.get_statements());
+        if (!this->in_ompss_mode())
+        {
+            omp_target_handler_post(stmt);
+        }
+        else
+        {
+            ompss_target_handler_post(stmt);
+        }
     }
 
     void Base::target_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-        if (decl.get_nested_pragma().is_null())
+        if (!this->in_ompss_mode())
         {
-            Nodecl::NodeclBase result;
-            ObjectList<Nodecl::NodeclBase> devices;
-            ObjectList<Nodecl::NodeclBase> symbols;
-
-            const locus_t* locus = decl.get_locus();
-
-            PragmaCustomClause device_clause = pragma_line.get_clause("device");
-            if (device_clause.is_defined())
-            {
-                ObjectList<std::string> device_names = device_clause.get_tokenized_arguments();
-                for (ObjectList<std::string>::iterator it = device_names.begin();
-                        it != device_names.end();
-                        ++it)
-                {
-                    devices.append(Nodecl::Text::make(*it, locus));
-                }
-            }
-
-            ERROR_CONDITION(!decl.has_symbol(),
-                    "%s: expecting a function declaration or definition", decl.get_locus_str().c_str());
-
-            Symbol sym = decl.get_symbol();
-            symbols.append(Nodecl::Symbol::make(sym, locus));
-
-            result = Nodecl::OmpSs::TargetDeclaration::make(
-                    Nodecl::List::make(devices),
-                    Nodecl::List::make(symbols),
-                    locus);
-
-            pragma_line.diagnostic_unused_clauses();
-            decl.replace(result);
+            omp_target_handler_post(decl);
         }
         else
         {
-            pragma_line.diagnostic_unused_clauses();
-            Nodecl::Utils::remove_from_enclosing_list(decl);
+            ompss_target_handler_post(decl);
         }
     }
 

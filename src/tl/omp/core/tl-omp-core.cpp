@@ -2034,6 +2034,57 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
+    // #pragma omp target before a declaration/function-definition
+    void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
+    {
+        if (!this->in_ompss_mode())
+        {
+            warn_printf("%s: warning: this form '#pragma omp target' is ignored in OpenMP mode\n",
+                    ctr.get_locus_str().c_str());
+        }
+        else
+        {
+            ompss_target_handler_pre(ctr);
+        }
+    }
+
+    void Core::target_handler_post(TL::PragmaCustomDeclaration ctr)
+    {
+        if (this->in_ompss_mode())
+        {
+            // Do nothing
+        }
+        else
+        {
+            ompss_target_handler_post(ctr);
+        }
+    }
+
+    // #pragma omp target on top of a #pragma omp task inline
+    void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
+    {
+        if (this->in_ompss_mode())
+        {
+            ompss_target_handler_pre(ctr);
+        }
+        else
+        {
+            omp_target_handler_pre(ctr);
+        }
+    }
+
+    void Core::target_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        if (this->in_ompss_mode())
+        {
+            ompss_target_handler_post(ctr);
+        }
+        else
+        {
+            omp_target_handler_post(ctr);
+        }
+    }
+
     void Core::simd_handler_pre(TL::PragmaCustomStatement construct)
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)

@@ -336,58 +336,6 @@ namespace TL
             }
         }
 
-
-        void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
-        {
-            if (!this->in_ompss_mode())
-            {
-                warn_printf("%s: warning: '#pragma omp target' is ignored in OpenMP\n", ctr.get_locus_str().c_str());
-            }
-            else
-            {
-                ompss_target_handler_pre(ctr);
-            }
-        }
-
-        void Core::target_handler_post(TL::PragmaCustomDeclaration ctr)
-        {
-            if (this->in_ompss_mode())
-            {
-                // Do nothing
-            }
-            else
-            {
-                ompss_target_handler_post(ctr);
-            }
-        }
-
-
-        // #pragma omp target on top of a #pragma omp task inline
-        void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
-        {
-            if (this->in_ompss_mode())
-            {
-                ompss_target_handler_pre(ctr);
-            }
-            else
-            {
-                omp_target_handler_pre(ctr);
-            }
-        }
-
-        void Core::target_handler_post(TL::PragmaCustomStatement ctr)
-        {
-            if (this->in_ompss_mode())
-            {
-                ompss_target_handler_post(ctr);
-            }
-            else
-            {
-                omp_target_handler_post(ctr);
-            }
-        }
-
-
         void Core::ompss_target_handler_pre(TL::PragmaCustomStatement ctr)
         {
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();

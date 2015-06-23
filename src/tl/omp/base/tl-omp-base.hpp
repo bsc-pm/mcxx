@@ -115,6 +115,18 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
+                void ompss_target_handler_pre(TL::PragmaCustomStatement stmt);
+                void ompss_target_handler_post(TL::PragmaCustomStatement stmt);
+
+                void ompss_target_handler_pre(TL::PragmaCustomDeclaration decl);
+                void ompss_target_handler_post(TL::PragmaCustomDeclaration decl);
+
+                void omp_target_handler_pre(TL::PragmaCustomStatement stmt);
+                void omp_target_handler_post(TL::PragmaCustomStatement stmt);
+
+                void omp_target_handler_pre(TL::PragmaCustomDeclaration decl);
+                void omp_target_handler_post(TL::PragmaCustomDeclaration decl);
+
                 Nodecl::List make_execution_environment(
                         OpenMP::DataEnvironment&,
                         PragmaCustomLine,

@@ -228,4 +228,51 @@ namespace TL { namespace OpenMP {
         ctr.replace(target_data);
     }
 
+    void Base::omp_target_handler_pre(TL::PragmaCustomStatement ctr) { }
+    void Base::omp_target_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(ctr);
+
+        Nodecl::NodeclBase device_id, if_clause;
+        handle_target_data_clauses(ctr,
+                // out
+                device_id,
+                if_clause);
+
+        if (this->emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << ctr.get_locus_str() << ": " << "TARGET construct\n"
+                << ctr.get_locus_str() << ": " << "----------------\n"
+                ;
+            // TODO - Report explicit mappings
+        }
+
+        Nodecl::List device_data_environment;
+        device_data_environment.append(
+                Nodecl::OpenMP::Device::make(device_id, device_id.get_locus()));
+        if (!if_clause.is_null())
+        {
+            device_data_environment.append(
+                    Nodecl::OpenMP::If::make(if_clause, if_clause.get_locus()));
+        }
+
+        Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
+
+        device_data_environment.append(map_clause);
+
+        Nodecl::OpenMP::Target target_data =
+            Nodecl::OpenMP::Target::make(
+                    device_data_environment,
+                    ctr.get_statements().shallow_copy(),
+                    ctr.get_locus());
+
+        ctr.replace(target_data);
+    }
+
+    // Unused because they are not possible in OpenMP
+    void Base::omp_target_handler_pre(TL::PragmaCustomDeclaration) { }
+    void Base::omp_target_handler_post(TL::PragmaCustomDeclaration) { }
 } }

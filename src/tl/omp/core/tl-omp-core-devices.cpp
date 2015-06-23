@@ -178,7 +178,7 @@ namespace TL { namespace OpenMP {
         }
 
         regfree(&preg);
-        
+
         // TL::ObjectList<Nodecl::NodeclBase> map_to;
         // TL::ObjectList<Nodecl::NodeclBase> map_from;
         // TL::ObjectList<Nodecl::NodeclBase> map_tofrom;
@@ -255,7 +255,7 @@ namespace TL { namespace OpenMP {
 
             if (data_environment.get_device_mapping(sym).direction == MAP_DIR_UNDEFINED)
             {
-                MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT, 
+                MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT,
                         sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
                 data_environment.set_device_mapping(
                         sym,

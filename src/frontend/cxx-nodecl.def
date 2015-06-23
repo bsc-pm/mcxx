@@ -631,6 +631,8 @@ omp-device-info: NODECL_OPEN_M_P*DEVICE([device_id] expression)
                | NODECL_OPEN_M_P*MAP_ALLOC([map_alloc] expression-seq)
 
 device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
+                  | NODECL_OPEN_M_P*TARGET([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
+
 
 # extension used for multidependences/multicopies
 expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
