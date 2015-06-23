@@ -116,12 +116,12 @@ namespace TL
 #undef OMP_DIRECTIVE
 
                 Nodecl::List make_execution_environment(
-                        OpenMP::DataSharingEnvironment&,
+                        OpenMP::DataEnvironment&,
                         PragmaCustomLine,
                         bool ignore_targer_info,
                         bool is_inline_task);
 
-                Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
+                Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);
 
                 Nodecl::NodeclBase loop_handler_post(
@@ -172,7 +172,7 @@ namespace TL
             public:
                 template <typename T>
                 void make_data_sharing_list(
-                        OpenMP::DataSharingEnvironment &data_sharing_env,
+                        OpenMP::DataEnvironment &data_sharing_env,
                         OpenMP::DataSharingAttribute data_attr,
                         const locus_t* locus,
                         ObjectList<Nodecl::NodeclBase>& result_list);

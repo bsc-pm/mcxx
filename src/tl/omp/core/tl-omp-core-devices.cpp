@@ -25,22 +25,51 @@
 --------------------------------------------------------------------*/
 
 
-
-
 #include "tl-omp-core.hpp"
 #include "cxx-diagnostic.h"
 
 namespace TL { namespace OpenMP {
+
+    // void Core::handle_map_clause(TL::PragmaCustomLine pragma_line,
+    //         DataEnvironment& data_environment)
+    // {
+    //     TL::PragmaCustomClause map_clause = pragma_line.get_clause("map");
+    //     if (!map_clause.is_defined())
+    //         return;
+
+    //     TL::ObjectList<std::string> args = map_clause.get_tokenized_arguments();
+    //     if (args.empty())
+    //     {
+    //         error_printf("%s: error: empty 'map' clause\n",
+    //                 pragma_line.get_locus_str().c_str());
+    //         return;
+    //     }
+    // }
+
+    // void Core::common_target_data_handler(TL::PragmaCustomStatement ctr,
+    //         DataEnvironment& data_environment)
+    // {
+    // }
 
     void Core::omp_target_handler_pre(TL::PragmaCustomStatement ctr) {
         error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
     }
     void Core::omp_target_handler_post(TL::PragmaCustomStatement ctr) { }
 
-    void Core::target_data_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+
+
+    void Core::target_data_handler_pre(TL::PragmaCustomStatement ctr)
+    {
+        // DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
+        // _openmp_info->push_current_data_environment(data_environment);
+
+        // common_target_environment_handler(ctr, data_environment);
     }
-    void Core::target_data_handler_post(TL::PragmaCustomStatement ctr) { }
+
+    void Core::target_data_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        // _openmp_info->pop_current_data_environment();
+    }
 
     void Core::target_update_handler_pre(TL::PragmaCustomDirective ctr) {
         error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());

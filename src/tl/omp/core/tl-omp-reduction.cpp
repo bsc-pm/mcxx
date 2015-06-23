@@ -62,7 +62,7 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
             const ObjectList<Symbol>& symbols_in_construct,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             ObjectList<ReductionSymbol>& sym_list,
             ObjectList<Symbol>& extra_symbols)
     {

@@ -439,7 +439,7 @@ namespace TL
         }
 
         static void add_copy_items(PragmaCustomLine construct, 
-                DataSharingEnvironment& data_sharing_environment,
+                DataEnvironment& data_sharing_environment,
                 const ObjectList<Nodecl::NodeclBase>& list,
                 TL::OmpSs::CopyDirection copy_direction,
                 TL::OmpSs::TargetInfo& target_info,
@@ -555,7 +555,7 @@ namespace TL
         // This function is invoked only for inline tasks (and some other
         // constructs though target info is unused for them)
         void Core::ompss_get_target_info(TL::PragmaCustomLine construct,
-                DataSharingEnvironment& data_sharing_environment)
+                DataEnvironment& data_sharing_environment)
         {
             if (_target_context.empty())
                 return;

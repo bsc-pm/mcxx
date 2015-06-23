@@ -42,19 +42,19 @@
 namespace TL { namespace OpenMP {
 
     void add_extra_symbols(Nodecl::NodeclBase data_ref,
-            DataSharingEnvironment& ds,
+            DataEnvironment& ds,
             ObjectList<Symbol>& extra_symbols)
     {
         struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
         {
             struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
             {
-                DataSharingEnvironment& _data_sharing;
+                DataEnvironment& _data_sharing;
                 ObjectList<Symbol>& _symbols;
 
                 const ObjectList<Symbol>& _iterators;
 
-                ExtraDataSharing(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols,
+                ExtraDataSharing(DataEnvironment& ds_, ObjectList<Symbol>& symbols,
                         const ObjectList<Symbol>& iterators)
                     :_data_sharing(ds_), _symbols(symbols), _iterators(iterators) { }
 
@@ -90,7 +90,7 @@ namespace TL { namespace OpenMP {
 
             ObjectList<TL::Symbol> _iterators;
 
-            DataRefVisitorDep(DataSharingEnvironment& ds_, ObjectList<Symbol>& symbols)
+            DataRefVisitorDep(DataEnvironment& ds_, ObjectList<Symbol>& symbols)
                 : _extra_data_sharing(ds_, symbols, _iterators) { }
 
             void visit_pre(const Nodecl::Symbol &node)
@@ -142,7 +142,7 @@ namespace TL { namespace OpenMP {
     }
 
     static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
             bool in_ompss_mode,
@@ -284,7 +284,7 @@ namespace TL { namespace OpenMP {
     }
 
     void Core::get_dependences_info(TL::PragmaCustomLine construct,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
@@ -455,7 +455,7 @@ namespace TL { namespace OpenMP {
     void Core::get_dependences_openmp(
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DataSharingAttribute default_data_attr,
             ObjectList<Symbol>& extra_symbols)
     {
@@ -796,7 +796,7 @@ namespace TL { namespace OpenMP {
 
     void Core::get_dependences_ompss_info_clause(PragmaCustomClause clause,
             Nodecl::NodeclBase construct,
-            DataSharingEnvironment& data_sharing_environment,
+            DataEnvironment& data_sharing_environment,
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
             const std::string& clause_name,

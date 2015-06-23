@@ -760,18 +760,18 @@ namespace TL { namespace OpenMP {
 
         TL::OmpSs::RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
 
-        DataSharingEnvironment& data_sharing_environment =
-            _openmp_info->get_new_data_sharing_environment(construct);
-        _openmp_info->push_current_data_sharing_environment(data_sharing_environment);
+        DataEnvironment& data_environment =
+            _openmp_info->get_new_data_environment(construct);
+        _openmp_info->push_current_data_environment(data_environment);
 
         TL::Scope scope = construct.retrieve_context();
 
         //adding real time information to the task
-        data_sharing_environment.set_real_time_info(rt_info);
+        data_environment.set_real_time_info(rt_info);
 
         ObjectList<Symbol> extra_symbols;
         get_data_explicit_attributes(pragma_line, construct.get_statements(),
-                data_sharing_environment,
+                data_environment,
                 extra_symbols);
 
         bool there_is_default_clause = false;
@@ -780,7 +780,7 @@ namespace TL { namespace OpenMP {
                 there_is_default_clause,
                 /*allow_default_auto*/ true);
 
-        get_dependences_info(pragma_line, data_sharing_environment, default_data_attr, extra_symbols);
+        get_dependences_info(pragma_line, data_environment, default_data_attr, extra_symbols);
 
         if (_target_context.empty())
         {
@@ -795,10 +795,10 @@ namespace TL { namespace OpenMP {
         }
 
         // Target info applies after
-        ompss_get_target_info(pragma_line, data_sharing_environment);
+        ompss_get_target_info(pragma_line, data_environment);
 
-        get_data_implicit_attributes_task(construct, data_sharing_environment, default_data_attr, there_is_default_clause);
-        get_data_extra_symbols(data_sharing_environment, extra_symbols);
+        get_data_implicit_attributes_task(construct, data_environment, default_data_attr, there_is_default_clause);
+        get_data_extra_symbols(data_environment, extra_symbols);
     }
 
     TL::OmpSs::RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)

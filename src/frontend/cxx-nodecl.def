@@ -514,6 +514,7 @@ parallel-execution : task-construct
                    | master-construct
                    | workshare-construct
                    | simd-constructs
+                   | device-constructs
 
 # single
 single-construct : NODECL_OPEN_M_P*SINGLE([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
@@ -569,6 +570,7 @@ omp-exec-environment : omp-data-sharings-info
                  | omp-execution-control
                  | omp-critical-info
                  | omp-simd-info
+                 | omp-device-info
 
 omp-data-sharings-info : NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
                        | NODECL_OPEN_M_P*LASTPRIVATE([symbols]name-seq)
@@ -622,6 +624,12 @@ omp-simd-info: NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [al
              | NODECL_OPEN_M_P*NO_MASK()
              | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]omp-reduction-item-seq)
 
+omp-device-info: NODECL_OPEN_M_P*DEVICE([device_id] expression)
+               | NODECL_OPEN_M_P*MAP_TO([map_to] expression-seq)
+               | NODECL_OPEN_M_P*MAP_FROM([map_from] expression-seq)
+               | NODECL_OPEN_M_P*MAP_TOFROM([map_tofrom] expression-seq)
+
+device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # extension used for multidependences/multicopies
 expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
