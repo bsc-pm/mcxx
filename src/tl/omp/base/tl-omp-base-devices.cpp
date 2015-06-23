@@ -33,21 +33,16 @@ namespace TL { namespace OpenMP {
 
     namespace {
 
-        struct DeviceDataEnvironment
-        {
-        };
-
         Nodecl::NodeclBase handle_device_clause(
                 TL::PragmaCustomClause &device,
                 const locus_t* locus)
         {
-            if (!device.is_defined())
+            TL::ObjectList<Nodecl::NodeclBase> expr_list;
+            if (device.is_defined())
             {
-                error_printf("%s: error: clause 'device' is missing\n",
-                        locus_to_str(locus));
+                expr_list = device.get_arguments_as_expressions();
             }
 
-            TL::ObjectList<Nodecl::NodeclBase> expr_list = device.get_arguments_as_expressions();
             Nodecl::NodeclBase device_id_expr;
             if (expr_list.empty())
             {
@@ -113,46 +108,93 @@ namespace TL { namespace OpenMP {
             return handle_if_clause(if_clause, ctr.get_locus());
         }
 
-        Nodecl::NodeclBase handle_map_clause(TL::PragmaCustomClause &map_clause,
-                const locus_t* locus)
-        {
-            if (!map_clause.is_defined())
-                return Nodecl::NodeclBase::null();
-
-            Nodecl::List result;
-
-            return result;
-        }
-
-        Nodecl::NodeclBase handle_map_clause(TL::PragmaCustomLine& ctr)
-        {
-            TL::PragmaCustomClause map_clause = ctr.get_clause("map");
-            return handle_map_clause(map_clause, ctr.get_locus());
-        }
-        
         void handle_target_data_clauses(TL::PragmaCustomStatement &ctr,
                 // out
                 Nodecl::NodeclBase &device_id,
-                Nodecl::NodeclBase &if_clause,
-                Nodecl::NodeclBase &map_clause)
+                Nodecl::NodeclBase &if_clause)
         {
             TL::PragmaCustomLine line = ctr.get_pragma_line();
 
             device_id = handle_device_clause(line);
             if_clause = handle_if_clause(line);
-            map_clause = handle_map_clause(line);
+        }
+
+        template <typename T>
+            Nodecl::NodeclBase make_map_node(Nodecl::NodeclBase n)
+            {
+                return T::make(n, n.get_locus());
+            }
+
+        Nodecl::NodeclBase make_device_data_environment(OpenMP::DataEnvironment& data_environment)
+        {
+            TL::ObjectList<OpenMP::MappingValue> all_device_mappings = data_environment.get_all_device_mappings();
+            struct Filter
+            {
+                static bool is_map_to(const OpenMP::MappingValue& m) { return m.direction == OpenMP::MAP_DIR_TO; }
+                static bool is_map_from(const OpenMP::MappingValue& m) { return m.direction == OpenMP::MAP_DIR_FROM; }
+                static bool is_map_tofrom(const OpenMP::MappingValue& m) { return m.direction == OpenMP::MAP_DIR_TOFROM; }
+                static bool is_map_alloc(const OpenMP::MappingValue& m) { return m.direction == OpenMP::MAP_DIR_ALLOC; }
+            };
+
+            TL::ObjectList<OpenMP::MappingValue> mappings_to =
+                all_device_mappings.filter(Filter::is_map_to);
+            TL::ObjectList<OpenMP::MappingValue> mappings_from =
+                all_device_mappings.filter(Filter::is_map_from);
+            TL::ObjectList<OpenMP::MappingValue> mappings_tofrom =
+                all_device_mappings.filter(Filter::is_map_tofrom);
+            TL::ObjectList<OpenMP::MappingValue> mappings_alloc =
+                all_device_mappings.filter(Filter::is_map_alloc);
+
+            struct aux
+            {
+                TL::ObjectList<OpenMP::MappingValue>& s;
+                Nodecl::NodeclBase (*builder)(Nodecl::NodeclBase n);
+            } nodes[4] = {
+                { mappings_to,     make_map_node<Nodecl::OpenMP::MapTo> },
+                { mappings_from,   make_map_node<Nodecl::OpenMP::MapFrom> },
+                { mappings_tofrom, make_map_node<Nodecl::OpenMP::MapToFrom> },
+                { mappings_alloc, make_map_node<Nodecl::OpenMP::MapAlloc> }
+            };
+
+            Nodecl::List result;
+            for (int i = 0; i < 4; i++)
+            {
+                if (nodes[i].s.empty())
+                    continue;
+
+                TL::ObjectList<OpenMP::MappingValue> &current_mappings = nodes[i].s;
+
+                Nodecl::List current_list;
+                for (TL::ObjectList<OpenMP::MappingValue>::iterator
+                        it = current_mappings.begin();
+                        it != current_mappings.end();
+                        it++)
+                {
+                    ERROR_CONDITION(it->map_expr.is_null(), "Invalid tree at this point", 0);
+
+                    current_list.append(it->map_expr.shallow_copy());
+                }
+
+                result.append(
+                        nodes[i].builder(current_list)
+                        );
+            }
+
+            return result;
         }
     }
 
     void Base::target_data_handler_pre(TL::PragmaCustomStatement ctr) { }
     void Base::target_data_handler_post(TL::PragmaCustomStatement ctr)
     {
-        Nodecl::NodeclBase device_id, if_clause, map_clause;
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(ctr);
+
+        Nodecl::NodeclBase device_id, if_clause;
         handle_target_data_clauses(ctr,
                 // out
                 device_id,
-                if_clause,
-                map_clause);
+                if_clause);
 
         if (this->emit_omp_report())
         {
@@ -164,19 +206,22 @@ namespace TL { namespace OpenMP {
             // TODO - Report explicit mappings
         }
 
-        Nodecl::List data_environment;
-        data_environment.append(
+        Nodecl::List device_data_environment;
+        device_data_environment.append(
                 Nodecl::OpenMP::Device::make(device_id, device_id.get_locus()));
         if (!if_clause.is_null())
         {
-            data_environment.append(
+            device_data_environment.append(
                     Nodecl::OpenMP::If::make(if_clause, if_clause.get_locus()));
         }
-        data_environment.append(map_clause);
+
+        Nodecl::NodeclBase map_clause = make_device_data_environment(data_environment);
+
+        device_data_environment.append(map_clause);
 
         Nodecl::OpenMP::TargetData target_data =
             Nodecl::OpenMP::TargetData::make(
-                    data_environment,
+                    device_data_environment,
                     ctr.get_statements().shallow_copy(),
                     ctr.get_locus());
 

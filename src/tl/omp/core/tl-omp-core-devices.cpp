@@ -49,6 +49,7 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> map_to;
         TL::ObjectList<Nodecl::NodeclBase> map_from;
         TL::ObjectList<Nodecl::NodeclBase> map_tofrom;
+        TL::ObjectList<Nodecl::NodeclBase> map_alloc;
 
         TL::PragmaCustomClause map_clause = pragma_line.get_clause("map");
         if (!map_clause.is_defined())
@@ -64,7 +65,7 @@ namespace TL { namespace OpenMP {
 
         // Since we coalesce all the arguments of a clauses with the same name
         // in a case like map(to : a, b) map(from : c, d) will be a list
-        // containing "in:a", "b", "out:c", "d"
+        // containing "to:a", "b", "from:c", "d"
 
         int cflags = REG_EXTENDED;
         if (IS_FORTRAN_LANGUAGE)
@@ -73,11 +74,11 @@ namespace TL { namespace OpenMP {
         }
 
         regex_t preg;
-        if (regcomp(&preg, "^[[:blank:]]*((to)|(from)|(tofrom))[[:blank:]]*:(.*)$", cflags) != 0)
+        if (regcomp(&preg, "^[[:blank:]]*((to)|(from)|(tofrom)|(alloc))[[:blank:]]*:(.*)$", cflags) != 0)
         {
             internal_error("Invalid regular expression", 0);
         }
-        const int num_matches = 6;
+        const int num_matches = 7;
         regmatch_t pmatch[num_matches] = { };
 
         TL::ObjectList<Nodecl::NodeclBase> *map_set = NULL;
@@ -112,6 +113,10 @@ namespace TL { namespace OpenMP {
                 {
                     map_set = &map_tofrom;
                 }
+                else if (map_kind == "alloc")
+                {
+                    map_set = &map_alloc;
+                }
                 else
                 {
                     internal_error("Code unreachable", 0);
@@ -119,8 +124,8 @@ namespace TL { namespace OpenMP {
 
                 // Now compute the proper map expression
                 current_map_expr.clear();
-                ERROR_CONDITION(pmatch[5].rm_so == -1, "Invalid match", 0);
-                for (int i = pmatch[5].rm_so; i < pmatch[5].rm_eo; i++)
+                ERROR_CONDITION(pmatch[6].rm_so == -1, "Invalid match", 0);
+                for (int i = pmatch[6].rm_so; i < pmatch[6].rm_eo; i++)
                 {
                     current_map_expr += (*it)[i];
                 }
@@ -173,13 +178,108 @@ namespace TL { namespace OpenMP {
         }
 
         regfree(&preg);
+        
+        // TL::ObjectList<Nodecl::NodeclBase> map_to;
+        // TL::ObjectList<Nodecl::NodeclBase> map_from;
+        // TL::ObjectList<Nodecl::NodeclBase> map_tofrom;
+        struct aux {
+            TL::ObjectList<Nodecl::NodeclBase> &set;
+            MapDirection direction;
+        } sets[3] = {
+            { map_to, MapDirection::MAP_DIR_TO },
+            { map_from, MapDirection::MAP_DIR_FROM },
+            { map_tofrom, MapDirection::MAP_DIR_TOFROM },
+        };
+
+        for (int i = 0; i < 3; i++)
+        {
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = sets[i].set.begin();
+                    it != sets[i].set.end();
+                    it++)
+            {
+                DataReference data_ref(*it);
+                if (data_ref.is_valid())
+                {
+                    MappingValue map_value(sets[i].direction, MAP_KIND_EXPLICIT, *it);
+                    data_environment.set_device_mapping(
+                            data_ref.get_symbol(),
+                            map_value,
+                            "explicitly specified in map clause");
+                }
+                else
+                {
+                    error_printf("%s: error: invalid expression '%s' in 'map' clause\n",
+                            it->get_locus_str().c_str(),
+                            it->prettyprint().c_str());
+                }
+            }
+        }
     }
 
-    void Core::omp_target_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
-    }
-    void Core::omp_target_handler_post(TL::PragmaCustomStatement ctr) { }
+    void Core::compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
+            DataEnvironment& data_environment)
+    {
+        ObjectList<TL::Symbol> nonlocal_symbols =
+            Nodecl::Utils::get_nonlocal_symbols_first_occurrence(stmt)
+            .map(std::function<TL::Symbol(Nodecl::Symbol)>(&Nodecl::NodeclBase::get_symbol));
 
+        for (TL::ObjectList<TL::Symbol>::iterator it = nonlocal_symbols.begin();
+                it != nonlocal_symbols.end();
+                it++)
+        {
+            Symbol sym = *it;
+
+            if (!sym.is_valid()
+                    || !sym.is_variable()
+                    || sym.is_fortran_parameter())
+                continue;
+
+            if (sym.is_member()
+                    && !sym.is_static())
+                continue;
+
+            // Not sure how to map this
+            if (IS_CXX_LANGUAGE
+                    && sym.get_name() == "this")
+                continue;
+
+            // We cannot map these
+            if (sym.is_thread()
+                    || sym.is_thread_local())
+                continue;
+
+            DataSharingValue data_sharing = data_environment.get_data_sharing(sym);
+            // We cannot map these either
+            if ((data_sharing.attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                continue;
+
+            if (data_environment.get_device_mapping(sym).direction == MAP_DIR_UNDEFINED)
+            {
+                MappingValue map_value(MAP_DIR_TOFROM, MAP_KIND_IMPLICIT, 
+                        sym.make_nodecl(/* set_ref_type */ true, sym.get_locus()));
+                data_environment.set_device_mapping(
+                        sym,
+                        map_value,
+                        "implicitly mapped because symbol is used inside data device environment");
+            }
+        }
+
+        // FIXME - There are more cases that cause variables be implicitly mapped (e.g. VLAs)
+    }
+
+    void Core::omp_target_handler_pre(TL::PragmaCustomStatement ctr)
+    {
+        DataEnvironment& data_environment = _openmp_info->get_new_data_environment(ctr);
+        _openmp_info->push_current_data_environment(data_environment);
+
+        handle_map_clause(ctr.get_pragma_line(), data_environment);
+        compute_implicit_device_mappings(ctr.get_statements(), data_environment);
+    }
+
+    void Core::omp_target_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        _openmp_info->pop_current_data_environment();
+    }
 
     void Core::target_data_handler_pre(TL::PragmaCustomStatement ctr)
     {
@@ -187,6 +287,7 @@ namespace TL { namespace OpenMP {
         _openmp_info->push_current_data_environment(data_environment);
 
         handle_map_clause(ctr.get_pragma_line(), data_environment);
+        compute_implicit_device_mappings(ctr.get_statements(), data_environment);
     }
 
     void Core::target_data_handler_post(TL::PragmaCustomStatement ctr)

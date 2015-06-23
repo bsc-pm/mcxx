@@ -49,6 +49,7 @@ namespace TL
         DataEnvironment::DataEnvironment(DataEnvironment *enclosing)
             : _num_refs(new int(1)), 
             _data_sharing(new data_sharing_map_t()),
+            _device_mapping(new device_mapping_map_t()),
             _enclosing(enclosing),
             _is_parallel(false)
         {
@@ -69,6 +70,7 @@ namespace TL
                 }
 
                 delete _data_sharing;
+                delete _device_mapping;
                 delete _num_refs;
             }
         }
@@ -76,6 +78,7 @@ namespace TL
         DataEnvironment::DataEnvironment(const DataEnvironment& ds)
             : _num_refs(ds._num_refs),
             _data_sharing(ds._data_sharing),
+            _device_mapping(ds._device_mapping),
             _enclosing(ds._enclosing),
             _reduction_symbols(ds._reduction_symbols),
             _dependency_items(ds._dependency_items),
@@ -400,6 +403,37 @@ namespace TL
         MappingValue DataEnvironment::get_device_mapping(Symbol sym, bool check_enclosing)
         {
             return get_device_mapping_info(sym, check_enclosing).mapping;
+        }
+
+        TL::ObjectList<MappingValue> DataEnvironment::get_all_device_mappings()
+        {
+            // Here we coallesce all the inherited symbols
+            TL::ObjectList<MappingValue> result;
+
+            std::set<TL::Symbol> already_seen;
+
+            DataEnvironment* current = this;
+
+            while (current != NULL)
+            {
+                // Traverse using insertion order
+                for (device_mapping_map_t::seq_t::iterator it = current->_device_mapping->i.begin();
+                        it != current->_device_mapping->i.end();
+                        it++)
+                {
+                    TL::Symbol sym(*it);
+
+                    if (already_seen.find(sym) != already_seen.end())
+                        continue;
+                    already_seen.insert(sym);
+
+                    result.append(current->_device_mapping->m[sym].mapping);
+                }
+
+                current = current->_enclosing;
+            }
+
+            return result;
         }
 
         void Info::push_current_data_environment(DataEnvironment& data_environment)

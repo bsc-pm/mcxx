@@ -120,7 +120,9 @@ namespace OpenMP
 
         MAP_DIR_TO = BITMAP(0),
         MAP_DIR_FROM = BITMAP(1),
-        MAP_DIR_TOFROM = MAP_DIR_TO | MAP_DIR_FROM
+        MAP_DIR_TOFROM = MAP_DIR_TO | MAP_DIR_FROM,
+
+        MAP_DIR_ALLOC = BITMAP(2)
     };
 
     enum MapKind
@@ -374,6 +376,9 @@ namespace OpenMP
              */
             MappingValue get_device_mapping(Symbol sym,
                     bool check_enclosing = true);
+
+            //! Returuns all the device mappings active in the current data environment
+            TL::ObjectList<MappingValue> get_all_device_mappings();
         };
 
         class LIBTL_CLASS Info : public Object

@@ -627,7 +627,8 @@ omp-simd-info: NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [al
 omp-device-info: NODECL_OPEN_M_P*DEVICE([device_id] expression)
                | NODECL_OPEN_M_P*MAP_TO([map_to] expression-seq)
                | NODECL_OPEN_M_P*MAP_FROM([map_from] expression-seq)
-               | NODECL_OPEN_M_P*MAP_TOFROM([map_tofrom] expression-seq)
+               | NODECL_OPEN_M_P*MAP_TO_FROM([map_tofrom] expression-seq)
+               | NODECL_OPEN_M_P*MAP_ALLOC([map_alloc] expression-seq)
 
 device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
 

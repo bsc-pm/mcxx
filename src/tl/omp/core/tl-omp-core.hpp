@@ -200,6 +200,9 @@ namespace TL
                 void handle_map_clause(TL::PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment);
 
+                void compute_implicit_device_mappings(Nodecl::NodeclBase stmt,
+                        DataEnvironment& data_environment);
+
                 void common_parallel_handler(
                         TL::PragmaCustomStatement ctr,
                         DataEnvironment& data_environment,
