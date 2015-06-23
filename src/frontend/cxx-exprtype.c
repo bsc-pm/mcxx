@@ -22208,8 +22208,19 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
 
     type_t* indexed_type = no_ref(nodecl_get_type(nodecl_postfix));
 
-    if (nodecl_is_null(nodecl_lower) && (is_array_type(indexed_type) || is_pointer_type(indexed_type))) 
-        nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
+    if (nodecl_is_null(nodecl_lower))
+    {
+        if (is_array_type(indexed_type))
+        {
+            nodecl_lower = nodecl_shallow_copy(array_type_get_array_lower_bound(indexed_type));
+        }
+        else if (is_pointer_type(indexed_type))
+        {
+            nodecl_lower = const_value_to_nodecl_with_basic_type(
+                    const_value_get_signed_int(0),
+                    get_ptrdiff_t_type());
+        }
+    }
 
     if (nodecl_is_null(nodecl_upper) && (is_array_type(indexed_type))) 
     {

@@ -202,7 +202,7 @@ namespace TL { namespace OpenMP {
                 {
                     MappingValue map_value(sets[i].direction, MAP_KIND_EXPLICIT, *it);
                     data_environment.set_device_mapping(
-                            data_ref.get_symbol(),
+                            data_ref.get_base_symbol(),
                             map_value,
                             "explicitly specified in map clause");
                 }
