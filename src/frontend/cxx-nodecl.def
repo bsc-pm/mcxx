@@ -629,9 +629,12 @@ omp-device-info: NODECL_OPEN_M_P*DEVICE([device_id] expression)
                | NODECL_OPEN_M_P*MAP_FROM([map_from] expression-seq)
                | NODECL_OPEN_M_P*MAP_TO_FROM([map_tofrom] expression-seq)
                | NODECL_OPEN_M_P*MAP_ALLOC([map_alloc] expression-seq)
+               | NODECL_OPEN_M_P*MOTION_TO([map_to] expression-seq)
+               | NODECL_OPEN_M_P*MOTION_FROM([map_from] expression-seq)
 
 device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*TARGET([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
+                  | NODECL_OPEN_M_P*TARGET_UPDATE([environment]omp-exec-environment-seq-opt)
 
 
 # extension used for multidependences/multicopies

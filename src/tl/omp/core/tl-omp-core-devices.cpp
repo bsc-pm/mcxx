@@ -174,6 +174,10 @@ namespace TL { namespace OpenMP {
                 internal_error("Code unreachable", 0);
             }
 
+            if (expr.is_null()
+                    || nodecl_is_err_expr(expr.get_internal_nodecl()))
+                continue;
+
             map_set->append(expr);
         }
 
@@ -295,9 +299,7 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
-    void Core::target_update_handler_pre(TL::PragmaCustomDirective ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
-    }
+    void Core::target_update_handler_pre(TL::PragmaCustomDirective ctr) { }
     void Core::target_update_handler_post(TL::PragmaCustomDirective ctr) { }
 
     void Core::teams_handler_pre(TL::PragmaCustomStatement ctr) {

@@ -32,6 +32,10 @@
 namespace TL { namespace OpenMP {
 
     namespace {
+        const decl_context_t* decl_context_map_id(const decl_context_t* d)
+        {
+            return d;
+        }
 
         Nodecl::NodeclBase handle_device_clause(
                 TL::PragmaCustomClause &device,
@@ -66,7 +70,7 @@ namespace TL { namespace OpenMP {
                         device_id_expr.get_locus_str().c_str());
             }
 
-            return device_id_expr;
+            return Nodecl::OpenMP::Device::make(device_id_expr, device_id_expr.get_locus());
         }
 
         Nodecl::NodeclBase handle_device_clause(TL::PragmaCustomLine &ctr)
@@ -153,7 +157,7 @@ namespace TL { namespace OpenMP {
                 { mappings_to,     make_map_node<Nodecl::OpenMP::MapTo> },
                 { mappings_from,   make_map_node<Nodecl::OpenMP::MapFrom> },
                 { mappings_tofrom, make_map_node<Nodecl::OpenMP::MapToFrom> },
-                { mappings_alloc, make_map_node<Nodecl::OpenMP::MapAlloc> }
+                { mappings_alloc,  make_map_node<Nodecl::OpenMP::MapAlloc> }
             };
 
             Nodecl::List result;
@@ -207,8 +211,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List device_data_environment;
-        device_data_environment.append(
-                Nodecl::OpenMP::Device::make(device_id, device_id.get_locus()));
+        device_data_environment.append(device_id);
         if (!if_clause.is_null())
         {
             device_data_environment.append(
@@ -251,8 +254,7 @@ namespace TL { namespace OpenMP {
         }
 
         Nodecl::List device_data_environment;
-        device_data_environment.append(
-                Nodecl::OpenMP::Device::make(device_id, device_id.get_locus()));
+        device_data_environment.append(device_id);
         if (!if_clause.is_null())
         {
             device_data_environment.append(
@@ -275,4 +277,116 @@ namespace TL { namespace OpenMP {
     // Unused because they are not possible in OpenMP
     void Base::omp_target_handler_pre(TL::PragmaCustomDeclaration) { }
     void Base::omp_target_handler_post(TL::PragmaCustomDeclaration) { }
+
+    namespace {
+        template <typename T>
+            Nodecl::NodeclBase make_motion_node(Nodecl::NodeclBase n)
+            {
+                return T::make(n, n.get_locus());
+            }
+
+        Nodecl::NodeclBase handle_motion_clauses(TL::PragmaCustomLine &pragma_line)
+        {
+            Nodecl::List result;
+
+            TL::Scope parsing_scope = pragma_line.retrieve_context();
+            TL::PragmaCustomClause to_clause = pragma_line.get_clause("to");
+            TL::PragmaCustomClause from_clause = pragma_line.get_clause("from");
+
+            struct aux
+            {
+                TL::PragmaCustomClause &clause;
+                Nodecl::NodeclBase (*builder)(Nodecl::NodeclBase expr);
+            } motions[2] = {
+                { to_clause, make_motion_node<Nodecl::OpenMP::MotionTo> },
+                { from_clause, make_motion_node<Nodecl::OpenMP::MotionFrom> },
+            };
+
+            for (int i = 0; i < 2; i++)
+            {
+                if (!motions[i].clause.is_defined())
+                    continue;
+
+                Nodecl::List expr_list;
+
+                TL::ObjectList<std::string> args = motions[i].clause.get_tokenized_arguments();
+                for (TL::ObjectList<std::string>::iterator it = args.begin();
+                        it != args.end();
+                        it++)
+                {
+                    Source src;
+                    src << "#line " << pragma_line.get_line()
+                        << " \"" << pragma_line.get_filename() << "\"\n";
+                    src << pad_to_column(pragma_line.get_column()) << *it;
+
+                    // Now, parse a single OpenMP list item
+                    // Note that we reuse the same code that we use for items in
+                    // dependences
+                    Nodecl::NodeclBase expr;
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        expr = src.parse_generic(parsing_scope,
+                                /* ParseFlags */ Source::DEFAULT,
+                                "@OMP-DEPEND-ITEM@",
+                                Source::c_cxx_check_expression_adapter,
+                                decl_context_map_id);
+                    }
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        expr = src.parse_generic(parsing_scope,
+                                /* ParseFlags */ Source::DEFAULT,
+                                "@OMP-DEPEND-ITEM@",
+                                Source::fortran_check_expression_adapter,
+                                decl_context_map_id);
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+
+                    if (expr.is_null()
+                            || nodecl_is_err_expr(expr.get_internal_nodecl()))
+                        continue;
+
+                    expr_list.append(expr);
+                }
+
+                if (!expr_list.empty())
+                {
+                    result.append(
+                            motions[i].builder(expr_list));
+                }
+            }
+
+            return result;
+        }
+    }
+
+    void Base::target_update_handler_pre(TL::PragmaCustomDirective ctr) { }
+    void Base::target_update_handler_post(TL::PragmaCustomDirective ctr)
+    {
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
+
+        Nodecl::NodeclBase device_id = handle_device_clause(pragma_line);
+
+        Nodecl::List command_environment;
+        command_environment.append(device_id);
+
+        Nodecl::NodeclBase motion_commands = handle_motion_clauses(pragma_line);
+        if (!motion_commands.is_null())
+        {
+            command_environment.append(motion_commands);
+        }
+
+        Nodecl::NodeclBase if_clause = handle_if_clause(pragma_line);
+        if (!if_clause.is_null())
+        {
+            command_environment.append(if_clause);
+        }
+
+        Nodecl::OpenMP::TargetUpdate target_update =
+            Nodecl::OpenMP::TargetUpdate::make(
+                    command_environment,
+                    ctr.get_locus());
+    }
 } }
