@@ -197,8 +197,7 @@ namespace TL
                         void (Core::*common_loop_handler)(Nodecl::NodeclBase,
                             Nodecl::NodeclBase, DataEnvironment&, ObjectList<Symbol>&));
 
-                void common_target_data_handler(
-                        TL::PragmaCustomStatement ctr,
+                void handle_map_clause(TL::PragmaCustomLine pragma_line,
                         DataEnvironment& data_environment);
 
                 void common_parallel_handler(

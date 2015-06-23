@@ -445,7 +445,6 @@ namespace TL { namespace OpenMP {
                 internal_error("Code unreachable", 0);
             }
 
-            // Singleton
             dep_set->append(expr);
         }
 
