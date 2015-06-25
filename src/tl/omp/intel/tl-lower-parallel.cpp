@@ -474,8 +474,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         }
         else
         {
+            TL::Counter &red_var_count = TL::CounterManager::get_counter("intel-omp-outline");
+            array_of_sizes << "red_vars_sizes_" << (int)red_var_count;
+            red_var_count++;
+
             array_of_sizes_def
-                << "static size_t red_vars_sizes[] = { ";
+                << "static size_t " << array_of_sizes << "[] = { ";
 
             for (AccountReductions::reduction_list_t::iterator it = chosen_reduction.begin();
                     it != chosen_reduction.end();
@@ -488,7 +492,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
                 << "};"
                 ;
 
-            array_of_sizes << "red_vars_sizes";
         }
 
         fork_call
