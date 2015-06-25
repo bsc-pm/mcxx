@@ -190,9 +190,9 @@ namespace TL { namespace OpenMP {
             TL::ObjectList<Nodecl::NodeclBase> &set;
             MapDirection direction;
         } sets[3] = {
-            { map_to, MapDirection::MAP_DIR_TO },
-            { map_from, MapDirection::MAP_DIR_FROM },
-            { map_tofrom, MapDirection::MAP_DIR_TOFROM },
+            { map_to, OpenMP::MAP_DIR_TO },
+            { map_from, OpenMP::MAP_DIR_FROM },
+            { map_tofrom, OpenMP::MAP_DIR_TOFROM },
         };
 
         for (int i = 0; i < 3; i++)
