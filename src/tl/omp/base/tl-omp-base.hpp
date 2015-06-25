@@ -140,13 +140,13 @@ namespace TL
                         TL::PragmaCustomStatement directive,
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
-                        bool is_combined_worksharing);
+                        bool is_combined_with_parallel);
 
                 Nodecl::NodeclBase sections_handler_common(
                         TL::PragmaCustomStatement directive,
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
-                        bool is_combined_worksharing);
+                        bool is_combined_with_parallel);
 
                 template <typename openmp_node>
                 void process_symbol_list_colon_int_clause(

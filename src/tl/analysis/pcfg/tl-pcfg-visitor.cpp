@@ -2105,7 +2105,7 @@ next_it:    ;
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWithParallel& n )
     {
         // Nothing to be done
         return ObjectList<Node*>( );

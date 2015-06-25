@@ -1234,7 +1234,7 @@ namespace TL { namespace OpenMP {
             ;
         }
 
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_with_parallel */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
@@ -1243,7 +1243,7 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomStatement directive,
             Nodecl::NodeclBase statements,
             bool barrier_at_end,
-            bool is_combined_worksharing)
+            bool is_combined_with_parallel)
     {
         OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
@@ -1281,10 +1281,10 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        if (is_combined_worksharing)
+        if (is_combined_with_parallel)
         {
             execution_environment.append(
-                    Nodecl::OpenMP::CombinedWorksharing::make(
+                    Nodecl::OpenMP::CombinedWithParallel::make(
                         directive.get_locus()));
         }
 
@@ -1325,7 +1325,7 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomStatement directive,
             Nodecl::NodeclBase context,
             bool barrier_at_end,
-            bool is_combined_worksharing)
+            bool is_combined_with_parallel)
     {
         OpenMP::DataEnvironment &ds = _core.get_openmp_info()->get_data_environment(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
@@ -1495,7 +1495,7 @@ namespace TL { namespace OpenMP {
         {
             if (emit_omp_report())
             {
-                if (!is_combined_worksharing)
+                if (!is_combined_with_parallel)
                 {
                     *_omp_report_file
                         << OpenMP::Report::indent
@@ -1512,10 +1512,10 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        if (is_combined_worksharing)
+        if (is_combined_with_parallel)
         {
             execution_environment.append(
-                    Nodecl::OpenMP::CombinedWorksharing::make(
+                    Nodecl::OpenMP::CombinedWithParallel::make(
                         directive.get_locus()));
         }
 
@@ -1552,7 +1552,7 @@ namespace TL { namespace OpenMP {
                 << directive.get_locus_str() << ": " << "------------\n"
             ;
         }
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_with_parallel */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
     }
@@ -1803,7 +1803,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase for_statement_code = loop_handler_post(directive,
                 statement,
                 /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+                /* is_combined_with_parallel */ true);
 
         statement = directive.get_statements();
         // This first context was added by nest_context_in_pragma
@@ -2502,7 +2502,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase sections_code = sections_handler_common(directive,
                 directive.get_statements(),
                 barrier_at_end,
-                /* is_combined_worksharing */ false);
+                /* is_combined_with_parallel */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(sections_code);
     }
@@ -2634,7 +2634,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase sections_code = sections_handler_common(directive,
                 statement,
                 /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+                /* is_combined_with_parallel */ true);
 
         statement = directive.get_statements();
         // This first context was added by nest_context_in_pragma
@@ -2785,7 +2785,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase for_statement_code = loop_handler_post(directive,
                 statement,
                 /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+                /* is_combined_with_parallel */ true);
 
         statement = directive.get_statements();
         // This first context was added by nest_context_in_pragma

@@ -352,7 +352,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
         Ret visit( const Nodecl::OpenMP::Overlap& n );
-        Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
+        Ret visit( const Nodecl::OpenMP::CombinedWithParallel& n );
         Ret visit( const Nodecl::OmpSs::Commutative& n );
         Ret visit( const Nodecl::OmpSs::Concurrent& n );
         Ret visit( const Nodecl::OmpSs::CopyIn& n );

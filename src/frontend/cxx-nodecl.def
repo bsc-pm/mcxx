@@ -584,7 +584,7 @@ omp-data-sharings-info : NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
 
 omp-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)
 
-omp-construct-info : NODECL_OPEN_M_P*COMBINED_WORKSHARING()
+omp-construct-info : NODECL_OPEN_M_P*COMBINED_WITH_PARALLEL()
                    | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
 
 omp-sync-info : NODECL_OPEN_M_P*BARRIER_AT_END()
