@@ -431,6 +431,33 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        Nodecl::NodeclBase handle_thread_limit(TL::PragmaCustomLine pragma_line)
+        {
+            TL::PragmaCustomClause thread_limit = pragma_line.get_clause("thread_limit");
+
+            if (!thread_limit.is_defined())
+                return Nodecl::NodeclBase::null();
+
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = thread_limit.get_arguments_as_expressions();
+
+            if (expr_list.empty())
+            {
+                error_printf("%s: error: empty 'thread_limit' clause\n",
+                        pragma_line.get_locus_str().c_str());
+                return Nodecl::NodeclBase::null();
+            }
+            else
+            {
+                if (expr_list.size() > 1)
+                {
+                    error_printf("%s: error: too many expressions in 'thread_limit' clause\n",
+                            pragma_line.get_locus_str().c_str());
+                }
+                return Nodecl::OpenMP::ThreadLimit::make(
+                        expr_list[0],
+                        expr_list[0].get_locus());
+            }
+        }
     }
 
     void Base::teams_handler_pre(TL::PragmaCustomStatement ctr) { }
@@ -464,6 +491,12 @@ namespace TL { namespace OpenMP {
         if (!num_teams.is_null())
         {
             execution_env.append(num_teams);
+        }
+
+        Nodecl::NodeclBase thread_limit = handle_thread_limit(pragma_line);
+        if (!thread_limit.is_null())
+        {
+            execution_env.append(thread_limit);
         }
 
         Nodecl::OpenMP::Teams teams = Nodecl::OpenMP::Teams::make(
