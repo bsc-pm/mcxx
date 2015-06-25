@@ -313,7 +313,6 @@ namespace TL { namespace OpenMP {
 
         EMPTY_HANDLERS_DIRECTIVE(section)
 
-        EMPTY_HANDLERS_STATEMENT(distribute)
         EMPTY_HANDLERS_STATEMENT(distribute_parallel_for)
         EMPTY_HANDLERS_STATEMENT(distribute_parallel_do)
         EMPTY_HANDLERS_STATEMENT(target_teams)

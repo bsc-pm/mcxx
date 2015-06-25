@@ -335,10 +335,16 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
-    void Core::distribute_handler_pre(TL::PragmaCustomStatement ctr) {
-        error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());
+    void Core::distribute_handler_pre(TL::PragmaCustomStatement ctr)
+    {
+        Nodecl::NodeclBase loop = get_statement_from_pragma(ctr);
+        loop_handler_pre(ctr, loop, &Core::common_for_handler);
     }
-    void Core::distribute_handler_post(TL::PragmaCustomStatement ctr) { }
+
+    void Core::distribute_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        _openmp_info->pop_current_data_environment();
+    }
 
     void Core::distribute_parallel_for_handler_pre(TL::PragmaCustomStatement ctr) {
         error_printf("%s: error: OpenMP 4.0 construct not implemented yet\n", ctr.get_locus_str().c_str());

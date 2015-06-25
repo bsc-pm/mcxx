@@ -197,6 +197,7 @@ namespace TL { namespace OpenMP {
     void Base::target_data_handler_pre(TL::PragmaCustomStatement ctr) { }
     void Base::target_data_handler_post(TL::PragmaCustomStatement ctr)
     {
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
         OpenMP::DataEnvironment &data_environment =
             _core.get_openmp_info()->get_data_environment(ctr);
 
@@ -233,12 +234,14 @@ namespace TL { namespace OpenMP {
                     ctr.get_statements().shallow_copy(),
                     ctr.get_locus());
 
+        pragma_line.diagnostic_unused_clauses();
         ctr.replace(target_data);
     }
 
     void Base::omp_target_handler_pre(TL::PragmaCustomStatement ctr) { }
     void Base::omp_target_handler_post(TL::PragmaCustomStatement ctr)
     {
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
         OpenMP::DataEnvironment &data_environment =
             _core.get_openmp_info()->get_data_environment(ctr);
 
@@ -275,6 +278,7 @@ namespace TL { namespace OpenMP {
                     ctr.get_statements().shallow_copy(),
                     ctr.get_locus());
 
+        pragma_line.diagnostic_unused_clauses();
         ctr.replace(target_data);
     }
 
@@ -393,6 +397,7 @@ namespace TL { namespace OpenMP {
                     command_environment,
                     ctr.get_locus());
 
+        pragma_line.diagnostic_unused_clauses();
         ctr.replace(target_update);
     }
     
@@ -451,7 +456,7 @@ namespace TL { namespace OpenMP {
                 data_environment,
                 pragma_line,
                 /* ignore_target_info */ true,
-                /* is_inline_task */ true);
+                /* is_inline_task */ false);
 
         execution_env.append(data_sharings);
 
@@ -465,6 +470,114 @@ namespace TL { namespace OpenMP {
                 execution_env,
                 ctr.get_statements(),
                 ctr.get_locus());
+
+        pragma_line.diagnostic_unused_clauses();
+        ctr.replace(teams);
+    }
+
+    namespace {
+        Nodecl::NodeclBase handle_dist_schedule(TL::PragmaCustomLine pragma_line)
+        {
+            Nodecl::NodeclBase result;
+
+            TL::PragmaCustomClause dist_schedule = pragma_line.get_clause("dist_schedule");
+
+            if (dist_schedule.is_defined())
+            {
+                ObjectList<std::string> arguments = dist_schedule.get_tokenized_arguments();
+
+                if (arguments.empty())
+                {
+                    error_printf("%s: error: empty 'dist_schedule'\n",
+                            pragma_line.get_locus_str().c_str());
+                }
+                else
+                {
+                    Nodecl::NodeclBase chunk;
+                    std::string schedule = strtolower(arguments[0].c_str());
+
+                    if (schedule != "static")
+                    {
+                        error_printf("%s: error: invalid schedule kind in 'dist_schedule', only 'static' is allowed\n",
+                            pragma_line.get_locus_str().c_str());
+                    }
+                    else if (arguments.size() >= 2)
+                    {
+                        chunk = Source(arguments[1]).parse_expression(pragma_line);
+
+                        if (arguments.size() > 2)
+                        {
+                            error_printf("%s: error: too many arguments in 'dist_schedule' clause\n",
+                                    pragma_line.get_locus_str().c_str());
+                        }
+                    }
+
+                    if (chunk.is_null()
+                            || nodecl_is_err_expr(chunk.get_internal_nodecl()))
+                    {
+                        chunk = const_value_to_nodecl(const_value_get_signed_int(0));
+                    }
+
+                    result = Nodecl::OpenMP::DistSchedule::make(
+                            chunk,
+                            schedule,
+                            pragma_line.get_locus());
+                }
+            }
+
+            if (result.is_null())
+            {
+                result = Nodecl::OpenMP::DistSchedule::make(
+                        ::const_value_to_nodecl(const_value_get_signed_int(0)),
+                        "static",
+                        pragma_line.get_locus());
+            }
+
+            return result;
+        }
+    }
+
+    void Base::distribute_handler_pre(TL::PragmaCustomStatement ctr) { }
+    void Base::distribute_handler_post(TL::PragmaCustomStatement ctr)
+    {
+        Nodecl::NodeclBase statement = ctr.get_statements();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+
+        OpenMP::DataEnvironment &data_environment =
+            _core.get_openmp_info()->get_data_environment(ctr);
+
+        TL::PragmaCustomLine pragma_line = ctr.get_pragma_line();
+
+        if (this->emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << ctr.get_locus_str() << ": " << "DISTRIBUTE construct\n"
+                << ctr.get_locus_str() << ": " << "--------------------\n"
+                ;
+            // TODO
+        }
+
+        Nodecl::List execution_env;
+        Nodecl::List data_sharings = make_execution_environment(
+                data_environment,
+                pragma_line,
+                /* ignore_target_info */ true,
+                /* is_inline_task */ false);
+        execution_env.append(data_sharings);
+
+        Nodecl::NodeclBase dist_schedule = handle_dist_schedule(pragma_line);
+        execution_env.append(dist_schedule);
+
+        Nodecl::OpenMP::Distribute distribute = Nodecl::OpenMP::Distribute::make(
+                execution_env,
+                statement,
+                ctr.get_locus());
+
+        pragma_line.diagnostic_unused_clauses();
+        ctr.replace(distribute);
     }
 
 } }

@@ -594,6 +594,7 @@ omp-memory-info : NODECL_OPEN_M_P*FLUSH_AT_ENTRY()
                 | NODECL_OPEN_M_P*NO_FLUSH()
 
 omp-loop-info : NODECL_OPEN_M_P*SCHEDULE([chunk]expression-opt) text
+              | NODECL_OPEN_M_P*DIST_SCHEDULE([chunk]expression-opt) text
 
 omp-taskloop-info : NODECL_OPEN_M_P*NUM_TASKS([num_tasks]expression)
                   | NODECL_OPEN_M_P*GRAIN_SIZE([grain_size]expression)
@@ -637,6 +638,7 @@ device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environmen
                   | NODECL_OPEN_M_P*TARGET([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
                   | NODECL_OPEN_M_P*TARGET_UPDATE([environment]omp-exec-environment-seq-opt)
                   | NODECL_OPEN_M_P*TEAMS([environment]omp-exec-environment-seq-opt, [statements]statement-seq-opt)
+                  | NODECL_OPEN_M_P*DISTRIBUTE([environment]omp-exec-environment-seq-opt, [loop]statement)
 
 
 # extension used for multidependences/multicopies
