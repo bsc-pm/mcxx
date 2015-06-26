@@ -1971,14 +1971,14 @@ void LoweringVisitor::handle_copy_item(
     TL::Type copy_type = data_ref.get_data_type();
     TL::Type base_type = copy_type;
 
-    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
+    ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, dims_sizes;
 
     num_dimensions_of_copy = copy_type.get_num_dimensions();
     if (num_dimensions_of_copy == 0)
     {
         lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
         upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-        total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+        dims_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
         num_dimensions_of_copy++;
     }
     else
@@ -1990,17 +1990,17 @@ void LoweringVisitor::handle_copy_item(
         {
             Nodecl::NodeclBase array_lb, array_ub;
             Nodecl::NodeclBase region_lb, region_ub;
-            Nodecl::NodeclBase region_size;
+            Nodecl::NodeclBase dim_size;
+
+            dim_size = t.array_get_size();
             if (t.array_is_region())
             {
                 t.array_get_bounds(array_lb, array_ub);
                 t.array_get_region_bounds(region_lb, region_ub);
-                region_size = t.array_get_size();
             }
             else
             {
                 t.array_get_bounds(array_lb, array_ub);
-                region_size = t.array_get_size();
             }
 
             if (IS_FORTRAN_LANGUAGE
@@ -2014,9 +2014,9 @@ void LoweringVisitor::handle_copy_item(
                 {
                     array_ub = get_upper_bound(data_ref, rank_fortran);
                 }
-                if (region_size.is_null())
+                if (dim_size.is_null())
                 {
-                    region_size = get_size_for_dimension(t, rank_fortran, data_ref);
+                    dim_size = get_size_for_dimension(t, rank_fortran, data_ref);
                 }
             }
 
@@ -2036,7 +2036,7 @@ void LoweringVisitor::handle_copy_item(
 
             lower_bounds.append(adjusted_region_lb);
             upper_bounds.append(adjusted_region_ub);
-            total_sizes.append(region_size);
+            dims_sizes.append(dim_size);
 
             t = t.array_element();
 
@@ -2048,7 +2048,7 @@ void LoweringVisitor::handle_copy_item(
         // Sanity check
         ERROR_CONDITION(num_dimensions_of_copy != (signed)lower_bounds.size()
                 || num_dimensions_of_copy != (signed)upper_bounds.size()
-                || num_dimensions_of_copy != (signed)total_sizes.size(),
+                || num_dimensions_of_copy != (signed)dims_sizes.size(),
                 "Mismatch between dimensions", 0);
 
     }
@@ -2064,7 +2064,7 @@ void LoweringVisitor::handle_copy_item(
             // In bytes
             ol_dimension_descriptors
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k << "].size = "
-                << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                << "(" << as_expression(dims_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2073,7 +2073,7 @@ void LoweringVisitor::handle_copy_item(
                 ;
             imm_dimension_descriptors
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
-                << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                << "(" << as_expression(dims_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                 <<  "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2086,7 +2086,7 @@ void LoweringVisitor::handle_copy_item(
             // In elements
             ol_dimension_descriptors
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
-                << as_expression(total_sizes[dim].shallow_copy()) << ";"
+                << as_expression(dims_sizes[dim].shallow_copy()) << ";"
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                 << "ol_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
@@ -2095,7 +2095,7 @@ void LoweringVisitor::handle_copy_item(
                 ;
             imm_dimension_descriptors
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].size = "
-                << as_expression(total_sizes[dim].shallow_copy()) << ";"
+                << as_expression(dims_sizes[dim].shallow_copy()) << ";"
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].lower_bound = "
                 << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                 << "imm_copy_dimensions[" << current_dimension_descriptor_index << "+" << k  << "].accessed_length = "
