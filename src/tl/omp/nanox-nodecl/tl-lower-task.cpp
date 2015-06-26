@@ -1984,7 +1984,7 @@ void LoweringVisitor::handle_copy_item(
     else
     {
         TL::Type t = copy_type;
-        int rank = copy_type.fortran_rank();
+        int rank_fortran = copy_type.fortran_rank();
 
         while (t.is_array())
         {
@@ -2008,15 +2008,15 @@ void LoweringVisitor::handle_copy_item(
             {
                 if (array_lb.is_null())
                 {
-                    array_lb = get_lower_bound(data_ref, rank);
+                    array_lb = get_lower_bound(data_ref, rank_fortran);
                 }
                 if (array_ub.is_null())
                 {
-                    array_ub = get_upper_bound(data_ref, rank);
+                    array_ub = get_upper_bound(data_ref, rank_fortran);
                 }
                 if (region_size.is_null())
                 {
-                    region_size = get_size_for_dimension(t, rank, data_ref);
+                    region_size = get_size_for_dimension(t, rank_fortran, data_ref);
                 }
             }
 
@@ -2040,7 +2040,7 @@ void LoweringVisitor::handle_copy_item(
 
             t = t.array_element();
 
-            rank--;
+            rank_fortran--;
         }
 
         base_type = t;
