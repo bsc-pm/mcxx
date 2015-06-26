@@ -254,15 +254,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 bool is_noflush);
 
-        static void fill_dimensions(int n_dims,
-                int actual_dim,
-                Source& dimension_array,
-                Nodecl::NodeclBase dep_expr,
-                Nodecl::NodeclBase * dim_sizes, 
-                Type dep_type, 
-                Source& result_src, 
-                Scope sc);
-
         Source fill_const_wd_info(
                 Source &struct_arg_type_name,
                 bool is_untied,
