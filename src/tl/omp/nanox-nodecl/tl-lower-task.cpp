@@ -1993,14 +1993,10 @@ void LoweringVisitor::handle_copy_item(
             Nodecl::NodeclBase dim_size;
 
             dim_size = t.array_get_size();
+            t.array_get_bounds(array_lb, array_ub);
             if (t.array_is_region())
             {
-                t.array_get_bounds(array_lb, array_ub);
                 t.array_get_region_bounds(region_lb, region_ub);
-            }
-            else
-            {
-                t.array_get_bounds(array_lb, array_ub);
             }
 
             if (IS_FORTRAN_LANGUAGE
