@@ -12407,9 +12407,13 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
     if (IS_C_LANGUAGE
             && is_lvalue_reference_type(dest))
     {
-        type_t* ref_dest = reference_type_get_referenced_type(dest);
+        if (!is_lvalue_reference_type(orig))
+            return 0;
 
-        type_t* unqualif_orig = get_unqualified_type(orig);
+        type_t* ref_dest = reference_type_get_referenced_type(dest);
+        type_t* ref_orig = reference_type_get_referenced_type(orig);
+
+        type_t* unqualif_orig = get_unqualified_type(ref_orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
         // T -> T @ref@
@@ -12423,8 +12427,7 @@ extern inline char standard_conversion_between_types(standard_conversion_t *resu
             return 1;
         }
         // void @ref@ -> T @ref@
-        else if (is_lvalue_reference_type(orig)
-                && is_void_type(no_ref(orig)))
+        else if (is_void_type(ref_orig))
         {
             (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
