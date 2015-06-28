@@ -6891,7 +6891,26 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     state.inside_structured_value = true;
                 }
 
+                bool extra_addr = false;
+                if (is_non_language_reference_variable(symbol))
+                {
+                    if (!symbol.get_type().no_ref().is_array())
+                    {
+                        extra_addr = true;
+                    }
+                }
+
+                if (extra_addr)
+                {
+                    *file << "&(";
+                }
+
                 walk(init);
+
+                if (extra_addr)
+                {
+                    *file << ")";
+                }
 
                 state.inside_structured_value = old;
             }
