@@ -187,6 +187,7 @@ expression : literal
            | NODECL_VECTOR_FMMINUS([first_mul_op]expression, [second_mul_op]expression, [minus_op]expression-opt, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_RCP([rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt

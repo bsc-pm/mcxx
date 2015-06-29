@@ -107,16 +107,28 @@ namespace Vectorization
             TL::Symbol tl_sym = nodecl_sym.get_symbol();
             TL::Type tl_sym_type = tl_sym.get_type();
 
+            //std::cerr << "vector: " << tl_sym_type.is_vector() << std::endl;
+            //std::cerr << "mask: " << tl_sym_type.is_mask() << std::endl;
+            //std::cerr << "uniform: " << Vectorizer::_vectorizer_analysis->is_uniform(
+            //        _environment._analysis_simd_scope, nodecl_sym, nodecl_sym) << std::endl;
+            //std::cerr << "linear: " << Vectorizer::_vectorizer_analysis->
+            //    is_linear(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
+
+            //std::cerr << "IV: " << Vectorizer::_vectorizer_analysis->
+            //    is_induction_variable(_environment._analysis_simd_scope, nodecl_sym) << std::endl;
+ 
+
             if (!tl_sym_type.is_vector() && !tl_sym_type.is_mask() &&
                     !Vectorizer::_vectorizer_analysis->
                     is_uniform(_environment._analysis_simd_scope,
                         nodecl_sym, nodecl_sym) &&
                     !Vectorizer::_vectorizer_analysis->
                     is_linear(_environment._analysis_simd_scope,
-                        nodecl_sym) &&
-                    !Vectorizer::_vectorizer_analysis->
-                    is_induction_variable(_environment._analysis_simd_scope,
                         nodecl_sym))
+                    //&&
+                    //!Vectorizer::_vectorizer_analysis->
+                    //is_induction_variable(_environment._analysis_simd_scope,
+                    //    nodecl_sym))
             {
                 TL::Type vector_type;
 

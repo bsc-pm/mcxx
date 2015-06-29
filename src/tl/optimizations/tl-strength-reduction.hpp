@@ -52,6 +52,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMul& n);
                 virtual void visit(const Nodecl::VectorDiv& n);
                 virtual void visit(const Nodecl::VectorMod& n);
+                virtual void visit(const Nodecl::VectorSqrt& n);
         };
     }
 }

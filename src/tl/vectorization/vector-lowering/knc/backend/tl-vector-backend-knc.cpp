@@ -416,6 +416,11 @@ namespace Vectorization
         common_binary_op_lowering(n, "div");
     }
 
+    void KNCVectorBackend::visit(const Nodecl::VectorRcp& n)
+    {
+        common_unary_op_lowering(n, "rcp23");
+    }
+
     void KNCVectorBackend::visit(const Nodecl::VectorMod& n)
     {
         common_binary_op_lowering(n, "rem");
