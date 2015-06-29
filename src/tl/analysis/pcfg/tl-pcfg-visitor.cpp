@@ -3434,6 +3434,11 @@ next_it:    ;
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorRcp& n )
+    {
+        return visit_vector_unary_node( n, n.get_rhs( ) );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorReductionAdd& n )
     {
         Node* reduction = new Node( _utils->_nid, __VectorReduction, _utils->_outer_nodes.top( ), n );

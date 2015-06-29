@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_CFLAGS=--only-adjacent-accesses
+test_CFLAGS="--only-adjacent-accesses --fast-math"
 test_generator="config/mercurium-parallel-simd-mic svml"
 </testinfo>
 */
