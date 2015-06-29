@@ -9,6 +9,7 @@
 %type<ast> ompss_iterator_range
 %type<ast> ompss_iterator_range_size
 %type<ast> ompss_iterator_range_section
+%type<ast> ompss_iterator_range_discrete
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -66,6 +67,10 @@ ompss_iterator_range : ompss_iterator_range_size
 {
     $$ = $1;
 }
+| ompss_iterator_range_discrete
+{
+    $$ = $1;
+}
 ;
 
 ompss_iterator_range_section : assignment_expression ':' assignment_expression
@@ -87,5 +92,10 @@ ompss_iterator_range_size : assignment_expression ';' assignment_expression
     $$ = ASTMake3(AST_OMPSS_ITERATOR_RANGE_SIZE, $1, $3, $5, ast_get_locus($1), NULL);
 }
 ;
+
+ompss_iterator_range_discrete : '{' expression_list '}'
+{
+    $$ = ASTMake1(AST_OMPSS_ITERATOR_RANGE_DISCRETE, $2, ast_get_locus($2), NULL);
+}
 
 /*!endif*/
