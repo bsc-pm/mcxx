@@ -864,6 +864,48 @@ AC_SUBST([DLB_INCLUDE])
 AC_SUBST([DLB_LIB])
 dnl --------------------- End of Dynamic Load Balancing -------------------------------
 
+dnl --------------------- Support for GOMP ---------------------------------
+is_enabled_tl_omp_gomp="no"
+
+AC_MSG_CHECKING([if enabled OpenMP TL support for GOMP])
+AC_ARG_ENABLE([tl-openmp-gomp],
+  AS_HELP_STRING([--enable-tl-openmp-gomp], [Enables support of OpenMP TL for GOMP (EXPERIMENTAL and UNSUPPORTED)]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_omp_gomp="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_omp_gomp="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_omp_gomp="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$is_enabled_tl_omp_gomp = xyes;
+then
+   COMPILER_NAMES="${COMPILER_NAMES} gomp-mcc gomp-mcxx gomp-mfc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.gomp-omp-base 50.config.omp.gomp-rtl"
+fi
+
+# FIXME
+GOMP_OMP_INCLUDE=""
+GOMP_OMP_LIB=""
+
+AM_CONDITIONAL([BUILD_OMP_GOMP], test x$is_enabled_tl_omp_gomp = xyes)
+
+AC_SUBST([GOMP_OMP_INCLUDE])
+AC_SUBST([GOMP_OMP_LIB])
+dnl --------------------- End of Support for GOMP ---------------------------
+
 dnl --------------------- Support for Intel OpenMP RTL ---------------------------------
 is_enabled_tl_omp_intel="no"
 
@@ -2324,6 +2366,17 @@ if test x$is_enabled_tl_omp_intel = xyes;
 then
   echo ""
   echo "   Intel OpenMP RTL library:" $intel_omp_lib
+fi
+
+echo ""
+echo " * GNU GOMP :" $is_enabled_tl_omp_gomp
+
+if test x$is_enabled_tl_omp_gomp = xyes;
+then
+  echo ""
+  echo "   ********************************************************"
+  echo "   *** GNU GOMP support is EXPERIMENTAL and UNSUPPORTED ***"
+  echo "   ********************************************************"
 fi
 
 echo ""

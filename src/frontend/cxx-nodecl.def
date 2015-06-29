@@ -606,6 +606,7 @@ omp-deps-info :  NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
 omp-execution-control : NODECL_OPEN_M_P*IF([condition]expression)
                       | NODECL_OPEN_M_P*FINAL([condition]expression)
                       | NODECL_OPEN_M_P*PRIORITY([priority]expression)
+                      | NODECL_OPEN_M_P*MERGEABLE()
                       | NODECL_OPEN_M_P*UNTIED()
 
 omp-critical-info: NODECL_OPEN_M_P*CRITICAL_NAME() text

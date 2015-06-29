@@ -39,7 +39,7 @@ typedef
 struct AST_tag
 {
     // Node type (1024 different node types)
-    node_t node_type:10;
+    node_t node_type:11;
 
     // This is a bitmap for the sons
     unsigned int bitmap_sons:MCXX_MAX_AST_CHILDREN;

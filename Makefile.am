@@ -2201,6 +2201,51 @@ src_tl_omp_nanox_nodecl_devices_opencl_libtlnanox_opencl_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/omp/gomp
+##########################################################################
+
+if BUILD_OMP_GOMP
+
+phases_LTLIBRARIES += src/tl/omp/gomp/libtlgomp-omp-lowering.la
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_CFLAGS= $(phases_cflags)\
+													-I$(srcdir)/src/tl/omp/core \
+													-I$(srcdir)/src/tl/omp/common \
+													$(END)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_CXXFLAGS= $(phases_cxxflags) \
+													  -I$(srcdir)/src/tl/omp/core \
+													  -I$(srcdir)/src/tl/omp/common \
+													  $(END)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_LIBADD= $(phases_libadd) \
+								src/tl/omp/common/libtlomp-common.la \
+								src/tl/omp/core/libtlomp-core.la \
+								$(END)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_LDFLAGS= $(phases_ldflags)
+
+src_tl_omp_gomp_libtlgomp_omp_lowering_la_SOURCES=\
+								   src/tl/omp/gomp/tl-omp-gomp.cpp \
+								   src/tl/omp/gomp/tl-omp-gomp.hpp \
+								   src/tl/omp/gomp/tl-lowering-visitor.hpp \
+								   src/tl/omp/gomp/tl-lowering-visitor.cpp \
+								   src/tl/omp/gomp/tl-lowering-utils.hpp \
+								   src/tl/omp/gomp/tl-lowering-utils.cpp \
+								   src/tl/omp/gomp/tl-lower-parallel.cpp \
+								   src/tl/omp/gomp/tl-lower-taskwait.cpp \
+								   src/tl/omp/gomp/tl-lower-task.cpp \
+								   src/tl/omp/gomp/tl-lower-master.cpp \
+								   src/tl/omp/gomp/tl-lower-single.cpp \
+								   src/tl/omp/gomp/tl-lower-barrier.cpp \
+								   src/tl/omp/gomp/tl-lower-for.cpp \
+								   src/tl/omp/gomp/tl-lower-reductions.hpp \
+								   src/tl/omp/gomp/tl-lower-reductions.cpp \
+								   $(END)
+
+endif
+
+##########################################################################
 # src/tl/omp/intel
 ##########################################################################
 
@@ -3014,12 +3059,14 @@ CONFIG_FILES =  \
        config/01.config.intel-plain \
        config/10.config.hlt \
        config/10.config.omp-base \
+       config/10.config.gomp-omp-base \
        config/10.config.intel-omp-base \
        config/40.config.cuda \
        config/50.config.omp.fpga \
        config/50.config.omp.mercurium \
        config/50.config.omp.profiling \
-	   config/50.config.omp.intel-rtl \
+       config/50.config.omp.intel-rtl \
+       config/50.config.omp.gomp-rtl \
        config/55.config.omp.ibm \
        config/55.config.omp.intel \
        config/55.config.omp.nvidia \
@@ -3332,6 +3379,24 @@ support/openmp/fortran/omp_lib_kinds.mf03 : support/openmp/fortran/omp_lib.mf03
 
 support/openmp/fortran/omp_lib.mf03 : $(srcdir)/support/openmp/fortran/omp_modules.f90 $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null -J support/openmp/fortran $(srcdir)/support/openmp/fortran/omp_modules.f90
+
+##########################################################################
+# support/gomp_omp
+##########################################################################
+
+if BUILD_OMP_GOMP
+
+gomp_openmpdir=$(pkgdatadir)/gomp-omp
+
+gomp_openmp_DATA = \
+			  support/gomp_omp/gomp-omp.h \
+			  $(END)
+
+endif
+
+EXTRA_DIST += \
+			support/gomp_omp/gomp-omp.h \
+			$(END)
 
 ##########################################################################
 # support/intel_omp
