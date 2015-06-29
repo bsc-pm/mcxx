@@ -163,6 +163,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_USER_DEFINED_BINARY_OP, check_user_defined_binary_op) \
  STATEMENT_HANDLER(AST_NODECL_LITERAL, check_nodecl_literal) \
  STATEMENT_HANDLER(AST_SYMBOL_LITERAL_REF, check_symbol_literal) \
+ STATEMENT_HANDLER(AST_MULTIEXPRESSION, check_multiexpression) \
 
 // Enable this if you really need extremely verbose typechecking
 // #define VERBOSE_DEBUG_EXPR 1
@@ -6660,4 +6661,123 @@ static nodecl_t fortran_nodecl_adjust_function_argument(
     }
 
     return argument;
+}
+
+static void multiexpression_check_range(AST range,
+        const decl_context_t* decl_context,
+        nodecl_t* nodecl_output)
+{
+    switch (ASTKind(range))
+    {
+        case AST_MULTIEXPRESSION_RANGE_SECTION: // lower : upper
+            {
+                AST lower = ASTSon0(range);
+                nodecl_t nodecl_lower = nodecl_null();
+
+                fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
+                if (nodecl_is_err_expr(nodecl_lower))
+                {
+                    *nodecl_output = nodecl_lower;
+                    return;
+                }
+
+                AST upper = ASTSon1(range);
+                nodecl_t nodecl_upper = nodecl_null();
+
+                fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
+                if (nodecl_is_err_expr(nodecl_upper))
+                {
+                    *nodecl_output = nodecl_upper;
+                    return;
+                }
+
+                nodecl_t nodecl_stride = nodecl_null();
+                AST stride = ASTSon2(range);
+                if (stride != NULL)
+                {
+                    fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+                    if (nodecl_is_err_expr(nodecl_stride))
+                    {
+                        *nodecl_output = nodecl_stride;
+                        return;
+                    }
+                }
+                else
+                {
+                    nodecl_stride = const_value_to_nodecl(const_value_get_signed_int(1));
+                }
+
+                *nodecl_output = nodecl_make_range(
+                        nodecl_lower,
+                        nodecl_upper,
+                        nodecl_stride,
+                        get_signed_int_type(),
+                        ast_get_locus(range));
+
+                if (nodecl_is_constant(nodecl_lower)
+                        && nodecl_is_constant(nodecl_upper)
+                        && nodecl_is_constant(nodecl_stride))
+                {
+                    nodecl_set_constant(
+                            *nodecl_output,
+                            const_value_make_range(
+                                nodecl_get_constant(nodecl_lower),
+                                nodecl_get_constant(nodecl_upper),
+                                nodecl_get_constant(nodecl_stride)));
+                }
+
+                break;
+            }
+        case AST_MULTIEXPRESSION_RANGE_DISCRETE:
+            {
+                internal_error("Not yet implemented", 0);
+                break;
+            }
+        default:
+            internal_error("Unexpected node kind '%s'\n", ast_print_node_type(ASTKind(range)));
+    }
+}
+
+static void check_multiexpression(AST expr, const decl_context_t* decl_context, nodecl_t* nodecl_output)
+{
+    const decl_context_t* iterator_context = new_block_context(decl_context);
+
+    AST ompss_iterator = ASTSon1(expr);
+    AST identifier = ASTSon0(ompss_iterator);
+    AST range = ASTSon1(ompss_iterator);
+
+    const char* iterator_name = strtolower(ASTText(identifier));
+
+    scope_entry_t* new_iterator = new_symbol(iterator_context,
+            iterator_context->current_scope,
+            iterator_name);
+    new_iterator->kind = SK_VARIABLE;
+    new_iterator->type_information = get_signed_int_type();
+    new_iterator->locus = ast_get_locus(ompss_iterator);
+
+    nodecl_t nodecl_range = nodecl_null();
+    multiexpression_check_range(range, iterator_context, &nodecl_range);
+
+    if (nodecl_is_err_expr(nodecl_range))
+    {
+        *nodecl_output = nodecl_range;
+        return;
+    }
+
+    nodecl_t nodecl_subexpr = nodecl_null();
+    fortran_check_expression_impl_(ASTSon0(expr),
+            iterator_context,
+            &nodecl_subexpr);
+
+    if (nodecl_is_err_expr(nodecl_subexpr))
+    {
+        *nodecl_output = nodecl_subexpr;
+        return;
+    }
+
+    *nodecl_output = nodecl_make_multi_expression(nodecl_range,
+            nodecl_subexpr,
+            new_iterator,
+            nodecl_get_type(nodecl_subexpr),
+            ast_get_locus(expr));
 }

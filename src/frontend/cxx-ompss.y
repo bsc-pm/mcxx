@@ -2,14 +2,7 @@
 %token<token_atrib> SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION "<ompss-dependency-expression>"
 
 %type<ast> ompss_dependency_expr
-%type<ast> ompss_multi_dependency
-%type<ast> ompss_single_dependency
-%type<ast> ompss_iterated_dep_body
-%type<ast> ompss_iterator_dep
-%type<ast> ompss_iterator_range
-%type<ast> ompss_iterator_range_size
-%type<ast> ompss_iterator_range_section
-%type<ast> ompss_iterator_range_discrete
+%type<ast> ompss_old_multidependences
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -20,82 +13,22 @@ subparsing : SUBPARSE_OMPSS_DEPENDENCY_EXPRESSION ompss_dependency_expr
 }
 ;
 
-ompss_dependency_expr : ompss_single_dependency
+ompss_dependency_expr : assignment_expression
 {
     $$ = $1;
 }
-| ompss_multi_dependency
-{
-    $$ = $1;
-}
-;
-
-ompss_single_dependency : assignment_expression
+| ompss_old_multidependences
 {
     $$ = $1;
 }
 ;
 
-ompss_multi_dependency : '{' ompss_iterated_dep_body '}'
+ompss_old_multidependences : '{' multiexpression_body '}'
 {
+    warn_printf("%s: warning: enclosing multi-dependences with '{' and '}' is deprecated\n",
+               locus_to_str(make_locus(@1.first_filename, @1.first_line, @1.first_column)));
+    info_printf("%s: info: use '{/' and '/}' instead\n",
+               locus_to_str(make_locus(@1.first_filename, @1.first_line, @1.first_column)));
     $$ = $2;
 }
-;
-
-ompss_iterated_dep_body : ompss_single_dependency ',' ompss_iterator_dep
-{
-    $$ = ASTMake2(AST_OMPSS_MULTI_DEPENDENCY, $1, $3, ast_get_locus($1), NULL);
-}
-| ompss_iterated_dep_body ',' ompss_iterator_dep
-{
-    $$ = ASTMake2(AST_OMPSS_MULTI_DEPENDENCY, $1, $3, ast_get_locus($1), NULL);
-}
-;
-
-ompss_iterator_dep : identifier_token '=' ompss_iterator_range
-{
-    AST symbol = ASTLeaf(AST_SYMBOL, make_locus(@1.first_filename, @1.first_line, @1.first_column), $1.token_text);
-    $$ = ASTMake2(AST_OMPSS_ITERATOR, symbol, $3, ast_get_locus(symbol), NULL);
-}
-;
-
-ompss_iterator_range : ompss_iterator_range_size
-{
-    $$ = $1;
-}
-| ompss_iterator_range_section
-{
-    $$ = $1;
-}
-| ompss_iterator_range_discrete
-{
-    $$ = $1;
-}
-;
-
-ompss_iterator_range_section : assignment_expression ':' assignment_expression
-{
-    $$ = ASTMake3(AST_OMPSS_ITERATOR_RANGE_SECTION, $1, $3, NULL, ast_get_locus($1), NULL);
-}
-| assignment_expression ':' assignment_expression ':' assignment_expression
-{
-    $$ = ASTMake3(AST_OMPSS_ITERATOR_RANGE_SECTION, $1, $3, $5, ast_get_locus($1), NULL);
-}
-;
-
-ompss_iterator_range_size : assignment_expression ';' assignment_expression
-{
-    $$ = ASTMake3(AST_OMPSS_ITERATOR_RANGE_SIZE, $1, $3, NULL, ast_get_locus($1), NULL);
-}
-| assignment_expression ';' assignment_expression ':' assignment_expression
-{
-    $$ = ASTMake3(AST_OMPSS_ITERATOR_RANGE_SIZE, $1, $3, $5, ast_get_locus($1), NULL);
-}
-;
-
-ompss_iterator_range_discrete : '{' expression_list '}'
-{
-    $$ = ASTMake1(AST_OMPSS_ITERATOR_RANGE_DISCRETE, $2, ast_get_locus($2), NULL);
-}
-
 /*!endif*/

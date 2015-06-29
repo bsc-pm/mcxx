@@ -2415,6 +2415,16 @@ goto {
 	RETURN_TOKEN('%');
 }
 
+"{" {
+	parse_token_text();
+	RETURN_TOKEN('{');
+}
+
+"}" {
+	parse_token_text();
+	RETURN_TOKEN('}');
+}
+
 \.[a-z]+\. {
 	parse_token_text();
 	RETURN_TOKEN(USER_DEFINED_OPERATOR);

@@ -411,14 +411,14 @@ namespace TL
                 return rebuilt_type;
             }
 
-            virtual void visit(const Nodecl::MultiReference& multi_deps)
+            virtual void visit(const Nodecl::MultiExpression& multi_deps)
             {
                 TL::Symbol sym = multi_deps.get_symbol();
                 Nodecl::NodeclBase range = multi_deps.get_range();
 
                 _data_ref._iterators.append(std::make_pair(sym, range));
 
-                walk(multi_deps.get_dependence());
+                walk(multi_deps.get_base());
 
                 if (!_data_ref._is_valid)
                 {

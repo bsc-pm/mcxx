@@ -814,6 +814,7 @@ ADDITIONAL_GRAMMARS_FORTRAN_ONLY =
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-subparse.y
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-omp.y
 ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-ompss.y
+ADDITIONAL_GRAMMARS_FORTRAN_ONLY += src/frontend/fortran/fortran03-extensions.y
 
 EXTRA_DIST += $(ADDITIONAL_GRAMMARS_FORTRAN_ONLY)
 

@@ -494,6 +494,15 @@ text : NODECL_TEXT() text
 intel-expressions : NODECL_INTEL_ASSUME_ALIGNED([pointer] expression, [alignment] expression) type const-value-opt
                   | NODECL_INTEL_ASSUME([assumed] expression) type const-value-opt
 
+# extension used for multidependences/multicopies and other places where we
+# want a range expression
+expression : NODECL_MULTI_EXPRESSION([range]multi-expr-range-expression, [base]expression) symbol type const-value-opt
+
+multi-expr-range-expression : range-expression
+                            | range-discrete
+
+range-discrete : NODECL_RANGE_DISCRETE([discrete_seq]expression-seq-opt)
+
 ##############################
 # OpenMP                     #
 ##############################
@@ -645,8 +654,6 @@ device-constructs : NODECL_OPEN_M_P*TARGET_DATA([environment]omp-exec-environmen
                   | NODECL_OPEN_M_P*DISTRIBUTE([environment]omp-exec-environment-seq-opt, [loop]statement)
 
 
-# extension used for multidependences/multicopies
-expression : NODECL_MULTI_REFERENCE([range]range-expression, [dependence]expression) symbol type const-value-opt
 
 ##############################
 # OpenMP SIMD                #
