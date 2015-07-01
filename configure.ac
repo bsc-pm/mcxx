@@ -2195,7 +2195,7 @@ then
    then
       echo "$GIT" "$srcdir" >& AS_MESSAGE_LOG_FD
       run_gitversion=`"$GIT" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
-      build_version="\"git $run_gitversion developer version\""
+      build_version="\"(developer version) $run_gitversion\""
    fi
 
    if test x"$GIT" = x -o x"$run_gitversion" = x;
@@ -2207,7 +2207,7 @@ elif test -e $srcdir/DIST_REVISION;
 then
      AC_MSG_CHECKING([revision of distributed release])
      run_gitversion=`cat $srcdir/DIST_REVISION`
-     build_version="\"$run_gitversion\""
+     build_version="\"(distributed version) $run_gitversion\""
      AC_MSG_RESULT([$build_version])
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])

@@ -37,10 +37,10 @@ override DISTCHECK_CONFIGURE_FLAGS += --enable-distcheck-processing=yes
 
 # This rule generates DIST_REVISION
 git-version-dist-hook:
-	if [ -x "$(GIT)" ]; \
+	if test x"$(GIT)" != x; \
 	then \
 	    run_gitversion=`"$(GIT)" --git-dir=$(srcdir)/.git show "--pretty=format:%h %ci" HEAD | head -n 1`; \
-	    build_version="git $${run_gitversion} distributed version"; \
+	    build_version="$${run_gitversion}"; \
 	    echo "$${build_version}" > $(distdir)/DIST_REVISION; \
 	elif [ -e $(srcdir)/DIST_REVISION ]; \
 	then \
