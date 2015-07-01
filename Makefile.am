@@ -1453,12 +1453,13 @@ src_tl_analysis_complexity_libcomplexity_la_CFLAGS= $(tl_cflags)
 src_tl_analysis_complexity_libcomplexity_la_CXXFLAGS= $(tl_cflags) $(ANALYSIS_CFLAGS)
 src_tl_analysis_complexity_libcomplexity_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_complexity_libcomplexity_la_LIBADD = $(tl_libadd) \
-							src/tl/libtl.la \
-							$(ANALYSIS_LIBADD)
+	src/tl/libtl.la \
+	$(ANALYSIS_LIBADD)
 
-src_tl_analysis_complexity_libcomplexity_la_SOURCES = src/tl/analysis/complexity/tl-cyclomatic-complexity.hpp \
-							src/tl/analysis/complexity/tl-cyclomatic-complexity.cpp \
-							$(END)
+src_tl_analysis_complexity_libcomplexity_la_SOURCES = \
+	src/tl/analysis/complexity/tl-cyclomatic-complexity.hpp \
+	src/tl/analysis/complexity/tl-cyclomatic-complexity.cpp \
+	$(END)
 
 ##########################################################################
 # src/tl/analysis/interface
@@ -1538,32 +1539,6 @@ src_tl_analysis_test_phase_libtest_analysis_la_SOURCES = \
                               $(END)
 
 endif		# BUILD_ANALYSIS
-
-##########################################################################
-# src/tl/complexity
-##########################################################################
-
-if BUILD_TL_COMPLEXITY
-phases_LTLIBRARIES += src/tl/complexity/libtlcomplexity.la
-
-src_tl_complexity_libtlcomplexity_la_CXXFLAGS = $(phases_cxxflags) \
-						-I $(top_srcdir)/src/tl/analysis/pcfg \
-						-I $(top_srcdir)/src/tl/analysis/common \
-						-I $(top_srcdir)/src/tl/analysis/tdg \
-						-I $(top_srcdir)/src/tl/analysis/interface\
-						$(END)
-src_tl_complexity_libtlcomplexity_la_LDFLAGS = $(phases_ldflags)
-src_tl_complexity_libtlcomplexity_la_LIBADD = $(phases_libadd) \
-						$(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
-						$(top_builddir)/src/tl/analysis/tdg/libtdg.la \
-						$(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
-						$(END)
-
-src_tl_complexity_libtlcomplexity_la_SOURCES = \
-					src/tl/complexity/tl-complexity.hpp \
-					src/tl/complexity/tl-complexity.cpp \
-					$(END)
-endif
 
 ##########################################################################
 # src/tl/hlt

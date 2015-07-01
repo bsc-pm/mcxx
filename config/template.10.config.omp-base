@@ -29,7 +29,6 @@ linker_name = @GCC@
 {analysis-check} pragma_prefix = analysis_check
 {analysis-check} compiler_phase = libanalysis_check.so
 {(openmp|ompss), (openmp-lint|task-correctness), !analysis-check} compiler_phase = libtlomp-lint.so
-{complexity} compiler_phase = libtlcomplexity.so
 {(openmp|ompss), (openmp-lint|task-correctness)} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp-lint} options = --variable=lint_deprecated_flag:1
 
