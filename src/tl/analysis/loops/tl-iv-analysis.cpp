@@ -230,7 +230,6 @@ namespace {
     {
         Node* graph = _graph->get_graph();
         bool changed = true;
-        int i = 0;
         while (changed)
         {
             changed = false;
@@ -238,7 +237,6 @@ namespace {
             ExtensibleGraph::clear_visits(graph);
             _var_type = Utils::DERIVED_IV;  // In the first iteration, the IVs are BASIC,
                                             // but in the following, we can only found DERIVED
-            i++;
         }
     }
 
