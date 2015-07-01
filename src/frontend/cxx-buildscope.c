@@ -2204,6 +2204,16 @@ static void build_scope_simple_declaration(AST a, const decl_context_t* decl_con
                 }
             }
 
+            if (!symbol_entity_specs_get_is_member(entry)
+                    && linkage_current_get_name() != NULL
+                    && !linkage_current_is_braced())
+            {
+                // extern "C" int x;
+                //   is like
+                // extern "C" extern int x;
+                current_gather_info.is_extern = 1;
+            }
+
             if (current_gather_info.is_transparent_union)
             {
                 set_is_transparent_union(entry->type_information, /* is_transparent_union */ 1);
@@ -12340,12 +12350,7 @@ static scope_entry_t* register_new_var_or_fun_name(AST declarator_id, type_t* de
         symbol_entity_specs_set_is_user_declared(entry, 1);
         symbol_entity_specs_set_is_static(entry, gather_info->is_static);
         symbol_entity_specs_set_is_mutable(entry, gather_info->is_mutable);
-        symbol_entity_specs_set_is_extern(entry, 
-                gather_info->is_extern 
-                // 'extern "C" int x;'  is like 'extern "C" extern int x;'
-                || (!symbol_entity_specs_get_is_member(entry)
-                    && linkage_current_get_name() != NULL
-                    && !linkage_current_is_braced()));
+        symbol_entity_specs_set_is_extern(entry, gather_info->is_extern);
         symbol_entity_specs_set_is_register(entry, gather_info->is_register);
         symbol_entity_specs_set_is_thread(entry, gather_info->is_thread);
         symbol_entity_specs_set_is_thread_local(entry, gather_info->is_thread_local);
