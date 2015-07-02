@@ -358,8 +358,12 @@ static inline void close_current_file(void)
     }
 }
 
-static inline char process_end_of_file(void)
+static int commit_text(int token_id, const char* str, token_location_t loc);
+
+static inline char process_end_of_file(char *emit_extra_eos)
 {
+    *emit_extra_eos = !lexer_state.last_eos;
+
     // Are we in the last file?
     if (lexer_state.include_stack_size == 0)
     {
@@ -369,7 +373,8 @@ static inline char process_end_of_file(void)
     else
     {
         DEBUG_CODE() DEBUG_MESSAGE("End of included file %s switching back to %s", 
-                lexer_state.current_file->current_location.filename, lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
+                lexer_state.current_file->current_location.filename,
+                lexer_state.include_stack[lexer_state.include_stack_size-1].current_location.filename);
 
         close_current_file();
 
@@ -3607,14 +3612,16 @@ extern int new_mf03lex(void)
                 case EOF:
                     {
                         reset_fixed_form();
-                        char end_of_scan = process_end_of_file();
+                        char emit_extra_eos = 0;
+                        char end_of_scan = process_end_of_file(&emit_extra_eos);
+
+                        if (emit_extra_eos)
+                        {
+                            return commit_text(EOS, NULL, get_current_location());
+                        }
+
                         if (end_of_scan)
                         {
-                            if (!lexer_state.last_eos)
-                            {
-                                // Make sure we force a final EOS
-                                return commit_text(EOS, NULL, get_current_location());
-                            }
                             return 0;
                         }
                         else
