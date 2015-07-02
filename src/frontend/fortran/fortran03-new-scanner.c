@@ -3757,7 +3757,14 @@ extern int new_mf03lex(void)
                         {
                             return commit_text(EOS, NULL, loc);
                         }
-                        break;
+                        if (mf03_flex_debug)
+                        {
+                            fprintf(stderr, "SKIPPING SEMICOLON %s:%d:%d\n",
+                                    loc.filename,
+                                    loc.line,
+                                    loc.column);
+                        }
+                        continue;
                     }
                 case '(' :
                     {
