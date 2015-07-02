@@ -1212,6 +1212,11 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_nonc
 
     scope_entry_list_t* candidate_list = NULL;
 
+    class_type_complete_if_possible(
+            named_type_get_symbol(no_ref(orig)),
+            decl_context,
+            locus);
+
     // 13.3.1.5 [over.match.conv]
     // The conversion functions of S and its base classes are considered.
     scope_entry_list_t* conversions =
