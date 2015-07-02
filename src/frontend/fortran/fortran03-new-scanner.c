@@ -2337,6 +2337,17 @@ static char is_include_line(void)
         p = peek(peek_idx);
     }
 
+    if (p == '!')
+    {
+        // There is a comment after the include, skip everything until the next
+        // newline
+        while (!is_newline(p))
+        {
+            peek_idx++;
+            p = peek(peek_idx);
+        }
+    }
+
     if (!is_newline(p))
     {
         // There is junk
