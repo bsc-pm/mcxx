@@ -891,7 +891,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     symbol_entity_specs_set_is_inline(new_member, symbol_entity_specs_get_is_inline(primary_template_sym));
                     symbol_entity_specs_set_is_static(new_member, symbol_entity_specs_get_is_static(primary_template_sym));
                     symbol_entity_specs_set_is_user_declared(new_member, symbol_entity_specs_get_is_user_declared(primary_template_sym));
-                    symbol_entity_specs_set_is_defined_inside_class_specifier(new_member, symbol_entity_specs_get_is_defined_inside_class_specifier(primary_template_sym));
+                    symbol_entity_specs_set_is_defined_inside_class_specifier(new_member,
+                            symbol_entity_specs_get_is_defined_inside_class_specifier(primary_template_sym));
                 }
 
                 DEBUG_CODE()
@@ -903,15 +904,17 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                     new_member->decl_context)));
                 }
 
-                symbol_entity_specs_set_is_copy_constructor(new_member, function_is_copy_constructor(new_member, being_instantiated));
-
-                symbol_entity_specs_set_is_copy_assignment_operator(new_member, function_is_copy_assignment_operator(new_member, being_instantiated));
+                symbol_entity_specs_set_is_copy_constructor(new_member,
+                        function_is_copy_constructor(new_member, being_instantiated));
+                symbol_entity_specs_set_is_copy_assignment_operator(new_member,
+                        function_is_copy_assignment_operator(new_member, being_instantiated));
 
                 CXX11_LANGUAGE()
                 {
-                    symbol_entity_specs_set_is_move_constructor(new_member, function_is_move_constructor(new_member, being_instantiated));
-
-                    symbol_entity_specs_set_is_move_assignment_operator(new_member, function_is_move_assignment_operator(new_member, being_instantiated));
+                    symbol_entity_specs_set_is_move_constructor(new_member,
+                            function_is_move_constructor(new_member, being_instantiated));
+                    symbol_entity_specs_set_is_move_assignment_operator(new_member,
+                            function_is_move_assignment_operator(new_member, being_instantiated));
                 }
 
                 if (symbol_entity_specs_get_is_constructor(member_of_template))
