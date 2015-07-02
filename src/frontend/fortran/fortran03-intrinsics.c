@@ -6857,7 +6857,12 @@ scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t0 = no_ref(argument_types[0]);
     scope_entry_t* sym = nodecl_get_symbol(argument_expressions[0]);
 
-    if (sym->kind == SK_FUNCTION
+    if ((sym->kind == SK_FUNCTION
+                // a procedure dummy argument
+                || (sym->kind == SK_VARIABLE
+                    && symbol_is_parameter_of_function(sym,
+                        sym->decl_context->current_scope->related_entry)))
+            && is_function_type(t0) // sanity check
             && !nodecl_is_null(symbol_entity_specs_get_bind_info(sym))
             && nodecl_get_kind(symbol_entity_specs_get_bind_info(sym)) == NODECL_FORTRAN_BIND_C)
     {
